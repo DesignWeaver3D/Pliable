@@ -1,0 +1,8 @@
+name: pliable
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pythonocc-core
+  - pyqt6
+  - pyqt6-opengl
