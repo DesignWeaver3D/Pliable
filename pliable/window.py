@@ -35,7 +35,8 @@ class PliableWindow(QMainWindow):
         print("File menu: File → Open, Save As")
         print("Shortcuts: Ctrl+O (Open), Ctrl+S (Save)")
         print("\nControls:")
-        print("  - Click on face: Select it (turns cyan)")
+        print("  - Click: Select face/edge/vertex (cyan)")
+        print("  - Ctrl+Click: Add to selection")
         print("  - Shift + Drag on selected face: Push/pull")
 
     def _create_menus(self):

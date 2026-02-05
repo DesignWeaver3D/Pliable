@@ -12,11 +12,12 @@ from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
 from OCC.Core.Quantity import Quantity_Color, Quantity_TOC_RGB
 from OCC.Core.gp import gp_Vec
 from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import Qt
 import sys
 
 
 class PliableViewer:
-    """Main 3D viewer with face selection and interaction"""
+    """Main 3D viewer with face and edge selection"""
 
     def __init__(self):
         # Create Qt application
@@ -36,16 +37,26 @@ class PliableViewer:
         self.display.FitAll()
 
         # State tracking
-        self.selected_face = None
+        self.selected_shapes = []  # List of all selected shapes
+        self.highlighted_ais_objects = []  # List of AIS objects for highlights
         self.preview_shape_ais = None  # Cache for preview display object
         self.original_shape = None
-        self.highlighted_face_ais = None
 
         # Register callbacks
         self.display.register_select_callback(self.on_select)
 
-        # Enable face selection mode
-        self.display.SetSelectionModeFace()
+        # Increase selection sensitivity for easier edge picking
+        # Default is typically 2-3 pixels, increase to 5 for better edge detection
+        self.display.Context.SetPixelTolerance(5)
+
+        # Enable all selection modes simultaneously using Context.Activate
+        # Mode 1 = Vertex, Mode 2 = Edge, Mode 4 = Face
+        self.display.Context.Activate(self.ais_shape, 1, True)  # Vertex
+        self.display.Context.Activate(self.ais_shape, 2, True)  # Edge
+        self.display.Context.Activate(self.ais_shape, 4, True)  # Face
+
+        # Setup keyboard handler for mode switching
+        self._hook_keyboard_events()
 
         # Setup interaction handler - NOW it can access self.canvas!
         from pliable.interaction import InteractionHandler
@@ -53,52 +64,97 @@ class PliableViewer:
 
         print("Pliable v0.1.0")
         print("Controls:")
-        print("  - Click on face: Select it (turns cyan)")
+        print("  - Click: Select face/edge/vertex (cyan)")
+        print("  - Ctrl+Click: Add to selection")
         print("  - Shift + Drag on selected face: Push/pull")
 
+    def _hook_keyboard_events(self):
+        """Setup keyboard event handler"""
+        self.original_key_press = self.canvas.keyPressEvent
+        self.canvas.keyPressEvent = self.on_key_press
+
+    def on_key_press(self, event):
+        """Handle keyboard events"""
+        # Pass to original handler for now
+        self.original_key_press(event)
+
     def on_select(self, selected_shapes, *args):
-        """Handle face selection"""
-        # Clear any existing preview first
+        """Handle face, edge, or vertex selection with Ctrl+Click multi-select"""
+        from PyQt6.QtWidgets import QApplication
+
+        # Check if Ctrl is held
+        modifiers = QApplication.keyboardModifiers()
+        from PyQt6.QtCore import Qt
+        ctrl_held = bool(modifiers & Qt.KeyboardModifier.ControlModifier)
+
+        # Clear preview if exists
         if self.preview_shape_ais is not None:
             self.display.Context.Erase(self.preview_shape_ais, True)
             self.preview_shape_ais = None
 
-        # Clear any existing face highlight
-        if self.highlighted_face_ais is not None:
-            self.display.Context.Erase(self.highlighted_face_ais, True)
-            self.highlighted_face_ais = None
+        # If not Ctrl, clear all previous selections
+        if not ctrl_held:
+            for ais_obj in self.highlighted_ais_objects:
+                self.display.Context.Erase(ais_obj, True)
+            self.highlighted_ais_objects = []
+            self.selected_shapes = []
 
+        # Process new selections
         for shp in selected_shapes:
-            if shp.ShapeType() == 4:  # Face
-                # Store the face AND its parent solid reference
-                self.selected_face = shp
-                self.original_shape = self.cube  # Store shape at selection time
-                print("Face selected!")
+            shape_type = shp.ShapeType()
 
-                # Highlight selected face in cyan
-                self.display.SetSelectionModeVertex()
-                self.display.EraseAll()
-                self.display.DisplayShape(self.cube, update=False)
+            # Only process faces, edges, and vertices
+            if shape_type not in [4, 6, 7]:  # Face, Edge, Vertex
+                continue
 
-                # Store the highlight AIS object so we can erase it later
-                self.highlighted_face_ais = self.display.DisplayShape(
-                    shp,
-                    color=Quantity_Color(0, 1, 1, Quantity_TOC_RGB),
-                    update=True
-                )[0]  # ← Store the AIS object
+            # Add to selection list
+            self.selected_shapes.append(shp)
 
-                self.display.SetSelectionModeFace()
+            # Store original shape reference if first selection
+            if len(self.selected_shapes) == 1:
+                self.original_shape = self.cube
+
+            # Determine shape name for printing
+            if shape_type == 4:
+                shape_name = "Face"
+            elif shape_type == 6:
+                shape_name = "Edge"
+            elif shape_type == 7:
+                shape_name = "Vertex"
+            else:
+                shape_name = "Unknown"
+
+            print(f"{shape_name} selected!")
+
+            # Create highlight
+            ais_obj = self.display.DisplayShape(
+                shp,
+                color=Quantity_Color(0, 1, 1, Quantity_TOC_RGB),  # Cyan for all
+                update=False
+            )[0]
+
+            self.highlighted_ais_objects.append(ais_obj)
+
+        # Update display once at the end
+        self.display.Context.UpdateCurrentViewer()
 
     def update_push_pull_preview(self, offset):
         """Update lightweight preview during drag"""
-        if self.selected_face is None:
+        # Find the selected face (push/pull only works on faces)
+        selected_face = None
+        for shp in self.selected_shapes:
+            if shp.ShapeType() == 4:  # Face
+                selected_face = shp
+                break
+
+        if selected_face is None:
             return
 
         from pliable.geometry import get_face_center_and_normal
         from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakePrism
 
         # Get face normal
-        center, normal = get_face_center_and_normal(self.selected_face, self.cube)
+        center, normal = get_face_center_and_normal(selected_face, self.cube)
 
         # Create offset vector
         offset_vec = gp_Vec(
@@ -108,7 +164,7 @@ class PliableViewer:
         )
 
         # Create simple preview prism
-        prism_builder = BRepPrimAPI_MakePrism(self.selected_face, offset_vec)
+        prism_builder = BRepPrimAPI_MakePrism(selected_face, offset_vec)
 
         if prism_builder.IsDone():
             preview_prism = prism_builder.Shape()
@@ -130,7 +186,15 @@ class PliableViewer:
 
     def finalize_push_pull(self, offset):
         """Finalize push/pull operation - do the real Boolean here"""
-        if self.selected_face is None:
+        # Find the selected face (push/pull only works on faces)
+        selected_face = None
+        for shp in self.selected_shapes:
+            if shp.ShapeType() == 4:  # Face
+                selected_face = shp
+                break
+
+        if selected_face is None:
+            print("ERROR: No face selected for push/pull")
             return
 
         from pliable.geometry import offset_face
@@ -142,9 +206,9 @@ class PliableViewer:
             self.display.Context.Remove(self.preview_shape_ais, True)
             self.preview_shape_ais = None
 
-        if self.highlighted_face_ais is not None:
-            self.display.Context.Remove(self.highlighted_face_ais, True)
-            self.highlighted_face_ais = None
+        for ais_obj in self.highlighted_ais_objects:
+            self.display.Context.Remove(ais_obj, True)
+        self.highlighted_ais_objects = []
 
         if self.ais_shape is not None:
             self.display.Context.Remove(self.ais_shape, True)
@@ -154,14 +218,14 @@ class PliableViewer:
         self.display.Context.ClearSelected(True)
 
         # Use the ORIGINAL shape that was current when face was selected
-        if hasattr(self, 'original_shape'):
+        if hasattr(self, 'original_shape') and self.original_shape is not None:
             shape_to_modify = self.original_shape
         else:
             shape_to_modify = self.cube
 
         # Apply the offset with Boolean operation
         try:
-            new_shape = offset_face(shape_to_modify, self.selected_face, offset)
+            new_shape = offset_face(shape_to_modify, selected_face, offset)
 
             if new_shape is not None:
                 self.cube = new_shape
@@ -176,7 +240,7 @@ class PliableViewer:
             return
 
         # Clear ALL selection state
-        self.selected_face = None
+        self.selected_shapes = []
         self.original_shape = None
 
         # Complete context reset
@@ -185,13 +249,15 @@ class PliableViewer:
         # Display ONLY the new shape
         self.ais_shape = self.display.DisplayShape(self.cube, update=True)[0]
 
-        # CRITICAL: Re-enable face selection mode
-        self.display.SetSelectionModeFace()  # ← ADD THIS
+        # CRITICAL: Re-enable all selection modes
+        self.display.Context.Activate(self.ais_shape, 1, True)  # Vertex
+        self.display.Context.Activate(self.ais_shape, 2, True)  # Edge
+        self.display.Context.Activate(self.ais_shape, 4, True)  # Face
 
         self.display.FitAll()
         self.display.Repaint()
 
-        print("Select a face to continue editing.")
+        print("Select a face, edge, or vertex to continue editing.")
 
     def _set_parent_window(self, window):
         """Called by window after construction"""
@@ -217,16 +283,18 @@ class PliableViewer:
             self.display.Context.RemoveAll(True)
 
             # Clear selection state
-            self.selected_face = None
+            self.selected_shapes = []
+            self.highlighted_ais_objects = []
             self.original_shape = None
-            self.highlighted_face_ais = None
             self.preview_shape_ais = None
 
             # Display new shape
             self.ais_shape = self.display.DisplayShape(shape, update=True)[0]
 
-            # Re-enable face selection
-            self.display.SetSelectionModeFace()
+            # Re-enable all selection modes
+            self.display.Context.Activate(self.ais_shape, 1, True)  # Vertex
+            self.display.Context.Activate(self.ais_shape, 2, True)  # Edge
+            self.display.Context.Activate(self.ais_shape, 4, True)  # Face
 
             self.display.FitAll()
             self.display.Repaint()

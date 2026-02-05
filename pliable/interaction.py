@@ -52,7 +52,9 @@ class InteractionHandler:
         # Only track push/pull drag on LEFT button + SHIFT
         if (event.button() == Qt.MouseButton.LeftButton and
             event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
-            if self.viewer.selected_face is not None:
+            # Check if any face is selected
+            has_face = any(shp.ShapeType() == 4 for shp in self.viewer.selected_shapes)
+            if has_face:
                 self.drag_start_x = event.position().x()
                 self.drag_start_y = event.position().y()
                 print(f"Shift+Left drag started - push/pull mode")
@@ -66,7 +68,7 @@ class InteractionHandler:
         # Check if we should start dragging (LEFT + SHIFT)
         if (not self.is_dragging and
             self.drag_start_y is not None and
-            self.viewer.selected_face is not None and
+            any(shp.ShapeType() == 4 for shp in self.viewer.selected_shapes) and
             event.buttons() & Qt.MouseButton.LeftButton and
             event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
 
@@ -76,10 +78,10 @@ class InteractionHandler:
             if delta_y > 3:
                 self.is_dragging = True
 
-                # Clear the cyan highlight as soon as drag starts
-                if self.viewer.highlighted_face_ais is not None:
-                    self.viewer.display.Context.Erase(self.viewer.highlighted_face_ais, True)
-                    self.viewer.highlighted_face_ais = None
+                # Clear all highlights as soon as drag starts
+                for ais_obj in self.viewer.highlighted_ais_objects:
+                    self.viewer.display.Context.Erase(ais_obj, True)
+                self.viewer.highlighted_ais_objects = []
 
                 # Clear ALL selection highlighting (including edges)
                 self.viewer.display.Context.ClearSelected(True)  # ← ADD THIS
@@ -88,6 +90,16 @@ class InteractionHandler:
                 print(f"Push/pull drag started! Delta: {delta_y:.1f}px")
 
         if self.is_dragging:
+            # Get the selected face for push/pull
+            selected_face = None
+            for shp in self.viewer.selected_shapes:
+                if shp.ShapeType() == 4:  # Face
+                    selected_face = shp
+                    break
+
+            if selected_face is None:
+                return
+
             # Calculate screen deltas
             current_x = event.position().x()
             current_y = event.position().y()
@@ -97,7 +109,7 @@ class InteractionHandler:
             # Calculate 3D offset
             offset = calculate_push_pull_offset(
                 self.display,
-                self.viewer.selected_face,
+                selected_face,
                 self.viewer.cube,
                 delta_x,
                 delta_y
@@ -121,23 +133,31 @@ class InteractionHandler:
 
         if event.button() == Qt.MouseButton.LeftButton:
             if self.is_dragging:
-                current_x = event.position().x()
-                current_y = event.position().y()
-                delta_x = current_x - self.drag_start_x
-                delta_y = current_y - self.drag_start_y  # ← CHANGE THIS TOO
+                # Get the selected face
+                selected_face = None
+                for shp in self.viewer.selected_shapes:
+                    if shp.ShapeType() == 4:  # Face
+                        selected_face = shp
+                        break
 
-                offset = calculate_push_pull_offset(
-                    self.display,
-                    self.viewer.selected_face,
-                    self.viewer.cube,
-                    delta_x,
-                    delta_y
-                )
+                if selected_face is not None:
+                    current_x = event.position().x()
+                    current_y = event.position().y()
+                    delta_x = current_x - self.drag_start_x
+                    delta_y = current_y - self.drag_start_y  # ← CHANGE THIS TOO
 
-                print(f"✓ Push/pull finished: {offset:.2f}mm")
+                    offset = calculate_push_pull_offset(
+                        self.display,
+                        selected_face,
+                        self.viewer.cube,
+                        delta_x,
+                        delta_y
+                    )
 
-                # Finalize the operation
-                self.viewer.finalize_push_pull(offset)
+                    print(f"✓ Push/pull finished: {offset:.2f}mm")
+
+                    # Finalize the operation
+                    self.viewer.finalize_push_pull(offset)
 
             self.is_dragging = False
             self.drag_start_x = None
