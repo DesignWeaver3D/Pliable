@@ -9,6 +9,27 @@ from OCC.Core.gp import gp_Pnt, gp_Vec
 from OCC.Core.GeomLProp import GeomLProp_SLProps
 
 
+def get_center_of_mass(shape):
+    """
+    Get the center of mass of a solid or shape
+
+    Args:
+        shape: TopoDS_Shape (solid, shell, compound, etc.)
+
+    Returns:
+        gp_Pnt: Center of mass point, or None if calculation fails
+    """
+    try:
+        props = GProp_GProps()
+        brepgprop.VolumeProperties(shape, props)
+        com = props.CentreOfMass()
+        print(f"Center of mass: ({com.X():.2f}, {com.Y():.2f}, {com.Z():.2f})")
+        return com
+    except Exception as e:
+        print(f"ERROR: Could not compute center of mass: {e}")
+        return None
+
+
 def get_face_center_and_normal(face, solid=None):
     """
     Get the center point and normal vector of a face
@@ -164,6 +185,59 @@ def calculate_push_pull_offset(display, face, solid, screen_delta_x, screen_delt
         offset = -offset
 
     return offset
+
+def calculate_fillet_chamfer_radius(display, com_point, drag_start_x, drag_start_y, current_x, current_y):
+    """
+    Calculate fillet/chamfer radius and determine operation type based on cursor movement
+    relative to center of mass on screen
+
+    Args:
+        display: OCC display object
+        com_point: gp_Pnt - center of mass of the solid
+        drag_start_x, drag_start_y: Initial cursor position in pixels
+        current_x, current_y: Current cursor position in pixels
+
+    Returns:
+        tuple: (radius, operation_type)
+            radius: float - radius/distance for operation in mm
+            operation_type: str - "fillet" or "chamfer"
+    """
+    import math
+
+    # Project COM to screen coordinates
+    view = display.View
+    com_screen_x, com_screen_y = view.Convert(com_point.X(), com_point.Y(), com_point.Z())
+
+    # Calculate initial distance from cursor to COM on screen
+    dist_start = math.sqrt(
+        (drag_start_x - com_screen_x)**2 +
+        (drag_start_y - com_screen_y)**2
+    )
+
+    # Calculate current distance from cursor to COM on screen
+    dist_current = math.sqrt(
+        (current_x - com_screen_x)**2 +
+        (current_y - com_screen_y)**2
+    )
+
+    # Determine operation type
+    if dist_current > dist_start:
+        operation_type = "fillet"  # Moving away from COM
+    else:
+        operation_type = "chamfer"  # Moving toward COM
+
+    # Calculate radius based on distance change
+    distance_change_pixels = abs(dist_current - dist_start)
+
+    # Convert to mm using same scale calculation as push/pull
+    scale = view.Scale()
+    screen_height = display.View.Window().Size()[1]
+    view_height_at_depth = screen_height / scale
+    mm_per_pixel = view_height_at_depth / screen_height
+
+    radius = distance_change_pixels * mm_per_pixel
+
+    return radius, operation_type
 
 def offset_face(solid, face, distance):
     """
