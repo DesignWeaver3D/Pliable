@@ -21,7 +21,8 @@ Designed for quick geometry edits without parametric constraints.
 - [x] STEP import/export
 - [x] Add edge & vertex selection
 - [x] Add message panel for user feedback
-- [ ] Fillet edge interaction
+- [x] Fillet/Chamfer edge interaction
+- [ ] Undo with history of shapes
 - [ ] Dimension overlay for interactions
 
 ## Tech Stack
