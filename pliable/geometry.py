@@ -9,6 +9,27 @@ from OCC.Core.gp import gp_Pnt, gp_Vec
 from OCC.Core.GeomLProp import GeomLProp_SLProps
 
 
+def get_center_of_mass(shape):
+    """
+    Get the center of mass of a solid or shape
+
+    Args:
+        shape: TopoDS_Shape (solid, shell, compound, etc.)
+
+    Returns:
+        gp_Pnt: Center of mass point, or None if calculation fails
+    """
+    try:
+        props = GProp_GProps()
+        brepgprop.VolumeProperties(shape, props)
+        com = props.CentreOfMass()
+        print(f"Center of mass: ({com.X():.2f}, {com.Y():.2f}, {com.Z():.2f})")
+        return com
+    except Exception as e:
+        print(f"ERROR: Could not compute center of mass: {e}")
+        return None
+
+
 def get_face_center_and_normal(face, solid=None):
     """
     Get the center point and normal vector of a face
@@ -50,7 +71,7 @@ def get_face_center_and_normal(face, solid=None):
         # Check face orientation and flip if needed
         if face.Orientation() == TopAbs_REVERSED:
             normal.Reverse()
-            print("DEBUG: Face is REVERSED, flipping normal")
+            # print("DEBUG: Face is REVERSED, flipping normal")
 
         return center, normal
     else:
@@ -165,6 +186,59 @@ def calculate_push_pull_offset(display, face, solid, screen_delta_x, screen_delt
 
     return offset
 
+def calculate_fillet_chamfer_radius(display, com_point, drag_start_x, drag_start_y, current_x, current_y):
+    """
+    Calculate fillet/chamfer radius and determine operation type based on cursor movement
+    relative to center of mass on screen
+
+    Args:
+        display: OCC display object
+        com_point: gp_Pnt - center of mass of the solid
+        drag_start_x, drag_start_y: Initial cursor position in pixels
+        current_x, current_y: Current cursor position in pixels
+
+    Returns:
+        tuple: (radius, operation_type)
+            radius: float - radius/distance for operation in mm
+            operation_type: str - "fillet" or "chamfer"
+    """
+    import math
+
+    # Project COM to screen coordinates
+    view = display.View
+    com_screen_x, com_screen_y = view.Convert(com_point.X(), com_point.Y(), com_point.Z())
+
+    # Calculate initial distance from cursor to COM on screen
+    dist_start = math.sqrt(
+        (drag_start_x - com_screen_x)**2 +
+        (drag_start_y - com_screen_y)**2
+    )
+
+    # Calculate current distance from cursor to COM on screen
+    dist_current = math.sqrt(
+        (current_x - com_screen_x)**2 +
+        (current_y - com_screen_y)**2
+    )
+
+    # Determine operation type
+    if dist_current > dist_start:
+        operation_type = "fillet"  # Moving away from COM
+    else:
+        operation_type = "chamfer"  # Moving toward COM
+
+    # Calculate radius based on distance change
+    distance_change_pixels = abs(dist_current - dist_start)
+
+    # Convert to mm using same scale calculation as push/pull
+    scale = view.Scale()
+    screen_height = display.View.Window().Size()[1]
+    view_height_at_depth = screen_height / scale
+    mm_per_pixel = view_height_at_depth / screen_height
+
+    radius = distance_change_pixels * mm_per_pixel
+
+    return radius, operation_type
+
 def offset_face(solid, face, distance):
     """
     Offset a face of a solid by a given distance along its normal
@@ -175,11 +249,11 @@ def offset_face(solid, face, distance):
 
     # Validation
     if solid is None or face is None:
-        print("ERROR: Invalid input to offset_face")
+        # print("ERROR: Invalid input to offset_face")
         return solid
 
     if abs(distance) < 0.01:  # Less than 0.01mm, ignore
-        print("Offset too small, ignoring")
+        # print("Offset too small, ignoring")
         return solid
 
     try:
@@ -198,7 +272,7 @@ def offset_face(solid, face, distance):
         prism_builder.Build()
 
         if not prism_builder.IsDone():
-            print("ERROR: Failed to create prism")
+            # print("ERROR: Failed to create prism")
             return solid
 
         prism = prism_builder.Shape()
@@ -212,31 +286,31 @@ def offset_face(solid, face, distance):
         bool_op.Build()
 
         if not bool_op.IsDone():
-            print("ERROR: Boolean operation failed")
+            # print("ERROR: Boolean operation failed")
             return solid
 
         result = bool_op.Shape()
 
         if result.IsNull():
-            print("ERROR: Boolean returned null shape")
+            # print("ERROR: Boolean returned null shape")
             return solid
 
         # Refine the result
-        print("Refining geometry...")
+        # print("Refining geometry...")
         refiner = ShapeUpgrade_UnifySameDomain(result, True, True, True)
         refiner.Build()
 
         refined_result = refiner.Shape()
 
         if refined_result.IsNull():
-            print("WARNING: Refinement failed, using unrefined result")
+            # print("WARNING: Refinement failed, using unrefined result")
             return result
 
-        print("✓ Refinement complete")
+        # print("✓ Refinement complete")
         return refined_result
 
     except Exception as e:
-        print(f"ERROR in offset_face: {e}")
+        # print(f"ERROR in offset_face: {e}")
         import traceback
         traceback.print_exc()
         return solid
