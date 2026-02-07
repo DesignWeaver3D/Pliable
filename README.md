@@ -23,7 +23,7 @@ Designed for quick geometry edits without parametric constraints.
 - [x] Add message panel for user feedback
 - [x] Fillet/Chamfer edge interaction
 - [x] Undo with history of shapes
-- [ ] Dimension overlay for interactions
+- [x] Popup for manual push-pull dimension entry
 
 ## Tech Stack
 
