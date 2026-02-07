@@ -45,13 +45,24 @@ def export_step(shape, filepath):
         bool: True if successful, False otherwise
     """
     try:
+        print(f"DEBUG: export_step called")
+        print(f"  Shape: {shape}")
+        print(f"  Shape type: {type(shape)}")
+        print(f"  Filepath: {filepath}")
+
+        if shape is None:
+            print("ERROR: Shape is None, cannot export")
+            return False
+
         print(f"Exporting to STEP file: {filepath}")
 
         # Ensure filepath has .step extension
         if not filepath.lower().endswith(('.step', '.stp')):
             filepath += '.step'
 
+        print(f"  Calling write_step_file...")
         write_step_file(shape, filepath)
+        print(f"  write_step_file completed")
 
         print(f"✓ Successfully exported: {filepath}")
         return True

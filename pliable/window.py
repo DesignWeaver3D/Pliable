@@ -125,6 +125,23 @@ class PliableWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
+        # Edit menu
+        edit_menu = menubar.addMenu("&Edit")
+
+        # Undo action
+        undo_action = QAction("&Undo", self)
+        undo_action.setShortcut(QKeySequence.StandardKey.Undo)  # Ctrl+Z
+        undo_action.setStatusTip("Undo last operation")
+        undo_action.triggered.connect(self.undo)
+        edit_menu.addAction(undo_action)
+
+        # Redo action
+        redo_action = QAction("&Redo", self)
+        redo_action.setShortcut(QKeySequence("Ctrl+Shift+Z"))  # Explicit Ctrl+Shift+Z
+        redo_action.setStatusTip("Redo last undone operation")
+        redo_action.triggered.connect(self.redo)
+        edit_menu.addAction(redo_action)
+
         # View menu
         view_menu = menubar.addMenu("&View")
 
@@ -150,6 +167,14 @@ class PliableWindow(QMainWindow):
             self.message_dock.show()
             self.toggle_messages_action.setText("Hide &Messages")
 
+    def undo(self):
+        """Undo last operation"""
+        self.viewer.undo()
+
+    def redo(self):
+        """Redo last undone operation"""
+        self.viewer.redo()
+
     def open_file(self):
         """Open a STEP file"""
         filename, _ = QFileDialog.getOpenFileName(
@@ -173,7 +198,7 @@ class PliableWindow(QMainWindow):
 
     def save_file(self):
         """Save current shape to STEP file"""
-        if self.viewer.cube is None:
+        if self.viewer.document.shape is None:
             QMessageBox.warning(
                 self,
                 "Nothing to Save",
@@ -189,7 +214,7 @@ class PliableWindow(QMainWindow):
         )
 
         if filename:
-            success = export_step(self.viewer.cube, filename)
+            success = export_step(self.viewer.document.shape, filename)
 
             if success:
                 QMessageBox.information(

@@ -143,7 +143,7 @@ class InteractionHandler:
                 offset = calculate_push_pull_offset(
                     self.display,
                     selected_face,
-                    self.viewer.shape,
+                    self.viewer.document.shape,
                     delta_x,
                     delta_y
                 )
@@ -158,7 +158,7 @@ class InteractionHandler:
 
             elif has_edges:
                 # Fillet/chamfer operation
-                if self.viewer.cached_com is None:
+                if self.viewer.document.cached_com is None:
                     return
 
                 # Calculate screen deltas
@@ -168,14 +168,14 @@ class InteractionHandler:
                 # Calculate radius and operation type
                 radius, operation_type = calculate_fillet_chamfer_radius(
                     self.display,
-                    self.viewer.cached_com,
+                    self.viewer.document.cached_com,
                     self.drag_start_x,
                     self.drag_start_y,
                     current_x,
                     current_y
                 )
 
-                print(f"Fillet/chamfer: radius={radius:.2f}mm, type={operation_type}")
+                # print(f"Fillet/chamfer: radius={radius:.2f}mm, type={operation_type}")
 
                 # Only update preview if radius changed significantly (>0.5mm)
                 if (self.last_preview_offset is None or
@@ -214,7 +214,7 @@ class InteractionHandler:
                         offset = calculate_push_pull_offset(
                             self.display,
                             selected_face,
-                            self.viewer.shape,
+                            self.viewer.document.shape,
                             delta_x,
                             delta_y
                         )
@@ -226,7 +226,7 @@ class InteractionHandler:
 
                 elif has_edges:
                     # Fillet/chamfer finalize
-                    if self.viewer.cached_com is None:
+                    if self.viewer.document.cached_com is None:
                         return
 
                     current_x = event.position().x()
@@ -235,7 +235,7 @@ class InteractionHandler:
                     # Calculate final radius and operation type
                     radius, operation_type = calculate_fillet_chamfer_radius(
                         self.display,
-                        self.viewer.cached_com,
+                        self.viewer.document.cached_com,
                         self.drag_start_x,
                         self.drag_start_y,
                         current_x,
