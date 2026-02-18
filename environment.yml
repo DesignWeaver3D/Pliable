@@ -3,5 +3,5 @@ channels:
   - conda-forge
 dependencies:
   - python=3.12
-  - pythonocc-core
-  - pyqt6
+  - pythonocc-core=7.9.0
+  - pyqt6=6.8.1
