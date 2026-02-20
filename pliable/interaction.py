@@ -143,7 +143,7 @@ class InteractionHandler:
                 offset = calculate_push_pull_offset(
                     self.display,
                     selected_face,
-                    self.viewer.shape,
+                    self.viewer.document.shape,
                     delta_x,
                     delta_y
                 )
@@ -158,7 +158,7 @@ class InteractionHandler:
 
             elif has_edges:
                 # Fillet/chamfer operation
-                if self.viewer.cached_com is None:
+                if self.viewer.document.cached_com is None:
                     return
 
                 # Calculate screen deltas
@@ -168,14 +168,14 @@ class InteractionHandler:
                 # Calculate radius and operation type
                 radius, operation_type = calculate_fillet_chamfer_radius(
                     self.display,
-                    self.viewer.cached_com,
+                    self.viewer.document.cached_com,
                     self.drag_start_x,
                     self.drag_start_y,
                     current_x,
                     current_y
                 )
 
-                print(f"Fillet/chamfer: radius={radius:.2f}mm, type={operation_type}")
+                # print(f"Fillet/chamfer: radius={radius:.2f}mm, type={operation_type}")
 
                 # Only update preview if radius changed significantly (>0.5mm)
                 if (self.last_preview_offset is None or
@@ -214,19 +214,34 @@ class InteractionHandler:
                         offset = calculate_push_pull_offset(
                             self.display,
                             selected_face,
-                            self.viewer.shape,
+                            self.viewer.document.shape,
                             delta_x,
                             delta_y
                         )
 
                         # print(f"✓ Push/pull finished: {offset:.2f}mm")
 
-                        # Finalize the operation
-                        self.viewer.finalize_push_pull(offset)
+                        # Show dialog to allow user to edit the dimension
+                        from PyQt6.QtWidgets import QInputDialog
+                        final_offset, ok = QInputDialog.getDouble(
+                            self.viewer.canvas,
+                            "Push/Pull Distance",
+                            "Enter distance (mm):",
+                            value=offset,  # Pre-fill with drag value
+                            decimals=2
+                        )
+
+                        if not ok:
+                            # User cancelled
+                            if hasattr(self.viewer, 'parent_window') and self.viewer.parent_window is not None:
+                                self.viewer.parent_window.show_status_message("Push/pull cancelled")
+                        else:
+                            # Finalize the operation with user's value
+                            self.viewer.finalize_push_pull(final_offset)
 
                 elif has_edges:
                     # Fillet/chamfer finalize
-                    if self.viewer.cached_com is None:
+                    if self.viewer.document.cached_com is None:
                         return
 
                     current_x = event.position().x()
@@ -235,7 +250,7 @@ class InteractionHandler:
                     # Calculate final radius and operation type
                     radius, operation_type = calculate_fillet_chamfer_radius(
                         self.display,
-                        self.viewer.cached_com,
+                        self.viewer.document.cached_com,
                         self.drag_start_x,
                         self.drag_start_y,
                         current_x,
@@ -244,8 +259,23 @@ class InteractionHandler:
 
                     # print(f"✓ {operation_type} finished: {radius:.2f}mm")
 
-                    # Finalize the operation
-                    self.viewer.finalize_fillet_chamfer(radius, operation_type)
+                    # Show dialog to allow user to edit the dimension
+                    from PyQt6.QtWidgets import QInputDialog
+                    final_radius, ok = QInputDialog.getDouble(
+                        self.viewer.canvas,
+                        f"{operation_type.capitalize()} Radius",
+                        f"Enter {operation_type} radius (mm):",
+                        value=radius,  # Pre-fill with drag value
+                        decimals=2
+                    )
+
+                    if not ok:
+                        # User cancelled
+                        if hasattr(self.viewer, 'parent_window') and self.viewer.parent_window is not None:
+                            self.viewer.parent_window.show_status_message(f"{operation_type.capitalize()} cancelled")
+                    else:
+                        # Finalize the operation with user's value
+                        self.viewer.finalize_fillet_chamfer(final_radius, operation_type)
 
             self.is_dragging = False
             self.drag_start_x = None

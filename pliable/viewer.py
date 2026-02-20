@@ -15,6 +15,8 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 import sys
 
+from pliable.document import Document
+
 
 class PliableViewer:
     """Main 3D viewer with face and edge selection"""
@@ -29,22 +31,21 @@ class PliableViewer:
         self.canvas = qtViewer3d()
         self.display = self.canvas._display  # Access the underlying OCCT display
 
-        # Create a 100x100x100mm cube
-        self.shape = BRepPrimAPI_MakeBox(100, 100, 100).Shape()
+        # Create document to manage shape data
+        self.document = Document()
 
-        # Display it
-        self.ais_shape = self.display.DisplayShape(self.shape, update=True)[0]
+        # Display initial shape
+        self.ais_shape = self.display.DisplayShape(self.document.shape, update=True)[0]
         self.display.FitAll()
 
-        # Calculate and cache center of mass
-        self._update_center_of_mass()
+        # Calculate initial COM
+        self.document.update_center_of_mass()
 
         # State tracking
         self.selected_shapes = []  # List of all selected shapes
         self.highlighted_ais_objects = []  # List of AIS objects for highlights
         self.preview_shape_ais = None  # Cache for preview display object
         self.original_shape = None
-        self.cached_com = None  # Cached center of mass
 
         # Register callbacks
         self.display.register_select_callback(self.on_select)
@@ -81,16 +82,6 @@ class PliableViewer:
         """Handle keyboard events"""
         # Pass to original handler for now
         self.original_key_press(event)
-
-    def _update_center_of_mass(self):
-        """
-        Calculate and cache the center of mass of the current shape
-        Call this after any geometry modification (push/pull, fillet, chamfer)
-        """
-        from pliable.geometry import get_center_of_mass
-        self.cached_com = get_center_of_mass(self.shape)
-        if self.cached_com:
-            print(f"Center of mass updated: ({self.cached_com.X():.2f}, {self.cached_com.Y():.2f}, {self.cached_com.Z():.2f})")
 
     def _update_operation_status(self):
         """
@@ -164,7 +155,7 @@ class PliableViewer:
 
             # Store original shape reference if first selection
             if len(self.selected_shapes) == 1:
-                self.original_shape = self.shape
+                self.original_shape = self.document.shape
 
             # Determine shape name for printing
             if shape_type == 4:
@@ -186,11 +177,7 @@ class PliableViewer:
                 else:
                     self.parent_window.show_status_message(f"{shape_name} selected ({total_selected} items total)")
 
-        # After processing all selections, update status with available operations
-        if hasattr(self, 'parent_window') and self.parent_window is not None and len(self.selected_shapes) > 0:
-            self._update_operation_status()
-
-            # Create highlight
+            # Create highlight for this shape
             ais_obj = self.display.DisplayShape(
                 shp,
                 color=Quantity_Color(0, 1, 1, Quantity_TOC_RGB),  # Cyan for all
@@ -198,6 +185,10 @@ class PliableViewer:
             )[0]
 
             self.highlighted_ais_objects.append(ais_obj)
+
+        # After processing all selections, update status with available operations
+        if hasattr(self, 'parent_window') and self.parent_window is not None and len(self.selected_shapes) > 0:
+            self._update_operation_status()
 
         # Update display once at the end
         self.display.Context.UpdateCurrentViewer()
@@ -218,7 +209,7 @@ class PliableViewer:
         from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakePrism
 
         # Get face normal
-        center, normal = get_face_center_and_normal(selected_face, self.shape)
+        center, normal = get_face_center_and_normal(selected_face, self.document.shape)
 
         # Create offset vector
         offset_vec = gp_Vec(
@@ -272,12 +263,12 @@ class PliableViewer:
 
             # Create fillet or chamfer
             if operation_type == "fillet":
-                builder = BRepFilletAPI_MakeFillet(self.shape)
+                builder = BRepFilletAPI_MakeFillet(self.document.shape)
                 # Add all selected edges with same radius
                 for edge in selected_edges:
                     builder.Add(radius, edge)
             else:  # chamfer
-                builder = BRepFilletAPI_MakeChamfer(self.shape)
+                builder = BRepFilletAPI_MakeChamfer(self.document.shape)
                 # Add all selected edges with same distance
                 for edge in selected_edges:
                     builder.Add(radius, edge)
@@ -308,6 +299,10 @@ class PliableViewer:
 
     def finalize_push_pull(self, offset):
         """Finalize push/pull operation - do the real Boolean here"""
+        print("=" * 60)
+        print("DEBUG: finalize_push_pull START")
+        print(f"  Offset: {offset:.2f}mm")
+
         # Find the selected face (push/pull only works on faces)
         selected_face = None
         for shp in self.selected_shapes:
@@ -322,11 +317,21 @@ class PliableViewer:
                 self.parent_window.show_status_message(msg)
             return
 
+        print(f"  Selected face: {selected_face}")
+        print(f"  Current document.shape: {self.document.shape}")
+        print(f"  original_shape exists: {hasattr(self, 'original_shape')}")
+        if hasattr(self, 'original_shape'):
+            print(f"  original_shape: {self.original_shape}")
+            print(f"  original_shape == document.shape: {self.original_shape is self.document.shape}")
+
         from pliable.geometry import offset_face
 
         # print("Computing final geometry...")
         if hasattr(self, 'parent_window') and self.parent_window is not None:
             self.parent_window.show_status_message("Computing push/pull geometry...")
+
+        # Save to history before modification
+        self.document.save_to_history()
 
         # CRITICAL: Clear ALL display objects first
         if self.preview_shape_ais is not None:
@@ -348,21 +353,25 @@ class PliableViewer:
         if hasattr(self, 'original_shape') and self.original_shape is not None:
             shape_to_modify = self.original_shape
         else:
-            shape_to_modify = self.shape
+            shape_to_modify = self.document.shape
+
+        print(f"  shape_to_modify: {shape_to_modify}")
+        print(f"  About to call offset_face...")
 
         # Apply the offset with Boolean operation
         try:
             new_shape = offset_face(shape_to_modify, selected_face, offset)
+            print(f"  offset_face returned: {new_shape}")
 
             if new_shape is not None:
-                self.shape = new_shape
+                self.document.set_shape(new_shape)
                 msg = f"✓ Push/pull complete: {offset:.2f}mm"
                 # print(msg)
                 if hasattr(self, 'parent_window') and self.parent_window is not None:
                     self.parent_window.show_status_message(msg)
 
-                # Invalidate COM cache - geometry changed
-                self._update_center_of_mass()
+                # Update COM cache - geometry changed
+                self.document.update_center_of_mass()
             else:
                 msg = "ERROR: offset_face returned None"
                 # print(msg)
@@ -386,7 +395,7 @@ class PliableViewer:
         self.display.Context.RemoveAll(True)
 
         # Display ONLY the new shape
-        self.ais_shape = self.display.DisplayShape(self.shape, update=True)[0]
+        self.ais_shape = self.display.DisplayShape(self.document.shape, update=True)[0]
 
         # CRITICAL: Re-enable all selection modes
         self.display.Context.Activate(self.ais_shape, 1, True)  # Vertex
@@ -427,6 +436,9 @@ class PliableViewer:
         # print(f"Computing final {operation_type} geometry...")
         if hasattr(self, 'parent_window') and self.parent_window is not None:
             self.parent_window.show_status_message(f"Computing {operation_type} geometry...")
+
+        # Save to history before modification
+        self.document.save_to_history()
 
         # CRITICAL: Clear ALL display objects first
         if self.preview_shape_ais is not None:
@@ -498,14 +510,14 @@ class PliableViewer:
                 # print("✓ Refinement complete")
                 new_shape = refined_result
 
-            self.shape = new_shape
+            self.document.set_shape(new_shape)
             msg = f"✓ {operation_type.capitalize()} complete: {radius:.2f}mm"
             # print(msg)
             if hasattr(self, 'parent_window') and self.parent_window is not None:
                 self.parent_window.show_status_message(msg)
 
-            # Invalidate COM cache - geometry changed
-            self._update_center_of_mass()
+            # Update COM cache - geometry changed
+            self.document.update_center_of_mass()
 
         except Exception as e:
             msg = f"ERROR during {operation_type}: {e}"
@@ -524,7 +536,7 @@ class PliableViewer:
         self.display.Context.RemoveAll(True)
 
         # Display ONLY the new shape
-        self.ais_shape = self.display.DisplayShape(self.shape, update=True)[0]
+        self.ais_shape = self.display.DisplayShape(self.document.shape, update=True)[0]
 
         # CRITICAL: Re-enable all selection modes
         self.display.Context.Activate(self.ais_shape, 1, True)  # Vertex
@@ -552,8 +564,8 @@ class PliableViewer:
         try:
             print("Loading shape into viewer...")
 
-            # Replace current shape
-            self.shape = shape
+            # Replace current shape in document
+            self.document.set_shape(shape)
 
             # Clear all display
             if self.ais_shape is not None:
@@ -579,7 +591,7 @@ class PliableViewer:
             self.display.Repaint()
 
             # Update COM cache for new shape
-            self._update_center_of_mass()
+            self.document.update_center_of_mass()
 
             print("✓ Shape loaded and ready for editing!")
 
@@ -587,3 +599,51 @@ class PliableViewer:
             print(f"ERROR loading shape: {e}")
             import traceback
             traceback.print_exc()
+
+    def undo(self):
+        """Undo last operation"""
+        if self.document.undo():
+            self._refresh_display()
+            if hasattr(self, 'parent_window') and self.parent_window is not None:
+                self.parent_window.show_status_message("Undo complete")
+        else:
+            if hasattr(self, 'parent_window') and self.parent_window is not None:
+                self.parent_window.show_status_message("Nothing to undo")
+
+    def redo(self):
+        """Redo last undone operation"""
+        if self.document.redo():
+            self._refresh_display()
+            if hasattr(self, 'parent_window') and self.parent_window is not None:
+                self.parent_window.show_status_message("Redo complete")
+        else:
+            if hasattr(self, 'parent_window') and self.parent_window is not None:
+                self.parent_window.show_status_message("Nothing to redo")
+
+    def _refresh_display(self):
+        """Refresh display after undo/redo - redisplay current shape"""
+        # Clear all display
+        if self.ais_shape is not None:
+            self.display.Context.Remove(self.ais_shape, True)
+
+        self.display.Context.RemoveAll(True)
+
+        # Clear selection state
+        self.selected_shapes = []
+        self.highlighted_ais_objects = []
+        self.original_shape = None
+        self.preview_shape_ais = None
+
+        # Display current shape from document
+        self.ais_shape = self.display.DisplayShape(self.document.shape, update=True)[0]
+
+        # Re-enable all selection modes
+        self.display.Context.Activate(self.ais_shape, 1, True)  # Vertex
+        self.display.Context.Activate(self.ais_shape, 2, True)  # Edge
+        self.display.Context.Activate(self.ais_shape, 4, True)  # Face
+
+        # Update COM
+        self.document.update_center_of_mass()
+
+        self.display.FitAll()
+        self.display.Repaint()

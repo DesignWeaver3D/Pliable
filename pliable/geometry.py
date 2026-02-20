@@ -23,7 +23,7 @@ def get_center_of_mass(shape):
         props = GProp_GProps()
         brepgprop.VolumeProperties(shape, props)
         com = props.CentreOfMass()
-        print(f"Center of mass: ({com.X():.2f}, {com.Y():.2f}, {com.Z():.2f})")
+        # print(f"Center of mass: ({com.X():.2f}, {com.Y():.2f}, {com.Z():.2f})")
         return com
     except Exception as e:
         print(f"ERROR: Could not compute center of mass: {e}")
@@ -247,6 +247,8 @@ def offset_face(solid, face, distance):
     from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Fuse, BRepAlgoAPI_Cut
     from OCC.Core.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
 
+    print(f"  offset_face: solid={solid}, face={face}, distance={distance:.2f}")
+
     # Validation
     if solid is None or face is None:
         # print("ERROR: Invalid input to offset_face")
@@ -257,9 +259,11 @@ def offset_face(solid, face, distance):
         return solid
 
     try:
+        print(f"  Getting face normal...")
         # Get face normal and center
         center, normal = get_face_center_and_normal(face)
 
+        print(f"  Creating offset vector...")
         # Create offset vector
         offset_vec = gp_Vec(
             normal.X() * distance,
@@ -267,6 +271,7 @@ def offset_face(solid, face, distance):
             normal.Z() * distance
         )
 
+        print(f"  Creating prism...")
         # Create prism from the face
         prism_builder = BRepPrimAPI_MakePrism(face, offset_vec)
         prism_builder.Build()
@@ -277,6 +282,7 @@ def offset_face(solid, face, distance):
 
         prism = prism_builder.Shape()
 
+        print(f"  Performing Boolean operation ({('Fuse' if distance > 0 else 'Cut')})...")
         # Boolean operation
         if distance > 0:
             bool_op = BRepAlgoAPI_Fuse(solid, prism)
@@ -284,6 +290,7 @@ def offset_face(solid, face, distance):
             bool_op = BRepAlgoAPI_Cut(solid, prism)
 
         bool_op.Build()
+        print(f"  Boolean operation complete")
 
         if not bool_op.IsDone():
             # print("ERROR: Boolean operation failed")
@@ -295,22 +302,50 @@ def offset_face(solid, face, distance):
             # print("ERROR: Boolean returned null shape")
             return solid
 
-        # Refine the result
-        # print("Refining geometry...")
-        refiner = ShapeUpgrade_UnifySameDomain(result, True, True, True)
-        refiner.Build()
+        print(f"  Refining geometry...")
+        # Refine the result with timeout protection
+        # OCCT refinement can hang on complex geometry, especially after fillets
+        import threading
 
-        refined_result = refiner.Shape()
+        refined_result = [None]  # Use list to share result between threads
+        exception_holder = [None]
 
-        if refined_result.IsNull():
-            # print("WARNING: Refinement failed, using unrefined result")
+        def refine_with_timeout():
+            try:
+                refiner = ShapeUpgrade_UnifySameDomain(result, True, True, True)
+                refiner.Build()
+                refined_result[0] = refiner.Shape()
+            except Exception as e:
+                exception_holder[0] = e
+
+        # Start refinement in separate thread
+        refine_thread = threading.Thread(target=refine_with_timeout)
+        refine_thread.daemon = True  # Daemon thread will be killed if main program exits
+        refine_thread.start()
+
+        # Wait up to 5 seconds
+        refine_thread.join(timeout=5.0)
+
+        if refine_thread.is_alive():
+            # Timeout occurred - thread is still running
+            print(f"  WARNING: Refinement timeout (>5s), using unrefined result")
+            # Note: We can't actually kill the thread, but we return and let it finish in background
             return result
 
-        # print("✓ Refinement complete")
-        return refined_result
+        if exception_holder[0] is not None:
+            print(f"  WARNING: Refinement error ({exception_holder[0]}), using unrefined result")
+            return result
+
+        if refined_result[0] is None or refined_result[0].IsNull():
+            print(f"  WARNING: Refinement produced null shape, using unrefined result")
+            return result
+
+        print(f"  Refinement complete, returning result")
+        return refined_result[0]
 
     except Exception as e:
         # print(f"ERROR in offset_face: {e}")
+        print(f"  EXCEPTION in offset_face: {e}")
         import traceback
         traceback.print_exc()
         return solid
