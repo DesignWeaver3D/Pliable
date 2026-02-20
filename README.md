@@ -13,6 +13,10 @@ Build a direct solid modeling tool using OpenCASCADE. Push/pull faces to modify 
 
 Designed for quick geometry edits without parametric constraints.
 
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for planned milestones and how to get involved.
+
 ## Development Status
 
 **Currently implemented:**
