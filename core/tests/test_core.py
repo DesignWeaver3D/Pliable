@@ -155,7 +155,7 @@ def test_push_pull_leaves_source_shape_untouched(preview):
 def test_tool_registry_describes_push_pull():
     reply = Session().handle({"type": "list_tools"})
     (tool,) = [t for t in reply["tools"] if t["id"] == "push_pull"]
-    assert tool["accepts"] == {"faces": [1, 1], "edges": [0, 0], "vertices": [0, 0]}
+    assert tool["accepts"] == {"faces": [1, None], "edges": [0, 0], "vertices": [0, 0]}
     assert tool["params"] == [{"name": "distance", "kind": "length", "default": 0.0, "drag": True}]
     json.dumps(reply)
 
@@ -174,7 +174,7 @@ def test_available_tools_follow_selection():
     assert not {"resize_hole", "fillet_chamfer"} & set(available({"faces": [planar]}))
     assert "push_pull" not in available({"faces": [curved]})
     assert "delete_face" in available({"faces": [curved]})
-    assert "push_pull" not in available({"faces": [planar, planar]})
+    assert "push_pull" not in available({"faces": [planar, curved]})
     assert "push_pull" not in available({})
     assert available({"faces": [9999]}) == []
 

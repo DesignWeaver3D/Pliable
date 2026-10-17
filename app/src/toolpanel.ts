@@ -67,7 +67,8 @@ export class ToolPanel {
     if (restore) this.host.cancel();
   }
 
-  openForm(tool: ToolInfo) {
+  /** Open the form for a tool; `initial` pre-fills values (used to re-edit the last operation). */
+  openForm(tool: ToolInfo, initial: Record<string, number> = {}) {
     this.close();
     this.open = tool;
     const inputs: Record<string, HTMLInputElement> = {};
@@ -82,7 +83,7 @@ export class ToolPanel {
       const input = document.createElement("input");
       input.type = "number";
       input.step = "any";
-      input.value = String(p.default);
+      input.value = String(initial[p.name] ?? p.default);
       input.addEventListener("input", () => this.schedulePreview());
       input.addEventListener("keydown", (e) => {
         e.stopPropagation(); // typing must not trigger view shortcuts or tools

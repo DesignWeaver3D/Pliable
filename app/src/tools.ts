@@ -9,6 +9,8 @@ export interface ToolInfo {
   label: string;
   accepts: { faces: Range; edges: Range; vertices?: Range };
   params: { name: string; kind: string; default: number; drag: boolean }[];
+  /** Relationship rules whose matching faces join the selection when switched on. */
+  related?: string[];
 }
 
 const inRange = (n: number, [min, max]: Range) => n >= min && (max === null || n <= max);

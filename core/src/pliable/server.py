@@ -18,10 +18,13 @@ from websockets.asyncio.server import ServerConnection, serve
 from . import __version__, sketch
 from .demos import load_demo
 from .document import Document
+from .features import combine
 from .files import read_step, write_step
-from .measure import measure
+from OCP.gp import gp_Vec
+from .measure import measure, model_info
 from .ops import OperationError
 from .protocol import encode_mesh
+from .relations import find_related
 from .tessellate import tessellate
 from .tools import TOOLS, Selection, get_tool
 from .topology import Topology
@@ -83,6 +86,22 @@ class Session:
                 return measure(topology, Selection.from_json(request.get("selection")))
             except KeyError as e:
                 raise RequestError(e.args[0]) from e
+        if kind == "combine_step":
+            document = self._require_document()
+            start = time.perf_counter()
+            other = read_step(base64.b64decode(request["data"]))
+            offset = gp_Vec(float(request.get("dx", 0)), float(request.get("dy", 0)), float(request.get("dz", 0)))
+            result = combine(document.current.shape, other, str(request.get("mode", "union")), offset)
+            target = document.commit(result.shape)
+            return self._mesh_reply(target, {"opMs": _ms(start)}, selection=Selection().to_json())
+        if kind == "related":
+            topology = self._require_document().current
+            try:
+                return {"rules": find_related(topology, int(request["face"]))}
+            except (KeyError, ValueError, TypeError) as e:
+                raise RequestError("Unknown face") from e
+        if kind == "model_info":
+            return model_info(self._require_document().current)
         if kind == "sketch_plane":
             return {"plane": self._sketch_plane(request)}
         if kind == "sketch_solve":

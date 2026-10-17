@@ -18,6 +18,7 @@ from OCP.BRepBndLib import BRepBndLib
 from OCP.Bnd import Bnd_Box
 from OCP.BRepTools import BRepTools
 from OCP.GProp import GProp_GProps
+from OCP.TopAbs import TopAbs_REVERSED
 from OCP.GeomAbs import GeomAbs_Cylinder, GeomAbs_Plane, GeomAbs_Torus
 from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
 from OCP.TopoDS import TopoDS_Shape
@@ -87,10 +88,24 @@ class Hole:
         self.origin = axis.Location().Translated(gp_Vec(self.direction).Multiplied(v0))
         self.radius = cylinder.Radius()
         self.length = v1 - v0
+        # The face's outward (material) normal points away from the axis for a boss, toward it for a hole.
+        self.boss = face.Orientation() != TopAbs_REVERSED
 
     def solid(self, radius: float | None = None, offset: gp_Vec | None = None) -> TopoDS_Shape:
         origin = self.origin.Translated(offset) if offset is not None else self.origin
         return _cylinder(origin, self.direction, self.radius if radius is None else radius, self.length)
+
+
+    def clear(self, shape: TopoDS_Shape) -> TopoDS_Shape:
+        """The model as if this hole or boss were absent (hole filled, boss cut away)."""
+        return _combine(shape, self.solid(), fuse=not self.boss)
+
+    def place(self, shape: TopoDS_Shape, radius: float | None = None, offset: gp_Vec | None = None, transform: gp_Trsf | None = None) -> TopoDS_Shape:
+        """Add a hole (or boss) like this one, optionally with another radius or position, or moved by a transform."""
+        solid = self.solid(radius, offset)
+        if transform is not None:
+            solid = BRepBuilderAPI_Transform(solid, transform, True).Shape()
+        return _combine(shape, solid, fuse=self.boss)
 
 
 def _holes(topology, selection) -> list[Hole]:
@@ -141,13 +156,14 @@ def _defeature(topology, selection, what: str) -> OpResult:
 @register
 class FillHole(_CylinderFaces):
     id = "fill_hole"
-    label = "Fill hole"
+    label = "Fill hole / remove boss"
+    related = ("equal_radius",)
     accepts = Accepts(faces=(1, None))
 
     def run(self, topology, selection, values, preview):
         shape = topology.shape
         for hole in _holes(topology, selection):
-            shape = _combine(shape, hole.solid(), fuse=True)
+            shape = hole.clear(shape)
         return finish(shape)
 
 
@@ -156,7 +172,8 @@ class ResizeHole(_CylinderFaces):
     """Change a hole's diameter, keeping its axis and depth. A diameter of 0 leaves it unchanged."""
 
     id = "resize_hole"
-    label = "Resize hole"
+    label = "Resize hole / boss"
+    related = ("equal_radius",)
     accepts = Accepts(faces=(1, None))
     params = [Param("diameter", "length", 0.0)]
 
@@ -168,15 +185,15 @@ class ResizeHole(_CylinderFaces):
         if diameter < MIN_DISTANCE:
             return OpResult(shape, [topology.face(i) for i in selection.faces])
         for hole in _holes(topology, selection):
-            shape = _combine(shape, hole.solid(), fuse=True)
-            shape = _combine(shape, hole.solid(radius=diameter / 2), fuse=False)
+            shape = hole.place(hole.clear(shape), radius=diameter / 2)
         return finish(shape)
 
 
 @register
 class MoveHole(_CylinderFaces):
     id = "move_hole"
-    label = "Move hole"
+    label = "Move hole / boss"
+    related = ("equal_radius",)
     accepts = Accepts(faces=(1, None))
     params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length")]
 
@@ -186,8 +203,7 @@ class MoveHole(_CylinderFaces):
         if offset.Magnitude() < MIN_DISTANCE:
             return OpResult(shape, [topology.face(i) for i in selection.faces])
         for hole in _holes(topology, selection):
-            shape = _combine(shape, hole.solid(), fuse=True)
-            shape = _combine(shape, hole.solid(offset=offset), fuse=False)
+            shape = hole.place(hole.clear(shape), offset=offset)
         return finish(shape)
 
 
@@ -196,7 +212,7 @@ class PatternHole(_CylinderFaces):
     """Copies of a hole at a fixed spacing (a linear pattern): `count` holes in total."""
 
     id = "pattern_hole"
-    label = "Pattern hole"
+    label = "Pattern hole / boss"
     accepts = Accepts(faces=(1, 1))
     params = [Param("count", "number", 3), Param("dx", "length", 10), Param("dy", "length"), Param("dz", "length")]
 
@@ -210,7 +226,45 @@ class PatternHole(_CylinderFaces):
         (hole,) = _holes(topology, selection)
         shape = topology.shape
         for i in range(1, count):
-            shape = _combine(shape, hole.solid(offset=step.Multiplied(i)), fuse=False)
+            shape = hole.place(shape, offset=step.Multiplied(i))
+        return finish(shape)
+
+
+@register
+class CircularPatternHole(_CylinderFaces):
+    """Copies of a hole or boss around an axis: `count` in total, spread over `angle` degrees (360 = full circle,
+    evenly). The axis passes through (px, py, pz) in direction (ax, ay, az); the default is the Z axis through the origin."""
+
+    id = "pattern_hole_circular"
+    label = "Circular pattern"
+    accepts = Accepts(faces=(1, 1))
+    params = [
+        Param("count", "number", 6),
+        Param("angle", "angle", 360),
+        Param("px", "length"),
+        Param("py", "length"),
+        Param("pz", "length"),
+        Param("ax", "number"),
+        Param("ay", "number"),
+        Param("az", "number", 1),
+    ]
+
+    def run(self, topology, selection, values, preview):
+        count = int(round(values["count"]))
+        if not 2 <= count <= 200:
+            raise OperationError("The count must be between 2 and 200")
+        direction = gp_Vec(values["ax"], values["ay"], values["az"])
+        if direction.Magnitude() < TOL:
+            raise OperationError("Give an axis direction")
+        axis = gp_Ax1(gp_Pnt(values["px"], values["py"], values["pz"]), gp_Dir(direction))
+        total = values["angle"]
+        step = total / count if abs(abs(total) - 360) < 1e-9 else total / (count - 1)
+        (hole,) = _holes(topology, selection)
+        shape = topology.shape
+        for i in range(1, count):
+            transform = gp_Trsf()
+            transform.SetRotation(axis, math.radians(step * i))
+            shape = hole.place(shape, transform=transform)
         return finish(shape)
 
 
@@ -320,8 +374,7 @@ class _HoleGroup(_CylinderFaces):
             if abs(delta) < MIN_DISTANCE:
                 continue
             offset = gp_Vec(*(delta if k == axis else 0.0 for k in range(3)))
-            shape = _combine(shape, hole.solid(), fuse=True)
-            shape = _combine(shape, hole.solid(offset=offset), fuse=False)
+            shape = hole.place(hole.clear(shape), offset=offset)
         return finish(shape)
 
 
@@ -330,7 +383,7 @@ class AlignHoles(_HoleGroup):
     """Match the position of every selected hole to the first selected one along an axis (Figma-style align)."""
 
     id = "align_holes"
-    label = "Align holes"
+    label = "Align holes / bosses"
     accepts = Accepts(faces=(2, None))
     params = [Param("axis", "number", 0)]
 
@@ -346,7 +399,7 @@ class DistributeHoles(_HoleGroup):
     """Space the selected holes evenly along an axis between the two outermost ones."""
 
     id = "distribute_holes"
-    label = "Distribute holes"
+    label = "Distribute holes / bosses"
     accepts = Accepts(faces=(3, None))
     params = [Param("axis", "number", 0)]
 
@@ -360,6 +413,50 @@ class DistributeHoles(_HoleGroup):
         for rank, i in enumerate(order):
             deltas[i] = first + (last - first) * rank / (len(holes) - 1) - centres[i]
         return self._shift(topology, holes, deltas, axis)
+
+
+@register
+class AddSlot(_PlanarFace):
+    """A slot (rounded-end rectangle) cut into a flat face. `length` is end to end, `angle` turns it about the
+    face normal from the face's first in-plane direction; depth 0 cuts all the way through."""
+
+    id = "add_slot"
+    label = "Add slot"
+    accepts = Accepts(faces=(1, 1))
+    params = [
+        Param("length", "length", 20),
+        Param("width", "length", 6),
+        Param("depth", "length"),
+        Param("angle", "angle"),
+        Param("offset_u", "length"),
+        Param("offset_v", "length"),
+    ]
+
+    def run(self, topology, selection, values, preview):
+        length, width = values["length"], values["width"]
+        if width < MIN_DISTANCE or length < width:
+            raise OperationError("The slot needs a positive width and a length at least as large")
+        centre, normal, u, v = _plane_axes(topology.face(selection.faces[0]))
+        centre = centre.Translated(gp_Vec(u).Multiplied(values["offset_u"])).Translated(gp_Vec(v).Multiplied(values["offset_v"]))
+        angle = math.radians(values["angle"])
+        along = gp_Vec(u).Multiplied(math.cos(angle)).Added(gp_Vec(v).Multiplied(math.sin(angle)))
+        along_dir = gp_Dir(along)
+        down = normal.Reversed()
+        depth = values["depth"] if values["depth"] > MIN_DISTANCE else _bounds_diagonal(topology.shape)
+        margin = 0.01 * depth + 1e-3
+        lead = centre.Translated(gp_Vec(normal).Multiplied(margin))
+        straight = length - width
+        axes = gp_Ax2(lead, down, along_dir)  # local X along the slot, local Y = down x X
+        side = gp_Vec(axes.YDirection())
+        corner = lead.Translated(gp_Vec(along_dir).Multiplied(-straight / 2)).Translated(side.Multiplied(-width / 2))
+        parts = [BRepPrimAPI_MakeBox(gp_Ax2(corner, down, along_dir), straight, width, depth + margin).Shape()] if straight > MIN_DISTANCE else []
+        for sign in (-1, 1):
+            end = lead.Translated(gp_Vec(along_dir).Multiplied(sign * straight / 2))
+            parts.append(_cylinder(end, down, width / 2, depth + margin))
+        shape = topology.shape
+        for part in parts:
+            shape = _combine(shape, part, fuse=False)
+        return finish(shape)
 
 
 # Solids ----------------------------------------------------------------------------------------------
@@ -654,3 +751,25 @@ class ResizeFillet(Tool):
         if len(shared) != 1:
             raise OperationError("Could not find the sharp edge left by this fillet")
         return finish(fillet_chamfer(sharp, shared, radius).shape)
+
+
+def combine(shape: TopoDS_Shape, other: TopoDS_Shape, mode: str, offset: gp_Vec | None = None) -> OpResult:
+    """Boolean of the model with another solid (mode "union", "cut" or "intersect"), the other optionally moved first."""
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Common
+
+    if mode not in ("union", "cut", "intersect"):
+        raise OperationError("mode must be union, cut or intersect")
+    if offset is not None and offset.Magnitude() > 0:
+        other = _moved(other, offset)
+    if mode == "intersect":
+        common = BRepAlgoAPI_Common(shape, other)
+        common.SetRunParallel(True)
+        common.Build()
+        if not common.IsDone() or common.Shape().IsNull():
+            raise OperationError("The shapes do not intersect")
+        result = common.Shape()
+    else:
+        result = _combine(shape, other, fuse=mode == "union")
+    if _volume(result) < 1e-9:
+        raise OperationError("The result would be empty")
+    return finish(result)

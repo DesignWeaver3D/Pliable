@@ -269,3 +269,37 @@ def measure(topology: Topology, selection: Selection) -> dict:
         summary += rows
         dims = pair_dims or dims
     return {"items": items, "summary": summary, "dimensions": dims if len(items) > 1 else [d for item in items for d in item["dimensions"]]}
+
+
+def model_info(topology: Topology) -> dict:
+    """Whole-model facts and a validity check, as rows in the same shape as an item's `rows`."""
+    from OCP.BRepBndLib import BRepBndLib
+    from OCP.BRepCheck import BRepCheck_Analyzer
+    from OCP.Bnd import Bnd_Box
+    from OCP.TopAbs import TopAbs_SOLID
+    from OCP.TopExp import TopExp
+    from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher
+
+    shape = topology.shape
+    solids = IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher()
+    TopExp.MapShapes_s(shape, TopAbs_SOLID, solids)
+    volume, area = GProp_GProps(), GProp_GProps()
+    BRepGProp.VolumeProperties_s(shape, volume)
+    BRepGProp.SurfaceProperties_s(shape, area)
+    box = Bnd_Box()
+    BRepBndLib.AddOptimal_s(shape, box, False, False)  # exact extents (Add_s pads by the tolerance)
+    lo, hi = box.CornerMin(), box.CornerMax()
+    open_edges = sum(1 for _, e in topology.edges() if len(topology.edge_faces(e)) == 1 and not BRepAdaptor_Curve(e).IsClosed())
+    valid = BRepCheck_Analyzer(shape).IsValid()
+    rows = [
+        _row("Valid", "yes" if valid else "NO: the model has errors"),
+        _row("Solids", solids.Extent()),
+        _row("Faces", topology.face_count),
+        _row("Edges", topology.edge_count),
+        _row("Vertices", topology.vertex_count),
+        _row("Open edges", open_edges),
+        _row("Volume", volume.Mass()),
+        _row("Surface area", area.Mass()),
+        _row("Size (X, Y, Z)", [hi.X() - lo.X(), hi.Y() - lo.Y(), hi.Z() - lo.Z()]),
+    ]
+    return {"items": [{"kind": "model", "id": 0, "title": "Model", "rows": rows, "anchor": [0, 0, 0], "dimensions": []}], "summary": [], "dimensions": []}

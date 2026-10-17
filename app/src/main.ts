@@ -45,14 +45,55 @@ let currentSels: Sel[] = [];
 let refined: string[] | null = null; // ids the core says apply to currentSels (null until it replies)
 let armedTool: string | null = null; // tool the user chose in the toolbar or palette
 
+// Relationship rules: faces related to the selected face by a rule that is on
+// are highlighted and join the selection of tools that declare the rule.
+interface RelatedRule {
+  id: string;
+  label: string;
+  faces: number[];
+}
+let related: RelatedRule[] = [];
+const ruleOn: Record<string, boolean> = { coplanar: true, equal_radius: true, coaxial: false }; // resets each session
+
+/** The selection a tool runs on: the picked items plus the faces of its related rules that are switched on. */
+function expand(tool: ToolInfo | null, sels: Sel[]): Sel[] {
+  if (!tool?.related?.length || sels.length !== 1 || sels[0].kind !== "face") return sels;
+  const extra = new Set<number>();
+  for (const rule of related) if (tool.related.includes(rule.id) && ruleOn[rule.id]) rule.faces.forEach((f) => extra.add(f));
+  return [...sels, ...[...extra].filter((f) => f !== sels[0].id).map((id) => ({ kind: "face" as const, id }))];
+}
+
+const chips = $("chips");
+function renderChips() {
+  const shown = related.filter((r) => r.faces.length);
+  chips.replaceChildren(
+    ...shown.map((rule) => {
+      const b = document.createElement("button");
+      b.textContent = `${rule.label} (${rule.faces.length})`;
+      b.className = ruleOn[rule.id] ? "on" : "";
+      b.title = `${ruleOn[rule.id] ? "Included in" : "Not included in"} tools that use this rule; click to toggle`;
+      b.addEventListener("click", () => {
+        ruleOn[rule.id] = !ruleOn[rule.id];
+        renderChips();
+        renderToolbar();
+        toolPanel.renderList();
+      });
+      return b;
+    }),
+  );
+  const faces = new Set<number>();
+  for (const rule of shown) if (ruleOn[rule.id]) rule.faces.forEach((f) => faces.add(f));
+  viewport.setRelated([...faces].map((id) => ({ kind: "face" as const, id })));
+}
+
 /** Tools usable with the current selection: counts checked here, the core's extra checks once it replies. */
 function usableTools(): ToolInfo[] {
-  return tools.filter((t) => acceptsSelection(t, currentSels) && (refined === null || refined.includes(t.id)));
+  return tools.filter((t) => acceptsSelection(t, expand(t, currentSels)) && (refined === null || refined.includes(t.id)));
 }
 
 /** The tool a drag on `sels` runs: the armed one if it applies, else the first with a drag parameter. */
 function dragToolFor(sels: Sel[]): ToolInfo | null {
-  const candidates = tools.filter((t) => dragParam(t) !== null && acceptsSelection(t, sels));
+  const candidates = tools.filter((t) => dragParam(t) !== null && acceptsSelection(t, expand(t, sels)));
   return candidates.find((t) => t.id === armedTool) ?? candidates[0] ?? null;
 }
 
@@ -100,6 +141,20 @@ function setSelection(sels: Sel[]) {
   renderSketchBar();
   measurePanel.hide();
   dimensionOverlay.set([]);
+  related = [];
+  renderChips();
+  if (sels.length === 1 && sels[0].kind === "face") {
+    core
+      .request<{ rules: RelatedRule[] }>("related", { face: sels[0].id })
+      .then((reply) => {
+        if (currentSels !== sels) return;
+        related = reply.rules;
+        renderChips();
+        renderToolbar();
+        toolPanel.renderList();
+      })
+      .catch(() => {});
+  }
   if (sels.length === 0) return;
   core
     .request<MeasureReply>("measure", { selection: selectionPayload(sels) })
@@ -127,6 +182,8 @@ function selectionPayload(sels: Sel[]) {
 }
 
 let committed: MeshData | null = null; // last committed (non-preview) mesh
+/** The newest committed tool run, kept while nothing else has changed the model: "Edit last" undoes it and reopens its form. */
+let lastOp: { tool: ToolInfo; sels: Sel[]; values: Record<string, number> } | null = null;
 
 function show(mesh: MeshData, frame = false) {
   viewport.setMesh(mesh, frame);
@@ -151,6 +208,8 @@ function mappedSelection(mesh: MeshData): Sel[] {
 
 function setCommitted(mesh: MeshData, frame = false, sels: Sel[] = []) {
   committed = mesh;
+  lastOp = null; // callers that commit a tool run set it again afterwards
+  editLastButton.disabled = true;
   show(mesh, frame);
   viewport.selectItems(sels);
   setSelection(sels);
@@ -173,7 +232,7 @@ let dragSels: Sel[] | null = null;
 
 function toolRequest(sels: Sel[], distance: number) {
   const tool = dragToolFor(sels)!;
-  return { tool: tool.id, selection: selectionPayload(sels), params: { [dragParam(tool)!]: distance } };
+  return { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params: { [dragParam(tool)!]: distance } };
 }
 
 function pump(token: number) {
@@ -333,6 +392,7 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
         mesh = await core.request<MeshData>("tool_commit", toolRequest(sels, good));
       }
       setCommitted(mesh, false, mappedSelection(mesh));
+      rememberOp(dragToolFor(sels), sels, distance);
       latency.textContent = `commit ${Math.round(performance.now() - start)} ms`;
     } else if (committed) {
       setCommitted(committed, false, sels);
@@ -344,6 +404,24 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
   }
 };
 
+const editLastButton = $("editlast") as HTMLButtonElement;
+
+function rememberOp(tool: ToolInfo | null, sels: Sel[], distance: number) {
+  const param = tool && dragParam(tool);
+  if (!tool || !param) return;
+  lastOp = { tool, sels, values: { [param]: distance } };
+  editLastButton.disabled = false;
+}
+
+editLastButton.addEventListener("click", async () => {
+  const op = lastOp;
+  if (!op) return;
+  await history("undo"); // back to the model before the operation (same ids, so the selection still fits)
+  viewport.selectItems(op.sels);
+  setSelection(op.sels);
+  toolPanel.openForm(op.tool, op.values);
+});
+
 async function history(kind: "undo" | "redo") {
   try {
     setCommitted(await core.request<MeshData>(kind));
@@ -351,6 +429,13 @@ async function history(kind: "undo" | "redo") {
     status.textContent = (e as Error).message;
   }
 }
+$("info").addEventListener("click", async () => {
+  try {
+    measurePanel.show(await core.request<MeasureReply>("model_info"));
+  } catch (e) {
+    status.textContent = (e as Error).message;
+  }
+});
 undoButton.addEventListener("click", () => history("undo"));
 redoButton.addEventListener("click", () => history("redo"));
 window.addEventListener("keydown", (e) => {
@@ -376,6 +461,23 @@ fileInput.addEventListener("change", async () => {
     setCommitted(await core.request<MeshData>("import_step", { name: file.name, data }), true);
   } catch (e) {
     status.textContent = (e as Error).message;
+  }
+});
+
+const combineFile = $("combinefile") as HTMLInputElement;
+$("combine").addEventListener("click", () => combineFile.click());
+combineFile.addEventListener("change", async () => {
+  const file = combineFile.files?.[0];
+  combineFile.value = "";
+  if (!file) return;
+  try {
+    status.textContent = `combining ${file.name}...`;
+    const data = toBase64(new Uint8Array(await file.arrayBuffer()));
+    const mode = ($("combinemode") as HTMLSelectElement).value;
+    setCommitted(await core.request<MeshData>("combine_step", { data, mode }), false);
+  } catch (e) {
+    status.textContent = (e as Error).message;
+    status.classList.add("error");
   }
 });
 
@@ -479,10 +581,10 @@ renderSketchBar();
 // Tools without a drag parameter (and the "All tools" list) use a typed-value form with live preview.
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   tools: () => tools,
-  usable: (tool) => acceptsSelection(tool, currentSels) && (refined === null || refined.includes(tool.id)),
+  usable: (tool) => acceptsSelection(tool, expand(tool, currentSels)) && (refined === null || refined.includes(tool.id)),
   async preview(tool, values) {
     try {
-      const mesh = await core.request<MeshData>("tool_preview", { tool: tool.id, selection: selectionPayload(currentSels), params: values });
+      const mesh = await core.request<MeshData>("tool_preview", { tool: tool.id, selection: selectionPayload(expand(tool, currentSels)), params: values });
       if (!toolPanel.isOpen) return;
       show(mesh);
       status.classList.remove("error");
@@ -495,8 +597,10 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   async commit(tool, values) {
     const sels = currentSels;
     try {
-      const mesh = await core.request<MeshData>("tool_commit", { tool: tool.id, selection: selectionPayload(sels), params: values });
+      const mesh = await core.request<MeshData>("tool_commit", { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params: values });
       setCommitted(mesh, false, mappedSelection(mesh));
+      lastOp = { tool, sels, values };
+      editLastButton.disabled = false;
     } catch (e) {
       if (committed) setCommitted(committed, false, sels);
       status.textContent = (e as Error).message;

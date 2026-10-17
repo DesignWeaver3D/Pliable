@@ -101,6 +101,7 @@ export class Viewport {
   private markSource: THREE.BufferGeometry | null = null;
   private selectedMarks: Mark[] = [];
   private hoverMark: Mark | null = null;
+  private relatedMarks: Mark[] = [];
   private hoverLine = new LineMaterial({ color: 0xffd36b, linewidth: 3, depthTest: true });
   private selectedLine = new LineMaterial({ color: 0xff8a1f, linewidth: 4, depthTest: true });
   private raycaster = new THREE.Raycaster();
@@ -493,6 +494,7 @@ export class Viewport {
     this.hovered = null;
     this.selected = [];
     this.selectedMarks = [];
+    this.relatedMarks = [];
     this.data = mesh;
     this.faceStarts = mesh.faces.map((f) => f.start / 3);
     const geometry = new THREE.BufferGeometry();
@@ -671,6 +673,14 @@ export class Viewport {
 
   private isSelected(sel: Sel): boolean {
     return this.selected.some((s) => s.kind === sel.kind && s.id === sel.id);
+  }
+
+  /** Faintly highlight faces related to the selection (the relationship rules that are switched on). */
+  setRelated(sels: Sel[]) {
+    while (this.relatedMarks.length < sels.length && this.markSource) {
+      this.relatedMarks.push(new Mark(this.model, this.markSource, 0xffb36b, 0.4, this.hoverLine));
+    }
+    this.relatedMarks.forEach((mark, i) => this.show(mark, sels[i] ?? null));
   }
 
   /** Select programmatically (no onSelect callback). */

@@ -16,7 +16,8 @@ from OCP.GeomAbs import GeomAbs_Plane
 from OCP.gp import gp_Dir, gp_Vec
 from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
 from OCP.TopAbs import TopAbs_REVERSED
-from OCP.TopoDS import TopoDS_Edge, TopoDS_Face, TopoDS_Shape
+from OCP.BRep import BRep_Builder
+from OCP.TopoDS import TopoDS_Compound, TopoDS_Edge, TopoDS_Face, TopoDS_Shape
 from OCP.collections import List_TopoDS_Shape
 
 MIN_DISTANCE = 1e-4
@@ -82,7 +83,7 @@ def _boolean(shape: TopoDS_Shape, tool: TopoDS_Shape, fuse: bool, glue: bool):
 
 def push_pull(
     shape: TopoDS_Shape,
-    face: TopoDS_Face,
+    face: TopoDS_Face | list[TopoDS_Face],
     distance: float,
     preview: bool = False,
     follow_edges: list[TopoDS_Shape] | None = None,
@@ -102,28 +103,39 @@ def push_pull(
     `follow_edges` and `follow_vertices` are carried through the operation's
     history and returned in the result's tracked lists (deleted ones drop out).
     """
-    normal = planar_normal(face)
-    if normal is None:
-        raise OperationError("Push/pull currently supports planar faces only")
+    faces = face if isinstance(face, list) else [face]
     if abs(distance) < MIN_DISTANCE:
-        return OpResult(shape, [face], list(follow_edges or []), list(follow_vertices or []))
-
-    prism = BRepPrimAPI_MakePrism(face, gp_Vec(normal).Multiplied(distance))
-    prism.Build()
-    if not prism.IsDone():
-        raise OperationError("Could not build extrusion")
-    moved_face = prism.LastShape()
+        return OpResult(shape, list(faces), list(follow_edges or []), list(follow_vertices or []))
+    prisms, moved_faces = [], []
+    for f in faces:
+        normal = planar_normal(f)
+        if normal is None:
+            raise OperationError("Push/pull currently supports planar faces only")
+        prism = BRepPrimAPI_MakePrism(f, gp_Vec(normal).Multiplied(distance))
+        prism.Build()
+        if not prism.IsDone():
+            raise OperationError("Could not build extrusion")
+        prisms.append(prism.Shape())
+        moved_faces.append(prism.LastShape())
+    if len(prisms) == 1:
+        tool = prisms[0]
+    else:
+        tool = TopoDS_Compound()
+        builder = BRep_Builder()
+        builder.MakeCompound(tool)
+        for p in prisms:
+            builder.Add(tool, p)
 
     boolean = None
     if preview:
-        boolean = _boolean(shape, prism.Shape(), distance > 0, glue=True)
+        boolean = _boolean(shape, tool, distance > 0, glue=True)
         if boolean is not None and not BRepCheck_Analyzer(boolean.Shape()).IsValid():
             boolean = None
     if boolean is None:
-        boolean = _boolean(shape, prism.Shape(), distance > 0, glue=False)
+        boolean = _boolean(shape, tool, distance > 0, glue=False)
     if boolean is None:
         raise OperationError("Boolean operation failed")
-    tracked = _follow(boolean, [moved_face])
+    tracked = _follow(boolean, moved_faces)
     edges = _follow(boolean, list(follow_edges or []))
     vertices = _follow(boolean, list(follow_vertices or []))
 

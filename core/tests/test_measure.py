@@ -157,3 +157,12 @@ def test_vertex_tag_and_group_dimensions(block):
     four = find(block, "edge", Length=40)
     (sigma,) = dims(measure(block, Selection(edges=four[:3])))
     assert sigma["text"] == "Σ 120"
+
+
+def test_model_info(bracket):
+    from pliable.measure import model_info
+
+    rows = {r["label"]: r["value"] for r in model_info(bracket)["items"][0]["rows"]}
+    assert rows["Valid"] == "yes"
+    assert rows["Solids"] == 1 and rows["Faces"] == 19 and rows["Open edges"] == 0
+    assert rows["Size (X, Y, Z)"] == pytest.approx([80, 50, 50])

@@ -95,6 +95,8 @@ class Tool:
     label: str
     accepts: Accepts
     params: list[Param] = []
+    # Relationship rules (see relations.py) whose matching faces join the selection when the user has them on.
+    related: tuple[str, ...] = ()
 
     def applies(self, topology: Topology, selection: Selection) -> bool:
         """Extra applicability check beyond the selection counts (e.g. planar faces only)."""
@@ -134,6 +136,7 @@ class Tool:
             "label": self.label,
             "accepts": self.accepts.to_json(),
             "params": [p.to_json() for p in self.params],
+            "related": list(self.related),
         }
 
 
@@ -158,15 +161,19 @@ def get_tool(tool_id: str) -> Tool:
 class PushPull(Tool):
     id = "push_pull"
     label = "Push/Pull"
-    accepts = Accepts(faces=(1, 1))
+    accepts = Accepts(faces=(1, None))
     params = [Param("distance", "length", drag=True)]
+    related = ("coplanar",)
 
     def applies(self, topology, selection):
-        return planar_normal(topology.face(selection.faces[0])) is not None
+        normals = [planar_normal(topology.face(i)) for i in selection.faces]
+        return all(n is not None for n in normals) and all(n.IsParallel(normals[0], 1e-6) and not n.IsOpposite(normals[0], 1e-6) for n in normals)
 
     def run(self, topology, selection, values, preview):
-        face = topology.face(selection.faces[0])
-        return push_pull(topology.shape, face, values["distance"], preview=preview)
+        faces = [topology.face(i) for i in selection.faces]
+        result = push_pull(topology.shape, faces if len(faces) > 1 else faces[0], values["distance"], preview=preview)
+        result.tracked_faces = result.tracked_faces[:1]  # keep a single face selected, the related ones are found again
+        return result
 
 
 @register
