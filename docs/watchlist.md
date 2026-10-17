@@ -50,6 +50,8 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 
 - **S18 surface-body healing:** closed surface bodies are made into solids; open ones are tried with ShapeFix_Shell and sewing at 1e-3 mm, and otherwise left as they are and named in the import warning. Missing faces are never invented. Part names come from the STEP file as OpenCASCADE decoded them, so non-Latin names can show as garbage. Loose faces that are not in any shell are not checked. Import takes a few seconds longer from the healing and checks.
 - **Open surfaces are not drawn differently yet:** they render like solids. Highlighting free edges or ghosting them is not built.
+- **S20 busy indicator:** shown after 400 ms for any request not on a quiet list (previews, sketch solves, lookups) in `app/src/client.ts`; it shows elapsed seconds only, with no real progress or cancel (OpenCASCADE gives no progress). Websocket keepalive pings are off (`ping_interval=None`) so a long operation holding the GIL cannot get the local connection dropped. Confirmed by the user on a slow AD5M STEP import.
+- **OPEN DECISION, future release: how to work with multi-solid STEP files.** Assemblies and multi-body files (for example the AD5M ones) import and display, but in practice you can only select faces and edges to read measurements; the modeling tools do little or nothing useful on them. Needs investigation and a decision on the model: per-body selection and visibility, treating bodies as separate parts, moving or hiding bodies, and what push/pull, fillet and combine should do across bodies. Not scheduled; see also the S18 entry above.
 
 ## Resolved
 

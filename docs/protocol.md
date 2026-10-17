@@ -21,7 +21,8 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 
 | type | params | reply |
 |---|---|---|
-| `hello` | | `{version}` |
+| `hello` | | `{version}`, plus `restore: {name, steps, clean}` when an autosave from a session that was killed (not closed cleanly) exists |
+| `restore_session` | | mesh: the autosaved model with its undo steps (saved as BREP in the user data folder, `PLIABLE_DATA` overrides; capped at 50 states) |
 | `open_demo` | `name` (`block`, `bracket`, `perforated_plate`) | mesh |
 | `import_step` | `name`, `data` (base64 STEP) | mesh |
 | `export_step` | | `{name, data}` (base64) |

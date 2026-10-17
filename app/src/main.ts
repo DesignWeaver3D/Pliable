@@ -19,6 +19,17 @@ const fileInput = $("file") as HTMLInputElement;
 const select = $("demo") as HTMLSelectElement;
 const viewport = new Viewport($("viewport"));
 const core = new CoreClient();
+
+const BUSY_LABELS: Record<string, string> = {
+  import_step: "Importing", combine_step: "Combining", export_step: "Exporting", open_demo: "Opening",
+  restore_session: "Restoring", tool_commit: "Applying", sketch_extrude: "Building", undo: "Undoing", redo: "Redoing",
+};
+const busyBox = $("busy");
+const busyText = $("busytext");
+core.onBusy = (busy) => {
+  busyBox.hidden = busy === null;
+  if (busy) busyText.textContent = `${BUSY_LABELS[busy.type] ?? "Working"}... ${Math.floor(busy.seconds)} s`;
+};
 const measurePanel = new MeasurePanel($("measure"));
 const dimensionOverlay = new DimensionOverlay($("viewport"), () => viewport.camera);
 const navCube = new NavCube($("navcube"), viewport);
@@ -657,7 +668,39 @@ async function connectToCore() {
   tools = (await core.request<{ tools: ToolInfo[] }>("list_tools")).tools;
   renderToolbar();
   toolPanel.renderList();
+  const { restore } = await core.request<{ restore?: { name: string; steps: number } }>("hello");
+  if (restore && (await askRestore(restore))) {
+    setCommitted(await core.request<MeshData>("restore_session"), true);
+    status.textContent = `Restored ${restore.name} (${restore.steps} undo steps)`;
+    return;
+  }
   await load(select.value);
+}
+
+/** In-page prompt (not a browser dialog, which would block the page) offered when the core was killed last time. */
+function askRestore(info: { name: string; steps: number }): Promise<boolean> {
+  return new Promise((resolve) => {
+    const box = document.createElement("div");
+    box.style.cssText = "position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:100";
+    const card = document.createElement("div");
+    card.style.cssText = "background:#2b2b2b;color:#eee;padding:20px 24px;border-radius:8px;max-width:360px;font:14px sans-serif";
+    const text = document.createElement("p");
+    text.textContent = `Pliable did not close cleanly last time. Restore your last session? "${info.name}", with ${info.steps - 1} undo steps.`;
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;gap:8px;justify-content:flex-end";
+    for (const [label, answer] of [["Start fresh", false], ["Restore", true]] as const) {
+      const button = document.createElement("button");
+      button.textContent = label;
+      button.onclick = () => {
+        box.remove();
+        resolve(answer);
+      };
+      row.append(button);
+    }
+    card.append(text, row);
+    box.append(card);
+    document.body.append(box);
+  });
 }
 
 core.onDisconnect = () => {

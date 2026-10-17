@@ -16,6 +16,7 @@ import time
 from websockets.asyncio.server import ServerConnection, serve
 
 from . import __version__, sketch
+from .autosave import Autosaver
 from .demos import load_demo
 from .document import Document
 from .features import combine
@@ -41,8 +42,16 @@ def _ms(start: float) -> float:
 
 
 class Session:
-    def __init__(self):
+    def __init__(self, autosaver: Autosaver | None = None):
         self.document: Document | None = None
+        self.autosaver = autosaver
+        self.unclean = autosaver.available() if autosaver else None  # offered once, if the previous run was killed
+        if self.unclean and self.unclean["clean"]:
+            self.unclean = None
+
+    def _autosave(self, fresh: bool = False):
+        if self.autosaver and self.document:
+            self.autosaver.save(self.document, fresh)
 
     def _require_document(self) -> Document:
         if self.document is None:
@@ -61,18 +70,31 @@ class Session:
 
     def _open(self, shape, name: str) -> bytes:
         self.document = Document(shape, name)
+        self._autosave(fresh=True)
         return self._mesh_reply(self.document.current, {}, name=name)
 
     def handle(self, request: dict) -> dict | bytes:
         kind = request.get("type")
         if kind == "hello":
-            return {"version": __version__}
+            reply = {"version": __version__}
+            if self.unclean:
+                reply["restore"] = self.unclean
+            return reply
+        if kind == "restore_session":
+            document = self.autosaver.restore() if self.autosaver else None
+            if document is None:
+                raise RequestError("Nothing to restore")
+            self.document = document
+            self.unclean = None
+            self._autosave(fresh=True)
+            return self._mesh_reply(document.current, {}, name=document.name)
         if kind == "open_demo":
             return self._open(load_demo(request["name"]), request["name"])
         if kind == "import_step":
             start = time.perf_counter()
             shape, warnings = read_step_checked(base64.b64decode(request["data"]))
             self.document = Document(shape, request.get("name", "Imported"))
+            self._autosave(fresh=True)
             return self._mesh_reply(self.document.current, {"importMs": _ms(start)}, name=self.document.name, warnings=warnings)
         if kind == "list_tools":
             return {"tools": [tool.describe() for tool in TOOLS.values()]}
@@ -93,6 +115,7 @@ class Session:
             offset = gp_Vec(float(request.get("dx", 0)), float(request.get("dy", 0)), float(request.get("dz", 0)))
             result = combine(document.current.shape, other, str(request.get("mode", "union")), offset)
             target = document.commit(result.shape)
+            self._autosave()
             return self._mesh_reply(target, {"opMs": _ms(start)}, selection=Selection().to_json())
         if kind == "related":
             topology = self._require_document().current
@@ -129,6 +152,7 @@ class Session:
             changed = document.undo() if kind == "undo" else document.redo()
             if not changed:
                 raise RequestError(f"Nothing to {kind}")
+            self._autosave()
             return self._mesh_reply(document.current, {})
         if kind == "export_step":
             document = self._require_document()
@@ -161,6 +185,8 @@ class Session:
             raise RequestError(f"Malformed sketch request: {e!r}") from e
         timings = {"opMs": _ms(start)}
         target = document.commit(result.shape) if commit else Topology(result.shape)
+        if commit:
+            self._autosave()
         return self._mesh_reply(target, timings, preview=not commit, selection=Selection().to_json())
 
     def _run_tool(self, request: dict, commit: bool) -> bytes:
@@ -172,6 +198,8 @@ class Session:
         result = tool.execute(topology, selection, request.get("params") or {}, preview=not commit)
         timings = {"opMs": _ms(start)}
         target = document.commit(result.shape) if commit else Topology(result.shape)
+        if commit:
+            self._autosave()
         faces = [i for f in result.tracked_faces if (i := target.face_id(f)) is not None]
         edges = [i for e in result.tracked_edges if (i := target.edge_id(e)) is not None]
         vertices = [i for v in result.tracked_vertices if (i := target.vertex_id(v)) is not None]
@@ -179,8 +207,8 @@ class Session:
         return self._mesh_reply(target, timings, preview=not commit, selection=selection.to_json())
 
 
-async def _handle_connection(connection: ServerConnection):
-    session = Session()
+async def _handle_connection(connection: ServerConnection, autosaver: Autosaver | None = None):
+    session = Session(autosaver)
     log.info("client connected")
     async for message in connection:
         if isinstance(message, bytes):
@@ -209,10 +237,18 @@ async def _handle_connection(connection: ServerConnection):
     log.info("client disconnected")
 
 
-async def run(host: str, port: int):
-    async with serve(_handle_connection, host, port, max_size=256 * 1024 * 1024) as server:
-        log.info("Pliable core %s listening on ws://%s:%d", __version__, host, port)
-        await server.serve_forever()
+async def run(host: str, port: int, autosaver: Autosaver | None = None):
+    autosaver = autosaver or Autosaver()
+
+    async def handler(connection: ServerConnection):
+        await _handle_connection(connection, autosaver)
+
+    try:
+        async with serve(handler, host, port, max_size=256 * 1024 * 1024, ping_interval=None) as server:
+            log.info("Pliable core %s listening on ws://%s:%d (autosave in %s)", __version__, host, port, autosaver.folder)
+            await server.serve_forever()
+    finally:
+        autosaver.mark_clean()
 
 
 def main():

@@ -56,7 +56,11 @@ export function decodeMesh(frame: ArrayBuffer): MeshData {
   };
 }
 
-type Pending = { resolve: (value: any) => void; reject: (error: Error) => void };
+type Pending = { resolve: (value: any) => void; reject: (error: Error) => void; type: string; sent: number };
+
+/** Requests that fire constantly during interaction or answer instantly; they never show the busy indicator. */
+const QUIET = new Set(["hello", "tool_preview", "sketch_solve", "sketch_plane", "available_tools", "list_tools", "related", "edge_chain", "measure", "model_info"]);
+const BUSY_AFTER_MS = 400;
 
 export class CoreClient {
   private socket!: WebSocket;
@@ -66,6 +70,10 @@ export class CoreClient {
 
   /** Called once when an established connection drops (the core stopped or crashed). */
   onDisconnect: () => void = () => {};
+
+  /** Called when a slow request starts or finishes, and every 250 ms while one runs; null means idle. */
+  onBusy: (busy: { type: string; seconds: number } | null) => void = () => {};
+  private busyTimer: number | undefined;
 
   connect(url = "ws://127.0.0.1:8765"): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -84,9 +92,25 @@ export class CoreClient {
         for (const entry of this.pending.values()) entry.reject(new Error("Lost connection to the core"));
         this.pending.clear();
         this.awaitingBinary = null;
+        this.updateBusy();
         if (opened) this.onDisconnect();
       };
     });
+  }
+
+  private updateBusy() {
+    const now = performance.now();
+    let slow: Pending | null = null;
+    for (const entry of this.pending.values()) {
+      if (!QUIET.has(entry.type) && now - entry.sent >= BUSY_AFTER_MS && (!slow || entry.sent < slow.sent)) slow = entry;
+    }
+    this.onBusy(slow ? { type: slow.type, seconds: (now - slow.sent) / 1000 } : null);
+    const waiting = [...this.pending.values()].some((e) => !QUIET.has(e.type));
+    if (waiting && this.busyTimer === undefined) this.busyTimer = window.setInterval(() => this.updateBusy(), 250);
+    else if (!waiting && this.busyTimer !== undefined) {
+      window.clearInterval(this.busyTimer);
+      this.busyTimer = undefined;
+    }
   }
 
   private onMessage(data: string | ArrayBuffer) {
@@ -97,6 +121,7 @@ export class CoreClient {
       if (id !== null && entry) {
         this.pending.delete(id);
         entry.resolve(decodeMesh(data));
+        this.updateBusy();
       }
       return;
     }
@@ -110,13 +135,15 @@ export class CoreClient {
     this.pending.delete(reply.id);
     if (reply.ok) entry.resolve(reply);
     else entry.reject(new Error(reply.error));
+    this.updateBusy();
   }
 
   request<T = any>(type: string, params: Record<string, unknown> = {}): Promise<T> {
     const id = this.nextId++;
     return new Promise<T>((resolve, reject) => {
       if (this.socket?.readyState !== WebSocket.OPEN) return reject(new Error("The core is not connected"));
-      this.pending.set(id, { resolve, reject });
+      this.pending.set(id, { resolve, reject, type, sent: performance.now() });
+      this.updateBusy();
       this.socket.send(JSON.stringify({ id, type, ...params }));
     });
   }
