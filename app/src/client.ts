@@ -13,6 +13,13 @@ export interface EdgeRange {
   id: number;
   start: number;
   count: number;
+  /** Unit direction pointing away from the material (drag axis for fillet/chamfer). */
+  normal: [number, number, number] | null;
+}
+
+export interface VertexInfo {
+  id: number;
+  position: [number, number, number];
 }
 
 export interface MeshData {
@@ -23,6 +30,7 @@ export interface MeshData {
   edgePositions: Float32Array;
   faces: FaceRange[];
   edges: EdgeRange[];
+  vertices: VertexInfo[];
   bounds: number[];
 }
 
@@ -43,6 +51,7 @@ export function decodeMesh(frame: ArrayBuffer): MeshData {
     edgePositions: arrays.edgePositions as Float32Array,
     faces: header.faces,
     edges: header.edges,
+    vertices: header.vertices ?? [],
     bounds: header.bounds,
   };
 }

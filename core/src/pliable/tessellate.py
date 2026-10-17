@@ -18,7 +18,7 @@ from OCP.TopAbs import TopAbs_REVERSED
 from OCP.TopLoc import TopLoc_Location
 from OCP.TopoDS import TopoDS_Shape
 
-from .ops import planar_normal
+from .ops import edge_outward_normal, planar_normal
 from .topology import Topology
 
 ANGULAR_DEFLECTION = 0.5  # radians
@@ -34,6 +34,8 @@ class Mesh:
     faces: list[dict] = field(default_factory=list)
     # Per edge: id, first vertex into `edge_positions`, vertex count
     edges: list[dict] = field(default_factory=list)
+    # Per vertex: id and position
+    vertices: list[dict] = field(default_factory=list)
     bounds: list[float] = field(default_factory=list)  # xmin, ymin, zmin, xmax, ymax, zmax
 
 
@@ -139,7 +141,19 @@ def tessellate(topology: Topology) -> Mesh:
             for p0, p1 in zip(points, points[1:]):
                 edge_positions.append((p0.X(), p0.Y(), p0.Z()))
                 edge_positions.append((p1.X(), p1.Y(), p1.Z()))
-        edges.append({"id": edge_id, "start": start, "count": len(edge_positions) - start})
+        edges.append(
+            {
+                "id": edge_id,
+                "start": start,
+                "count": len(edge_positions) - start,
+                "normal": edge_outward_normal(topology, edge),
+            }
+        )
+
+    vertices = []
+    for vertex_id, vertex in topology.vertices():
+        p = BRep_Tool.Pnt_s(vertex)
+        vertices.append({"id": vertex_id, "position": [p.X(), p.Y(), p.Z()]})
 
     return Mesh(
         positions=_join(positions, np.float32, (-1, 3)),
@@ -148,5 +162,6 @@ def tessellate(topology: Topology) -> Mesh:
         edge_positions=np.asarray(edge_positions, dtype=np.float32).reshape(-1, 3),
         faces=faces,
         edges=edges,
+        vertices=vertices,
         bounds=bounds(shape),
     )

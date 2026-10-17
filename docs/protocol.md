@@ -1,0 +1,55 @@
+# Core protocol
+
+The Python core (`core/src/pliable/server.py`) talks to the frontend over one WebSocket (`ws://127.0.0.1:8765`). Each connection has its own session with one open document.
+
+## Framing
+
+- Requests are JSON text frames: `{"id": <int>, "type": <string>, ...params}`.
+- Every request gets exactly one reply carrying the same `id`:
+  - JSON reply: `{"id", "ok": true, "serverMs", ...fields}`.
+  - Error: `{"id", "ok": false, "error": "<message>", "serverMs"}`.
+  - Mesh reply: a JSON frame `{"id", "ok": true, "binary": true, "serverMs"}` immediately followed by one binary frame.
+- Binary frame layout (see `protocol.py`): `uint32 LE header length`, UTF-8 JSON header padded to 4 bytes, then raw typed-array buffers (4-byte aligned) described by the header's `buffers` list (`name`, `dtype` `f32`|`u32`, `offset`, `length`).
+
+## Mesh header
+
+Fields: `kind: "mesh"`, `faces` (`id`, `start`, `count` into `indices`, `normal` for planar faces, `centroid`), `edges` (`id`, `start`, `count` into `edgePositions`, `normal`: unit vector pointing away from the material, the bisector of the adjacent faces' outward normals, or null), `vertices` (`id`, `position`), `bounds` `[xmin,ymin,zmin,xmax,ymax,zmax]`, `timings` (`opMs`, `meshMs`, `importMs`), `canUndo`, `canRedo`, `name` (on open). Buffers: `positions`, `normals` (f32 xyz), `indices` (u32), `edgePositions` (f32 xyz, consecutive pairs are segments).
+
+Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selection` (`{"faces": [ids], "edges": [ids], "vertices": [ids]}`): the faces in the **new** mesh that the old selection maps to, so the UI can keep selecting them. Face and edge ids belong to one mesh; they are not stable across operations except through this mapping.
+
+## Requests
+
+| type | params | reply |
+|---|---|---|
+| `hello` | | `{version}` |
+| `open_demo` | `name` (`block`, `bracket`, `perforated_plate`) | mesh |
+| `import_step` | `name`, `data` (base64 STEP) | mesh |
+| `export_step` | | `{name, data}` (base64) |
+| `list_tools` | | `{tools: [ToolDescription]}` |
+| `available_tools` | `selection` | `{tools: [id]}` tools usable with that selection |
+| `tool_preview` | `tool`, `selection`, `params` | mesh (document unchanged) |
+| `tool_commit` | `tool`, `selection`, `params` | mesh (document updated, undoable) |
+| `undo`, `redo` | | mesh |
+
+`selection` is `{"faces": [ids], "edges": [ids], "vertices": [ids]}`; omitted lists are empty.
+
+Previews may use a faster, slightly less exact algorithm than commits. The frontend keeps one preview in flight and always sends the newest parameters next.
+
+## Tool description
+
+```json
+{
+  "id": "push_pull",
+  "label": "Push/Pull",
+  "accepts": {"faces": [1, 1], "edges": [0, 0], "vertices": [0, 0]},
+  "params": [{"name": "distance", "kind": "length", "default": 0.0, "drag": true}]
+}
+```
+
+- `accepts`: `[min, max]` selected faces, edges and vertices (`max` null = unbounded).
+- `params[].kind`: `length` (model units), `angle` (degrees) or `number`. `drag: true` marks the parameter the viewport drag controls.
+- A tool can also refuse a selection the counts allow (push/pull rejects curved faces); `available_tools` reports that.
+
+## Adding a tool
+
+See `core/src/pliable/tools.py` (the module docstring and `PushPull`). Declare `id`, `label`, `accepts`, `params`, optionally `applies`, and implement `run(topology, selection, values, preview)` returning an `OpResult` (new shape plus the faces the selection should follow). Decorate with `@register`; the protocol, validation and applicability checks need nothing else.

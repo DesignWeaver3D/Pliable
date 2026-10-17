@@ -1,18 +1,22 @@
 """Modeling operations on OCCT shapes."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from OCP.BRepAdaptor import BRepAdaptor_Surface
 from OCP.BOPAlgo import BOPAlgo_GlueShift
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
+from OCP.BRep import BRep_Tool
 from OCP.BRepCheck import BRepCheck_Analyzer
+from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer, BRepFilletAPI_MakeFillet
+from OCP.BRepLProp import BRepLProp_SLProps
 from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
+from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.GeomAbs import GeomAbs_Plane
 from OCP.gp import gp_Dir, gp_Vec
 from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
 from OCP.TopAbs import TopAbs_REVERSED
-from OCP.TopoDS import TopoDS_Face, TopoDS_Shape
+from OCP.TopoDS import TopoDS_Edge, TopoDS_Face, TopoDS_Shape
 from OCP.collections import List_TopoDS_Shape
 
 MIN_DISTANCE = 1e-4
@@ -38,6 +42,8 @@ class OpResult:
     shape: TopoDS_Shape
     # Faces in the result that the user's selection should follow.
     tracked_faces: list[TopoDS_Face]
+    tracked_edges: list[TopoDS_Shape] = field(default_factory=list)
+    tracked_vertices: list[TopoDS_Shape] = field(default_factory=list)
 
 
 def _follow(history_op, shapes: list[TopoDS_Shape]) -> list[TopoDS_Shape]:
@@ -74,7 +80,14 @@ def _boolean(shape: TopoDS_Shape, tool: TopoDS_Shape, fuse: bool, glue: bool):
     return operation
 
 
-def push_pull(shape: TopoDS_Shape, face: TopoDS_Face, distance: float, preview: bool = False) -> OpResult:
+def push_pull(
+    shape: TopoDS_Shape,
+    face: TopoDS_Face,
+    distance: float,
+    preview: bool = False,
+    follow_edges: list[TopoDS_Shape] | None = None,
+    follow_vertices: list[TopoDS_Shape] | None = None,
+) -> OpResult:
     """Extrude a planar face along its outward normal.
 
     Positive distances add material, negative distances remove it.
@@ -85,12 +98,15 @@ def push_pull(shape: TopoDS_Shape, face: TopoDS_Face, distance: float, preview: 
     intersect the solid, so it can be wrong when pushing into other geometry;
     previews accept that risk (falling back if the result is invalid), and
     commits always use the exact boolean.
+
+    `follow_edges` and `follow_vertices` are carried through the operation's
+    history and returned in the result's tracked lists (deleted ones drop out).
     """
     normal = planar_normal(face)
     if normal is None:
         raise OperationError("Push/pull currently supports planar faces only")
     if abs(distance) < MIN_DISTANCE:
-        return OpResult(shape, [face])
+        return OpResult(shape, [face], list(follow_edges or []), list(follow_vertices or []))
 
     prism = BRepPrimAPI_MakePrism(face, gp_Vec(normal).Multiplied(distance))
     prism.Build()
@@ -108,6 +124,8 @@ def push_pull(shape: TopoDS_Shape, face: TopoDS_Face, distance: float, preview: 
     if boolean is None:
         raise OperationError("Boolean operation failed")
     tracked = _follow(boolean, [moved_face])
+    edges = _follow(boolean, list(follow_edges or []))
+    vertices = _follow(boolean, list(follow_vertices or []))
 
     # UnifySameDomain modifies its input in place, even in "safe input" mode,
     # and the boolean result shares sub-shapes with the document's shape.
@@ -115,12 +133,69 @@ def push_pull(shape: TopoDS_Shape, face: TopoDS_Face, distance: float, preview: 
     # triangulations are shared, so the copy is cheap.
     copy = BRepBuilderAPI_Copy(boolean.Shape(), False, True)
     tracked = _follow(copy, tracked)
+    edges = _follow(copy, edges)
+    vertices = _follow(copy, vertices)
 
     unify = ShapeUpgrade_UnifySameDomain(copy.Shape(), True, True, True)
     unify.Build()
     result = unify.Shape()
     tracked = _follow(unify.History(), tracked)
+    edges = _follow(unify.History(), edges)
+    vertices = _follow(unify.History(), vertices)
 
     if result.IsNull() or not BRepCheck_Analyzer(result).IsValid():
         raise OperationError("Operation produced invalid geometry")
-    return OpResult(result, tracked)
+    return OpResult(result, tracked, edges, vertices)
+
+
+def face_normal_at_edge(face: TopoDS_Face, edge: TopoDS_Edge) -> gp_Dir | None:
+    """Outward normal of `face` at the middle of `edge` (which must lie on it)."""
+    curve2d = BRep_Tool.CurveOnSurface_s(edge, face, 0.0, 1.0)
+    if curve2d is None:
+        return None
+    first, last = BRep_Tool.Range_s(edge, face)
+    uv = curve2d.Value((first + last) / 2)
+    props = BRepLProp_SLProps(BRepAdaptor_Surface(face), uv.X(), uv.Y(), 1, 1e-6)
+    if not props.IsNormalDefined():
+        return None
+    normal = props.Normal()
+    return normal.Reversed() if face.Orientation() == TopAbs_REVERSED else normal
+
+
+def edge_outward_normal(topology, edge: TopoDS_Edge) -> list[float] | None:
+    """Unit direction pointing away from the material at an edge: the bisector
+    of the adjacent faces' outward normals. This is the axis along which
+    dragging the edge outward makes a fillet and inward makes a chamfer."""
+    total = gp_Vec(0, 0, 0)
+    for face in topology.edge_faces(edge):
+        normal = face_normal_at_edge(face, edge)
+        if normal is not None:
+            total.Add(gp_Vec(normal))
+    if total.Magnitude() < 1e-6:
+        return None
+    total.Normalize()
+    return [total.X(), total.Y(), total.Z()]
+
+
+def fillet_chamfer(shape: TopoDS_Shape, edges: list[TopoDS_Edge], distance: float) -> OpResult:
+    """Round or bevel edges: positive distances make a fillet of that radius,
+    negative distances a chamfer of that size. The generated faces are tracked."""
+    if abs(distance) < MIN_DISTANCE:
+        return OpResult(shape, [], list(edges))
+    size = abs(distance)
+    maker = BRepFilletAPI_MakeFillet(shape) if distance > 0 else BRepFilletAPI_MakeChamfer(shape)
+    for edge in edges:
+        maker.Add(size, edge)
+    try:
+        maker.Build()
+    except Exception as e:  # OCCT raises Standard_Failure for impossible sizes
+        raise OperationError(f"Could not {'fillet' if distance > 0 else 'chamfer'}: {e}") from None
+    if not maker.IsDone() or maker.Shape().IsNull():
+        raise OperationError("Could not " + ("fillet" if distance > 0 else "chamfer") + " these edges at this size")
+    result = maker.Shape()
+    if not BRepCheck_Analyzer(result).IsValid():
+        raise OperationError("Operation produced invalid geometry")
+    generated = []
+    for edge in edges:
+        generated.extend(maker.Generated(edge))
+    return OpResult(result, generated)

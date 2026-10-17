@@ -96,6 +96,7 @@ These need investigation before the milestones that depend on them:
 
 ## Future Ideas (unordered)
 
+- User settings (post-MVP): pick radii (vertex/edge hit distance), drag threshold, highlight line widths and point sizes, navigation button mapping, and the modifier-key tool bundles. Pixel-based behavior feels different on high-DPI and large monitors, so these need to be adjustable and ideally scale with the display's pixel density.
 - Plugin system (Python packages that register new tools)
 - Additional import/export formats
 - Performance pass

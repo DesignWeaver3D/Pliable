@@ -40,9 +40,9 @@ async def main(steps: int):
             times = []
             for i in range(1, steps + 1):
                 distance = (i / steps) * 5 * (1 if i % 2 else -1)
-                ms, _ = await call(ws, 100 + i, "preview_push_pull", face=top, distance=distance)
+                ms, _ = await call(ws, 100 + i, "tool_preview", tool="push_pull", selection={"faces": [top]}, params={"distance": distance})
                 times.append(ms)
-            commit_ms, _ = await call(ws, 900, "commit_push_pull", face=top, distance=2.0)
+            commit_ms, _ = await call(ws, 900, "tool_commit", tool="push_pull", selection={"faces": [top]}, params={"distance": 2.0})
             undo_ms, _ = await call(ws, 901, "undo")
         times.sort()
         p95 = times[min(len(times) - 1, round(0.95 * (len(times) - 1)))]

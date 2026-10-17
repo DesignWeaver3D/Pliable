@@ -19,9 +19,10 @@ from . import __version__
 from .demos import load_demo
 from .document import Document
 from .files import read_step, write_step
-from .ops import OperationError, push_pull
+from .ops import OperationError
 from .protocol import encode_mesh
 from .tessellate import tessellate
+from .tools import TOOLS, Selection, get_tool
 from .topology import Topology
 
 log = logging.getLogger("pliable.server")
@@ -69,8 +70,14 @@ class Session:
             shape = read_step(base64.b64decode(request["data"]))
             self.document = Document(shape, request.get("name", "Imported"))
             return self._mesh_reply(self.document.current, {"importMs": _ms(start)}, name=self.document.name)
-        if kind in ("preview_push_pull", "commit_push_pull"):
-            return self._push_pull(request, commit=kind == "commit_push_pull")
+        if kind == "list_tools":
+            return {"tools": [tool.describe() for tool in TOOLS.values()]}
+        if kind == "available_tools":
+            topology = self._require_document().current
+            selection = Selection.from_json(request.get("selection"))
+            return {"tools": [t.id for t in TOOLS.values() if t.available(topology, selection)]}
+        if kind in ("tool_preview", "tool_commit"):
+            return self._run_tool(request, commit=kind == "tool_commit")
         if kind in ("undo", "redo"):
             document = self._require_document()
             changed = document.undo() if kind == "undo" else document.redo()
@@ -83,19 +90,20 @@ class Session:
             return {"name": document.name, "data": base64.b64encode(data).decode()}
         raise RequestError(f"Unknown request type {kind!r}")
 
-    def _push_pull(self, request: dict, commit: bool) -> bytes:
+    def _run_tool(self, request: dict, commit: bool) -> bytes:
         document = self._require_document()
         topology = document.current
-        try:
-            face = topology.face(int(request["face"]))
-        except KeyError as e:
-            raise RequestError(str(e)) from None
+        tool = get_tool(str(request.get("tool")))
+        selection = Selection.from_json(request.get("selection"))
         start = time.perf_counter()
-        result = push_pull(topology.shape, face, float(request["distance"]), preview=not commit)
+        result = tool.execute(topology, selection, request.get("params") or {}, preview=not commit)
         timings = {"opMs": _ms(start)}
         target = document.commit(result.shape) if commit else Topology(result.shape)
-        selection = [i for f in result.tracked_faces if (i := target.face_id(f)) is not None]
-        return self._mesh_reply(target, timings, preview=not commit, selection=selection)
+        faces = [i for f in result.tracked_faces if (i := target.face_id(f)) is not None]
+        edges = [i for e in result.tracked_edges if (i := target.edge_id(e)) is not None]
+        vertices = [i for v in result.tracked_vertices if (i := target.vertex_id(v)) is not None]
+        selection = Selection(faces=faces, edges=edges, vertices=vertices)
+        return self._mesh_reply(target, timings, preview=not commit, selection=selection.to_json())
 
 
 async def _handle_connection(connection: ServerConnection):

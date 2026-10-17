@@ -2,13 +2,17 @@ import base64
 import json
 
 import pytest
+from OCP.Bnd import Bnd_Box
+from OCP.BRep import BRep_Tool
+from OCP.BRepBndLib import BRepBndLib
+from OCP.TopoDS import TopoDS
 from build123d import Box
 from build123d.topology import Shape
 
 from pliable.demos import DEMOS, load_demo
 from pliable.document import Document
 from pliable.files import read_step, write_step
-from pliable.ops import OperationError, planar_normal, push_pull
+from pliable.ops import OperationError, edge_outward_normal, fillet_chamfer, planar_normal, push_pull
 from pliable.protocol import decode_binary, encode_mesh
 from pliable.server import Session
 from pliable.tessellate import tessellate
@@ -126,12 +130,12 @@ def test_session_push_pull_flow():
     session = Session()
     session.handle({"type": "open_demo", "name": "block"})
     face = top_face(session.document.current)
-    preview = session.handle({"type": "preview_push_pull", "face": face, "distance": 3})
+    preview = session.handle({"type": "tool_preview", "tool": "push_pull", "selection": {"faces": [face]}, "params": {"distance": 3}})
     header, _ = decode_binary(preview)
     assert header["preview"] and not session.document.can_undo
-    commit = session.handle({"type": "commit_push_pull", "face": face, "distance": 3})
+    commit = session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": [face]}, "params": {"distance": 3}})
     header, _ = decode_binary(commit)
-    assert header["canUndo"] and header["selection"] == [top_face(session.document.current)]
+    assert header["canUndo"] and header["selection"] == {"faces": [top_face(session.document.current)], "edges": [], "vertices": []}
     exported = session.handle({"type": "export_step"})
     assert volume(read_step(base64.b64decode(exported["data"]))) == pytest.approx(40 * 30 * 23)
     json.dumps(exported)
@@ -146,3 +150,125 @@ def test_push_pull_leaves_source_shape_untouched(preview):
     for distance in (2, -3, 4, -1):
         push_pull(topology.shape, face, distance, preview=preview)
         assert BRepCheck_Analyzer(topology.shape).IsValid()
+
+
+def test_tool_registry_describes_push_pull():
+    reply = Session().handle({"type": "list_tools"})
+    (tool,) = [t for t in reply["tools"] if t["id"] == "push_pull"]
+    assert tool["accepts"] == {"faces": [1, 1], "edges": [0, 0], "vertices": [0, 0]}
+    assert tool["params"] == [{"name": "distance", "kind": "length", "default": 0.0, "drag": True}]
+    json.dumps(reply)
+
+
+def test_available_tools_follow_selection():
+    session = Session()
+    session.handle({"type": "open_demo", "name": "bracket"})
+    topology = session.document.current
+    planar = top_face(topology)
+    curved = next(i for i, f in topology.faces() if planar_normal(f) is None)
+
+    def available(selection):
+        return session.handle({"type": "available_tools", "selection": selection})["tools"]
+
+    assert available({"faces": [planar]}) == ["push_pull"]
+    assert available({"faces": [curved]}) == []
+    assert available({"faces": [planar, planar]}) == []
+    assert available({}) == []
+    assert available({"faces": [9999]}) == []
+
+
+def test_tool_rejects_bad_requests():
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    face = top_face(session.document.current)
+    selection = {"faces": [face]}
+    with pytest.raises(OperationError):
+        session.handle({"type": "tool_preview", "tool": "nope", "selection": selection})
+    with pytest.raises(OperationError):
+        session.handle({"type": "tool_preview", "tool": "push_pull", "selection": {}, "params": {"distance": 1}})
+    with pytest.raises(OperationError):
+        session.handle({"type": "tool_preview", "tool": "push_pull", "selection": selection, "params": {"distance": "x"}})
+
+
+def test_mesh_has_vertices(box_topology):
+    mesh = tessellate(box_topology)
+    assert len(mesh.vertices) == 8
+    header, _ = decode_binary(encode_mesh({}, mesh))
+    assert len(header["vertices"]) == 8 and len(header["vertices"][0]["position"]) == 3
+
+
+def test_push_pull_carries_edges_and_vertices(box_topology):
+    top = top_face(box_topology)
+    # An edge and a vertex on the bottom survive pulling the top face.
+    low_edge = min(box_topology.edges(), key=lambda ie: _centre_z(ie[1]))[0]
+    low_vertex = min(box_topology.vertices(), key=lambda iv: BRep_Tool.Pnt_s(iv[1]).Z())[0]
+    result = push_pull(
+        box_topology.shape,
+        box_topology.face(top),
+        3,
+        follow_edges=[box_topology.edge(low_edge)],
+        follow_vertices=[box_topology.vertex(low_vertex)],
+    )
+    new = Topology(result.shape)
+    (edge,) = result.tracked_edges
+    (vertex,) = result.tracked_vertices
+    assert new.edge_id(edge) is not None and new.vertex_id(vertex) is not None
+    assert BRep_Tool.Pnt_s(TopoDS.Vertex(vertex)).Z() == pytest.approx(BRep_Tool.Pnt_s(box_topology.vertex(low_vertex)).Z())
+
+
+def _centre_z(edge):
+    box = Bnd_Box()
+    BRepBndLib.Add_s(edge, box)
+    return (box.CornerMin().Z() + box.CornerMax().Z()) / 2
+
+
+def _top_edge_of_box(topology):
+    """An edge on the top face of the box, on its +x side."""
+    best = None
+    for i, edge in topology.edges():
+        box = Bnd_Box()
+        BRepBndLib.Add_s(edge, box)
+        low, high = box.CornerMin(), box.CornerMax()
+        if abs(low.Z() - 5) < 1e-6 and abs(high.Z() - 5) < 1e-6 and abs(low.X() - 5) < 1e-6 and abs(high.X() - 5) < 1e-6:
+            best = i
+    return best
+
+
+def test_edge_outward_normal_bisects_adjacent_faces(box_topology):
+    edge = box_topology.edge(_top_edge_of_box(box_topology))
+    n = edge_outward_normal(box_topology, edge)
+    assert n == pytest.approx([2**-0.5, 0, 2**-0.5])
+
+
+def test_fillet_removes_expected_volume(box_topology):
+    edge = box_topology.edge(_top_edge_of_box(box_topology))
+    result = fillet_chamfer(box_topology.shape, [edge], 2)
+    # A quarter-circle of radius r removes (1 - pi/4) r^2 per unit length.
+    assert volume(result.shape) == pytest.approx(1000 - (1 - 3.141592653589793 / 4) * 4 * 10)
+    assert len(result.tracked_faces) == 1
+
+
+def test_chamfer_removes_expected_volume(box_topology):
+    edge = box_topology.edge(_top_edge_of_box(box_topology))
+    result = fillet_chamfer(box_topology.shape, [edge], -2)
+    assert volume(result.shape) == pytest.approx(1000 - 0.5 * 2 * 2 * 10)
+
+
+def test_fillet_too_large_fails_cleanly(box_topology):
+    edge = box_topology.edge(_top_edge_of_box(box_topology))
+    with pytest.raises(OperationError):
+        fillet_chamfer(box_topology.shape, [edge], 50)
+
+
+def test_fillet_chamfer_tool_through_session():
+    session = Session()
+    session.handle({"type": "open_demo", "name": "bracket"})
+    topology = session.document.current
+    reply = session.handle({"type": "available_tools", "selection": {"edges": [0]}})
+    assert reply["tools"] == ["fillet_chamfer"]
+    frame = session.handle(
+        {"type": "tool_commit", "tool": "fillet_chamfer", "selection": {"edges": [27]}, "params": {"distance": 1}}
+    )
+    header, _ = decode_binary(frame)
+    assert header["canUndo"] and len(header["faces"]) > topology.face_count
+    assert header["edges"][0]["normal"] is None or len(header["edges"][0]["normal"]) == 3
