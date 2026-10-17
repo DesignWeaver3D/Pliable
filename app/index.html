@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pliable</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #1b1d22; color: #ddd; font: 13px system-ui, sans-serif; overflow: hidden; }
+      #viewport { position: fixed; inset: 0; }
+      #bar { position: fixed; top: 8px; left: 8px; display: flex; gap: 6px; align-items: center; z-index: 1; }
+      #bar span:empty { display: none; }
+      #bar button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; }
+      #bar button:disabled { opacity: 0.4; }
+      #bar select, #bar span { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; }
+    </style>
+  </head>
+  <body>
+    <div id="viewport"></div>
+    <div id="bar">
+      <select id="demo">
+        <option>bracket</option>
+        <option>block</option>
+        <option>perforated_plate</option>
+      </select>
+      <button id="open">Open STEP</button>
+      <button id="export">Export STEP</button>
+      <input id="file" type="file" accept=".step,.stp" hidden />
+      <button id="undo" disabled>Undo</button>
+      <button id="redo" disabled>Redo</button>
+      <span id="status">connecting...</span>
+      <span id="selected"></span>
+      <span id="latency"></span>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
