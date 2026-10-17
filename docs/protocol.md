@@ -27,6 +27,7 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 | `export_step` | | `{name, data}` (base64) |
 | `list_tools` | | `{tools: [ToolDescription]}` |
 | `available_tools` | `selection` | `{tools: [id]}` tools usable with that selection |
+| `measure` | `selection` | `{items: [Measured], summary: [Row]}` measurements of the selection (one kind of item at a time) |
 | `tool_preview` | `tool`, `selection`, `params` | mesh (document unchanged) |
 | `tool_commit` | `tool`, `selection`, `params` | mesh (document updated, undoable) |
 | `undo`, `redo` | | mesh |
@@ -34,6 +35,17 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 `selection` is `{"faces": [ids], "edges": [ids], "vertices": [ids]}`; omitted lists are empty.
 
 Previews may use a faster, slightly less exact algorithm than commits. The frontend keeps one preview in flight and always sends the newest parameters next.
+
+## Measurements
+
+`measure` returns one `Measured` per selected item plus a `summary` for several items. A `Row` is `{label, value, unit}`; `value` is a number or an `[x, y, z]` array, lengths are in model units (`unit` is empty) and angles in degrees (`unit` is `"°"`).
+
+```json
+{"kind": "face", "id": 9, "title": "Cylinder", "anchor": [x, y, z],
+ "rows": [{"label": "Radius", "value": 7, "unit": ""}, {"label": "Diameter", "value": 14, "unit": ""}, ...]}
+```
+
+`title` is the geometry type (Line, Circle, Arc, Ellipse, Plane, Cylinder, Cone, Sphere, Torus, Fillet, Vertex); rows depend on it (`core/src/pliable/measure.py`). `anchor` is a point on the item for placing a label. The summary has the count, totals (length or area) and, for exactly two items, their distance and the angle between them when both define a direction (lines, planes). Unknown ids give an error reply, as does a mix of kinds.
 
 ## Tool description
 

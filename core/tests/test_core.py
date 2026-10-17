@@ -177,6 +177,17 @@ def test_available_tools_follow_selection():
     assert available({"faces": [9999]}) == []
 
 
+def test_measure_request():
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    reply = session.handle({"type": "measure", "selection": {"edges": [0, 1]}})
+    assert len(reply["items"]) == 2 and reply["items"][0]["kind"] == "edge"
+    assert reply["summary"][0] == {"label": "Selected", "value": 2, "unit": ""}
+    json.dumps(reply)  # must be plain JSON data
+    with pytest.raises(Exception):
+        session.handle({"type": "measure", "selection": {"edges": [9999]}})
+
+
 def test_tool_rejects_bad_requests():
     session = Session()
     session.handle({"type": "open_demo", "name": "block"})

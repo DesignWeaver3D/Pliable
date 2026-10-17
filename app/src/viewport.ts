@@ -107,6 +107,9 @@ export class Viewport {
   private measureAll = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: 0x4fc3f7, linewidth: 2, depthTest: false }));
   private measureHot = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: 0xffffff, linewidth: 4, depthTest: false }));
 
+  /** Called after every rendered frame (the dimension overlay redraws here). */
+  onFrame: () => void = () => {};
+
   /** Whether a tool drag has moved past the click threshold. */
   get dragging(): boolean {
     return this.drag?.moved ?? false;
@@ -338,6 +341,7 @@ export class Viewport {
     this.renderer.setAnimationLoop(() => {
       this.controls.update();
       this.renderer.render(this.scene, this.camera);
+      this.onFrame();
     });
   }
 

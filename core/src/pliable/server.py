@@ -19,6 +19,7 @@ from . import __version__
 from .demos import load_demo
 from .document import Document
 from .files import read_step, write_step
+from .measure import measure
 from .ops import OperationError
 from .protocol import encode_mesh
 from .tessellate import tessellate
@@ -76,6 +77,12 @@ class Session:
             topology = self._require_document().current
             selection = Selection.from_json(request.get("selection"))
             return {"tools": [t.id for t in TOOLS.values() if t.available(topology, selection)]}
+        if kind == "measure":
+            topology = self._require_document().current
+            try:
+                return measure(topology, Selection.from_json(request.get("selection")))
+            except KeyError as e:
+                raise RequestError(e.args[0]) from e
         if kind in ("tool_preview", "tool_commit"):
             return self._run_tool(request, commit=kind == "tool_commit")
         if kind in ("undo", "redo"):

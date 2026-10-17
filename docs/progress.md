@@ -23,12 +23,14 @@ The MVP target is parity with the `v0.1.0-poc` prototype: STEP import/export, fa
 | S10 | 2 Interaction | Onscreen dimension label during drags, Tab for exact entry, for every tool with a distance/angle parameter | **Checkpoint 3:** screenshots of the toolbar and dimension UX to the user | Done, awaiting user |
 | S10b | 2 Interaction | Measurement context on the drag label (start/delta, resulting size) and measure mode: right-click during a drag picks a measurement (e.g. edge parallel to the normal) whose edited value sets where the face ends up | User tries it on the bracket; decide which side moves and what stays fixed | Done, awaiting user |
 | S11 | MVP | Parity check against the prototype feature list, fixes, run instructions in README | **Checkpoint 4:** user reviews; merge `rebuild` into `main` | Done, awaiting user |
+| S12 | 4 Measure | Measurement readout on selections: click an edge, face or vertex and see its length, radius, diameter, area, etc. (plan below) | Selecting each kind on the demos shows correct values, checked against known dimensions | Done, awaiting user |
+| S13 | 4 Measure | Drawing-style dimension leaders in the view for each selection's most useful value (plan below) | Selecting an edge, hole, flat face, fillet and vertex shows the right leader on the model; the panel still has everything else | Planned |
 
 After the MVP, the next tools come from research/direct-modeling-tools.md (delete face with heal, fillet removal, move/rotate face, relationship detection), each planned as its own session.
 
 ## Current status
 
-**Research session done (2026-10-16):** research/tool-priorities.md holds the post-MVP tool order, how to offer relationship rules (detection chips, default off) and ideas from other direct modelers (Up To / Direction guides, Fill, tool completion types), and a draft modifier-bundle table. User answers folded in (sections 9-15): sketch before niche tools, add-ons far future, follow common industry defaults, no history but smart re-edit and last-op re-edit, draggers/guides framework before more tools, in-view measurement labels. Round 3 (sections 16-19): full sketch with solver moves down, primitives + holes as stopgap, usage check, alignment tools placement, revised order in section 19. Round 4 (sections 20-22): broader align/distribute tool, Stretch tool via cut-plane insert (spike early), updated order. Section 23: stretch as "extend" (surface-preserving rebuild) vs "insert" (cut-plane), spike definition pending user answers. **Next: S11 is done pending Checkpoint 4** (user review, then merge `rebuild` into `main`). S1-S10b done.
+**Research session done (2026-10-16):** research/tool-priorities.md holds the post-MVP tool order, how to offer relationship rules (detection chips, default off) and ideas from other direct modelers (Up To / Direction guides, Fill, tool completion types), and a draft modifier-bundle table. User answers folded in (sections 9-15): sketch before niche tools, add-ons far future, follow common industry defaults, no history but smart re-edit and last-op re-edit, draggers/guides framework before more tools, in-view measurement labels. Round 3 (sections 16-19): full sketch with solver moves down, primitives + holes as stopgap, usage check, alignment tools placement, revised order in section 19. Round 4 (sections 20-22): broader align/distribute tool, Stretch tool via cut-plane insert (spike early), updated order. Section 23: stretch as "extend" (surface-preserving rebuild) vs "insert" (cut-plane), spike definition pending user answers. **MVP done and merged into `main` (2026-10-17). S12 (measurement panel) done, awaiting user;** **S13 (dimension leaders on the model) done, awaiting user.**
 
 S9 as built: `app/src/tools.ts` (registry types, `acceptsSelection`), `app/src/palette.ts` (Ctrl+K fuzzy search; unusable commands listed greyed with a hint), toolbar in `main.ts` showing only tools usable with the current selection (counts checked locally, refined by the core's `available_tools`); clicking a toolbar/palette tool arms it (drag then runs it); the drag tool is the armed one if it applies, else the first drag-capable tool for the selection. Toolbar buttons do not run anything by themselves yet (S10 adds typed values).
 
@@ -39,6 +41,51 @@ S1 findings (target of 300 ms **not yet met**; perforated_plate mesh still ~1.5 
 - Untouched faces already keep their triangulation through push/pull (verified: 402 of 812 kept), so a per-face cache of converted arrays keyed on TShape never hits (the op's topology copy makes new TShapes). Dropped.
 - Done: `tessellate.py` builds per-face numpy arrays; deflection quantized to a power of two so reused faces aren't re-meshed when the bbox drifts.
 - Next to try: (1) ocp-tessellate (check speed and per-face identity); (2) cache converted arrays keyed on the triangulation itself rather than the face; (3) mesh new faces in a lower-quality preview mode, or reduce new-face count (fewer split faces from the extrusion); (4) decide if 300 ms on this stress model is a realistic gate: bracket total is 43 ms, and op alone is 1 s on the plate.
+
+## S12 plan: measurement data on selections
+
+Goal: after any click, show the numbers needed to edit features around the selection. Implements the contents list of research section 13, minus the drag-time and re-radius parts.
+
+**Core (`core/src/pliable/measure.py`, new):** `measure(topology, selection) -> dict`, using `BRepAdaptor_Curve` / `BRepAdaptor_Surface` for the type and `GProp` (`BRepGProp.LinearProperties_s` / `SurfaceProperties_s`) for length and area. Per item:
+- Edge: curve type (line, circle, arc, ellipse, other), length; circle/arc add radius, diameter, arc angle, center; a full circle is flagged (so a hole rim shows diameter). Line adds direction.
+- Face: surface type (plane, cylinder, cone, sphere, torus, other), area, perimeter; plane adds normal and bounding width and height in the face plane; cylinder adds radius, diameter, axis, and length along the axis (a hole shows diameter and depth); sphere and torus add radii; a cylinder or torus-like face tangent to its neighbors is labelled "fillet" with its radius.
+- Vertex: x, y, z.
+- Several items of one kind: count and sums (total length, total area). Exactly two items: distance between them (min distance via `BRepExtrema_DistShapeShape`) and angle where it is defined (line-line, plane-plane).
+All values in model units, rounded only in the UI.
+
+**Protocol:** new request `measure` taking the same selection payload as `available_tools`; reply `measurements` holding a list of items (kind, id, a `rows` list of label/value/unit, and an anchor point) plus an optional summary. A query on selection, not data sent with every mesh, so it costs nothing for unselected geometry or the stress model. Document it in `docs/protocol.md`.
+
+**Frontend:** after selection changes (same race guard as `available_tools`: ignore a stale reply), request `measure` and show a small panel with the rows. First cut is a panel, not in-view labels; a billboard label at the anchor point (research section 13) is the stretch goal if the session has room. Click a value to copy it. The drag-time dimension label from S10 stays as is, and the panel hides during drags.
+
+**Tests:** known values on the bracket and block demos: block edge length and face area, bracket hole diameter and depth from its cylinder face, a 2-edge sum, parallel-face distance; fillet radius after running the fillet tool. Then verify in Chrome and screenshot for the user.
+
+**Steps (each committed):** (1) `measure.py` for edges and faces with tests; (2) vertices, multi-select sums and two-item distance with tests; (3) protocol and server; (4) frontend panel; (5) in-view labels only if cheap; (6) docs, progress update, push.
+
+**Done when:** selecting an edge, a hole wall, a flat face, a fillet face and a vertex on the demos shows the right values in the UI. Checkpoint session: stop and report with screenshots.
+
+**Open questions (defaults chosen if unanswered):** units are plain model units with no setting yet; diameter shown beside radius for circles; the panel sits at the bottom left of the viewport.
+
+## S13 plan: dimension leaders on the model
+
+User request (2026-10-17): keep the S12 panel, and in addition show the most common value on the model itself with technical-drawing leaders, so the eyes stay on the part. If it is not the wanted value, the panel has the rest. This is the in-view label from research section 13, in drawing style.
+
+**What is "the most common value" per selection** (the core decides, so the rule lives in one place):
+- Line edge: length, as a linear dimension (two extension lines, a dimension line with arrows parallel to the edge, offset to the side away from the model; text centered on it).
+- Full circle edge or hole wall: diameter with the diameter symbol, leader line through the center to the rim. Hole wall also shows its depth as a second, linear dimension along the axis.
+- Arc edge or fillet face: radius with `R`, leader from the arc's center to the arc.
+- Flat face: width and height as two linear dimensions along the face's own axes.
+- Several edges: the total as a text tag at the centroid; two items: the distance as a linear dimension between their closest points (the same points `BRepExtrema` already finds).
+- Vertex: coordinates as a small tag.
+
+**Core:** add `dimension` to each `Measured` (and to the pair summary): `{kind: "linear" | "diameter" | "radius" | "tag", text, points: [[x,y,z], ...], offsetDirection?}`, built next to the rows in `measure.py`. `offsetDirection` for linear dimensions is the in-face direction away from the face's interior (a model-space vector), so the frontend can place it outside the part.
+
+**Frontend:** an SVG overlay above the canvas, redrawn every frame (camera moves) by projecting the 3D points. Constant pixel size for text, arrowheads and the offset distance (named constants `DIM_OFFSET_PX`, `ARROW_PX` in one place, per the settings note). Draw nothing during a drag (the drag label owns the view), and never under the cursor: nudge the text away if it sits within a few pixels of the pointer. Clicking a panel row makes that row the one shown on the model (optional if cheap; otherwise a follow-up).
+
+**Steps (each committed):** (1) core `dimension` data and tests; (2) SVG overlay with linear dimensions; (3) diameter, radius and tags; (4) hide during drags, avoid the cursor, panel-row promotion if cheap; (5) verify in Chrome on the bracket (edge, hole, flat face, fillet, vertex) with screenshots; docs and progress.
+
+**Done when:** each selection kind above shows the right leader on the model and the S12 panel is unchanged. Checkpoint session: stop and report with screenshots.
+
+**Open questions (defaults chosen if unanswered):** show on selection only, not on hover; leaders drawn in the selection orange; when text would overlap another label, keep the first and let the panel carry the rest.
 
 ## Input design (user preferences, 2026-10-16)
 
@@ -105,6 +152,8 @@ Recommendation: **go.** Interactive models in the realistic range (tens of faces
 
 ## Log
 
+- **2026-10-17 (S13):** `measure` replies now carry `dimensions` (per item, or for the group: pair distance, or total tag) built in `measure.py`; frontend `app/src/dimensions.ts` is an SVG overlay redrawn every frame (linear with extension lines, diameter, radius, tag; constants `DIM_OFFSET_PX`, `ARROW_PX` etc. at the top; hidden during drags; text nudged away from the cursor). 43 tests; verified in Chrome: hole wall (diameter + depth), flat face (width, height), fillet (R6). Not checked by eye: edge, vertex, multi-select tags. Not done: panel-row promotion, overlap avoidance between labels. Fillet leader looks short when its axis points at the camera.
+- **2026-10-17 (S12):** `core/src/pliable/measure.py` (edges, faces, vertices, multi-select totals, two-item distance and angle), `measure` request (documented in `docs/protocol.md`), bottom-left measurement panel in the frontend (`app/src/measure.ts`; click a row to copy; hidden during drags). 37 tests; verified in Chrome (hole rim edge, flat face). Not done: in-view labels anchored on the geometry (replies already carry an `anchor` point for them). Notes: `BRep_Tool.Continuity` is C0 on every edge after booleans, so fillet faces are detected by normals at the shared edge's midpoint; lengths show without units until a units setting exists; `uv run` fails while the server runs (exe locked), use `uv run --no-sync`.
 - **2026-10-16 (S11):** Parity check vs `v0.1.0-poc`: STEP import/export, face/edge/vertex selection, push/pull with live preview and typed entry, fillet/chamfer by drag, undo/redo, status messages all present in the rebuild; nothing missing. README run instructions added; 26 tests pass. Awaiting Checkpoint 4. User confirmed browser STEP import and export work (2026-10-17).
 - **2026-10-16 (S9):** Contextual toolbar and Ctrl+K palette; verified in Chrome (face shows Push/Pull, edge shows Fillet/Chamfer, palette filter and Esc).
 - **2026-10-16 (S8):** Fillet/chamfer tool and edge drag (outward fillet, inward chamfer), edge outward normals in the mesh, error message fix; 26 tests; verified both in Chrome on the bracket.

@@ -20,6 +20,14 @@
       #dim { white-space: pre; position: fixed; z-index: 2; pointer-events: none; background: #23262d; color: #ffb878; border: 1px solid #ff8a1f; border-radius: 4px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
       #dim.entry { background: #343944; color: #fff; }
       #dim[hidden] { display: none; }
+      #measure { position: fixed; left: 8px; bottom: 8px; z-index: 1; min-width: 190px; max-height: 60vh; overflow-y: auto; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 4px 0; font-variant-numeric: tabular-nums; }
+      #measure[hidden] { display: none; }
+      #measure .title { padding: 4px 10px 2px; color: #ffb878; font-weight: 600; }
+      #measure .section + .section { border-top: 1px solid #3a3e47; margin-top: 4px; }
+      #measure .row { display: flex; justify-content: space-between; gap: 18px; padding: 1px 10px; cursor: pointer; }
+      #measure .row:hover { background: #2f333b; }
+      #measure .row.copied { background: #3b4a38; }
+      #measure .value { color: #fff; }
       #palette { position: fixed; inset: 0; z-index: 10; display: flex; justify-content: center; align-items: flex-start; padding-top: 14vh; background: rgba(0, 0, 0, 0.35); }
       #palette[hidden] { display: none; }
       #palette-box { width: min(520px, 92vw); background: #23262d; border: 1px solid #444; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); }
@@ -49,6 +57,7 @@
       <span id="latency"></span>
     </div>
     <div id="tools"></div>
+    <div id="measure" hidden></div>
     <div id="dim" hidden></div>
     <div id="palette" hidden>
       <div id="palette-box">

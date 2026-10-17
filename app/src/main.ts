@@ -1,4 +1,6 @@
 import { CoreClient, type MeshData } from "./client";
+import { DimensionOverlay } from "./dimensions";
+import { MeasurePanel, type MeasureReply } from "./measure";
 import { Palette, type Command } from "./palette";
 import { acceptsSelection, describeNeeds, dragParam, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
@@ -13,6 +15,9 @@ const fileInput = $("file") as HTMLInputElement;
 const select = $("demo") as HTMLSelectElement;
 const viewport = new Viewport($("viewport"));
 const core = new CoreClient();
+const measurePanel = new MeasurePanel($("measure"));
+const dimensionOverlay = new DimensionOverlay($("viewport"), viewport.camera);
+viewport.onFrame = () => dimensionOverlay.draw();
 
 // Tool registry from the core, the current selection, and which tool a drag runs.
 let tools: ToolInfo[] = [];
@@ -66,7 +71,18 @@ function setSelection(sels: Sel[]) {
   refined = null;
   selected.textContent = describe(sels);
   renderToolbar();
+  measurePanel.hide();
+  dimensionOverlay.set([]);
   if (sels.length === 0) return;
+  core
+    .request<MeasureReply>("measure", { selection: selectionPayload(sels) })
+    .then((reply) => {
+      if (currentSels === sels && dragSels === null) {
+        measurePanel.show(reply);
+        dimensionOverlay.set(reply.dimensions ?? []);
+      }
+    })
+    .catch(() => {});
   core
     .request<{ tools: string[] }>("available_tools", { selection: selectionPayload(sels) })
     .then((reply) => {
@@ -250,6 +266,8 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
     if (!dragToolFor(sels)) return;
     dragValue = distance;
     dimLabel.hidden = false;
+    measurePanel.hide();
+    dimensionOverlay.set([]);
     dimLabel.style.left = `${x + DIM_OFFSET_PX}px`;
     dimLabel.style.top = `${y + DIM_OFFSET_PX}px`;
     renderDim();
