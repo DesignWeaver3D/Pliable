@@ -79,3 +79,57 @@ def find_related(topology: Topology, face_id: int) -> list[dict]:
             if abs(cylinder[0] - key[0]) >= LINEAR_TOL and _same_line(cylinder[1:3], key[1:3]):
                 found.setdefault("coaxial", []).append(other_id)
     return [{"id": rule, "label": RULES[rule], "faces": found[rule]} for rule in RULES if rule in found]
+
+
+def _end_tangent(edge, vertex_point) -> tuple[float, float, float] | None:
+    """Unit tangent of an edge at the end that lies at `vertex_point`."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.gp import gp_Pnt, gp_Vec
+
+    curve = BRepAdaptor_Curve(edge)
+    first, last = curve.FirstParameter(), curve.LastParameter()
+    end = first if curve.Value(first).Distance(vertex_point) <= curve.Value(last).Distance(vertex_point) else last
+    point, tangent = gp_Pnt(), gp_Vec()
+    curve.D1(end, point, tangent)
+    if tangent.Magnitude() < 1e-12:
+        return None
+    tangent.Normalize()
+    return tangent.X(), tangent.Y(), tangent.Z()
+
+
+def tangent_chain(topology: Topology, edge_id: int) -> list[int]:
+    """Edges reached from `edge_id` by passing through vertices where the curves continue smoothly (a rim, an
+    outline), including the edge itself. Edges that merely touch at a corner are not followed."""
+    from OCP.BRep import BRep_Tool
+    from OCP.TopAbs import TopAbs_VERTEX
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+
+    at_vertex: dict[int, list[int]] = {}
+    for i, edge in topology.edges():
+        explorer = TopExp_Explorer(edge, TopAbs_VERTEX)
+        seen = set()
+        while explorer.More():
+            v = topology.vertex_id(TopoDS.Vertex(explorer.Current()))
+            if v is not None and v not in seen:
+                seen.add(v)
+                at_vertex.setdefault(v, []).append(i)
+            explorer.Next()
+    chain, frontier = {edge_id}, [edge_id]
+    while frontier:
+        current = frontier.pop()
+        explorer = TopExp_Explorer(topology.edge(current), TopAbs_VERTEX)
+        while explorer.More():
+            vertex = TopoDS.Vertex(explorer.Current())
+            v = topology.vertex_id(vertex)
+            point = BRep_Tool.Pnt_s(vertex)
+            mine = _end_tangent(topology.edge(current), point)
+            for other in at_vertex.get(v, []):
+                if other in chain or mine is None:
+                    continue
+                theirs = _end_tangent(topology.edge(other), point)
+                if theirs is not None and abs(sum(a * b for a, b in zip(mine, theirs))) > 1 - 1e-4:
+                    chain.add(other)
+                    frontier.append(other)
+            explorer.Next()
+    return sorted(chain)

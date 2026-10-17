@@ -11,3 +11,8 @@ Decisions were made with this order: your described workflow, industry standard,
 7. **Relationship rules:** selecting a face finds related faces (coplanar, equal radius, coaxial); chips at the bottom show counts and toggle them; matches are highlighted faintly. A rule only changes tools that declare it (`Tool.related`): push/pull uses coplanar, fill/resize/move hole-or-boss use equal radius, so "Add hole" etc. are unaffected. Defaults (reset every session): coplanar on, equal radius on, coaxial off (it would change features of different sizes). Resize hole therefore resizes all equal holes together by default; click the chip to turn that off.
 8. **Move hole / boss with equal radius on** moves all the clones by the same vector.
 9. **Top bar layout** wraps to two rows on narrow windows; tool buttons sit below it. Purely a placeholder until you decide the GUI.
+10. **Double-click an edge** selects its smooth chain (rim or outline), Ctrl+double-click adds (change the modifier if you prefer).
+11. **Resize fillet / chamfer** read the round from the face itself (remove + re-round), per your "no history, smart re-edit" decision; chamfers are re-made with equal legs. Variable-radius fillets are not supported and give a message.
+12. **Edit last** only works until another change is made (then the previous operation is frozen), as decided in research section 10.
+13. **Combine STEP** places the other file at its own origin (no placement UI yet).
+14. **Tools missing a selection helper:** Center between faces needs the hole selected first, then the two faces (selection order matters; shift/ctrl-click keeps order).

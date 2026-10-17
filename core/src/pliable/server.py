@@ -24,7 +24,7 @@ from OCP.gp import gp_Vec
 from .measure import measure, model_info
 from .ops import OperationError
 from .protocol import encode_mesh
-from .relations import find_related
+from .relations import find_related, tangent_chain
 from .tessellate import tessellate
 from .tools import TOOLS, Selection, get_tool
 from .topology import Topology
@@ -100,10 +100,20 @@ class Session:
                 return {"rules": find_related(topology, int(request["face"]))}
             except (KeyError, ValueError, TypeError) as e:
                 raise RequestError("Unknown face") from e
+        if kind == "edge_chain":
+            topology = self._require_document().current
+            try:
+                return {"edges": tangent_chain(topology, int(request["edge"]))}
+            except (KeyError, ValueError, TypeError) as e:
+                raise RequestError("Unknown edge") from e
         if kind == "model_info":
             return model_info(self._require_document().current)
         if kind == "sketch_plane":
-            return {"plane": self._sketch_plane(request)}
+            plane = self._sketch_plane(request)
+            reply = {"plane": plane}
+            if "face" in request:  # outline of the face as fixed reference geometry
+                reply["reference"] = sketch.face_reference(self._require_document().current.face(int(request["face"])), plane)
+            return reply
         if kind == "sketch_solve":
             try:
                 result = sketch.solve(request["sketch"], request.get("drag"))
@@ -143,7 +153,10 @@ class Session:
         commit = bool(request.get("commit"))
         start = time.perf_counter()
         try:
-            result = sketch.extrude(document.current.shape, request["sketch"], float(request["distance"]), str(request.get("mode", "join")))
+            if "axis" in request:  # revolve about a sketch line instead of extruding
+                result = sketch.revolve(document.current.shape, request["sketch"], int(request["axis"]), float(request["distance"]), str(request.get("mode", "join")))
+            else:
+                result = sketch.extrude(document.current.shape, request["sketch"], float(request["distance"]), str(request.get("mode", "join")), bool(request.get("symmetric")))
         except (KeyError, TypeError, ValueError) as e:
             raise RequestError(f"Malformed sketch request: {e!r}") from e
         timings = {"opMs": _ms(start)}

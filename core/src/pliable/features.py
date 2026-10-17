@@ -21,7 +21,8 @@ from OCP.GProp import GProp_GProps
 from OCP.TopAbs import TopAbs_REVERSED
 from OCP.GeomAbs import GeomAbs_Cylinder, GeomAbs_Plane, GeomAbs_Torus
 from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
-from OCP.TopoDS import TopoDS_Shape
+from OCP.BRep import BRep_Builder
+from OCP.TopoDS import TopoDS_Compound, TopoDS_Shape
 from OCP.collections import List_TopoDS_Shape
 from OCP.gp import gp_Ax1, gp_Ax2, gp_Dir, gp_Pln, gp_Pnt, gp_Trsf, gp_Vec
 
@@ -108,6 +109,30 @@ class Hole:
         return _combine(shape, solid, fuse=self.boss)
 
 
+def _compound(shapes: list[TopoDS_Shape]) -> TopoDS_Shape:
+    compound = TopoDS_Compound()
+    builder = BRep_Builder()
+    builder.MakeCompound(compound)
+    for shape in shapes:
+        builder.Add(compound, shape)
+    return compound
+
+
+def apply_holes(shape: TopoDS_Shape, holes: list["Hole"], moves: list[tuple[float | None, gp_Vec | None]] | None = None) -> TopoDS_Shape:
+    """Clear every hole or boss, then (if `moves` is given: one (radius, offset) per hole) place the replacements.
+    All holes of a kind go through one boolean, so editing hundreds of equal holes stays fast."""
+    for boss in (False, True):
+        group = [h for h in holes if h.boss == boss]
+        if group:
+            shape = _combine(shape, _compound([h.solid() for h in group]), fuse=not boss)
+    if moves is not None:
+        for boss in (False, True):
+            solids = [h.solid(radius, offset) for h, (radius, offset) in zip(holes, moves) if h.boss == boss]
+            if solids:
+                shape = _combine(shape, _compound(solids), fuse=boss)
+    return shape
+
+
 def _holes(topology, selection) -> list[Hole]:
     return [Hole(topology.face(i)) for i in selection.faces]
 
@@ -161,10 +186,7 @@ class FillHole(_CylinderFaces):
     accepts = Accepts(faces=(1, None))
 
     def run(self, topology, selection, values, preview):
-        shape = topology.shape
-        for hole in _holes(topology, selection):
-            shape = hole.clear(shape)
-        return finish(shape)
+        return finish(apply_holes(topology.shape, _holes(topology, selection)))
 
 
 @register
@@ -184,9 +206,8 @@ class ResizeHole(_CylinderFaces):
         shape = topology.shape
         if diameter < MIN_DISTANCE:
             return OpResult(shape, [topology.face(i) for i in selection.faces])
-        for hole in _holes(topology, selection):
-            shape = hole.place(hole.clear(shape), radius=diameter / 2)
-        return finish(shape)
+        holes = _holes(topology, selection)
+        return finish(apply_holes(shape, holes, [(diameter / 2, None)] * len(holes)))
 
 
 @register
@@ -202,9 +223,8 @@ class MoveHole(_CylinderFaces):
         shape = topology.shape
         if offset.Magnitude() < MIN_DISTANCE:
             return OpResult(shape, [topology.face(i) for i in selection.faces])
-        for hole in _holes(topology, selection):
-            shape = hole.place(hole.clear(shape), offset=offset)
-        return finish(shape)
+        holes = _holes(topology, selection)
+        return finish(apply_holes(shape, holes, [(None, offset)] * len(holes)))
 
 
 @register
@@ -369,13 +389,11 @@ class _HoleGroup(_CylinderFaces):
         return (middle.X(), middle.Y(), middle.Z())[axis]
 
     def _shift(self, topology, holes: list[Hole], deltas: list[float], axis: int) -> OpResult:
-        shape = topology.shape
-        for hole, delta in zip(holes, deltas):
-            if abs(delta) < MIN_DISTANCE:
-                continue
-            offset = gp_Vec(*(delta if k == axis else 0.0 for k in range(3)))
-            shape = hole.place(hole.clear(shape), offset=offset)
-        return finish(shape)
+        moves = [(None, gp_Vec(*(delta if k == axis else 0.0 for k in range(3)))) for delta in deltas]
+        keep = [(h, m) for h, m, d in zip(holes, moves, deltas) if abs(d) >= MIN_DISTANCE]
+        if not keep:
+            return OpResult(topology.shape, [])
+        return finish(apply_holes(topology.shape, [h for h, _ in keep], [m for _, m in keep]))
 
 
 @register
@@ -413,6 +431,26 @@ class DistributeHoles(_HoleGroup):
         for rank, i in enumerate(order):
             deltas[i] = first + (last - first) * rank / (len(holes) - 1) - centres[i]
         return self._shift(topology, holes, deltas, axis)
+
+
+@register
+class AddBoss(_PlanarFace):
+    """A round boss standing out of a flat face, positioned from the face centre."""
+
+    id = "add_boss"
+    label = "Add boss"
+    accepts = Accepts(faces=(1, 1))
+    params = [Param("diameter", "length", 10), Param("height", "length", 5), Param("offset_u", "length"), Param("offset_v", "length")]
+
+    def run(self, topology, selection, values, preview):
+        if values["diameter"] < MIN_DISTANCE or values["height"] < MIN_DISTANCE:
+            raise OperationError("The diameter and height must be positive")
+        centre, normal, u, v = _plane_axes(topology.face(selection.faces[0]))
+        start = centre.Translated(gp_Vec(u).Multiplied(values["offset_u"])).Translated(gp_Vec(v).Multiplied(values["offset_v"]))
+        # Start a little inside the solid so the boss fuses cleanly with the face.
+        sunk = start.Translated(gp_Vec(normal).Multiplied(-1e-3))
+        boss = _cylinder(sunk, normal, values["diameter"] / 2, values["height"] + 1e-3)
+        return finish(_combine(topology.shape, boss, fuse=True))
 
 
 @register
@@ -457,6 +495,38 @@ class AddSlot(_PlanarFace):
         for part in parts:
             shape = _combine(shape, part, fuse=False)
         return finish(shape)
+
+
+@register
+class CenterBetween(Tool):
+    """Centre a hole or boss between two parallel flat faces (select the hole first, then the two faces)."""
+
+    id = "center_between"
+    label = "Center between faces"
+    accepts = Accepts(faces=(3, 3))
+
+    def applies(self, topology, selection):
+        hole, a, b = (topology.face(i) for i in selection.faces)
+        if BRepAdaptor_Surface(hole).GetType() != GeomAbs_Cylinder:
+            return False
+        na, nb = planar_normal(a), planar_normal(b)
+        return na is not None and nb is not None and abs(na.Dot(nb)) > 1 - 1e-6
+
+    def run(self, topology, selection, values, preview):
+        hole_face, a, b = (topology.face(i) for i in selection.faces)
+        hole = Hole(hole_face)
+        normal = planar_normal(a)
+        axis_along = abs(hole.direction.Dot(normal))
+        if axis_along > 1 - 1e-6:
+            raise OperationError("The hole runs along the faces' normal, so it cannot be centred between them")
+        offsets = [gp_Vec(gp_Pnt(0, 0, 0), BRepAdaptor_Surface(f).Plane().Location()).Dot(gp_Vec(normal)) for f in (a, b)]
+        middle = hole.origin.Translated(gp_Vec(hole.direction).Multiplied(hole.length / 2))
+        here = gp_Vec(gp_Pnt(0, 0, 0), middle).Dot(gp_Vec(normal))
+        delta = (offsets[0] + offsets[1]) / 2 - here
+        if abs(delta) < MIN_DISTANCE:
+            return OpResult(topology.shape, [])
+        move = gp_Vec(normal).Multiplied(delta)
+        return finish(apply_holes(topology.shape, [hole], [(None, move)]))
 
 
 # Solids ----------------------------------------------------------------------------------------------
@@ -696,6 +766,46 @@ class AddCone(Tool):
 # Re-radius a fillet ---------------------------------------------------------------------------------------
 
 
+def _rebuild_round(topology, face, neighbours: list, size: float, chamfer: bool) -> OpResult:
+    """Remove a fillet or chamfer face (its two neighbours extend back to a sharp edge), then round that edge
+    again with `size` (a fillet radius or chamfer leg); size 0 leaves the sharp edge."""
+    from .ops import _follow, fillet_chamfer
+    from .topology import Topology
+
+    operation = BRepAlgoAPI_Defeaturing()
+    operation.SetShape(topology.shape)
+    operation.AddFaceToRemove(face)
+    operation.SetRunParallel(True)
+    operation.Build()
+    if not operation.IsDone() or operation.Shape().IsNull():
+        raise OperationError("Could not remove this round to resize it")
+    sharp = operation.Shape()
+    if size < MIN_DISTANCE:
+        return finish(sharp)
+    rebuilt = Topology(sharp)
+    modified = []
+    for n in neighbours:
+        found = _follow(operation.History(), [n])
+        if len(found) != 1:
+            raise OperationError("Could not find the sharp edge left by this round")
+        modified.append(found[0])
+    shared = [e for _, e in rebuilt.edges() if all(any(f.IsSame(m) for f in rebuilt.edge_faces(e)) for m in modified)]
+    if len(shared) != 1:
+        raise OperationError("Could not find the sharp edge left by this round")
+    return finish(fillet_chamfer(sharp, shared, -size if chamfer else size).shape)
+
+
+def _face_edges(face):
+    from OCP.TopAbs import TopAbs_EDGE
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+
+    explorer = TopExp_Explorer(face, TopAbs_EDGE)
+    while explorer.More():
+        yield TopoDS.Edge(explorer.Current())
+        explorer.Next()
+
+
 @register
 class ResizeFillet(Tool):
     """Change the radius of a fillet from the fillet face itself: the round is removed (neighbours extended back
@@ -710,47 +820,125 @@ class ResizeFillet(Tool):
         return BRepAdaptor_Surface(topology.face(selection.faces[0])).GetType() in (GeomAbs_Cylinder, GeomAbs_Torus)
 
     def run(self, topology, selection, values, preview):
-        from OCP.TopAbs import TopAbs_EDGE
-        from OCP.TopExp import TopExp_Explorer
-        from OCP.TopoDS import TopoDS
-
         from .measure import _tangent
-        from .ops import _follow, fillet_chamfer
-        from .topology import Topology
 
         face = topology.face(selection.faces[0])
         neighbours = []
-        explorer = TopExp_Explorer(face, TopAbs_EDGE)
-        while explorer.More():
-            edge = TopoDS.Edge(explorer.Current())
+        for edge in _face_edges(face):
             for other in topology.edge_faces(edge):
                 if not other.IsSame(face) and _tangent(edge, face, other) and not any(other.IsSame(n) for n in neighbours):
                     neighbours.append(other)
-            explorer.Next()
         if len(neighbours) != 2:
             raise OperationError("That face is not a simple fillet between two faces")
-        operation = BRepAlgoAPI_Defeaturing()
-        operation.SetShape(topology.shape)
-        operation.AddFaceToRemove(face)
-        operation.SetRunParallel(True)
-        operation.Build()
-        if not operation.IsDone() or operation.Shape().IsNull():
-            raise OperationError("Could not remove this fillet to resize it")
-        sharp = operation.Shape()
-        radius = values["radius"]
-        if radius < MIN_DISTANCE:
-            return finish(sharp)
-        rebuilt = Topology(sharp)
-        modified = []
-        for n in neighbours:
-            found = _follow(operation.History(), [n])
-            if len(found) != 1:
-                raise OperationError("Could not find the sharp edge left by this fillet")
-            modified.append(found[0])
-        shared = [e for _, e in rebuilt.edges() if all(any(f.IsSame(m) for f in rebuilt.edge_faces(e)) for m in modified)]
-        if len(shared) != 1:
-            raise OperationError("Could not find the sharp edge left by this fillet")
-        return finish(fillet_chamfer(sharp, shared, radius).shape)
+        return _rebuild_round(topology, face, neighbours, values["radius"], chamfer=False)
+
+
+@register
+class ResizeChamfer(Tool):
+    """Change the size of a chamfer from the chamfer face: it is removed and the sharp edge chamfered again with
+    equal legs of the given size (0 leaves the sharp edge)."""
+
+    id = "resize_chamfer"
+    label = "Resize chamfer"
+    accepts = Accepts(faces=(1, 1))
+    params = [Param("size", "length", 2)]
+
+    def applies(self, topology, selection):
+        return planar_normal(topology.face(selection.faces[0])) is not None
+
+    def run(self, topology, selection, values, preview):
+        face = topology.face(selection.faces[0])
+        edges = list(_face_edges(face))
+        if len(edges) != 4:
+            raise OperationError("That face is not a simple chamfer (it should have four edges)")
+
+        def length(edge) -> float:
+            props = GProp_GProps()
+            BRepGProp.LinearProperties_s(edge, props)
+            return props.Mass()
+
+        long_edges = sorted(edges, key=length, reverse=True)[:2]
+        neighbours = []
+        for edge in long_edges:
+            others = [f for f in topology.edge_faces(edge) if not f.IsSame(face)]
+            if len(others) != 1:
+                raise OperationError("That face is not a simple chamfer")
+            neighbours.append(others[0])
+        return _rebuild_round(topology, face, neighbours, values["size"], chamfer=True)
+
+
+@register
+class CutPlane(Tool):
+    """Cut the model with a plane square to an axis (0 = X, 1 = Y, 2 = Z) at `position`, removing the side given by
+    `remove_side` (+1 removes the part above the plane, -1 the part below)."""
+
+    id = "cut_plane"
+    label = "Cut with plane"
+    accepts = Accepts()
+    params = [Param("axis", "number", 2), Param("position", "length"), Param("remove_side", "number", 1)]
+
+    def run(self, topology, selection, values, preview):
+        axis = int(round(values["axis"]))
+        if axis not in (0, 1, 2) or values["remove_side"] not in (1.0, -1.0):
+            raise OperationError("axis must be 0, 1 or 2 and remove_side +1 or -1")
+        size = 4 * _bounds_diagonal(topology.shape) + 1
+        box = Bnd_Box()
+        BRepBndLib.Add_s(topology.shape, box)
+        centre = [(box.CornerMin().Coord(k + 1) + box.CornerMax().Coord(k + 1)) / 2 for k in range(3)]
+        corner = [c - size / 2 for c in centre]
+        dims = [size, size, size]
+        side = values["remove_side"]
+        corner[axis] = values["position"] if side > 0 else values["position"] - size
+        slab = BRepPrimAPI_MakeBox(gp_Pnt(*corner), *dims).Shape()
+        result = _combine(topology.shape, slab, fuse=False)
+        if _volume(result) < 1e-9:
+            raise OperationError("The plane would remove the whole model")
+        return finish(result)
+
+
+@register
+class OffsetBody(Tool):
+    """Grow (positive) or shrink (negative) the whole solid by a uniform distance."""
+
+    id = "offset_body"
+    label = "Offset body"
+    accepts = Accepts()
+    params = [Param("distance", "length", 1)]
+
+    def run(self, topology, selection, values, preview):
+        from OCP.BRepOffsetAPI import BRepOffsetAPI_MakeOffsetShape
+
+        distance = values["distance"]
+        if abs(distance) < MIN_DISTANCE:
+            return OpResult(topology.shape, [])
+        maker = BRepOffsetAPI_MakeOffsetShape()
+        try:
+            maker.PerformByJoin(topology.shape, distance, TOL)
+        except Exception as e:  # OCCT raises Standard_Failure when the offset collapses geometry
+            raise OperationError(f"Could not offset by this distance: {e}") from None
+        if not maker.IsDone() or maker.Shape().IsNull():
+            raise OperationError("Could not offset by this distance")
+        return finish(maker.Shape())
+
+
+@register
+class RoundFace(Tool):
+    """Fillet (positive) or chamfer (negative) every edge around the selected faces."""
+
+    id = "round_face"
+    label = "Round face edges"
+    accepts = Accepts(faces=(1, None))
+    params = [Param("distance", "length", 1)]
+
+    def run(self, topology, selection, values, preview):
+        from .ops import fillet_chamfer
+
+        edges = []
+        for i in selection.faces:
+            for edge in _face_edges(topology.face(i)):
+                if not any(edge.IsSame(e) for e in edges):
+                    edges.append(edge)
+        return finish(fillet_chamfer(topology.shape, edges, values["distance"]).shape)
 
 
 def combine(shape: TopoDS_Shape, other: TopoDS_Shape, mode: str, offset: gp_Vec | None = None) -> OpResult:

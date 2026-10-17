@@ -108,6 +108,8 @@ export class Viewport {
   private drag: { sels: Sel[]; normal: THREE.Vector3; point: THREE.Vector3; x: number; y: number; moved: boolean } | null = null;
   /** Called when the user changes the selection by clicking. */
   onSelect: (selection: Sel[]) => void = () => {};
+  /** Double-click on an edge: the host selects the whole smooth chain it belongs to (Ctrl adds to the selection). */
+  onEdgeLoop: (edgeId: number, additive: boolean) => void = () => {};
   /** Dragging a selected face or edge drives its tool on the whole selection. distance is in model units along the dragged item's outward direction. */
   onItemDrag: (sels: Sel[], distance: number, phase: "move" | "end" | "cancel", x?: number, y?: number) => void = () => {};
   /** While true (typed value entry or measure mode), pointer movement does not change the drag distance. */
@@ -356,6 +358,11 @@ export class Viewport {
       this.scene.add(line);
     }
     dom.addEventListener("pointerleave", () => this.setHover(null));
+    dom.addEventListener("dblclick", (e) => {
+      if (this.interceptor) return;
+      const hit = this.pickHit(e as PointerEvent);
+      if (hit?.kind === "edge") this.onEdgeLoop(hit.id, e.ctrlKey || e.metaKey);
+    });
     dom.addEventListener("pointerup", (e) => {
       if (this.interceptor && e.button === 0) {
         this.interceptor.up(e);

@@ -64,6 +64,7 @@ export class SketchMode {
   private undoStack: string[] = [];
   private group = new THREE.Group();
   private normal = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.line, linewidth: 2, depthTest: false }));
+  private construction = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.construction, linewidth: 2, depthTest: false }));
   private marked = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.selected, linewidth: 3, depthTest: false }));
   private pending = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.pending, linewidth: 2, depthTest: false }));
   private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false }));
@@ -72,7 +73,7 @@ export class SketchMode {
   private queued: { drag?: { point: number; u: number; v: number } } | null = null;
   private previewTimer = 0;
   private panel: HTMLElement;
-  private extrude = { distance: 10, mode: "join" as "join" | "cut", open: false };
+  private extrude = { distance: 10, mode: "join" as "join" | "cut", symmetric: false, revolve: false, angle: 360, open: false };
 
   constructor(
     private readonly viewport: Viewport,
@@ -82,7 +83,7 @@ export class SketchMode {
     panel: HTMLElement,
   ) {
     this.panel = panel;
-    for (const o of [this.normal, this.marked, this.pending, this.points]) {
+    for (const o of [this.normal, this.construction, this.marked, this.pending, this.points]) {
       o.renderOrder = 5;
       o.frustumCulled = false;
       this.group.add(o);
@@ -95,9 +96,10 @@ export class SketchMode {
 
   // Entering and leaving ----------------------------------------------------------------------------
 
-  start(plane: M.PlaneData) {
+  start(plane: M.PlaneData, reference?: { points: M.SketchPoint[]; entities: M.SketchEntity[] }) {
     if (this.active) this.exit();
-    this.s = { plane, points: [], entities: [], constraints: [] };
+    // Reference geometry (the face outline) is fixed construction geometry that sketch points can snap to.
+    this.s = { plane, points: reference?.points ?? [], entities: reference?.entities ?? [], constraints: [] };
     const f = M.frame(plane);
     this.plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(...f.n), new THREE.Vector3(...f.origin));
     this.tool = "select";
@@ -106,7 +108,7 @@ export class SketchMode {
     this.dof = null;
     this.failed.clear();
     this.undoStack = [];
-    this.extrude = { distance: 10, mode: "join", open: false };
+    this.extrude = { distance: 10, mode: "join", symmetric: false, revolve: false, angle: 360, open: false };
     this.active = true;
     this.viewport.selectItems([]); // the model's selection highlight would cover the sketch
     this.buildGrid(f);
@@ -245,7 +247,8 @@ export class SketchMode {
     } else {
       this.selection = [hit];
     }
-    if (hit?.kind === "point" && !additive) {
+    const fixed = hit?.kind === "point" && this.s.points.find((p) => p.id === hit.id)?.fixed;
+    if (hit?.kind === "point" && !additive && !fixed) {
       this.drag = { id: hit.id, startX: e.clientX, startY: e.clientY, moved: false };
       this.viewport.renderer.domElement.setPointerCapture(e.pointerId);
     }
@@ -302,12 +305,16 @@ export class SketchMode {
     } else if (e.key === "Escape") {
       if (this.chain.length) this.endChain();
       else if (this.tool !== "select") this.setTool("select");
-      else this.selection = [], this.render();
+      else if (this.selection.length) this.selection = [], this.render();
+      else this.exit(); // nothing left to cancel: leave the sketch so face picking works again
     } else if (e.key === "Enter" && this.chain.length) {
       this.endChain();
     } else if ((e.key === "Delete" || e.key === "Backspace") && this.selection.length) {
       this.pushUndo();
-      for (const sel of this.selection) this.s = M.remove(this.s, sel);
+      for (const sel of this.selection) {
+        const reference = sel.kind === "entity" ? this.s.entities.find((e) => e.id === sel.id)?.reference : this.s.points.find((p) => p.id === sel.id)?.fixed;
+        if (!reference) this.s = M.remove(this.s, sel); // the face outline stays
+      }
       this.selection = [];
       this.resolve();
       this.render();
@@ -517,18 +524,42 @@ export class SketchMode {
   private async sendExtrude(commit: boolean) {
     if (!this.extrude.open) return;
     try {
-      const mesh = await this.core.request<MeshData>("sketch_extrude", { sketch: this.s, distance: this.extrude.distance, mode: this.extrude.mode, commit });
+      const e = this.extrude;
+      const request: Record<string, unknown> = { sketch: this.s, mode: e.mode, commit };
+      if (e.revolve) {
+        const axis = this.selectedLine();
+        if (axis === null) throw new Error("Select one line in the sketch as the axis to revolve about");
+        Object.assign(request, { axis, distance: e.angle });
+      } else {
+        Object.assign(request, { distance: e.distance, symmetric: e.symmetric });
+      }
+      const mesh = await this.core.request<MeshData>("sketch_extrude", request);
       if (commit) {
         this.extrude.open = false;
         this.exitAfterCommit(mesh);
       } else {
         this.host.showPreview(mesh);
-        this.host.status("Extrude preview");
+        this.host.status(this.extrude.revolve ? "Revolve preview" : "Extrude preview");
       }
     } catch (e) {
       this.host.status((e as Error).message, true);
       if (!commit) this.host.restore();
     }
+  }
+
+  /** The id of the single selected line, or null. */
+  private selectedLine(): number | null {
+    const picked = this.selection.filter((x) => x.kind === "entity");
+    const line = picked.length === 1 ? this.s.entities.find((en) => en.id === picked[0].id) : undefined;
+    return line && line.type === "line" ? line.id : null;
+  }
+
+  private toggleConstruction() {
+    const ids = new Set(this.selection.filter((x) => x.kind === "entity").map((x) => x.id));
+    if (!ids.size) return;
+    this.pushUndo();
+    for (const en of this.s.entities) if (ids.has(en.id)) en.construction = !en.construction;
+    this.render();
   }
 
   private exitAfterCommit(mesh: MeshData) {
@@ -540,7 +571,7 @@ export class SketchMode {
 
   private onFrame() {
     const size = this.viewport.renderer.getSize(new THREE.Vector2());
-    for (const l of [this.normal, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
+    for (const l of [this.normal, this.construction, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
   }
 
   private world(u: number, v: number): THREE.Vector3 {
@@ -563,8 +594,10 @@ export class SketchMode {
     if (!this.active) return;
     const normal: [number, number][][] = [];
     const marked: [number, number][][] = [];
-    for (const e of this.s.entities) (this.isMarked({ kind: "entity", id: e.id }) ? marked : normal).push(M.polyline(this.s, e));
+    const guides: [number, number][][] = [];
+    for (const e of this.s.entities) (this.isMarked({ kind: "entity", id: e.id }) ? marked : e.construction ? guides : normal).push(M.polyline(this.s, e));
     this.set(this.normal, this.segments(normal));
+    this.set(this.construction, this.segments(guides));
     this.set(this.marked, this.segments(marked));
     this.set(this.pending, this.segments(this.pendingShapes()));
 
@@ -573,7 +606,7 @@ export class SketchMode {
     const color = new THREE.Color();
     for (const p of this.s.points) {
       positions.push(...this.world(p.u, p.v).toArray());
-      color.set(this.isMarked({ kind: "point", id: p.id }) ? COLORS.selected : this.cursor?.id === p.id ? COLORS.hover : COLORS.line);
+      color.set(this.isMarked({ kind: "point", id: p.id }) ? COLORS.selected : this.cursor?.id === p.id ? COLORS.hover : p.fixed ? COLORS.construction : COLORS.line);
       colors.push(color.r, color.g, color.b);
     }
     this.points.geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
@@ -585,7 +618,10 @@ export class SketchMode {
 
   private set(line: LineSegments2, positions: number[]) {
     line.visible = positions.length > 0;
-    if (positions.length) line.geometry.setPositions(positions);
+    if (!positions.length) return;
+    // A fresh geometry each time: reusing one whose segment count grows left it drawing only the first segments.
+    line.geometry.dispose();
+    line.geometry = new LineSegmentsGeometry().setPositions(positions);
   }
 
   /** Rubber-band shapes for the drawing in progress. */
@@ -668,38 +704,71 @@ export class SketchMode {
     }
 
     const extrude = el("div", "section");
-    extrude.append(el("div", "group", "Extrude profile"));
-    const distance = document.createElement("input");
-    distance.type = "number";
-    distance.step = "any";
-    distance.value = String(this.extrude.distance);
-    distance.addEventListener("keydown", (e) => e.stopPropagation());
-    distance.addEventListener("input", () => {
-      this.extrude.distance = Number(distance.value);
+    const preview = (change: () => void) => {
+      change();
       this.extrude.open = true;
       this.schedulePreview();
-    });
+    };
+    const number = (value: number, on: (n: number) => void) => {
+      const input = document.createElement("input");
+      input.type = "number";
+      input.step = "any";
+      input.value = String(value);
+      input.addEventListener("keydown", (e) => e.stopPropagation());
+      input.addEventListener("input", () => preview(() => on(Number(input.value))));
+      return input;
+    };
     const mode = document.createElement("select");
     for (const m of ["join", "cut"]) mode.append(new Option(m === "join" ? "Join (add material)" : "Cut (remove material)", m, false, m === this.extrude.mode));
-    mode.addEventListener("change", () => {
-      this.extrude.mode = mode.value as "join" | "cut";
-      this.extrude.open = true;
-      this.schedulePreview();
-    });
+    mode.addEventListener("change", () => preview(() => (this.extrude.mode = mode.value as "join" | "cut")));
+    const symmetric = document.createElement("input");
+    symmetric.type = "checkbox";
+    symmetric.checked = this.extrude.symmetric;
+    symmetric.addEventListener("change", () => preview(() => (this.extrude.symmetric = symmetric.checked)));
+    const symmetricLabel = el("label", "crow");
+    symmetricLabel.append(el("span", "", "Both directions"), symmetric);
+
+    extrude.append(el("div", "group", "Extrude profile"));
     const row = el("div", "crow");
-    row.append(distance, mode);
+    row.append(number(this.extrude.distance, (n) => ((this.extrude.distance = n), (this.extrude.revolve = false))), mode);
     const go = el("div", "row-buttons");
     go.append(
       button("Preview", () => {
+        this.extrude.revolve = false;
         this.extrude.open = true;
         this.sendExtrude(false);
       }),
       button("Extrude", () => {
+        this.extrude.revolve = false;
         this.extrude.open = true;
         this.sendExtrude(true);
       }, "active"),
     );
-    extrude.append(row, go);
+    extrude.append(row, symmetricLabel, go);
+
+    extrude.append(el("div", "group", "Revolve about the selected line"));
+    const spin = el("div", "crow");
+    spin.append(number(this.extrude.angle, (n) => ((this.extrude.angle = n), (this.extrude.revolve = true))), el("span", "", "degrees"));
+    const spinGo = el("div", "row-buttons");
+    spinGo.append(
+      button("Preview", () => {
+        this.extrude.revolve = true;
+        this.extrude.open = true;
+        this.sendExtrude(false);
+      }),
+      button("Revolve", () => {
+        this.extrude.revolve = true;
+        this.extrude.open = true;
+        this.sendExtrude(true);
+      }, "active"),
+    );
+    extrude.append(spin, spinGo);
+
+    if (this.selection.some((x) => x.kind === "entity")) {
+      const construction = button("Toggle construction", () => this.toggleConstruction());
+      construction.title = "Construction geometry guides the sketch but is not part of the profile (use it as a revolve axis)";
+      constraintsBox.append(construction);
+    }
 
     const exit = button("Exit sketch", () => this.exit());
     this.panel.replaceChildren(header, status, tools, constraintsBox, ask, list, extrude, exit);

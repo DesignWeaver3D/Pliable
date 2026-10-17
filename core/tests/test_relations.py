@@ -38,3 +38,18 @@ def test_coaxial_and_server_request():
     holes = faces_where(session.document.current, "Cylinder", Radius=4)
     reply = session.handle({"type": "related", "face": holes[0]})
     assert reply["rules"][0]["id"] == "equal_radius" and len(reply["rules"][0]["faces"]) == 3
+
+
+def test_tangent_chain_follows_smooth_outlines_only():
+    from pliable.measure import measure
+    from pliable.relations import tangent_chain
+    from pliable.tools import Selection
+
+    bracket = Topology(load_demo("bracket"))
+    rim = next(i for i in range(bracket.edge_count) if (lambda it: it["title"] == "Circle" and abs([r for r in it["rows"] if r["label"] == "Radius"][0]["value"] - 4) < 1e-6)(measure(bracket, Selection(edges=[i]))["items"][0]))
+    assert tangent_chain(bracket, rim) == [rim]  # a full circle is closed on itself
+    # the base outline: a straight edge continues into a corner arc, so the chain is longer than one edge
+    line = next(i for i in range(bracket.edge_count) if measure(bracket, Selection(edges=[i]))["items"][0]["rows"][0]["value"] == 38.0 or abs(measure(bracket, Selection(edges=[i]))["items"][0]["rows"][0]["value"] - 68) < 1e-6)
+    assert len(tangent_chain(bracket, line)) > 1
+    block = Topology(load_demo("block"))
+    assert tangent_chain(block, 0) == [0]  # box edges meet at right angles

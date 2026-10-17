@@ -267,6 +267,18 @@ function pump(token: number) {
 }
 
 viewport.onSelect = setSelection;
+viewport.onEdgeLoop = async (edgeId, additive) => {
+  try {
+    const { edges } = await core.request<{ edges: number[] }>("edge_chain", { edge: edgeId });
+    const picked: Sel[] = edges.map((id) => ({ kind: "edge" as const, id }));
+    const sels = additive ? [...currentSels.filter((s) => s.kind === "edge" && !edges.includes(s.id)), ...picked] : picked;
+    viewport.selectItems(sels);
+    setSelection(sels);
+    status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} in the chain (double-click an edge to select its whole outline)`;
+  } catch (e) {
+    status.textContent = (e as Error).message;
+  }
+};
 
 // Dimension label: follows the pointer during a drag; typing digits turns it into the value entry.
 const dimLabel = $("dim");
@@ -551,8 +563,8 @@ function renderSketchBar() {
   onFace.title = "Select a flat face first";
   onFace.addEventListener("click", async () => {
     try {
-      const reply = await core.request<{ plane: any }>("sketch_plane", { face: currentSels[0].id });
-      sketch.start(reply.plane);
+      const reply = await core.request<{ plane: any; reference?: any }>("sketch_plane", { face: currentSels[0].id });
+      sketch.start(reply.plane, reply.reference);
       renderSketchBar();
     } catch (e) {
       status.textContent = (e as Error).message;

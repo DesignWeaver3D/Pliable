@@ -72,3 +72,59 @@ def test_push_pull_several_coplanar_faces_at_once():
     assert volume(result.shape) > volume(bracket.shape)
     with pytest.raises(Exception):
         run("push_pull", bracket, faces=[group[0], faces_where(bracket, "Cylinder", Radius=7)[0]], distance=2)
+
+
+def test_center_hole_between_two_faces():
+    block = Topology(load_demo("block"))  # x from -20 to 20
+    top = next(i for i in range(6) if measure(block, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0])
+    one = Topology(run("add_hole", block, faces=[top], diameter=4, depth=0, offset_u=-8).shape)
+    (wall,) = faces_where(one, "Cylinder", Radius=2)
+    sides = [i for i in range(one.face_count) if measure(one, Selection(faces=[i]))["items"][0]["rows"][3]["value"] in ([1.0, 0.0, 0.0], [-1.0, 0.0, 0.0])]
+    assert len(sides) == 2
+    result = run("center_between", one, faces=[wall] + sides)
+    centred = Topology(result.shape)
+    (moved,) = faces_where(centred, "Cylinder", Radius=2)
+    assert measure(centred, Selection(faces=[moved]))["items"][0]["anchor"][0] == pytest.approx(0, abs=1e-3)
+    assert volume(result.shape) == pytest.approx(volume(one.shape), rel=1e-4)
+
+
+def test_resize_chamfer():
+    from pliable.ops import fillet_chamfer
+
+    block = Topology(load_demo("block"))
+    edge = max(range(12), key=lambda i: measure(block, Selection(edges=[i]))["items"][0]["rows"][0]["value"])  # a 40 mm edge
+    chamfered = Topology(fillet_chamfer(block.shape, [block.edge(edge)], -3).shape)
+
+    def diagonal(i):
+        normal = next(r["value"] for r in measure(chamfered, Selection(faces=[i]))["items"][0]["rows"] if r["label"] == "Normal")
+        return sum(abs(c) > 1e-9 for c in normal) == 2
+
+    face = next(i for i in range(chamfered.face_count) if diagonal(i))
+    bigger = run("resize_chamfer", chamfered, faces=[face], size=5)
+    assert volume(block.shape) - volume(bigger.shape) == pytest.approx(0.5 * 25 * 40, rel=1e-3)
+    sharp = run("resize_chamfer", chamfered, faces=[face], size=0)
+    assert volume(sharp.shape) == pytest.approx(volume(block.shape), rel=1e-4)
+
+
+def test_cut_plane_offset_body_and_round_face():
+    block = Topology(load_demo("block"))  # 40 x 30 x 20, centred on the origin
+    cut = run("cut_plane", block, axis=2, position=0, remove_side=1)
+    assert volume(cut.shape) == pytest.approx(12000, rel=1e-4)
+    low = run("cut_plane", block, axis=0, position=10, remove_side=-1)
+    assert volume(low.shape) == pytest.approx(10 * 30 * 20, rel=1e-4)
+    with pytest.raises(Exception):
+        run("cut_plane", block, axis=2, position=-50, remove_side=1)
+    grown = run("offset_body", block, distance=1)
+    assert volume(grown.shape) > 24000 + 2 * (40 * 30 + 40 * 20 + 30 * 20) * 0.9
+    top = next(i for i in range(6) if measure(block, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0])
+    rounded = run("round_face", block, faces=[top], distance=2)
+    assert Topology(rounded.shape).face_count == 6 + 4  # four fillets
+    assert volume(rounded.shape) < 24000
+
+
+def test_add_boss_on_a_face():
+    block = Topology(load_demo("block"))
+    top = next(i for i in range(6) if measure(block, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0])
+    result = run("add_boss", block, faces=[top], diameter=10, height=5, offset_u=5)
+    assert volume(result.shape) - 24000 == pytest.approx(math.pi * 25 * 5, rel=1e-3)
+    assert faces_where(Topology(result.shape), "Cylinder", Radius=5)

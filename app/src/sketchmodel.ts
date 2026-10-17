@@ -10,11 +10,13 @@ export interface SketchPoint {
   id: number;
   u: number;
   v: number;
+  /** Reference geometry copied from the model: the solver never moves it. */
+  fixed?: boolean;
 }
 export type SketchEntity =
-  | { id: number; type: "line"; a: number; b: number; construction?: boolean }
-  | { id: number; type: "circle"; center: number; radius: number; construction?: boolean }
-  | { id: number; type: "arc"; center: number; start: number; end: number; construction?: boolean };
+  | { id: number; type: "line"; a: number; b: number; construction?: boolean; reference?: boolean }
+  | { id: number; type: "circle"; center: number; radius: number; construction?: boolean; reference?: boolean }
+  | { id: number; type: "arc"; center: number; start: number; end: number; construction?: boolean; reference?: boolean };
 export interface SketchConstraint {
   id: number;
   type: string;
@@ -108,6 +110,12 @@ const pts = (sel: SketchSel[]) => sel.filter((x) => x.kind === "point").map((x) 
 const only = (list: SketchEntity[], ...types: string[]) => list.length > 0 && list.every((e) => types.includes(e.type));
 const dist = (s: SketchData, a: number, b: number) => Math.hypot(pointOf(s, a).u - pointOf(s, b).u, pointOf(s, a).v - pointOf(s, b).v);
 const radiusOf = (s: SketchData, e: SketchEntity) => (e.type === "circle" ? e.radius : e.type === "arc" ? dist(s, e.center, e.start) : 0);
+
+/** The two points a selection measures between: a line's ends, or two selected points. */
+function ends(s: SketchData, sel: SketchSel[]): [number, number] {
+  const line = entities(s, sel)[0];
+  return line && line.type === "line" ? [line.a, line.b] : [pts(sel)[0], pts(sel)[1]];
+}
 
 /** The table that decides which constraint buttons appear for a selection. Edit here to add or reorder. */
 export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
@@ -206,6 +214,32 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     },
   },
   {
+    label: "Horizontal distance",
+    dimension: true,
+    build: (s, sel) => {
+      const es = entities(s, sel);
+      if (es.length === 1 && only(es, "line") && !pts(sel).length) return { type: "horizontal_distance", entity: es[0].id };
+      return pts(sel).length === 2 && !es.length ? { type: "horizontal_distance", points: pts(sel) } : null;
+    },
+    initial: (s, sel) => {
+      const [a, b] = ends(s, sel);
+      return Math.abs(pointOf(s, a).u - pointOf(s, b).u);
+    },
+  },
+  {
+    label: "Vertical distance",
+    dimension: true,
+    build: (s, sel) => {
+      const es = entities(s, sel);
+      if (es.length === 1 && only(es, "line") && !pts(sel).length) return { type: "vertical_distance", entity: es[0].id };
+      return pts(sel).length === 2 && !es.length ? { type: "vertical_distance", points: pts(sel) } : null;
+    },
+    initial: (s, sel) => {
+      const [a, b] = ends(s, sel);
+      return Math.abs(pointOf(s, a).v - pointOf(s, b).v);
+    },
+  },
+  {
     label: "Radius",
     dimension: true,
     build: (s, sel) => {
@@ -259,6 +293,8 @@ export function describeConstraint(s: SketchData, c: SketchConstraint): string {
     midpoint: "Midpoint",
     symmetric: "Symmetric",
     distance: "Distance",
+    horizontal_distance: "Horizontal distance",
+    vertical_distance: "Vertical distance",
     radius: "Radius",
     diameter: "Diameter",
     angle: "Angle",
@@ -282,6 +318,16 @@ export function dimensionsOf(s: SketchData): Dimension[] {
       const [a, b] = [world(ends[0]), world(ends[1])];
       const along = norm(sub(b, a));
       out.push({ kind: "linear", text, points: [a, b], offsetDirection: cross(f.n, along) });
+    } else if ((c.type === "horizontal_distance" || c.type === "vertical_distance") && true) {
+      const horizontal = c.type === "horizontal_distance";
+      const ids = entity && entity.type === "line" ? [entity.a, entity.b] : c.points!;
+      const [pa, pb] = [pointOf(s, ids[0]), pointOf(s, ids[1])];
+      const a = world(ids[0]);
+      const corner = toWorld(s.plane, horizontal ? pb.u : pa.u, horizontal ? pa.v : pb.v);
+      const side = horizontal ? f.y : f.x;
+      // The dimension runs along the projected leg (a to corner) and sits on the side away from the other point.
+      const away = horizontal ? (pb.v >= pa.v ? -1 : 1) : pb.u >= pa.u ? -1 : 1;
+      out.push({ kind: "linear", text, points: [a, corner], offsetDirection: side.map((x) => x * away) });
     } else if ((c.type === "radius" || c.type === "diameter") && entity && entity.type !== "line") {
       const center = world(entity.center);
       const r = radiusOf(s, entity);

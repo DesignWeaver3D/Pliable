@@ -189,3 +189,66 @@ def test_server_sketch_requests():
 
     with pytest.raises(RequestError):
         session.handle({"type": "sketch_solve", "sketch": {}})
+
+
+def test_symmetric_extrude_and_revolve():
+    block = load_demo("block")
+    points, lines = rectangle(10, 10)
+    plane = {"origin": [-5, -5, 0], "normal": [0, 0, 1], "xdir": [1, 0, 0]}  # mid-height of the block
+    sk = sketch_of(points, lines, plane=plane)
+    cut = sketch.extrude(block, sk, 6, "cut", symmetric=True)
+    assert 24000 - volume(cut.shape) == pytest.approx(100 * 6, rel=1e-4)
+    # revolve a 4 x 6 rectangle that stands 3 away from a construction axis, 360 degrees = a ring
+    pts = [{"id": 1, "u": 3, "v": 0}, {"id": 2, "u": 7, "v": 0}, {"id": 3, "u": 7, "v": 6}, {"id": 4, "u": 3, "v": 6}, {"id": 5, "u": 0, "v": 0}, {"id": 6, "u": 0, "v": 6}]
+    ents = [{"id": 10 + k, "type": "line", "a": a, "b": b} for k, (a, b) in enumerate([(1, 2), (2, 3), (3, 4), (4, 1)])] + [{"id": 20, "type": "line", "a": 5, "b": 6}]
+    ring_plane = {"origin": [0, 0, 20], "normal": [0, -1, 0], "xdir": [1, 0, 0]}  # above the block, vertical plane
+    ring = sketch.revolve(block, sketch_of(pts, ents, plane=ring_plane), 20, 360, "join")
+    assert volume(ring.shape) - 24000 == pytest.approx(math.pi * (49 - 9) * 6, rel=1e-3)
+    with pytest.raises(OperationError):
+        sketch.revolve(block, sketch_of(pts, ents, plane=ring_plane), 99, 360, "join")
+    with pytest.raises(OperationError):
+        sketch.revolve(block, sketch_of(pts, ents, plane=ring_plane), 20, 0, "join")
+
+
+def test_horizontal_and_vertical_distance():
+    points, lines = rectangle(30, 20)
+    constraints = [
+        {"type": "horizontal", "entity": 101}, {"type": "vertical", "entity": 102}, {"type": "horizontal", "entity": 103}, {"type": "vertical", "entity": 104},
+        {"type": "horizontal_distance", "points": [1, 3], "value": 44},
+        {"type": "vertical_distance", "entity": 102, "value": 12},
+        {"type": "fixed", "point": 1},
+    ]
+    result = sketch.solve(sketch_of(points, lines, constraints))
+    assert result["status"] == "ok" and result["dof"] == 0
+    c = coords(result)
+    assert c[3][0] - c[1][0] == pytest.approx(44, abs=1e-6)
+    assert c[3][1] - c[2][1] == pytest.approx(12, abs=1e-6)
+    # points given in the "wrong" order still give a positive size
+    swapped = [dict(k, points=list(reversed(k["points"]))) if k["type"] == "horizontal_distance" else k for k in constraints]
+    assert coords(sketch.solve(sketch_of(points, lines, swapped)))[3][0] == pytest.approx(44, abs=1e-6)
+
+
+def test_face_reference_outline_snaps_and_stays_fixed():
+    from pliable.demos import load_demo as demo
+    from pliable.measure import measure
+    from pliable.tools import Selection
+    from pliable.topology import Topology
+
+    block = Topology(demo("block"))
+    top = next(i for i in range(6) if measure(block, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0])
+    plane = sketch.face_plane(block.face(top))
+    ref = sketch.face_reference(block.face(top), plane)
+    assert len(ref["points"]) == 4 and len(ref["entities"]) == 4
+    assert all(p["fixed"] for p in ref["points"]) and all(e["construction"] for e in ref["entities"])
+    # the fixed outline survives a solve, and a profile ignores it
+    moved = [dict(p, u=p["u"] + 1) for p in ref["points"]]
+    result = sketch.solve({"plane": plane, "points": moved, "entities": ref["entities"], "constraints": []})
+    for before, after in zip(moved, result["points"]):
+        assert (after["u"], after["v"]) == pytest.approx((before["u"], before["v"]), abs=1e-9)
+    with pytest.raises(OperationError):
+        sketch.profile_face({"plane": plane, "points": ref["points"], "entities": ref["entities"], "constraints": []})
+    # a hole's circle and the bracket's arcs come through too
+    bracket = Topology(demo("bracket"))
+    base_top = max((i for i in range(bracket.face_count) if measure(bracket, Selection(faces=[i]))["items"][0]["title"] == "Plane" and measure(bracket, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0]), key=lambda i: measure(bracket, Selection(faces=[i]))["items"][0]["rows"][2]["value"])
+    types = {e["type"] for e in sketch.face_reference(bracket.face(base_top), sketch.face_plane(bracket.face(base_top)))["entities"]}
+    assert {"line", "circle", "arc"} <= types

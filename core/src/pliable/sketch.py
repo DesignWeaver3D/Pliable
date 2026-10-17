@@ -85,11 +85,15 @@ class _Solver:
         base = s.addPoint3dV(*origin, 1)
         self.workplane = s.addWorkplane(base, s.addNormal3dV(*_quaternion(x, y, normal), 1), 1)
         self.points = {p["id"]: s.addPoint2dV(self.workplane, p["u"], p["v"], SOLVE_GROUP) for p in sketch.get("points", [])}
+        for p in sketch.get("points", []):
+            if p.get("fixed"):  # reference geometry from the model: never moves
+                s.addWhereDragged(self.points[p["id"]], self.workplane, SOLVE_GROUP)
         self.entities: dict[int, tuple[str, int]] = {}
         self.radii: dict[int, int] = {}
         for e in sketch.get("entities", []):
             self._add_entity(e)
         self.failed_ids: dict[int, int] = {}  # slvs constraint handle -> our constraint id
+        self._axes: dict[str, int] = {}
 
     def _point(self, pid):
         try:
@@ -180,6 +184,17 @@ class _Solver:
                 h = s.addPointsDistance(value, self._point(line["a"]), self._point(line["b"]), wp, g)
             else:
                 h = s.addPointsDistance(value, points[0], points[1], wp, g)
+        elif kind in ("horizontal_distance", "vertical_distance"):
+            horizontal = kind == "horizontal_distance"
+            if "entity" in c:
+                line = self.sketch_line(c["entity"])
+                ids = [line["a"], line["b"]]
+            else:
+                ids = list(c["points"])
+            axis = 0 if horizontal else 1
+            if self._coords(ids[1])[axis] > self._coords(ids[0])[axis]:
+                ids.reverse()  # SolveSpace measures the projection from the second point back to the first
+            h = s.addPointsProjectDistance(value, self._point(ids[0]), self._point(ids[1]), self._axis_line(horizontal), g)
         elif kind in ("radius", "diameter"):
             _, handle = self.entities[c["entity"]]
             h = s.addDiameter(value * (2 if kind == "radius" else 1), handle, g)
@@ -192,6 +207,16 @@ class _Solver:
         else:
             raise SketchError(f"Unknown constraint type {kind!r}")
         self.failed_ids[h] = c.get("id")
+
+    def _axis_line(self, horizontal: bool) -> int:
+        """A fixed line along the sketch's u (or v) axis, to measure projected distances against."""
+        key = "u" if horizontal else "v"
+        if key not in self._axes:
+            s = self.system
+            a = s.addPoint2dV(self.workplane, 0, 0, 1)
+            b = s.addPoint2dV(self.workplane, 1 if horizontal else 0, 0 if horizontal else 1, 1)
+            self._axes[key] = s.addLineSegment(a, b, 1)
+        return self._axes[key]
 
     def sketch_line(self, eid) -> dict:
         for e in self.sketch["entities"]:
@@ -241,7 +266,7 @@ def apply_solution(sketch: dict, result: dict) -> dict:
 # Profiles --------------------------------------------------------------------------------------------
 
 
-def _edges(sketch: dict) -> list[Edge]:
+def _edges(sketch: dict, skip: int | None = None) -> list[Edge]:
     origin, x, y, normal = frame(sketch["plane"])
     points = {p["id"]: gp_Pnt(*(origin[k] + p["u"] * x[k] + p["v"] * y[k] for k in range(3))) for p in sketch.get("points", [])}
     def circle(center: gp_Pnt, radius: float) -> gp_Circ:
@@ -249,7 +274,7 @@ def _edges(sketch: dict) -> list[Edge]:
 
     edges = []
     for e in sketch.get("entities", []):
-        if e.get("construction"):
+        if e.get("construction") or e["id"] == skip:
             continue
         try:
             if e["type"] == "line":
@@ -268,9 +293,10 @@ def _edges(sketch: dict) -> list[Edge]:
     return edges
 
 
-def profile_face(sketch: dict) -> Face:
-    """One planar face from the sketch's closed loops; loops inside other loops become holes."""
-    edges = _edges(sketch)
+def profile_face(sketch: dict, skip: int | None = None) -> Face:
+    """One planar face from the sketch's closed loops (construction lines and `skip` left out); loops inside
+    other loops become holes."""
+    edges = _edges(sketch, skip)
     if not edges:
         raise SketchError("The sketch has no geometry")
     wires = Wire.combine(edges)
@@ -317,7 +343,7 @@ STANDARD_PLANES = {
 }
 
 
-def extrude(shape, sketch: dict, distance: float, mode: str):
+def extrude(shape, sketch: dict, distance: float, mode: str, symmetric: bool = False):
     """Extrude the sketch's profile along the plane normal and join it to the model (mode "join": positive
     distances go along the normal, so out of a face the sketch sits on) or cut it (mode "cut": into the material)."""
     from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
@@ -331,7 +357,11 @@ def extrude(shape, sketch: dict, distance: float, mode: str):
     face = profile_face(sketch)
     _, _, _, normal = frame(sketch["plane"])
     direction = gp_Vec(*normal)
-    if mode == "cut":
+    if symmetric:
+        # Centred on the sketch plane: start half the distance behind it and run the full distance forward.
+        start = BRepBuilderAPI_Transform(face.wrapped, _translation(direction.Multiplied(-abs(distance) / 2)), True).Shape()
+        prism = BRepPrimAPI_MakePrism(start, direction.Multiplied(abs(distance)))
+    elif mode == "cut":
         # Start a hair above the plane so a face lying on the model is cut cleanly.
         margin = 1e-3 + 0.001 * abs(distance)
         lifted = BRepBuilderAPI_Transform(face.wrapped, _translation(direction.Multiplied(margin)), True).Shape()
@@ -350,3 +380,85 @@ def _translation(vector: gp_Vec):
     t = gp_Trsf()
     t.SetTranslation(vector)
     return t
+
+
+def revolve(shape, sketch: dict, axis_entity: int, angle: float, mode: str):
+    """Revolve the sketch's profile about one of its lines (`axis_entity`, which is left out of the profile) and
+    join the result to the model (mode "join") or cut it from the model (mode "cut")."""
+    from OCP.BRepPrimAPI import BRepPrimAPI_MakeRevol
+    from OCP.gp import gp_Ax1
+
+    from .features import _combine, finish
+
+    if mode not in ("join", "cut"):
+        raise SketchError("mode must be 'join' or 'cut'")
+    if not 0.0 < abs(angle) <= 360.0:
+        raise SketchError("The angle must be between 0 and 360 degrees")
+    line = next((e for e in sketch.get("entities", []) if e["id"] == axis_entity and e["type"] == "line"), None)
+    if line is None:
+        raise SketchError("Pick a line in the sketch as the axis")
+    origin, x, y, normal = frame(sketch["plane"])
+    point = {p["id"]: gp_Pnt(*(origin[k] + p["u"] * x[k] + p["v"] * y[k] for k in range(3))) for p in sketch["points"]}
+    a, b = point[line["a"]], point[line["b"]]
+    if a.Distance(b) < 1e-9:
+        raise SketchError("The axis line has zero length")
+    face = profile_face(sketch, skip=axis_entity)
+    revol = BRepPrimAPI_MakeRevol(face.wrapped, gp_Ax1(a, gp_Dir(gp_Vec(a, b))), math.radians(angle))
+    revol.Build()
+    if not revol.IsDone():
+        raise SketchError("Could not revolve this profile (does it cross the axis?)")
+    return finish(_combine(shape, revol.Shape(), fuse=mode == "join"))
+
+
+def face_reference(face_shape, plane: dict) -> dict:
+    """The outline of a flat face as fixed construction geometry in sketch coordinates, so a sketch drawn on the
+    face can snap to its corners and hole centres: {"points": [...], "entities": [...]} with ids from 1."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Line
+    from OCP.TopAbs import TopAbs_EDGE
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+
+    origin, x, y, _ = frame(plane)
+
+    def uv(p) -> tuple[float, float]:
+        d = (p.X() - origin[0], p.Y() - origin[1], p.Z() - origin[2])
+        return sum(a * b for a, b in zip(d, x)), sum(a * b for a, b in zip(d, y))
+
+    points: list[dict] = []
+    entities: list[dict] = []
+    by_key: dict[tuple[int, int], int] = {}
+
+    def point(p) -> int:
+        u, v = uv(p)
+        key = (round(u * 1e5), round(v * 1e5))
+        if key not in by_key:
+            points.append({"id": len(points) + 1, "u": u, "v": v, "fixed": True})
+            by_key[key] = len(points)
+        return by_key[key]
+
+    def add(entity: dict):
+        entities.append({"id": len(points) + len(entities) + 1000, "construction": True, "reference": True, **entity})
+
+    explorer = TopExp_Explorer(face_shape, TopAbs_EDGE)
+    while explorer.More():
+        curve = BRepAdaptor_Curve(TopoDS.Edge(explorer.Current()))
+        first, last = curve.FirstParameter(), curve.LastParameter()
+        if curve.GetType() == GeomAbs_Line:
+            add({"type": "line", "a": point(curve.Value(first)), "b": point(curve.Value(last))})
+        elif curve.GetType() == GeomAbs_Circle:
+            circle = curve.Circle()
+            centre = point(circle.Location())
+            if abs((last - first) - 2 * math.pi) < 1e-6:
+                add({"type": "circle", "center": centre, "radius": circle.Radius()})
+            else:
+                start, end = curve.Value(first), curve.Value(last)
+                cu, cv = uv(circle.Location())
+                mid = uv(curve.Value((first + last) / 2))
+                su, sv = uv(start)
+                turn = (su - cu) * (mid[1] - cv) - (sv - cv) * (mid[0] - cu)
+                if turn < 0:  # the edge runs clockwise in the sketch: swap so the arc is counterclockwise
+                    start, end = end, start
+                add({"type": "arc", "center": centre, "start": point(start), "end": point(end)})
+        explorer.Next()
+    return {"points": points, "entities": entities}
