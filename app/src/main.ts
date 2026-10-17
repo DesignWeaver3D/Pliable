@@ -1,4 +1,5 @@
 import { CoreClient, type MeshData } from "./client";
+import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay } from "./dimensions";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { Palette, type Command } from "./palette";
@@ -17,7 +18,23 @@ const viewport = new Viewport($("viewport"));
 const core = new CoreClient();
 const measurePanel = new MeasurePanel($("measure"));
 const dimensionOverlay = new DimensionOverlay($("viewport"), viewport.camera);
-viewport.onFrame = () => dimensionOverlay.draw();
+const navCube = new NavCube($("navcube"), viewport);
+viewport.onFrame = () => {
+  dimensionOverlay.draw();
+  navCube.update();
+};
+
+// View shortcuts (standard numbering): 0 isometric, 1 front, 2 top, 3 right, 4 rear, 5 bottom, 6 left;
+// P toggles perspective/orthographic; V looks straight at the selected planar face. Ignored while typing or dragging.
+window.addEventListener("keydown", (e) => {
+  const target = e.target as HTMLElement;
+  if (e.ctrlKey || e.metaKey || e.altKey || target.closest("input, textarea, select") || viewport.dragging || dragSels !== null) return;
+  if (e.key in VIEW_KEYS) viewport.setView(VIEW_KEYS[e.key]);
+  else if (e.key === "p" || e.key === "P") navCube.toggleProjection();
+  else if ((e.key === "v" || e.key === "V") && currentSels.length === 1 && currentSels[0].kind === "face") {
+    if (!viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: the face must be flat";
+  }
+});
 
 // Tool registry from the core, the current selection, and which tool a drag runs.
 let tools: ToolInfo[] = [];

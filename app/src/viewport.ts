@@ -69,11 +69,29 @@ class Mark {
   }
 }
 
+const PERSPECTIVE_FOV = 45;
+// Orthographic view is a perspective camera with a tiny field of view, moved back so the picture keeps its size.
+// That keeps picking and projection code identical for both modes.
+const ORTHO_FOV = 0.5;
+const ISO_DIRECTION = new THREE.Vector3(1, -1.4, 0.9).normalize(); // from the target toward the camera
+
+/** Standard views, Number keys for standard views (0 isometric, 1 front, 2 top, 3 right, 4 rear, 5 bottom, 6 left); Z is up. */
+export const STANDARD_VIEWS: Record<string, THREE.Vector3> = {
+  iso: ISO_DIRECTION,
+  front: new THREE.Vector3(0, -1, 0),
+  top: new THREE.Vector3(0, -1e-4, 1).normalize(), // tilted a hair so "up" on screen stays defined
+  right: new THREE.Vector3(1, 0, 0),
+  rear: new THREE.Vector3(0, 1, 0),
+  bottom: new THREE.Vector3(0, -1e-4, -1).normalize(),
+  left: new THREE.Vector3(-1, 0, 0),
+};
+
 export class Viewport {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(45, 1, 0.1, 10000);
   readonly renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   private controls: OrbitControls;
+  private lastClip = 0;
   private model = new THREE.Group();
   private mesh: THREE.Mesh | null = null;
   private data: MeshData | null = null;
@@ -340,9 +358,74 @@ export class Viewport {
     this.resize();
     this.renderer.setAnimationLoop(() => {
       this.controls.update();
+      this.fitClipping();
       this.renderer.render(this.scene, this.camera);
       this.onFrame();
     });
+  }
+
+  get orthographic(): boolean {
+    return this.camera.fov < PERSPECTIVE_FOV / 2;
+  }
+
+  /** Switch between perspective and orthographic, keeping what is framed the same size. */
+  setOrthographic(on: boolean) {
+    if (on === this.orthographic) return;
+    const target = this.controls.target;
+    const offset = this.camera.position.clone().sub(target);
+    const scale = Math.tan((this.camera.fov * Math.PI) / 360) / Math.tan(((on ? ORTHO_FOV : PERSPECTIVE_FOV) * Math.PI) / 360);
+    this.camera.fov = on ? ORTHO_FOV : PERSPECTIVE_FOV;
+    this.camera.position.copy(target).addScaledVector(offset, scale);
+    this.fitClipping(true);
+    this.controls.update();
+  }
+
+  /** Look at the model from a standard direction (a key of STANDARD_VIEWS), keeping target and distance. */
+  setView(name: string) {
+    const direction = STANDARD_VIEWS[name];
+    if (!direction) return;
+    const distance = this.camera.position.distanceTo(this.controls.target);
+    this.camera.position.copy(this.controls.target).addScaledVector(direction, distance);
+    this.controls.update();
+  }
+
+  /** Look straight at a planar face, from the side its normal points to. Returns false if the face is not planar. */
+  alignToFace(faceId: number): boolean {
+    const normal = this.data?.faces.find((f) => f.id === faceId)?.normal;
+    if (!normal) return false;
+    const direction = new THREE.Vector3(...normal);
+    if (Math.abs(direction.z) > 0.9999) direction.y -= 1e-4; // keep "up" defined
+    direction.normalize();
+    const distance = this.camera.position.distanceTo(this.controls.target);
+    this.camera.position.copy(this.controls.target).addScaledVector(direction, distance);
+    this.controls.update();
+    return true;
+  }
+
+  /** Near and far planes follow the camera distance (it changes a lot between perspective and orthographic). */
+  private fitClipping(force = false) {
+    const distance = this.camera.position.distanceTo(this.controls.target);
+    if (!force && Math.abs(distance - this.lastClip) < this.lastClip * 0.01) return;
+    this.lastClip = distance;
+    this.camera.near = distance / 100;
+    this.camera.far = distance * 100;
+    this.camera.updateProjectionMatrix();
+  }
+
+  /** CSS matrix3d string for a cube drawn in the camera's orientation (see navcube.ts). */
+  viewMatrixCss(): string {
+    this.camera.updateMatrixWorld();
+    const e = this.camera.matrixWorldInverse.elements; // column-major, world to camera
+    // css-local (x right, y down, z toward viewer) -> world (x, -z, -y) -> camera -> css (flip y)
+    const r = (row: number, col: number) => e[col * 4 + row];
+    // Camera-space image of each css-local axis.
+    const cols = [
+      [r(0, 0), -r(1, 0), r(2, 0)], // css x -> world X
+      [-r(0, 2), r(1, 2), -r(2, 2)], // css y (down) -> world -Z
+      [-r(0, 1), r(1, 1), -r(2, 1)], // css z (toward viewer) -> world -Y
+    ];
+    const m = [...cols[0], 0, ...cols[1], 0, ...cols[2], 0, 0, 0, 0, 1];
+    return `matrix3d(${m.join(",")})`;
   }
 
   private resize() {

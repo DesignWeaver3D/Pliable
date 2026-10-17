@@ -20,6 +20,12 @@
       #dim { white-space: pre; position: fixed; z-index: 2; pointer-events: none; background: #23262d; color: #ffb878; border: 1px solid #ff8a1f; border-radius: 4px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
       #dim.entry { background: #343944; color: #fff; }
       #dim[hidden] { display: none; }
+      .navcube { position: fixed; top: 52px; right: 12px; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+      .navcube-scene { perspective: 400px; margin: 14px 14px 18px; }
+      .navcube-cube { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
+      .navcube-face { position: absolute; text-align: center; font-size: 11px; color: #cfd6e4; background: rgba(60, 68, 84, 0.85); border: 1px solid #7d8aa5; box-sizing: border-box; cursor: pointer; user-select: none; }
+      .navcube-face:hover { background: rgba(255, 138, 31, 0.8); color: #fff; }
+      .navcube button { font-size: 11px; padding: 2px 8px; }
       #measure { position: fixed; left: 8px; bottom: 8px; z-index: 1; min-width: 190px; max-height: 60vh; overflow-y: auto; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 4px 0; font-variant-numeric: tabular-nums; }
       #measure[hidden] { display: none; }
       #measure .title { padding: 4px 10px 2px; color: #ffb878; font-weight: 600; }
@@ -57,6 +63,7 @@
       <span id="latency"></span>
     </div>
     <div id="tools"></div>
+    <div id="navcube"></div>
     <div id="measure" hidden></div>
     <div id="dim" hidden></div>
     <div id="palette" hidden>
