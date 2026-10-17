@@ -88,6 +88,16 @@ The user's rule: every feature developed before the alpha release goes into it, 
 | Feature tools (delete face, fillet resize/remove, holes, primitives, shell, mirror, draft, align, move/rotate/scale body, combine STEP) | S15 | Usable, rough | Item 3, every tool | Failures must be readable (checked) |
 | Related-face chips (Live Rules) | S15 | Usable | Select a hole, toggle chips | |
 | Sketch in 3D, constraints, extrude | S16 | Incomplete | Draw, constrain, extrude join/cut | Stated as unsupported; sketches are not kept after extruding |
+| Torus, linear array, circular array (whole model) | S22 | Usable | Add each on a demo, then undo | Arrays fuse copies with the original; max 200 |
+| Mesh export STL / OBJ / 3MF (palette: Ctrl+K) | S22 | Usable | Export each, open in a slicer or viewer | Lossy (0.01 mm chord tolerance); no colours or units metadata checked |
+| Revolve face around a straight edge (add or cut) | S22 | Usable | Select a face and an edge, run Revolve face | Mode is a number (0 add, 1 cut) until the form has choices |
+| Asymmetric chamfer: two distances, distance and angle | S22 | Usable | Select a face then its edge(s) | The face is the reference side for the first distance |
+| Combine bodies (union / subtract / intersect two solids) | S22 | Usable | Open a multi-solid file, select a face on each of two solids | Subtract removes the second selected solid from the first; mode is a number (0/1/2) |
+| Split with plane (one body into two solids) | S22 | Usable | Run on a demo and check both halves are selectable | Axis-aligned planes only |
+| Variable fillet, loft between two faces, sweep a face along an edge | S23 | Usable, rough | Try each on a demo; loft needs two faces on separate solids or one solid's two faces | Variable fillet is linear start/end only; sweep follows one edge only; no wire or multi-edge paths yet |
+| Array along an edge | S23 | Usable, rough | Select an edge, run it | Copies are translated, not turned; steps are equal in curve parameter (exact for lines and circles only) |
+| Hide / isolate / show bodies (H, Shift+H, Alt+H, Ctrl+K) | S22 | Usable | Open a multi-solid file, select a face, press H then Alt+H | Visibility is view-only (not saved, not in exports); resets when solids change |
+| Unify faces (explicit tool) | S22 | Usable | Run on an imported STEP with split coplanar faces | Whole model only |
 | Multi-solid handling, import repair and warnings | S18, S21 | Best effort | Open a multi-solid file | |
 | Autosave and restore | S19 | Solid | Item 7 | |
 | Busy indicator | S20 | Solid | Item 8 | |

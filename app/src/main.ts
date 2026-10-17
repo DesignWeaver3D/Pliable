@@ -9,6 +9,7 @@ import { MeasurePanel, type MeasureReply } from "./measure";
 import { Palette, type Command } from "./palette";
 import { acceptsSelection, describeNeeds, dragParam, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
+import { filterHidden, solidsOf } from "./visibility";
 
 const $ = (id: string) => document.getElementById(id)!;
 const status = $("status");
@@ -205,8 +206,12 @@ let committed: MeshData | null = null; // last committed (non-preview) mesh
 /** The newest committed tool run, kept while nothing else has changed the model: "Edit last" undoes it and reopens its form. */
 let lastOp: { tool: ToolInfo; sels: Sel[]; values: Record<string, number> } | null = null;
 
+const hiddenSolids = new Set<number>();
+
 function show(mesh: MeshData, frame = false) {
-  viewport.setMesh(mesh, frame);
+  const present = new Set(solidsOf(mesh));
+  for (const n of hiddenSolids) if (!present.has(n)) hiddenSolids.delete(n);
+  viewport.setMesh(filterHidden(mesh, hiddenSolids), frame);
   undoButton.disabled = !mesh.header.canUndo;
   redoButton.disabled = !mesh.header.canRedo;
 }
@@ -472,6 +477,27 @@ $("info").addEventListener("click", async () => {
 });
 undoButton.addEventListener("click", () => history("undo"));
 redoButton.addEventListener("click", () => history("redo"));
+/** H hides the solid of the selection, Shift+H isolates it, Alt+H shows everything. */
+function setVisibility(action: "hide" | "isolate" | "show") {
+  if (!committed) return;
+  const owner = (s: Sel) => (s.kind === "face" ? committed!.faces : s.kind === "edge" ? committed!.edges : committed!.vertices).find((x) => x.id === s.id)?.solid ?? 0;
+  const picked = new Set(currentSels.map(owner));
+  if (action === "show") hiddenSolids.clear();
+  else if (picked.size) {
+    const all = solidsOf(committed);
+    for (const n of all) if (action === "isolate" ? !picked.has(n) : picked.has(n)) hiddenSolids.add(n);
+    if (action === "isolate") for (const n of picked) hiddenSolids.delete(n);
+  }
+  const keep = currentSels;
+  show(committed);
+  viewport.selectItems(keep.filter((s) => !hiddenSolids.has(owner(s))));
+  setSelection(currentSels.filter((s) => !hiddenSolids.has(owner(s))));
+}
+window.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() !== "h" || e.ctrlKey || e.metaKey || sketch.active) return;
+  if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+  setVisibility(e.altKey ? "show" : e.shiftKey ? "isolate" : "hide");
+});
 window.addEventListener("keydown", (e) => {
   if (!e.ctrlKey || sketch.active) return; // in sketch mode Ctrl+Z undoes sketch edits
   if (e.key === "z") history("undo");
@@ -515,19 +541,22 @@ combineFile.addEventListener("change", async () => {
   }
 });
 
-$("export").addEventListener("click", async () => {
+/** Ask the core for the model in a file format and save it through the browser. */
+async function exportAs(request: string, extension: string, params: Record<string, unknown> = {}) {
   try {
-    const { name, data } = await core.request<{ name: string; data: string }>("export_step");
+    const { name, data } = await core.request<{ name: string; data: string }>(request, params);
     const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
     const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([bytes], { type: "application/step" }));
-    link.download = name.replace(/\.(step|stp)$/i, "") + ".step";
+    link.href = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+    link.download = name.replace(/\.(step|stp|stl|obj|3mf)$/i, "") + "." + extension;
     link.click();
     URL.revokeObjectURL(link.href);
   } catch (e) {
     status.textContent = (e as Error).message;
   }
-});
+}
+
+$("export").addEventListener("click", () => exportAs("export_step", "step"));
 
 select.addEventListener("change", () => load(select.value).catch((e) => (status.textContent = e.message)));
 
@@ -551,8 +580,16 @@ function commands(): Command[] {
     ...toolCommands,
     { label: "Undo", hint: "Ctrl+Z", enabled: !undoButton.disabled, run: () => history("undo") },
     { label: "Redo", hint: "Ctrl+Y", enabled: !redoButton.disabled, run: () => history("redo") },
+    { label: "Hide body", hint: "H", enabled: currentSels.length > 0, run: () => setVisibility("hide") },
+    { label: "Isolate body", hint: "Shift+H", enabled: currentSels.length > 0, run: () => setVisibility("isolate") },
+    { label: "Show all bodies", hint: "Alt+H", enabled: hiddenSolids.size > 0, run: () => setVisibility("show") },
     { label: "Open STEP file", enabled: true, run: () => fileInput.click() },
-    { label: "Export STEP file", enabled: true, run: () => $("export").click() },
+    { label: "Export STEP file", enabled: true, run: () => exportAs("export_step", "step") },
+    ...["stl", "obj", "3mf"].map((format) => ({
+      label: `Export ${format.toUpperCase()} mesh (lossy)`,
+      enabled: true,
+      run: () => exportAs("export_mesh", format, { format }),
+    })),
     ...demos,
   ];
 }

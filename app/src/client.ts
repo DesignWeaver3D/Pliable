@@ -7,6 +7,8 @@ export interface FaceRange {
   count: number;
   normal: [number, number, number] | null;
   centroid: [number, number, number] | null;
+  /** Which solid of the model the face belongs to (hide / isolate). */
+  solid?: number;
 }
 
 export interface EdgeRange {
@@ -15,10 +17,12 @@ export interface EdgeRange {
   count: number;
   /** Unit direction pointing away from the material (drag axis for fillet/chamfer). */
   normal: [number, number, number] | null;
+  solid?: number;
 }
 
 export interface VertexInfo {
   id: number;
+  solid?: number;
   position: [number, number, number];
 }
 

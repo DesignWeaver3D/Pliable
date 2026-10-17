@@ -278,10 +278,22 @@ def test_fillet_chamfer_tool_through_session():
     session.handle({"type": "open_demo", "name": "bracket"})
     topology = session.document.current
     reply = session.handle({"type": "available_tools", "selection": {"edges": [0]}})
-    assert reply["tools"] == ["fillet_chamfer"]
+    assert {"fillet_chamfer", "variable_fillet"} <= set(reply["tools"])  # edge tools; others may be added over time
     frame = session.handle(
         {"type": "tool_commit", "tool": "fillet_chamfer", "selection": {"edges": [27]}, "params": {"distance": 1}}
     )
     header, _ = decode_binary(frame)
     assert header["canUndo"] and len(header["faces"]) > topology.face_count
     assert header["edges"][0]["normal"] is None or len(header["edges"][0]["normal"]) == 3
+
+
+@pytest.mark.parametrize("fmt, marker", [("stl", None), ("obj", b"v "), ("3mf", b"PK")])
+def test_export_mesh_formats(fmt, marker):
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    data = base64.b64decode(session.handle({"type": "export_mesh", "format": fmt})["data"])
+    assert len(data) > 200
+    if marker:
+        assert marker in data[:2000] or data.startswith(marker)
+    with pytest.raises(Exception):
+        session.handle({"type": "export_mesh", "format": "dxf"})

@@ -3,7 +3,7 @@
 import os
 import tempfile
 
-from build123d import export_step, import_step
+from build123d import Mesher, export_step, export_stl, import_step
 from build123d.topology import Shape
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepGProp import BRepGProp
@@ -49,6 +49,35 @@ def write_step(shape: TopoDS_Shape) -> bytes:
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, "export.step")
         export_step(Shape.cast(shape), path)
+        with open(path, "rb") as f:
+            return f.read()
+
+
+MESH_FORMATS = ("stl", "obj", "3mf")
+MESH_TOLERANCE = 0.01  # model units; chord deviation of the exported triangles
+
+
+def write_mesh(shape: TopoDS_Shape, fmt: str) -> bytes:
+    """Triangle-mesh export (STL, OBJ, 3MF). Lossy compared with STEP: curved faces become triangles."""
+    if fmt not in MESH_FORMATS:
+        raise ValueError(f"Unknown mesh format {fmt!r}")
+    solid = Shape.cast(shape)
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, f"export.{fmt}")
+        if fmt == "stl":
+            export_stl(solid, path, tolerance=MESH_TOLERANCE)
+        elif fmt == "3mf":
+            mesher = Mesher()
+            mesher.add_shape(solid, linear_deflection=MESH_TOLERANCE)
+            mesher.write(path)
+        else:
+            vertices, triangles = solid.tessellate(MESH_TOLERANCE)
+            with open(path, "w") as f:
+                f.write("# Pliable export" + chr(10))
+                for v in vertices:
+                    f.write(f"v {v.X:.6f} {v.Y:.6f} {v.Z:.6f}" + chr(10))
+                for a, b, c in triangles:
+                    f.write(f"f {a + 1} {b + 1} {c + 1}" + chr(10))
         with open(path, "rb") as f:
             return f.read()
 

@@ -95,3 +95,12 @@ def test_closed_surface_body_becomes_solid_and_open_one_is_named():
     assert any("1 surface body closed" in w for w in warnings)
     assert any("1 open surface" in w and "Lid" in w for w in warnings)
     assert "Open body 'Lid': 1 open loop, 1 flat" in warnings
+
+
+def test_mesh_labels_each_item_with_its_solid():
+    from pliable.tessellate import tessellate
+
+    mesh = tessellate(Topology(two_stacked_boxes()))
+    assert {f["solid"] for f in mesh.faces} == {0, 1}
+    assert {e["solid"] for e in mesh.edges} == {0, 1}
+    assert {v["solid"] for v in mesh.vertices} == {0, 1}

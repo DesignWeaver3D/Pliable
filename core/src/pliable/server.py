@@ -26,7 +26,7 @@ from .demos import load_demo
 from . import diagnostics
 from .document import Document
 from .features import combine
-from .files import read_step, read_step_checked, write_step
+from .files import read_step, read_step_checked, write_mesh, write_step
 from OCP.gp import gp_Vec
 from .measure import measure, model_info
 from .ops import OperationError, solids_of
@@ -168,6 +168,13 @@ class Session:
         if kind == "export_step":
             document = self._require_document()
             data = write_step(document.current.shape)
+            return {"name": document.name, "data": base64.b64encode(data).decode()}
+        if kind == "export_mesh":
+            document = self._require_document()
+            try:
+                data = write_mesh(document.current.shape, str(request.get("format")))
+            except ValueError as e:
+                raise RequestError(str(e)) from e
             return {"name": document.name, "data": base64.b64encode(data).decode()}
         raise RequestError(f"Unknown request type {kind!r}")
 

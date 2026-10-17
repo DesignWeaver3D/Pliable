@@ -7,27 +7,27 @@ so no history or topological naming is needed: the tool reads what the face is n
 
 import math
 
-from OCP.BRepAdaptor import BRepAdaptor_Surface
+from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Defeaturing
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy, BRepBuilderAPI_Transform
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepGProp import BRepGProp
 from OCP.BRepOffsetAPI import BRepOffsetAPI_DraftAngle, BRepOffsetAPI_MakeThickSolid
-from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCone, BRepPrimAPI_MakeCylinder, BRepPrimAPI_MakeSphere
+from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCone, BRepPrimAPI_MakeCylinder, BRepPrimAPI_MakeRevol, BRepPrimAPI_MakeSphere, BRepPrimAPI_MakeTorus
 from OCP.BRepBndLib import BRepBndLib
 from OCP.Bnd import Bnd_Box
 from OCP.BRepTools import BRepTools
 from OCP.GProp import GProp_GProps
 from OCP.TopAbs import TopAbs_REVERSED
-from OCP.GeomAbs import GeomAbs_Cylinder, GeomAbs_Plane, GeomAbs_Torus
+from OCP.GeomAbs import GeomAbs_Cylinder, GeomAbs_Line, GeomAbs_Plane, GeomAbs_Torus
 from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
 from OCP.BRep import BRep_Builder
 from OCP.TopoDS import TopoDS_Compound, TopoDS_Shape
 from OCP.collections import List_TopoDS_Shape
 from OCP.gp import gp_Ax1, gp_Ax2, gp_Dir, gp_Pln, gp_Pnt, gp_Trsf, gp_Vec
 
-from .ops import MIN_DISTANCE, OperationError, OpResult, _boolean, planar_normal, push_pull
-from .tools import Accepts, Param, Tool, register
+from .ops import MIN_DISTANCE, OperationError, OpResult, _boolean, _contains, planar_normal, push_pull, solids_of
+from .tools import Accepts, Param, Tool, get_tool, register
 
 TOL = 1e-6
 
@@ -620,6 +620,19 @@ class Mirror(_PlanarFace):
 
 
 @register
+class Unify(Tool):
+    """Merge coplanar and co-cylindrical faces (and the edges between them) across the whole model, e.g. after importing a split-up STEP file."""
+
+    id = "unify"
+    label = "Unify faces"
+    accepts = Accepts()
+    params = []
+
+    def run(self, topology, selection, values, preview):
+        return finish(topology.shape)
+
+
+@register
 class Draft(_PlanarFace):
     """Tilt flat faces by an angle about the lowest point of the model along the pull direction (default Z)."""
 
@@ -763,6 +776,333 @@ class AddCone(Tool):
         return finish(_combine(topology.shape, cone, fuse=True))
 
 
+@register
+class AddTorus(Tool):
+    """A torus lying on the XY plane, centred at (x, y, z). `major` is the ring's centre-line diameter."""
+
+    id = "add_torus"
+    label = "Add torus"
+    accepts = Accepts()
+    params = [Param("major", "length", 20), Param("minor", "length", 5), Param("x", "length"), Param("y", "length"), Param("z", "length")]
+
+    def run(self, topology, selection, values, preview):
+        if values["minor"] < MIN_DISTANCE or values["major"] <= values["minor"]:
+            raise OperationError("The ring diameter must be larger than the tube diameter, and both positive")
+        axes = gp_Ax2(gp_Pnt(values["x"], values["y"], values["z"]), gp_Dir(0, 0, 1))
+        torus = BRepPrimAPI_MakeTorus(axes, values["major"] / 2, values["minor"] / 2).Shape()
+        return finish(_combine(topology.shape, torus, fuse=True))
+
+
+MAX_ARRAY_COPIES = 200
+
+
+def _array_copies(count: float) -> int:
+    n = int(round(count))
+    if n < 2 or n > MAX_ARRAY_COPIES:
+        raise OperationError(f"The count must be between 2 and {MAX_ARRAY_COPIES}")
+    return n
+
+
+def _fuse_copies(shape: TopoDS_Shape, transforms: list[gp_Trsf]) -> OpResult:
+    result = shape
+    for trsf in transforms:
+        result = _combine(result, BRepBuilderAPI_Transform(shape, trsf, True).Shape(), fuse=True)
+    return finish(result)
+
+
+@register
+class LinearArray(Tool):
+    """Copies of the whole model at equal steps (dx, dy, dz), fused with it. `count` includes the original."""
+
+    id = "linear_array"
+    label = "Linear array"
+    accepts = Accepts()
+    params = [Param("count", "number", 3), Param("dx", "length", 20), Param("dy", "length"), Param("dz", "length")]
+
+    def run(self, topology, selection, values, preview):
+        count = _array_copies(values["count"])
+        step = gp_Vec(values["dx"], values["dy"], values["dz"])
+        if step.Magnitude() < MIN_DISTANCE:
+            raise OperationError("Give a non-zero step")
+        transforms = []
+        for k in range(1, count):
+            trsf = gp_Trsf()
+            trsf.SetTranslation(step.Multiplied(k))
+            transforms.append(trsf)
+        return _fuse_copies(topology.shape, transforms)
+
+
+@register
+class CircularArray(Tool):
+    """Copies of the whole model rotated about an axis through the origin (0 = X, 1 = Y, 2 = Z), fused with it.
+    `angle` is the total sweep; 360 spreads the copies evenly all the way round."""
+
+    id = "circular_array"
+    label = "Circular array"
+    accepts = Accepts()
+    params = [Param("count", "number", 4), Param("axis", "number", 2), Param("angle", "angle", 360)]
+
+    def run(self, topology, selection, values, preview):
+        count = _array_copies(values["count"])
+        axis = int(round(values["axis"]))
+        if axis not in (0, 1, 2):
+            raise OperationError("The axis must be 0 (X), 1 (Y) or 2 (Z)")
+        angle = values["angle"]
+        if abs(angle) < 1e-6:
+            raise OperationError("Give a non-zero angle")
+        full = abs(abs(angle) - 360) < 1e-6
+        step = angle / (count if full else count - 1)
+        direction = gp_Dir(*(1.0 if k == axis else 0.0 for k in range(3)))
+        transforms = []
+        for k in range(1, count):
+            trsf = gp_Trsf()
+            trsf.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), direction), math.radians(step * k))
+            transforms.append(trsf)
+        return _fuse_copies(topology.shape, transforms)
+
+
+@register
+class RevolveFace(Tool):
+    """Sweep the selected face around the selected straight edge (the axis). `mode` 0 adds material, 1 cuts it."""
+
+    id = "revolve_face"
+    label = "Revolve face"
+    accepts = Accepts(faces=(1, 1), edges=(1, 1))
+    params = [Param("angle", "angle", 360, drag=False), Param("mode", "number", 0)]
+
+    def applies(self, topology, selection):
+        return BRepAdaptor_Curve(topology.edge(selection.edges[0])).GetType() == GeomAbs_Line
+
+    def run(self, topology, selection, values, preview):
+        angle = values["angle"]
+        if abs(angle) < 1e-6 or abs(angle) > 360 + 1e-6:
+            raise OperationError("The angle must be between 0 and 360 degrees")
+        mode = int(round(values["mode"]))
+        if mode not in (0, 1):
+            raise OperationError("Mode must be 0 (add) or 1 (cut)")
+        line = BRepAdaptor_Curve(topology.edge(selection.edges[0])).Line()
+        face = topology.face(selection.faces[0])
+        revolved = BRepPrimAPI_MakeRevol(face, gp_Ax1(line.Location(), line.Direction()), math.radians(angle))
+        revolved.Build()
+        if not revolved.IsDone():
+            raise OperationError("The face cannot be revolved around that edge (the axis must not cross the face)")
+        before = _volume(topology.shape)
+        result = _combine(topology.shape, revolved.Shape(), fuse=mode == 0)
+        if abs(_volume(result) - before) < 1e-9:
+            raise OperationError("Revolving changed nothing: the swept volume is already inside or outside the model")
+        return finish(result)
+
+
+def _chamfer_with_face(topology, selection, add) -> OpResult:
+    """Chamfer the selected edges, measuring from the selected face, which every edge must border."""
+    from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer
+
+    face = topology.face(selection.faces[0])
+    maker = BRepFilletAPI_MakeChamfer(topology.shape)
+    edges = [topology.edge(i) for i in selection.edges]
+    for edge in edges:
+        if not any(f.IsSame(face) for f in topology.edge_faces(edge)):
+            raise OperationError("Every edge must border the selected reference face")
+        add(maker, edge, face)
+    try:
+        maker.Build()
+    except Exception as e:  # OCCT raises Standard_Failure for impossible sizes
+        raise OperationError(f"Could not chamfer: {e}") from None
+    if not maker.IsDone() or maker.Shape().IsNull() or not BRepCheck_Analyzer(maker.Shape()).IsValid():
+        raise OperationError("Could not chamfer these edges at this size")
+    generated = [g for edge in edges for g in maker.Generated(edge)]
+    return OpResult(maker.Shape(), generated)
+
+
+@register
+class ChamferTwoDistances(Tool):
+    """Chamfer edges with different leg lengths: `first` along the selected reference face, `second` on the other."""
+
+    id = "chamfer_two_distances"
+    label = "Chamfer (two distances)"
+    accepts = Accepts(faces=(1, 1), edges=(1, None))
+    params = [Param("first", "length", 2), Param("second", "length", 1)]
+
+    def run(self, topology, selection, values, preview):
+        if values["first"] < MIN_DISTANCE or values["second"] < MIN_DISTANCE:
+            raise OperationError("Both distances must be positive")
+        return _chamfer_with_face(topology, selection, lambda m, e, f: m.Add(values["first"], values["second"], e, f))
+
+
+@register
+class ChamferDistanceAngle(Tool):
+    """Chamfer edges by a distance along the selected reference face and the angle the bevel makes with it."""
+
+    id = "chamfer_distance_angle"
+    label = "Chamfer (distance and angle)"
+    accepts = Accepts(faces=(1, 1), edges=(1, None))
+    params = [Param("distance", "length", 2), Param("angle", "angle", 45)]
+
+    def run(self, topology, selection, values, preview):
+        if values["distance"] < MIN_DISTANCE or not 0 < values["angle"] < 90:
+            raise OperationError("Give a positive distance and an angle between 0 and 90 degrees")
+        return _chamfer_with_face(topology, selection, lambda m, e, f: m.AddDA(values["distance"], math.radians(values["angle"]), e, f))
+
+
+@register
+class BodyBoolean(Tool):
+    """Boolean between two solids of the model. Select a face of the first (target) solid, then a face of the second
+    (tool) solid. `mode` 0 unites them, 1 subtracts the tool from the target, 2 keeps only the overlap.
+    Other solids stay as they are."""
+
+    id = "body_boolean"
+    label = "Combine bodies"
+    accepts = Accepts(faces=(2, 2))
+    params = [Param("mode", "number", 0)]
+
+    def applies(self, topology, selection):
+        return len(solids_of(topology.shape)) >= 2
+
+    def run(self, topology, selection, values, preview):
+        mode = int(round(values["mode"]))
+        if mode not in (0, 1, 2):
+            raise OperationError("Mode must be 0 (unite), 1 (subtract) or 2 (intersect)")
+        solids = solids_of(topology.shape)
+        owners = []
+        for face_id in selection.faces:
+            face = topology.face(face_id)
+            index = next((i for i, solid in enumerate(solids) if _contains(solid, face)), None)
+            if index is None:
+                raise OperationError("A selected face is not part of a closed solid")
+            owners.append(index)
+        if owners[0] == owners[1]:
+            raise OperationError("Select one face on each of two different solids")
+        target, tool = solids[owners[0]], solids[owners[1]]
+        if mode == 2:
+            from OCP.BRepAlgoAPI import BRepAlgoAPI_Common
+
+            common = BRepAlgoAPI_Common(target, tool)
+            common.Build()
+            if not common.IsDone() or common.Shape().IsNull() or _volume(common.Shape()) < 1e-9:
+                raise OperationError("The two solids do not overlap")
+            merged = common.Shape()
+        else:
+            merged = _combine(target, tool, fuse=mode == 0)
+            if _volume(merged) < 1e-9:
+                raise OperationError("The result would be empty")
+        compound, builder = TopoDS_Compound(), BRep_Builder()
+        builder.MakeCompound(compound)
+        builder.Add(compound, merged)
+        for i, solid in enumerate(solids):
+            if i not in owners:
+                builder.Add(compound, solid)
+        return finish(compound)
+
+
+@register
+class VariableFillet(Tool):
+    """Round edges with a radius that changes linearly from `start` at each edge's first vertex to `end` at its last."""
+
+    id = "variable_fillet"
+    label = "Variable fillet"
+    accepts = Accepts(edges=(1, None))
+    params = [Param("start", "length", 1), Param("end", "length", 3)]
+
+    def run(self, topology, selection, values, preview):
+        from OCP.BRepFilletAPI import BRepFilletAPI_MakeFillet
+
+        if values["start"] < MIN_DISTANCE or values["end"] < MIN_DISTANCE:
+            raise OperationError("Both radii must be positive")
+        maker = BRepFilletAPI_MakeFillet(topology.shape)
+        edges = [topology.edge(i) for i in selection.edges]
+        for edge in edges:
+            maker.Add(values["start"], values["end"], edge)
+        try:
+            maker.Build()
+        except Exception as e:  # OCCT raises Standard_Failure for impossible sizes
+            raise OperationError(f"Could not round: {e}") from None
+        if not maker.IsDone() or maker.Shape().IsNull() or not BRepCheck_Analyzer(maker.Shape()).IsValid():
+            raise OperationError("Could not round these edges with these radii")
+        return OpResult(maker.Shape(), [g for edge in edges for g in maker.Generated(edge)])
+
+
+def _outer_wire(face):
+    from OCP.BRepTools import BRepTools as _BT
+
+    return _BT.OuterWire_s(face)
+
+
+@register
+class LoftFaces(Tool):
+    """Join two faces with a solid that blends from the outline of one to the other (`ruled` 1 = straight sides).
+    The new solid is fused with the model."""
+
+    id = "loft_faces"
+    label = "Loft between faces"
+    accepts = Accepts(faces=(2, 2))
+    params = [Param("ruled", "number", 0)]
+
+    def run(self, topology, selection, values, preview):
+        from OCP.BRepOffsetAPI import BRepOffsetAPI_ThruSections
+
+        loft = BRepOffsetAPI_ThruSections(True, int(round(values["ruled"])) == 1)
+        for face_id in selection.faces:
+            loft.AddWire(_outer_wire(topology.face(face_id)))
+        try:
+            loft.Build()
+        except Exception as e:
+            raise OperationError(f"Could not loft between these faces: {e}") from None
+        if not loft.IsDone() or loft.Shape().IsNull() or _volume(loft.Shape()) < 1e-9:
+            raise OperationError("Could not loft between these faces")
+        return finish(_combine(topology.shape, loft.Shape(), fuse=True))
+
+
+@register
+class SweepFace(Tool):
+    """Sweep the selected face along the selected edge (the path); `mode` 0 adds the swept solid, 1 cuts it."""
+
+    id = "sweep_face"
+    label = "Sweep face along edge"
+    accepts = Accepts(faces=(1, 1), edges=(1, 1))
+    params = [Param("mode", "number", 0)]
+
+    def run(self, topology, selection, values, preview):
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeWire
+        from OCP.BRepOffsetAPI import BRepOffsetAPI_MakePipe
+
+        mode = int(round(values["mode"]))
+        if mode not in (0, 1):
+            raise OperationError("Mode must be 0 (add) or 1 (cut)")
+        path = BRepBuilderAPI_MakeWire(topology.edge(selection.edges[0])).Wire()
+        pipe = BRepOffsetAPI_MakePipe(path, topology.face(selection.faces[0]))
+        try:
+            pipe.Build()
+        except Exception as e:
+            raise OperationError(f"Could not sweep along this edge: {e}") from None
+        if not pipe.IsDone() or pipe.Shape().IsNull() or _volume(pipe.Shape()) < 1e-9:
+            raise OperationError("Could not sweep this face along this edge")
+        return finish(_combine(topology.shape, pipe.Shape(), fuse=mode == 0))
+
+
+@register
+class PathArray(Tool):
+    """Copies of the whole model placed at equal steps along the selected edge, starting at the model's current
+    position (the first copy is the original); copies are moved, not turned, and fused with it."""
+
+    id = "path_array"
+    label = "Array along edge"
+    accepts = Accepts(edges=(1, 1))
+    params = [Param("count", "number", 4)]
+
+    def run(self, topology, selection, values, preview):
+        count = _array_copies(values["count"])
+        curve = BRepAdaptor_Curve(topology.edge(selection.edges[0]))
+        first, last = curve.FirstParameter(), curve.LastParameter()
+        # Equal steps in the curve parameter: equal lengths for lines and circles, only approximately for splines.
+        point = lambda k: curve.Value(first + (last - first) * k / (count - 1))
+        transforms = []
+        for k in range(1, count):
+            trsf = gp_Trsf()
+            trsf.SetTranslation(gp_Vec(point(0), point(k)))
+            transforms.append(trsf)
+        return _fuse_copies(topology.shape, transforms)
+
+
 # Re-radius a fillet ---------------------------------------------------------------------------------------
 
 
@@ -894,6 +1234,31 @@ class CutPlane(Tool):
         if _volume(result) < 1e-9:
             raise OperationError("The plane would remove the whole model")
         return finish(result)
+
+
+@register
+class SplitPlane(Tool):
+    """Split the model into two solids along a plane square to an axis (0 = X, 1 = Y, 2 = Z) at `position`."""
+
+    id = "split_plane"
+    label = "Split with plane"
+    accepts = Accepts()
+    params = [Param("axis", "number", 2), Param("position", "length")]
+
+    def run(self, topology, selection, values, preview):
+        halves = []
+        for side in (1, -1):
+            cut = get_tool("cut_plane").run(topology, selection, {"axis": values["axis"], "position": values["position"], "remove_side": side}, preview)
+            halves.append(cut.shape)
+        total = _volume(topology.shape)
+        if min(_volume(h) for h in halves) < 1e-9 * max(total, 1) or abs(sum(_volume(h) for h in halves) - total) > 1e-6 * total:
+            raise OperationError("The plane does not pass through the model")
+        compound, builder = TopoDS_Compound(), BRep_Builder()
+        builder.MakeCompound(compound)
+        for half in halves:
+            for solid in solids_of(half):
+                builder.Add(compound, solid)
+        return OpResult(compound, [])
 
 
 @register

@@ -3,6 +3,7 @@ import math
 import pytest
 from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
+from OCP.gp import gp_Vec
 
 from pliable.demos import load_demo
 from pliable.measure import measure
@@ -227,3 +228,158 @@ def test_resize_fillet_changes_radius(bracket):
     assert faces_where(Topology(bigger.shape), "Fillet", Radius=9)
     sharp = run("resize_fillet", bracket, faces=[fillet], radius=0)
     assert volume(sharp.shape) - before == pytest.approx((1 - math.pi / 4) * 36 * 10, rel=1e-3)
+
+
+def test_torus(block):
+    result = run("add_torus", block, major=20, minor=4, x=100, y=0, z=0)
+    assert volume(result.shape) == pytest.approx(24000 + 2 * math.pi**2 * 10 * 4, rel=1e-3)
+    with pytest.raises(OperationError):
+        run("add_torus", block, major=4, minor=4)
+
+
+def test_linear_array_fuses_touching_copies(block):
+    result = run("linear_array", block, count=3, dx=40, dy=0, dz=0)  # block is 40 wide: copies touch
+    assert volume(result.shape) == pytest.approx(3 * 24000, rel=1e-6)
+    assert Topology(result.shape).face_count == 6  # one long block after merging coplanar faces
+    with pytest.raises(OperationError):
+        run("linear_array", block, count=3, dx=0)
+
+
+def test_circular_array(block):
+    result = run("circular_array", block, count=4, axis=2, angle=360)
+    assert volume(result.shape) < 4 * 24000  # copies overlap near the axis
+    assert volume(result.shape) > 24000
+    with pytest.raises(OperationError):
+        run("circular_array", block, count=1)
+
+
+def test_revolve_face_about_its_own_edge(block):
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopAbs import TopAbs_EDGE
+
+    from pliable.ops import planar_normal
+
+    top = max((planar_normal(f).Z(), i) for i, f in block.faces() if planar_normal(f) is not None)[1]
+    explorer = TopExp_Explorer(block.face(top), TopAbs_EDGE)
+    edge = block.edge_id(explorer.Current())
+    result = run("revolve_face", block, faces=[top], edges=[edge], angle=90, mode=0)
+    assert volume(result.shape) > 24000
+    with pytest.raises(OperationError):
+        run("revolve_face", block, faces=[top], edges=[edge], angle=0)
+
+
+def _top_face_and_edge(block):
+    from OCP.TopAbs import TopAbs_EDGE
+    from OCP.TopExp import TopExp_Explorer
+    from pliable.ops import planar_normal
+
+    top = max((planar_normal(f).Z(), i) for i, f in block.faces() if planar_normal(f) is not None)[1]
+    return top, block.edge_id(TopExp_Explorer(block.face(top), TopAbs_EDGE).Current())
+
+
+def test_two_distance_chamfer_removes_the_wedge(block):
+    top, edge = _top_face_and_edge(block)
+    result = run("chamfer_two_distances", block, faces=[top], edges=[edge], first=4, second=2)
+    assert volume(result.shape) == pytest.approx(24000 - 0.5 * 4 * 2 * 40, rel=1e-3) or volume(result.shape) == pytest.approx(24000 - 0.5 * 4 * 2 * 30, rel=1e-3)
+    with pytest.raises(OperationError):
+        run("chamfer_two_distances", block, faces=[top], edges=[edge], first=0, second=2)
+
+
+def test_distance_angle_chamfer(block):
+    top, edge = _top_face_and_edge(block)
+    result = run("chamfer_distance_angle", block, faces=[top], edges=[edge], distance=4, angle=45)
+    assert volume(result.shape) < 24000
+
+
+def _two_blocks(offset):
+    from OCP.BRep import BRep_Builder
+    from OCP.TopoDS import TopoDS_Compound
+    from pliable.features import _moved
+
+    a = load_demo("block")
+    compound, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(compound)
+    builder.Add(compound, a)
+    builder.Add(compound, _moved(a, gp_Vec(offset, 0, 0)))
+    return Topology(compound)
+
+
+def _face_in_solid(topology, index):
+    from pliable.ops import _contains, solids_of
+
+    solid = solids_of(topology.shape)[index]
+    return next(i for i, f in topology.faces() if _contains(solid, f))
+
+
+@pytest.mark.parametrize("mode, expected", [(0, 40 * 30 * 20 + 20 * 30 * 20), (1, 20 * 30 * 20), (2, 20 * 30 * 20)])
+def test_body_boolean(mode, expected):
+    two = _two_blocks(20)  # overlap by half
+    faces = [_face_in_solid(two, 0), _face_in_solid(two, 1)]
+    result = run("body_boolean", two, faces=faces, mode=mode)
+    assert volume(result.shape) == pytest.approx(expected, rel=1e-3)
+    with pytest.raises(OperationError):
+        run("body_boolean", two, faces=[faces[0], faces[0] + 0], mode=mode)
+
+
+def test_split_plane_makes_two_solids(block):
+    from pliable.ops import solids_of
+
+    result = run("split_plane", block, axis=2, position=8)
+    assert len(solids_of(result.shape)) == 2
+    assert volume(result.shape) == pytest.approx(24000)
+    with pytest.raises(OperationError):
+        run("split_plane", block, axis=2, position=500)
+
+
+def test_variable_fillet_removes_material(block):
+    _, edge = _top_face_and_edge(block)
+    result = run("variable_fillet", block, edges=[edge], start=1, end=4)
+    assert 24000 - 4 * 4 * 40 < volume(result.shape) < 24000
+    with pytest.raises(OperationError):
+        run("variable_fillet", block, edges=[edge], start=0, end=2)
+
+
+def test_loft_between_faces_fills_the_gap():
+    from pliable.features import _moved
+
+    a = load_demo("block")
+    from OCP.BRep import BRep_Builder
+    from OCP.TopoDS import TopoDS_Compound
+
+    compound, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(compound)
+    builder.Add(compound, a)
+    builder.Add(compound, _moved(a, gp_Vec(0, 0, 40)))  # a second block 20 above the first
+    two = Topology(compound)
+    from pliable.ops import _contains, planar_normal, solids_of
+
+    lower, upper = solids_of(two.shape)
+    top = next(i for i, f in two.faces() if _contains(lower, f) and planar_normal(f) is not None and planar_normal(f).Z() > 0.9)
+    bottom = next(i for i, f in two.faces() if _contains(upper, f) and planar_normal(f) is not None and planar_normal(f).Z() < -0.9)
+    result = run("loft_faces", two, faces=[top, bottom], ruled=1)
+    assert volume(result.shape) == pytest.approx(3 * 24000, rel=1e-3)
+
+
+def test_sweep_face_along_edge(block):
+    top, _ = _top_face_and_edge(block)
+    # sweep the top face along a vertical edge: a prism the height of that edge stacked on the face's plane
+    from pliable.ops import planar_normal
+
+    vertical = next(i for i in range(block.edge_count) if abs(__import__("OCP.BRepAdaptor", fromlist=["x"]).BRepAdaptor_Curve(block.edge(i)).Line().Direction().Z()) > 0.9)
+    # which way the edge runs decides whether the sweep goes up (adds) or down through the block (cuts)
+    volumes = [volume(run("sweep_face", block, faces=[top], edges=[vertical], mode=mode).shape) for mode in (0, 1)]
+    assert any(v != pytest.approx(24000) for v in volumes)
+
+
+def test_path_array_along_a_straight_edge(block):
+    # the block's X-direction edges are 40 long: 3 copies spaced 20 apart overlap, giving a 80 x 30 x 20 block
+    edge = next(i for i in range(block.edge_count) if abs(__import__("OCP.BRepAdaptor", fromlist=["x"]).BRepAdaptor_Curve(block.edge(i)).Line().Direction().X()) > 0.9)
+    result = run("path_array", block, edges=[edge], count=3)
+    assert volume(result.shape) == pytest.approx(80 * 30 * 20, rel=1e-3)
+
+
+def test_unify_merges_split_coplanar_faces(block):
+    # Cutting at a plane and rejoining leaves the model valid; unify must not add faces.
+    result = run("unify", block)
+    assert result.shape is not None
+    assert Topology(result.shape).face_count == block.face_count

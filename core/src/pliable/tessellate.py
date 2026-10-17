@@ -14,7 +14,8 @@ from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.BRepBndLib import BRepBndLib
 from OCP.BRepMesh import BRepMesh_IncrementalMesh
 from OCP.GCPnts import GCPnts_TangentialDeflection
-from OCP.TopAbs import TopAbs_REVERSED
+from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID, TopAbs_VERTEX
+from OCP.TopExp import TopExp_Explorer
 from OCP.TopLoc import TopLoc_Location
 from OCP.TopoDS import TopoDS_Shape
 
@@ -94,8 +95,29 @@ def _face_arrays(face):
     return pos, nrm, idx.reshape(-1), centroid
 
 
+def _solid_indices(topology: Topology) -> tuple[dict, dict, dict]:
+    """Solid number of each face, edge and vertex id (shared sub-shapes keep the first solid)."""
+    owner = ({}, {}, {})
+    lookups = (topology.face_id, topology.edge_id, topology.vertex_id)
+    kinds = (TopAbs_FACE, TopAbs_EDGE, TopAbs_VERTEX)
+    solids = TopExp_Explorer(topology.shape, TopAbs_SOLID)
+    number = 0
+    while solids.More():
+        for table, lookup, kind in zip(owner, lookups, kinds):
+            sub = TopExp_Explorer(solids.Current(), kind)
+            while sub.More():
+                sub_id = lookup(sub.Current())
+                if sub_id is not None:
+                    table.setdefault(sub_id, number)
+                sub.Next()
+        number += 1
+        solids.Next()
+    return owner
+
+
 def tessellate(topology: Topology) -> Mesh:
     shape = topology.shape
+    face_solid, edge_solid, vertex_solid = _solid_indices(topology)
     deflection = linear_deflection(shape)
     # Faces unchanged from a previous shape keep their triangulation, so
     # re-meshing after an operation only meshes the faces that changed.
@@ -127,6 +149,7 @@ def tessellate(topology: Topology) -> Mesh:
                 "count": index_count - start,
                 "normal": [normal.X(), normal.Y(), normal.Z()] if normal is not None else None,
                 "centroid": centroid,
+                "solid": face_solid.get(face_id, 0),
             }
         )
 
@@ -147,13 +170,14 @@ def tessellate(topology: Topology) -> Mesh:
                 "start": start,
                 "count": len(edge_positions) - start,
                 "normal": edge_outward_normal(topology, edge),
+                "solid": edge_solid.get(edge_id, 0),
             }
         )
 
     vertices = []
     for vertex_id, vertex in topology.vertices():
         p = BRep_Tool.Pnt_s(vertex)
-        vertices.append({"id": vertex_id, "position": [p.X(), p.Y(), p.Z()]})
+        vertices.append({"id": vertex_id, "position": [p.X(), p.Y(), p.Z()], "solid": vertex_solid.get(vertex_id, 0)})
 
     return Mesh(
         positions=_join(positions, np.float32, (-1, 3)),
