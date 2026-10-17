@@ -195,3 +195,35 @@ def test_align_and_distribute_holes(block):
     xs = [c[0] for c in hole_centres(spread, 2)]
     assert xs[1] - xs[0] == pytest.approx(xs[2] - xs[1], abs=1e-3)
     assert xs[0] == pytest.approx(before[0], abs=1e-3) and xs[2] == pytest.approx(before[2], abs=1e-3)  # outer holes stay put
+
+
+def test_body_transforms(block):
+    moved = run("move_body", block, dx=10, dy=0, dz=5)
+    assert volume(moved.shape) == pytest.approx(24000)
+    box = measure(Topology(moved.shape), Selection(vertices=[0]))["items"][0]["anchor"]
+    assert max(abs(box[0]), abs(box[2])) > 9
+    rotated = run("rotate_body", block, axis=2, angle=90)
+    assert volume(rotated.shape) == pytest.approx(24000)
+    scaled = run("scale_body", block, factor=2)
+    assert volume(scaled.shape) == pytest.approx(24000 * 8)
+    with pytest.raises(OperationError):
+        run("scale_body", block, factor=0)
+
+
+def test_sphere_and_cone(block):
+    sphere = run("add_sphere", block, diameter=10, x=0, y=0, z=10)
+    assert volume(sphere.shape) == pytest.approx(24000 + 2 / 3 * math.pi * 125, rel=1e-3)
+    cone = run("add_cone", block, bottom_diameter=10, top_diameter=0, height=6, x=0, y=0, z=10)
+    assert volume(cone.shape) == pytest.approx(24000 + math.pi * 25 * 6 / 3, rel=1e-3)
+
+
+def test_resize_fillet_changes_radius(bracket):
+    before = volume(bracket.shape)
+    # the two corners at +X are plain base-plate fillets (the -X ones run into the upright)
+    fillet = next(i for i in faces_where(bracket, "Fillet", Radius=6) if measure(bracket, Selection(faces=[i]))["items"][0]["anchor"][0] > 0)
+    bigger = run("resize_fillet", bracket, faces=[fillet], radius=9)
+    # a corner fillet of radius r over height 10 removes (1 - pi/4) r^2 * 10 of material
+    assert before - volume(bigger.shape) == pytest.approx((1 - math.pi / 4) * (81 - 36) * 10, rel=2e-3)
+    assert faces_where(Topology(bigger.shape), "Fillet", Radius=9)
+    sharp = run("resize_fillet", bracket, faces=[fillet], radius=0)
+    assert volume(sharp.shape) - before == pytest.approx((1 - math.pi / 4) * 36 * 10, rel=1e-3)

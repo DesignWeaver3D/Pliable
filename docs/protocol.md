@@ -26,6 +26,9 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 | `import_step` | `name`, `data` (base64 STEP) | mesh |
 | `export_step` | | `{name, data}` (base64) |
 | `list_tools` | | `{tools: [ToolDescription]}` |
+| `sketch_plane` | `face` id, or `plane` "XY"/"XZ"/"YZ" | `{plane: {origin, normal, xdir}}` for sketching on a flat face or a world plane |
+| `sketch_solve` | `sketch`, optional `drag` {point, u, v} | `{status: "ok"/"failed", dof, failed: [constraint ids], points: [{id, u, v}], radii}`; sketch format and constraint types in `core/src/pliable/sketch.py` |
+| `sketch_extrude` | `sketch`, `distance`, `mode` "join"/"cut", `commit` | a mesh reply (preview unless `commit`): the sketch's profile extruded along the plane normal and joined or cut |
 | `available_tools` | `selection` | `{tools: [id]}` tools usable with that selection |
 | `measure` | `selection` | `{items: [Measured], summary: [Row]}` measurements of the selection (one kind of item at a time) |
 | `tool_preview` | `tool`, `selection`, `params` | mesh (document unchanged) |

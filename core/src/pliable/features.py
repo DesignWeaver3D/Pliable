@@ -13,12 +13,12 @@ from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy, BRepBuilderAPI_Transform
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepGProp import BRepGProp
 from OCP.BRepOffsetAPI import BRepOffsetAPI_DraftAngle, BRepOffsetAPI_MakeThickSolid
-from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCone, BRepPrimAPI_MakeCylinder
+from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCone, BRepPrimAPI_MakeCylinder, BRepPrimAPI_MakeSphere
 from OCP.BRepBndLib import BRepBndLib
 from OCP.Bnd import Bnd_Box
 from OCP.BRepTools import BRepTools
 from OCP.GProp import GProp_GProps
-from OCP.GeomAbs import GeomAbs_Cylinder, GeomAbs_Plane
+from OCP.GeomAbs import GeomAbs_Cylinder, GeomAbs_Plane, GeomAbs_Torus
 from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
 from OCP.TopoDS import TopoDS_Shape
 from OCP.collections import List_TopoDS_Shape
@@ -500,3 +500,157 @@ class AlignFace(_PlanarFace):
             raise OperationError("The two faces must be parallel")
         distance = gp_Vec(point, goal).Dot(gp_Vec(normal)) + values["offset"]
         return push_pull(topology.shape, moving, distance, preview=preview)
+
+
+# Whole-body transforms and more primitives -----------------------------------------------------------------
+
+
+@register
+class MoveBody(Tool):
+    """Move the whole model by a vector."""
+
+    id = "move_body"
+    label = "Move body"
+    accepts = Accepts()
+    params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length")]
+
+    def run(self, topology, selection, values, preview):
+        offset = gp_Vec(values["dx"], values["dy"], values["dz"])
+        if offset.Magnitude() < MIN_DISTANCE:
+            return OpResult(topology.shape, [])
+        return finish(_moved(topology.shape, offset))
+
+
+@register
+class RotateBody(Tool):
+    """Rotate the whole model about an axis through the origin (axis: 0 = X, 1 = Y, 2 = Z)."""
+
+    id = "rotate_body"
+    label = "Rotate body"
+    accepts = Accepts()
+    params = [Param("axis", "number", 2), Param("angle", "angle", 90)]
+
+    def run(self, topology, selection, values, preview):
+        axis = int(round(values["axis"]))
+        if axis not in (0, 1, 2):
+            raise OperationError("The axis must be 0 (X), 1 (Y) or 2 (Z)")
+        direction = gp_Dir(*(1.0 if k == axis else 0.0 for k in range(3)))
+        transform = gp_Trsf()
+        transform.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), direction), math.radians(values["angle"]))
+        return finish(BRepBuilderAPI_Transform(topology.shape, transform, True).Shape())
+
+
+@register
+class ScaleBody(Tool):
+    """Scale the whole model uniformly about the origin."""
+
+    id = "scale_body"
+    label = "Scale body"
+    accepts = Accepts()
+    params = [Param("factor", "number", 1)]
+
+    def run(self, topology, selection, values, preview):
+        factor = values["factor"]
+        if factor < 1e-3 or factor > 1e3:
+            raise OperationError("The scale factor must be between 0.001 and 1000")
+        transform = gp_Trsf()
+        transform.SetScale(gp_Pnt(0, 0, 0), factor)
+        return finish(BRepBuilderAPI_Transform(topology.shape, transform, True).Shape())
+
+
+@register
+class AddSphere(Tool):
+    id = "add_sphere"
+    label = "Add sphere"
+    accepts = Accepts()
+    params = [Param("diameter", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length")]
+
+    def run(self, topology, selection, values, preview):
+        if values["diameter"] < MIN_DISTANCE:
+            raise OperationError("The diameter must be positive")
+        sphere = BRepPrimAPI_MakeSphere(gp_Pnt(values["x"], values["y"], values["z"]), values["diameter"] / 2).Shape()
+        return finish(_combine(topology.shape, sphere, fuse=True))
+
+
+@register
+class AddCone(Tool):
+    """A cone (or truncated cone) standing on the XY plane at (x, y, z)."""
+
+    id = "add_cone"
+    label = "Add cone"
+    accepts = Accepts()
+    params = [
+        Param("bottom_diameter", "length", 10),
+        Param("top_diameter", "length"),
+        Param("height", "length", 10),
+        Param("x", "length"),
+        Param("y", "length"),
+        Param("z", "length"),
+    ]
+
+    def run(self, topology, selection, values, preview):
+        if values["bottom_diameter"] < 0 or values["top_diameter"] < 0 or values["bottom_diameter"] + values["top_diameter"] < MIN_DISTANCE or values["height"] < MIN_DISTANCE:
+            raise OperationError("Give a positive height and at least one positive diameter")
+        axes = gp_Ax2(gp_Pnt(values["x"], values["y"], values["z"]), gp_Dir(0, 0, 1))
+        cone = BRepPrimAPI_MakeCone(axes, values["bottom_diameter"] / 2, values["top_diameter"] / 2, values["height"]).Shape()
+        return finish(_combine(topology.shape, cone, fuse=True))
+
+
+# Re-radius a fillet ---------------------------------------------------------------------------------------
+
+
+@register
+class ResizeFillet(Tool):
+    """Change the radius of a fillet from the fillet face itself: the round is removed (neighbours extended back
+    to a sharp edge) and that edge is filleted again. A radius of 0 leaves the sharp edge."""
+
+    id = "resize_fillet"
+    label = "Resize fillet"
+    accepts = Accepts(faces=(1, 1))
+    params = [Param("radius", "length", 2)]
+
+    def applies(self, topology, selection):
+        return BRepAdaptor_Surface(topology.face(selection.faces[0])).GetType() in (GeomAbs_Cylinder, GeomAbs_Torus)
+
+    def run(self, topology, selection, values, preview):
+        from OCP.TopAbs import TopAbs_EDGE
+        from OCP.TopExp import TopExp_Explorer
+        from OCP.TopoDS import TopoDS
+
+        from .measure import _tangent
+        from .ops import _follow, fillet_chamfer
+        from .topology import Topology
+
+        face = topology.face(selection.faces[0])
+        neighbours = []
+        explorer = TopExp_Explorer(face, TopAbs_EDGE)
+        while explorer.More():
+            edge = TopoDS.Edge(explorer.Current())
+            for other in topology.edge_faces(edge):
+                if not other.IsSame(face) and _tangent(edge, face, other) and not any(other.IsSame(n) for n in neighbours):
+                    neighbours.append(other)
+            explorer.Next()
+        if len(neighbours) != 2:
+            raise OperationError("That face is not a simple fillet between two faces")
+        operation = BRepAlgoAPI_Defeaturing()
+        operation.SetShape(topology.shape)
+        operation.AddFaceToRemove(face)
+        operation.SetRunParallel(True)
+        operation.Build()
+        if not operation.IsDone() or operation.Shape().IsNull():
+            raise OperationError("Could not remove this fillet to resize it")
+        sharp = operation.Shape()
+        radius = values["radius"]
+        if radius < MIN_DISTANCE:
+            return finish(sharp)
+        rebuilt = Topology(sharp)
+        modified = []
+        for n in neighbours:
+            found = _follow(operation.History(), [n])
+            if len(found) != 1:
+                raise OperationError("Could not find the sharp edge left by this fillet")
+            modified.append(found[0])
+        shared = [e for _, e in rebuilt.edges() if all(any(f.IsSame(m) for f in rebuilt.edge_faces(e)) for m in modified)]
+        if len(shared) != 1:
+            raise OperationError("Could not find the sharp edge left by this fillet")
+        return finish(fillet_chamfer(sharp, shared, radius).shape)

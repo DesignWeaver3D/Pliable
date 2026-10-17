@@ -36,6 +36,21 @@
       #toolform .row { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin: 3px 0; }
       #toolform input { width: 80px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; }
       #toolform .buttons { display: flex; gap: 6px; margin-top: 6px; }
+      #sketchbar { position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%); z-index: 1; display: flex; gap: 6px; align-items: center; color: #aaa; }
+      #sketchbar button, #sketchpanel button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 3px 8px; }
+      #sketchbar button:disabled { color: #666; }
+      #sketchpanel { position: fixed; top: 240px; right: 12px; width: 250px; max-height: calc(100vh - 260px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; font-size: 13px; }
+      #sketchpanel[hidden] { display: none; }
+      #sketchpanel .title { color: #ffb878; font-weight: 600; }
+      #sketchpanel .dof { color: #9ad; margin: 2px 0 6px; }
+      #sketchpanel .bad { color: #ff6b6b; }
+      #sketchpanel .row-buttons { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+      #sketchpanel .row-buttons button.active { border-color: #ff8a1f; color: #ffb878; }
+      #sketchpanel .group { color: #ffb878; font-size: 11px; margin-top: 8px; }
+      #sketchpanel .crow { display: flex; justify-content: space-between; gap: 6px; align-items: center; margin: 2px 0; }
+      #sketchpanel .ask { display: flex; gap: 6px; align-items: center; margin: 6px 0; }
+      #sketchpanel input { width: 70px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; }
+      #sketchpanel select { background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; }
       #measure { position: fixed; left: 8px; bottom: 8px; z-index: 1; min-width: 190px; max-height: 60vh; overflow-y: auto; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 4px 0; font-variant-numeric: tabular-nums; }
       #measure[hidden] { display: none; }
       #measure .title { padding: 4px 10px 2px; color: #ffb878; font-weight: 600; }
@@ -75,6 +90,8 @@
     <div id="tools"></div>
     <div id="navcube"></div>
     <div id="toollist"></div>
+    <div id="sketchbar"></div>
+    <div id="sketchpanel" hidden></div>
     <div id="toolform" hidden></div>
     <div id="measure" hidden></div>
     <div id="dim" hidden></div>

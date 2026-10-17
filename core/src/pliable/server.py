@@ -15,7 +15,7 @@ import time
 
 from websockets.asyncio.server import ServerConnection, serve
 
-from . import __version__
+from . import __version__, sketch
 from .demos import load_demo
 from .document import Document
 from .files import read_step, write_step
@@ -83,6 +83,16 @@ class Session:
                 return measure(topology, Selection.from_json(request.get("selection")))
             except KeyError as e:
                 raise RequestError(e.args[0]) from e
+        if kind == "sketch_plane":
+            return {"plane": self._sketch_plane(request)}
+        if kind == "sketch_solve":
+            try:
+                result = sketch.solve(request["sketch"], request.get("drag"))
+            except (KeyError, TypeError, ValueError) as e:
+                raise RequestError(f"Malformed sketch: {e!r}") from e
+            return result
+        if kind == "sketch_extrude":
+            return self._sketch_extrude(request)
         if kind in ("tool_preview", "tool_commit"):
             return self._run_tool(request, commit=kind == "tool_commit")
         if kind in ("undo", "redo"):
@@ -96,6 +106,30 @@ class Session:
             data = write_step(document.current.shape)
             return {"name": document.name, "data": base64.b64encode(data).decode()}
         raise RequestError(f"Unknown request type {kind!r}")
+
+    def _sketch_plane(self, request: dict) -> dict:
+        if "plane" in request:
+            try:
+                return sketch.STANDARD_PLANES[request["plane"]]
+            except KeyError:
+                raise RequestError(f"Unknown plane {request['plane']!r}") from None
+        topology = self._require_document().current
+        try:
+            return sketch.face_plane(topology.face(int(request["face"])))
+        except KeyError as e:
+            raise RequestError("Unknown face") from e
+
+    def _sketch_extrude(self, request: dict) -> bytes:
+        document = self._require_document()
+        commit = bool(request.get("commit"))
+        start = time.perf_counter()
+        try:
+            result = sketch.extrude(document.current.shape, request["sketch"], float(request["distance"]), str(request.get("mode", "join")))
+        except (KeyError, TypeError, ValueError) as e:
+            raise RequestError(f"Malformed sketch request: {e!r}") from e
+        timings = {"opMs": _ms(start)}
+        target = document.commit(result.shape) if commit else Topology(result.shape)
+        return self._mesh_reply(target, timings, preview=not commit, selection=Selection().to_json())
 
     def _run_tool(self, request: dict, commit: bool) -> bytes:
         document = self._require_document()

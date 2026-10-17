@@ -1,4 +1,6 @@
 import { CoreClient, type MeshData } from "./client";
+import { SketchMode } from "./sketch";
+import { SKETCH_PLANES } from "./layout";
 import { ToolPanel } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay } from "./dimensions";
@@ -95,6 +97,7 @@ function setSelection(sels: Sel[]) {
   selected.textContent = describe(sels);
   renderToolbar();
   toolPanel.renderList();
+  renderSketchBar();
   measurePanel.hide();
   dimensionOverlay.set([]);
   if (sels.length === 0) return;
@@ -351,7 +354,7 @@ async function history(kind: "undo" | "redo") {
 undoButton.addEventListener("click", () => history("undo"));
 redoButton.addEventListener("click", () => history("redo"));
 window.addEventListener("keydown", (e) => {
-  if (!e.ctrlKey) return;
+  if (!e.ctrlKey || sketch.active) return; // in sketch mode Ctrl+Z undoes sketch edits
   if (e.key === "z") history("undo");
   else if (e.key === "y") history("redo");
 });
@@ -417,6 +420,61 @@ function commands(): Command[] {
     ...demos,
   ];
 }
+
+// Sketch mode: entered from the bar at the bottom (on the selected flat face, or on a world plane).
+const sketch = new SketchMode(
+  viewport,
+  core,
+  dimensionOverlay,
+  {
+    status(text, error = false) {
+      status.textContent = text;
+      status.classList.toggle("error", error);
+    },
+    showPreview: (mesh) => show(mesh),
+    restore() {
+      if (committed) show(committed);
+      renderSketchBar();
+    },
+    committed: (mesh) => setCommitted(mesh, false, []),
+  },
+  $("sketchpanel"),
+);
+const sketchBar = $("sketchbar");
+function renderSketchBar() {
+  const face = currentSels.length === 1 && currentSels[0].kind === "face" ? committed?.faces.find((f) => f.id === currentSels[0].id) : undefined;
+  const onFace = document.createElement("button");
+  onFace.textContent = "Sketch on selected face";
+  onFace.disabled = !face?.normal || sketch.active;
+  onFace.title = "Select a flat face first";
+  onFace.addEventListener("click", async () => {
+    try {
+      const reply = await core.request<{ plane: any }>("sketch_plane", { face: currentSels[0].id });
+      sketch.start(reply.plane);
+      renderSketchBar();
+    } catch (e) {
+      status.textContent = (e as Error).message;
+    }
+  });
+  const label = document.createElement("span");
+  label.textContent = "or on";
+  sketchBar.replaceChildren(
+    onFace,
+    label,
+    ...SKETCH_PLANES.map((name) => {
+      const b = document.createElement("button");
+      b.textContent = name;
+      b.disabled = sketch.active;
+      b.addEventListener("click", async () => {
+        const reply = await core.request<{ plane: any }>("sketch_plane", { plane: name });
+        sketch.start(reply.plane);
+        renderSketchBar();
+      });
+      return b;
+    }),
+  );
+}
+renderSketchBar();
 
 // Tools without a drag parameter (and the "All tools" list) use a typed-value form with live preview.
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {

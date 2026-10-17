@@ -127,6 +127,39 @@ export class Viewport {
 
   /** Called after every rendered frame (the dimension overlay redraws here). */
   onFrame: () => void = () => {};
+  /** A second per-frame hook, owned by sketch mode. */
+  onFrame2: (() => void) | null = null;
+
+  /** While set (sketch mode), left-button pointer events go here instead of selection and tool drags. */
+  interceptor: { down(e: PointerEvent): void; move(e: PointerEvent): void; up(e: PointerEvent): void } | null = null;
+
+  /** The point where the pointer's ray meets a plane, or null if it misses (parallel or behind the camera). */
+  planePoint(e: PointerEvent, plane: THREE.Plane): THREE.Vector3 | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), this.camera);
+    return this.raycaster.ray.intersectPlane(plane, new THREE.Vector3());
+  }
+
+  /** Screen position (CSS pixels, relative to the viewport element) of a world point. */
+  toScreen(p: THREE.Vector3): THREE.Vector2 {
+    return this.toPixels(p, this.renderer.domElement.getBoundingClientRect());
+  }
+
+  /** World length of one screen pixel at a point (for snapping and handle sizes). */
+  pixelSizeAt(p: THREE.Vector3): number {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    return (2 * p.distanceTo(this.camera.position) * Math.tan((this.camera.fov * Math.PI) / 360)) / rect.height;
+  }
+
+  /** Look straight down a direction (from the side it points to), keeping target and distance. */
+  lookFrom(direction: THREE.Vector3) {
+    const d = direction.clone().normalize();
+    if (Math.abs(d.z) > 0.9999) d.y -= 1e-4; // keep "up" defined
+    d.normalize();
+    const distance = this.camera.position.distanceTo(this.controls.target);
+    this.camera.position.copy(this.controls.target).addScaledVector(d, distance);
+    this.controls.update();
+  }
 
   /** Whether a tool drag has moved past the click threshold. */
   get dragging(): boolean {
@@ -265,6 +298,10 @@ export class Viewport {
     const dom = this.renderer.domElement;
     let down: { x: number; y: number } | null = null;
     dom.addEventListener("pointerdown", (e) => {
+      if (this.interceptor && e.button === 0) {
+        this.interceptor.down(e);
+        return;
+      }
       down = { x: e.clientX, y: e.clientY };
       if (e.button !== 0 || this.measureMode) return;
       const hit = this.pickHit(e);
@@ -290,6 +327,10 @@ export class Viewport {
       }
     });
     dom.addEventListener("pointermove", (e) => {
+      if (this.interceptor) {
+        this.interceptor.move(e);
+        return;
+      }
       if (this.drag) {
         if (this.measureMode) {
           this.measureHover = this.nearestMeasure(e);
@@ -315,6 +356,10 @@ export class Viewport {
     }
     dom.addEventListener("pointerleave", () => this.setHover(null));
     dom.addEventListener("pointerup", (e) => {
+      if (this.interceptor && e.button === 0) {
+        this.interceptor.up(e);
+        return;
+      }
       const drag = this.drag;
       if (drag && this.measureMode) {
         // Measure mode keeps the drag open: a click picks the edge to edit.
@@ -361,6 +406,7 @@ export class Viewport {
       this.fitClipping();
       this.renderer.render(this.scene, this.camera);
       this.onFrame();
+      this.onFrame2?.();
     });
   }
 
