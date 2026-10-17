@@ -94,3 +94,4 @@ def test_closed_surface_body_becomes_solid_and_open_one_is_named():
     assert len(solids_of(shape)) == 2
     assert any("1 surface body closed" in w for w in warnings)
     assert any("1 open surface" in w and "Lid" in w for w in warnings)
+    assert "Open body 'Lid': 1 open loop, 1 flat" in warnings

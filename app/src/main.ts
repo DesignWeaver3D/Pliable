@@ -1,3 +1,4 @@
+import { installAlphaUi, showImportNotice, showLaunchNotice } from "./alpha";
 import { CoreClient, type MeshData } from "./client";
 import { SketchMode } from "./sketch";
 import { SKETCH_PLANES } from "./layout";
@@ -12,13 +13,17 @@ import { Viewport, type Sel } from "./viewport";
 const $ = (id: string) => document.getElementById(id)!;
 const status = $("status");
 const selected = $("selected");
+const DEV = new URLSearchParams(location.search).has("dev"); // ?dev=1 shows triangle counts and timings
 const latency = $("latency");
+if (!DEV) latency.hidden = true;
 const undoButton = $("undo") as HTMLButtonElement;
 const redoButton = $("redo") as HTMLButtonElement;
 const fileInput = $("file") as HTMLInputElement;
 const select = $("demo") as HTMLSelectElement;
 const viewport = new Viewport($("viewport"));
 const core = new CoreClient();
+installAlphaUi($("bar"), core);
+showLaunchNotice();
 
 const BUSY_LABELS: Record<string, string> = {
   import_step: "Importing", combine_step: "Combining", export_step: "Exporting", open_demo: "Opening",
@@ -230,7 +235,8 @@ function setCommitted(mesh: MeshData, frame = false, sels: Sel[] = []) {
   setSelection(sels);
   status.classList.remove("error");
   const warnings: string[] = mesh.header.warnings ?? [];
-  status.textContent = `${mesh.header.name ?? select.value}: ${mesh.faces.length} faces, ${mesh.indices.length / 3} triangles` + (warnings.length ? ` | Warning: ${warnings.join("; ")}` : "");
+  if (mesh.header.solids !== undefined) showImportNotice(core, mesh.header.solids, warnings, (mesh.header.timings?.importMs ?? 0) + (mesh.header.timings?.meshMs ?? 0));
+  status.textContent = `${mesh.header.name ?? select.value}: ${mesh.faces.length} faces` + (DEV ? `, ${mesh.indices.length / 3} triangles` : "") + (warnings.length ? ` | Warning: ${warnings.join("; ")}` : "");
 }
 
 async function load(name: string) {

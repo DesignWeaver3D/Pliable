@@ -9,10 +9,11 @@ from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 from OCP.BRep import BRep_Tool
-from OCP.BRepBuilderAPI import BRepBuilderAPI_Sewing
+from OCP.BRepBuilderAPI import BRepBuilderAPI_FindPlane, BRepBuilderAPI_Sewing
 from OCP.BRepTools import BRepTools_ReShape
+from OCP.ShapeAnalysis import ShapeAnalysis_FreeBounds
 from OCP.ShapeFix import ShapeFix_Shell, ShapeFix_Solid
-from OCP.TopAbs import TopAbs_SHELL, TopAbs_SOLID as TopAbs_SOLID_
+from OCP.TopAbs import TopAbs_SHELL, TopAbs_WIRE, TopAbs_SOLID as TopAbs_SOLID_
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS, TopoDS_Compound, TopoDS_Shape
 
@@ -98,6 +99,33 @@ def _sew(shell: TopoDS_Shape) -> TopoDS_Shape | None:
     return explorer.Current() if explorer.More() else None
 
 
+def open_loops(shell: TopoDS_Shape) -> list[bool]:
+    """One entry per open boundary loop of a surface body: True if the loop is flat.
+
+    Flat loops can be capped, so this tells us whether capping holes alone would
+    close a body that import could not.
+    """
+    try:
+        bounds = ShapeAnalysis_FreeBounds(shell, SEWING_TOLERANCE, False, False)
+        closed = bounds.GetClosedWires()
+        flags = []
+        explorer = TopExp_Explorer(closed, TopAbs_WIRE)
+        while explorer.More():
+            finder = BRepBuilderAPI_FindPlane(explorer.Current(), SEWING_TOLERANCE)
+            flags.append(finder.Found())
+            explorer.Next()
+        return flags
+    except Exception:
+        return []
+
+
+def _open_body_line(name: str, loops: list[bool]) -> str:
+    if not loops:
+        return f"Open body '{name}': boundary loops could not be analysed"
+    flat = sum(loops)
+    return f"Open body '{name}': {len(loops)} open loop{'s' if len(loops) != 1 else ''}, {flat} flat"
+
+
 def _name_list(names: list[str]) -> str:
     shown = ", ".join(names[:5])
     return shown + (f" and {len(names) - 5} more" if len(names) > 5 else "")
@@ -116,11 +144,12 @@ def check_import(shape: TopoDS_Shape, names: list | None = None) -> tuple[TopoDS
         return next((n for s, n in names if s.IsPartner(shell)), "unnamed")
 
     reshape = BRepTools_ReShape()
-    converted, open_names = 0, []
+    converted, open_names, open_lines = 0, [], []
     for shell in _loose_shells(shape):
         solid = _close_shell(shell)
         if solid is None:
             open_names.append(label(shell))
+            open_lines.append(_open_body_line(open_names[-1], open_loops(shell)))
         else:
             reshape.Replace(shell, solid)
             converted += 1
@@ -150,4 +179,5 @@ def check_import(shape: TopoDS_Shape, names: list | None = None) -> tuple[TopoDS
         warnings.append(f"{invalid} solid{'s' if invalid != 1 else ''} with invalid geometry; some tools may fail there")
     if open_names:
         warnings.append(f"{len(open_names)} open surface{'s' if len(open_names) != 1 else ''} could not be closed ({_name_list(open_names)}); tools can't add material there")
+        warnings.extend(open_lines)
     return shape, warnings

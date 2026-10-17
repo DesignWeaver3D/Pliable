@@ -18,12 +18,13 @@ from websockets.asyncio.server import ServerConnection, serve
 from . import __version__, sketch
 from .autosave import Autosaver
 from .demos import load_demo
+from . import diagnostics
 from .document import Document
 from .features import combine
 from .files import read_step, read_step_checked, write_step
 from OCP.gp import gp_Vec
 from .measure import measure, model_info
-from .ops import OperationError
+from .ops import OperationError, solids_of
 from .protocol import encode_mesh
 from .relations import find_related, tangent_chain
 from .tessellate import tessellate
@@ -45,6 +46,8 @@ class Session:
     def __init__(self, autosaver: Autosaver | None = None):
         self.document: Document | None = None
         self.autosaver = autosaver
+        self.last_tool: dict | None = None  # name and outcome of the newest tool run, for diagnostics
+        self.import_warnings: list[str] = []
         self.unclean = autosaver.available() if autosaver else None  # offered once, if the previous run was killed
         if self.unclean and self.unclean["clean"]:
             self.unclean = None
@@ -94,8 +97,11 @@ class Session:
             start = time.perf_counter()
             shape, warnings = read_step_checked(base64.b64decode(request["data"]))
             self.document = Document(shape, request.get("name", "Imported"))
+            self.import_warnings = warnings
             self._autosave(fresh=True)
-            return self._mesh_reply(self.document.current, {"importMs": _ms(start)}, name=self.document.name, warnings=warnings)
+            return self._mesh_reply(self.document.current, {"importMs": _ms(start)}, name=self.document.name, warnings=warnings, solids=len(solids_of(shape)))
+        if kind == "diagnostics":
+            return {"report": diagnostics.core_report(self.last_tool, self.import_warnings)}
         if kind == "list_tools":
             return {"tools": [tool.describe() for tool in TOOLS.values()]}
         if kind == "available_tools":
@@ -195,7 +201,13 @@ class Session:
         tool = get_tool(str(request.get("tool")))
         selection = Selection.from_json(request.get("selection"))
         start = time.perf_counter()
-        result = tool.execute(topology, selection, request.get("params") or {}, preview=not commit)
+        self.last_tool = {"tool": tool.id, "commit": commit, "ok": False, "error": None}
+        try:
+            result = tool.execute(topology, selection, request.get("params") or {}, preview=not commit)
+        except Exception as e:
+            self.last_tool["error"] = diagnostics.scrub(f"{type(e).__name__}: {e}")
+            raise
+        self.last_tool["ok"] = True
         timings = {"opMs": _ms(start)}
         target = document.commit(result.shape) if commit else Topology(result.shape)
         if commit:
@@ -258,6 +270,7 @@ def main():
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    diagnostics.install()
     asyncio.run(run(args.host, args.port))
 
 
