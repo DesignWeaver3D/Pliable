@@ -2,7 +2,7 @@
 
 **A free, open-source direct modeler for hobbyists, makers, and students**
 
-⚠️ **Status: Being rebuilt. Not usable yet.**
+⚠️ **Status: Being rebuilt. The MVP is feature-complete on the `rebuild` branch; expect rough edges.**
 
 Pliable lets you shape solid geometry directly: push and pull faces, fillet and chamfer edges, and export to STEP or for 3D printing. There's no feature tree or parametric constraints to manage. It is designed for people who don't want to memorize dozens of keyboard shortcuts: tools appear based on what you've selected, every tool has a visible label and icon, and you can always search for a command by name.
 
@@ -14,7 +14,7 @@ Pliable started as a proof of concept built with PyQt6 and pythonocc:
 
 It proved that face push/pull, fillet/chamfer, and STEP round-tripping work on OpenCASCADE, but it wasn't built to scale. The project is now being rebuilt on a new architecture. The prototype is preserved as release [v0.1.0-poc](https://github.com/DesignWeaver3D/Pliable/releases/tag/v0.1.0-poc).
 
-The code currently on `main` is still the prototype and will be replaced as the rebuild progresses.
+`main` now holds the rebuild. The prototype lives on at the `v0.1.0-poc` tag.
 
 ## Roadmap
 
@@ -31,6 +31,28 @@ See [ROADMAP.md](ROADMAP.md) for the architecture, ordered milestones, open ques
 ## Get Involved
 
 Pliable is looking for frontend developers, Python/CAD developers, UX designers, and direct modeling users willing to share workflows. See [ROADMAP.md](ROADMAP.md#get-involved) for details, and open an issue to start a conversation.
+
+## Running the Rebuild
+
+Requires [uv](https://docs.astral.sh/uv/) and Node 24.
+
+    cd core
+    uv sync
+    uv run pytest                # optional: run the tests
+    uv run pliable-server        # ws://127.0.0.1:8765
+
+    cd app
+    npm install
+    npm run dev                  # http://localhost:5173, needs the server running
+
+Open the page, pick a demo or import a STEP file, and try:
+
+- **Select:** click a face, edge or vertex (Ctrl+click to add to the selection).
+- **Push/pull a face:** drag it. **Fillet/chamfer an edge:** drag it outward (fillet) or inward (chamfer).
+- **Exact values:** type a number during a drag, Enter to commit, Escape to cancel.
+- **Tools:** the toolbar shows what applies to the selection; Ctrl+K searches all commands.
+- **Navigate:** wheel zooms, right-drag orbits, middle-drag pans.
+- **Undo/redo:** Ctrl+Z / Ctrl+Y. **Export:** STEP button.
 
 ## Running the Prototype
 
