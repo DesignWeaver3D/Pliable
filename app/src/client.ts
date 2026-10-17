@@ -75,7 +75,8 @@ export class CoreClient {
   onBusy: (busy: { type: string; seconds: number } | null) => void = () => {};
   private busyTimer: number | undefined;
 
-  connect(url = "ws://127.0.0.1:8765"): Promise<void> {
+  // The dev server (Vite) is a different origin from the core; the packaged app is served by the core itself.
+  connect(url = import.meta.env.DEV ? "ws://127.0.0.1:8765" : `ws://${location.host}`): Promise<void> {
     return new Promise((resolve, reject) => {
       const socket = new WebSocket(url);
       this.socket = socket;

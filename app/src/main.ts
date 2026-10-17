@@ -666,7 +666,9 @@ async function connectToCore() {
       break;
     } catch {
       status.classList.add("error");
-      status.textContent = "Core not running: start it with 'uv run pliable-server' in core/ (retrying...)";
+      status.textContent = import.meta.env.DEV
+        ? "Core not running: start it with 'uv run pliable-server' in core/ (retrying...)"
+        : "Pliable core stopped. Close this tab and start Pliable again from its launcher (retrying...)";
       await new Promise((resolve) => setTimeout(resolve, RETRY_MS));
     }
   }

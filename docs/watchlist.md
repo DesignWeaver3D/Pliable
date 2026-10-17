@@ -61,3 +61,5 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 
 - **2026-10-17:** Orthographic mode used a narrow-FOV perspective camera. Now a true orthographic camera.
 - **2026-10-17:** Sketch mode stayed active and swallowed all clicks, so faces could not be selected. Escape now exits it.
+
+- **S17 portable build (2026-10-17):** only the Windows build was produced and smoke-tested locally; the macOS/Linux jobs in `.github/workflows/release.yml` have never run (the `macos-13` runner label and `--collect-all` lists may need fixing on first run). Bundle is ~360 MB (OCP). The launcher exits 20 s after the last tab disconnects (`IDLE_EXIT_SECONDS`), so a laptop sleeping with the tab open may close the app. The smoke test does not cover the GUI, the browser opening or SmartScreen/Gatekeeper. The packaged app serves HTTP on 127.0.0.1 only. Dev machines: a running `pliable-server` locks `core/.venv`; build in a separate env via `UV_PROJECT_ENVIRONMENT`.

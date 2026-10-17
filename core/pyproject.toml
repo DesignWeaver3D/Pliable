@@ -12,6 +12,7 @@ dependencies = [
 
 [project.scripts]
 pliable-server = "pliable.server:main"
+pliable-app = "pliable.launcher:main"
 
 [dependency-groups]
 dev = ["pytest>=8"]

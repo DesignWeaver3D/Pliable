@@ -71,3 +71,27 @@ Hand tests (Chrome only), on the bracket and block demos, one imported single-so
 ## After the alpha: surface bodies (idea, 2026-10-17)
 
 Surface bodies that cannot be healed are kept in the model, so they could become useful: cap planar holes to close them; extrude or thicken a sheet face into a solid; loft or bridge between two faces or sketch wires (`BRepOffsetAPI_ThruSections`); sketch on a sheet. Decide after S21b shows how real files fail.
+
+## Feature inventory: everything built ships in the alpha (decided 2026-10-17)
+
+The user's rule: every feature developed before the alpha release goes into it, whatever its state of polish. Keep this table current; add a row whenever a feature lands (in the same commit as the feature). The "Unsupported" column feeds the known-limitations text.
+
+| Feature | Session | State | Hand-test before release | Notes for testers |
+|---|---|---|---|---|
+| STEP open/export, demos (block, bracket, plate) | S0-S5 | Solid | Checklist items 1 | Chrome only |
+| Face/edge/vertex selection, multi-select, edge chains | S3, S7 | Solid | Item 2 | |
+| Push/pull, fillet/chamfer, typed values, drag labels | S4, S8, S10 | Solid | Items 3-5 | |
+| Toolbar and Ctrl+K command search | S9 | Usable | Item 3 | Placeholder layout (`layout.ts`) |
+| Measurement panel and in-view leaders | S12, S13 | Usable | Select each kind on a demo | Units are plain model units |
+| Measure mode during drags | S10b | Usable | Right-click while dragging | |
+| Nav cube, view keys 0-6, P, V | S14 | Usable | Item 2 | |
+| Feature tools (delete face, fillet resize/remove, holes, primitives, shell, mirror, draft, align, move/rotate/scale body, combine STEP) | S15 | Usable, rough | Item 3, every tool | Failures must be readable (checked) |
+| Related-face chips (Live Rules) | S15 | Usable | Select a hole, toggle chips | |
+| Sketch in 3D, constraints, extrude | S16 | Incomplete | Draw, constrain, extrude join/cut | Stated as unsupported; sketches are not kept after extruding |
+| Multi-solid handling, import repair and warnings | S18, S21 | Best effort | Open a multi-solid file | |
+| Autosave and restore | S19 | Solid | Item 7 | |
+| Busy indicator | S20 | Solid | Item 8 | |
+| Alpha notice, ALPHA tag, Copy diagnostics, issue template | S21 | Solid | Item 10 | |
+| Portable build, launcher, CI smoke test | S17 | In progress | Item 9 | Unsigned; the launcher exits 20 s after the last tab closes |
+
+Not yet built, so not in the alpha: stretch/extend spike, sketch projection of model edges, sketch fillet/trim.
