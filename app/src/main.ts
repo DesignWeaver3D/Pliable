@@ -218,7 +218,8 @@ function setCommitted(mesh: MeshData, frame = false, sels: Sel[] = []) {
   viewport.selectItems(sels);
   setSelection(sels);
   status.classList.remove("error");
-  status.textContent = `${mesh.header.name ?? select.value}: ${mesh.faces.length} faces, ${mesh.indices.length / 3} triangles`;
+  const warnings: string[] = mesh.header.warnings ?? [];
+  status.textContent = `${mesh.header.name ?? select.value}: ${mesh.faces.length} faces, ${mesh.indices.length / 3} triangles` + (warnings.length ? ` | Warning: ${warnings.join("; ")}` : "");
 }
 
 async function load(name: string) {

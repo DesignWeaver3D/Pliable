@@ -19,7 +19,7 @@ from . import __version__, sketch
 from .demos import load_demo
 from .document import Document
 from .features import combine
-from .files import read_step, write_step
+from .files import read_step, read_step_checked, write_step
 from OCP.gp import gp_Vec
 from .measure import measure, model_info
 from .ops import OperationError
@@ -71,9 +71,9 @@ class Session:
             return self._open(load_demo(request["name"]), request["name"])
         if kind == "import_step":
             start = time.perf_counter()
-            shape = read_step(base64.b64decode(request["data"]))
+            shape, warnings = read_step_checked(base64.b64decode(request["data"]))
             self.document = Document(shape, request.get("name", "Imported"))
-            return self._mesh_reply(self.document.current, {"importMs": _ms(start)}, name=self.document.name)
+            return self._mesh_reply(self.document.current, {"importMs": _ms(start)}, name=self.document.name, warnings=warnings)
         if kind == "list_tools":
             return {"tools": [tool.describe() for tool in TOOLS.values()]}
         if kind == "available_tools":

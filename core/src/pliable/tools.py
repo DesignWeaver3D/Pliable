@@ -27,6 +27,20 @@ from dataclasses import dataclass, field
 from .ops import OperationError, OpResult, fillet_chamfer, planar_normal, push_pull
 from .topology import Topology
 
+def _occt_reason(error: Exception) -> str:
+    """A short plain-language cause for an unexpected exception from OpenCASCADE or the tool code."""
+    name = type(error).__name__
+    reasons = {
+        "Standard_NoSuchObject": "a face or edge needed by the operation is missing",
+        "Standard_ConstructionError": "the geometry is degenerate",
+        "Standard_DomainError": "a value is outside what the operation allows",
+        "Standard_OutOfRange": "an internal index was out of range",
+        "Standard_NullObject": "part of the shape is empty",
+        "StdFail_NotDone": "the operation could not be completed",
+    }
+    return reasons.get(name, "unexpected error: " + (str(error).strip().splitlines() or [name])[0][:80])
+
+
 PARAM_KINDS = ("length", "angle", "number")
 
 
@@ -128,7 +142,13 @@ class Tool:
     def execute(self, topology: Topology, selection: Selection, raw_params: dict, preview: bool) -> OpResult:
         if not self.available(topology, selection):
             raise OperationError(f"{self.label} can't be used with this selection")
-        return self.run(topology, selection, self.bind(raw_params), preview)
+        values = self.bind(raw_params)
+        try:
+            return self.run(topology, selection, values, preview)
+        except OperationError:
+            raise
+        except Exception as e:  # OpenCASCADE raises Standard_Failure subclasses (Standard_NoSuchObject, ...)
+            raise OperationError(f"{self.label} failed on this geometry ({_occt_reason(e)}); the model is unchanged") from None
 
     def describe(self) -> dict:
         return {

@@ -29,6 +29,21 @@ The MVP target is parity with the `v0.1.0-poc` prototype: STEP import/export, fa
 | S14 | Overnight | Nav cube, standard view keys, perspective/ortho toggle, look-at-face (V) | Verified in Chrome | Done, awaiting user |
 | S15 | Overnight | Tool list + typed-value form (`layout.ts`), feature tools: delete face, remove/resize fillet, fill/resize/move/pattern/align/distribute holes, add hole/counterbore/countersink, box/cylinder/sphere/cone, shell, mirror, draft, align face, move/rotate/scale body | 61+ tests; form verified in Chrome | Done, awaiting user |
 | S16 | Overnight | Sketch in 3D (SolveSpace solver): line/rectangle/circle/arc, constraints, dimensions, extrude join/cut | Verified in Chrome end to end | Done, awaiting user |
+| S17 | Alpha | Portable alpha build for Windows, macOS and Linux (plan below) | **Checkpoint 5:** CI smoke tests pass on all three OSs and the release is published only then; user does a final check on Windows | Planned, before more features |
+| S18 | Alpha | Multi-solid and import robustness: tools act on the containing solid, inverted/open solids flagged, OpenCASCADE errors translated ([alpha-readiness.md](alpha-readiness.md)) | Push/pull success rate on the AD5M and Gauge STEP files measured before and after; every failure readable; tests added | Done. push_pull success on 24 tries: Gauge 20 to 24, Frame 0 to 22, Enclosure 11 to 22 after closed surface bodies are made into solids on import (8 of 10 on Frame, 15 of 21 on Enclosure); the rest are truly open, named in the import warning. Tests 97 pass |
+| S19 | Alpha | Autosave (BREP snapshots, capped, clean-exit marker) and restore prompt; cap the in-memory undo list | Kill the core mid-session, restart, restore returns model and undo steps | Planned, before S17 |
+| S20 | Alpha | Busy/progress indicator for long operations | A 30 s open shows the indicator and the UI stays responsive | Planned, before S17 |
+| S21 | Alpha | Alpha warnings, Copy diagnostics, issue template, license notices, known-limitations docs | Text reviewed by the user | Planned, before S17 |
+
+**S17 plan (portable alpha, decided 2026-10-17):** `v0.2.0-mvp` (tag at `12cfff5`) preserves the MVP parity state as a source-only release. The alpha release adds the overnight and day-two progress in a form testers can run without installing uv or Node.
+
+- Package: freeze the Python core with PyInstaller and ship the built frontend (`npm run build`) inside it. One launcher starts the core, serves the frontend, picks a free port, opens the browser, and exits when the tab closes. Tauri stays post-alpha.
+- Build: GitHub Actions matrix (windows, macos arm64 and x64, ubuntu) on a version tag, uploading one archive per OS to the release.
+- Known risks (log in `docs/watchlist.md`): OCP makes bundles large (hundreds of MB); macOS builds are unsigned (Gatekeeper warning, per-architecture builds); Linux depends on the build machine's glibc; the core currently binds fixed port 8765 and the client hardcodes it.
+- Smoke tests (decided 2026-10-17: CI stands in for per-OS human testing, so users never get a broken release): after building, each OS job unpacks its own archive and runs the packaged launcher headless (no browser; a `--smoke` mode or a test client over the WebSocket). The test opens the bracket demo, checks the face count, runs a push/pull preview and commit, checks undo, exports STEP and re-imports it, and fails on any error or if the app does not start within a timeout.
+- Gating: the tag build creates a draft release, every OS uploads its archive only after its smoke test passes, and a final job publishes the draft only if all jobs passed. A failed job leaves the draft unpublished.
+- Limits (log in `docs/watchlist.md`): smoke tests do not cover the GUI (rendering, mouse, the browser opening) or macOS Gatekeeper behaviour on a real machine. Optionally add a headless-browser load check of the served page in the same job.
+- Done when: all three smoke jobs are green on a test tag, the draft publishes, and the Windows archive passes the user's final manual check. The release notes say how to bypass the unsigned-app warnings.
 
 After the MVP, the next tools come from research/direct-modeling-tools.md (delete face with heal, fillet removal, move/rotate face, relationship detection), each planned as its own session.
 

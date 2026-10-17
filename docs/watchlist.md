@@ -43,6 +43,14 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 
 - **2026-10-17:** View-at-face (V) on curved faces uses the area-weighted mean triangle normal; wrap-around cylinder/cone faces look along their axis from the camera's current side (axis found from the normals' covariance, tolerance 0.05); other wrap-around faces (sphere, torus) fall back to model-centre-to-face-centre, which can be wrong for off-centre features.
 
+- **S18 push/pull on multi-solid files:** only the containing solid is booleaned; faces on different solids in one selection are refused. Faces in open shells (not part of a closed solid) are refused with a message. Overlap between separate solids is not resolved: pushing into a neighbouring solid leaves both solids overlapping.
+- **S18 UnifySameDomain fallback:** on very detailed solids (about 2,000+ faces) merging coplanar faces can produce invalid geometry. Push/pull then keeps the plain boolean result, so coplanar faces may stay split.
+- **S18 generic error translation:** any non-Operation exception in a tool becomes "<Tool> failed on this geometry (...)". Only a handful of OpenCASCADE exception names have friendly text; the rest show the first line of the raw message.
+- **S18 import repair:** only solids with negative volume are repaired (ShapeFix_Solid); open shells and invalid solids are reported in the status line, not fixed. No file with an inside-out solid was available to test the repair path.
+
+- **S18 surface-body healing:** closed surface bodies are made into solids; open ones are tried with ShapeFix_Shell and sewing at 1e-3 mm, and otherwise left as they are and named in the import warning. Missing faces are never invented. Part names come from the STEP file as OpenCASCADE decoded them, so non-Latin names can show as garbage. Loose faces that are not in any shell are not checked. Import takes a few seconds longer from the healing and checks.
+- **Open surfaces are not drawn differently yet:** they render like solids. Highlighting free edges or ghosting them is not built.
+
 ## Resolved
 
 - **2026-10-17:** Orthographic mode used a narrow-FOV perspective camera. Now a true orthographic camera.

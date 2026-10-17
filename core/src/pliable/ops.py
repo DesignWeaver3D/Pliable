@@ -15,7 +15,8 @@ from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.GeomAbs import GeomAbs_Plane
 from OCP.gp import gp_Dir, gp_Vec
 from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
-from OCP.TopAbs import TopAbs_REVERSED
+from OCP.TopAbs import TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID
+from OCP.TopExp import TopExp_Explorer
 from OCP.BRep import BRep_Builder
 from OCP.TopoDS import TopoDS_Compound, TopoDS_Edge, TopoDS_Face, TopoDS_Shape
 from OCP.collections import List_TopoDS_Shape
@@ -81,7 +82,63 @@ def _boolean(shape: TopoDS_Shape, tool: TopoDS_Shape, fuse: bool, glue: bool):
     return operation
 
 
+def solids_of(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
+    explorer = TopExp_Explorer(shape, TopAbs_SOLID)
+    solids = []
+    while explorer.More():
+        solids.append(explorer.Current())
+        explorer.Next()
+    return solids
+
+
 def push_pull(
+    shape: TopoDS_Shape,
+    face: TopoDS_Face | list[TopoDS_Face],
+    distance: float,
+    preview: bool = False,
+    follow_edges: list[TopoDS_Shape] | None = None,
+    follow_vertices: list[TopoDS_Shape] | None = None,
+) -> OpResult:
+    """Push/pull acting only on the solid that contains the face(s).
+
+    In a file with several solids (stacked, touching or overlapping parts), fusing the
+    extrusion with the whole compound fails or merges parts, so the other solids are left
+    exactly as they are and the changed solid is put back in its place.
+    """
+    solids = solids_of(shape)
+    faces = face if isinstance(face, list) else [face]
+    if len(solids) < 2 or not faces:
+        return _push_pull(shape, face, distance, preview, follow_edges, follow_vertices)
+    owners = set()
+    for f in faces:
+        for i, solid in enumerate(solids):
+            if _contains(solid, f):
+                owners.add(i)
+                break
+    if not owners:
+        raise OperationError("This face is not part of a closed solid (the file has an open shell here), so push/pull can't work on it")
+    if len(owners) != 1:
+        raise OperationError("The selected faces belong to different solids; select faces of one solid")
+    index = owners.pop()
+    result = _push_pull(solids[index], face, distance, preview, follow_edges, follow_vertices)
+    compound, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(compound)
+    for i, solid in enumerate(solids):
+        builder.Add(compound, result.shape if i == index else solid)
+    result.shape = compound
+    return result
+
+
+def _contains(solid: TopoDS_Shape, face: TopoDS_Face) -> bool:
+    explorer = TopExp_Explorer(solid, TopAbs_FACE)
+    while explorer.More():
+        if explorer.Current().IsSame(face):
+            return True
+        explorer.Next()
+    return False
+
+
+def _push_pull(
     shape: TopoDS_Shape,
     face: TopoDS_Face | list[TopoDS_Face],
     distance: float,
@@ -144,16 +201,21 @@ def push_pull(
     # Unifying a topology-only copy keeps the original intact; geometry and
     # triangulations are shared, so the copy is cheap.
     copy = BRepBuilderAPI_Copy(boolean.Shape(), False, True)
-    tracked = _follow(copy, tracked)
-    edges = _follow(copy, edges)
-    vertices = _follow(copy, vertices)
+    tracked_c = _follow(copy, tracked)
+    edges_c = _follow(copy, edges)
+    vertices_c = _follow(copy, vertices)
 
     unify = ShapeUpgrade_UnifySameDomain(copy.Shape(), True, True, True)
     unify.Build()
     result = unify.Shape()
-    tracked = _follow(unify.History(), tracked)
-    edges = _follow(unify.History(), edges)
-    vertices = _follow(unify.History(), vertices)
+    if not result.IsNull() and BRepCheck_Analyzer(result).IsValid():
+        tracked = _follow(unify.History(), tracked_c)
+        edges = _follow(unify.History(), edges_c)
+        vertices = _follow(unify.History(), vertices_c)
+    else:
+        # Merging coplanar faces can corrupt very detailed solids; the plain boolean result is still valid.
+        result = copy.Shape()
+        tracked, edges, vertices = tracked_c, edges_c, vertices_c
 
     if result.IsNull() or not BRepCheck_Analyzer(result).IsValid():
         raise OperationError("Operation produced invalid geometry")
