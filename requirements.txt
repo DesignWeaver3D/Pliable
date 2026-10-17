@@ -1,2 +1,0 @@
-pythonocc-core==7.9.0
-pyqt6==6.8.1

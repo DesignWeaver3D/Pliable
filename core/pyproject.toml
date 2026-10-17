@@ -1,0 +1,20 @@
+[project]
+name = "pliable"
+version = "0.2.0.dev0"
+description = "Direct BREP modeler: Python geometry core"
+license = "AGPL-3.0-or-later"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "build123d>=0.13",
+    "websockets>=15",
+]
+
+[project.scripts]
+pliable-server = "pliable.server:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
