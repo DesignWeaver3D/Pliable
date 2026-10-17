@@ -165,9 +165,94 @@ function pump(token: number) {
 
 viewport.onSelect = setSelection;
 
-viewport.onItemDrag = async (sels, distance, phase) => {
+// Dimension label: follows the pointer during a drag; typing digits turns it into the value entry.
+const dimLabel = $("dim");
+const DIM_OFFSET_PX = 16; // label offset from the pointer
+// The core has no unit system: STEP import converts to millimetres, so lengths are mm. A unit setting replaces this later.
+const LENGTH_UNIT = "mm";
+const len = (n: number) => `${n.toFixed(2)} ${LENGTH_UNIT}`;
+let typed: string | null = null; // text typed so far, null while the mouse sets the value
+let dragValue = 0; // value from the mouse (model units)
+let typedNegative = false; // sign of the typed value: starts as the drag direction, "-" flips it
+
+/** The number sent to the core: the typed value if it parses, else the mouse value. */
+function effectiveValue(): number {
+  const n = typed === null || typed === "" ? NaN : Number(typed);
+  if (!Number.isFinite(n)) return dragValue;
+  const m = viewport.measureMode ? viewport.measureSel : null;
+  // In measure mode the typed number is the edge's new length; the face moves by the difference.
+  return m ? m.grow * (n - m.length) : typedNegative ? -n : n;
+}
+
+function renderDim() {
+  const entering = typed !== null;
+  dimLabel.classList.toggle("entry", entering);
+  const m = viewport.measureSel ?? viewport.primaryMeasure;
+  const was = m ? len(m.length) : "";
+  if (viewport.measureMode && m) {
+    const shown = entering ? `${typed}| ${LENGTH_UNIT}` : len(m.length + m.grow * effectiveValue());
+    dimLabel.textContent = `edge ${shown}\nwas ${was} (face ${len(effectiveValue())})`;
+    return;
+  }
+  const value = entering ? `${typedNegative ? "-" : ""}${typed}| ${LENGTH_UNIT}` : len(dragValue);
+  const context = m ? `\nedge ${was} → ${len(m.length + m.grow * dragValue)}` : "";
+  dimLabel.textContent = value + context;
+}
+
+// Right-click during a drag toggles measure mode; picking another edge or leaving it drops any typed text.
+viewport.onMeasureChange = () => {
+  typed = null;
+  if (viewport.measureMode) {
+    status.classList.remove("error");
+    status.textContent = "Measure mode: click an edge, type its length, Enter to apply, Esc to go back";
+  }
+  renderDim();
+};
+
+function hideDim() {
+  typed = null;
+  dimLabel.hidden = true;
+}
+
+window.addEventListener("keydown", (e) => {
+  if (!viewport.dragging || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (/^[0-9.-]$/.test(e.key)) {
+    if (e.key === "-" && viewport.measureMode) return; // lengths are not signed
+    if (typed === null) {
+      typed = "";
+      typedNegative = dragValue < 0; // the drag already chose the direction
+      viewport.holdDrag = true;
+    }
+    if (e.key === "-") typedNegative = !typedNegative;
+    else typed += e.key;
+  } else if (e.key === "Backspace" && typed !== null) {
+    typed = typed.slice(0, -1);
+  } else if (e.key === "Enter" && typed !== null) {
+    viewport.finishDrag();
+    return;
+  } else if (e.key === "Escape" && typed !== null) {
+    // First Escape leaves value entry and goes back to the mouse drag; the next one cancels it.
+    typed = null;
+    viewport.holdDrag = viewport.measureMode;
+    renderDim();
+    return;
+  } else if (e.key === "Escape" && viewport.measureMode) {
+    viewport.exitMeasure();
+    return;
+  } else return;
+  // The preview stays where the mouse left it until Enter, so entry can finish before geometry moves.
+  e.preventDefault();
+  renderDim();
+});
+
+viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
   if (phase === "move") {
     if (!dragToolFor(sels)) return;
+    dragValue = distance;
+    dimLabel.hidden = false;
+    dimLabel.style.left = `${x + DIM_OFFSET_PX}px`;
+    dimLabel.style.top = `${y + DIM_OFFSET_PX}px`;
+    renderDim();
     if (dragSels === null) {
       lastGood = null;
       previewFailed = false;
@@ -178,6 +263,9 @@ viewport.onItemDrag = async (sels, distance, phase) => {
     return;
   }
   // End or cancel: stop previews, let the in-flight one finish, then settle.
+  if (phase === "end" && typed !== null) distance = effectiveValue();
+  else if (phase === "end") distance = dragValue;
+  hideDim();
   session++;
   queued = null;
   await inFlight;

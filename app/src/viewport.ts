@@ -18,6 +18,17 @@ interface Hit extends Sel {
 const VERTEX_PICK_PX = 9;
 const EDGE_PICK_PX = 6;
 const EDGE_TIE_PX = 2; // edges this close on screen are told apart by depth
+const MEASURE_PICK_PX = 10; // pick radius for measurement edges in measure mode
+const MEASURE_TOL = 1e-3; // model units: on-plane / parallel tolerance when finding measurable edges
+
+/** A straight edge parallel to the dragged face's normal with one end on the face: its length changes as the face moves. */
+export interface Measure {
+  fixed: THREE.Vector3; // end that stays put
+  anchor: THREE.Vector3; // end on the face, before the drag
+  length: number;
+  /** +1 if pulling the face outward lengthens the edge, -1 if it shortens it. */
+  grow: 1 | -1;
+}
 
 /** A highlight of one face, edge or vertex, drawn over the model. */
 class Mark {
@@ -79,7 +90,139 @@ export class Viewport {
   /** Called when the user changes the selection by clicking. */
   onSelect: (selection: Sel[]) => void = () => {};
   /** Dragging a selected face or edge drives its tool on the whole selection. distance is in model units along the dragged item's outward direction. */
-  onItemDrag: (sels: Sel[], distance: number, phase: "move" | "end" | "cancel") => void = () => {};
+  onItemDrag: (sels: Sel[], distance: number, phase: "move" | "end" | "cancel", x?: number, y?: number) => void = () => {};
+  /** While true (typed value entry or measure mode), pointer movement does not change the drag distance. */
+  holdDrag = false;
+  /** Measurable edges of the dragged face (empty unless a single planar face is dragged). */
+  measures: Measure[] = [];
+  /** The measurement nearest where the drag started; shown as context in the dimension label. */
+  primaryMeasure: Measure | null = null;
+  /** Measure mode (right-click during a drag): the user edits an edge length instead of the drag distance. */
+  measureMode = false;
+  measureSel: Measure | null = null;
+  /** Called when measure mode, or the chosen measurement, changes. */
+  onMeasureChange: () => void = () => {};
+  private measureHover: Measure | null = null;
+  private lastDistance = 0;
+  private measureAll = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: 0x4fc3f7, linewidth: 2, depthTest: false }));
+  private measureHot = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: 0xffffff, linewidth: 4, depthTest: false }));
+
+  /** Whether a tool drag has moved past the click threshold. */
+  get dragging(): boolean {
+    return this.drag?.moved ?? false;
+  }
+
+  /** Ends the current drag as if the pointer was released (used when a typed value is committed); later pointer events are ignored. */
+  finishDrag() {
+    const drag = this.drag;
+    if (!drag) return;
+    this.drag = null;
+    this.holdDrag = false;
+    this.controls.enabled = true;
+    this.onItemDrag(drag.sels, 0, "end"); // reads measureSel synchronously, so clear it afterwards
+    this.endMeasure();
+  }
+
+  private toPixels(p: THREE.Vector3, rect: DOMRect) {
+    const n = p.clone().project(this.camera);
+    return new THREE.Vector2(((n.x + 1) / 2) * rect.width, ((1 - n.y) / 2) * rect.height);
+  }
+
+  /** Straight edges parallel to the face normal with exactly one end on the face (and inside it). */
+  private findMeasures(sel: Sel, normal: THREE.Vector3, point: THREE.Vector3): Measure[] {
+    const data = this.data;
+    const range = sel.kind === "face" ? data?.faces.find((f) => f.id === sel.id) : undefined;
+    if (!data || !this.mesh || !range) return [];
+    const position = this.mesh.geometry.getAttribute("position");
+    const index = this.mesh.geometry.getIndex()!.array;
+    const triangles: THREE.Triangle[] = [];
+    for (let i = range.start; i < range.start + range.count; i += 3) {
+      triangles.push(
+        new THREE.Triangle(
+          new THREE.Vector3().fromBufferAttribute(position, index[i]),
+          new THREE.Vector3().fromBufferAttribute(position, index[i + 1]),
+          new THREE.Vector3().fromBufferAttribute(position, index[i + 2]),
+        ),
+      );
+    }
+    const onFace = (p: THREE.Vector3) => triangles.some((t) => t.closestPointToPoint(p, new THREE.Vector3()).distanceTo(p) < MEASURE_TOL);
+    const out: Measure[] = [];
+    for (const edge of data.edges) {
+      if (edge.count !== 2) continue;
+      const a = new THREE.Vector3().fromArray(data.edgePositions, edge.start * 3);
+      const b = new THREE.Vector3().fromArray(data.edgePositions, (edge.start + 1) * 3);
+      const length = a.distanceTo(b);
+      if (length < MEASURE_TOL || Math.abs(b.clone().sub(a).dot(normal)) < length * (1 - 1e-6)) continue;
+      const da = a.clone().sub(point).dot(normal);
+      const db = b.clone().sub(point).dot(normal);
+      const aOn = Math.abs(da) < MEASURE_TOL;
+      const bOn = Math.abs(db) < MEASURE_TOL;
+      if (aOn === bOn) continue;
+      const [anchor, fixed, otherSide] = aOn ? [a, b, db] : [b, a, da];
+      if (onFace(anchor)) out.push({ fixed, anchor, length, grow: otherSide < 0 ? 1 : -1 });
+    }
+    return out;
+  }
+
+  private drawMeasures(distance: number) {
+    this.lastDistance = distance;
+    const normal = this.drag?.normal ?? new THREE.Vector3();
+    const segments = (list: Measure[]) =>
+      list.flatMap((m) => [...m.fixed.toArray(), ...m.anchor.clone().addScaledVector(normal, distance).toArray()]);
+    const hot = this.measureSel ?? this.measureHover ?? this.primaryMeasure;
+    this.measureAll.visible = this.measureMode && this.measures.length > 0;
+    if (this.measureAll.visible) this.measureAll.geometry.setPositions(segments(this.measures));
+    this.measureHot.visible = hot !== null;
+    if (hot) this.measureHot.geometry.setPositions(segments([hot]));
+  }
+
+  private endMeasure() {
+    this.measureMode = false;
+    this.measureSel = this.measureHover = this.primaryMeasure = null;
+    this.measures = [];
+    this.measureAll.visible = this.measureHot.visible = false;
+  }
+
+  private nearestMeasure(e: PointerEvent): Measure | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const n = this.drag?.normal;
+    if (!n) return null;
+    const pointer = new THREE.Vector2(e.clientX - rect.left, e.clientY - rect.top);
+    let best: Measure | null = null;
+    let bestDistance = MEASURE_PICK_PX;
+    this.camera.updateMatrixWorld();
+    for (const m of this.measures) {
+      const a = this.toPixels(m.fixed, rect);
+      const b = this.toPixels(m.anchor.clone().addScaledVector(n, this.lastDistance), rect);
+      const ab = b.clone().sub(a);
+      const t = ab.lengthSq() === 0 ? 0 : Math.max(0, Math.min(1, pointer.clone().sub(a).dot(ab) / ab.lengthSq()));
+      const d = a.add(ab.multiplyScalar(t)).distanceTo(pointer);
+      if (d < bestDistance) {
+        bestDistance = d;
+        best = m;
+      }
+    }
+    return best;
+  }
+
+  private toggleMeasure() {
+    if (this.measureMode) {
+      this.measureMode = false;
+      this.holdDrag = false;
+      this.measureSel = null;
+    } else if (this.measures.length > 0) {
+      this.measureMode = true;
+      this.holdDrag = true;
+      this.measureSel = this.primaryMeasure ?? this.measures[0];
+    } else return;
+    this.drawMeasures(this.lastDistance);
+    this.onMeasureChange();
+  }
+
+  /** Leaves measure mode and returns to the plain drag (one Escape level). */
+  exitMeasure() {
+    if (this.measureMode) this.toggleMeasure();
+  }
 
   constructor(container: HTMLElement) {
     this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -102,7 +245,7 @@ export class Viewport {
     let down: { x: number; y: number } | null = null;
     dom.addEventListener("pointerdown", (e) => {
       down = { x: e.clientX, y: e.clientY };
-      if (e.button !== 0) return;
+      if (e.button !== 0 || this.measureMode) return;
       const hit = this.pickHit(e);
       const direction = hit && this.dragDirection(hit);
       // Dragging the selected face or edge starts its tool instead of orbiting.
@@ -115,24 +258,58 @@ export class Viewport {
           this.onSelect([sel]);
         }
         this.drag = { sels: [...this.selected], normal: direction, point: hit.point, x: e.clientX, y: e.clientY, moved: false };
+        this.measures = this.drag.sels.length === 1 && hit.kind === "face" ? this.findMeasures(this.drag.sels[0], direction, hit.point) : [];
+        this.primaryMeasure = this.measures.reduce<Measure | null>(
+          (best, m) => (best === null || m.anchor.distanceTo(hit.point) < best.anchor.distanceTo(hit.point) ? m : best),
+          null,
+        );
+        this.drawMeasures(0);
         this.controls.enabled = false;
         dom.setPointerCapture(e.pointerId);
       }
     });
     dom.addEventListener("pointermove", (e) => {
       if (this.drag) {
+        if (this.measureMode) {
+          this.measureHover = this.nearestMeasure(e);
+          this.drawMeasures(this.lastDistance);
+        }
+        if (this.holdDrag) return;
         const distance = this.dragDistance(e);
         if (this.drag.moved || Math.hypot(e.clientX - this.drag.x, e.clientY - this.drag.y) >= 4) {
           this.drag.moved = true;
-          this.onItemDrag(this.drag.sels, distance, "move");
+          this.drawMeasures(distance);
+          this.onItemDrag(this.drag.sels, distance, "move", e.clientX, e.clientY);
         }
       } else if (e.buttons === 0) this.setHover(this.pick(e));
     });
+    dom.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      if (this.drag?.moved) this.toggleMeasure();
+    });
+    for (const line of [this.measureAll, this.measureHot]) {
+      line.visible = false;
+      line.renderOrder = 3;
+      this.scene.add(line);
+    }
     dom.addEventListener("pointerleave", () => this.setHover(null));
     dom.addEventListener("pointerup", (e) => {
       const drag = this.drag;
+      if (drag && this.measureMode) {
+        // Measure mode keeps the drag open: a click picks the edge to edit.
+        const picked = this.nearestMeasure(e);
+        if (picked && picked !== this.measureSel) {
+          this.measureSel = picked;
+          this.drawMeasures(this.lastDistance);
+          this.onMeasureChange();
+        }
+        down = null;
+        return;
+      }
       if (drag) {
+        this.endMeasure();
         this.drag = null;
+        this.holdDrag = false;
         this.controls.enabled = true;
         if (drag.moved) {
           this.onItemDrag(drag.sels, this.dragDistance(e, drag), "end");
@@ -147,10 +324,12 @@ export class Viewport {
       down = null;
     });
     window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && this.drag) {
+      if (e.key === "Escape" && this.drag && !this.holdDrag) {
         const sels = this.drag.sels;
         this.drag = null;
+        this.holdDrag = false;
         this.controls.enabled = true;
+        this.endMeasure();
         this.onItemDrag(sels, 0, "cancel");
       }
     });
@@ -169,6 +348,8 @@ export class Viewport {
     this.camera.updateProjectionMatrix();
     this.hoverLine.resolution.set(w, h);
     this.selectedLine.resolution.set(w, h);
+    this.measureAll.material.resolution.set(w, h);
+    this.measureHot.material.resolution.set(w, h);
   }
 
   setMesh(mesh: MeshData, frame: boolean) {

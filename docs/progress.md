@@ -1,4 +1,4 @@
-# Rebuild Progress Log
+﻿# Rebuild Progress Log
 
 Working log for the rebuild described in [ROADMAP.md](../ROADMAP.md). Read this first in every session (see the local session guide for the session rules).
 
@@ -20,7 +20,8 @@ The MVP target is parity with the `v0.1.0-poc` prototype: STEP import/export, fa
 | S7 | 1 Core | Selection model: face/edge/vertex picking end to end, selection kept across operations | Edge and vertex picking work; selection survives push/pull | Done |
 | S8 | 3 Tools | Fillet/chamfer tool on the tool API, with edge drag (outward fillet, inward chamfer) | Fillet and chamfer preview and commit from the UI | Done |
 | S9 | 2 Interaction | Contextual toolbar generated from tool declarations, plus command search (Ctrl+K) | Selecting a face or edge shows only its valid tools | Done |
-| S10 | 2 Interaction | Onscreen dimension label during drags, Tab for exact entry, for every tool with a distance/angle parameter | **Checkpoint 3:** screenshots of the toolbar and dimension UX to the user | Next |
+| S10 | 2 Interaction | Onscreen dimension label during drags, Tab for exact entry, for every tool with a distance/angle parameter | **Checkpoint 3:** screenshots of the toolbar and dimension UX to the user | Done, awaiting user |
+| S10b | 2 Interaction | Measurement context on the drag label (start/delta, resulting size) and measure mode: right-click during a drag picks a measurement (e.g. edge parallel to the normal) whose edited value sets where the face ends up | User tries it on the bracket; decide which side moves and what stays fixed | Done, awaiting user |
 | S11 | MVP | Parity check against the prototype feature list, fixes, run instructions in README | **Checkpoint 4:** user reviews; merge `rebuild` into `main` | |
 
 After the MVP, the next tools come from research/direct-modeling-tools.md (delete face with heal, fillet removal, move/rotate face, relationship detection), each planned as its own session.
