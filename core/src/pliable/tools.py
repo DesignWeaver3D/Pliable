@@ -106,6 +106,8 @@ class Tool:
     # Provided by the framework -------------------------------------------------
 
     def available(self, topology: Topology, selection: Selection) -> bool:
+        if any(not 0 <= i < n for ids, n in ((selection.faces, topology.face_count), (selection.edges, topology.edge_count), (selection.vertices, topology.vertex_count)) for i in ids):
+            return False
         try:
             return self.accepts.matches(selection) and self.applies(topology, selection)
         except KeyError:  # a selected id that does not exist
@@ -179,3 +181,6 @@ class FilletChamfer(Tool):
     def run(self, topology, selection, values, preview):
         edges = [topology.edge(i) for i in selection.edges]
         return fillet_chamfer(topology.shape, edges, values["distance"])
+
+
+from . import features  # noqa: E402,F401  (registers the feature tools)

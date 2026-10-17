@@ -26,6 +26,16 @@
       .navcube-face { position: absolute; text-align: center; font-size: 11px; color: #cfd6e4; background: rgba(60, 68, 84, 0.85); border: 1px solid #7d8aa5; box-sizing: border-box; cursor: pointer; user-select: none; }
       .navcube-face:hover { background: rgba(255, 138, 31, 0.8); color: #fff; }
       .navcube button { font-size: 11px; padding: 2px 8px; }
+      #toollist { position: fixed; top: 84px; left: 8px; z-index: 1; display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; width: 150px; }
+      #toollist .group { color: #ffb878; font-size: 11px; margin-top: 4px; }
+      #toollist button, #toolform button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 3px 8px; text-align: left; display: block; width: 100%; margin-top: 2px; }
+      #toollist button:disabled { color: #666; }
+      #toolform { position: fixed; top: 84px; left: 170px; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
+      #toolform[hidden] { display: none; }
+      #toolform .title { color: #ffb878; font-weight: 600; margin-bottom: 4px; }
+      #toolform .row { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin: 3px 0; }
+      #toolform input { width: 80px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; }
+      #toolform .buttons { display: flex; gap: 6px; margin-top: 6px; }
       #measure { position: fixed; left: 8px; bottom: 8px; z-index: 1; min-width: 190px; max-height: 60vh; overflow-y: auto; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 4px 0; font-variant-numeric: tabular-nums; }
       #measure[hidden] { display: none; }
       #measure .title { padding: 4px 10px 2px; color: #ffb878; font-weight: 600; }
@@ -64,6 +74,8 @@
     </div>
     <div id="tools"></div>
     <div id="navcube"></div>
+    <div id="toollist"></div>
+    <div id="toolform" hidden></div>
     <div id="measure" hidden></div>
     <div id="dim" hidden></div>
     <div id="palette" hidden>

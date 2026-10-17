@@ -1,4 +1,5 @@
 import { CoreClient, type MeshData } from "./client";
+import { ToolPanel } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay } from "./dimensions";
 import { MeasurePanel, type MeasureReply } from "./measure";
@@ -78,16 +79,22 @@ function renderToolbar() {
 }
 
 function armTool(tool: ToolInfo) {
+  if (dragParam(tool) === null) {
+    toolPanel.openForm(tool);
+    return;
+  }
   armedTool = tool.id;
   renderToolbar();
   if (!status.classList.contains("error")) status.textContent = `${tool.label}: drag the selection`;
 }
 
 function setSelection(sels: Sel[]) {
+  if (toolPanel.isOpen) toolPanel.close(false); // the selection changed under an open tool form
   currentSels = sels;
   refined = null;
   selected.textContent = describe(sels);
   renderToolbar();
+  toolPanel.renderList();
   measurePanel.hide();
   dimensionOverlay.set([]);
   if (sels.length === 0) return;
@@ -106,6 +113,7 @@ function setSelection(sels: Sel[]) {
       if (currentSels !== sels) return; // the selection changed while waiting
       refined = reply.tools;
       renderToolbar();
+      toolPanel.renderList();
     })
     .catch(() => {});
 }
@@ -410,6 +418,42 @@ function commands(): Command[] {
   ];
 }
 
+// Tools without a drag parameter (and the "All tools" list) use a typed-value form with live preview.
+const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
+  tools: () => tools,
+  usable: (tool) => acceptsSelection(tool, currentSels) && (refined === null || refined.includes(tool.id)),
+  async preview(tool, values) {
+    try {
+      const mesh = await core.request<MeshData>("tool_preview", { tool: tool.id, selection: selectionPayload(currentSels), params: values });
+      if (!toolPanel.isOpen) return;
+      show(mesh);
+      status.classList.remove("error");
+      status.textContent = `${tool.label}: preview`;
+    } catch (e) {
+      status.textContent = (e as Error).message;
+      status.classList.add("error");
+    }
+  },
+  async commit(tool, values) {
+    const sels = currentSels;
+    try {
+      const mesh = await core.request<MeshData>("tool_commit", { tool: tool.id, selection: selectionPayload(sels), params: values });
+      setCommitted(mesh, false, mappedSelection(mesh));
+    } catch (e) {
+      if (committed) setCommitted(committed, false, sels);
+      status.textContent = (e as Error).message;
+      status.classList.add("error");
+    }
+  },
+  cancel() {
+    if (committed) {
+      show(committed);
+      status.classList.remove("error");
+    }
+  },
+});
+toolPanel.renderList();
+
 new Palette(commands);
 renderToolbar();
 
@@ -418,6 +462,7 @@ core
   .then(async () => {
     tools = (await core.request<{ tools: ToolInfo[] }>("list_tools")).tools;
     renderToolbar();
+    toolPanel.renderList();
     return load(select.value);
   })
   .catch((e) => (status.textContent = e.message));

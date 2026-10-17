@@ -170,10 +170,12 @@ def test_available_tools_follow_selection():
     def available(selection):
         return session.handle({"type": "available_tools", "selection": selection})["tools"]
 
-    assert available({"faces": [planar]}) == ["push_pull"]
-    assert available({"faces": [curved]}) == []
-    assert available({"faces": [planar, planar]}) == []
-    assert available({}) == []
+    assert {"push_pull", "add_hole", "delete_face"} <= set(available({"faces": [planar]}))
+    assert not {"resize_hole", "fillet_chamfer"} & set(available({"faces": [planar]}))
+    assert "push_pull" not in available({"faces": [curved]})
+    assert "delete_face" in available({"faces": [curved]})
+    assert "push_pull" not in available({"faces": [planar, planar]})
+    assert "push_pull" not in available({})
     assert available({"faces": [9999]}) == []
 
 

@@ -34,7 +34,7 @@ from OCP.TopAbs import TopAbs_EDGE
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS
 
-from .ops import OperationError, edge_outward_normal
+from .ops import OperationError, edge_outward_normal, planar_normal
 from .tools import Selection
 from .topology import Topology
 
@@ -184,7 +184,7 @@ def measure_face(topology: Topology, face_id: int, face) -> dict:
     if kind == GeomAbs_Plane:
         title = "Plane"
         dims = _plane_dims(face, surface, u0, u1, v0, v1)
-        rows = [_row("Width", u1 - u0), _row("Height", v1 - v0), area, _dir_row("Normal", surface.Plane().Axis().Direction())]
+        rows = [_row("Width", u1 - u0), _row("Height", v1 - v0), area, _dir_row("Normal", planar_normal(face))]
     elif kind == GeomAbs_Cylinder:
         cylinder = surface.Cylinder()
         radius = cylinder.Radius()
