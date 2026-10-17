@@ -20,7 +20,7 @@ const select = $("demo") as HTMLSelectElement;
 const viewport = new Viewport($("viewport"));
 const core = new CoreClient();
 const measurePanel = new MeasurePanel($("measure"));
-const dimensionOverlay = new DimensionOverlay($("viewport"), viewport.camera);
+const dimensionOverlay = new DimensionOverlay($("viewport"), () => viewport.camera);
 const navCube = new NavCube($("navcube"), viewport);
 viewport.onFrame = () => {
   dimensionOverlay.draw();
@@ -28,14 +28,14 @@ viewport.onFrame = () => {
 };
 
 // View shortcuts (standard numbering): 0 isometric, 1 front, 2 top, 3 right, 4 rear, 5 bottom, 6 left;
-// P toggles perspective/orthographic; V looks straight at the selected planar face. Ignored while typing or dragging.
+// P toggles perspective/orthographic; V looks along the selected face's normal (mean normal for curved faces). Ignored while typing or dragging.
 window.addEventListener("keydown", (e) => {
   const target = e.target as HTMLElement;
   if (e.ctrlKey || e.metaKey || e.altKey || target.closest("input, textarea, select") || viewport.dragging || dragSels !== null) return;
   if (e.key in VIEW_KEYS) viewport.setView(VIEW_KEYS[e.key]);
   else if (e.key === "p" || e.key === "P") navCube.toggleProjection();
   else if ((e.key === "v" || e.key === "V") && currentSels.length === 1 && currentSels[0].kind === "face") {
-    if (!viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: the face must be flat";
+    if (!viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: could not find a view direction for this face";
   }
 });
 
@@ -99,9 +99,14 @@ function dragToolFor(sels: Sel[]): ToolInfo | null {
 
 const toolbar = $("tools");
 
+let toolbarKey = "";
+
 function renderToolbar() {
   const usable = usableTools();
   const active = dragToolFor(currentSels)?.id;
+  const key = `${usable.map((t) => t.id).join(",")}|${active}|${currentSels.length}`;
+  if (key === toolbarKey) return; // unchanged: keep the buttons (avoids flicker as the core's replies arrive)
+  toolbarKey = key;
   if (usable.length === 0) {
     const hint = document.createElement("span");
     hint.className = "none";
@@ -135,27 +140,30 @@ function setSelection(sels: Sel[]) {
   if (toolPanel.isOpen) toolPanel.close(false); // the selection changed under an open tool form
   currentSels = sels;
   refined = null;
-  selected.textContent = describe(sels);
-  renderToolbar();
-  toolPanel.renderList();
-  renderSketchBar();
-  measurePanel.hide();
-  dimensionOverlay.set([]);
   related = [];
-  renderChips();
-  if (sels.length === 1 && sels[0].kind === "face") {
-    core
-      .request<{ rules: RelatedRule[] }>("related", { face: sels[0].id })
-      .then((reply) => {
-        if (currentSels !== sels) return;
-        related = reply.rules;
-        renderChips();
-        renderToolbar();
-        toolPanel.renderList();
-      })
-      .catch(() => {});
+  selected.textContent = describe(sels);
+  if (sels.length === 0) {
+    measurePanel.hide();
+    dimensionOverlay.set([]);
+    renderChips();
+    renderToolbar();
+    toolPanel.renderList();
+    renderSketchBar();
+    return;
   }
-  if (sels.length === 0) return;
+  // Wait for the core's answers and render once: rendering the count-only guess first, then the refined set,
+  // made tools flip between enabled and greyed and the chips blink on every face click.
+  const rules = sels.length === 1 && sels[0].kind === "face" ? core.request<{ rules: RelatedRule[] }>("related", { face: sels[0].id }) : Promise.resolve({ rules: [] as RelatedRule[] });
+  const available = core.request<{ tools: string[] }>("available_tools", { selection: selectionPayload(sels) });
+  Promise.allSettled([rules, available]).then(([rulesReply, availableReply]) => {
+    if (currentSels !== sels) return; // the selection changed while waiting
+    related = rulesReply.status === "fulfilled" ? rulesReply.value.rules : [];
+    refined = availableReply.status === "fulfilled" ? availableReply.value.tools : null;
+    renderChips();
+    renderToolbar();
+    toolPanel.renderList();
+    renderSketchBar();
+  });
   core
     .request<MeasureReply>("measure", { selection: selectionPayload(sels) })
     .then((reply) => {
@@ -164,16 +172,12 @@ function setSelection(sels: Sel[]) {
         dimensionOverlay.set(reply.dimensions ?? []);
       }
     })
-    .catch(() => {});
-  core
-    .request<{ tools: string[] }>("available_tools", { selection: selectionPayload(sels) })
-    .then((reply) => {
-      if (currentSels !== sels) return; // the selection changed while waiting
-      refined = reply.tools;
-      renderToolbar();
-      toolPanel.renderList();
-    })
-    .catch(() => {});
+    .catch(() => {
+      if (currentSels === sels) {
+        measurePanel.hide();
+        dimensionOverlay.set([]);
+      }
+    });
 }
 
 function selectionPayload(sels: Sel[]) {
@@ -555,8 +559,12 @@ const sketch = new SketchMode(
   $("sketchpanel"),
 );
 const sketchBar = $("sketchbar");
+let sketchBarKey = "";
 function renderSketchBar() {
   const face = currentSels.length === 1 && currentSels[0].kind === "face" ? committed?.faces.find((f) => f.id === currentSels[0].id) : undefined;
+  const key = `${!!face?.normal}|${sketch.active}`;
+  if (key === sketchBarKey) return; // the bar only depends on these two flags; keep the buttons otherwise
+  sketchBarKey = key;
   const onFace = document.createElement("button");
   onFace.textContent = "Sketch on selected face";
   onFace.disabled = !face?.normal || sketch.active;
@@ -631,12 +639,29 @@ toolPanel.renderList();
 new Palette(commands);
 renderToolbar();
 
-core
-  .connect()
-  .then(async () => {
-    tools = (await core.request<{ tools: ToolInfo[] }>("list_tools")).tools;
-    renderToolbar();
-    toolPanel.renderList();
-    return load(select.value);
-  })
-  .catch((e) => (status.textContent = e.message));
+// Connect to the core, retrying while it is not running and reconnecting if it stops (the model is reloaded then).
+const RETRY_MS = 2000;
+async function connectToCore() {
+  for (;;) {
+    try {
+      await core.connect();
+      break;
+    } catch {
+      status.classList.add("error");
+      status.textContent = "Core not running: start it with 'uv run pliable-server' in core/ (retrying...)";
+      await new Promise((resolve) => setTimeout(resolve, RETRY_MS));
+    }
+  }
+  status.classList.remove("error");
+  tools = (await core.request<{ tools: ToolInfo[] }>("list_tools")).tools;
+  renderToolbar();
+  toolPanel.renderList();
+  await load(select.value);
+}
+
+core.onDisconnect = () => {
+  status.classList.add("error");
+  status.textContent = "Lost connection to the core (reconnecting...)";
+  void connectToCore().catch((e) => (status.textContent = e.message));
+};
+connectToCore().catch((e) => (status.textContent = e.message));

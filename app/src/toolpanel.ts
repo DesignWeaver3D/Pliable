@@ -25,7 +25,10 @@ export class ToolPanel {
     private readonly host: ToolPanelHost,
   ) {}
 
-  /** Rebuild the grouped list; call when tools or the selection change. */
+  private listKey = "";
+  private listButtons = new Map<string, HTMLButtonElement>();
+
+  /** Refresh the grouped list; call when tools or the selection change. Only rebuilds when the tool set changed, so scroll position and hover survive a selection. */
   renderList() {
     const tools = this.host.tools();
     const placed = new Set(TOOL_GROUPS.flatMap((g) => g.tools));
@@ -33,6 +36,13 @@ export class ToolPanel {
       ...TOOL_GROUPS.map((g) => ({ title: g.title, tools: g.tools.map((id) => tools.find((t) => t.id === id)).filter((t): t is ToolInfo => !!t) })),
       { title: "Other", tools: tools.filter((t) => !placed.has(t.id)) },
     ].filter((g) => g.tools.length);
+    const key = groups.map((g) => `${g.title}:${g.tools.map((t) => t.id).join(",")}`).join("|");
+    if (key === this.listKey) {
+      for (const [id, button] of this.listButtons) button.disabled = !this.host.usable(tools.find((t) => t.id === id)!);
+      return;
+    }
+    this.listKey = key;
+    this.listButtons.clear();
     this.listEl.replaceChildren(
       ...groups.map((group) => {
         const box = document.createElement("div");
@@ -46,6 +56,7 @@ export class ToolPanel {
           button.disabled = !this.host.usable(tool);
           button.title = describeNeeds(tool) || "No selection needed";
           button.addEventListener("click", () => this.openForm(tool));
+          this.listButtons.set(tool.id, button);
           box.append(button);
         }
         return box;

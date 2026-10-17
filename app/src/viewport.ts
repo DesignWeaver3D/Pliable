@@ -70,9 +70,6 @@ class Mark {
 }
 
 const PERSPECTIVE_FOV = 45;
-// Orthographic view is a perspective camera with a tiny field of view, moved back so the picture keeps its size.
-// That keeps picking and projection code identical for both modes.
-const ORTHO_FOV = 0.5;
 const ISO_DIRECTION = new THREE.Vector3(1, -1.4, 0.9).normalize(); // from the target toward the camera
 
 /** Standard views, Number keys for standard views (0 isometric, 1 front, 2 top, 3 right, 4 rear, 5 bottom, 6 left); Z is up. */
@@ -88,7 +85,14 @@ export const STANDARD_VIEWS: Record<string, THREE.Vector3> = {
 
 export class Viewport {
   readonly scene = new THREE.Scene();
-  readonly camera = new THREE.PerspectiveCamera(45, 1, 0.1, 10000);
+  private readonly perspectiveCamera = new THREE.PerspectiveCamera(PERSPECTIVE_FOV, 1, 0.1, 10000);
+  private readonly orthoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10000);
+  /** The active camera (a true orthographic camera in orthographic mode, not a narrow-FOV perspective one). */
+  camera: THREE.PerspectiveCamera | THREE.OrthographicCamera = this.perspectiveCamera;
+  /** Half the visible height at zoom 1 of the orthographic camera, in world units. */
+  private orthoHalf = 1;
+  private readonly keyLight = new THREE.DirectionalLight(0xffffff, 1.6);
+  private aspect = 1;
   readonly renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   private controls: OrbitControls;
   private lastClip = 0;
@@ -151,7 +155,23 @@ export class Viewport {
   /** World length of one screen pixel at a point (for snapping and handle sizes). */
   pixelSizeAt(p: THREE.Vector3): number {
     const rect = this.renderer.domElement.getBoundingClientRect();
-    return (2 * p.distanceTo(this.camera.position) * Math.tan((this.camera.fov * Math.PI) / 360)) / rect.height;
+    return this.pixelSizeAtDistance(p.distanceTo(this.camera.position), rect.height);
+  }
+
+  /** World length of one screen pixel for something `distance` from the camera (the same everywhere when orthographic). */
+  private pixelSizeAtDistance(distance: number, height: number): number {
+    if (this.camera instanceof THREE.OrthographicCamera) return (2 * this.orthoHalf) / this.camera.zoom / height;
+    return (2 * distance * Math.tan((this.camera.fov * Math.PI) / 360)) / height;
+  }
+
+  /** Size the orthographic frustum to the viewport's aspect ratio. */
+  private syncOrtho() {
+    const c = this.orthoCamera;
+    c.top = this.orthoHalf;
+    c.bottom = -this.orthoHalf;
+    c.right = this.orthoHalf * this.aspect;
+    c.left = -c.right;
+    c.updateProjectionMatrix();
   }
 
   /** Look straight down a direction (from the side it points to), keeping target and distance. */
@@ -287,11 +307,10 @@ export class Viewport {
     this.scene.background = new THREE.Color(0x1b1d22);
     this.scene.add(this.model);
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.4));
-    const key = new THREE.DirectionalLight(0xffffff, 1.6);
-    key.position.set(1, 2, 3);
-    this.camera.add(key);
+    this.keyLight.position.set(1, 2, 3);
+    for (const c of [this.perspectiveCamera, this.orthoCamera]) c.up.set(0, 0, 1);
+    this.camera.add(this.keyLight);
     this.scene.add(this.camera);
-    this.camera.up.set(0, 0, 1);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     // Navigation: left selects (and drags tools), right orbits,
@@ -419,17 +438,33 @@ export class Viewport {
   }
 
   get orthographic(): boolean {
-    return this.camera.fov < PERSPECTIVE_FOV / 2;
+    return this.camera === this.orthoCamera;
   }
 
   /** Switch between perspective and orthographic, keeping what is framed the same size. */
   setOrthographic(on: boolean) {
     if (on === this.orthographic) return;
     const target = this.controls.target;
-    const offset = this.camera.position.clone().sub(target);
-    const scale = Math.tan((this.camera.fov * Math.PI) / 360) / Math.tan(((on ? ORTHO_FOV : PERSPECTIVE_FOV) * Math.PI) / 360);
-    this.camera.fov = on ? ORTHO_FOV : PERSPECTIVE_FOV;
-    this.camera.position.copy(target).addScaledVector(offset, scale);
+    const from = this.camera;
+    const to = on ? this.orthoCamera : this.perspectiveCamera;
+    const tan = Math.tan((PERSPECTIVE_FOV * Math.PI) / 360);
+    const distance = from.position.distanceTo(target);
+    if (on) {
+      this.orthoHalf = distance * tan; // what the perspective view shows at the target
+      this.orthoCamera.zoom = 1;
+      this.syncOrtho();
+    } else {
+      this.perspectiveCamera.position.copy(target).addScaledVector(from.position.clone().sub(target).normalize(), this.orthoHalf / this.orthoCamera.zoom / tan);
+    }
+    if (on) to.position.copy(from.position);
+    to.quaternion.copy(from.quaternion);
+    from.remove(this.keyLight);
+    this.scene.remove(from);
+    to.add(this.keyLight);
+    this.scene.add(to);
+    this.camera = to;
+    this.controls.object = to;
+    this.lastClip = 0;
     this.fitClipping(true);
     this.controls.update();
   }
@@ -445,15 +480,88 @@ export class Viewport {
 
   /** Look straight at a planar face, from the side its normal points to. Returns false if the face is not planar. */
   alignToFace(faceId: number): boolean {
-    const normal = this.data?.faces.find((f) => f.id === faceId)?.normal;
-    if (!normal) return false;
-    const direction = new THREE.Vector3(...normal);
+    const face = this.data?.faces.find((f) => f.id === faceId);
+    if (!face) return false;
+    const direction = face.normal ? new THREE.Vector3(...face.normal) : this.averageFaceDirection(face);
+    if (!direction) return false;
     if (Math.abs(direction.z) > 0.9999) direction.y -= 1e-4; // keep "up" defined
     direction.normalize();
     const distance = this.camera.position.distanceTo(this.controls.target);
     this.camera.position.copy(this.controls.target).addScaledVector(direction, distance);
     this.controls.update();
     return true;
+  }
+
+  /**
+   * View direction for a non-planar face: the area-weighted mean of its triangle normals (cylinder, cone, sphere, freeform).
+   * Faces that wrap around (full cylinder) average to nothing, so they use the direction from the model centre to the face centre.
+   */
+  private averageFaceDirection(range: { start: number; count: number }): THREE.Vector3 | null {
+    if (!this.mesh) return null;
+    const position = this.mesh.geometry.getAttribute("position");
+    const index = this.mesh.geometry.getIndex()!.array;
+    const sum = new THREE.Vector3();
+    const centre = new THREE.Vector3();
+    const [a, b, c, n] = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+    let area = 0;
+    for (let i = range.start; i < range.start + range.count; i += 3) {
+      a.fromBufferAttribute(position, index[i]);
+      b.fromBufferAttribute(position, index[i + 1]);
+      c.fromBufferAttribute(position, index[i + 2]);
+      n.crossVectors(b.clone().sub(a), c.clone().sub(a)).multiplyScalar(0.5); // length = triangle area
+      sum.add(n);
+      area += n.length();
+      centre.addScaledVector(a.clone().add(b).add(c), n.length() / 3);
+    }
+    if (area === 0) return null;
+    if (sum.length() > area * 0.1) return sum; // normalised by the caller
+    const axis = this.wrapAxis(range);
+    if (axis) {
+      // Look along the axis from the side the camera is already on.
+      const toCamera = this.camera.position.clone().sub(this.controls.target);
+      return toCamera.dot(axis) < 0 ? axis.negate() : axis;
+    }
+    centre.divideScalar(area);
+    this.mesh.geometry.computeBoundingBox();
+    const outward = centre.sub(this.mesh.geometry.boundingBox!.getCenter(new THREE.Vector3()));
+    return outward.length() > 1e-9 ? outward : null;
+  }
+
+  /**
+   * Axis of a cylinder- or cone-like face: the direction every triangle normal is perpendicular to. The area-weighted
+   * covariance of the normals has rank 2 there, so its null vector is the cross product of two of its rows.
+   * Returns null when the normals span all three directions (sphere, torus, freeform).
+   */
+  private wrapAxis(range: { start: number; count: number }): THREE.Vector3 | null {
+    const position = this.mesh!.geometry.getAttribute("position");
+    const index = this.mesh!.geometry.getIndex()!.array;
+    const [a, b, c, n] = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+    const m = new THREE.Matrix3().set(0, 0, 0, 0, 0, 0, 0, 0, 0);
+    let area = 0;
+    for (let i = range.start; i < range.start + range.count; i += 3) {
+      a.fromBufferAttribute(position, index[i]);
+      b.fromBufferAttribute(position, index[i + 1]);
+      c.fromBufferAttribute(position, index[i + 2]);
+      n.crossVectors(b.clone().sub(a), c.clone().sub(a));
+      const w = n.length() / 2;
+      if (w === 0) continue;
+      n.normalize();
+      const v = [n.x, n.y, n.z];
+      for (let r = 0; r < 3; r++) for (let k = 0; k < 3; k++) m.elements[k * 3 + r] += w * v[r] * v[k];
+      area += w;
+    }
+    if (area === 0) return null;
+    const rows = [0, 1, 2].map((r) => new THREE.Vector3(m.elements[r], m.elements[3 + r], m.elements[6 + r]).divideScalar(area));
+    let best: THREE.Vector3 | null = null;
+    for (const [i, j] of [[0, 1], [0, 2], [1, 2]]) {
+      const axis = rows[i].clone().cross(rows[j]);
+      if (!best || axis.length() > best.length()) best = axis;
+    }
+    if (!best || best.length() < 1e-6) return null;
+    best.normalize();
+    // The axis is only valid if the normals really are perpendicular to it (mean squared cosine near zero).
+    const perp = rows.reduce((s, row) => s + Math.abs(row.dot(best!)), 0);
+    return perp < 0.05 ? best : null;
   }
 
   /** Near and far planes follow the camera distance (it changes a lot between perspective and orthographic). */
@@ -485,8 +593,10 @@ export class Viewport {
   private resize() {
     const { clientWidth: w, clientHeight: h } = this.renderer.domElement.parentElement!;
     this.renderer.setSize(w, h);
-    this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
+    this.aspect = w / h;
+    this.perspectiveCamera.aspect = this.aspect;
+    this.perspectiveCamera.updateProjectionMatrix();
+    this.syncOrtho();
     this.hoverLine.resolution.set(w, h);
     this.selectedLine.resolution.set(w, h);
     this.measureAll.material.resolution.set(w, h);
@@ -593,7 +703,7 @@ export class Viewport {
     const faceHit = this.raycaster.intersectObject(this.mesh)[0];
     // An edge or vertex counts as visible if it is not meaningfully behind the face under the
     // pointer; allow slack for the pick radius (it grows at grazing angles).
-    const pixelSize = (2 * (faceHit?.distance ?? 0) * Math.tan((this.camera.fov * Math.PI) / 360)) / rect.height;
+    const pixelSize = this.pixelSizeAtDistance(faceHit?.distance ?? 0, rect.height);
     const depthLimit = faceHit ? faceHit.distance * 1.01 + pixelSize * 12 : Infinity;
 
     const vertex = this.nearestVertex(px, py, rect, depthLimit);
@@ -713,7 +823,10 @@ export class Viewport {
   private frame([x0, y0, z0, x1, y1, z1]: number[]) {
     const center = new THREE.Vector3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
     const radius = Math.max(Math.hypot(x1 - x0, y1 - y0, z1 - z0) / 2, 1e-3);
-    const distance = radius / Math.sin((this.camera.fov * Math.PI) / 360);
+    const distance = radius / Math.sin((PERSPECTIVE_FOV * Math.PI) / 360);
+    this.orthoHalf = distance * Math.tan((PERSPECTIVE_FOV * Math.PI) / 360);
+    this.orthoCamera.zoom = 1;
+    this.syncOrtho();
     this.camera.position.copy(center).add(new THREE.Vector3(1, -1.4, 0.9).normalize().multiplyScalar(distance));
     this.camera.near = distance / 100;
     this.camera.far = distance * 100;

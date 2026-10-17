@@ -64,13 +64,28 @@ export class CoreClient {
   private pending = new Map<number, Pending>();
   private awaitingBinary: number | null = null;
 
+  /** Called once when an established connection drops (the core stopped or crashed). */
+  onDisconnect: () => void = () => {};
+
   connect(url = "ws://127.0.0.1:8765"): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.socket = new WebSocket(url);
-      this.socket.binaryType = "arraybuffer";
-      this.socket.onopen = () => resolve();
-      this.socket.onerror = () => reject(new Error("Could not connect to the core"));
-      this.socket.onmessage = (event) => this.onMessage(event.data);
+      const socket = new WebSocket(url);
+      this.socket = socket;
+      socket.binaryType = "arraybuffer";
+      let opened = false;
+      socket.onopen = () => {
+        opened = true;
+        resolve();
+      };
+      socket.onerror = () => reject(new Error("Could not connect to the core"));
+      socket.onmessage = (event) => this.onMessage(event.data);
+      socket.onclose = () => {
+        // Requests still waiting will never be answered; fail them instead of leaving the UI on "loading".
+        for (const entry of this.pending.values()) entry.reject(new Error("Lost connection to the core"));
+        this.pending.clear();
+        this.awaitingBinary = null;
+        if (opened) this.onDisconnect();
+      };
     });
   }
 
@@ -100,6 +115,7 @@ export class CoreClient {
   request<T = any>(type: string, params: Record<string, unknown> = {}): Promise<T> {
     const id = this.nextId++;
     return new Promise<T>((resolve, reject) => {
+      if (this.socket?.readyState !== WebSocket.OPEN) return reject(new Error("The core is not connected"));
       this.pending.set(id, { resolve, reject });
       this.socket.send(JSON.stringify({ id, type, ...params }));
     });

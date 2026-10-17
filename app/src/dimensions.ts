@@ -31,7 +31,7 @@ export class DimensionOverlay {
 
   constructor(
     container: HTMLElement,
-    private readonly camera: THREE.Camera,
+    private readonly camera: () => THREE.Camera,
   ) {
     this.svg.setAttribute("style", "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:hidden");
     container.append(this.svg);
@@ -41,8 +41,11 @@ export class DimensionOverlay {
     });
   }
 
+  private drawn = ""; // what the SVG currently shows (camera, size, pointer, dimensions); unchanged means skip the redraw
+
   set(dims: Dimension[]) {
     this.dims = dims;
+    this.drawn = "";
     if (dims.length === 0) this.svg.replaceChildren();
   }
 
@@ -50,8 +53,13 @@ export class DimensionOverlay {
   draw() {
     if (this.dims.length === 0) return;
     const rect = this.svg.getBoundingClientRect();
+    const cam = this.camera();
+    cam.updateMatrixWorld();
+    const state = [...cam.matrixWorld.elements, ...(cam as THREE.PerspectiveCamera).projectionMatrix.elements, rect.width, rect.height, this.pointer?.x, this.pointer?.y].join(",");
+    if (state === this.drawn) return; // nothing moved: rebuilding the SVG every frame made it flicker
+    this.drawn = state;
     const project = (p: number[]): V => {
-      const n = new THREE.Vector3(p[0], p[1], p[2]).project(this.camera);
+      const n = new THREE.Vector3(p[0], p[1], p[2]).project(this.camera());
       return { x: ((n.x + 1) / 2) * rect.width, y: ((1 - n.y) / 2) * rect.height };
     };
     const parts: SVGElement[] = [];
