@@ -18,7 +18,12 @@ $root = Join-Path (Split-Path $repo -Parent) "pliable-wt"
 $rootNotes = Get-ChildItem $repo -File -Filter *.md | Where-Object {
     git -C $repo check-ignore -q -- $_.Name; $LASTEXITCODE -eq 0
 } | ForEach-Object { $_.Name }
-$localFiles = @($rootNotes) + @("docs/research")
+# Ignored settings files inside hidden folders at the repo root (tracked ones come with the checkout anyway).
+$hiddenSettings = Get-ChildItem $repo -Directory -Force | Where-Object { $_.Name -like ".*" -and $_.Name -ne ".git" } | ForEach-Object {
+    $dir = $_.Name
+    Get-ChildItem (Join-Path $repo $dir) -File -Filter "settings*.json" -ErrorAction SilentlyContinue | ForEach-Object { "$dir/$($_.Name)" }
+} | Where-Object { git -C $repo check-ignore -q -- $_; $LASTEXITCODE -eq 0 }
+$localFiles = @($rootNotes) + @("docs/research") + @($hiddenSettings)
 
 # Each worktree gets its own core port (8801-8899) and Vite port (5201-5299), never one in use by another worktree
 # or by a listening process. The main checkout keeps 8765 and Vite's default.
@@ -77,16 +82,22 @@ if ($Action -eq "new") {
 
     $core, $vite = Get-PortPair
     "VITE_CORE_PORT=$core" | Set-Content -Path (Join-Path $path "app\.env") -Encoding ascii
+    # Autosave and the restore prompt live in one folder per machine unless PLIABLE_DATA points elsewhere,
+    # so each worktree gets its own folder and never offers or overwrites another run's session.
+    $dataDir = Join-Path $path ".agent-data"
+    New-Item -ItemType Directory -Force $dataDir | Out-Null
     $portsFile = Join-Path $path "agent-ports.txt"
     @(
-        "This worktree's ports. Use these and no others; the main checkout and other agents use different ones.",
-        "core server  (from core\): uv run pliable-server --port $core",
+        "This worktree's ports and data folder. Use these and no others; the main checkout and other agents use different ones.",
+        "core server  (from core\): `$env:PLIABLE_DATA = '$dataDir'; uv run pliable-server --port $core",
         "frontend dev (from app\):  npm run dev -- --port $vite --strictPort",
         "open:        http://localhost:$vite",
-        "(app\.env sets VITE_CORE_PORT=$core so the frontend finds the core server.)"
+        "(app\.env sets VITE_CORE_PORT=$core so the frontend finds the core server. PLIABLE_DATA keeps autosave and the restore prompt private to this worktree.)"
     ) | Set-Content -Path $portsFile -Encoding ascii
     $have = Get-Content $exclude
-    if ($have -notcontains "/agent-ports.txt") { Add-Content -Path $exclude -Value "/agent-ports.txt" }
+    foreach ($entry in @("/agent-ports.txt", "/.agent-data/")) {
+        if ($have -notcontains $entry) { Add-Content -Path $exclude -Value $entry }
+    }
 
     $leaked = git -C $path status --porcelain
     if ($leaked) { Write-Host "Warning: copied files show up in git status, they would be committed:`n$leaked" -ForegroundColor Red }
