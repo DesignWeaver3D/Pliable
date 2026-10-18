@@ -24,6 +24,7 @@ from . import __version__, sketch
 from .autosave import Autosaver
 from .demos import load_demo
 from . import diagnostics
+from .usage import Usage
 from .document import Document
 from .features import combine
 from .files import read_step, read_step_checked, write_mesh, write_step
@@ -52,6 +53,7 @@ class Session:
     def __init__(self, autosaver: Autosaver | None = None):
         self.document: Document | None = None
         self.autosaver = autosaver
+        self.usage = Usage()  # local tool-usage counts, shown in the diagnostics report only
         self.last_tool: dict | None = None  # name and outcome of the newest tool run, for diagnostics
         self.import_warnings: list[str] = []
         self.unclean = autosaver.available() if autosaver else None  # offered once, if the previous run was killed
@@ -107,7 +109,13 @@ class Session:
             self._autosave(fresh=True)
             return self._mesh_reply(self.document.current, {"importMs": _ms(start)}, name=self.document.name, warnings=warnings, solids=len(solids_of(shape)))
         if kind == "diagnostics":
-            return {"report": diagnostics.core_report(self.last_tool, self.import_warnings)}
+            return {"report": diagnostics.core_report(self.last_tool, self.import_warnings, self.usage.report())}
+        if kind == "usage_event":
+            self.usage.record(request.get("tool"), request.get("event"), request.get("surface"))
+            return {}
+        if kind == "usage_clear":
+            self.usage.clear()
+            return {}
         if kind == "list_tools":
             return {"tools": [tool.describe() for tool in TOOLS.values()]}
         if kind == "available_tools":

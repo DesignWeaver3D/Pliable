@@ -7,9 +7,11 @@ import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay } from "./dimensions";
 import { createSettingsWindow } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
+import { KeyRouter } from "./keyrouter";
 import { Palette, type Command } from "./palette";
 import { acceptsSelection, describeNeeds, dragParam, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
+import { usage, type Surface } from "./usage";
 import { filterHidden, solidsOf } from "./visibility";
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -24,6 +26,7 @@ const fileInput = $("file") as HTMLInputElement;
 const select = $("demo") as HTMLSelectElement;
 const viewport = new Viewport($("viewport"));
 const core = new CoreClient();
+usage.attach(core);
 installAlphaUi($("bar"), core);
 showLaunchNotice();
 
@@ -45,19 +48,6 @@ viewport.onFrame = () => {
   dimensionOverlay.draw();
   navCube.update();
 };
-
-// View shortcuts (standard numbering): 0 isometric, 1 front, 2 top, 3 right, 4 rear, 5 bottom, 6 left;
-// P toggles perspective/orthographic; V looks along the selected face's normal (mean normal for curved faces). Ignored while typing or dragging.
-window.addEventListener("keydown", (e) => {
-  const target = e.target as HTMLElement;
-  if (e.ctrlKey || e.metaKey || e.altKey || target.closest("input, textarea, select") || viewport.dragging || dragSels !== null) return;
-  if (e.key in VIEW_KEYS) viewport.setView(VIEW_KEYS[e.key]);
-  else if (e.key === "p" || e.key === "P") navCube.toggleProjection();
-  else if (e.key === "x" || e.key === "X") viewport.toggleSeeThrough();
-  else if ((e.key === "v" || e.key === "V") && currentSels.length === 1 && currentSels[0].kind === "face") {
-    if (!viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: could not find a view direction for this face";
-  }
-});
 
 // Tool registry from the core, the current selection, and which tool a drag runs.
 let tools: ToolInfo[] = [];
@@ -144,7 +134,7 @@ function renderToolbar() {
       button.textContent = tool.label;
       button.title = `${tool.label}: drag the selection`;
       button.className = tool.id === active ? "active" : "";
-      button.addEventListener("click", () => armTool(tool));
+      button.addEventListener("click", () => armTool(tool, "strip"));
       return button;
     }),
     ...helpers,
@@ -198,11 +188,12 @@ function selectionHelpers(): HTMLButtonElement[] {
   return [];
 }
 
-function armTool(tool: ToolInfo) {
+function armTool(tool: ToolInfo, surface: Surface) {
   if (dragParam(tool) === null) {
-    toolPanel.openForm(tool);
+    toolPanel.openForm(tool, {}, surface);
     return;
   }
+  usage.record(tool.id, "start", surface);
   armedTool = tool.id;
   renderToolbar();
   if (!status.classList.contains("error")) status.textContent = `${tool.label}: drag the selection`;
@@ -470,6 +461,8 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
     if (dragSels === null) {
       lastGood = null;
       previewFailed = false;
+      const dragTool = dragToolFor(sels)!;
+      if (armedTool !== dragTool.id) usage.record(dragTool.id, "start", "drag"); // an armed tool already counted its start
     }
     dragSels = sels;
     queued = distance;
@@ -488,7 +481,9 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
   if (phase === "end" && previewFailed && good !== null) distance = good;
   lastGood = null;
   previewFailed = false;
+  const dragTool = dragToolFor(sels);
   try {
+    if (!(phase === "end" && Math.abs(distance) > 1e-6) && dragTool) usage.record(dragTool.id, "cancel");
     if (phase === "end" && Math.abs(distance) > 1e-6) {
       const start = performance.now();
       let mesh: MeshData;
@@ -502,11 +497,13 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
       }
       setCommitted(mesh, false, mappedSelection(mesh));
       rememberOp(dragToolFor(sels), sels, distance);
+      if (dragTool) usage.record(dragTool.id, "commit");
       latency.textContent = `commit ${Math.round(performance.now() - start)} ms`;
     } else if (committed) {
       setCommitted(committed, false, sels);
     }
   } catch (e) {
+    if (dragTool) usage.record(dragTool.id, "error");
     if (committed) setCommitted(committed, false, sels);
     status.textContent = (e as Error).message; // after setCommitted, which rewrites the status
     status.classList.add("error");
@@ -563,16 +560,29 @@ function setVisibility(action: "hide" | "isolate" | "show") {
   viewport.selectItems(keep.filter((s) => !hiddenSolids.has(owner(s))));
   setSelection(currentSels.filter((s) => !hiddenSolids.has(owner(s))));
 }
-window.addEventListener("keydown", (e) => {
-  if (e.key.toLowerCase() !== "h" || e.ctrlKey || e.metaKey || sketch.active) return;
-  if ((e.target as HTMLElement)?.tagName === "INPUT") return;
-  setVisibility(e.altKey ? "show" : e.shiftKey ? "isolate" : "hide");
+
+// Keyboard shortcuts: one router applies the policy in keys.ts (engagement, blur, repeat, entry, sketch) and runs these.
+const keys = new KeyRouter({
+  viewport: $("viewport"),
+  handlers: {
+    ...Object.fromEntries(Object.entries(VIEW_KEYS).map(([, name]) => [`view.${name}`, () => viewport.setView(name)])),
+    "view.projection": () => navCube.toggleProjection(),
+    "display.seeThrough": () => viewport.toggleSeeThrough(),
+    "view.lookAtFace": () => {
+      if (currentSels.length === 1 && currentSels[0].kind === "face" && !viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: could not find a view direction for this face";
+    },
+    "display.hide": () => setVisibility("hide"),
+    "display.isolate": () => setVisibility("isolate"),
+    "display.showAll": () => setVisibility("show"),
+    "history.undo": () => void history("undo"),
+    "history.redo": () => void history("redo"),
+  },
+  entryActive: () => viewport.dragging || dragSels !== null,
+  sketchActive: () => sketch.active,
+  cancelInteraction: () => viewport.cancelDrag(),
+  status,
 });
-window.addEventListener("keydown", (e) => {
-  if (!e.ctrlKey || sketch.active) return; // in sketch mode Ctrl+Z undoes sketch edits
-  if (e.key === "z") history("undo");
-  else if (e.key === "y") history("redo");
-});
+keys.installButton($("bar"));
 
 function toBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -636,7 +646,7 @@ function commands(): Command[] {
     label: tool.label,
     hint: usable.has(tool.id) ? "drag the selection" : `select ${describeNeeds(tool)}`,
     enabled: usable.has(tool.id),
-    run: () => armTool(tool),
+    run: () => armTool(tool, "search"),
   }));
   const demos: Command[] = [...select.options].map((option) => ({
     label: `Open demo: ${option.value}`,
@@ -648,11 +658,11 @@ function commands(): Command[] {
   }));
   return [
     ...toolCommands,
-    { label: "Undo", hint: "Ctrl+Z", enabled: !undoButton.disabled, run: () => history("undo") },
-    { label: "Redo", hint: "Ctrl+Y", enabled: !redoButton.disabled, run: () => history("redo") },
-    { label: "Hide body", hint: "H", enabled: currentSels.length > 0, run: () => setVisibility("hide") },
-    { label: "Isolate body", hint: "Shift+H", enabled: currentSels.length > 0, run: () => setVisibility("isolate") },
-    { label: "Show all bodies", hint: "Alt+H", enabled: hiddenSolids.size > 0, run: () => setVisibility("show") },
+    { label: "Undo", hint: keys.keymap.hint("history.undo"), enabled: !undoButton.disabled, run: () => history("undo") },
+    { label: "Redo", hint: keys.keymap.hint("history.redo"), enabled: !redoButton.disabled, run: () => history("redo") },
+    { label: "Hide body", hint: keys.keymap.hint("display.hide"), enabled: currentSels.length > 0, run: () => setVisibility("hide") },
+    { label: "Isolate body", hint: keys.keymap.hint("display.isolate"), enabled: currentSels.length > 0, run: () => setVisibility("isolate") },
+    { label: "Show all bodies", hint: keys.keymap.hint("display.showAll"), enabled: hiddenSolids.size > 0, run: () => setVisibility("show") },
     { label: "Open STEP file", enabled: true, run: () => fileInput.click() },
     { label: "Export STEP file", enabled: true, run: () => exportAs("export_step", "step") },
     ...["stl", "obj", "3mf"].map((format) => ({
@@ -777,7 +787,9 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       setCommitted(mesh, false, mappedSelection(mesh));
       lastOp = { tool, sels, values };
       editLastButton.disabled = false;
+      usage.record(tool.id, "commit");
     } catch (e) {
+      usage.record(tool.id, "error");
       if (committed) setCommitted(committed, false, sels);
       status.textContent = (e as Error).message;
       status.classList.add("error");

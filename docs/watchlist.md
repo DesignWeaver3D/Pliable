@@ -152,3 +152,18 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Eyedropper (S32)
 
 - The eyedropper button sits next to length and angle fields in tool forms. It reads the measurement of the clicked face or edge: radius, diameter and length by matching the field name (names containing "radius" or "diam", else length, distance, then radius); angle fields read an Angle row. Other field names get a length, which may not be what was meant. It picks against the committed model, so the preview is hidden while it is armed.
+
+## Tool-usage counts
+
+- **Counts live in core memory only** (`usage.py`, `Session.usage`) and reset when the core restarts or the client reconnects; they are not saved to disk. Surfaces are what the client reports (`strip`, `search`, `drawer`, `keys`, `drag`, `other`). A drag with an armed tool counts one start (at arming), a direct drag counts one start with surface `drag`. Sketch tools and view commands are not counted yet. *Symptom:* usage numbers that look low after a restart, or no entry for sketch tools.
+
+## Keyboard shortcuts
+
+- **Bare keys need an engaged viewport** (`keys.ts` `Engagement`, `ENGAGE_GRACE_MS = 1500`): pointer over the 3D view, a recent exit, or a click in it; a click elsewhere, a text field or window blur drops it. *Symptom:* a view key that does nothing right after using a panel (move the pointer into the view), plus the status hint.
+- **Shortcut rules are only enforced at assignment and load** (`validateBinding`, `Keymap.fromJson`); the sketch keeps its own key handling (Delete, Escape, tool letters in `sketch.ts`) and is not yet under the router. *Symptom:* a sketch key that ignores the single-key switch or the engagement rule.
+- **Digit view keys ignore Shift** so top-row digits work on layouts that need Shift for digits; `Shift+1` therefore also runs view 1. Only the first chord is shown as the hint, and rebinding a command replaces all its chords (the numpad alias is lost).
+- **Not built yet:** unsaved-work warning on closing the tab, confirmation dialogs (no model command has a bare key, so none is needed today), touch equivalents audit.
+
+## Dimension leaders
+
+- **Overlap avoidance is a text-box guess** (`dimensions.ts`, `overlaps`): width is estimated from the character count and rotated text uses its unrotated box. The first dimension drawn wins and a later one whose text would overlap is left out entirely (the panel still lists it). *Symptom:* a dimension that vanishes when two labels are close, or labels that still touch.

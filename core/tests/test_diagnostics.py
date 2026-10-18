@@ -45,3 +45,22 @@ def test_import_reply_reports_solid_count():
     session = Session()
     reply = session.handle({"type": "import_step", "name": "two", "data": base64.b64encode(write_step(shape)).decode()})
     assert decode_binary(reply)[0]["solids"] == 2
+
+
+def test_usage_counts_appear_in_the_report_and_clear():
+    session = Session()
+    for event, surface in [("start", "strip"), ("start", "search"), ("start", "bogus"), ("commit", None), ("cancel", None), ("error", None)]:
+        session.handle({"type": "usage_event", "tool": "push_pull", "event": event, "surface": surface})
+    row = session.handle({"type": "diagnostics"})["report"]["usage"]["push_pull"]
+    assert (row["start"], row["commit"], row["cancel"], row["error"]) == (3, 1, 1, 1)
+    assert row["surfaces"] == {"strip": 1, "search": 1, "other": 1}
+    session.handle({"type": "usage_clear"})
+    assert session.handle({"type": "diagnostics"})["report"]["usage"] == {}
+
+
+def test_usage_ignores_bad_names():
+    session = Session()
+    session.handle({"type": "usage_event", "tool": "../etc/passwd", "event": "start"})
+    session.handle({"type": "usage_event", "tool": "push_pull", "event": "dance"})
+    session.handle({"type": "usage_event", "tool": 5, "event": "start"})
+    assert session.handle({"type": "diagnostics"})["report"]["usage"] == {}

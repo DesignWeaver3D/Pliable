@@ -1,6 +1,9 @@
 /** Alpha-release UI: the ALPHA tag, the launch notice and the Copy diagnostics dialog. */
 
+import { usage, usageLines, type UsageRow } from "./usage";
+
 export const ALPHA_NOTICE = "Alpha software. Not for serious work. Data can be lost. The interface and behaviour will change rapidly without notice.";
+export const USAGE_NOTICE = "Pliable counts which tools you start and finish, on this computer only. The counts leave it only if you copy them from the diagnostics report yourself.";
 const ISSUES_URL = "https://github.com/DesignWeaver3D/Pliable/issues/new?template=bug_report.md";
 
 interface CoreReport {
@@ -11,6 +14,7 @@ interface CoreReport {
   build123d: string;
   lastTool: { tool: string; commit: boolean; ok: boolean; error: string | null } | null;
   importWarnings: string[];
+  usage?: Record<string, UsageRow>;
   log: string[];
 }
 
@@ -45,10 +49,13 @@ export function showLaunchNotice(): void {
   const text = document.createElement("p");
   text.textContent = ALPHA_NOTICE;
   text.style.fontSize = "16px";
+  const usageNote = document.createElement("p");
+  usageNote.textContent = USAGE_NOTICE;
+  usageNote.style.cssText = "font-size:13px;color:#bbb";
   const row = document.createElement("div");
   row.style.cssText = "display:flex;gap:8px;justify-content:flex-end";
   row.append(button("I understand", () => box.remove()));
-  card.append(title, text, row);
+  card.append(title, text, usageNote, row);
 }
 
 /** Shown after a STEP import with several solids or import warnings. */
@@ -97,6 +104,7 @@ export function formatDiagnostics(report: CoreReport, browser: string): string {
     `Last tool: ${last ? `${last.tool} (${last.commit ? "commit" : "preview"}) ${last.ok ? "ok" : `failed: ${last.error}`}` : "none"}`,
   ];
   if (report.importWarnings.length) lines.push("", "Import warnings:", ...report.importWarnings);
+  lines.push("", "Tool usage (counts only, since the core started):", ...usageLines(report.usage));
   lines.push("", `Core log (last ${report.log.length} lines):`, ...report.log);
   return lines.join("\n");
 }
@@ -108,7 +116,7 @@ async function showDiagnostics(core: Requester): Promise<void> {
   title.textContent = "Diagnostics";
   title.style.margin = "0 0 8px";
   const note = document.createElement("p");
-  note.textContent = "This is exactly what will be copied. It holds versions, recent log lines and the last tool run. It has no model data, file paths or personal details; check it before you paste it into a bug report.";
+  note.textContent = "This is exactly what will be copied. It holds versions, recent log lines, the last tool run and counts of how often each tool was used. It has no model data, file paths or personal details; check it before you paste it into a bug report.";
   const area = document.createElement("textarea");
   area.readOnly = true;
   area.style.cssText = "width:100%;height:40vh;box-sizing:border-box;background:#1b1d22;color:#ddd;border:1px solid #444;font:12px monospace";
@@ -125,14 +133,22 @@ async function showDiagnostics(core: Requester): Promise<void> {
     }
   });
   const report = button("Open bug report page", () => window.open(ISSUES_URL, "_blank", "noopener"));
-  row.append(report, copy, button("Close", () => box.remove()));
+  const collect = async () => {
+    try {
+      const { report: coreReport } = await core.request<{ report: CoreReport }>("diagnostics");
+      area.value = formatDiagnostics(coreReport, navigator.userAgent);
+    } catch (e) {
+      area.value = `Could not reach the core: ${(e as Error).message} (Browser: ${navigator.userAgent})`;
+    }
+  };
+  const clear = button("Clear usage counts", async () => {
+    await usage.clear();
+    await collect();
+  });
+  clear.title = "Reset the tool-usage counts to zero";
+  row.append(report, clear, copy, button("Close", () => box.remove()));
   card.append(title, note, area, row);
-  try {
-    const { report: coreReport } = await core.request<{ report: CoreReport }>("diagnostics");
-    area.value = formatDiagnostics(coreReport, navigator.userAgent);
-  } catch (e) {
-    area.value = `Could not reach the core: ${(e as Error).message}\nBrowser: ${navigator.userAgent}`;
-  }
+  await collect();
 }
 
 /** Adds the ALPHA tag and the diagnostics button to the top bar. */

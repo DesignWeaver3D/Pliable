@@ -28,6 +28,10 @@
 
 - **The 3D view is an approximation of the exact solid.** Curves and cylinders are drawn as small flat facets, and the facets are coarser while you drag. The underlying model and STEP export are exact.
 
+## Tool-usage counts
+
+Pliable counts, on your computer only, how often each tool is started, committed, cancelled or fails, and where it was started from (tool strip, search, tool list, keyboard, direct drag). Only tool names and counts are kept, in memory until the core stops; no model data, file names or personal details. The counts leave your computer only if you copy the diagnostics report yourself (they are listed in its preview, and **Clear usage counts** resets them). They are used to plan the interface.
+
 ## Reporting problems
 
-Open an issue using the bug report template. Click **Copy diagnostics** in the app first; it shows exactly what will be copied (versions, recent log lines, the last tool run) and contains no model data, file paths or personal details.
+Open an issue using the bug report template. Click **Copy diagnostics** in the app first; it shows exactly what will be copied (versions, recent log lines, the last tool run, tool-usage counts) and contains no model data, file paths or personal details.

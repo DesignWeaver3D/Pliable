@@ -41,6 +41,9 @@ export class DimensionOverlay {
     });
   }
 
+  private placed: Box[] = []; // text boxes of the dimensions drawn so far this frame
+  private pending: Box[] = [];
+  private clash = false;
   private drawn = ""; // what the SVG currently shows (camera, size, pointer, dimensions); unchanged means skip the redraw
 
   set(dims: Dimension[]) {
@@ -63,10 +66,18 @@ export class DimensionOverlay {
       return { x: ((n.x + 1) / 2) * rect.width, y: ((1 - n.y) / 2) * rect.height };
     };
     const parts: SVGElement[] = [];
+    this.placed = [];
     for (const d of this.dims) {
-      if (d.kind === "linear") this.linear(d, project, parts);
-      else if (d.kind === "tag") this.label(project(d.points[0]), d.text, parts, true);
-      else this.leader(d, project, parts);
+      // A dimension whose text would land on one already drawn is left out; the measurement panel still lists it.
+      const mine: SVGElement[] = [];
+      this.pending = [];
+      this.clash = false;
+      if (d.kind === "linear") this.linear(d, project, mine);
+      else if (d.kind === "tag") this.label(project(d.points[0]), d.text, mine, true);
+      else this.leader(d, project, mine);
+      if (this.clash) continue;
+      parts.push(...mine);
+      this.placed.push(...this.pending);
     }
     this.svg.replaceChildren(...parts);
   }
@@ -120,6 +131,10 @@ export class DimensionOverlay {
     if (this.pointer && len(sub(p, this.pointer)) < CURSOR_CLEAR_PX) {
       p = add(this.pointer, mul(unit(sub(p, this.pointer)), CURSOR_CLEAR_PX));
     }
+    const half = { x: (text.length * TEXT_PX * 0.55 + 8) / 2, y: TEXT_PX / 2 + 2 };
+    const box = { x0: p.x - half.x, x1: p.x + half.x, y0: p.y - half.y, y1: p.y + half.y };
+    if (this.placed.some((q) => overlaps(q, box))) this.clash = true;
+    this.pending.push(box);
     // Keep text upright.
     if (angle > 90) angle -= 180;
     if (angle < -90) angle += 180;
@@ -139,6 +154,18 @@ export class DimensionOverlay {
     g.append(t);
     out.push(g);
   }
+}
+
+interface Box {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+}
+
+/** Axis-aligned overlap of two text boxes (rotated text is approximated by its unrotated box). */
+export function overlaps(a: Box, b: Box): boolean {
+  return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
 }
 
 function angleOf(d: V) {

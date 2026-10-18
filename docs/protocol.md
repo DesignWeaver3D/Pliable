@@ -43,6 +43,9 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 | `tool_preview` | `tool`, `selection`, `params` | mesh (document unchanged) |
 | `tool_commit` | `tool`, `selection`, `params` | mesh (document updated, undoable) |
 | `undo`, `redo` | | mesh |
+| `diagnostics` | | `{report}`: versions, last tool, import warnings, log lines and `usage` (per tool: start/commit/cancel/error counts and start surfaces) |
+| `usage_event` | `tool`, `event` (start, commit, cancel, error), `surface` (strip, search, drawer, keys, drag, other) | `{}`; counted in memory for the diagnostics report |
+| `usage_clear` | | `{}`; resets the usage counts |
 
 `selection` is `{"faces": [ids], "edges": [ids], "vertices": [ids]}`; omitted lists are empty.
 
