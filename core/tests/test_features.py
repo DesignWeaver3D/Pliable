@@ -474,3 +474,13 @@ def test_path_array_needs_a_connected_path(block):
     loop = face_loops(block, top)[0]
     with pytest.raises(OperationError):
         run("path_array", block, edges=[loop[0], loop[2]], count=3)  # opposite sides of the face never touch
+
+
+def test_placement_tools_declare_their_point_parameters():
+    from pliable.tools import TOOLS
+
+    for tool_id in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus", "pattern_hole_circular"):
+        info = TOOLS[tool_id].describe()
+        assert info["placement"] is not None
+        assert all(name in {p["name"] for p in info["params"]} for name in info["placement"])
+    assert TOOLS["push_pull"].describe()["placement"] is None

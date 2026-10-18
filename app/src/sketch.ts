@@ -46,6 +46,10 @@ interface Snap {
   u: number;
   v: number;
   axis?: "h" | "v";
+  /** The curve this snap landed on, and whether it was a line's midpoint: becomes a constraint on the new point. */
+  on?: { entity: number; midpoint?: boolean };
+  /** A circle being drawn touches this entity (set by the circle tool's tangent snap). */
+  tangent?: number;
   /** Dotted guide lines to show: the cursor lined up with existing points. */
   guides?: [number, number][][];
 }
@@ -104,10 +108,16 @@ export class SketchMode {
 
   // Entering and leaving ----------------------------------------------------------------------------
 
-  start(plane: M.PlaneData, reference?: { points: M.SketchPoint[]; entities: M.SketchEntity[] }) {
+  /** Set while sketching on an unrolled cylinder face: the face the regions are wrapped back onto when finishing. */
+  private unwrapFace: number | null = null;
+
+  start(plane: M.PlaneData, reference?: { points: M.SketchPoint[]; entities: M.SketchEntity[] }, unwrapFace: number | null = null) {
     if (this.active) this.exit();
     // Reference geometry (the face outline) is fixed construction geometry that sketch points can snap to.
     this.s = { plane, points: reference?.points ?? [], entities: reference?.entities ?? [], constraints: [] };
+    // The model origin and the places where the principal axes meet the plane are fixed points too.
+    this.unwrapFace = unwrapFace;
+    if (unwrapFace === null) for (const o of M.originPoints(plane, this.s.points)) this.s.points.push({ id: M.nextId(this.s), u: o.u, v: o.v, fixed: true });
     const f = M.frame(plane);
     this.plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(...f.n), new THREE.Vector3(...f.origin));
     this.tool = "select";
@@ -152,7 +162,7 @@ export class SketchMode {
     if (!this.active) return;
     clearTimeout(this.previewTimer);
     try {
-      const mesh = await this.core.request<MeshData>("sketch_regions", { sketch: this.s });
+      const mesh = await this.core.request<MeshData>("sketch_regions", this.unwrapFace === null ? { sketch: this.s } : { sketch: this.s, unwrap: this.unwrapFace });
       this.exit();
       this.host.committed(mesh);
       this.host.status("Sketch closed: its regions are faces now");
@@ -223,18 +233,22 @@ export class SketchMode {
     }
     const pixel = this.viewport.pixelSizeAt(new THREE.Vector3(...M.toWorld(this.s.plane, u, v)));
     const reach = SNAP_PX * pixel;
+    if (this.tool === "circle" && this.chain.length === 1) {
+      const t = M.tangentRadius(this.s, this.chain[0], u, v, reach);
+      if (t) return { u: t.u, v: t.v, tangent: t.entity };
+    }
     // Midpoints of lines, then the nearest point on a curve.
     for (const en of this.s.entities) {
       if (en.type !== "line") continue;
       const a = M.pointOf(this.s, en.a);
       const b = M.pointOf(this.s, en.b);
       const mid = [(a.u + b.u) / 2, (a.v + b.v) / 2];
-      if (Math.hypot(u - mid[0], v - mid[1]) < reach) return { u: mid[0], v: mid[1] };
+      if (Math.hypot(u - mid[0], v - mid[1]) < reach) return { u: mid[0], v: mid[1], on: { entity: en.id, midpoint: true } };
     }
     for (const en of this.s.entities) {
       if (M.distanceTo(this.s, en, u, v) < reach) {
         const on = M.closestOn(this.s, en, u, v);
-        if (on) return { u: on[0], v: on[1] };
+        if (on) return { u: on[0], v: on[1], on: { entity: en.id } };
       }
     }
     // Line up with the u or v of an existing point and show a guide to it.
@@ -410,6 +424,7 @@ export class SketchMode {
     const id = M.nextId(this.s);
     this.s.points.push({ id, u: snap.u, v: snap.v });
     snap.id = id;
+    if (snap.on) this.addConstraintRaw(snap.on.midpoint ? { type: "midpoint", point: id, entity: snap.on.entity } : { type: "point_on", point: id, entity: snap.on.entity });
     return id;
   }
 
@@ -517,7 +532,9 @@ export class SketchMode {
     if (radius < 1e-6) return;
     this.pushUndo();
     const c = this.pointFor(center);
-    this.s.entities.push({ id: M.nextId(this.s), type: "circle", center: c, radius });
+    const id = M.nextId(this.s);
+    this.s.entities.push({ id, type: "circle", center: c, radius });
+    if (edge.tangent !== undefined) this.addConstraintRaw({ type: "tangent", entities: [id, edge.tangent] });
     this.resolve();
   }
 
@@ -1037,13 +1054,14 @@ export class SketchMode {
       constraintsBox.append(construction);
     }
 
+    const flat = this.unwrapFace === null;
     const project = button("Project model edges", () => this.projectModel());
     project.title = "Flatten the model's edges onto this plane as fixed geometry to snap and constrain to";
-    constraintsBox.append(project);
+    if (flat) constraintsBox.append(project);
 
     const finish = button("Finish sketch", () => this.finish());
     finish.title = "Leave the sketch and keep its closed regions as faces you can push/pull or extrude";
     const exit = button("Discard sketch", () => this.exit());
-    this.panel.replaceChildren(header, status, tools, constraintsBox, ask, list, extrude, finish, exit);
+    this.panel.replaceChildren(header, status, tools, constraintsBox, ask, list, ...(flat ? [extrude] : []), finish, exit);
   }
 }

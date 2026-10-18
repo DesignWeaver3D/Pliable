@@ -1,3 +1,4 @@
+import { PointPicker, ReferenceView } from "./reference";
 import { installAlphaUi, showImportNotice, showLaunchNotice } from "./alpha";
 import { CoreClient, type MeshData } from "./client";
 import { SketchMode } from "./sketch";
@@ -44,7 +45,11 @@ const measurePanel = new MeasurePanel($("measure"));
 const dimensionOverlay = new DimensionOverlay($("viewport"), () => viewport.camera);
 createSettingsWindow(document.body);
 const navCube = new NavCube($("navcube"), viewport);
+const reference = new ReferenceView(viewport);
+const pointPicker = new PointPicker(viewport, reference, (text) => (status.textContent = text));
+$("axes").addEventListener("click", () => reference.setVisible(!reference.visible));
 viewport.onFrame = () => {
+  reference.tick();
   dimensionOverlay.draw();
   navCube.update();
 };
@@ -698,7 +703,7 @@ let planeOffset = 0; // distance of the next standard-plane sketch from the plan
 let sketchBarKey = "";
 function renderSketchBar() {
   const face = currentSels.length === 1 && currentSels[0].kind === "face" ? committed?.faces.find((f) => f.id === currentSels[0].id) : undefined;
-  const key = `${!!face?.normal}|${sketch.active}`;
+  const key = `${!!face}|${!!face?.normal}|${sketch.active}`;
   if (key === sketchBarKey) return; // the bar only depends on these two flags; keep the buttons otherwise
   sketchBarKey = key;
   const onFace = document.createElement("button");
@@ -709,6 +714,20 @@ function renderSketchBar() {
     try {
       const reply = await core.request<{ plane: any; reference?: any }>("sketch_plane", { face: currentSels[0].id });
       sketch.start(reply.plane, reply.reference);
+      renderSketchBar();
+    } catch (e) {
+      status.textContent = (e as Error).message;
+    }
+  });
+  const unroll = document.createElement("button");
+  unroll.textContent = "Sketch on unrolled cylinder";
+  unroll.disabled = !(currentSels.length === 1 && currentSels[0].kind === "face" && face && !face.normal) || sketch.active;
+  unroll.title = "Select a cylinder face: it is unrolled flat, you sketch on it, and the regions are wrapped back onto it";
+  unroll.addEventListener("click", async () => {
+    try {
+      const id = currentSels[0].id;
+      const reply = await core.request<{ plane: any; reference?: any }>("sketch_plane", { unwrap: id });
+      sketch.start(reply.plane, reply.reference, id);
       renderSketchBar();
     } catch (e) {
       status.textContent = (e as Error).message;
@@ -726,6 +745,7 @@ function renderSketchBar() {
   offset.addEventListener("input", () => (planeOffset = Number(offset.value) || 0));
   sketchBar.replaceChildren(
     onFace,
+    unroll,
     label,
     ...SKETCH_PLANES.map((name) => {
       const b = document.createElement("button");
@@ -766,6 +786,7 @@ function readValue(rows: { label: string; value: number | number[] | string }[],
 }
 
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
+  pickPoint: () => pointPicker.pick(),
   tools: () => tools,
   usable: (tool) => acceptsSelection(tool, expand(tool, currentSels)) && (refined === null || refined.includes(tool.id)),
   async preview(tool, values) {

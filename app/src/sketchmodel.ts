@@ -88,7 +88,7 @@ export function remove(s: SketchData, sel: SketchSel): SketchData {
   if (sel.kind === "entity") dropEntity(sel.id);
   else for (const e of entities.filter((e) => entityPoints(e).includes(sel.id))) dropEntity(e.id);
   const used = new Set(entities.flatMap(entityPoints));
-  const orphans = new Set(s.points.filter((p) => !used.has(p.id)).map((p) => p.id));
+  const orphans = new Set(s.points.filter((p) => !used.has(p.id) && !p.fixed).map((p) => p.id));
   const refs = (c: SketchConstraint) => [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])];
   constraints = constraints.filter((c) => !refs(c).some((id) => orphans.has(id)));
   return { ...s, entities, constraints, points: s.points.filter((p) => !orphans.has(p.id)) };
@@ -173,9 +173,9 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     build: (s, sel) => {
       const es = entities(s, sel);
       if (es.length !== 2 || pts(sel).length) return null;
-      const arcs = es.filter((e) => e.type === "arc").length;
+      const round = es.filter((e) => e.type === "arc" || e.type === "circle").length;
       const lines = es.filter((e) => e.type === "line").length;
-      return (arcs === 1 && lines === 1) || arcs === 2 ? { type: "tangent", entities: es.map((e) => e.id) } : null;
+      return (round === 1 && lines === 1) || round === 2 ? { type: "tangent", entities: es.map((e) => e.id) } : null;
     },
   },
   {
@@ -388,6 +388,65 @@ export function closestOn(s: SketchData, e: SketchEntity, u: number, v: number):
   return best;
 }
 
+/**
+ * Radius at which a circle about `centre` would touch an existing curve, if that is within `reach` of the
+ * radius the cursor asks for. Returns the touching entity and the point on the cursor's ray at that radius.
+ */
+export function tangentRadius(s: SketchData, centre: { u: number; v: number }, u: number, v: number, reach: number): { u: number; v: number; entity: number } | null {
+  const ask = Math.hypot(u - centre.u, v - centre.v);
+  if (ask < 1e-9) return null;
+  let best: { radius: number; entity: number; gap: number } | null = null;
+  const consider = (radius: number, entity: number, touch: [number, number], tol = 1e-6) => {
+    const gap = Math.abs(radius - ask);
+    if (radius > 1e-6 && gap < reach && (!best || gap < best.gap) && distanceTo(s, s.entities.find((x) => x.id === entity)!, touch[0], touch[1]) < tol) best = { radius, entity, gap };
+  };
+  for (const e of s.entities) {
+    if (e.type === "line") {
+      const a = pointOf(s, e.a);
+      const b = pointOf(s, e.b);
+      const dx = b.u - a.u;
+      const dy = b.v - a.v;
+      const t = ((centre.u - a.u) * dx + (centre.v - a.v) * dy) / (dx * dx + dy * dy || 1);
+      const foot: [number, number] = [a.u + t * dx, a.v + t * dy];
+      if (t >= 0 && t <= 1) consider(Math.hypot(foot[0] - centre.u, foot[1] - centre.v), e.id, foot);
+    } else {
+      const c = pointOf(s, e.center);
+      const r = e.type === "circle" ? e.radius : Math.hypot(pointOf(s, e.start).u - c.u, pointOf(s, e.start).v - c.v);
+      const d = Math.hypot(c.u - centre.u, c.v - centre.v);
+      if (d < 1e-9) continue;
+      const dir = [(c.u - centre.u) / d, (c.v - centre.v) / d];
+      // |d - r| touches the near side of the other circle, d + r the far side.
+      consider(Math.abs(d - r), e.id, [c.u - dir[0] * r, c.v - dir[1] * r], 0.01 * (1 + r));
+      consider(d + r, e.id, [c.u + dir[0] * r, c.v + dir[1] * r], 0.01 * (1 + r));
+    }
+  }
+  const hit = best as { radius: number; entity: number } | null;
+  if (!hit) return null;
+  return { u: centre.u + ((u - centre.u) / ask) * hit.radius, v: centre.v + ((v - centre.v) / ask) * hit.radius, entity: hit.entity };
+}
+
+/**
+ * Fixed points for the model's origin as seen from a sketch plane: the origin projected onto the plane, and
+ * where each principal axis meets the plane. Positions already taken by `existing` are left out.
+ */
+export function originPoints(plane: PlaneData, existing: SketchPoint[]): { u: number; v: number }[] {
+  const f = frame(plane);
+  const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const candidates: number[][] = [f.n.map((c) => dot(f.origin, f.n) * c)];
+  for (const d of [[1, 0, 0], [0, 1, 0], [0, 0, 1]]) {
+    const along = dot(f.n, d);
+    if (Math.abs(along) > 1e-9) candidates.push(d.map((c) => (dot(f.n, f.origin) / along) * c));
+  }
+  const found: { u: number; v: number }[] = [];
+  for (const c of candidates) {
+    const [u, v] = toPlane(plane, c);
+    if (Math.abs(u) > 1e6 || Math.abs(v) > 1e6) continue;
+    if ([...existing, ...found].some((p) => Math.hypot(p.u - u, p.v - v) < 1e-6)) continue;
+    found.push({ u, v });
+  }
+  return found;
+}
+
 // Trim ------------------------------------------------------------------------------------------------
 
 /** Parameters t along line `e` (0 at its start, 1 at its end, unbounded) where it meets other lines and circles. */
@@ -496,7 +555,7 @@ export function extendLine(s: SketchData, entityId: number, u: number, v: number
 /** Drop points no entity uses, with the constraints that name them. */
 function dropOrphans(s: SketchData): SketchData {
   const used = new Set(s.entities.flatMap(entityPoints));
-  const orphans = new Set(s.points.filter((p) => !used.has(p.id)).map((p) => p.id));
+  const orphans = new Set(s.points.filter((p) => !used.has(p.id) && !p.fixed).map((p) => p.id));
   const refs = (c: SketchConstraint) => [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])];
   return { ...s, points: s.points.filter((p) => !orphans.has(p.id)), constraints: s.constraints.filter((c) => !refs(c).some((i) => orphans.has(i))) };
 }

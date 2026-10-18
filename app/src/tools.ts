@@ -11,6 +11,8 @@ export interface ToolInfo {
   params: { name: string; kind: string; default: number; drag: boolean }[];
   /** Relationship rules whose matching faces join the selection when switched on. */
   related?: string[];
+  /** Names of three length parameters that form a point; the form offers to fill them from a reference snap. */
+  placement?: string[] | null;
 }
 
 const inRange = (n: number, [min, max]: Range) => n >= min && (max === null || n <= max);

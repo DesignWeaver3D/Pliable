@@ -167,3 +167,22 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Dimension leaders
 
 - **Overlap avoidance is a text-box guess** (`dimensions.ts`, `overlaps`): width is estimated from the character count and rotated text uses its unrotated box. The first dimension drawn wins and a later one whose text would overlap is left out entirely (the panel still lists it). *Symptom:* a dimension that vanishes when two labels are close, or labels that still touch.
+
+## Sketch tangency and snap constraints (agent/sketch)
+
+- **Circle tangency is built in the solver from a hidden touching point** (`_Solver._circle_tangent`): point on both curves plus a perpendicular or collinear helper line. Tangent to a circle does not pick internal or external touching; the starting geometry decides. *Symptom:* a circle flips to the other side of a line while solving a badly placed sketch.
+- **Auto tangency only while drawing a circle:** the radius snaps to a line, circle or arc within the snap distance and a tangent constraint is added. Lines and arcs do not get automatic tangency yet.
+- **Snapping onto a curve or a line midpoint now adds a point-on or midpoint constraint** to the new point. *Symptom:* a corner dragged off a line it was snapped to stays on that line; delete the constraint to free it.
+
+## Reference geometry and snaps (S27, agent/sketch)
+
+- **Axes are drawn to 1.25 times the model's largest coordinate** (at least 25 mm each way) and follow the model size only when a new mesh arrives. Axis lines are depth-tested, so the model hides the part inside it.
+- **The point picker snaps within 12 px** to the origin, to the face centre and to where an axis meets the plane of the face under the cursor (which can lie outside the face), and within 6 px to a point along an axis. Curved faces offer no face centre or plane crossing (no single plane). Edges and vertices of the model are not snap targets in the picker yet.
+- **Placement tools declare `placement`** (three parameter names) in `tools.py`; only the primitives and the circular hole pattern set it. Other tools that take a point (linear array vector, move) are not covered.
+- **Sketch reference points:** every sketch gets fixed points at the projected origin and where each axis meets the plane, and a face sketch also gets the face centre. They are fixed lone points (never removed as orphans); they appear in every sketch even if far from the model.
+
+## Unrolled cylinder sketching (S33 spike, agent/sketch)
+
+- **Only cylinder faces unroll** (`unwrap.py`). Cones, spheres, tori, free-form faces and several faces at once are refused. A cylinder face that spans the seam (a full tube) is unrolled from its angle range, so regions crossing the seam are not tested.
+- **Outlines map as 48-point interpolated curves**, not exact ellipses or helices; lines and regions are exact in size (checked by area). *Symptom:* a circle on a small cylinder imprints with a slightly different outline than a true curve.
+- **The unrolled sketch has no extrude, revolve or model-edge projection**; finishing only imprints regions onto the cylinder face. Sketches are not kept.

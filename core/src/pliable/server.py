@@ -20,7 +20,7 @@ from websockets.asyncio.server import ServerConnection, serve
 from websockets.datastructures import Headers
 from websockets.http11 import Response
 
-from . import __version__, sketch
+from . import __version__, sketch, unwrap
 from .autosave import Autosaver
 from .demos import load_demo
 from . import diagnostics
@@ -170,6 +170,12 @@ class Session:
             raise RequestError(f"Unknown edge selection mode {mode!r}")
         if kind == "model_info":
             return model_info(self._require_document().current)
+        if kind == "sketch_plane" and "unwrap" in request:  # a cylinder face unrolled flat to sketch on
+            face = self._require_document().current.face(int(request["unwrap"]))
+            try:
+                return {"plane": unwrap.unwrap_plane(), "reference": unwrap.unwrap_reference(face)}
+            except unwrap.UnwrapError as e:
+                raise RequestError(str(e)) from e
         if kind == "sketch_plane":
             plane = self._sketch_plane(request)
             reply = {"plane": plane}
@@ -238,7 +244,12 @@ class Session:
         document = self._require_document()
         start = time.perf_counter()
         try:
-            shape, count = sketch.add_regions(document.current.shape, request["sketch"])
+            if "unwrap" in request:
+                shape, count = unwrap.wrap_regions(document.current.shape, document.current, int(request["unwrap"]), request["sketch"])
+            else:
+                shape, count = sketch.add_regions(document.current.shape, request["sketch"])
+        except unwrap.UnwrapError as e:
+            raise RequestError(str(e)) from e
         except (KeyError, TypeError, ValueError) as e:
             raise RequestError(f"Malformed sketch request: {e!r}") from e
         timings = {"opMs": _ms(start)}

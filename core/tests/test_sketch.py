@@ -238,7 +238,8 @@ def test_face_reference_outline_snaps_and_stays_fixed():
     top = next(i for i in range(6) if measure(block, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0])
     plane = sketch.face_plane(block.face(top))
     ref = sketch.face_reference(block.face(top), plane)
-    assert len(ref["points"]) == 4 and len(ref["entities"]) == 4
+    assert len(ref["points"]) == 5 and len(ref["entities"]) == 4  # four corners and the face centre
+    assert (ref["points"][-1]["u"], ref["points"][-1]["v"]) == pytest.approx((0, 0), abs=1e-6)
     assert all(p["fixed"] for p in ref["points"]) and all(e["construction"] for e in ref["entities"])
     # the fixed outline survives a solve, and a profile ignores it
     moved = [dict(p, u=p["u"] + 1) for p in ref["points"]]
@@ -413,3 +414,27 @@ def test_offset_plane_moves_along_the_normal():
     moved = offset_plane(STANDARD_PLANES["XZ"], 5)
     assert moved["origin"] == [0, -5, 0] and moved["normal"] == [0, -1, 0]
     assert STANDARD_PLANES["XZ"]["origin"] == [0, 0, 0]
+
+
+def test_circle_tangent_to_line_and_to_circle():
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 40, "v": 0}, {"id": 3, "u": 10, "v": 9}, {"id": 4, "u": 30, "v": 12}, {"id": 5, "u": 60, "v": 2}]
+    entities = [
+        {"id": 10, "type": "line", "a": 1, "b": 2},
+        {"id": 11, "type": "circle", "center": 3, "radius": 8},
+        {"id": 12, "type": "circle", "center": 4, "radius": 5},
+    ]
+    constraints = [
+        {"id": 20, "type": "horizontal", "entity": 10},
+        {"id": 21, "type": "fixed", "point": 1},
+        {"id": 22, "type": "distance", "entity": 10, "value": 40},
+        {"id": 23, "type": "tangent", "entities": [10, 11]},
+        {"id": 24, "type": "tangent", "entities": [11, 12]},
+        {"id": 25, "type": "radius", "entity": 11, "value": 8},
+        {"id": 26, "type": "radius", "entity": 12, "value": 5},
+        {"id": 27, "type": "horizontal", "points": [3, 4]},
+    ]
+    result = sketch.solve(sketch_of(points, entities, constraints))
+    assert result["status"] == "ok"
+    c = coords(result)
+    assert c[3][1] == pytest.approx(8, abs=1e-6)  # radius 8 circle sits on the line
+    assert math.dist(c[3], c[4]) == pytest.approx(13, abs=1e-6)  # externally tangent circles
