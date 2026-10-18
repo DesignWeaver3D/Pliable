@@ -1,0 +1,58 @@
+# Running agents in parallel
+
+How the main session (the orchestrator) works with several agents at once. Use it only when the owner asks for parallel agents. Written from the first two waves; update it when a step turns out wrong.
+
+## When it fits
+
+- Group the open sessions in `docs/progress.md` by code area and give each group to one agent: kernel tools (`core/`), sketch (`sketch.ts`, `unwrap.py`), selection and picking (`viewport.ts`), application shell (keys, diagnostics, forms, autosave). About four agents is the practical limit.
+- Hold back work that cuts across everything (the GUI rework, manipulators, anything that rearranges shared UI files) until the others are merged. Run it alone.
+- Anything that waits on an owner answer stays unassigned.
+- Usage is limited: check with the owner before starting a wave, and stop agents when the owner says the limit is reached.
+
+## Setup
+
+- One git worktree per agent, from the main checkout: `.\scripts\worktree.ps1 new <name>` makes `..\pliable-wt\<name>` on branch `agent/<name>`, gives it its own ports (core 8801+, frontend 5201+), its own autosave folder (`PLIABLE_DATA`), and copies the ignored project files. `list`, `remove <name>` and `refresh <name|all>` are the other actions.
+- Ignored files (the agent rules file in the repo root, `docs/research/`, the local settings file) are not part of a checkout. **Before starting or resuming any agent run `.\scripts\worktree.ps1 refresh <name|all>`, then merge `dev` into the agent branch.** Otherwise the agent reads stale rules.
+- The local settings file asks before any `git push` and denies `git update-index`. `.gitattributes` keeps both sides of `docs/watchlist.md` on merge.
+- Fresh agent or resumed agent: resume only when the next task touches the same code; otherwise start a fresh agent that reads its notes file. A resumed agent re-reads its whole history on every turn, so long histories cost usage.
+- Research agents use the `researcher` agent definition (cheap model, no file edits).
+
+## The prompt every agent gets
+
+Name the worktree and branch, then require, in this order:
+1. Use absolute paths under its worktree; never touch the main checkout or other worktrees.
+2. Read the agent rules file in the repo root, `docs/progress.md`, the relevant `docs/questions.md` and `docs/decisions-log.md` entries, and its notes file in `docs/agent-notes/`.
+3. Its ports and the exact core server line with `PLIABLE_DATA` (from `agent-ports.txt`); never port 8765.
+4. Local commits on its branch after each passing step; never push; no `git update-index`; do not touch `dev`, `rebuild` or `main`.
+5. Do not edit `docs/progress.md` or `docs/questions.md`; keep a section in its notes file (status, decisions with what to change, open questions, resume point); watchlist entries append-only.
+6. Commit messages pass `scripts/check_commit_message.py`; the hook also rejects names of other products and AI tools in any staged text, so describe behaviour instead.
+7. Unattended rules from the agent rules file: decide, log, keep going; ending the turn ends the run.
+8. Tests go through the real code path (`Tool.execute` or the server handlers, never helpers that skip steps the app applies); run core tests, `npm test`, `npx tsc --noEmit` and `npm run build`.
+9. Verify its own work in the running app in Chrome on its own ports: exercise the real feature, undo every change, avoid dialogs. Its final report lists what it checked in the app and what it did not.
+10. No runaway processes and no background commands; every command finishes within about two minutes.
+11. Clean up when finished: stop its own servers and close its own Chrome tabs; never touch the owner's test tab or servers.
+12. Final report under 150 words: done or parked, commits, test counts, checked and not checked.
+
+## Spot-checking
+
+Never merge on a report alone. In the agent's worktree run the core tests, `npm test` and `npx tsc --noEmit`, and read the commit list. For a UI change, check one claim in Chrome yourself. A report that says the Chrome check was skipped goes back to the agent.
+
+## Merging
+
+- Merge finished branches into `dev` one at a time, running core tests, `npm test`, `tsc` and `npm run build` after each. Do not push unless the owner asks.
+- Expect conflicts only in shared UI files (`main.ts`, `viewport.ts`, `toolpanel.ts`, `sketch.ts`, `keys.ts`). Read both sides; features added in two branches may need a hand merge (for example a key re-added to the router).
+- If the owner is testing in the main checkout, ask before merging: the frontend reloads live while the core server keeps old code, which can break their session. After merging, restart their test instance and tell them to reload.
+- Afterwards: fold the notes into the plan (`docs/progress.md` rows), log decisions in `docs/decisions-log.md`, and put only real questions in `docs/questions.md`. Keep the agents' notes files until the next wave is done.
+
+## Orchestrator's own checks
+
+Run the merged build on spare ports (for example core 8770 and frontend 5180 or 5181) with an empty temporary `PLIABLE_DATA`, in its own Chrome tab; stop the servers, remove the temporary folder and close the tab when finished. Drag actions with a modifier key do not apply the modifier in the browser tool, so a drag over a face is a push/pull.
+
+## Known pitfalls
+
+- Tests calling `Tool.run` pass while the app (which uses `Tool.execute`) is broken.
+- All instances share one autosave folder unless `PLIABLE_DATA` differs (the app now also uses a folder per running copy).
+- Skip-worktree patches block later merges; do not use them.
+- A research agent's background check once kept a process running for nearly an hour; agents must not start background commands.
+- Closing a Chrome tab can hang on a leave-site prompt while edits or a sketch are open; undo and discard first.
+- If the browser tool loses its tab group, the remaining tabs must be closed by the owner.
