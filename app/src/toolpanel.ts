@@ -1,6 +1,7 @@
 /** "All tools" list (grouped by layout.ts) and the parameter form for tools that are not dragged. */
 import { TOOL_GROUPS } from "./layout";
 import { describeNeeds, type ToolInfo } from "./tools";
+import { usage, type Surface } from "./usage";
 
 export interface ToolPanelHost {
   tools(): ToolInfo[];
@@ -55,7 +56,7 @@ export class ToolPanel {
           button.textContent = tool.label;
           button.disabled = !this.host.usable(tool);
           button.title = describeNeeds(tool) || "No selection needed";
-          button.addEventListener("click", () => this.openForm(tool));
+          button.addEventListener("click", () => this.openForm(tool, {}, "drawer"));
           this.listButtons.set(tool.id, button);
           box.append(button);
         }
@@ -71,6 +72,7 @@ export class ToolPanel {
   /** Close the form without committing (the host restores the committed model). */
   close(restore = true) {
     if (!this.open) return;
+    if (restore) usage.record(this.open.id, "cancel");
     this.open = null;
     clearTimeout(this.timer);
     this.formEl.hidden = true;
@@ -79,8 +81,9 @@ export class ToolPanel {
   }
 
   /** Open the form for a tool; `initial` pre-fills values (used to re-edit the last operation). */
-  openForm(tool: ToolInfo, initial: Record<string, number> = {}) {
+  openForm(tool: ToolInfo, initial: Record<string, number> = {}, surface: Surface = "other") {
     this.close();
+    usage.record(tool.id, "start", surface);
     this.open = tool;
     const inputs: Record<string, HTMLInputElement> = {};
     const title = document.createElement("div");

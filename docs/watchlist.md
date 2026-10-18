@@ -131,3 +131,7 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Construction planes
 
 - Only offsets of the three world planes are offered. No plane through three points, at an angle, or midway between faces; the offset is typed, not dragged.
+
+## Tool-usage counts
+
+- **Counts live in core memory only** (`usage.py`, `Session.usage`) and reset when the core restarts or the client reconnects; they are not saved to disk. Surfaces are what the client reports (`strip`, `search`, `drawer`, `keys`, `drag`, `other`). A drag with an armed tool counts one start (at arming), a direct drag counts one start with surface `drag`. Sketch tools and view commands are not counted yet. *Symptom:* usage numbers that look low after a restart, or no entry for sketch tools.

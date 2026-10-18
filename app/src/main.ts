@@ -9,6 +9,7 @@ import { MeasurePanel, type MeasureReply } from "./measure";
 import { Palette, type Command } from "./palette";
 import { acceptsSelection, describeNeeds, dragParam, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
+import { usage, type Surface } from "./usage";
 import { filterHidden, solidsOf } from "./visibility";
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -23,6 +24,7 @@ const fileInput = $("file") as HTMLInputElement;
 const select = $("demo") as HTMLSelectElement;
 const viewport = new Viewport($("viewport"));
 const core = new CoreClient();
+usage.attach(core);
 installAlphaUi($("bar"), core);
 showLaunchNotice();
 
@@ -141,7 +143,7 @@ function renderToolbar() {
       button.textContent = tool.label;
       button.title = `${tool.label}: drag the selection`;
       button.className = tool.id === active ? "active" : "";
-      button.addEventListener("click", () => armTool(tool));
+      button.addEventListener("click", () => armTool(tool, "strip"));
       return button;
     }),
     ...helpers,
@@ -175,11 +177,12 @@ function faceEdgeHelpers(face: number): HTMLButtonElement[] {
   ];
 }
 
-function armTool(tool: ToolInfo) {
+function armTool(tool: ToolInfo, surface: Surface) {
   if (dragParam(tool) === null) {
-    toolPanel.openForm(tool);
+    toolPanel.openForm(tool, {}, surface);
     return;
   }
+  usage.record(tool.id, "start", surface);
   armedTool = tool.id;
   renderToolbar();
   if (!status.classList.contains("error")) status.textContent = `${tool.label}: drag the selection`;
@@ -446,6 +449,8 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
     if (dragSels === null) {
       lastGood = null;
       previewFailed = false;
+      const dragTool = dragToolFor(sels)!;
+      if (armedTool !== dragTool.id) usage.record(dragTool.id, "start", "drag"); // an armed tool already counted its start
     }
     dragSels = sels;
     queued = distance;
@@ -464,7 +469,9 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
   if (phase === "end" && previewFailed && good !== null) distance = good;
   lastGood = null;
   previewFailed = false;
+  const dragTool = dragToolFor(sels);
   try {
+    if (!(phase === "end" && Math.abs(distance) > 1e-6) && dragTool) usage.record(dragTool.id, "cancel");
     if (phase === "end" && Math.abs(distance) > 1e-6) {
       const start = performance.now();
       let mesh: MeshData;
@@ -478,11 +485,13 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
       }
       setCommitted(mesh, false, mappedSelection(mesh));
       rememberOp(dragToolFor(sels), sels, distance);
+      if (dragTool) usage.record(dragTool.id, "commit");
       latency.textContent = `commit ${Math.round(performance.now() - start)} ms`;
     } else if (committed) {
       setCommitted(committed, false, sels);
     }
   } catch (e) {
+    if (dragTool) usage.record(dragTool.id, "error");
     if (committed) setCommitted(committed, false, sels);
     status.textContent = (e as Error).message; // after setCommitted, which rewrites the status
     status.classList.add("error");
@@ -612,7 +621,7 @@ function commands(): Command[] {
     label: tool.label,
     hint: usable.has(tool.id) ? "drag the selection" : `select ${describeNeeds(tool)}`,
     enabled: usable.has(tool.id),
-    run: () => armTool(tool),
+    run: () => armTool(tool, "search"),
   }));
   const demos: Command[] = [...select.options].map((option) => ({
     label: `Open demo: ${option.value}`,
@@ -732,7 +741,9 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       setCommitted(mesh, false, mappedSelection(mesh));
       lastOp = { tool, sels, values };
       editLastButton.disabled = false;
+      usage.record(tool.id, "commit");
     } catch (e) {
+      usage.record(tool.id, "error");
       if (committed) setCommitted(committed, false, sels);
       status.textContent = (e as Error).message;
       status.classList.add("error");

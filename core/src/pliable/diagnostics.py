@@ -56,7 +56,7 @@ def install():
         root.setLevel(logging.INFO)
 
 
-def core_report(last_tool: dict | None, import_warnings: list[str]) -> dict:
+def core_report(last_tool: dict | None, import_warnings: list[str], usage: dict | None = None) -> dict:
     return {
         "pliable": __version__,
         "python": sys.version.split()[0],
@@ -64,6 +64,7 @@ def core_report(last_tool: dict | None, import_warnings: list[str]) -> dict:
         "opencascade": getattr(OCP, "__version__", "unknown"),
         "build123d": build123d.__version__,
         "lastTool": last_tool,
+        "usage": usage or {},
         "importWarnings": [scrub(w) for w in import_warnings],
         "log": list(RING.lines),
     }
