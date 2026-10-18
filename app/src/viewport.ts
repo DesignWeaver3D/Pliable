@@ -657,6 +657,11 @@ export class Viewport {
     edges.setAttribute("position", new THREE.BufferAttribute(mesh.edgePositions, 3));
     this.edgeMaterial = new THREE.LineBasicMaterial({ color: 0x111418 });
     this.model.add(new THREE.LineSegments(edges, this.edgeMaterial));
+    if (mesh.centres.length) {
+      const dots = new THREE.BufferGeometry();
+      dots.setAttribute("position", new THREE.BufferAttribute(new Float32Array(mesh.centres.flatMap((c) => c.position)), 3));
+      this.model.add(new THREE.Points(dots, new THREE.PointsMaterial({ color: 0x4fc3f7, size: 6, sizeAttenuation: false })));
+    }
     this.applySeeThrough();
 
     if (frame) this.frame(mesh.bounds);
@@ -926,6 +931,8 @@ export class Viewport {
 
     const vertex = this.nearestVertex(px, py, rect, depthLimit);
     if (vertex) return vertex;
+    const centre = this.nearestCentre(px, py, rect);
+    if (centre) return centre;
     const edge = this.nearestEdge(px, py, rect, depthLimit);
     if (edge) return edge;
 
@@ -940,6 +947,23 @@ export class Viewport {
     }
     const face = this.data.faces[lo];
     return face && face.count > 0 ? { kind: "face", id: face.id, point: faceHit.point } : null;
+  }
+
+  /** A hole or boss centre near the pointer picks that hole's face (centres sit inside the hole, so no depth test). */
+  private nearestCentre(px: number, py: number, rect: DOMRect): Hit | null {
+    let best: Hit | null = null;
+    let bestDistance = settings.vertexPickPx;
+    for (const c of this.data!.centres) {
+      const p = new THREE.Vector3(...c.position);
+      const n = p.clone().project(this.camera);
+      if (n.z > 1) continue;
+      const d = Math.hypot(((n.x + 1) / 2) * rect.width - px, ((1 - n.y) / 2) * rect.height - py);
+      if (d < bestDistance && !this.occluded(p)) {
+        bestDistance = d;
+        best = { kind: "face", id: c.face, point: p };
+      }
+    }
+    return best;
   }
 
   private nearestVertex(px: number, py: number, rect: DOMRect, depthLimit: number): Hit | null {

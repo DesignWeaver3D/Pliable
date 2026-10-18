@@ -94,3 +94,10 @@ def test_smooth_edge_is_not_sharp():
     smooth = next(e for e, a in enumerate(angles) if a is not None and a < 1)
     with pytest.raises(OperationError):
         sharp_edges(t, smooth, 30)
+
+
+def test_mesh_reports_hole_centres():
+    from pliable.tessellate import tessellate
+
+    mesh = tessellate(Topology(load_demo("bracket")))
+    assert len(mesh.centres) >= 4 and all(len(c["position"]) == 3 for c in mesh.centres)

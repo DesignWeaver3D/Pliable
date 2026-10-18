@@ -16,3 +16,8 @@
 - Comparison of methods (general knowledge, no web run): direct modelers and mesh/CAD tools commonly offer loop (continue through vertices of valence 4), ring (parallel across quads), tangent chain (continue while smooth), by-angle (flood fill over edges above a dihedral threshold), boundary (outline of a face set), and shared-face loops. All are now present except a UI angle slider for sharp edges.
 - Decision: 30 degrees default; change `angle` in `selectionHelpers` in main.ts.
 - Still open: offset of inner loops (inset_face handles the outer loop only), placing the divide edge by dragging in the viewport.
+
+## S35 relationship rules and design intent: partly done (Parked remainder)
+- Built: hole and boss centres are sent in the mesh header (`centres`), drawn as blue dots, and picking one selects the hole face (so tools, measuring and centre-to-centre dimensions work from it). Chips and equal-radius off by default were done earlier.
+- Decision: no separate "centre" selection kind (would need ids through every tool); the dot is an alternate pick target for the face. Change in `nearestCentre` in viewport.ts if the owner wants a real point kind.
+- Parked: per-tool defaults for the "applies to" choice (today one global chip toggle, off by default, so one hole moves alone), and dragging a centre as a move handle.

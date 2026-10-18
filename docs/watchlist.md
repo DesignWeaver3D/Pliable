@@ -143,3 +143,7 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 
 - Edge ring only follows four-sided faces with one outline loop and stops at any other face; sharp-edge selection uses a fixed 30 degree threshold and connects through shared vertices only (no angle setting in the UI yet).
 - Region outline counts an edge once if it borders exactly one selected face, so it also picks edges where the model's own boundary is open.
+
+## Hole centres as pick targets (S35)
+
+- A hole or boss centre is a small blue dot; clicking it selects that hole's face (it is not a separate point selection). Using a centre as a drag handle to move the hole is not built; the Move hole tool form is used instead. Centre markers are hidden when the hole wall is in the way.

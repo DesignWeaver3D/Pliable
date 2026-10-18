@@ -37,6 +37,7 @@ class Mesh:
     edges: list[dict] = field(default_factory=list)
     # Per vertex: id and position
     vertices: list[dict] = field(default_factory=list)
+    centres: list[dict] = field(default_factory=list)  # hole and boss centres: {"face": id, "position": [x, y, z]}
     bounds: list[float] = field(default_factory=list)  # xmin, ymin, zmin, xmax, ymax, zmax
 
 
@@ -179,6 +180,14 @@ def tessellate(topology: Topology) -> Mesh:
         p = BRep_Tool.Pnt_s(vertex)
         vertices.append({"id": vertex_id, "position": [p.X(), p.Y(), p.Z()], "solid": vertex_solid.get(vertex_id, 0)})
 
+    from .measure import hole_centre
+
+    centres = []
+    for face_id, face in topology.faces():
+        centre = hole_centre(face)
+        if centre is not None:
+            centres.append({"face": face_id, "position": [centre.X(), centre.Y(), centre.Z()]})
+
     return Mesh(
         positions=_join(positions, np.float32, (-1, 3)),
         normals=_join(normals, np.float32, (-1, 3)),
@@ -187,5 +196,6 @@ def tessellate(topology: Topology) -> Mesh:
         faces=faces,
         edges=edges,
         vertices=vertices,
+        centres=centres,
         bounds=bounds(shape),
     )
