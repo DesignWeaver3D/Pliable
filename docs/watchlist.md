@@ -186,3 +186,7 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 - **Only cylinder faces unroll** (`unwrap.py`). Cones, spheres, tori, free-form faces and several faces at once are refused. A cylinder face that spans the seam (a full tube) is unrolled from its angle range, so regions crossing the seam are not tested.
 - **Outlines map as 48-point interpolated curves**, not exact ellipses or helices; lines and regions are exact in size (checked by area). *Symptom:* a circle on a small cylinder imprints with a slightly different outline than a true curve.
 - **The unrolled sketch has no extrude, revolve or model-edge projection**; finishing only imprints regions onto the cylinder face. Sketches are not kept.
+
+## Autosave with several instances (S41)
+
+- **Two copies of the app share one autosave folder.** The launcher takes port 8765 or any free port, so a second copy starts without complaint, and both write the same `session.json` and snapshot files. *Symptom:* the second copy overwrites the first's undo history, the restore prompt offers the other copy's model, and the clean-exit flag from one copy hides a crash in the other. Planned as S41 (one folder per instance with a lock). Until then, run one copy at a time or set `PLIABLE_DATA` per copy.
