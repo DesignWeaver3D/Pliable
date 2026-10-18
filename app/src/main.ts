@@ -70,7 +70,7 @@ interface RelatedRule {
   faces: number[];
 }
 let related: RelatedRule[] = [];
-const ruleOn: Record<string, boolean> = { coplanar: true, equal_radius: true, coaxial: false }; // resets each session
+const ruleOn: Record<string, boolean> = { coplanar: true, equal_radius: false, coaxial: false }; // resets each session; a hole moves alone unless the user adds its twins
 
 /** The selection a tool runs on: the picked items plus the faces of its related rules that are switched on. */
 function expand(tool: ToolInfo | null, sels: Sel[]): Sel[] {
@@ -86,9 +86,11 @@ function renderChips() {
   chips.replaceChildren(
     ...shown.map((rule) => {
       const b = document.createElement("button");
-      b.textContent = `${rule.label} (${rule.faces.length})`;
+      const n = rule.faces.length;
+      const what = `${rule.label.toLowerCase()} face${n === 1 ? "" : "s"}`;
+      b.textContent = `${ruleOn[rule.id] ? "✔ With" : "+ Add"} ${n} ${what}`;
       b.className = ruleOn[rule.id] ? "on" : "";
-      b.title = `${ruleOn[rule.id] ? "Included in" : "Not included in"} tools that use this rule; click to toggle`;
+      b.title = ruleOn[rule.id] ? `Tools change the selected face and the ${n} ${what} together; click to change only the selected face` : `Tools change only the selected face; click to include the ${n} ${what} too`;
       b.addEventListener("click", () => {
         ruleOn[rule.id] = !ruleOn[rule.id];
         renderChips();
