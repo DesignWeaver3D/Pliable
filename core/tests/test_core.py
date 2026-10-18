@@ -68,9 +68,13 @@ def test_push_pull_rejects_curved_faces():
     from build123d import Cylinder
 
     topology = Topology(Cylinder(5, 10).wrapped)
-    curved = next(face for _, face in topology.faces() if planar_normal(face) is None)
+    from pliable.tools import Selection, get_tool
+
+    curved = next(i for i, face in topology.faces() if planar_normal(face) is None)
+    tool = get_tool("push_pull")  # curved faces have their own tool, Emboss/Cut along surface
+    assert not tool.available(topology, Selection(faces=[curved]))
     with pytest.raises(OperationError):
-        push_pull(topology.shape, curved, 2)
+        tool.execute(topology, Selection(faces=[curved]), {"distance": 2}, preview=False)
 
 
 def test_tessellation_covers_every_face(box_topology):

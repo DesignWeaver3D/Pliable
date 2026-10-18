@@ -190,8 +190,9 @@ class Session:
         if kind == "sketch_plane" and "unwrap" in request:  # a cylinder face unrolled flat to sketch on
             ids = request["unwrap"] if isinstance(request["unwrap"], list) else [request["unwrap"]]
             try:
-                unrolling = unwrap.build_unrolling(self._require_document().current, [int(i) for i in ids])
-                return {"plane": unwrap.unwrap_plane(), "reference": unrolling.reference}
+                topology = self._require_document().current
+                unrolling = unwrap.build_unrolling(topology, [int(i) for i in ids])
+                return {"plane": unwrap.unwrap_plane(topology.shape, unrolling.reference), "reference": unrolling.reference}
             except unwrap.UnwrapError as e:
                 raise RequestError(str(e)) from e
         if kind == "sketch_plane":

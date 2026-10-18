@@ -62,6 +62,8 @@ interface SolveReply {
   radii: Record<string, number>;
 }
 
+type Drag = { point: number; u: number; v: number } | { points: { point: number; u: number; v: number }[] };
+
 export class SketchMode {
   active = false;
   private s!: M.SketchData;
@@ -71,7 +73,7 @@ export class SketchMode {
   private hover: M.SketchSel | null = null;
   private chain: Snap[] = []; // points clicked so far for the current drawing
   private cursor: Snap | null = null;
-  private drag: { id: number; startX: number; startY: number; moved: boolean } | null = null;
+  private drag: { id: number; startX: number; startY: number; moved: boolean; body?: { u: number; v: number; points: { id: number; u: number; v: number }[] } } | null = null;
   private dof: number | null = null;
   private failed = new Set<number>();
   private undoStack: string[] = [];
@@ -83,7 +85,7 @@ export class SketchMode {
   private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false }));
   private grid: THREE.GridHelper | null = null;
   private solving = false;
-  private queued: { drag?: { point: number; u: number; v: number } } | null = null;
+  private queued: { drag?: Drag } | null = null;
   private previewTimer = 0;
   private panel: HTMLElement;
   private extrude = { distance: 10, mode: "join" as "join" | "cut" | "new", symmetric: false, revolve: false, angle: 360, open: false };
@@ -304,7 +306,9 @@ export class SketchMode {
       if (!this.drag.moved) this.pushUndo();
       this.drag.moved = true;
       const uv = this.planeUV(e);
-      if (uv) this.resolve({ point: this.drag.id, u: uv[0], v: uv[1] });
+      const body = this.drag.body;
+      if (uv && body) this.resolve({ points: body.points.map((p) => ({ point: p.id, u: p.u + uv[0] - body.u, v: p.v + uv[1] - body.v })) });
+      else if (uv) this.resolve({ point: this.drag.id, u: uv[0], v: uv[1] });
       return;
     }
     if (this.tool === "select" || this.tool === "trim" || this.tool === "extend") this.hover = this.pick(e);
@@ -329,6 +333,17 @@ export class SketchMode {
       this.drag = { id: hit.id, startX: e.clientX, startY: e.clientY, moved: false };
       this.viewport.renderer.domElement.setPointerCapture(e.pointerId);
     }
+    // Dragging a line, circle or arc by its body moves its points together; the rest follows the constraints.
+    const entity = hit?.kind === "entity" ? this.s.entities.find((x) => x.id === hit.id) : undefined;
+    const uv = this.planeUV(e);
+    if (entity && uv && !additive && !entity.reference) {
+      const ids = entity.type === "line" ? [entity.a, entity.b] : entity.type === "circle" ? [entity.center] : [entity.center, entity.start, entity.end];
+      const held = ids.map((id) => this.s.points.find((p) => p.id === id)!);
+      if (held.every((p) => p && !p.fixed)) {
+        this.drag = { id: 0, startX: e.clientX, startY: e.clientY, moved: false, body: { u: uv[0], v: uv[1], points: held.map((p) => ({ id: p.id, u: p.u, v: p.v })) } };
+        this.viewport.renderer.domElement.setPointerCapture(e.pointerId);
+      }
+    }
     this.render();
   }
 
@@ -336,7 +351,10 @@ export class SketchMode {
     if (this.drag) {
       const moved = this.drag.moved;
       this.drag = null;
-      if (moved) await this.resolve(); // settle without pinning the dragged point
+      if (moved) {
+        while (this.solving) await new Promise((r) => setTimeout(r, 5)); // let the last pinned position finish first
+        await this.resolve(); // settle without pinning the dragged point
+      }
       this.render();
       return;
     }
@@ -642,7 +660,7 @@ export class SketchMode {
   // Solving -----------------------------------------------------------------------------------------
 
   /** Solve the constraints (latest request wins while one is in flight). Resolves true if the solver succeeded. */
-  private resolve(drag?: { point: number; u: number; v: number }): Promise<boolean> {
+  private resolve(drag?: Drag): Promise<boolean> {
     this.queued = { drag };
     if (this.solving) return Promise.resolve(true);
     return this.runSolve();

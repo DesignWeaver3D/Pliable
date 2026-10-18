@@ -483,3 +483,64 @@ def test_line_tangent_to_circle_and_arc_away_from_an_end_point():
     (x1, y1), (x2, y2) = c[6], c[7]
     distance = abs((x2 - x1) * (y1 - 10) - (x1 - 10) * (y2 - y1)) / math.dist(c[6], c[7])
     assert distance == pytest.approx(6, abs=1e-6)
+
+
+def _free_sketch():
+    from pliable.sketch import STANDARD_PLANES
+
+    points = [{"id": i, "u": u, "v": v} for i, (u, v) in enumerate([(0, 0), (10, 3), (30, 5), (0, 20), (12, 20), (12, 32), (0, 32)], 1)]
+    entities = [
+        {"id": 101, "type": "line", "a": 1, "b": 2},
+        {"id": 102, "type": "circle", "center": 3, "radius": 4},
+        {"id": 103, "type": "line", "a": 4, "b": 5},
+        {"id": 104, "type": "line", "a": 5, "b": 6},
+        {"id": 105, "type": "line", "a": 6, "b": 7},
+        {"id": 106, "type": "line", "a": 7, "b": 4},
+    ]
+    constraints = [{"type": "horizontal", "entity": 103}, {"type": "vertical", "entity": 104}, {"type": "horizontal", "entity": 105}, {"type": "vertical", "entity": 106}]
+    return {"plane": STANDARD_PLANES["XY"], "points": points, "entities": entities, "constraints": constraints}
+
+
+def _drag(session, sk, point, u, v):
+    result = session.handle({"type": "sketch_solve", "sketch": sk, "drag": {"point": point, "u": u, "v": v}})
+    assert result["status"] == "ok"
+    return {p["id"]: (p["u"], p["v"]) for p in result["points"]}, result["radii"]
+
+
+def test_dragging_free_geometry_moves_only_what_was_dragged():
+    from pliable.server import Session
+
+    session = Session()
+    sk = _free_sketch()
+    before = {p["id"]: (p["u"], p["v"]) for p in sk["points"]}
+    # a free line end: the other end, the circle and the rectangle stay exactly where they were
+    after, radii = _drag(session, sk, 2, 15, -4)
+    assert after[2] == pytest.approx((15, -4))
+    assert {k: v for k, v in after.items() if k != 2} == pytest.approx({k: v for k, v in before.items() if k != 2})
+    assert radii[102] == pytest.approx(4)
+    # a free circle's centre: nothing else changes, the radius stays
+    after, radii = _drag(session, sk, 3, 40, 9)
+    assert after[3] == pytest.approx((40, 9))
+    assert {k: v for k, v in after.items() if k != 3} == pytest.approx({k: v for k, v in before.items() if k != 3})
+    assert radii[102] == pytest.approx(4)
+    # a corner of the constrained rectangle: it stays a rectangle, the free items do not move
+    after, _ = _drag(session, sk, 6, 20, 40)
+    assert after[5][0] == pytest.approx(after[6][0]) and after[6][1] == pytest.approx(after[7][1]) and after[4][1] == pytest.approx(after[5][1])
+    assert after[6] == pytest.approx((20, 40))
+    assert after[4] == pytest.approx(before[4])  # the opposite corner is the anchor
+    for pid in (1, 2, 3):
+        assert after[pid] == pytest.approx(before[pid])
+
+
+def test_dragging_a_line_body_holds_both_ends():
+    from pliable.server import Session
+
+    session = Session()
+    sk = _free_sketch()
+    before = {p["id"]: (p["u"], p["v"]) for p in sk["points"]}
+    drag = {"points": [{"point": 1, "u": 5, "v": -2}, {"point": 2, "u": 15, "v": 1}]}
+    result = session.handle({"type": "sketch_solve", "sketch": sk, "drag": drag})
+    assert result["status"] == "ok"
+    after = {p["id"]: (p["u"], p["v"]) for p in result["points"]}
+    assert after[1] == pytest.approx((5, -2)) and after[2] == pytest.approx((15, 1))
+    assert {k: v for k, v in after.items() if k > 2} == pytest.approx({k: v for k, v in before.items() if k > 2})

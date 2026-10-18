@@ -22,7 +22,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Callable
 
-from build123d import Face, Wire
+from build123d import Face, Location, Wire
 from OCP.BRep import BRep_Tool
 from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Splitter
@@ -40,6 +40,7 @@ from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS
 
 from .ops import OperationError
+from .tessellate import bounds
 from .sketch import STANDARD_PLANES, SketchError, regions
 
 CURVE_SAMPLES = 48
@@ -75,9 +76,18 @@ class Unrolling:
     faces: list = field(default_factory=list)
 
 
-def unwrap_plane() -> dict:
-    """The sketch plane the unrolled faces are drawn on: the standard XY plane."""
-    return STANDARD_PLANES["XY"]
+def unwrap_plane(shape=None, reference: dict | None = None) -> dict:
+    """The sketch plane the unrolled faces are drawn on: the XY plane, moved sideways to lie beside the model
+    (past its largest x, centred on y) so the flat outline does not sit over it. Sketch coordinates stay
+    relative to the plane origin, and `wrap_regions` undoes the shift."""
+    plane = dict(STANDARD_PLANES["XY"])
+    if shape is None or not reference or not reference.get("points"):
+        return plane
+    xmin, ymin, _, xmax, ymax, _ = bounds(shape)
+    reach = max(abs(p["u"]) for p in reference["points"])
+    margin = max(10.0, (xmax - xmin) * 0.1)
+    plane["origin"] = [round(xmax + margin + reach), round((ymin + ymax) / 2), 0.0]
+    return plane
 
 
 # Geometry helpers ------------------------------------------------------------------------------------
@@ -432,6 +442,9 @@ def wrap_regions(shape, topology, face_ids, sketch: dict):
         raise UnwrapError(str(e)) from e
     if not zones:
         raise UnwrapError("The sketch has no closed outline to wrap")
+    ox, oy, oz = sketch["plane"].get("origin", [0, 0, 0])  # the plane may sit beside the model; zones are made in world space
+    if ox or oy or oz:
+        zones = [zone.moved(Location((-ox, -oy, -oz))) for zone in zones]
     tools = List_TopoDS_Shape()
     made = 0
     for zone in zones:

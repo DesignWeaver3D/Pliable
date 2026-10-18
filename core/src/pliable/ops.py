@@ -11,6 +11,8 @@ from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer, BRepFilletAPI_MakeFillet
 from OCP.BRepLProp import BRepLProp_SLProps
 from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
+from OCP.BRepOffset import BRepOffset_MakeOffset, BRepOffset_Skin
+from OCP.GeomAbs import GeomAbs_Arc
 from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.GeomAbs import GeomAbs_Plane
 from OCP.gp import gp_Dir, gp_Vec
@@ -247,6 +249,17 @@ def unify_result(result: OpResult) -> OpResult:
     return OpResult(merged, tracked, edges, vertices, unified=True)
 
 
+def _curved_prism(face: TopoDS_Face, distance: float) -> tuple[TopoDS_Shape, TopoDS_Shape]:
+    """A solid slab between a curved face and its copy moved `distance` along the surface normal (the face's
+    outward side when positive), for embossing or cutting a patch of a cylinder, cone or similar surface."""
+    offset = BRepOffset_MakeOffset(face, distance, 1e-4, BRepOffset_Skin, False, False, GeomAbs_Arc, True, False)
+    if not offset.IsDone() or offset.Shape().ShapeType() != TopAbs_SOLID:
+        raise OperationError("This curved face can't be pushed or pulled along its surface (the offset failed)")
+    solid = offset.Shape()
+    moved = list(offset.Modified(face))
+    return solid, (moved[0] if moved else solid)
+
+
 def _push_pull(
     shape: TopoDS_Shape,
     face: TopoDS_Face | list[TopoDS_Face],
@@ -276,7 +289,10 @@ def _push_pull(
     for f in faces:
         normal = planar_normal(f)
         if normal is None:
-            raise OperationError("Push/pull currently supports planar faces only")
+            solid, moved = _curved_prism(f, distance)
+            prisms.append(solid)
+            moved_faces.append(moved)
+            continue
         prism = BRepPrimAPI_MakePrism(f, gp_Vec(normal).Multiplied(distance))
         prism.Build()
         if not prism.IsDone():

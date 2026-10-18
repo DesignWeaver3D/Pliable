@@ -35,3 +35,23 @@
 - Point picker: model vertices and points on model edges (`reference.ts`, uses `viewport.meshData`/`toScreen`/`faceUnder`; no new viewport.ts edits this wave). Sketch snap to axis lines in the sketch plane (`M.axisLines`, `snap` in sketch.ts: one small block before the point-alignment guides). Checked the vertex snap in Chrome; the axis-line snap only type-checked.
 - Decision: axis snap adds no constraint (change: create a reference line entity for each in-plane axis in `start`).
 - Resume point: nothing half-done. Candidates for later: kept sketches, pushing wrapped faces, circle/line tangency starting a line from a curve.
+
+## Wave 2b
+### Task 1 verification in Chrome (done, with gaps)
+- Seen working: sketch snap to an in-plane axis line (a click 5 px off the red axis lands on it; adds no constraint, 4 degrees of freedom for a free line); tangent arc starting at a line end (Constraints (1): Tangent, no conflict); a rectangle drawn across the seam of a closed cylinder, Finish sketch: two imprinted faces, one each side of the seam.
+- Not checked in Chrome: cone and the flat + fillet + flat chain (picking three adjacent faces by hand was impractical); they are covered by unit tests and by new server-path tests (`sketch_plane`, `sketch_regions`, then `tool_commit`). A bare-hand check of a chain on the bracket's rounded plate corner is the next thing to try.
+- Cosmetic fix done: the unrolled plane is placed beside the model (`unwrap_plane(shape, reference)`; `wrap_regions` shifts zones back by the plane origin). Seen in Chrome: the outline sits right of the bracket.
+- Owner remark (several adjacent faces into one sketch face): the chain unroll does this (tests: flat + fillet + flat, round piece area exact); not hand-verified in the app.
+
+### S33 push/pull on wrapped faces (Done)
+- Push/Pull itself refused curved faces. New tool `push_pull_surface` ("Emboss/Cut along surface") thickens any non-planar face along its normal (`ops._curved_prism`, an offset in thickening mode); positive adds, negative cuts, also for bore walls. Form entry only (no drag; curved faces have no drag normal). Checked in Chrome on a cylinder patch from the seam-crossing rectangle: live preview, Apply (patch raised), Undo.
+- Decision (owner away): separate tool instead of widening Push/Pull so planar behaviour is unchanged; change: relax `PushPull.applies` and add a drag normal for curved faces in the viewport.
+- Test change: `test_push_pull_rejects_curved_faces` now checks the Push/Pull tool refuses (the ops function now accepts curved faces).
+
+### Free-floating geometry / drag (coordinator priority task)
+- Finding: the installed solver binding exposes no dragged-parameter list (no `dragged` anywhere in `py_slvs`), and the research hypothesis did not reproduce: free lines, circles and a constrained rectangle drawn together stay put when one is dragged (unit tests through `sketch_solve` plus the app). So no solver change was made.
+- What was missing instead: only points could be dragged, so a free line or circle could not be moved as a whole. Added body drag (`drag.points` in `sketch_solve`; `onDown` in `sketch.ts`) and fixed a race where the settle solve at the end of a drag replaced the last pinned position. Checked in Chrome: dragged a line by its middle (both ends moved, circle untouched) and a circle by its rim.
+- If the owner still sees geometry jump, record the exact steps: likely suspects are auto horizontal/vertical or snap constraints added while drawing (question 21), not the solver. Not checked in the app: dragging a rectangle side by its body.
+
+### Task 3 (project curves onto faces): parked, not started. Needs a curve-to-surface projection (e.g. BRepProj) plus a sketch entity kind for curves that are not lines, circles or arcs; no small version without that. Kept sketches: not built (owner decision).
+- Resume point: nothing half-done.
