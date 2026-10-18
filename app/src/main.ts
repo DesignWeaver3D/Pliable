@@ -10,6 +10,7 @@ import { DimensionOverlay } from "./dimensions";
 import { createSettingsWindow, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
+import { HintLine } from "./hints";
 import { Palette, type Command } from "./palette";
 import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
@@ -671,6 +672,7 @@ const keys = new KeyRouter({
   sketchActive: () => sketch.active,
   cancelInteraction: () => viewport.cancelDrag(),
   status,
+  hints: { get: () => hintLine.prefs.on, set: (on) => hintLine.setOn(on) },
 });
 keys.installButton($("bar"));
 // Leaving with edits (undo steps) or an open sketch asks first; autosave still protects against crashes.
@@ -758,6 +760,15 @@ function commands(): Command[] {
     { label: "Hide body", hint: keys.keymap.hint("display.hide"), enabled: currentSels.length > 0, run: () => setVisibility("hide") },
     { label: "Isolate body", hint: keys.keymap.hint("display.isolate"), enabled: currentSels.length > 0, run: () => setVisibility("isolate") },
     { label: "Show all bodies", hint: keys.keymap.hint("display.showAll"), enabled: hiddenSolids.size > 0, run: () => setVisibility("show") },
+    { label: "See-through selection (pick edges and faces behind the model)", hint: keys.keymap.hint("display.seeThrough"), enabled: true, run: () => viewport.toggleSeeThrough() },
+    {
+      label: "Measure pick (hidden mode: press M while dragging a tool)",
+      hint: "M while dragging",
+      title: "Start dragging a tool, then press M to measure distances to other geometry. It cannot start from this list.",
+      enabled: true,
+      run: () => (status.textContent = "Measure pick: start dragging a tool, then press M to pick geometry to measure against"),
+    },
+    { label: hintLine.prefs.on ? "Turn hints off" : "Turn hints on", enabled: true, run: () => hintLine.setOn(!hintLine.prefs.on) },
     { label: "Open STEP file", enabled: true, run: () => fileInput.click() },
     { label: "Export STEP file", enabled: true, run: () => exportAs("export_step", "step") },
     ...["stl", "obj", "3mf"].map((format) => ({
@@ -787,6 +798,11 @@ const sketch = new SketchMode(
     committed: (mesh) => setCommitted(mesh, false, []),
   },
   $("sketchpanel"),
+);
+const hintLine = new HintLine(
+  $("viewport"),
+  () => ({ dragging: viewport.dragging || dragSels !== null, sketch: sketch.active, hasSelection: currentSels.length > 0 }),
+  (id) => keys.keymap.hint(id),
 );
 const sketchBar = $("sketchbar");
 let planeOffset = 0; // distance of the next standard-plane sketch from the plane, along its normal

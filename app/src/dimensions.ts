@@ -12,6 +12,8 @@ const DIM_OFFSET_PX = 36; // distance of a linear dimension line from the measur
 const EXT_OVERSHOOT_PX = 6; // extension lines run this far past the dimension line
 const EXT_GAP_PX = 3; // and start this far from the measured points
 const ARROW_PX = 9;
+const LEADER_PX = 34; // a leader runs this far beyond the feature before its landing
+const LANDING_PX = 14; // the short horizontal landing the text sits at the end of
 const TEXT_PX = 13;
 const CURSOR_CLEAR_PX = 28; // text moves away when the pointer is closer than this
 const COLOR = "#ff8a1f";
@@ -86,15 +88,21 @@ export class DimensionOverlay {
     const a = project(d.points[0]);
     const b = project(d.points[1]);
     const along = unit(sub(b, a));
-    if (!d.offsetDirection) {
-      // A distance between two items: the dimension line joins the points directly.
-      this.dimLine(a, b, out);
-      this.label(mul(add(a, b), 0.5), d.text, out, false, angleOf(along));
+    if (len(sub(b, a)) < 2) {
+      // Seen end-on the two points coincide: only the value can be shown.
+      this.label(a, d.text, out, true);
       return;
     }
-    const o = d.offsetDirection;
-    let side = sub(project(d.points[0].map((c, k) => c + o[k])), a);
-    side = len(side) < 1e-3 ? { x: -along.y, y: along.x } : unit(side);
+    let side: V;
+    if (d.offsetDirection) {
+      const o = d.offsetDirection;
+      side = sub(project(d.points[0].map((c, k) => c + o[k])), a);
+      side = len(side) < 1e-3 ? { x: -along.y, y: along.x } : unit(side);
+    } else {
+      // A distance between two items has no natural side: put the dimension line on the upper (or right) side.
+      side = { x: -along.y, y: along.x };
+      if (side.y > 1e-6 || (Math.abs(side.y) <= 1e-6 && side.x < 0)) side = mul(side, -1);
+    }
     const off = mul(side, DIM_OFFSET_PX);
     const a2 = add(a, off);
     const b2 = add(b, off);
@@ -112,17 +120,32 @@ export class DimensionOverlay {
   private leader(d: Dimension, project: (p: number[]) => V, out: SVGElement[]) {
     const a = project(d.points[0]);
     const b = project(d.points[1]);
+    // The rim point the leader touches and the way it leaves the feature (away from the centre).
+    const rim = b;
+    const outDir = unit(sub(b, a));
     if (d.kind === "diameter") {
+      // The dimension line spans the hole; the leader leaves from its far end.
       this.dimLine(a, b, out);
     } else {
-      out.push(line(a, b), arrow(b, unit(sub(b, a))), dot(a));
+      out.push(line(a, b), dot(a));
     }
-    this.label(mul(add(a, b), 0.5), d.text, out, false);
+    if (d.kind !== "diameter") out.push(arrow(rim, outDir));
+    // Leader: continues past the rim, then a horizontal landing that carries the text.
+    const knee = add(rim, mul(outDir, LEADER_PX));
+    const side = outDir.x < 0 ? -1 : 1;
+    const end = add(knee, { x: side * LANDING_PX, y: 0 });
+    out.push(line(rim, knee), line(knee, end));
+    this.label(add(end, { x: side * (d.text.length * TEXT_PX * 0.275 + 6), y: 0 }), d.text, out, false);
   }
 
-  /** A dimension line with an arrowhead at each end pointing outward. */
+  /** A dimension line with an arrowhead at each end: inside the span, or outside it when the span is too short. */
   private dimLine(a: V, b: V, out: SVGElement[]) {
     const dir = unit(sub(b, a));
+    if (len(sub(b, a)) < 2.5 * ARROW_PX) {
+      const tail = mul(dir, ARROW_PX + 6);
+      out.push(line(sub(a, tail), add(b, tail)), arrow(a, dir), arrow(b, mul(dir, -1)));
+      return;
+    }
     out.push(line(a, b), arrow(a, mul(dir, -1)), arrow(b, dir));
   }
 

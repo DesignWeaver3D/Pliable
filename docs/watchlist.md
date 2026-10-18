@@ -79,3 +79,5 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - `THIRD_PARTY_NOTICES.md` was written from memory of each project's license; verify before the first release.
 - The busy indicator appears after 400 ms for requests not on the quiet list (previews, sketch solves, lookups) in `app/src/client.ts`, shows elapsed seconds only.
 - Orthographic still looks off to the owner (see decisions-log).
+- Hint line (`app/src/hints.ts`) polls its context every 250 ms and sits above the chips bar; the M measure key is hard-coded in viewport.ts so it is not user-redefinable or shown from the keymap. Hint text for mouse actions is limited to Ctrl+click.
+- Distances between two items put the dimension line on the upper side of the screen-space line; no way to drag it to another side yet.

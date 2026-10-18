@@ -27,9 +27,9 @@ Nothing half-done. Take the first open row below whose status is not Done or Par
 | S50 | Intent | Relationship chips redesign: all or none plus per-chip include/exclude; until defined, chips are shown but not included in the selection; add chips such as parallel faces and symmetry | Planned |
 | S51 | Selection | See-through makes faces transparent (not the whole solid) with edges clearly visible, and is discoverable in the interface | Planned |
 | S52 | Tools | Center between faces is unreachable in the interface; make it usable | Planned |
-| S53 | Keys | Any combination of Ctrl, Alt and Shift may be a modifier. Other key topics are discussed with the owner one at a time (questions.md) | Planned |
-| S54 | Measure | True dimensions (extension lines, dimension line, arrowheads) for lengths and distances, and leaders (text with a line pointing at a feature) for radii and holes. Today they are plain labels | Planned |
-| S55 | Discovery | Make hidden modes discoverable, starting with the measure pick (M during a drag) and see-through: one hint line at the bottom of the view, tooltips with shortcuts, searchable names for hidden modes, a dismissible first-use hint (`docs/research/interaction-patterns.md`) | Planned |
+| S53 | Keys | Any combination of Ctrl, Alt and Shift may be a modifier. Other key topics are discussed with the owner one at a time (questions.md) | Done |
+| S54 | Measure | True dimensions (extension lines, dimension line, arrowheads) for lengths and distances, and leaders (text with a line pointing at a feature) for radii and holes. Today they are plain labels | Done |
+| S55 | Discovery | Make hidden modes discoverable, starting with the measure pick (M during a drag) and see-through: one hint line at the bottom of the view, tooltips with shortcuts, searchable names for hidden modes, a dismissible first-use hint (`docs/research/interaction-patterns.md`) | Done |
 | S56 | Measure | Edit displayed dimensions in place (hole diameter, fillet radius, edge length, face-to-face distance, face angle; one undo step; red reason when impossible). Research done; discuss with the owner, then scope a build | Planned, needs owner |
 
 ## Done, awaiting owner review

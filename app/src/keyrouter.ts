@@ -15,6 +15,8 @@ export interface KeyHost {
   /** The window lost focus: cancel any live drag and typed entry. */
   cancelInteraction: () => void;
   status: HTMLElement;
+  /** The hint line and tips switch, shown in the shortcuts window. */
+  hints?: { get: () => boolean; set: (on: boolean) => void };
 }
 
 function load(): Keymap {
@@ -160,13 +162,23 @@ export class KeyRouter {
       const toggle = document.createElement("input");
       toggle.type = "checkbox";
       toggle.checked = this.keymap.data.singleKeys;
-      toggle.title = "Turn keys that need no Ctrl or Alt on or off; Ctrl and Alt shortcuts always work";
+      toggle.title = "Turn keys that need no Ctrl or Alt on or off; shortcuts with Ctrl or Alt always work";
       toggle.onchange = () => {
         this.keymap.data = { ...this.keymap.data, singleKeys: toggle.checked };
         save(this.keymap);
         this.refreshRing();
       };
       single.append(toggle, " Enable single-key shortcuts (keys without Ctrl or Alt)");
+      const hintsRow = document.createElement("label");
+      hintsRow.style.cssText = "display:block;margin-top:4px";
+      if (this.host.hints) {
+        const hintBox = document.createElement("input");
+        hintBox.type = "checkbox";
+        hintBox.checked = this.host.hints.get();
+        hintBox.title = "Show the line of available keys at the bottom of the view and the first-use tips";
+        hintBox.onchange = () => this.host.hints!.set(hintBox.checked);
+        hintsRow.append(hintBox, " Show hints (the key line at the bottom of the view and first-use tips)");
+      }
       const note = document.createElement("div");
       note.style.cssText = "min-height:1.4em;color:#ffb878;margin:6px 0";
       note.textContent = capturing ? "Press the new key (Escape to cancel)..." : message;
@@ -205,7 +217,7 @@ export class KeyRouter {
       done.title = "Close the shortcut list";
       done.onclick = close;
       buttons.append(all, done);
-      card.replaceChildren(title, rules, single, note, table, buttons);
+      card.replaceChildren(title, rules, single, hintsRow, note, table, buttons);
     };
     render();
     box.append(card);
