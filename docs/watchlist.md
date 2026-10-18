@@ -199,3 +199,8 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 - **A cone must not reach its apex and must unroll to less than half a turn**; a cone cannot be chained with other faces.
 - **A region wider than half a turn of a cylinder or cone is not supported**: each outline is kept within half a turn of its first point when mapped. Regions across the seam of a closed cylinder or cone are cut at the seam and imprint as two faces.
 - **Regions outside the strip are dropped for chains** (no wrapping past the ends); the sketch plane origin is the middle of the strip (cylinder, chain) or of the sector (cone).
+
+## Point picker and axis snaps, extras (S27, agent/sketch, wave 2a)
+
+- **The point picker also snaps to model vertices (12 px) and to a point along a model edge (6 px).** Hidden candidates are dropped only when a face is under the pointer and they lie clearly behind it; with the pointer over empty space, vertices and edges behind the model can be picked. It scans every edge segment on each pointer move, which is fine for the demo models but untested on large ones.
+- **Sketches snap to the principal axes that lie in their plane** (point nearest on the axis line). The new point is not constrained to the axis (the axis is not sketch geometry), so it can drift when dimensions change; use the fixed origin point for constraints.

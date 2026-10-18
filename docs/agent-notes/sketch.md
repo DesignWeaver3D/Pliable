@@ -30,3 +30,8 @@
 - Tests: cylinder, seam crossing, cone, cone seam, chain of flat + fillet + flat (round piece area exact), non-chain refused.
 - Decisions: regions that cross a closed surface's seam become two faces (one per side); outlines are interpolated curves; a chain uses arc length, so folds without tangency also unroll (change: add a tangency check in `_strip_unrolling`). Not checked in Chrome for cones and chains (only unit tests); the cylinder path was checked earlier.
 - Open: pushing/pulling wrapped faces along the surface, kept sketches.
+
+### S27 extras (Done)
+- Point picker: model vertices and points on model edges (`reference.ts`, uses `viewport.meshData`/`toScreen`/`faceUnder`; no new viewport.ts edits this wave). Sketch snap to axis lines in the sketch plane (`M.axisLines`, `snap` in sketch.ts: one small block before the point-alignment guides). Checked the vertex snap in Chrome; the axis-line snap only type-checked.
+- Decision: axis snap adds no constraint (change: create a reference line entity for each in-plane axis in `start`).
+- Resume point: nothing half-done. Candidates for later: kept sketches, pushing wrapped faces, circle/line tangency starting a line from a curve.

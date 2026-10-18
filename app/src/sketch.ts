@@ -255,6 +255,12 @@ export class SketchMode {
         if (on) return { u: on[0], v: on[1], on: { entity: en.id } };
       }
     }
+    // The principal axes that lie in this sketch plane.
+    for (const a of M.axisLines(this.s.plane)) {
+      const t = (u - a.u) * a.du + (v - a.v) * a.dv;
+      const on: [number, number] = [a.u + t * a.du, a.v + t * a.dv];
+      if (Math.hypot(u - on[0], v - on[1]) < reach) return { u: on[0], v: on[1] };
+    }
     // Line up with the u or v of an existing point and show a guide to it.
     if (!axis) {
       let [su, sv] = [u, v];
