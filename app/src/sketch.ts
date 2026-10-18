@@ -671,6 +671,20 @@ export class SketchMode {
   }
   private offset = { distance: 5 };
 
+  /** Round or bevel the selected corner (a point where two lines meet) with the rectangle corner size. */
+  private roundSelectedCorner(kind: "fillet" | "chamfer") {
+    const point = this.selection.find((x) => x.kind === "point");
+    if (!point) return this.host.status("Select the corner point first", true);
+    const made = M.roundCorner(this.s, point.id, kind, this.rectOptions.size);
+    if (typeof made === "string") return this.host.status(made, true);
+    this.pushUndo();
+    this.s = made;
+    this.selection = [];
+    this.resolve();
+    this.render();
+    this.host.status(kind === "fillet" ? "Rounded the corner" : "Bevelled the corner");
+  }
+
   private toggleConstruction() {
     const ids = new Set(this.selection.filter((x) => x.kind === "entity").map((x) => x.id));
     if (!ids.size) return;
@@ -906,6 +920,20 @@ export class SketchMode {
       }, "active"),
     );
     extrude.append(spin, spinGo);
+
+    if (this.selection.some((x) => x.kind === "point")) {
+      const size = document.createElement("input");
+      size.type = "number";
+      size.step = "any";
+      size.min = "0";
+      size.value = String(this.rectOptions.size);
+      size.title = "Corner radius or bevel size";
+      size.addEventListener("keydown", (e) => e.stopPropagation());
+      size.addEventListener("input", () => (this.rectOptions.size = Math.abs(Number(size.value)) || 0));
+      const cornerRow = el("div", "row-buttons");
+      cornerRow.append(button("Round corner", () => this.roundSelectedCorner("fillet")), button("Bevel corner", () => this.roundSelectedCorner("chamfer")), size);
+      constraintsBox.append(cornerRow);
+    }
 
     if (this.selection.some((x) => x.kind === "entity")) {
       const distance = document.createElement("input");

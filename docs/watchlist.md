@@ -111,3 +111,7 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Divide face
 
 - The dividing edge is parallel to a face axis only (the face's local x or y), not at an arbitrary angle, and is set by a number, not by dragging in the viewport.
+
+## Sketch corner round
+
+- Works only where exactly two straight lines meet at a point; corners involving arcs or circles report a message. The tangent constraints keep the arc on both lines, but dimension constraints on the old corner point are dropped.

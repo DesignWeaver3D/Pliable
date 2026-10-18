@@ -482,3 +482,50 @@ function dropOrphans(s: SketchData): SketchData {
   const refs = (c: SketchConstraint) => [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])];
   return { ...s, points: s.points.filter((p) => !orphans.has(p.id)), constraints: s.constraints.filter((c) => !refs(c).some((i) => orphans.has(i))) };
 }
+
+/** Round (arc, `size` = radius) or bevel (line, `size` = distance along each side) the corner where exactly two
+ *  lines meet at `pointId`. Returns the new sketch, or a message saying why the corner can't be changed. */
+export function roundCorner(s: SketchData, pointId: number, kind: "fillet" | "chamfer", size: number): SketchData | string {
+  if (!(size > 1e-6)) return "Give a size above zero";
+  const point = s.points.find((p) => p.id === pointId);
+  const users = s.entities.filter((e) => entityPoints(e).includes(pointId));
+  if (!point || users.length !== 2 || users.some((e) => e.type !== "line")) return "Select a corner where exactly two lines meet";
+  const lines = users as Extract<SketchEntity, { type: "line" }>[];
+  const far = lines.map((l) => s.points.find((p) => p.id === (l.a === pointId ? l.b : l.a))!);
+  const arms = far.map((f) => {
+    const length = Math.hypot(f.u - point.u, f.v - point.v);
+    return { length, du: (f.u - point.u) / length, dv: (f.v - point.v) / length };
+  });
+  const cos = arms[0].du * arms[1].du + arms[0].dv * arms[1].dv;
+  const angle = Math.acos(Math.max(-1, Math.min(1, cos)));
+  if (angle < 1e-3 || angle > Math.PI - 1e-3) return "The two lines are parallel";
+  const reach = kind === "fillet" ? size / Math.tan(angle / 2) : size;
+  if (reach > Math.min(arms[0].length, arms[1].length) * 0.999) return "The size is larger than the lines at this corner";
+  let id = nextId(s);
+  const make = (u: number, v: number): SketchPoint => ({ id: id++, u, v });
+  const t = arms.map((a) => make(point.u + a.du * reach, point.v + a.dv * reach));
+  const added: SketchPoint[] = [...t];
+  const entities: SketchEntity[] = s.entities.map((e) => {
+    if (e.type !== "line") return e;
+    const k = lines.findIndex((l) => l.id === e.id);
+    if (k < 0) return e;
+    return { ...e, a: e.a === pointId ? t[k].id : e.a, b: e.b === pointId ? t[k].id : e.b };
+  });
+  const constraints = s.constraints.filter((c) => c.point !== pointId && !c.points?.includes(pointId));
+  if (kind === "chamfer") {
+    entities.push({ id: id++, type: "line", a: t[0].id, b: t[1].id });
+  } else {
+    const bx = arms[0].du + arms[1].du;
+    const by = arms[0].dv + arms[1].dv;
+    const bl = Math.hypot(bx, by);
+    const dist = size / Math.sin(angle / 2);
+    const centre = make(point.u + (bx / bl) * dist, point.v + (by / bl) * dist);
+    added.push(centre);
+    // Arcs run counterclockwise from start to end.
+    const ccw = (t[0].u - centre.u) * (t[1].v - centre.v) - (t[0].v - centre.v) * (t[1].u - centre.u) > 0;
+    const arc = id++;
+    entities.push({ id: arc, type: "arc", center: centre.id, start: (ccw ? t[0] : t[1]).id, end: (ccw ? t[1] : t[0]).id });
+    constraints.push({ id: id++, type: "tangent", entities: [arc, lines[0].id] }, { id: id++, type: "tangent", entities: [arc, lines[1].id] });
+  }
+  return { ...s, points: [...s.points.filter((p) => p.id !== pointId), ...added], entities, constraints };
+}
