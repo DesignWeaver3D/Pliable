@@ -102,3 +102,11 @@ Replies to the open questions in docs/research/gui-plan.md; the decisions are re
 39. **Unwrap beyond cylinders (S33):** regions that cross the seam of a closed cylinder or cone become two faces; outlines are interpolated curves; a chain of faces uses arc length, so folds without tangency also unroll (add a tangency check in `_strip_unrolling` if you want only tangent chains). The button is now Sketch on unrolled faces. Cone and chain paths are unit-tested only. Open: pushing or pulling the wrapped faces, kept sketches.
 40. **Sketch tangency and snaps (S30, S27):** the arc tangency tolerance is 2 x `AUTO_AXIS_DEG` (change in `addArc` in `sketch.ts`); snaps still add constraints (entry 21); the sketch snap to an in-plane axis line adds no constraint (to add one, create a reference line entity for each in-plane axis in `start`); the point picker also snaps to model vertices and points on edges.
 41. **Owner decisions on the alpha notice and releases (2026-10-18):** the alpha notice should be acknowledged once per user, covering every release (planned as S42; the earlier "every launch" rule is replaced); no portable-mode marker for now. Autosave safety with several running copies is planned as S41. Both ideas and the proposed fixes for several releases sharing one data folder are in docs/watchlist.md.
+
+## Owner replies of 2026-10-18 (second round)
+
+- **Terminology:** a dimension has extension lines, a dimension line and arrowheads (drafting-program meaning); a leader is text with a line pointing at something. Use these words in the interface and the plan.
+- **Measure pick (M during a drag):** keep it, but it must become discoverable (S55).
+- **Box selection:** window (left to right) and crossing (right to left) with the current colours are the wanted behaviour; the bugs are in S57. Selection filters are to be designed, not yet built.
+- **Edge ring and loop:** reported as not highlighting; tracked as S58. Loops follow shared faces, not angle.
+- **Dimensions edited in place:** wanted as a possibility; research and discussion first (S56).
