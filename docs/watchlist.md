@@ -142,3 +142,7 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 - **Shortcut rules are only enforced at assignment and load** (`validateBinding`, `Keymap.fromJson`); the sketch keeps its own key handling (Delete, Escape, tool letters in `sketch.ts`) and is not yet under the router. *Symptom:* a sketch key that ignores the single-key switch or the engagement rule.
 - **Digit view keys ignore Shift** so top-row digits work on layouts that need Shift for digits; `Shift+1` therefore also runs view 1. Only the first chord is shown as the hint, and rebinding a command replaces all its chords (the numpad alias is lost).
 - **Not built yet:** unsaved-work warning on closing the tab, confirmation dialogs (no model command has a bare key, so none is needed today), touch equivalents audit.
+
+## Dimension leaders
+
+- **Overlap avoidance is a text-box guess** (`dimensions.ts`, `overlaps`): width is estimated from the character count and rotated text uses its unrotated box. The first dimension drawn wins and a later one whose text would overlap is left out entirely (the panel still lists it). *Symptom:* a dimension that vanishes when two labels are close, or labels that still touch.
