@@ -11,7 +11,7 @@ import { createSettingsWindow, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
 import { Palette, type Command } from "./palette";
-import { acceptsSelection, describeNeeds, dragParam, type ToolInfo } from "./tools";
+import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
 import { usage, type Surface } from "./usage";
 import { filterHidden, solidsOf } from "./visibility";
@@ -165,7 +165,7 @@ function renderToolbar() {
     ...usable.map((tool) => {
       const button = document.createElement("button");
       button.textContent = tool.label;
-      button.title = `${tool.label}: drag the selection`;
+      button.title = toolTooltip(tool);
       button.className = tool.id === active ? "active" : "";
       button.addEventListener("click", () => armTool(tool, "strip"));
       return button;
@@ -738,6 +738,7 @@ function commands(): Command[] {
   const usable = new Set(usableTools().map((t) => t.id));
   const toolCommands: Command[] = tools.map((tool) => ({
     label: tool.label,
+    title: toolTooltip(tool),
     hint: usable.has(tool.id) ? "drag the selection" : `select ${describeNeeds(tool)}`,
     enabled: usable.has(tool.id),
     run: () => armTool(tool, "search"),
@@ -799,7 +800,7 @@ function renderSketchBar() {
   const onFace = document.createElement("button");
   onFace.textContent = "Sketch on selected face";
   onFace.disabled = !face?.normal || sketch.active;
-  onFace.title = "Select a flat face first";
+  onFace.title = "Start a 2D sketch drawn on the selected flat face. Select one flat face first.";
   onFace.addEventListener("click", async () => {
     try {
       const reply = await core.request<{ plane: any; reference?: any }>("sketch_plane", { face: currentSels[0].id });
@@ -840,6 +841,7 @@ function renderSketchBar() {
     ...SKETCH_PLANES.map((name) => {
       const b = document.createElement("button");
       b.textContent = name;
+      b.title = `Start a 2D sketch on the ${name} plane through the origin (the offset box moves the plane)`;
       b.disabled = sketch.active;
       b.addEventListener("click", async () => {
         const reply = await core.request<{ plane: any }>("sketch_plane", { plane: name, offset: planeOffset });
@@ -1008,6 +1010,7 @@ function askRestore(info: { name: string; steps: number }): Promise<boolean> {
     for (const [label, answer] of [["Start fresh", false], ["Restore", true]] as const) {
       const button = document.createElement("button");
       button.textContent = label;
+      button.title = answer ? "Reopen the model and undo steps from the last session" : "Discard the last session and start empty";
       button.onclick = () => {
         box.remove();
         resolve(answer);

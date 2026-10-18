@@ -32,9 +32,20 @@ function overlay(): { box: HTMLDivElement; card: HTMLDivElement } {
   return { box, card };
 }
 
+const BUTTON_TIPS: Record<string, string> = {
+  "I understand": "Close this notice; it is not shown again",
+  "Report a problem": "Open the bug report page with the details filled in",
+  OK: "Close this message",
+  Copy: "Copy the report text to the clipboard",
+  "Open bug report page": "Open the bug report page in a new tab",
+  "Clear usage counts": "Reset the tool usage counts shown here",
+  Close: "Close this window",
+};
+
 function button(label: string, onclick: () => void): HTMLButtonElement {
   const b = document.createElement("button");
   b.textContent = label;
+  b.title = BUTTON_TIPS[label] ?? "";
   b.onclick = onclick;
   return b;
 }

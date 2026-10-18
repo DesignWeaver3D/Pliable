@@ -170,6 +170,7 @@ class DeleteFace(Tool):
 
     id = "delete_face"
     label = "Delete face"
+    description = "Removes the selected faces and heals the gap by extending the neighbouring faces. Select one or more faces."
     accepts = Accepts(faces=(1, None))
 
     def run(self, topology, selection, values, preview):
@@ -182,6 +183,7 @@ class RemoveRound(Tool):
 
     id = "remove_round"
     label = "Remove fillet/chamfer"
+    description = "Takes away a rounded or beveled edge and restores the sharp corner. Select the rounded or beveled face."
     accepts = Accepts(faces=(1, None))
 
     def run(self, topology, selection, values, preview):
@@ -204,6 +206,7 @@ def _defeature(topology, selection, what: str) -> OpResult:
 class FillHole(_CylinderFaces):
     id = "fill_hole"
     label = "Fill hole / remove boss"
+    description = "Fills a hole with material, or cuts a boss back flush. Select the round face of the hole or boss."
     related = ("equal_radius",)
     accepts = Accepts(faces=(1, None))
 
@@ -217,6 +220,7 @@ class ResizeHole(_CylinderFaces):
 
     id = "resize_hole"
     label = "Resize hole / boss"
+    description = "Changes the diameter of a hole or boss, keeping its axis and depth. Select its round face; a diameter of 0 leaves it unchanged."
     related = ("equal_radius",)
     accepts = Accepts(faces=(1, None))
     params = [Param("diameter", "length", 0.0)]
@@ -236,6 +240,7 @@ class ResizeHole(_CylinderFaces):
 class MoveHole(_CylinderFaces):
     id = "move_hole"
     label = "Move hole / boss"
+    description = "Moves a hole or boss by the given distances along X, Y and Z. Select its round face."
     related = ("equal_radius",)
     accepts = Accepts(faces=(1, None))
     params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length")]
@@ -255,6 +260,7 @@ class PatternHole(_CylinderFaces):
 
     id = "pattern_hole"
     label = "Pattern hole / boss"
+    description = "Makes copies of a hole or boss in a straight line. Select its round face, then set the total count and the step between copies along X, Y and Z."
     accepts = Accepts(faces=(1, 1))
     params = [Param("count", "number", 3), Param("dx", "length", 10), Param("dy", "length"), Param("dz", "length")]
 
@@ -279,6 +285,7 @@ class CircularPatternHole(_CylinderFaces):
 
     id = "pattern_hole_circular"
     label = "Circular pattern"
+    description = "Makes copies of a hole or boss around an axis. Select its round face, set the count and the angle to spread them over (360 = full circle); the axis defaults to Z through the origin."
     placement = ("px", "py", "pz")
     accepts = Accepts(faces=(1, 1))
     params = [
@@ -359,6 +366,7 @@ class AddHole(_HoleOnFace):
 
     id = "add_hole"
     label = "Add hole"
+    description = "Drills a round hole into a flat face, placed from the face centre. Select one flat face; depth 0 = through."
 
 
 @register
@@ -367,6 +375,7 @@ class AddCounterbore(_HoleOnFace):
 
     id = "add_counterbore"
     label = "Add counterbore"
+    description = "Drills a stepped hole with a wider, flat-bottomed top part for a screw head. Select one flat face; depth 0 = through."
     params = _HoleOnFace.params + [Param("bore_diameter", "length", 11), Param("bore_depth", "length", 4)]
 
     def extra_cutters(self, start, normal, values, depth, margin):
@@ -382,6 +391,7 @@ class AddCountersink(_HoleOnFace):
 
     id = "add_countersink"
     label = "Add countersink"
+    description = "Drills a hole with a cone-shaped opening for a flat-head screw. Select one flat face; depth 0 = through."
     params = _HoleOnFace.params + [Param("sink_diameter", "length", 12), Param("sink_angle", "angle", 90)]
 
     def extra_cutters(self, start, normal, values, depth, margin):
@@ -425,6 +435,7 @@ class AlignHoles(_HoleGroup):
 
     id = "align_holes"
     label = "Align holes / bosses"
+    description = "Lines up holes or bosses so their centres match the first one you selected, along the chosen axis (0 = X, 1 = Y, 2 = Z). Select two or more round faces."
     accepts = Accepts(faces=(2, None))
     params = [Param("axis", "number", 0)]
 
@@ -441,6 +452,7 @@ class DistributeHoles(_HoleGroup):
 
     id = "distribute_holes"
     label = "Distribute holes / bosses"
+    description = "Spaces holes or bosses evenly between the two outermost ones, along the chosen axis (0 = X, 1 = Y, 2 = Z). Select three or more round faces."
     accepts = Accepts(faces=(3, None))
     params = [Param("axis", "number", 0)]
 
@@ -462,6 +474,7 @@ class AddBoss(_PlanarFace):
 
     id = "add_boss"
     label = "Add boss"
+    description = "Adds a round post standing on a flat face, placed from the face centre. Select one flat face."
     accepts = Accepts(faces=(1, 1))
     params = [Param("diameter", "length", 10), Param("height", "length", 5), Param("offset_u", "length"), Param("offset_v", "length")]
 
@@ -483,6 +496,7 @@ class AddSlot(_PlanarFace):
 
     id = "add_slot"
     label = "Add slot"
+    description = "Cuts a slot with rounded ends into a flat face, placed from the face centre. Select one flat face; angle turns the slot."
     accepts = Accepts(faces=(1, 1))
     params = [
         Param("length", "length", 20),
@@ -526,6 +540,7 @@ class CenterBetween(Tool):
 
     id = "center_between"
     label = "Center between faces"
+    description = "Centers a hole or boss between two parallel flat faces. Select the round face and the two flat faces, in any order."
     accepts = Accepts(faces=(3, 3))
 
     @staticmethod
@@ -572,6 +587,7 @@ class AddBox(Tool):
 
     id = "add_box"
     label = "Add box"
+    description = "Adds a box, given by its corner and size. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
     accepts = Accepts()
     params = [
@@ -597,6 +613,7 @@ class AddCylinder(Tool):
 
     id = "add_cylinder"
     label = "Add cylinder"
+    description = "Adds a cylinder standing on the XY plane at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
     accepts = Accepts()
     params = [Param("diameter", "length", 10), Param("height", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length"), NEW_BODY]
@@ -614,6 +631,7 @@ class Shell(Tool):
 
     id = "shell"
     label = "Shell"
+    description = "Hollows out the solid, leaving the selected faces open. Select the faces to open; the wall thickness grows inward."
     accepts = Accepts(faces=(1, None))
     params = [Param("thickness", "length", 2)]
 
@@ -644,6 +662,7 @@ class Mirror(_PlanarFace):
 
     id = "mirror"
     label = "Mirror"
+    description = "Mirrors the whole model across the plane of a flat face and joins the copy. Select one flat face; offset moves the mirror plane."
     accepts = Accepts(faces=(1, 1))
     params = [Param("offset", "length")]
 
@@ -706,6 +725,7 @@ class PatchFill(Tool):
 
     id = "patch_fill"
     label = "Patch fill"
+    description = "Closes a gap bounded by selected edges with a smooth filled surface. Select three or more edges; continuity 1 = tangent to neighbours, 0 = just touching."
     accepts = Accepts(edges=(3, None))
     params = [Param("continuity", "number", 1)]
 
@@ -740,6 +760,7 @@ class Bridge(Tool):
 
     id = "bridge"
     label = "Bridge edges"
+    description = "Joins two edges with a straight-ruled surface. Select two edges."
     accepts = Accepts(edges=(2, 2))
     params = []
 
@@ -767,6 +788,7 @@ class Unify(Tool):
 
     id = "unify"
     label = "Unify faces"
+    description = "Merges neighbouring faces that lie on the same surface, for example after opening a file made of many small faces. Nothing needs to be selected."
     accepts = Accepts()
     params = []
 
@@ -780,6 +802,7 @@ class Draft(_PlanarFace):
 
     id = "draft"
     label = "Draft"
+    description = "Tilts flat faces by an angle so they release from a mold, pivoting about the lowest point along the pull direction (default Z). Select one or more flat faces."
     accepts = Accepts(faces=(1, None))
     params = [Param("angle", "angle", 3), Param("pull_x", "number"), Param("pull_y", "number"), Param("pull_z", "number", 1)]
 
@@ -811,6 +834,7 @@ class AlignFace(_PlanarFace):
 
     id = "align_face"
     label = "Align face"
+    description = "Moves the first selected flat face until it is flush with the second. Select two parallel flat faces, the one to move first."
     accepts = Accepts(faces=(2, 2))
     params = [Param("offset", "length")]
 
@@ -859,6 +883,7 @@ class MoveBody(Tool):
 
     id = "move_body"
     label = "Move body"
+    description = "Moves a whole solid by the given distances along X, Y and Z. Select any face of the solid, or nothing to move the whole model."
     accepts = Accepts(faces=(0, None))
     params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length")]
 
@@ -875,6 +900,7 @@ class RotateBody(Tool):
 
     id = "rotate_body"
     label = "Rotate body"
+    description = "Rotates a whole solid about the X, Y or Z axis through the origin (0 = X, 1 = Y, 2 = Z). Select any face of the solid, or nothing for the whole model."
     accepts = Accepts(faces=(0, None))
     params = [Param("axis", "number", 2), Param("angle", "angle", 90)]
 
@@ -894,6 +920,7 @@ class ScaleBody(Tool):
 
     id = "scale_body"
     label = "Scale body"
+    description = "Scales a whole solid evenly about the origin. Select any face of the solid, or nothing for the whole model; 2 doubles the size."
     accepts = Accepts(faces=(0, None))
     params = [Param("factor", "number", 1)]
 
@@ -910,6 +937,7 @@ class ScaleBody(Tool):
 class AddSphere(Tool):
     id = "add_sphere"
     label = "Add sphere"
+    description = "Adds a sphere at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
     accepts = Accepts()
     params = [Param("diameter", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length"), NEW_BODY]
@@ -927,6 +955,7 @@ class AddCone(Tool):
 
     id = "add_cone"
     label = "Add cone"
+    description = "Adds a cone or truncated cone (set a top diameter of 0 for a point) at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
     accepts = Accepts()
     params = [
@@ -953,6 +982,7 @@ class AddTorus(Tool):
 
     id = "add_torus"
     label = "Add torus"
+    description = "Adds a ring shape (donut) at the given position, from the ring radius and the tube radius. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
     accepts = Accepts()
     params = [Param("major", "length", 20), Param("minor", "length", 5), Param("x", "length"), Param("y", "length"), Param("z", "length"), NEW_BODY]
@@ -988,6 +1018,7 @@ class LinearArray(Tool):
 
     id = "linear_array"
     label = "Linear array"
+    description = "Makes copies of the whole model in a straight line and fuses them. Nothing needs to be selected; the count includes the original."
     accepts = Accepts()
     params = [Param("count", "number", 3), Param("dx", "length", 20), Param("dy", "length"), Param("dz", "length")]
 
@@ -1011,6 +1042,7 @@ class CircularArray(Tool):
 
     id = "circular_array"
     label = "Circular array"
+    description = "Makes copies of the whole model around the X, Y or Z axis through the origin (0 = X, 1 = Y, 2 = Z) and fuses them. The count includes the original; 360 spreads them round a full circle."
     accepts = Accepts()
     params = [Param("count", "number", 4), Param("axis", "number", 2), Param("angle", "angle", 360)]
 
@@ -1039,6 +1071,7 @@ class RevolveFace(Tool):
 
     id = "revolve_face"
     label = "Revolve face"
+    description = "Spins a face around a straight edge to add or cut a round shape. Select one face and one straight edge as the axis; mode 0 adds material, 1 cuts."
     accepts = Accepts(faces=(1, 1), edges=(1, 1))
     params = [Param("angle", "angle", 360, drag=False), Param("mode", "number", 0)]
 
@@ -1092,6 +1125,7 @@ class ChamferTwoDistances(Tool):
 
     id = "chamfer_two_distances"
     label = "Chamfer (two distances)"
+    description = "Bevels edges with a different distance on each side. Select one face (it sets which side is first) and one or more of its edges."
     accepts = Accepts(faces=(1, 1), edges=(1, None))
     params = [Param("first", "length", 2), Param("second", "length", 1)]
 
@@ -1107,6 +1141,7 @@ class ChamferDistanceAngle(Tool):
 
     id = "chamfer_distance_angle"
     label = "Chamfer (distance and angle)"
+    description = "Bevels edges with a distance on one face and an angle. Select one face (it sets the side the distance is measured on) and one or more of its edges."
     accepts = Accepts(faces=(1, 1), edges=(1, None))
     params = [Param("distance", "length", 2), Param("angle", "angle", 45)]
 
@@ -1124,6 +1159,7 @@ class BodyBoolean(Tool):
 
     id = "body_boolean"
     label = "Combine bodies"
+    description = "Combines two solids: mode 0 unites them, 1 subtracts the second from the first, 2 keeps only the overlap. Select a face of the first solid, then a face of the second."
     accepts = Accepts(faces=(2, 2))
     params = [Param("mode", "number", 0)]
 
@@ -1172,6 +1208,7 @@ class VariableFillet(Tool):
 
     id = "variable_fillet"
     label = "Variable fillet"
+    description = "Rounds edges with a radius that changes along the edge, from the start value at its first end to the end value at its last. Select one or more edges."
     accepts = Accepts(edges=(1, None))
     params = [Param("start", "length", 1), Param("end", "length", 3)]
 
@@ -1201,6 +1238,7 @@ class FilletPerEdge(Tool):
 
     id = "fillet_per_edge"
     label = "Fillet per edge"
+    description = "Rounds several edges, each with its own radius. Select edges; the form lists one start and end radius per edge, and 0 leaves an edge sharp."
     accepts = Accepts(edges=(1, None))
     params = [Param("radii", "per_edge", 2)]
 
@@ -1249,6 +1287,7 @@ class LoftFaces(Tool):
 
     id = "loft_faces"
     label = "Loft between faces"
+    description = "Joins two faces with a solid that blends from one outline to the other. Select two faces; ruled 1 gives straight sides, 0 a smooth blend."
     accepts = Accepts(faces=(2, 2))
     params = [Param("ruled", "number", 0)]
 
@@ -1273,6 +1312,7 @@ class SweepFace(Tool):
 
     id = "sweep_face"
     label = "Sweep face along edge"
+    description = "Pulls a face along an edge to make a solid. Select one face and the edge to follow; mode 0 adds the solid, 1 cuts it."
     accepts = Accepts(faces=(1, 1), edges=(1, 1))
     params = [Param("mode", "number", 0)]
 
@@ -1302,6 +1342,7 @@ class PathArray(Tool):
 
     id = "path_array"
     label = "Array along path"
+    description = "Places copies of the whole model at equal distances along connected edges. Select the edges that form the path; the count includes the original."
     accepts = Accepts(edges=(1, None))
     params = [Param("count", "number", 4)]
 
@@ -1398,6 +1439,7 @@ class ResizeFillet(Tool):
 
     id = "resize_fillet"
     label = "Resize fillet"
+    description = "Changes the radius of an existing fillet. Select the fillet face; an end radius of 0 keeps the radius constant."
     accepts = Accepts(faces=(1, 1))
     params = [Param("radius", "length", 2), Param("end_radius", "length", 0)]
 
@@ -1426,6 +1468,7 @@ class ResizeChamfer(Tool):
 
     id = "resize_chamfer"
     label = "Resize chamfer"
+    description = "Changes the size of an existing chamfer. Select the chamfer face."
     accepts = Accepts(faces=(1, 1))
     params = [Param("size", "length", 2)]
 
@@ -1460,6 +1503,7 @@ class CutPlane(Tool):
 
     id = "cut_plane"
     label = "Cut with plane"
+    description = "Cuts the model with a plane square to an axis (0 = X, 1 = Y, 2 = Z) at a position and removes one side: +1 removes the part above, -1 the part below. Nothing needs to be selected."
     accepts = Accepts()
     params = [Param("axis", "number", 2), Param("position", "length"), Param("remove_side", "number", 1)]
 
@@ -1488,6 +1532,7 @@ class SplitPlane(Tool):
 
     id = "split_plane"
     label = "Split with plane"
+    description = "Splits the model into two solids along a plane square to an axis (0 = X, 1 = Y, 2 = Z) at a position. Nothing needs to be selected."
     accepts = Accepts()
     params = [Param("axis", "number", 2), Param("position", "length")]
 
@@ -1513,6 +1558,7 @@ class OffsetBody(Tool):
 
     id = "offset_body"
     label = "Offset body"
+    description = "Grows (positive) or shrinks (negative) a solid evenly in all directions. Select any face of the solid, or nothing for the whole model."
     accepts = Accepts(faces=(0, None))
     params = [Param("distance", "length", 1)]
 
@@ -1542,6 +1588,7 @@ class RoundFace(Tool):
 
     id = "round_face"
     label = "Round face edges"
+    description = "Rounds (positive) or bevels (negative) every edge around the selected faces in one step. Select one or more faces."
     accepts = Accepts(faces=(1, None))
     params = [Param("distance", "length", 1)]
 
@@ -1585,6 +1632,7 @@ class InsetFace(_PlanarFace):
 
     id = "inset_face"
     label = "Inset face outline"
+    description = "Draws an inner outline on a flat face, a set distance in from its edge, so that inner area can be pushed, pulled or cut on its own. Select one flat face."
     accepts = Accepts(faces=(1, 1))
     params = [Param("distance", "length", 2), Param("loop", "number", 0)]
 
@@ -1631,6 +1679,7 @@ class DivideFace(_PlanarFace):
 
     id = "divide_face"
     label = "Divide face"
+    description = "Adds a dividing line straight across a flat face so each side can be moved on its own. Select one flat face; across picks the direction (0 or 1) and offset the position from the centre."
     accepts = Accepts(faces=(1, 1))
     params = [Param("across", "number", 0), Param("offset", "length")]
 

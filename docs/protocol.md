@@ -70,15 +70,17 @@ Previews may use a faster, slightly less exact algorithm than commits. The front
 {
   "id": "push_pull",
   "label": "Push/Pull",
+  "description": "Moves flat faces in or out along their normal...",
   "accepts": {"faces": [1, 1], "edges": [0, 0], "vertices": [0, 0]},
   "params": [{"name": "distance", "kind": "length", "default": 0.0, "drag": true}]
 }
 ```
 
+- `description`: one or two plain sentences on what the tool does and what to select; the interface shows it as the tool's tooltip. Every registered tool must have one (`tests/test_tool_descriptions.py`).
 - `accepts`: `[min, max]` selected faces, edges and vertices (`max` null = unbounded).
 - `params[].kind`: `length` (model units), `angle` (degrees) or `number`. `drag: true` marks the parameter the viewport drag controls.
 - A tool can also refuse a selection the counts allow (push/pull rejects curved faces); `available_tools` reports that.
 
 ## Adding a tool
 
-See `core/src/pliable/tools.py` (the module docstring and `PushPull`). Declare `id`, `label`, `accepts`, `params`, optionally `applies`, and implement `run(topology, selection, values, preview)` returning an `OpResult` (new shape plus the faces the selection should follow). Decorate with `@register`; the protocol, validation and applicability checks need nothing else.
+See `core/src/pliable/tools.py` (the module docstring and `PushPull`). Declare `id`, `label`, `description`, `accepts`, `params`, optionally `applies`, and implement `run(topology, selection, values, preview)` returning an `OpResult` (new shape plus the faces the selection should follow). Decorate with `@register`; the protocol, validation and applicability checks need nothing else.

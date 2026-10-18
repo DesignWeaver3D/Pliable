@@ -46,7 +46,7 @@ export function createSettingsWindow(host: HTMLElement) {
   const button = document.createElement("button");
   button.id = "gear";
   button.textContent = "⚙";
-  button.title = "Settings";
+  button.title = "Settings: how close the pointer must be to pick edges and vertices, and display options";
   const panel = document.createElement("div");
   panel.id = "settingspanel";
   panel.hidden = true;
@@ -56,6 +56,7 @@ export function createSettingsWindow(host: HTMLElement) {
     const text = document.createElement("span");
     const input = document.createElement("input");
     input.type = "range";
+    input.title = hint;
     input.min = String(min);
     input.max = String(max);
     input.step = "1";
@@ -75,6 +76,7 @@ export function createSettingsWindow(host: HTMLElement) {
   const check = document.createElement("input");
   check.type = "checkbox";
   check.checked = settings.seeThrough;
+  check.title = seeThrough.title;
   check.onchange = () => updateSettings({ seeThrough: check.checked });
   seeThrough.append(check, " See-through");
   onSettingsChange(() => (check.checked = settings.seeThrough));
@@ -89,6 +91,7 @@ export function createSettingsWindow(host: HTMLElement) {
     o.textContent = name;
     boxSelect.append(o);
   }
+  boxSelect.title = boxRow.title;
   boxSelect.value = settings.boxKind;
   boxSelect.onchange = () => updateSettings({ boxKind: boxSelect.value as Settings["boxKind"] });
   boxRow.append(boxText, boxSelect);
@@ -96,6 +99,7 @@ export function createSettingsWindow(host: HTMLElement) {
   heading.textContent = "Settings";
   const reset = document.createElement("button");
   reset.textContent = "Reset picking";
+  reset.title = "Put the edge and point pick ranges back to their default values";
   reset.onclick = () => {
     updateSettings({ edgePickPx: DEFAULTS.edgePickPx, vertexPickPx: DEFAULTS.vertexPickPx });
     panel.replaceChildren(...build());

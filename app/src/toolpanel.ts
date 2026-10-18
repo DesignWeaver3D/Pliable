@@ -1,6 +1,6 @@
 /** "All tools" list (grouped by layout.ts) and the parameter form for tools that are not dragged. */
 import { TOOL_GROUPS } from "./layout";
-import { describeNeeds, type ToolInfo } from "./tools";
+import { toolTooltip, type ToolInfo } from "./tools";
 import { usage, type Surface } from "./usage";
 
 /** A parameter value: a number, or for `per_edge` parameters one [start, end] radius pair per selected edge. */
@@ -68,7 +68,7 @@ export class ToolPanel {
           const button = document.createElement("button");
           button.textContent = tool.label;
           button.disabled = !this.host.usable(tool);
-          button.title = describeNeeds(tool) || "No selection needed";
+          button.title = toolTooltip(tool);
           button.addEventListener("click", () => this.openForm(tool, {}, "drawer"));
           this.listButtons.set(tool.id, button);
           box.append(button);

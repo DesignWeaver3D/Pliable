@@ -52,3 +52,9 @@ Wave 2a items are all done; nothing half-done.
 
 ## Resume
 Both sessions done; nothing half-done. Watchlist entry added at the end of docs/watchlist.md (it also makes the older "Autosave with several instances" entry out of date; the owner or orchestrator may tidy it).
+
+## Tooltips
+- Every tool now has a plain-language `description` (class attribute on `Tool`, default empty), sent in `list_tools` (docs/protocol.md). `core/tests/test_tool_descriptions.py` fails if any registered tool has fewer than 30 characters, a description that is not one line ending in a full stop, or if the text does not reach the client in `list_tools`.
+- `app/src/tools.ts` `toolTooltip(tool, shortcut?)` builds "<label>: <description> (<shortcut>)" plus a second line "Needs: ..." or "No selection needed"; used by the tool list, the context strip and the Ctrl+K rows (`Command.title`). No tool has a keyboard shortcut yet; pass one as the second argument when that changes. Tested in `app/tests/tooltip.test.mjs`.
+- Non-tool buttons given titles: bar buttons and the demo picker, sketch plane buttons, sketch extrude/revolve controls, OK/Cancel of the sketch value box, settings gear and its controls, shortcut window buttons, launch notice and restore prompt buttons, command search box.
+- Checked in Chrome (core 8804, app 5204): a script listed the title of every button, select and input with the tool list, strip (nothing, face selected, edge selected), main bar, sketch panel, settings and Keys windows open: none empty. Native hover tooltips do not show in screenshots, so the text was checked through the `title` attributes only.
