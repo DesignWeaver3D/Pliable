@@ -1,6 +1,6 @@
 # Rebuild Progress Log
 
-Working log for the rebuild described in [ROADMAP.md](../ROADMAP.md). Read this first in every session (see the local session guide for the session rules).
+Working log for the rebuild described in [ROADMAP.md](../ROADMAP.md). Read this first in every session (commit message rules are in [CONTRIBUTING.md](../CONTRIBUTING.md)).
 
 ## Session plan to the MVP
 

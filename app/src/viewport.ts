@@ -72,7 +72,7 @@ class Mark {
 const PERSPECTIVE_FOV = 45;
 const ISO_DIRECTION = new THREE.Vector3(1, -1.4, 0.9).normalize(); // from the target toward the camera
 
-/** Standard views, Number keys for standard views (0 isometric, 1 front, 2 top, 3 right, 4 rear, 5 bottom, 6 left); Z is up. */
+/** Standard views, numbered (0 isometric, 1 front, 2 top, 3 right, 4 rear, 5 bottom, 6 left); Z is up. */
 export const STANDARD_VIEWS: Record<string, THREE.Vector3> = {
   iso: ISO_DIRECTION,
   front: new THREE.Vector3(0, -1, 0),
