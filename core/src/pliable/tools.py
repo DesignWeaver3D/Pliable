@@ -232,7 +232,8 @@ class PushPullSurface(Tool):
     id = "push_pull_surface"
     label = "Emboss/Cut along surface"
     accepts = Accepts(faces=(1, None))
-    params = [Param("distance", "length", drag=True)]
+    # Not a drag tool: curved faces have no single drag direction, so the distance comes from the form.
+    params = [Param("distance", "length", default=1.0)]
 
     def applies(self, topology, selection):
         return all(planar_normal(topology.face(i)) is None for i in selection.faces)

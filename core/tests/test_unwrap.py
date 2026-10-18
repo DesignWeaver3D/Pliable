@@ -183,3 +183,41 @@ def test_wrapped_patch_can_be_embossed_and_cut_through_the_server(hole):
         assert abs(v - base) > 100  # about 12 x 8 x 2
         session.handle({"type": "undo"})
         assert _volume(session.document.current.shape) == pytest.approx(base, rel=1e-9)
+
+
+def test_chain_and_cone_through_the_server_use_the_offset_plane_and_can_be_embossed():
+    from build123d import Box, Cone, fillet
+    from OCP.GeomAbs import GeomAbs_Cone
+
+    from pliable.server import Session
+
+    # cone: a patch drawn on the unrolled sector, then embossed
+    session = Session()
+    session._open(Cone(12, 5, 20).wrapped, "cone")
+    topology = session.document.current
+    (side,) = _faces_of(topology, GeomAbs_Cone)
+    plane = session.handle({"type": "sketch_plane", "unwrap": [side]})["plane"]
+    assert plane["origin"][0] > 12
+    session.handle({"type": "sketch_regions", "unwrap": [side], "sketch": {**_rectangle(6, 5), "plane": plane}})
+    patch = _patch_id(session, 30)
+    base = _volume(session.document.current.shape)
+    session.handle({"type": "tool_commit", "tool": "push_pull_surface", "selection": {"faces": [patch]}, "params": {"distance": 1.5}})
+    assert _volume(session.document.current.shape) > base + 30
+
+    # chain of two flats and a round: the wrapped round piece is embossed too
+    box = Box(20, 20, 10)
+    edge = box.edges().filter_by(lambda e: abs(e.center().X - 10) < 1e-6 and abs(e.center().Y - 10) < 1e-6)[0]
+    session = Session()
+    session._open(fillet(edge, 4).wrapped, "chain")
+    topology = session.document.current
+    from OCP.GeomAbs import GeomAbs_Cylinder
+
+    (round_face,) = _faces_of(topology, GeomAbs_Cylinder)
+    flats = [i for i in range(topology.face_count) if i != round_face and abs(abs(BRepAdaptor_Surface(topology.face(i)).Plane().Axis().Direction().Z()) - 1) > 1e-6 and unwrap._shared(topology.face(i), topology.face(round_face))]
+    ids = [flats[0], round_face, flats[1]]
+    plane = session.handle({"type": "sketch_plane", "unwrap": ids})["plane"]
+    session.handle({"type": "sketch_regions", "unwrap": ids, "sketch": {**_rectangle(12, 8), "plane": plane}})
+    patch = _patch_id(session, math.pi / 2 * 4 * 8)
+    base = _volume(session.document.current.shape)
+    session.handle({"type": "tool_commit", "tool": "push_pull_surface", "selection": {"faces": [patch]}, "params": {"distance": -1.0}})
+    assert _volume(session.document.current.shape) < base - 20
