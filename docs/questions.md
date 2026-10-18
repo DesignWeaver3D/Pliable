@@ -1,3 +1,16 @@
+# Summary for the owner's return (unattended session, 2026-10-18)
+
+All six queue items were worked and pushed to `dev` (tests: 154 pass; no push to `rebuild` or `main`, no tags). Details are in docs/progress.md, decisions below as questions 15-19.
+
+1. **Sketch regions become faces** when you press "Finish sketch" (new button; "Discard sketch" or Escape throws the sketch away). Zones lying on a flat model face are imprinted on it; others become loose faces that push/pull turns into solids. Checked in Chrome for a loose rectangle; imprinting onto a face and overlapping circles are covered by tests only.
+2. **Centre rectangle** tool and a square/rounded/bevelled corner option for both rectangle tools (checked in Chrome).
+3. **Edge helpers:** "All edges" and "Edge loops" buttons for a selected face (checked), and double-click an edge with another edge selected to take the loop of their shared face (not tried in a browser).
+4. **Resize fillet** works on variable fillets and can switch constant/variable with an end radius. No variable chamfer exists in the kernel.
+5. **Hole centres** are measured (centre, centre-to-centre, centre-to-face); Center between faces takes any pick order. Separately pickable centre points are not built (question 17).
+6. **Offset curve** in the sketch (checked in Chrome) and **Array along path** over connected edges.
+
+Not done / needs you: the open parts of S30, S31, S35, S37 listed in the progress table. I killed a stale core server on port 8765 to test my changes and left a fresh core server and the Vite dev server (port 5175) running.
+
 # Questions for the user (overnight session, 2026-10-17)
 
 Decisions were made with this order: your described workflow, industry standard, common practice in other direct modelers, web consensus. Each entry: what I decided, why, and what to change if you disagree. Development did not stop for any of these.
@@ -50,3 +63,4 @@ Replies to the open questions in docs/research/gui-plan.md; the decisions are re
 16. **Variable chamfer:** the modeling kernel offers no variable-distance chamfer, only two distances (already a tool). Not built; decided by what the kernel allows.
 17. **Hole centres (S35):** a hole or boss is selected through its wall face, and that face now reports its centre (middle of the axis) and gives centre-to-centre distance for two holes and centre-to-face distance for a hole and a flat face, each with an on-screen dimension. I did not add a separate "centre point" item that can be picked on its own: it would be a fourth selection kind touching picking, highlighting and every tool. Selecting the hole face already works as the move handle (Move hole). Say if you want true pickable centre points.
 18. **Center between faces** now accepts the hole and the two faces in any order (it finds the single cylinder among the three).
+19. **Array along path** replaces the single-edge array: same tool id, now takes one or more connected edges and spaces copies by arc length (closed paths spread evenly). Copies are translated, not rotated along the path.

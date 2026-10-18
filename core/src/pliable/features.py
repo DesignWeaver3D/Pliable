@@ -1200,24 +1200,39 @@ class SweepFace(Tool):
 
 @register
 class PathArray(Tool):
-    """Copies of the whole model placed at equal steps along the selected edge, starting at the model's current
-    position (the first copy is the original); copies are moved, not turned, and fused with it."""
+    """Copies of the whole model placed at equal distances along a path of one or more connected edges, starting
+    at the model's current position (the first copy is the original); copies are moved, not turned, and fused
+    with it. On a closed path the copies are spread round it without doubling up at the start."""
 
     id = "path_array"
-    label = "Array along edge"
-    accepts = Accepts(edges=(1, 1))
+    label = "Array along path"
+    accepts = Accepts(edges=(1, None))
     params = [Param("count", "number", 4)]
 
     def run(self, topology, selection, values, preview):
+        from OCP.BRepAdaptor import BRepAdaptor_CompCurve
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeWire
+        from OCP.GCPnts import GCPnts_AbscissaPoint
+
         count = _array_copies(values["count"])
-        curve = BRepAdaptor_Curve(topology.edge(selection.edges[0]))
-        first, last = curve.FirstParameter(), curve.LastParameter()
-        # Equal steps in the curve parameter: equal lengths for lines and circles, only approximately for splines.
-        point = lambda k: curve.Value(first + (last - first) * k / (count - 1))
+        maker = BRepBuilderAPI_MakeWire()
+        for i in selection.edges:
+            maker.Add(topology.edge(i))
+        if not maker.IsDone():
+            raise OperationError("The selected edges do not form one connected path")
+        wire = maker.Wire()
+        curve = BRepAdaptor_CompCurve(wire)
+        total = GCPnts_AbscissaPoint.Length_s(curve)
+        closed = curve.IsClosed()
+        steps = count if closed else count - 1
+        start = curve.Value(curve.FirstParameter())
         transforms = []
         for k in range(1, count):
+            locator = GCPnts_AbscissaPoint(curve, total * k / steps, curve.FirstParameter())
+            if not locator.IsDone():
+                raise OperationError("Could not place the copies along this path")
             trsf = gp_Trsf()
-            trsf.SetTranslation(gp_Vec(point(0), point(k)))
+            trsf.SetTranslation(gp_Vec(start, curve.Value(locator.Parameter())))
             transforms.append(trsf)
         return _fuse_copies(topology.shape, transforms)
 

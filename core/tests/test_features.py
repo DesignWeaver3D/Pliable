@@ -447,3 +447,30 @@ def test_resize_works_on_a_variable_fillet_and_can_switch_it_to_constant(block):
     again = run("resize_fillet", topology, faces=[round_face], radius=2, end_radius=5)
     assert volume(again.shape) < volume(constant.shape) + 1  # a larger end radius removes more than r=2 everywhere
 
+
+
+def test_path_array_follows_a_bent_path(block):
+    from OCP.BRepBndLib import BRepBndLib
+    from OCP.Bnd import Bnd_Box
+
+    top, _ = _top_face_and_edge(block)
+    from pliable.edgesel import face_loops
+
+    loop = face_loops(block, top)[0]
+    # consecutive edges of a face's loop share a corner
+    result = run("path_array", block, edges=[loop[0], loop[1]], count=3)
+    box = Bnd_Box()
+    BRepBndLib.Add_s(result.shape, box)
+    lo, hi = box.CornerMin(), box.CornerMax()
+    sizes = sorted([hi.X() - lo.X(), hi.Y() - lo.Y()])
+    assert sizes == pytest.approx([60, 80], abs=1e-3)
+    assert volume(result.shape) > volume(block.shape)
+
+
+def test_path_array_needs_a_connected_path(block):
+    top, _ = _top_face_and_edge(block)
+    from pliable.edgesel import face_loops
+
+    loop = face_loops(block, top)[0]
+    with pytest.raises(OperationError):
+        run("path_array", block, edges=[loop[0], loop[2]], count=3)  # opposite sides of the face never touch
