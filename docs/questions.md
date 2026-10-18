@@ -42,3 +42,9 @@ Replies to the open questions in docs/research/gui-plan.md; the decisions are re
 - Tablet: accommodate while cheap, otherwise desktop only.
 - Keyboard safety: the owner dislikes programs where typing into the wrong window fires many two-key shortcuts. A research proposal is being written (docs/research/shortcut-policy.md); the work is S40.
 - Keyboard rule from the owner: bare keys are fine if they do not immediately alter the model or global application settings, and every hotkey must be user-redefinable. The research draft was stricter on tool starts; to be reconciled in S40. Answered: view toggles such as perspective/ortho are view state, so bare keys are fine.
+
+
+## Unattended session 2026-10-18 (queue decisions)
+
+15. **Variable fillet editing (S37):** Resize fillet now accepts variable fillets too (any non-planar neighbour-tangent face) and has an "end radius": 0 keeps or makes the fillet constant, above 0 makes it variable (radius at the edge's first vertex, then the end radius at its last). The per-edge choice is made by selecting that fillet's face, since each edge's round is its own face. The tool cannot tell you the existing radii, so type both values. If you want a per-edge list inside one form, that needs a dynamic parameter form (not built).
+16. **Variable chamfer:** the modeling kernel offers no variable-distance chamfer, only two distances (already a tool). Not built; decided by what the kernel allows.

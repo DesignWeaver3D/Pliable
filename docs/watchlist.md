@@ -90,3 +90,7 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 
 - **"Edge loops" selects every boundary loop of the face** (outline and hole loops together), not only the coplanar outer loop; "All edges" gives the same ids for a face (`edgesel.py`). *Symptom:* a face with holes selects the hole rims too; shift-click to drop them.
 - **Shared-loop double-click** takes the first other selected edge as the partner, so with three or more edges selected the partner is the first in the list. With no common face it falls back to the smooth chain. Not seen in a browser: only the face buttons were exercised.
+
+## Fillet editing (2026-10-18)
+
+- **Resize fillet on a variable fillet** (`features.ResizeFillet`): the start/end radii map to the sharp edge's first/last vertex as the kernel orders them, which may be the opposite of how the fillet was first made, and the tool does not show the old radii. *Symptom:* the fillet comes back mirrored; swap the two radii. It now also offers itself on any non-planar face, so it can be offered on faces that are not fillets (it then says so when run).

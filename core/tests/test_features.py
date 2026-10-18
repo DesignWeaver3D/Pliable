@@ -433,3 +433,17 @@ def test_bridge_between_opposite_free_edges_closes_the_open_box():
     b = next(i for i in free[1:] if not vertices(i) & vertices(a))
     result = run("bridge", open_body, edges=[a, b])
     assert len(solids_of(result.shape)) == 1
+
+
+def test_resize_works_on_a_variable_fillet_and_can_switch_it_to_constant(block):
+    from pliable.topology import Topology
+
+    _, edge = _top_face_and_edge(block)
+    made = run("variable_fillet", block, edges=[edge], start=1, end=4)
+    topology = Topology(made.shape)
+    round_face = topology.face_id(made.tracked_faces[0])
+    constant = run("resize_fillet", topology, faces=[round_face], radius=3)
+    assert 24000 - 4 * 3 * 40 < volume(constant.shape) < 24000
+    again = run("resize_fillet", topology, faces=[round_face], radius=2, end_radius=5)
+    assert volume(again.shape) < volume(constant.shape) + 1  # a larger end radius removes more than r=2 everywhere
+

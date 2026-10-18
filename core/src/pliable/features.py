@@ -1214,9 +1214,10 @@ class PathArray(Tool):
 # Re-radius a fillet ---------------------------------------------------------------------------------------
 
 
-def _rebuild_round(topology, face, neighbours: list, size: float, chamfer: bool) -> OpResult:
+def _rebuild_round(topology, face, neighbours: list, size: float, chamfer: bool, end_size: float = 0.0) -> OpResult:
     """Remove a fillet or chamfer face (its two neighbours extend back to a sharp edge), then round that edge
-    again with `size` (a fillet radius or chamfer leg); size 0 leaves the sharp edge."""
+    again with `size` (a fillet radius or chamfer leg); size 0 leaves the sharp edge. A fillet with `end_size`
+    above 0 is variable: `size` at the edge's first vertex growing or shrinking to `end_size` at its last."""
     from .ops import _follow, fillet_chamfer
     from .topology import Topology
 
@@ -1240,6 +1241,18 @@ def _rebuild_round(topology, face, neighbours: list, size: float, chamfer: bool)
     shared = [e for _, e in rebuilt.edges() if all(any(f.IsSame(m) for f in rebuilt.edge_faces(e)) for m in modified)]
     if len(shared) != 1:
         raise OperationError("Could not find the sharp edge left by this round")
+    if end_size > MIN_DISTANCE and not chamfer:
+        from OCP.BRepFilletAPI import BRepFilletAPI_MakeFillet
+
+        maker = BRepFilletAPI_MakeFillet(sharp)
+        maker.Add(size, end_size, shared[0])
+        try:
+            maker.Build()
+        except Exception as e:  # OCCT raises Standard_Failure for impossible sizes
+            raise OperationError(f"Could not round: {e}") from None
+        if not maker.IsDone() or maker.Shape().IsNull() or not BRepCheck_Analyzer(maker.Shape()).IsValid():
+            raise OperationError("Could not round this edge with these radii")
+        return finish(maker.Shape())
     return finish(fillet_chamfer(sharp, shared, -size if chamfer else size).shape)
 
 
@@ -1257,15 +1270,18 @@ def _face_edges(face):
 @register
 class ResizeFillet(Tool):
     """Change the radius of a fillet from the fillet face itself: the round is removed (neighbours extended back
-    to a sharp edge) and that edge is filleted again. A radius of 0 leaves the sharp edge."""
+    to a sharp edge) and that edge is filleted again. A radius of 0 leaves the sharp edge. Works on constant and
+    variable fillets: an end radius of 0 makes the fillet constant, above 0 makes it variable (radius at the
+    edge's first vertex growing or shrinking to the end radius at its last)."""
 
     id = "resize_fillet"
     label = "Resize fillet"
     accepts = Accepts(faces=(1, 1))
-    params = [Param("radius", "length", 2)]
+    params = [Param("radius", "length", 2), Param("end_radius", "length", 0)]
 
     def applies(self, topology, selection):
-        return BRepAdaptor_Surface(topology.face(selection.faces[0])).GetType() in (GeomAbs_Cylinder, GeomAbs_Torus)
+        # Constant fillets are cylinders or tori; a variable fillet is a free-form surface.
+        return BRepAdaptor_Surface(topology.face(selection.faces[0])).GetType() not in (GeomAbs_Plane,)
 
     def run(self, topology, selection, values, preview):
         from .measure import _tangent
@@ -1278,7 +1294,7 @@ class ResizeFillet(Tool):
                     neighbours.append(other)
         if len(neighbours) != 2:
             raise OperationError("That face is not a simple fillet between two faces")
-        return _rebuild_round(topology, face, neighbours, values["radius"], chamfer=False)
+        return _rebuild_round(topology, face, neighbours, values["radius"], chamfer=False, end_size=values["end_radius"])
 
 
 @register
