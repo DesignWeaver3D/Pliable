@@ -4,7 +4,7 @@ Working log for the rebuild described in [ROADMAP.md](../ROADMAP.md). Read this 
 
 ## Session plan to the MVP
 
-Each session is scoped to fit comfortably in one usage window using Sonnet with a fresh conversation. Each ends with tests passing, this file updated, and a push. **Checkpoint** sessions end with a report to the user, and work doesn't continue until the user responds.
+Each session is scoped to fit comfortably in one usage window using Sonnet with a fresh conversation. Each ends with tests passing, this file updated, and a push. **Checkpoint** sessions end with a report to the user, and in an interactive session work doesn't continue until the user responds. In an unattended session, mark them "Done, awaiting user" and continue.
 
 The MVP target is parity with the `v0.1.0-poc` prototype: STEP import/export, face/edge/vertex selection, push/pull with live preview and exact entry, fillet/chamfer by dragging, undo/redo.
 
