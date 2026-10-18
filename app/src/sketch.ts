@@ -108,12 +108,16 @@ export class SketchMode {
 
   // Entering and leaving ----------------------------------------------------------------------------
 
-  start(plane: M.PlaneData, reference?: { points: M.SketchPoint[]; entities: M.SketchEntity[] }) {
+  /** Set while sketching on an unrolled cylinder face: the face the regions are wrapped back onto when finishing. */
+  private unwrapFace: number | null = null;
+
+  start(plane: M.PlaneData, reference?: { points: M.SketchPoint[]; entities: M.SketchEntity[] }, unwrapFace: number | null = null) {
     if (this.active) this.exit();
     // Reference geometry (the face outline) is fixed construction geometry that sketch points can snap to.
     this.s = { plane, points: reference?.points ?? [], entities: reference?.entities ?? [], constraints: [] };
     // The model origin and the places where the principal axes meet the plane are fixed points too.
-    for (const o of M.originPoints(plane, this.s.points)) this.s.points.push({ id: M.nextId(this.s), u: o.u, v: o.v, fixed: true });
+    this.unwrapFace = unwrapFace;
+    if (unwrapFace === null) for (const o of M.originPoints(plane, this.s.points)) this.s.points.push({ id: M.nextId(this.s), u: o.u, v: o.v, fixed: true });
     const f = M.frame(plane);
     this.plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(...f.n), new THREE.Vector3(...f.origin));
     this.tool = "select";
@@ -158,7 +162,7 @@ export class SketchMode {
     if (!this.active) return;
     clearTimeout(this.previewTimer);
     try {
-      const mesh = await this.core.request<MeshData>("sketch_regions", { sketch: this.s });
+      const mesh = await this.core.request<MeshData>("sketch_regions", this.unwrapFace === null ? { sketch: this.s } : { sketch: this.s, unwrap: this.unwrapFace });
       this.exit();
       this.host.committed(mesh);
       this.host.status("Sketch closed: its regions are faces now");
@@ -1050,13 +1054,14 @@ export class SketchMode {
       constraintsBox.append(construction);
     }
 
+    const flat = this.unwrapFace === null;
     const project = button("Project model edges", () => this.projectModel());
     project.title = "Flatten the model's edges onto this plane as fixed geometry to snap and constrain to";
-    constraintsBox.append(project);
+    if (flat) constraintsBox.append(project);
 
     const finish = button("Finish sketch", () => this.finish());
     finish.title = "Leave the sketch and keep its closed regions as faces you can push/pull or extrude";
     const exit = button("Discard sketch", () => this.exit());
-    this.panel.replaceChildren(header, status, tools, constraintsBox, ask, list, extrude, finish, exit);
+    this.panel.replaceChildren(header, status, tools, constraintsBox, ask, list, ...(flat ? [extrude] : []), finish, exit);
   }
 }
