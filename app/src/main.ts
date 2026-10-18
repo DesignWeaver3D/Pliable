@@ -29,7 +29,6 @@ const viewport = new Viewport($("viewport"));
 const core = new CoreClient();
 usage.attach(core);
 installAlphaUi($("bar"), core);
-showLaunchNotice();
 
 const BUSY_LABELS: Record<string, string> = {
   import_step: "Importing", combine_step: "Combining", export_step: "Exporting", open_demo: "Opening",
@@ -954,6 +953,7 @@ async function connectToCore() {
     }
   }
   status.classList.remove("error");
+  void showLaunchNotice(core);
   tools = (await core.request<{ tools: ToolInfo[] }>("list_tools")).tools;
   renderToolbar();
   toolPanel.renderList();

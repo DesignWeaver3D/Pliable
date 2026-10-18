@@ -39,8 +39,17 @@ function button(label: string, onclick: () => void): HTMLButtonElement {
   return b;
 }
 
-/** Dismissible notice shown at every launch. */
-export function showLaunchNotice(): void {
+let noticeShown = false;
+
+/** The launch notice, shown until the user clicks I understand once (kept by the core, per user). */
+export async function showLaunchNotice(core: Requester): Promise<void> {
+  if (noticeShown) return;
+  noticeShown = true;
+  try {
+    if ((await core.request<{ acknowledged: boolean }>("notice_get")).acknowledged) return;
+  } catch {
+    // Unknown state: show the notice rather than hide it.
+  }
   const { box, card } = overlay();
   const title = document.createElement("h3");
   title.textContent = "⚠️ Pliable alpha: read before you continue";
@@ -54,7 +63,12 @@ export function showLaunchNotice(): void {
   usageNote.style.cssText = "font-size:13px;color:#bbb";
   const row = document.createElement("div");
   row.style.cssText = "display:flex;gap:8px;justify-content:flex-end";
-  row.append(button("I understand", () => box.remove()));
+  row.append(
+    button("I understand", () => {
+      box.remove();
+      core.request("notice_ack").catch(() => {});
+    }),
+  );
   card.append(title, text, usageNote, row);
 }
 

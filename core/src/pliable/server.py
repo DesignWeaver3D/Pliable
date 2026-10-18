@@ -21,6 +21,7 @@ from websockets.datastructures import Headers
 from websockets.http11 import Response
 
 from . import __version__, sketch, unwrap
+from . import notice
 from .autosave import Autosaver
 from .demos import load_demo
 from . import diagnostics
@@ -111,6 +112,11 @@ class Session:
         if kind == "usage_event":
             self.usage.record(request.get("tool"), request.get("event"), request.get("surface"))
             return {}
+        if kind == "notice_get":
+            return {"acknowledged": notice.acknowledged(), "epoch": notice.NOTICE_EPOCH}
+        if kind == "notice_ack":
+            notice.acknowledge()
+            return {"acknowledged": True, "epoch": notice.NOTICE_EPOCH}
         if kind == "usage_clear":
             self.usage.clear()
             return {}

@@ -46,6 +46,8 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 | `diagnostics` | | `{report}`: versions, last tool, import warnings, log lines and `usage` (per tool: start/commit/cancel/error counts and start surfaces) |
 | `usage_event` | `tool`, `event` (start, commit, cancel, error), `surface` (strip, search, drawer, keys, drag, other) | `{}`; counted in memory for the diagnostics report |
 | `usage_clear` | | `{}`; resets the usage counts |
+| `notice_get` | | `{acknowledged, epoch}`: whether this user has acknowledged the alpha notice (per user, in the shared data folder) |
+| `notice_ack` | | `{acknowledged: true, epoch}`; written atomically |
 
 `selection` is `{"faces": [ids], "edges": [ids], "vertices": [ids]}`; omitted lists are empty.
 
