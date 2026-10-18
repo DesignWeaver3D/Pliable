@@ -235,3 +235,10 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Resize hole also resizes same-size holes by default
 
 - **Resize hole applies to every hole of the same size unless the chip is turned off; every other tool defaults to the selected feature only.** The per-tool defaults are `TOOL_RULES` and `ruleFor` in `main.ts` (S35, wave 2a). *Symptom:* resizing one hole of a pattern changes all of them, while moving a hole still moves only that one, so the two tools behave differently. The owner chose to keep this for now (2026-10-18). *Proposed fix if someone reports it as surprising:* set the Resize hole default to off like the other tools, or show a one-time hint on the chip saying how many other holes the change will touch.
+
+## Wave 2b selection changes
+
+- **Box select visibility is sampled** (up to 6 points per edge, 12 triangle centres per face, rays against the whole model), so a thin sliver of a face can be missed and very large models will be slow to box select. *Symptom:* an item that is only just visible is not taken, or a box over a dense model lags on release.
+- **Edge ring crosses faces with more than four edges by the farthest parallel straight edge.** On odd faces this can pick an edge that is not the one a person would call opposite. Ring still stops at faces with holes. *Symptom:* ring jumps to a far edge or stops early.
+- **Double-click on an edge selects the face outlines beside it** (not the tangent chain); edges whose outline is only themselves, such as a hole rim, fall back to the chain.
+- **Divide face drag:** with the form open, pressing on the model places the dividing line instead of selecting; the line orientation comes from the first 4 pixels of movement. *Symptom:* clicking another face does nothing until Cancel.
