@@ -27,3 +27,7 @@ Decisions were made with this order: your described workflow, industry standard,
 - Moving one bracket hole moves all four (equal-radius rule on). May be right design intent, but the user needs a choice per operation. Hole centres should be measurable, selectable and usable as move handles and dimension anchors (S35).
 - The placeholder top bar needs a full rework with the rest of the UI (S34).
 - Edge chains: double-click chain is liked. Wanted: select all edges of a face, the coplanar edge loop of a face, and two edges plus double-click for the shared face's loop (S31).
+- Variable-radius fillets and chamfers are wanted if possible, with a per-edge choice of variable or not while editing (S37).
+- Combine STEP placing the other file at its own origin is fine for now; revisit if it becomes a problem.
+- Wanted: pick several solids, move them singly or as a group, and hide them (added to S29). Also a see-through mode where hidden edges can still be picked, after research on how other modelers do it (S38).
+- Entry 14 was unclear to the owner: Center between faces needs the hole picked first, then the two faces. Proposed fix: detect which pick is the hole by its type so order does not matter (to be done with S35).
