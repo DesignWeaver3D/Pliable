@@ -349,6 +349,7 @@ function pump(token: number) {
 }
 
 viewport.onSelect = setSelection;
+viewport.onEyedropCancel = () => cancelEyedrop();
 viewport.onEdgeLoop = async (edgeId, additive) => {
   try {
     // Another edge is already selected: take the loop of the face the two share.
@@ -733,6 +734,27 @@ function renderSketchBar() {
 renderSketchBar();
 
 // Tools without a drag parameter (and the "All tools" list) use a typed-value form with live preview.
+let eyedropResolve: ((v: number | null) => void) | null = null;
+function cancelEyedrop() {
+  viewport.eyedropper = null;
+  eyedropResolve?.(null);
+  eyedropResolve = null;
+}
+
+/** The number a measured item holds for a tool parameter: radius, diameter, angle, else a length. */
+function readValue(rows: { label: string; value: number | number[] | string }[], param: string, kind: string): number | null {
+  const num = (label: string) => {
+    const v = rows.find((r) => r.label === label)?.value;
+    return typeof v === "number" ? v : null;
+  };
+  const radius = num("Radius") ?? (num("Diameter") !== null ? num("Diameter")! / 2 : null);
+  const diameter = num("Diameter") ?? (radius !== null ? radius * 2 : null);
+  if (kind === "angle") return num("Angle");
+  if (/diam/i.test(param)) return diameter;
+  if (/radius/i.test(param)) return radius;
+  return num("Length") ?? num("Distance") ?? radius;
+}
+
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   tools: () => tools,
   usable: (tool) => acceptsSelection(tool, expand(tool, currentSels)) && (refined === null || refined.includes(tool.id)),
@@ -761,6 +783,29 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       status.classList.add("error");
     }
   },
+  eyedrop(param, kind) {
+    return new Promise((resolve) => {
+      cancelEyedrop();
+      if (committed) show(committed); // pick against the committed model, whose ids the core knows
+      status.classList.remove("error");
+      status.textContent = "Eyedropper: click the item to copy from (Esc cancels)";
+      eyedropResolve = resolve;
+      viewport.eyedropper = async (sel) => {
+        viewport.eyedropper = null;
+        eyedropResolve = null;
+        try {
+          const reply = await core.request<MeasureReply>("measure", { selection: selectionPayload([sel]) });
+          const value = readValue(reply.items[0]?.rows ?? [], param, kind);
+          status.textContent = value === null ? "That item has no matching value" : `Copied ${value}`;
+          resolve(value);
+        } catch (e) {
+          status.textContent = (e as Error).message;
+          resolve(null);
+        }
+      };
+    });
+  },
+  cancelEyedrop,
   cancel() {
     if (committed) {
       show(committed);

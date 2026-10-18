@@ -147,3 +147,7 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Hole centres as pick targets (S35)
 
 - A hole or boss centre is a small blue dot; clicking it selects that hole's face (it is not a separate point selection). Using a centre as a drag handle to move the hole is not built; the Move hole tool form is used instead. Centre markers are hidden when the hole wall is in the way.
+
+## Eyedropper (S32)
+
+- The eyedropper button sits next to length and angle fields in tool forms. It reads the measurement of the clicked face or edge: radius, diameter and length by matching the field name (names containing "radius" or "diam", else length, distance, then radius); angle fields read an Angle row. Other field names get a length, which may not be what was meant. It picks against the committed model, so the preview is hidden while it is armed.

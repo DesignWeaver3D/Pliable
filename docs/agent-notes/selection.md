@@ -21,3 +21,10 @@
 - Built: hole and boss centres are sent in the mesh header (`centres`), drawn as blue dots, and picking one selects the hole face (so tools, measuring and centre-to-centre dimensions work from it). Chips and equal-radius off by default were done earlier.
 - Decision: no separate "centre" selection kind (would need ids through every tool); the dot is an alternate pick target for the face. Change in `nearestCentre` in viewport.ts if the owner wants a real point kind.
 - Parked: per-tool defaults for the "applies to" choice (today one global chip toggle, off by default, so one hole moves alone), and dragging a centre as a move handle.
+
+## S32 eyedropper: Done (hand-checked in Chrome: Resize hole diameter copied from another hole)
+- Button next to length/angle fields in the tool form; click an item to copy its radius/diameter/length (see `readValue` in main.ts). Esc cancels. Works for fillet faces too (they report Radius); not hand-checked on a fillet.
+- Decision: matching by field name, see watchlist.
+
+## Where to resume
+All five sessions handled. Open items: S31 offset of inner loops and dragging the divide edge in the viewport; S35 per-tool defaults and centre as drag handle; S26 box select always uses the selected kind (no kind switch in the UI).

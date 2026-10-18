@@ -124,6 +124,9 @@ export class Viewport {
   onItemDrag: (sels: Sel[], distance: number, phase: "move" | "end" | "cancel", x?: number, y?: number) => void = () => {};
   /** While true (typed value entry or measure mode), pointer movement does not change the drag distance. */
   holdDrag = false;
+  /** While set, the next click picks an item for this callback instead of selecting it (eyedropper). */
+  eyedropper: ((sel: Sel) => void) | null = null;
+  onEyedropCancel: () => void = () => {};
   /** Measurable edges of the dragged face (empty unless a single planar face is dragged). */
   measures: Measure[] = [];
   /** The measurement nearest where the drag started; shown as context in the dimension label. */
@@ -331,7 +334,7 @@ export class Viewport {
         return;
       }
       down = { x: e.clientX, y: e.clientY };
-      if (e.button !== 0 || this.measureMode) return;
+      if (e.button !== 0 || this.measureMode || this.eyedropper) return;
       const hit = this.pickHit(e);
       this.box = null;
       const direction = hit && this.dragDirection(hit);
@@ -402,6 +405,12 @@ export class Viewport {
       }
       if (this.drag && e.button !== 0) return; // right/middle release ends an orbit or pan, not the tool drag
       const drag = this.drag;
+      if (this.eyedropper && e.button === 0) {
+        const sel = this.pick(e);
+        if (sel) this.eyedropper(sel);
+        down = null;
+        return;
+      }
       if (this.box) {
         this.finishBox(e);
         down = null;
@@ -438,6 +447,7 @@ export class Viewport {
       // M during a tool drag toggles measure mode (it used to be the right button, which now orbits).
       if ((e.key === "m" || e.key === "M") && this.drag?.moved && !e.ctrlKey && !e.metaKey && !e.altKey) this.toggleMeasure();
       if (e.key === "Escape" && this.box) this.cancelBox();
+      if (e.key === "Escape" && this.eyedropper) this.onEyedropCancel();
       if (e.key === "Escape" && this.drag && !this.holdDrag) {
         const sels = this.drag.sels;
         this.drag = null;
