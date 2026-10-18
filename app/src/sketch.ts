@@ -831,9 +831,9 @@ export class SketchMode {
     const tag = (u: number, v: number, text: string): Dimension[] => [{ kind: "tag", text, points: [M.toWorld(this.s.plane, u, v)] }];
     const du = c.u - a.u;
     const dv = c.v - a.v;
-    if (this.tool === "line") return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `${n(Math.hypot(du, dv))} at ${n((Math.atan2(dv, du) * 180) / Math.PI)}°`);
-    if (this.tool === "rectangle") return tag((a.u + c.u) / 2, c.v, `${n(Math.abs(du))} × ${n(Math.abs(dv))}`);
-    if (this.tool === "rectcentre") return tag(a.u, c.v, `${n(Math.abs(du) * 2)} × ${n(Math.abs(dv) * 2)}`);
+    if (this.tool === "line") return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `${n(Math.hypot(du, dv))} at ${n((Math.atan2(dv, du) * 180) / Math.PI)}Â°`);
+    if (this.tool === "rectangle") return tag((a.u + c.u) / 2, c.v, `${n(Math.abs(du))} Ã— ${n(Math.abs(dv))}`);
+    if (this.tool === "rectcentre") return tag(a.u, c.v, `${n(Math.abs(du) * 2)} Ã— ${n(Math.abs(dv) * 2)}`);
     if (this.tool === "circle" || POLYGON_SIDES[this.tool]) return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `R${n(Math.hypot(du, dv))}`);
     return [];
   }
