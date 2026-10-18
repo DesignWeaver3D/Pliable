@@ -35,6 +35,8 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 - **Sketch dimensions in the SVG overlay redraw every frame.** Cheap for a few dimensions; not tested with hundreds.
 - **Extrude with several nested loops** makes inner loops holes; loops that cross each other are not checked and may give an invalid face. *Symptom:* an extrude error or an empty result.
 
+- **The selection carries over onto the result of a drag.** After a fillet or chamfer, the new round faces stay selected (strong orange, listed in the selected readout) until you click elsewhere. This is deliberate, so a result can be tweaked or undone, and the owner chose to keep it. *Symptom if it is really a bug:* faces drawn orange while the readout says nothing is selected. Suspect the faint related-faces highlight, which keeps the old selection's face ids until the core replies (`setRelated` in `app/src/viewport.ts`, `setSelection` in `app/src/main.ts`).
+
 ## Research sources
 
 - **The command inventory is a snapshot.** The local research note docs/research/command-inventory.md is based on a published command list for one version of another program; newer versions have more commands, and the Pliable status column was read from `progress.md` and `features.py`, not tested tool by tool.
