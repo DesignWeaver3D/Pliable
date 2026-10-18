@@ -300,16 +300,17 @@ class _Solver:
 
 def solve(sketch: dict, drag: dict | None = None) -> dict:
     """Solve the sketch's constraints. `drag` = {"point": id, "u", "v"} holds one point where the pointer is
-    (it is pinned there while everything else follows the constraints). On failure the points are unchanged."""
+    (it is pinned there while everything else follows the constraints); {"points": [...]} holds several. On failure the points are unchanged."""
     solver = _Solver(sketch)
     for c in sketch.get("constraints", []):
         solver.add_constraint(c)
     if drag:
-        pid = drag["point"]
-        entity = solver._point(pid)
-        for k, key in enumerate(("u", "v")):
-            solver.system.getParam(solver.system.getEntityParam(entity, k)).val = drag[key]
-        solver.add_constraint({"type": "fixed", "point": pid})
+        # one point, or several held together ({"points": [...]}, e.g. both ends of a line dragged by its body)
+        for held in drag["points"] if "points" in drag else [drag]:
+            entity = solver._point(held["point"])
+            for k, key in enumerate(("u", "v")):
+                solver.system.getParam(solver.system.getEntityParam(entity, k)).val = held[key]
+            solver.add_constraint({"type": "fixed", "point": held["point"]})
     return solver.solve()
 
 
