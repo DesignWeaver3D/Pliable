@@ -138,3 +138,8 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 - Box selection picks one kind: the kind already selected, otherwise edges. Face window/crossing tests use the face's projected bounding box, so a crossing box can catch a face it only passes near; visibility is tested with one ray per item (edge midpoint, first triangle of a face).
 - Measure mode during a drag moved from right-click to the M key; right-drag now orbits mid-drag, so the drag distance shifts if the view moves under the pointer.
 - See-through draws the surface at 30 percent opacity and ignores depth for edges. Clicking the same spot again cycles through faces behind; hidden vertices and edges are picked by screen distance only.
+
+## Edge selection methods (S31)
+
+- Edge ring only follows four-sided faces with one outline loop and stops at any other face; sharp-edge selection uses a fixed 30 degree threshold and connects through shared vertices only (no angle setting in the UI yet).
+- Region outline counts an edge once if it borders exactly one selected face, so it also picks edges where the model's own boundary is open.

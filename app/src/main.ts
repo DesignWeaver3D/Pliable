@@ -126,11 +126,11 @@ let toolbarKey = "";
 function renderToolbar() {
   const usable = usableTools();
   const active = dragToolFor(currentSels)?.id;
-  const helperFace = currentSels.length === 1 && currentSels[0].kind === "face" ? currentSels[0].id : null;
-  const key = `${usable.map((t) => t.id).join(",")}|${active}|${currentSels.length}|${helperFace}`;
+  const helperKey = helperSignature();
+  const key = `${usable.map((t) => t.id).join(",")}|${active}|${currentSels.length}|${helperKey}`;
   if (key === toolbarKey) return; // unchanged: keep the buttons (avoids flicker as the core's replies arrive)
   toolbarKey = key;
-  const helpers = helperFace === null ? [] : faceEdgeHelpers(helperFace);
+  const helpers = selectionHelpers();
   if (usable.length === 0 && helpers.length === 0) {
     const hint = document.createElement("span");
     hint.className = "none";
@@ -151,16 +151,23 @@ function renderToolbar() {
   );
 }
 
-/** Buttons that turn a selected face into a selection of its edges. */
-function faceEdgeHelpers(face: number): HTMLButtonElement[] {
-  const make = (label: string, title: string, mode: "face_edges" | "face_loops") => {
+/** Which selection helper buttons apply to the current selection (also the toolbar cache key). */
+function helperSignature(): string {
+  if (currentSels.length === 1) return `${currentSels[0].kind}${currentSels[0].id}`;
+  if (currentSels.length > 1 && currentSels.every((s) => s.kind === "face")) return "faces" + currentSels.map((s) => s.id).join(",");
+  return "";
+}
+
+/** Buttons that grow a selection of faces or an edge into a selection of edges. */
+function selectionHelpers(): HTMLButtonElement[] {
+  const make = (label: string, title: string, request: Record<string, unknown>) => {
     const button = document.createElement("button");
     button.textContent = label;
     button.title = title;
     button.className = "helper";
     button.addEventListener("click", async () => {
       try {
-        const reply = await core.request<{ edges?: number[]; loops?: number[][] }>("edge_selection", { mode, face });
+        const reply = await core.request<{ edges?: number[]; loops?: number[][] }>("edge_selection", request);
         const ids = reply.edges ?? (reply.loops ?? []).flat();
         const picked: Sel[] = ids.map((id) => ({ kind: "edge" as const, id }));
         viewport.selectItems(picked);
@@ -172,10 +179,23 @@ function faceEdgeHelpers(face: number): HTMLButtonElement[] {
     });
     return button;
   };
-  return [
-    make("All edges", "Select every edge of the selected face", "face_edges"),
-    make("Edge loops", "Select the closed edge loops that bound the selected face (outline and holes)", "face_loops"),
-  ];
+  const one = currentSels.length === 1 ? currentSels[0] : null;
+  if (one?.kind === "face") {
+    return [
+      make("All edges", "Select every edge of the selected face", { mode: "face_edges", face: one.id }),
+      make("Edge loops", "Select the closed edge loops that bound the selected face (outline and holes)", { mode: "face_loops", face: one.id }),
+    ];
+  }
+  if (one?.kind === "edge") {
+    return [
+      make("Edge ring", "Select the parallel edges across four-sided faces, like the rungs of a ladder", { mode: "ring", edge: one.id }),
+      make("Sharp edges", "Select the connected edges where faces meet at 30 degrees or more", { mode: "sharp", edge: one.id, angle: 30 }),
+    ];
+  }
+  if (currentSels.length > 1 && currentSels.every((s) => s.kind === "face")) {
+    return [make("Region outline", "Select the edges around the outside of the selected faces", { mode: "region_boundary", faces: currentSels.map((s) => s.id) })];
+  }
+  return [];
 }
 
 function armTool(tool: ToolInfo) {
