@@ -56,9 +56,7 @@ class Session:
         self.usage = Usage()  # local tool-usage counts, shown in the diagnostics report only
         self.last_tool: dict | None = None  # name and outcome of the newest tool run, for diagnostics
         self.import_warnings: list[str] = []
-        self.unclean = autosaver.available() if autosaver else None  # offered once, if the previous run was killed
-        if self.unclean and self.unclean["clean"]:
-            self.unclean = None
+        self.unclean = autosaver.available(unclean_only=True) if autosaver else None  # a dead instance's session, offered until restored
 
     def _autosave(self, fresh: bool = False):
         if self.autosaver and self.document:
