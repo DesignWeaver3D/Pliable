@@ -369,3 +369,26 @@ def test_rounded_rectangle_structure_solves_and_makes_a_face():
     solved = sketch.apply_solution(sk, result)
     (zone,) = sketch.regions(solved)
     assert zone.area == pytest.approx(40 * 30 - (4 - math.pi) * 25, rel=1e-3)
+
+
+def test_offset_rectangle_grows_and_shrinks():
+    points, lines = rectangle(40, 30)
+    sk = sketch_of(points, lines)
+    bigger = sketch.offset_entities(sk, [l["id"] for l in lines], 5)
+    assert len(bigger["entities"]) >= 8  # four sides and four rounded corners
+    grown = sketch_of(bigger["points"], bigger["entities"])
+    (zone,) = sketch.regions(grown)
+    assert zone.area == pytest.approx(40 * 30 + 2 * 5 * (40 + 30) + math.pi * 25, rel=1e-3)
+    smaller = sketch.offset_entities(sk, [l["id"] for l in lines], -5)
+    (zone,) = sketch.regions(sketch_of(smaller["points"], smaller["entities"]))
+    assert zone.area == pytest.approx(30 * 20, rel=1e-3)
+
+
+def test_offset_circle_and_errors():
+    sk = sketch_of([{"id": 1, "u": 3, "v": 4}], [{"id": 2, "type": "circle", "center": 1, "radius": 10}])
+    out = sketch.offset_entities(sk, [2], 2.5)
+    assert out["entities"][0]["type"] == "circle" and out["entities"][0]["radius"] == pytest.approx(12.5)
+    with pytest.raises(OperationError):
+        sketch.offset_entities(sk, [], 1)
+    with pytest.raises(OperationError):
+        sketch.offset_entities(sk, [2], 0)

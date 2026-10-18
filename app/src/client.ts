@@ -63,7 +63,7 @@ export function decodeMesh(frame: ArrayBuffer): MeshData {
 type Pending = { resolve: (value: any) => void; reject: (error: Error) => void; type: string; sent: number };
 
 /** Requests that fire constantly during interaction or answer instantly; they never show the busy indicator. */
-const QUIET = new Set(["hello", "tool_preview", "sketch_solve", "sketch_plane", "available_tools", "list_tools", "related", "edge_chain", "edge_selection", "measure", "model_info"]);
+const QUIET = new Set(["hello", "tool_preview", "sketch_solve", "sketch_offset", "sketch_plane", "available_tools", "list_tools", "related", "edge_chain", "edge_selection", "measure", "model_info"]);
 const BUSY_AFTER_MS = 400;
 
 export class CoreClient {

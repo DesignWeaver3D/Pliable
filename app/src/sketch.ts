@@ -653,6 +653,24 @@ export class SketchMode {
     return line && line.type === "line" ? line.id : null;
   }
 
+  /** Add parallel copies of the selected curves, `offset.distance` away (positive grows a closed outline). */
+  private async offsetSelection() {
+    const ids = this.selection.filter((x) => x.kind === "entity").map((x) => x.id);
+    try {
+      const made = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[] }>("sketch_offset", { sketch: this.s, entities: ids, distance: this.offset.distance });
+      this.pushUndo();
+      this.s.points.push(...made.points);
+      this.s.entities.push(...made.entities);
+      this.selection = made.entities.map((e) => ({ kind: "entity" as const, id: e.id }));
+      this.resolve();
+      this.render();
+      this.host.status(`Offset ${made.entities.length} curve${made.entities.length === 1 ? "" : "s"} by ${this.offset.distance}`);
+    } catch (e) {
+      this.host.status((e as Error).message, true);
+    }
+  }
+  private offset = { distance: 5 };
+
   private toggleConstruction() {
     const ids = new Set(this.selection.filter((x) => x.kind === "entity").map((x) => x.id));
     if (!ids.size) return;
@@ -890,6 +908,16 @@ export class SketchMode {
     extrude.append(spin, spinGo);
 
     if (this.selection.some((x) => x.kind === "entity")) {
+      const distance = document.createElement("input");
+      distance.type = "number";
+      distance.step = "any";
+      distance.value = String(this.offset.distance);
+      distance.title = "Offset distance (negative shrinks a closed outline)";
+      distance.addEventListener("keydown", (e) => e.stopPropagation());
+      distance.addEventListener("input", () => (this.offset.distance = Number(distance.value) || 0));
+      const offsetRow = el("div", "row-buttons");
+      offsetRow.append(button("Offset", () => this.offsetSelection()), distance);
+      constraintsBox.append(offsetRow);
       const construction = button("Toggle construction", () => this.toggleConstruction());
       construction.title = "Construction geometry guides the sketch but is not part of the profile (use it as a revolve axis)";
       constraintsBox.append(construction);

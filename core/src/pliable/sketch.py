@@ -328,6 +328,81 @@ def profile_face(sketch: dict, skip: int | None = None) -> Face:
     return Face(outer_wire, holes[0]) if holes[0] else outer_face
 
 
+def offset_entities(sketch: dict, entity_ids: list[int], distance: float) -> dict:
+    """Parallel copies of the selected lines, arcs and circles at `distance` (positive grows a closed outline,
+    negative shrinks it; for an open chain positive is to the left of its direction). Returns the new points and
+    entities (fresh ids, no constraints) for the caller to add."""
+    from build123d import Kind
+
+    chosen = [e for e in sketch.get("entities", []) if e["id"] in set(entity_ids)]
+    if not chosen:
+        raise SketchError("Select the lines, arcs or circles to offset")
+    if abs(distance) < 1e-6:
+        raise SketchError("Give an offset distance")
+    picked = {**sketch, "entities": [{**e, "construction": False} for e in chosen]}
+    wires = Wire.combine(_edges(picked))
+    wires = wires if isinstance(wires, list) else [wires]
+    origin, x, y, normal = frame(sketch["plane"])
+    offset_wires = []
+    for wire in wires:
+        try:
+            result = wire.offset_2d(distance, kind=Kind.ARC)
+        except Exception as e:
+            raise SketchError(f"Could not offset these curves by {distance:g}") from e
+        offset_wires.extend(result if isinstance(result, list) else [result])
+    ids = [p["id"] for p in sketch.get("points", [])] + [e["id"] for e in sketch.get("entities", [])] + [c["id"] for c in sketch.get("constraints", [])]
+    next_id = max(ids, default=0) + 1
+    points: list[dict] = []
+    entities: list[dict] = []
+
+    def uv(p) -> tuple[float, float]:
+        d = [p.X - origin[0], p.Y - origin[1], p.Z - origin[2]]
+        return sum(a * b for a, b in zip(d, x)), sum(a * b for a, b in zip(d, y))
+
+    def new_point(p) -> int:
+        nonlocal next_id
+        u, v = uv(p)
+        for q in points:  # edges of one wire meet at shared points
+            if abs(q["u"] - u) < 1e-7 and abs(q["v"] - v) < 1e-7:
+                return q["id"]
+        points.append({"id": next_id, "u": u, "v": v})
+        next_id += 1
+        return next_id - 1
+
+    def new_entity(entity: dict):
+        nonlocal next_id
+        entities.append({"id": next_id, **entity})
+        next_id += 1
+
+    for wire in offset_wires:
+        edge_list = wire.edges()
+        round_edges = [e for e in edge_list if (e.geom_type.name if hasattr(e.geom_type, "name") else str(e.geom_type)) == "CIRCLE"]
+        if round_edges and len(round_edges) == len(edge_list) and wire.is_closed and all(
+            (e.arc_center - round_edges[0].arc_center).length < 1e-7 and abs(e.radius - round_edges[0].radius) < 1e-7 for e in round_edges
+        ):  # a whole circle comes back from the offset as two half arcs
+            new_entity({"type": "circle", "center": new_point(round_edges[0].arc_center), "radius": round_edges[0].radius})
+            continue
+        for edge in edge_list:
+            kind = edge.geom_type.name if hasattr(edge.geom_type, "name") else str(edge.geom_type)
+            if kind == "LINE":
+                new_entity({"type": "line", "a": new_point(edge.position_at(0)), "b": new_point(edge.position_at(1))})
+            elif kind == "CIRCLE":
+                centre = edge.arc_center
+                if edge.is_closed or (edge.position_at(0) - edge.position_at(1)).length < 1e-7:
+                    new_entity({"type": "circle", "center": new_point(centre), "radius": edge.radius})
+                else:
+                    start, middle, end = edge.position_at(0), edge.position_at(0.5), edge.position_at(1)
+                    cross = (middle - start).cross(end - middle)
+                    if cross.dot(Vector(*normal)) < 0:  # arcs run counterclockwise in the sketch
+                        start, end = end, start
+                    new_entity({"type": "arc", "center": new_point(centre), "start": new_point(start), "end": new_point(end)})
+            else:
+                raise SketchError("Offsetting this kind of curve is not supported yet")
+    if not entities:
+        raise SketchError(f"Could not offset these curves by {distance:g}")
+    return {"points": points, "entities": entities}
+
+
 def regions(sketch: dict) -> list[Face]:
     """Every distinct zone of the sketch's closed loops as a planar face: overlapping loops are split where
     they cross, and a loop inside another cuts a hole in it (the inner zone is a face of its own)."""

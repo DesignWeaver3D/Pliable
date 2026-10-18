@@ -99,3 +99,7 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 
 - **A hole centre is the middle of the full cylinder's axis** (`measure.hole_centre`); partial cylinders (fillets) have none. Centre distance between two holes is the straight distance between those points, not the distance between parallel axes. *Symptom:* two holes at different depths report a larger distance than their axis spacing.
 - **Centre between faces** treats the single cylinder among the three picks as the hole; picking two cylinders and one plane is refused.
+
+## Sketch offset (2026-10-18)
+
+- **Offset curve** (`sketch.offset_entities`, panel button "Offset" with a distance box when curves are selected): copies are plain geometry with no constraints, so they do not follow the original; a closed outline offset outward gets rounded corners. A selection of open curves offsets to the left of the drawing direction, and splines are not supported (the sketch has none). *Symptom:* an offset that "points the wrong way" on an open chain: use a negative distance.

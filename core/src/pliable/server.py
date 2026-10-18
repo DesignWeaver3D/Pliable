@@ -170,6 +170,11 @@ class Session:
             return result
         if kind == "sketch_extrude":
             return self._sketch_extrude(request)
+        if kind == "sketch_offset":
+            try:
+                return sketch.offset_entities(request["sketch"], [int(i) for i in request["entities"]], float(request["distance"]))
+            except (KeyError, TypeError, ValueError) as e:
+                raise RequestError(f"Malformed sketch request: {e!r}") from e
         if kind == "sketch_regions":
             return self._sketch_regions(request)
         if kind in ("tool_preview", "tool_commit"):
