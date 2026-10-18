@@ -370,6 +370,24 @@ export function distanceTo(s: SketchData, e: SketchEntity, u: number, v: number)
   return best;
 }
 
+/** The point of entity `e` nearest to (u, v), or null for a degenerate entity. */
+export function closestOn(s: SketchData, e: SketchEntity, u: number, v: number): [number, number] | null {
+  const line = polyline(s, e);
+  let best: [number, number] | null = null;
+  let bestD = Infinity;
+  for (let i = 0; i + 1 < line.length; i++) {
+    const [ax, ay] = line[i];
+    const [bx, by] = line[i + 1];
+    const dx = bx - ax;
+    const dy = by - ay;
+    const t = Math.max(0, Math.min(1, ((u - ax) * dx + (v - ay) * dy) / (dx * dx + dy * dy || 1)));
+    const p: [number, number] = [ax + t * dx, ay + t * dy];
+    const d = Math.hypot(u - p[0], v - p[1]);
+    if (d < bestD) (bestD = d), (best = p);
+  }
+  return best;
+}
+
 // Trim ------------------------------------------------------------------------------------------------
 
 /** Parameters t along line `e` (0 at its start, 1 at its end, unbounded) where it meets other lines and circles. */

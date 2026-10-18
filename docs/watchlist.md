@@ -119,3 +119,7 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Sketch projection
 
 - Only lines, and circles or arcs whose axis is square to the plane, project. Tilted circles (ellipses), splines and edges square to the plane are skipped without a message. The projection is a snapshot: it does not follow later model changes.
+
+## Sketch snapping to curves
+
+- A point placed on a curve or midpoint by snapping is not tied to it with a constraint, so moving the curve later leaves the point behind. Alignment guides snap to points only (not to circle centres' tangent directions or curve ends), and the snap radius is the same 10 px as point snapping.

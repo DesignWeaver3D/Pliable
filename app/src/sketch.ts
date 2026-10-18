@@ -46,6 +46,8 @@ interface Snap {
   u: number;
   v: number;
   axis?: "h" | "v";
+  /** Dotted guide lines to show: the cursor lined up with existing points. */
+  guides?: [number, number][][];
 }
 interface SolveReply {
   status: "ok" | "failed";
@@ -218,6 +220,34 @@ export class SketchMode {
       const fromH = Math.min(Math.abs(angle), Math.abs(Math.abs(angle) - 180));
       if (fromH < AUTO_AXIS_DEG) [v, axis] = [last.v, "h"];
       else if (Math.abs(Math.abs(angle) - 90) < AUTO_AXIS_DEG) [u, axis] = [last.u, "v"];
+    }
+    const pixel = this.viewport.pixelSizeAt(new THREE.Vector3(...M.toWorld(this.s.plane, u, v)));
+    const reach = SNAP_PX * pixel;
+    // Midpoints of lines, then the nearest point on a curve.
+    for (const en of this.s.entities) {
+      if (en.type !== "line") continue;
+      const a = M.pointOf(this.s, en.a);
+      const b = M.pointOf(this.s, en.b);
+      const mid = [(a.u + b.u) / 2, (a.v + b.v) / 2];
+      if (Math.hypot(u - mid[0], v - mid[1]) < reach) return { u: mid[0], v: mid[1] };
+    }
+    for (const en of this.s.entities) {
+      if (M.distanceTo(this.s, en, u, v) < reach) {
+        const on = M.closestOn(this.s, en, u, v);
+        if (on) return { u: on[0], v: on[1] };
+      }
+    }
+    // Line up with the u or v of an existing point and show a guide to it.
+    if (!axis) {
+      let [su, sv] = [u, v];
+      const hit = this.s.points.find((p) => Math.abs(p.u - u) < reach);
+      const level = this.s.points.find((p) => Math.abs(p.v - v) < reach);
+      if (hit) su = hit.u;
+      if (level) sv = level.v;
+      const guides: [number, number][][] = [];
+      if (hit) guides.push([[hit.u, hit.v], [su, sv]]);
+      if (level) guides.push([[level.u, level.v], [su, sv]]);
+      if (guides.length) return { u: su, v: sv, guides };
     }
     return { u, v, axis };
   }
@@ -794,9 +824,12 @@ export class SketchMode {
 
   /** Rubber-band shapes for the drawing in progress. */
   private pendingShapes(): [number, number][][] {
+    return [...this.pendingBase(), ...(this.cursor?.guides ?? [])];
+  }
+  private pendingBase(): [number, number][][] {
     const c = this.cursor;
     const first = this.chain[0];
-    if (!c || !first) return [];
+    if (!c || !first) return c?.guides ?? [];
     if (this.tool === "line") {
       const last = this.chain[this.chain.length - 1];
       return [[[last.u, last.v], [c.u, c.v]]];
