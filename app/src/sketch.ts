@@ -46,6 +46,10 @@ interface Snap {
   u: number;
   v: number;
   axis?: "h" | "v";
+  /** The curve this snap landed on, and whether it was a line's midpoint: becomes a constraint on the new point. */
+  on?: { entity: number; midpoint?: boolean };
+  /** A circle being drawn touches this entity (set by the circle tool's tangent snap). */
+  tangent?: number;
   /** Dotted guide lines to show: the cursor lined up with existing points. */
   guides?: [number, number][][];
 }
@@ -223,18 +227,22 @@ export class SketchMode {
     }
     const pixel = this.viewport.pixelSizeAt(new THREE.Vector3(...M.toWorld(this.s.plane, u, v)));
     const reach = SNAP_PX * pixel;
+    if (this.tool === "circle" && this.chain.length === 1) {
+      const t = M.tangentRadius(this.s, this.chain[0], u, v, reach);
+      if (t) return { u: t.u, v: t.v, tangent: t.entity };
+    }
     // Midpoints of lines, then the nearest point on a curve.
     for (const en of this.s.entities) {
       if (en.type !== "line") continue;
       const a = M.pointOf(this.s, en.a);
       const b = M.pointOf(this.s, en.b);
       const mid = [(a.u + b.u) / 2, (a.v + b.v) / 2];
-      if (Math.hypot(u - mid[0], v - mid[1]) < reach) return { u: mid[0], v: mid[1] };
+      if (Math.hypot(u - mid[0], v - mid[1]) < reach) return { u: mid[0], v: mid[1], on: { entity: en.id, midpoint: true } };
     }
     for (const en of this.s.entities) {
       if (M.distanceTo(this.s, en, u, v) < reach) {
         const on = M.closestOn(this.s, en, u, v);
-        if (on) return { u: on[0], v: on[1] };
+        if (on) return { u: on[0], v: on[1], on: { entity: en.id } };
       }
     }
     // Line up with the u or v of an existing point and show a guide to it.
@@ -410,6 +418,7 @@ export class SketchMode {
     const id = M.nextId(this.s);
     this.s.points.push({ id, u: snap.u, v: snap.v });
     snap.id = id;
+    if (snap.on) this.addConstraintRaw(snap.on.midpoint ? { type: "midpoint", point: id, entity: snap.on.entity } : { type: "point_on", point: id, entity: snap.on.entity });
     return id;
   }
 
@@ -517,7 +526,9 @@ export class SketchMode {
     if (radius < 1e-6) return;
     this.pushUndo();
     const c = this.pointFor(center);
-    this.s.entities.push({ id: M.nextId(this.s), type: "circle", center: c, radius });
+    const id = M.nextId(this.s);
+    this.s.entities.push({ id, type: "circle", center: c, radius });
+    if (edge.tangent !== undefined) this.addConstraintRaw({ type: "tangent", entities: [id, edge.tangent] });
     this.resolve();
   }
 

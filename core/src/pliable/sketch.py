@@ -176,8 +176,12 @@ class _Solver:
                 h = s.addArcLineTangent(self._arc_end_near(arc_id, line_id), self.entities[arc_id][1], self.entities[line_id][1], g)
             elif ka == "arc" and kb == "arc":
                 h = s.addCurvesTangent(self._arc_end_near(ids[0], ids[1]), self._arc_end_near(ids[1], ids[0]), ha, hb, wp, g)
+            elif "circle" in (ka, kb):
+                for h in self._circle_tangent(ids[0], ids[1]):
+                    self.failed_ids[h] = c.get("id")
+                return
             else:
-                raise SketchError("Tangent needs an arc and a line, or two arcs")
+                raise SketchError("Tangent needs a circle or arc with a line, circle or arc")
         elif kind == "distance":
             if "entity" in c:
                 line = self.sketch_line(c["entity"])
@@ -207,6 +211,42 @@ class _Solver:
         else:
             raise SketchError(f"Unknown constraint type {kind!r}")
         self.failed_ids[h] = c.get("id")
+
+    def _circle_tangent(self, id_a: int, id_b: int):
+        """Tangency with a circle: a hidden touching point built from plain constraints.
+
+        With a line the touching point lies on the line and on the circle, and the radius to it is
+        perpendicular to the line. With a round entity it lies on both and on the line through the centres.
+        """
+        s, wp, g = self.system, self.workplane, SOLVE_GROUP
+        entities = {e["id"]: e for e in self.sketch["entities"]}
+        a, b = entities[id_a], entities[id_b]
+        if a["type"] != "circle":
+            a, b, id_a, id_b = b, a, id_b, id_a
+        coords = {p["id"]: (p["u"], p["v"]) for p in self.sketch["points"]}
+        for pid in self.points:
+            coords[pid] = self._coords(pid)
+        centre = coords[a["center"]]
+        if b["type"] == "line":
+            p0, p1 = coords[b["a"]], coords[b["b"]]
+            dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+            t = ((centre[0] - p0[0]) * dx + (centre[1] - p0[1]) * dy) / (dx * dx + dy * dy or 1.0)
+            guess = (p0[0] + t * dx, p0[1] + t * dy)
+        else:
+            other = coords[b["center"]]
+            d = math.dist(centre, other) or 1.0
+            guess = (centre[0] + (other[0] - centre[0]) * a["radius"] / d, centre[1] + (other[1] - centre[1]) * a["radius"] / d)
+        touch = s.addPoint2dV(wp, guess[0], guess[1], g)
+        handles = [s.addPointOnCircle(touch, self.entities[id_a][1], g)]
+        if b["type"] == "line":
+            radius = s.addLineSegment(self._point(a["center"]), touch, g)
+            handles.append(s.addPointOnLine(touch, self.entities[id_b][1], wp, g))
+            handles.append(s.addPerpendicular(radius, self.entities[id_b][1], wp, g))
+        else:
+            through = s.addLineSegment(self._point(a["center"]), self._point(b["center"]), g)
+            handles.append(s.addPointOnCircle(touch, self.entities[id_b][1], g))
+            handles.append(s.addPointOnLine(touch, through, wp, g))
+        return handles
 
     def _axis_line(self, horizontal: bool) -> int:
         """A fixed line along the sketch's u (or v) axis, to measure projected distances against."""

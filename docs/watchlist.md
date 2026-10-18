@@ -131,3 +131,9 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Construction planes
 
 - Only offsets of the three world planes are offered. No plane through three points, at an angle, or midway between faces; the offset is typed, not dragged.
+
+## Sketch tangency and snap constraints (agent/sketch)
+
+- **Circle tangency is built in the solver from a hidden touching point** (`_Solver._circle_tangent`): point on both curves plus a perpendicular or collinear helper line. Tangent to a circle does not pick internal or external touching; the starting geometry decides. *Symptom:* a circle flips to the other side of a line while solving a badly placed sketch.
+- **Auto tangency only while drawing a circle:** the radius snaps to a line, circle or arc within the snap distance and a tangent constraint is added. Lines and arcs do not get automatic tangency yet.
+- **Snapping onto a curve or a line midpoint now adds a point-on or midpoint constraint** to the new point. *Symptom:* a corner dragged off a line it was snapped to stays on that line; delete the constraint to free it.

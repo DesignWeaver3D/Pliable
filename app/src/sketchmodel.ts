@@ -173,9 +173,9 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     build: (s, sel) => {
       const es = entities(s, sel);
       if (es.length !== 2 || pts(sel).length) return null;
-      const arcs = es.filter((e) => e.type === "arc").length;
+      const round = es.filter((e) => e.type === "arc" || e.type === "circle").length;
       const lines = es.filter((e) => e.type === "line").length;
-      return (arcs === 1 && lines === 1) || arcs === 2 ? { type: "tangent", entities: es.map((e) => e.id) } : null;
+      return (round === 1 && lines === 1) || round === 2 ? { type: "tangent", entities: es.map((e) => e.id) } : null;
     },
   },
   {
@@ -386,6 +386,43 @@ export function closestOn(s: SketchData, e: SketchEntity, u: number, v: number):
     if (d < bestD) (bestD = d), (best = p);
   }
   return best;
+}
+
+/**
+ * Radius at which a circle about `centre` would touch an existing curve, if that is within `reach` of the
+ * radius the cursor asks for. Returns the touching entity and the point on the cursor's ray at that radius.
+ */
+export function tangentRadius(s: SketchData, centre: { u: number; v: number }, u: number, v: number, reach: number): { u: number; v: number; entity: number } | null {
+  const ask = Math.hypot(u - centre.u, v - centre.v);
+  if (ask < 1e-9) return null;
+  let best: { radius: number; entity: number; gap: number } | null = null;
+  const consider = (radius: number, entity: number, touch: [number, number], tol = 1e-6) => {
+    const gap = Math.abs(radius - ask);
+    if (radius > 1e-6 && gap < reach && (!best || gap < best.gap) && distanceTo(s, s.entities.find((x) => x.id === entity)!, touch[0], touch[1]) < tol) best = { radius, entity, gap };
+  };
+  for (const e of s.entities) {
+    if (e.type === "line") {
+      const a = pointOf(s, e.a);
+      const b = pointOf(s, e.b);
+      const dx = b.u - a.u;
+      const dy = b.v - a.v;
+      const t = ((centre.u - a.u) * dx + (centre.v - a.v) * dy) / (dx * dx + dy * dy || 1);
+      const foot: [number, number] = [a.u + t * dx, a.v + t * dy];
+      if (t >= 0 && t <= 1) consider(Math.hypot(foot[0] - centre.u, foot[1] - centre.v), e.id, foot);
+    } else {
+      const c = pointOf(s, e.center);
+      const r = e.type === "circle" ? e.radius : Math.hypot(pointOf(s, e.start).u - c.u, pointOf(s, e.start).v - c.v);
+      const d = Math.hypot(c.u - centre.u, c.v - centre.v);
+      if (d < 1e-9) continue;
+      const dir = [(c.u - centre.u) / d, (c.v - centre.v) / d];
+      // |d - r| touches the near side of the other circle, d + r the far side.
+      consider(Math.abs(d - r), e.id, [c.u - dir[0] * r, c.v - dir[1] * r], 0.01 * (1 + r));
+      consider(d + r, e.id, [c.u + dir[0] * r, c.v + dir[1] * r], 0.01 * (1 + r));
+    }
+  }
+  const hit = best as { radius: number; entity: number } | null;
+  if (!hit) return null;
+  return { u: centre.u + ((u - centre.u) / ask) * hit.radius, v: centre.v + ((v - centre.v) / ask) * hit.radius, entity: hit.entity };
 }
 
 // Trim ------------------------------------------------------------------------------------------------
