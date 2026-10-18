@@ -1,3 +1,7 @@
+# Summary: four-agent wave (2026-10-18)
+
+Four agents worked in parallel worktrees, one per area (kernel, sketch, selection, shell), and their branches were merged into `dev` (177 core tests, 19 node tests, typecheck and build pass; smoke-tested in Chrome). Decisions are entries 21-33 below; per-session detail stays in docs/agent-notes/ until wave 2 is done. Open items: S25 needs your exact model and steps; S13 and S40 await your review; S30, S31, S35 and S37 have small leftovers listed in docs/progress.md.
+
 # Summary for the owner's return (unattended session, 2026-10-18)
 
 All six queue items were worked and pushed to `dev` (tests: 154 pass; no push to `rebuild` or `main`, no tags). Details are in docs/progress.md, decisions below as questions 15-19.
@@ -65,3 +69,19 @@ Replies to the open questions in docs/research/gui-plan.md; the decisions are re
 18. **Center between faces** now accepts the hole and the two faces in any order (it finds the single cylinder among the three).
 19. **Array along path** replaces the single-edge array: same tool id, now takes one or more connected edges and spaces copies by arc length (closed paths spread evenly). Copies are translated, not rotated along the path.
 20. **One hole or all matching holes (S35):** the relationship chips now read "+ Add 3 equal radius faces" / "✔ With 3 equal radius faces" with a tooltip saying what a click does, and "equal radius" starts off, so moving, resizing or filling a hole changes only the one you picked. Click the chip to include its twins. Coplanar stays on by default (push/pull of a flat face with its coplanar faces is the common case). To restore the old default, set `equal_radius: true` in `ruleOn` in app/src/main.ts. A per-tool default (for example resize all, move one) is not built.
+
+## Four-agent wave (2026-10-18)
+
+21. **Sketch snaps add constraints (S30):** snapping onto a curve or midpoint now adds a point-on or midpoint constraint, and automatic tangency applies to the circle tool only. Change: drop the `on` handling in `pointFor` in `sketch.ts`. Open: should snaps always add constraints (now yes)?
+22. **Unwrap (S33):** exact for cylinders (developable surfaces map with true lengths and areas). Spheres, tori and free-form faces cannot unroll without distortion; tell me what accuracy you want before they are tried. The unrolled sketch hides extrude and revolve (flag `flat` in `renderPanel`, `sketch.ts`).
+23. **Reference points (S27):** "plane crossings" is read as where an axis meets the sketch or face plane; axes are visible by default. The picker does not yet snap to model vertices or edges, and sketches snap to axis points only, not axis lines.
+24. **Selection settings (S26):** default pick range 5 px for edges and 8 px for points; box select picks the kind already selected (edges when nothing is), left to right encloses and right to left touches; measure mode moved from right-click to the M key. Change the numbers in `settings.ts`.
+25. **See-through (S38):** X toggles a 30% opaque surface with hidden edges and faces pickable; repeated clicks cycle the faces behind. The comparison with other modelers came from general knowledge, not a web search.
+26. **Edge selection (S31):** ring, sharp edges (30 degree default, change `angle` in `selectionHelpers` in `main.ts`) and region outline. No angle slider yet. Open: offset of inner loops and dragging the divide edge.
+27. **Hole centre dots (S35):** a centre is an alternate pick target for the hole face rather than a new selection kind (a real point kind would need ids through every tool; change `nearestCentre` in `viewport.ts`). Per-tool defaults for what a tool applies to are parked.
+28. **Eyedropper (S32):** values are matched by field name (see the watchlist). Not hand-checked on a fillet.
+29. **Keyboard policy (S40):** bare keys may change the view, display, arm a tool or change selection; anything that changes the model or a setting at once needs Ctrl or Alt. Bare keys need the pointer over the view (1.5 s grace), there is a single-key off switch, no sequences, undo and redo are blocked during a live drag or typed entry, and browser keys, Escape, Enter, Tab, Backspace, Delete, Space and Ctrl+Alt are reserved. Open: should sketch keys move under the router; M (measure) is still handled in `viewport.ts` and cannot be rebound; the unsaved-work warning and touch and browser-key audits are not done.
+30. **Usage tracking (S39):** counts live in core memory only (nothing persists) and add a `drag` surface beside strip, search, drawer and keys. Sketch tools are not counted. To remove it, see the header of `usage.py`.
+31. **Dimension leaders (S13):** where labels would overlap, the first is kept and later ones are dropped (the panel still lists them). Promoting a panel row to the on-model leader was skipped as optional. Please check label placement on a few more models.
+32. **Kernel closeouts:** parked ellipse and spline sketch curves (the solver has none), project curves onto faces, and groups, layers and colours (a document model change); schedule any of them as new sessions. S25 closed as not reproducible in the kernel. S37: variable per edge in one form needs a dynamic form (add a per-edge radius list parameter kind and render it).
+33. **Merge fixes:** `sketch.ts` held two Latin-1 characters (degree and multiplication signs) that broke the dev server; both are now UTF-8. The X see-through key was re-added as a router command (`display.seeThrough`) when the key router replaced the old key handler.
