@@ -28,3 +28,10 @@
 
 ## Where to resume
 All five sessions handled. Open items: S31 offset of inner loops and dragging the divide edge in the viewport; S35 per-tool defaults and centre as drag handle; S26 box select always uses the selected kind (no kind switch in the UI).
+
+## Wave 2a
+- S31: inset_face has a `loop` parameter (inner loops, grows outward around the hole); Sharp edge angle slider in settings. Dragging the divide edge in the viewport: PARKED (needs an in-plane drag handle like the hole centre one; use `startCentreDrag` in viewport.ts as the pattern).
+- S35: per-tool rule defaults (`TOOL_RULES`, `ruleFor` in main.ts; Resize hole defaults to also resizing same-size holes, everything else off; change there if the owner disagrees). Hole centre dots are drag handles for Move hole (`startCentreDrag`; centres now carry `axis`). Checked in Chrome: dragging the upright hole's dot moved it and committed (Undo enabled).
+- S30 selection side: Alt+click cycles faces under the pointer (also hidden); fast multi-zone pick = box select with Box selects = Faces. sketch.ts not touched.
+- S26: "Box selects" kind switch (Auto/Edges/Faces/Vertices) in the settings window.
+- Not hand-checked in a browser: per-tool chip behaviour, inset loop, sharp slider, kind switch (type-checked; inset and axis have tests).

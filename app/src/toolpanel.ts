@@ -15,6 +15,8 @@ export interface ToolPanelHost {
   cancelEyedrop(): void;
   /** Let the user click a reference snap in the view; null if cancelled. */
   pickPoint?(): Promise<number[] | null>;
+  /** The open form changed (opened or closed). */
+  changed?(): void;
 }
 
 const PREVIEW_DELAY_MS = 150;
@@ -70,6 +72,10 @@ export class ToolPanel {
     );
   }
 
+  get openToolId(): string | null {
+    return this.open?.id ?? null;
+  }
+
   get isOpen(): boolean {
     return this.open !== null;
   }
@@ -83,6 +89,7 @@ export class ToolPanel {
     clearTimeout(this.timer);
     this.formEl.hidden = true;
     this.formEl.replaceChildren();
+    this.host.changed?.();
     if (restore) this.host.cancel();
   }
 
@@ -158,6 +165,7 @@ export class ToolPanel {
     this.inputs = inputs;
     (Object.values(inputs)[0] ?? apply).focus();
     this.schedulePreview(0);
+    this.host.changed?.();
   }
 
   private values(): Record<string, number> {

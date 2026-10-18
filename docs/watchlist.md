@@ -186,3 +186,10 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 - **Only cylinder faces unroll** (`unwrap.py`). Cones, spheres, tori, free-form faces and several faces at once are refused. A cylinder face that spans the seam (a full tube) is unrolled from its angle range, so regions crossing the seam are not tested.
 - **Outlines map as 48-point interpolated curves**, not exact ellipses or helices; lines and regions are exact in size (checked by area). *Symptom:* a circle on a small cylinder imprints with a slightly different outline than a true curve.
 - **The unrolled sketch has no extrude, revolve or model-edge projection**; finishing only imprints regions onto the cylinder face. Sketches are not kept.
+
+## Wave 2a selection leftovers
+
+- Per-tool rule defaults live in `TOOL_RULES` in main.ts (only Resize hole / boss applies to same-size holes by default); choices are saved in the browser per tool, and a chip clicked with no tool armed or open sets the choice for all tools. The chip state shown follows the armed or open tool.
+- Dragging a hole centre dot moves the hole in the plane across its axis with the Move hole tool; offsets are not snapped and the move is not recorded for Edit last.
+- Inset face takes a `loop` number (0 outline, 1 and up = inner loops, offset outward around the hole); loops are numbered in the order the face reports them.
+- Alt+click cycles through all faces under the pointer even when hidden; zone picking in sketches relies on this plus box select with Box selects set to Faces.

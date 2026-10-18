@@ -6,10 +6,14 @@ export interface Settings {
   vertexPickPx: number;
   /** Draw the model translucent and let edges and faces behind it be picked (see-through). */
   seeThrough: boolean;
+  /** Minimum angle in degrees between faces for the Sharp edges selection. */
+  sharpAngle: number;
+  /** What a box selection picks: "auto" follows the current selection (edges when empty). */
+  boxKind: "auto" | "edge" | "face" | "vertex";
 }
 
 const KEY = "pliable.settings";
-const DEFAULTS: Settings = { edgePickPx: 5, vertexPickPx: 8, seeThrough: false };
+const DEFAULTS: Settings = { edgePickPx: 5, vertexPickPx: 8, seeThrough: false, sharpAngle: 30, boxKind: "auto" };
 
 export const settings: Settings = { ...DEFAULTS };
 const listeners: Array<() => void> = [];
@@ -46,7 +50,7 @@ export function createSettingsWindow(host: HTMLElement) {
   const panel = document.createElement("div");
   panel.id = "settingspanel";
   panel.hidden = true;
-  const slider = (label: string, key: "edgePickPx" | "vertexPickPx", min: number, max: number, hint: string) => {
+  const slider = (label: string, key: "edgePickPx" | "vertexPickPx" | "sharpAngle", min: number, max: number, hint: string) => {
     const row = document.createElement("label");
     row.title = hint;
     const text = document.createElement("span");
@@ -55,7 +59,8 @@ export function createSettingsWindow(host: HTMLElement) {
     input.min = String(min);
     input.max = String(max);
     input.step = "1";
-    const show = () => (text.textContent = `${label}: ${settings[key]} px`);
+    const unit = key === "sharpAngle" ? "°" : " px";
+    const show = () => (text.textContent = `${label}: ${settings[key]}${unit}`);
     input.value = String(settings[key]);
     input.oninput = () => {
       updateSettings({ [key]: Number(input.value) });
@@ -73,6 +78,20 @@ export function createSettingsWindow(host: HTMLElement) {
   check.onchange = () => updateSettings({ seeThrough: check.checked });
   seeThrough.append(check, " See-through");
   onSettingsChange(() => (check.checked = settings.seeThrough));
+  const boxRow = document.createElement("label");
+  boxRow.title = "What dragging a box selects. Auto keeps the kind already selected, or edges if nothing is.";
+  const boxText = document.createElement("span");
+  boxText.textContent = "Box selects";
+  const boxSelect = document.createElement("select");
+  for (const [value, name] of [["auto", "Auto (current kind)"], ["edge", "Edges"], ["face", "Faces"], ["vertex", "Vertices"]]) {
+    const o = document.createElement("option");
+    o.value = value;
+    o.textContent = name;
+    boxSelect.append(o);
+  }
+  boxSelect.value = settings.boxKind;
+  boxSelect.onchange = () => updateSettings({ boxKind: boxSelect.value as Settings["boxKind"] });
+  boxRow.append(boxText, boxSelect);
   const heading = document.createElement("b");
   heading.textContent = "Settings";
   const reset = document.createElement("button");
@@ -85,6 +104,8 @@ export function createSettingsWindow(host: HTMLElement) {
     heading,
     slider("Edge pick range", "edgePickPx", 1, 14, "How close the pointer must be to an edge to pick it. Lower it to reach small faces."),
     slider("Point pick range", "vertexPickPx", 1, 16, "How close the pointer must be to a vertex or hole centre to pick it."),
+    slider("Sharp edge angle", "sharpAngle", 5, 90, "Sharp edges selects connected edges whose faces meet at this angle or more."),
+    boxRow,
     seeThrough,
     reset,
   ];
