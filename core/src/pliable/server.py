@@ -31,6 +31,7 @@ from OCP.gp import gp_Vec
 from .measure import measure, model_info
 from .ops import OperationError, solids_of
 from .protocol import encode_mesh
+from .edgesel import face_edges, face_loops, shared_loop
 from .relations import find_related, tangent_chain
 from .tessellate import tessellate
 from .tools import TOOLS, Selection, get_tool
@@ -140,6 +141,19 @@ class Session:
                 return {"edges": tangent_chain(topology, int(request["edge"]))}
             except (KeyError, ValueError, TypeError) as e:
                 raise RequestError("Unknown edge") from e
+        if kind == "edge_selection":
+            topology = self._require_document().current
+            mode = request.get("mode")
+            try:
+                if mode == "face_edges":
+                    return {"edges": face_edges(topology, int(request["face"]))}
+                if mode == "face_loops":
+                    return {"loops": face_loops(topology, int(request["face"]))}
+                if mode == "shared_loop":
+                    return {"edges": shared_loop(topology, int(request["first"]), int(request["second"]))}
+            except (KeyError, ValueError, TypeError) as e:
+                raise RequestError("Unknown face or edge") from e
+            raise RequestError(f"Unknown edge selection mode {mode!r}")
         if kind == "model_info":
             return model_info(self._require_document().current)
         if kind == "sketch_plane":

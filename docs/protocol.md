@@ -35,6 +35,7 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 | `model_info` | | the measure reply format with one `model` item: validity, counts, open edges, volume, size |
 | `related` | `face` id | `{rules: [{id, label, faces: [ids]}]}`: coplanar, equal-radius and coaxial faces (relationship chips) |
 | `edge_chain` | `edge` id | `{edges: [ids]}`: the edge and every edge joined to it through smooth vertices (a rim or outline) |
+| `edge_selection` | `mode`: `face_edges` or `face_loops` with `face`; `shared_loop` with `first` and `second` edge ids | `{edges}` (all edges of the face; the loop of a face both edges border) or `{loops}` (one id list per boundary loop, outer first) |
 | `available_tools` | `selection` | `{tools: [id]}` tools usable with that selection |
 | `measure` | `selection` | `{items: [Measured], summary: [Row]}` measurements of the selection (one kind of item at a time) |
 | `tool_preview` | `tool`, `selection`, `params` | mesh (document unchanged) |

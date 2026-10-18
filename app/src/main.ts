@@ -121,10 +121,12 @@ let toolbarKey = "";
 function renderToolbar() {
   const usable = usableTools();
   const active = dragToolFor(currentSels)?.id;
-  const key = `${usable.map((t) => t.id).join(",")}|${active}|${currentSels.length}`;
+  const helperFace = currentSels.length === 1 && currentSels[0].kind === "face" ? currentSels[0].id : null;
+  const key = `${usable.map((t) => t.id).join(",")}|${active}|${currentSels.length}|${helperFace}`;
   if (key === toolbarKey) return; // unchanged: keep the buttons (avoids flicker as the core's replies arrive)
   toolbarKey = key;
-  if (usable.length === 0) {
+  const helpers = helperFace === null ? [] : faceEdgeHelpers(helperFace);
+  if (usable.length === 0 && helpers.length === 0) {
     const hint = document.createElement("span");
     hint.className = "none";
     hint.textContent = currentSels.length ? "No tools for this selection" : "Select a face or edge (Ctrl+K for commands)";
@@ -140,7 +142,35 @@ function renderToolbar() {
       button.addEventListener("click", () => armTool(tool));
       return button;
     }),
+    ...helpers,
   );
+}
+
+/** Buttons that turn a selected face into a selection of its edges. */
+function faceEdgeHelpers(face: number): HTMLButtonElement[] {
+  const make = (label: string, title: string, mode: "face_edges" | "face_loops") => {
+    const button = document.createElement("button");
+    button.textContent = label;
+    button.title = title;
+    button.className = "helper";
+    button.addEventListener("click", async () => {
+      try {
+        const reply = await core.request<{ edges?: number[]; loops?: number[][] }>("edge_selection", { mode, face });
+        const ids = reply.edges ?? (reply.loops ?? []).flat();
+        const picked: Sel[] = ids.map((id) => ({ kind: "edge" as const, id }));
+        viewport.selectItems(picked);
+        setSelection(picked);
+        status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} selected`;
+      } catch (e) {
+        status.textContent = (e as Error).message;
+      }
+    });
+    return button;
+  };
+  return [
+    make("All edges", "Select every edge of the selected face", "face_edges"),
+    make("Edge loops", "Select the closed edge loops that bound the selected face (outline and holes)", "face_loops"),
+  ];
 }
 
 function armTool(tool: ToolInfo) {
@@ -296,6 +326,20 @@ function pump(token: number) {
 viewport.onSelect = setSelection;
 viewport.onEdgeLoop = async (edgeId, additive) => {
   try {
+    // Another edge is already selected: take the loop of the face the two share.
+    const other = currentSels.find((s) => s.kind === "edge" && s.id !== edgeId);
+    if (other) {
+      try {
+        const { edges } = await core.request<{ edges: number[] }>("edge_selection", { mode: "shared_loop", first: other.id, second: edgeId });
+        const picked: Sel[] = edges.map((id) => ({ kind: "edge" as const, id }));
+        viewport.selectItems(picked);
+        setSelection(picked);
+        status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} in the loop the two edges share`;
+        return;
+      } catch {
+        // no common face: fall back to the smooth chain below
+      }
+    }
     const { edges } = await core.request<{ edges: number[] }>("edge_chain", { edge: edgeId });
     const picked: Sel[] = edges.map((id) => ({ kind: "edge" as const, id }));
     const sels = additive ? [...currentSels.filter((s) => s.kind === "edge" && !edges.includes(s.id)), ...picked] : picked;

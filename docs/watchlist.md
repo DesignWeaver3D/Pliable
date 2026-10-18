@@ -85,3 +85,8 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 - **Loose sketch faces are not solids:** they show and pick like faces, push/pull makes a solid from them (negative distance cuts when it overlaps material), STEP export writes them as faces. Other tools may refuse them.
 - **Sketches are not kept after Finish sketch,** only the faces (decision: sketches are not stored for now). Discard sketch or Escape leaves nothing.
 - **Rectangle corner options** (`sketch.ts`, `addRectangle`): the fillet or bevel size is clamped to just under half the shorter side, and the rubber-band preview while placing still shows square corners. Rounded rectangles do not reuse snapped corner points (new points are made), and bevels get no constraints beyond the four sides. *Symptom:* a snapped rounded rectangle is not joined to the point it was snapped to.
+
+## Edge selection helpers (2026-10-18)
+
+- **"Edge loops" selects every boundary loop of the face** (outline and hole loops together), not only the coplanar outer loop; "All edges" gives the same ids for a face (`edgesel.py`). *Symptom:* a face with holes selects the hole rims too; shift-click to drop them.
+- **Shared-loop double-click** takes the first other selected edge as the partner, so with three or more edges selected the partner is the first in the list. With no common face it falls back to the smooth chain. Not seen in a browser: only the face buttons were exercised.

@@ -1,0 +1,41 @@
+import pytest
+
+from pliable.demos import load_demo
+from pliable.edgesel import face_edges, face_loops, shared_loop
+from pliable.ops import OperationError
+from pliable.topology import Topology
+
+
+
+
+def _face_with_hole(topology):
+    for i, _ in topology.faces():
+        if len(face_loops(topology, i)) > 1:
+            return i
+    raise AssertionError("no face with a hole")
+
+
+def test_block_face_edges_and_loops():
+    t = Topology(load_demo("block"))
+    assert len(face_edges(t, 0)) == 4
+    assert [len(loop) for loop in face_loops(t, 0)] == [4]
+
+
+def test_loops_of_a_face_with_a_hole():
+    t = Topology(load_demo("bracket"))
+    i = _face_with_hole(t)
+    loops = face_loops(t, i)
+    assert len(loops) >= 2 and sorted(face_edges(t, i)) == sorted(e for loop in loops for e in loop)
+
+
+def test_shared_loop_of_two_edges_on_one_face():
+    t = Topology(load_demo("block"))
+    loop = face_loops(t, 0)[0]
+    assert sorted(shared_loop(t, loop[0], loop[1])) == sorted(loop)
+
+
+def test_edges_with_no_common_face_are_rejected():
+    t = Topology(load_demo("block"))
+    far = next(e for e in range(t.edge_count) if not set(map(t.face_id, t.edge_faces(t.edge(e)))) & set(map(t.face_id, t.edge_faces(t.edge(0)))))
+    with pytest.raises(OperationError):
+        shared_loop(t, 0, far)
