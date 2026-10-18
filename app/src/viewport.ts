@@ -1,3 +1,4 @@
+import { pointInRect, segmentHitsRect, segmentsInBox, triangleHitsRect, trianglesInBox, type Rect } from "./boxselect";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
@@ -785,7 +786,13 @@ export class Viewport {
       this.camera,
     );
     const ids: number[] = [];
-    for (const hit of this.raycaster.intersectObject(this.mesh)) {
+    // The ray test skips back-facing triangles unless the material is double sided, which would hide every face behind the first.
+    const material = this.mesh.material as THREE.Material;
+    const side = material.side;
+    material.side = THREE.DoubleSide;
+    const hits = this.raycaster.intersectObject(this.mesh);
+    material.side = side;
+    for (const hit of hits) {
       if (hit.faceIndex == null) continue;
       const id = this.faceIdAt(hit.faceIndex);
       if (id !== null && !ids.includes(id)) ids.push(id);
@@ -885,72 +892,74 @@ export class Viewport {
     return !!hit && hit.distance < distance * 0.995;
   }
 
-  private itemsInBox(kind: Kind, r: { x0: number; x1: number; y0: number; y1: number }, crossing: boolean, rect: DOMRect): Sel[] {
+  private itemsInBox(kind: Kind, r: Rect, crossing: boolean, rect: DOMRect): Sel[] {
     const data = this.data;
     if (!data) return [];
     this.camera.updateMatrixWorld();
     const out: Sel[] = [];
-    const toPx = (x: number, y: number, z: number) => {
+    const proj = (x: number, y: number, z: number) => {
       const n = new THREE.Vector3(x, y, z).project(this.camera);
       return { x: ((n.x + 1) / 2) * rect.width, y: ((1 - n.y) / 2) * rect.height, behind: n.z > 1 };
     };
-    const inside = (q: { x: number; y: number }) => q.x >= r.x0 && q.x <= r.x1 && q.y >= r.y0 && q.y <= r.y1;
+    /** An item is visible if any of a few sample points on it (spread along it) is not behind the model. */
+    const anyVisible = (samples: THREE.Vector3[]) => samples.some((p) => !this.occluded(p));
+    const spread = <T,>(items: T[], n: number): T[] => {
+      if (items.length <= n) return items;
+      return Array.from({ length: n }, (_, i) => items[Math.floor(((i + 0.5) * items.length) / n)]);
+    };
     if (kind === "vertex") {
       for (const v of data.vertices) {
-        const q = toPx(v.position[0], v.position[1], v.position[2]);
-        if (!q.behind && inside(q) && !this.occluded(new THREE.Vector3(v.position[0], v.position[1], v.position[2]))) out.push({ kind, id: v.id });
+        const q = proj(v.position[0], v.position[1], v.position[2]);
+        if (!q.behind && pointInRect(q, r) && !this.occluded(new THREE.Vector3(v.position[0], v.position[1], v.position[2]))) out.push({ kind, id: v.id });
       }
     } else if (kind === "edge") {
       const ep = data.edgePositions;
       for (const edge of data.edges) {
         if (edge.count === 0) continue;
-        let all = true;
-        let any = false;
+        const pts: Array<{ x: number; y: number }> = [];
         let behind = false;
         for (let i = edge.start; i < edge.start + edge.count; i++) {
-          const q = toPx(ep[i * 3], ep[i * 3 + 1], ep[i * 3 + 2]);
+          const q = proj(ep[i * 3], ep[i * 3 + 1], ep[i * 3 + 2]);
           if (q.behind) behind = true;
-          if (inside(q)) any = true;
-          else all = false;
-          // A segment can cross the box with both ends outside (crossing mode).
-          if (crossing && !any && (i - edge.start) % 2 === 1) {
-            const p = toPx(ep[(i - 1) * 3], ep[(i - 1) * 3 + 1], ep[(i - 1) * 3 + 2]);
-            if (segmentHitsRect(p, q, r)) any = true;
-          }
+          pts.push(q);
         }
-        if (behind || !(crossing ? any : all)) continue;
-        const mid = edge.start + (edge.count >> 1);
-        if (!this.occluded(new THREE.Vector3(ep[mid * 3], ep[mid * 3 + 1], ep[mid * 3 + 2]))) out.push({ kind, id: edge.id });
+        if (behind || !segmentsInBox(pts, r, crossing)) continue;
+        // Sample the middle of each segment that is inside or touches the box.
+        const samples: THREE.Vector3[] = [];
+        for (let i = 0; i + 1 < edge.count; i += 2) {
+          if (!(crossing ? segmentHitsRect(pts[i], pts[i + 1], r) : true)) continue;
+          const a = (edge.start + i) * 3;
+          const b = (edge.start + i + 1) * 3;
+          samples.push(new THREE.Vector3((ep[a] + ep[b]) / 2, (ep[a + 1] + ep[b + 1]) / 2, (ep[a + 2] + ep[b + 2]) / 2));
+        }
+        if (anyVisible(spread(samples, 6))) out.push({ kind, id: edge.id });
       }
     } else {
       const pos = data.positions;
       const idx = data.indices;
       for (const face of data.faces) {
         if (face.count === 0) continue;
-        let minX = Infinity;
-        let minY = Infinity;
-        let maxX = -Infinity;
-        let maxY = -Infinity;
+        const pts: Array<{ x: number; y: number }> = [];
         let behind = false;
         for (let i = face.start; i < face.start + face.count; i++) {
           const v = idx[i] * 3;
-          const q = toPx(pos[v], pos[v + 1], pos[v + 2]);
+          const q = proj(pos[v], pos[v + 1], pos[v + 2]);
           if (q.behind) behind = true;
-          minX = Math.min(minX, q.x);
-          maxX = Math.max(maxX, q.x);
-          minY = Math.min(minY, q.y);
-          maxY = Math.max(maxY, q.y);
+          pts.push(q);
         }
-        if (behind) continue;
-        const hit = crossing
-          ? maxX >= r.x0 && minX <= r.x1 && maxY >= r.y0 && minY <= r.y1
-          : minX >= r.x0 && maxX <= r.x1 && minY >= r.y0 && maxY <= r.y1;
-        if (!hit) continue;
-        // Visible test on the centre of the face's first triangle: cheap and good enough.
-        const probe = new THREE.Vector3();
-        for (let k = 0; k < 3; k++) probe.add(new THREE.Vector3(pos[idx[face.start + k] * 3], pos[idx[face.start + k] * 3 + 1], pos[idx[face.start + k] * 3 + 2]));
-        probe.multiplyScalar(1 / 3);
-        if (!this.occluded(probe)) out.push({ kind, id: face.id });
+        if (behind || !trianglesInBox(pts, r, crossing)) continue;
+        // Sample the centre of each triangle that is inside or overlaps the box.
+        const samples: THREE.Vector3[] = [];
+        for (let i = 0; i + 2 < face.count; i += 3) {
+          if (crossing && !triangleHitsRect(pts[i], pts[i + 1], pts[i + 2], r)) continue;
+          const c = new THREE.Vector3();
+          for (let k = 0; k < 3; k++) {
+            const v = idx[face.start + i + k] * 3;
+            c.add(new THREE.Vector3(pos[v], pos[v + 1], pos[v + 2]));
+          }
+          samples.push(c.multiplyScalar(1 / 3));
+        }
+        if (anyVisible(spread(samples, 12))) out.push({ kind, id: face.id });
       }
     }
     return out;
@@ -1192,33 +1201,4 @@ export class Viewport {
     this.controls.target.copy(center);
     this.controls.update();
   }
-}
-
-/** Whether the screen segment p-q touches the rectangle (Liang-Barsky clipping). */
-function segmentHitsRect(
-  p: { x: number; y: number },
-  q: { x: number; y: number },
-  r: { x0: number; x1: number; y0: number; y1: number },
-): boolean {
-  let t0 = 0;
-  let t1 = 1;
-  const dx = q.x - p.x;
-  const dy = q.y - p.y;
-  const edges: Array<[number, number]> = [
-    [-dx, p.x - r.x0],
-    [dx, r.x1 - p.x],
-    [-dy, p.y - r.y0],
-    [dy, r.y1 - p.y],
-  ];
-  for (const [pk, qk] of edges) {
-    if (pk === 0) {
-      if (qk < 0) return false;
-    } else {
-      const t = qk / pk;
-      if (pk < 0) t0 = Math.max(t0, t);
-      else t1 = Math.min(t1, t);
-      if (t0 > t1) return false;
-    }
-  }
-  return true;
 }
