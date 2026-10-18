@@ -85,7 +85,7 @@ export class SketchMode {
   private queued: { drag?: { point: number; u: number; v: number } } | null = null;
   private previewTimer = 0;
   private panel: HTMLElement;
-  private extrude = { distance: 10, mode: "join" as "join" | "cut", symmetric: false, revolve: false, angle: 360, open: false };
+  private extrude = { distance: 10, mode: "join" as "join" | "cut" | "new", symmetric: false, revolve: false, angle: 360, open: false };
 
   constructor(
     private readonly viewport: Viewport,
@@ -979,8 +979,8 @@ export class SketchMode {
       return input;
     };
     const mode = document.createElement("select");
-    for (const m of ["join", "cut"]) mode.append(new Option(m === "join" ? "Join (add material)" : "Cut (remove material)", m, false, m === this.extrude.mode));
-    mode.addEventListener("change", () => preview(() => (this.extrude.mode = mode.value as "join" | "cut")));
+    for (const m of ["join", "new", "cut"]) mode.append(new Option(m === "join" ? "Join (add material)" : m === "new" ? "New body" : "Cut (remove material)", m, false, m === this.extrude.mode));
+    mode.addEventListener("change", () => preview(() => (this.extrude.mode = mode.value as "join" | "cut" | "new")));
     const symmetric = document.createElement("input");
     symmetric.type = "checkbox";
     symmetric.checked = this.extrude.symmetric;

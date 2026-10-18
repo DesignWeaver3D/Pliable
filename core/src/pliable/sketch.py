@@ -571,10 +571,10 @@ def extrude(shape, sketch: dict, distance: float, mode: str, symmetric: bool = F
     distances go along the normal, so out of a face the sketch sits on) or cut it (mode "cut": into the material)."""
     from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
 
-    from .features import _combine, finish
+    from .features import _add_material, _combine, finish
 
-    if mode not in ("join", "cut"):
-        raise SketchError("mode must be 'join' or 'cut'")
+    if mode not in ("join", "cut", "new"):
+        raise SketchError("mode must be 'join', 'cut' or 'new'")
     if abs(distance) < 1e-4:
         raise SketchError("Give an extrusion distance")
     face = profile_face(sketch)
@@ -594,7 +594,7 @@ def extrude(shape, sketch: dict, distance: float, mode: str, symmetric: bool = F
     prism.Build()
     if not prism.IsDone():
         raise SketchError("Could not extrude this profile")
-    return finish(_combine(shape, prism.Shape(), fuse=mode == "join"))
+    return finish(_combine(shape, prism.Shape(), fuse=True) if mode == "join" else _add_material(shape, prism.Shape(), True) if mode == "new" else _combine(shape, prism.Shape(), fuse=False))
 
 
 def _translation(vector: gp_Vec):
@@ -611,10 +611,10 @@ def revolve(shape, sketch: dict, axis_entity: int, angle: float, mode: str):
     from OCP.BRepPrimAPI import BRepPrimAPI_MakeRevol
     from OCP.gp import gp_Ax1
 
-    from .features import _combine, finish
+    from .features import _add_material, _combine, finish
 
-    if mode not in ("join", "cut"):
-        raise SketchError("mode must be 'join' or 'cut'")
+    if mode not in ("join", "cut", "new"):
+        raise SketchError("mode must be 'join', 'cut' or 'new'")
     if not 0.0 < abs(angle) <= 360.0:
         raise SketchError("The angle must be between 0 and 360 degrees")
     line = next((e for e in sketch.get("entities", []) if e["id"] == axis_entity and e["type"] == "line"), None)
@@ -630,7 +630,7 @@ def revolve(shape, sketch: dict, axis_entity: int, angle: float, mode: str):
     revol.Build()
     if not revol.IsDone():
         raise SketchError("Could not revolve this profile (does it cross the axis?)")
-    return finish(_combine(shape, revol.Shape(), fuse=mode == "join"))
+    return finish(_combine(shape, revol.Shape(), fuse=True) if mode == "join" else _add_material(shape, revol.Shape(), True) if mode == "new" else _combine(shape, revol.Shape(), fuse=False))
 
 
 def face_reference(face_shape, plane: dict, project: bool = False) -> dict:

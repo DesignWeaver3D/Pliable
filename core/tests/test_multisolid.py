@@ -104,3 +104,71 @@ def test_mesh_labels_each_item_with_its_solid():
     assert {f["solid"] for f in mesh.faces} == {0, 1}
     assert {e["solid"] for e in mesh.edges} == {0, 1}
     assert {v["solid"] for v in mesh.vertices} == {0, 1}
+
+
+def count_solids(shape) -> int:
+    return len(solids_of(shape))
+
+
+@pytest.mark.parametrize(
+    "tool,params",
+    [
+        ("add_box", {}),
+        ("add_cylinder", {}),
+        ("add_sphere", {}),
+        ("add_cone", {"top_diameter": 3}),
+        ("add_torus", {}),
+    ],
+)
+def test_primitives_are_separate_bodies_by_default(tool, params):
+    block = Topology(Box(20, 20, 20).wrapped)
+    placed = {"x": 0, "y": 0, "z": 10, **params}  # overlapping and touching the block
+    separate = get_tool(tool).execute(block, Selection(), placed, preview=False)
+    assert count_solids(separate.shape) == 2
+    joined = get_tool(tool).execute(block, Selection(), {**placed, "new_body": 0}, preview=False)
+    assert count_solids(joined.shape) == 1
+
+
+def test_two_primitives_stay_apart_until_a_boolean_joins_them():
+    first = Topology(Box(10, 10, 10).wrapped)
+    both = Topology(get_tool("add_box").execute(first, Selection(), {"x": 5, "y": 0, "z": 0}, preview=False).shape)
+    assert count_solids(both.shape) == 2
+    top = []
+    for i, face in both.faces():
+        normal = planar_normal(face)
+        if normal is not None and normal.Z() > 0.9:
+            bounds = Bnd_Box()
+            BRepBndLib.Add_s(face, bounds)
+            top.append((bounds.CornerMin().X(), i))
+    first_top, second_top = min(top)[1], max(top)[1]
+    united = get_tool("body_boolean").execute(both, Selection(faces=[first_top, second_top]), {"mode": 0}, preview=False)
+    assert count_solids(united.shape) == 1
+    assert volume(united.shape) == pytest.approx(2000)
+
+
+def test_body_list_survives_undo_and_export():
+    from pliable.files import read_step, write_mesh, write_step
+
+    document = Document(Box(10, 10, 10).wrapped)
+    added = get_tool("add_sphere").execute(document.current, Selection(), {"diameter": 6, "x": 20}, preview=False)
+    document.commit(added.shape)
+    assert count_solids(document.current.shape) == 2
+    assert len(write_mesh(document.current.shape, "stl")) > 0
+    assert count_solids(read_step(write_step(document.current.shape))) == 2
+    document.undo()
+    assert count_solids(document.current.shape) == 1
+    document.redo()
+    assert count_solids(document.current.shape) == 2
+
+
+def test_sketch_extrude_new_body_mode():
+    from pliable import sketch
+
+    points = [{"id": i + 1, "u": u, "v": v} for i, (u, v) in enumerate([(0, 0), (4, 0), (4, 4), (0, 4)])]
+    lines = [{"id": 10 + i, "type": "line", "a": i + 1, "b": (i + 1) % 4 + 1} for i in range(4)]
+    plane = {"origin": [0, 0, 5], "x": [1, 0, 0], "y": [0, 1, 0], "normal": [0, 0, 1]}
+    block = Box(10, 10, 10).wrapped
+    drawn = {"plane": plane, "points": points, "entities": lines, "constraints": []}
+    new = sketch.extrude(block, drawn, 3, "new")
+    assert count_solids(new.shape) == 2
+    assert count_solids(sketch.extrude(block, drawn, 3, "join").shape) == 1

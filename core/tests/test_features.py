@@ -123,9 +123,9 @@ def top_of(topology):
 
 
 def test_add_box_and_cylinder(block):
-    box = run("add_box", block, width=10, depth=10, height=10, x=-5, y=-5, z=10)  # sits on the top face
+    box = run("add_box", block, width=10, depth=10, height=10, x=-5, y=-5, z=10, new_body=0)  # sits on the top face
     assert volume(box.shape) == pytest.approx(24000 + 1000)
-    cylinder = run("add_cylinder", block, diameter=10, height=10, x=0, y=0, z=10)
+    cylinder = run("add_cylinder", block, diameter=10, height=10, x=0, y=0, z=10, new_body=0)
     assert volume(cylinder.shape) == pytest.approx(24000 + math.pi * 25 * 10, rel=1e-4)
     assert Topology(box.shape).face_count == 6 + 5  # box top and four walls; the block's top face stays
 
@@ -212,9 +212,9 @@ def test_body_transforms(block):
 
 
 def test_sphere_and_cone(block):
-    sphere = run("add_sphere", block, diameter=10, x=0, y=0, z=10)
+    sphere = run("add_sphere", block, diameter=10, x=0, y=0, z=10, new_body=0)
     assert volume(sphere.shape) == pytest.approx(24000 + 2 / 3 * math.pi * 125, rel=1e-3)
-    cone = run("add_cone", block, bottom_diameter=10, top_diameter=0, height=6, x=0, y=0, z=10)
+    cone = run("add_cone", block, bottom_diameter=10, top_diameter=0, height=6, x=0, y=0, z=10, new_body=0)
     assert volume(cone.shape) == pytest.approx(24000 + math.pi * 25 * 6 / 3, rel=1e-3)
 
 

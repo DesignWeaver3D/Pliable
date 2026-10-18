@@ -263,9 +263,9 @@ class Session:
         start = time.perf_counter()
         try:
             if "axis" in request:  # revolve about a sketch line instead of extruding
-                result = sketch.revolve(document.current.shape, request["sketch"], int(request["axis"]), float(request["distance"]), str(request.get("mode", "join")))
+                result = sketch.revolve(document.current.shape, request["sketch"], int(request["axis"]), float(request["distance"]), str(request.get("mode", "new")))
             else:
-                result = sketch.extrude(document.current.shape, request["sketch"], float(request["distance"]), str(request.get("mode", "join")), bool(request.get("symmetric")))
+                result = sketch.extrude(document.current.shape, request["sketch"], float(request["distance"]), str(request.get("mode", "new")), bool(request.get("symmetric")))
         except (KeyError, TypeError, ValueError) as e:
             raise RequestError(f"Malformed sketch request: {e!r}") from e
         timings = {"opMs": _ms(start)}
