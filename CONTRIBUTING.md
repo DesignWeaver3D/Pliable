@@ -16,6 +16,13 @@ Write commits for someone reading the log later.
 
 The `commit-lint` workflow runs the same check on pushes and pull requests.
 
+## Branches
+
+- `dev` is where day-to-day work goes. Commit and push there as often as you like.
+- `rebuild` is the release candidate. Pushing to it starts the four-platform build and smoke test, and a newer push cancels the build before it, so it only changes by merging `dev` (a normal merge, never a force-push).
+- `main` is the default branch and holds the last released state. Merge `rebuild` into it when cutting an alpha.
+- Version tags (`v*`) are cut from `rebuild` once its build is green. The tag build makes a draft release that you publish by hand.
+
 ## Reference material
 
 Notes about how other tools work stay in `docs/research/`, which is ignored by git and never committed or pushed. Write them in our own words. Nothing is copied from other tools: no code, no text, no screenshots.
