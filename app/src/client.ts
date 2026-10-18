@@ -26,6 +26,12 @@ export interface VertexInfo {
   position: [number, number, number];
 }
 
+export interface CentreInfo {
+  /** The hole or boss face this centre belongs to; picking the centre selects that face. */
+  face: number;
+  position: [number, number, number];
+}
+
 export interface MeshData {
   header: Record<string, any>;
   positions: Float32Array;
@@ -35,6 +41,7 @@ export interface MeshData {
   faces: FaceRange[];
   edges: EdgeRange[];
   vertices: VertexInfo[];
+  centres: CentreInfo[];
   bounds: number[];
 }
 
@@ -56,6 +63,7 @@ export function decodeMesh(frame: ArrayBuffer): MeshData {
     faces: header.faces,
     edges: header.edges,
     vertices: header.vertices ?? [],
+    centres: header.centres ?? [],
     bounds: header.bounds,
   };
 }

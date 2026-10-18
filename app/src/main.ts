@@ -5,6 +5,7 @@ import { SKETCH_PLANES } from "./layout";
 import { ToolPanel } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay } from "./dimensions";
+import { createSettingsWindow } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { Palette, type Command } from "./palette";
 import { acceptsSelection, describeNeeds, dragParam, type ToolInfo } from "./tools";
@@ -38,6 +39,7 @@ core.onBusy = (busy) => {
 };
 const measurePanel = new MeasurePanel($("measure"));
 const dimensionOverlay = new DimensionOverlay($("viewport"), () => viewport.camera);
+createSettingsWindow(document.body);
 const navCube = new NavCube($("navcube"), viewport);
 viewport.onFrame = () => {
   dimensionOverlay.draw();
@@ -51,6 +53,7 @@ window.addEventListener("keydown", (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey || target.closest("input, textarea, select") || viewport.dragging || dragSels !== null) return;
   if (e.key in VIEW_KEYS) viewport.setView(VIEW_KEYS[e.key]);
   else if (e.key === "p" || e.key === "P") navCube.toggleProjection();
+  else if (e.key === "x" || e.key === "X") viewport.toggleSeeThrough();
   else if ((e.key === "v" || e.key === "V") && currentSels.length === 1 && currentSels[0].kind === "face") {
     if (!viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: could not find a view direction for this face";
   }
@@ -123,11 +126,11 @@ let toolbarKey = "";
 function renderToolbar() {
   const usable = usableTools();
   const active = dragToolFor(currentSels)?.id;
-  const helperFace = currentSels.length === 1 && currentSels[0].kind === "face" ? currentSels[0].id : null;
-  const key = `${usable.map((t) => t.id).join(",")}|${active}|${currentSels.length}|${helperFace}`;
+  const helperKey = helperSignature();
+  const key = `${usable.map((t) => t.id).join(",")}|${active}|${currentSels.length}|${helperKey}`;
   if (key === toolbarKey) return; // unchanged: keep the buttons (avoids flicker as the core's replies arrive)
   toolbarKey = key;
-  const helpers = helperFace === null ? [] : faceEdgeHelpers(helperFace);
+  const helpers = selectionHelpers();
   if (usable.length === 0 && helpers.length === 0) {
     const hint = document.createElement("span");
     hint.className = "none";
@@ -148,16 +151,23 @@ function renderToolbar() {
   );
 }
 
-/** Buttons that turn a selected face into a selection of its edges. */
-function faceEdgeHelpers(face: number): HTMLButtonElement[] {
-  const make = (label: string, title: string, mode: "face_edges" | "face_loops") => {
+/** Which selection helper buttons apply to the current selection (also the toolbar cache key). */
+function helperSignature(): string {
+  if (currentSels.length === 1) return `${currentSels[0].kind}${currentSels[0].id}`;
+  if (currentSels.length > 1 && currentSels.every((s) => s.kind === "face")) return "faces" + currentSels.map((s) => s.id).join(",");
+  return "";
+}
+
+/** Buttons that grow a selection of faces or an edge into a selection of edges. */
+function selectionHelpers(): HTMLButtonElement[] {
+  const make = (label: string, title: string, request: Record<string, unknown>) => {
     const button = document.createElement("button");
     button.textContent = label;
     button.title = title;
     button.className = "helper";
     button.addEventListener("click", async () => {
       try {
-        const reply = await core.request<{ edges?: number[]; loops?: number[][] }>("edge_selection", { mode, face });
+        const reply = await core.request<{ edges?: number[]; loops?: number[][] }>("edge_selection", request);
         const ids = reply.edges ?? (reply.loops ?? []).flat();
         const picked: Sel[] = ids.map((id) => ({ kind: "edge" as const, id }));
         viewport.selectItems(picked);
@@ -169,10 +179,23 @@ function faceEdgeHelpers(face: number): HTMLButtonElement[] {
     });
     return button;
   };
-  return [
-    make("All edges", "Select every edge of the selected face", "face_edges"),
-    make("Edge loops", "Select the closed edge loops that bound the selected face (outline and holes)", "face_loops"),
-  ];
+  const one = currentSels.length === 1 ? currentSels[0] : null;
+  if (one?.kind === "face") {
+    return [
+      make("All edges", "Select every edge of the selected face", { mode: "face_edges", face: one.id }),
+      make("Edge loops", "Select the closed edge loops that bound the selected face (outline and holes)", { mode: "face_loops", face: one.id }),
+    ];
+  }
+  if (one?.kind === "edge") {
+    return [
+      make("Edge ring", "Select the parallel edges across four-sided faces, like the rungs of a ladder", { mode: "ring", edge: one.id }),
+      make("Sharp edges", "Select the connected edges where faces meet at 30 degrees or more", { mode: "sharp", edge: one.id, angle: 30 }),
+    ];
+  }
+  if (currentSels.length > 1 && currentSels.every((s) => s.kind === "face")) {
+    return [make("Region outline", "Select the edges around the outside of the selected faces", { mode: "region_boundary", faces: currentSels.map((s) => s.id) })];
+  }
+  return [];
 }
 
 function armTool(tool: ToolInfo) {
@@ -326,6 +349,7 @@ function pump(token: number) {
 }
 
 viewport.onSelect = setSelection;
+viewport.onEyedropCancel = () => cancelEyedrop();
 viewport.onEdgeLoop = async (edgeId, additive) => {
   try {
     // Another edge is already selected: take the loop of the face the two share.
@@ -710,6 +734,27 @@ function renderSketchBar() {
 renderSketchBar();
 
 // Tools without a drag parameter (and the "All tools" list) use a typed-value form with live preview.
+let eyedropResolve: ((v: number | null) => void) | null = null;
+function cancelEyedrop() {
+  viewport.eyedropper = null;
+  eyedropResolve?.(null);
+  eyedropResolve = null;
+}
+
+/** The number a measured item holds for a tool parameter: radius, diameter, angle, else a length. */
+function readValue(rows: { label: string; value: number | number[] | string }[], param: string, kind: string): number | null {
+  const num = (label: string) => {
+    const v = rows.find((r) => r.label === label)?.value;
+    return typeof v === "number" ? v : null;
+  };
+  const radius = num("Radius") ?? (num("Diameter") !== null ? num("Diameter")! / 2 : null);
+  const diameter = num("Diameter") ?? (radius !== null ? radius * 2 : null);
+  if (kind === "angle") return num("Angle");
+  if (/diam/i.test(param)) return diameter;
+  if (/radius/i.test(param)) return radius;
+  return num("Length") ?? num("Distance") ?? radius;
+}
+
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   tools: () => tools,
   usable: (tool) => acceptsSelection(tool, expand(tool, currentSels)) && (refined === null || refined.includes(tool.id)),
@@ -738,6 +783,29 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       status.classList.add("error");
     }
   },
+  eyedrop(param, kind) {
+    return new Promise((resolve) => {
+      cancelEyedrop();
+      if (committed) show(committed); // pick against the committed model, whose ids the core knows
+      status.classList.remove("error");
+      status.textContent = "Eyedropper: click the item to copy from (Esc cancels)";
+      eyedropResolve = resolve;
+      viewport.eyedropper = async (sel) => {
+        viewport.eyedropper = null;
+        eyedropResolve = null;
+        try {
+          const reply = await core.request<MeasureReply>("measure", { selection: selectionPayload([sel]) });
+          const value = readValue(reply.items[0]?.rows ?? [], param, kind);
+          status.textContent = value === null ? "That item has no matching value" : `Copied ${value}`;
+          resolve(value);
+        } catch (e) {
+          status.textContent = (e as Error).message;
+          resolve(null);
+        }
+      };
+    });
+  },
+  cancelEyedrop,
   cancel() {
     if (committed) {
       show(committed);

@@ -132,3 +132,23 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 
 - Only offsets of the three world planes are offered. No plane through three points, at an angle, or midway between faces; the offset is typed, not dragged.
 - **S25 merge cost:** `unify_result` runs after every tool; measured 0.4 s on a 231-face plate with 225 holes, and it grows with face count. If large models feel slow, merge only faces near the changed region. Out-and-back and all-tools sweeps (`core/tests/test_seams.py`) found no leftover seams on the bracket.
+
+## Selection settings, box select and see-through (S26, S38)
+
+- Pick ranges (edge 5 px, point 8 px) are stored in the browser only and are not part of the document; the old fixed values were 6 and 9.
+- Box selection picks one kind: the kind already selected, otherwise edges. Face window/crossing tests use the face's projected bounding box, so a crossing box can catch a face it only passes near; visibility is tested with one ray per item (edge midpoint, first triangle of a face).
+- Measure mode during a drag moved from right-click to the M key; right-drag now orbits mid-drag, so the drag distance shifts if the view moves under the pointer.
+- See-through draws the surface at 30 percent opacity and ignores depth for edges. Clicking the same spot again cycles through faces behind; hidden vertices and edges are picked by screen distance only.
+
+## Edge selection methods (S31)
+
+- Edge ring only follows four-sided faces with one outline loop and stops at any other face; sharp-edge selection uses a fixed 30 degree threshold and connects through shared vertices only (no angle setting in the UI yet).
+- Region outline counts an edge once if it borders exactly one selected face, so it also picks edges where the model's own boundary is open.
+
+## Hole centres as pick targets (S35)
+
+- A hole or boss centre is a small blue dot; clicking it selects that hole's face (it is not a separate point selection). Using a centre as a drag handle to move the hole is not built; the Move hole tool form is used instead. Centre markers are hidden when the hole wall is in the way.
+
+## Eyedropper (S32)
+
+- The eyedropper button sits next to length and angle fields in tool forms. It reads the measurement of the clicked face or edge: radius, diameter and length by matching the field name (names containing "radius" or "diam", else length, distance, then radius); angle fields read an Angle row. Other field names get a length, which may not be what was meant. It picks against the committed model, so the preview is hidden while it is armed.

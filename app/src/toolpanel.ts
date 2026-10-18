@@ -9,6 +9,9 @@ export interface ToolPanelHost {
   preview(tool: ToolInfo, values: Record<string, number>): Promise<void>;
   commit(tool: ToolInfo, values: Record<string, number>): Promise<void>;
   cancel(): void;
+  /** Eyedropper: wait for the next click on the model and give back the value it holds for `param` (null = nothing readable). Resolves null if cancelled. */
+  eyedrop(param: string, kind: string): Promise<number | null>;
+  cancelEyedrop(): void;
 }
 
 const PREVIEW_DELAY_MS = 150;
@@ -72,6 +75,7 @@ export class ToolPanel {
   close(restore = true) {
     if (!this.open) return;
     this.open = null;
+    this.host.cancelEyedrop();
     clearTimeout(this.timer);
     this.formEl.hidden = true;
     this.formEl.replaceChildren();
@@ -103,6 +107,24 @@ export class ToolPanel {
       });
       inputs[p.name] = input;
       row.append(name, input);
+      if (p.kind === "length" || p.kind === "angle") {
+        const dropper = document.createElement("button");
+        dropper.type = "button";
+        dropper.className = "eyedropper";
+        dropper.textContent = "⌖";
+        dropper.title = "Eyedropper: click a fillet, hole or edge in the model to copy its value";
+        dropper.addEventListener("click", async (e) => {
+          e.preventDefault();
+          dropper.classList.add("armed");
+          const value = await this.host.eyedrop(p.name, p.kind);
+          dropper.classList.remove("armed");
+          if (value !== null && this.open) {
+            input.value = String(Math.round(value * 1000) / 1000);
+            this.schedulePreview(0);
+          }
+        });
+        row.append(dropper);
+      }
       return row;
     });
     const apply = document.createElement("button");

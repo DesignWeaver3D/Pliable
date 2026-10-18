@@ -1,7 +1,7 @@
 import pytest
 
 from pliable.demos import load_demo
-from pliable.edgesel import face_edges, face_loops, shared_loop
+from pliable.edgesel import edge_angle, edge_ring, face_edges, face_loops, region_boundary, shared_loop, sharp_edges
 from pliable.ops import OperationError
 from pliable.topology import Topology
 
@@ -63,3 +63,41 @@ def test_divide_face_adds_one_face_and_rejects_a_miss():
     assert len(list(Topology(result.shape).faces())) == before + 1
     with pytest.raises(OperationError):
         get_tool("divide_face").run(t, Selection(faces=[0]), {"across": 1, "offset": 1000.0}, False)
+
+
+def test_block_ring_has_four_parallel_edges():
+    t = Topology(load_demo("block"))
+    ring = edge_ring(t, 0)
+    assert len(ring) == 4 and 0 in ring
+
+
+def test_region_boundary_of_two_block_faces():
+    t = Topology(load_demo("block"))
+    shared = {f for f in range(t.face_count)}
+    a = 0
+    neighbour = next(
+        f for f in range(1, t.face_count) if set(face_edges(t, a)) & set(face_edges(t, f))
+    )
+    assert len(region_boundary(t, [a, neighbour])) == 6
+    assert shared
+
+
+def test_sharp_edges_of_a_block_reach_all_twelve():
+    t = Topology(load_demo("block"))
+    assert edge_angle(t, 0) == pytest.approx(90, abs=0.5)
+    assert len(sharp_edges(t, 0, 30)) == 12
+
+
+def test_smooth_edge_is_not_sharp():
+    t = Topology(load_demo("bracket"))
+    angles = [edge_angle(t, e) for e in range(t.edge_count)]
+    smooth = next(e for e, a in enumerate(angles) if a is not None and a < 1)
+    with pytest.raises(OperationError):
+        sharp_edges(t, smooth, 30)
+
+
+def test_mesh_reports_hole_centres():
+    from pliable.tessellate import tessellate
+
+    mesh = tessellate(Topology(load_demo("bracket")))
+    assert len(mesh.centres) >= 4 and all(len(c["position"]) == 3 for c in mesh.centres)

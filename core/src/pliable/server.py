@@ -31,7 +31,7 @@ from OCP.gp import gp_Vec
 from .measure import measure, model_info
 from .ops import OperationError, solids_of
 from .protocol import encode_mesh
-from .edgesel import face_edges, face_loops, shared_loop
+from .edgesel import edge_ring, face_edges, face_loops, region_boundary, shared_loop, sharp_edges
 from .relations import find_related, tangent_chain
 from .tessellate import tessellate
 from .tools import TOOLS, Selection, get_tool
@@ -149,6 +149,12 @@ class Session:
                     return {"edges": face_edges(topology, int(request["face"]))}
                 if mode == "face_loops":
                     return {"loops": face_loops(topology, int(request["face"]))}
+                if mode == "ring":
+                    return {"edges": edge_ring(topology, int(request["edge"]))}
+                if mode == "sharp":
+                    return {"edges": sharp_edges(topology, int(request["edge"]), float(request.get("angle", 30)))}
+                if mode == "region_boundary":
+                    return {"edges": region_boundary(topology, [int(f) for f in request["faces"]])}
                 if mode == "shared_loop":
                     return {"edges": shared_loop(topology, int(request["first"]), int(request["second"]))}
             except (KeyError, ValueError, TypeError) as e:
