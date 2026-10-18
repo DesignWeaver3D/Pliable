@@ -6,6 +6,7 @@ import { ToolPanel } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay } from "./dimensions";
 import { MeasurePanel, type MeasureReply } from "./measure";
+import { KeyRouter } from "./keyrouter";
 import { Palette, type Command } from "./palette";
 import { acceptsSelection, describeNeeds, dragParam, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
@@ -45,18 +46,6 @@ viewport.onFrame = () => {
   dimensionOverlay.draw();
   navCube.update();
 };
-
-// View shortcuts (standard numbering): 0 isometric, 1 front, 2 top, 3 right, 4 rear, 5 bottom, 6 left;
-// P toggles perspective/orthographic; V looks along the selected face's normal (mean normal for curved faces). Ignored while typing or dragging.
-window.addEventListener("keydown", (e) => {
-  const target = e.target as HTMLElement;
-  if (e.ctrlKey || e.metaKey || e.altKey || target.closest("input, textarea, select") || viewport.dragging || dragSels !== null) return;
-  if (e.key in VIEW_KEYS) viewport.setView(VIEW_KEYS[e.key]);
-  else if (e.key === "p" || e.key === "P") navCube.toggleProjection();
-  else if ((e.key === "v" || e.key === "V") && currentSels.length === 1 && currentSels[0].kind === "face") {
-    if (!viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: could not find a view direction for this face";
-  }
-});
 
 // Tool registry from the core, the current selection, and which tool a drag runs.
 let tools: ToolInfo[] = [];
@@ -548,16 +537,28 @@ function setVisibility(action: "hide" | "isolate" | "show") {
   viewport.selectItems(keep.filter((s) => !hiddenSolids.has(owner(s))));
   setSelection(currentSels.filter((s) => !hiddenSolids.has(owner(s))));
 }
-window.addEventListener("keydown", (e) => {
-  if (e.key.toLowerCase() !== "h" || e.ctrlKey || e.metaKey || sketch.active) return;
-  if ((e.target as HTMLElement)?.tagName === "INPUT") return;
-  setVisibility(e.altKey ? "show" : e.shiftKey ? "isolate" : "hide");
+
+// Keyboard shortcuts: one router applies the policy in keys.ts (engagement, blur, repeat, entry, sketch) and runs these.
+const keys = new KeyRouter({
+  viewport: $("viewport"),
+  handlers: {
+    ...Object.fromEntries(Object.entries(VIEW_KEYS).map(([, name]) => [`view.${name}`, () => viewport.setView(name)])),
+    "view.projection": () => navCube.toggleProjection(),
+    "view.lookAtFace": () => {
+      if (currentSels.length === 1 && currentSels[0].kind === "face" && !viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: could not find a view direction for this face";
+    },
+    "display.hide": () => setVisibility("hide"),
+    "display.isolate": () => setVisibility("isolate"),
+    "display.showAll": () => setVisibility("show"),
+    "history.undo": () => void history("undo"),
+    "history.redo": () => void history("redo"),
+  },
+  entryActive: () => viewport.dragging || dragSels !== null,
+  sketchActive: () => sketch.active,
+  cancelInteraction: () => viewport.cancelDrag(),
+  status,
 });
-window.addEventListener("keydown", (e) => {
-  if (!e.ctrlKey || sketch.active) return; // in sketch mode Ctrl+Z undoes sketch edits
-  if (e.key === "z") history("undo");
-  else if (e.key === "y") history("redo");
-});
+keys.installButton($("bar"));
 
 function toBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -633,11 +634,11 @@ function commands(): Command[] {
   }));
   return [
     ...toolCommands,
-    { label: "Undo", hint: "Ctrl+Z", enabled: !undoButton.disabled, run: () => history("undo") },
-    { label: "Redo", hint: "Ctrl+Y", enabled: !redoButton.disabled, run: () => history("redo") },
-    { label: "Hide body", hint: "H", enabled: currentSels.length > 0, run: () => setVisibility("hide") },
-    { label: "Isolate body", hint: "Shift+H", enabled: currentSels.length > 0, run: () => setVisibility("isolate") },
-    { label: "Show all bodies", hint: "Alt+H", enabled: hiddenSolids.size > 0, run: () => setVisibility("show") },
+    { label: "Undo", hint: keys.keymap.hint("history.undo"), enabled: !undoButton.disabled, run: () => history("undo") },
+    { label: "Redo", hint: keys.keymap.hint("history.redo"), enabled: !redoButton.disabled, run: () => history("redo") },
+    { label: "Hide body", hint: keys.keymap.hint("display.hide"), enabled: currentSels.length > 0, run: () => setVisibility("hide") },
+    { label: "Isolate body", hint: keys.keymap.hint("display.isolate"), enabled: currentSels.length > 0, run: () => setVisibility("isolate") },
+    { label: "Show all bodies", hint: keys.keymap.hint("display.showAll"), enabled: hiddenSolids.size > 0, run: () => setVisibility("show") },
     { label: "Open STEP file", enabled: true, run: () => fileInput.click() },
     { label: "Export STEP file", enabled: true, run: () => exportAs("export_step", "step") },
     ...["stl", "obj", "3mf"].map((format) => ({

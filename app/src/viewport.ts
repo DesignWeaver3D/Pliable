@@ -189,6 +189,17 @@ export class Viewport {
     return this.drag?.moved ?? false;
   }
 
+  /** Cancels the current drag, even while a typed value holds it (the window lost focus). */
+  cancelDrag() {
+    const drag = this.drag;
+    if (!drag) return;
+    this.drag = null;
+    this.holdDrag = false;
+    this.controls.enabled = true;
+    this.endMeasure();
+    this.onItemDrag(drag.sels, 0, "cancel");
+  }
+
   /** Ends the current drag as if the pointer was released (used when a typed value is committed); later pointer events are ignored. */
   finishDrag() {
     const drag = this.drag;
