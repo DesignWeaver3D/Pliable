@@ -16,3 +16,12 @@ Done by criteria: Resize fillet switches constant/variable via end radius (teste
 
 ## Resume point
 All five sessions Done or Parked; nothing half-done. 166 tests pass.
+
+## S29 core - Done (core only)
+Multi-solid documents already worked (compound of solids, per-solid ids, hide/isolate, `body_boolean` as the explicit join). Added `new_body` param (1 default = own body, 0 = fuse) to add_box/cylinder/sphere/cone/torus via `_add_material` in features.py. Sketch extrude and revolve accept mode `new`; the request default mode is now `new` when the client omits it. Frontend: only a "New body" option in the extrude mode select in `sketch.ts` (UI default remains Join). Tests in test_multisolid.py (defaults, boolean join, undo/redo, STL/STEP export, sketch extrude).
+Decisions (change if the owner disagrees):
+- Default separate for primitives and server-side extrude; sketch UI default left at Join because extruding a sketch drawn on a face is normally meant to add to it. To default the UI to a new body, change the initial `mode` in `sketch.ts` (two places).
+- add_boss, array copies, and push/pull stay joining (they are features of a body, not new bodies).
+- Param is a number, not a checkbox (no boolean param kind); a real checkbox belongs to the post-S34 form work.
+Open: move/rotate/scale act on the whole model, not a picked body (owner wants single/group moves); next step is a per-body selection for move_body etc.
+Resume: S29 core done; per-body move is the next piece. 185 tests pass.

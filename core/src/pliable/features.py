@@ -53,6 +53,25 @@ def _combine(shape: TopoDS_Shape, tool: TopoDS_Shape, fuse: bool) -> TopoDS_Shap
     return operation.Shape()
 
 
+def _add_material(shape: TopoDS_Shape, solid: TopoDS_Shape, separate: bool) -> TopoDS_Shape:
+    """Add a solid to the model: kept as its own body (`separate`) or fused into the bodies it touches."""
+    if not separate:
+        return _combine(shape, solid, fuse=True)
+    compound, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(compound)
+    for body in solids_of(shape):
+        builder.Add(compound, body)
+    builder.Add(compound, solid)
+    return compound
+
+
+def _new_body(values: dict) -> bool:
+    return values.get("new_body", 0.0) >= 0.5
+
+
+NEW_BODY = Param("new_body", "number", 1)  # 1 keeps the new solid as its own body, 0 joins it to the model
+
+
 def _volume(shape: TopoDS_Shape) -> float:
     props = GProp_GProps()
     BRepGProp.VolumeProperties_s(shape, props)
@@ -549,7 +568,7 @@ class CenterBetween(Tool):
 
 @register
 class AddBox(Tool):
-    """A box joined to the model, given by its minimum corner and size."""
+    """A box added as a new body (new_body 0 joins it to the model), given by its minimum corner and size."""
 
     id = "add_box"
     label = "Add box"
@@ -562,13 +581,14 @@ class AddBox(Tool):
         Param("x", "length"),
         Param("y", "length"),
         Param("z", "length"),
+        NEW_BODY,
     ]
 
     def run(self, topology, selection, values, preview):
         if min(values["width"], values["depth"], values["height"]) < MIN_DISTANCE:
             raise OperationError("The box sizes must be positive")
         box = BRepPrimAPI_MakeBox(gp_Pnt(values["x"], values["y"], values["z"]), values["width"], values["depth"], values["height"]).Shape()
-        return finish(_combine(topology.shape, box, fuse=True))
+        return finish(_add_material(topology.shape, box, _new_body(values)))
 
 
 @register
@@ -579,13 +599,13 @@ class AddCylinder(Tool):
     label = "Add cylinder"
     placement = ("x", "y", "z")
     accepts = Accepts()
-    params = [Param("diameter", "length", 10), Param("height", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length")]
+    params = [Param("diameter", "length", 10), Param("height", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length"), NEW_BODY]
 
     def run(self, topology, selection, values, preview):
         if min(values["diameter"], values["height"]) < MIN_DISTANCE:
             raise OperationError("The cylinder sizes must be positive")
         cylinder = _cylinder(gp_Pnt(values["x"], values["y"], values["z"]), gp_Dir(0, 0, 1), values["diameter"] / 2, values["height"])
-        return finish(_combine(topology.shape, cylinder, fuse=True))
+        return finish(_add_material(topology.shape, cylinder, _new_body(values)))
 
 
 @register
@@ -866,13 +886,13 @@ class AddSphere(Tool):
     label = "Add sphere"
     placement = ("x", "y", "z")
     accepts = Accepts()
-    params = [Param("diameter", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length")]
+    params = [Param("diameter", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length"), NEW_BODY]
 
     def run(self, topology, selection, values, preview):
         if values["diameter"] < MIN_DISTANCE:
             raise OperationError("The diameter must be positive")
         sphere = BRepPrimAPI_MakeSphere(gp_Pnt(values["x"], values["y"], values["z"]), values["diameter"] / 2).Shape()
-        return finish(_combine(topology.shape, sphere, fuse=True))
+        return finish(_add_material(topology.shape, sphere, _new_body(values)))
 
 
 @register
@@ -890,6 +910,7 @@ class AddCone(Tool):
         Param("x", "length"),
         Param("y", "length"),
         Param("z", "length"),
+        NEW_BODY,
     ]
 
     def run(self, topology, selection, values, preview):
@@ -897,7 +918,7 @@ class AddCone(Tool):
             raise OperationError("Give a positive height and at least one positive diameter")
         axes = gp_Ax2(gp_Pnt(values["x"], values["y"], values["z"]), gp_Dir(0, 0, 1))
         cone = BRepPrimAPI_MakeCone(axes, values["bottom_diameter"] / 2, values["top_diameter"] / 2, values["height"]).Shape()
-        return finish(_combine(topology.shape, cone, fuse=True))
+        return finish(_add_material(topology.shape, cone, _new_body(values)))
 
 
 @register
@@ -908,14 +929,14 @@ class AddTorus(Tool):
     label = "Add torus"
     placement = ("x", "y", "z")
     accepts = Accepts()
-    params = [Param("major", "length", 20), Param("minor", "length", 5), Param("x", "length"), Param("y", "length"), Param("z", "length")]
+    params = [Param("major", "length", 20), Param("minor", "length", 5), Param("x", "length"), Param("y", "length"), Param("z", "length"), NEW_BODY]
 
     def run(self, topology, selection, values, preview):
         if values["minor"] < MIN_DISTANCE or values["major"] <= values["minor"]:
             raise OperationError("The ring diameter must be larger than the tube diameter, and both positive")
         axes = gp_Ax2(gp_Pnt(values["x"], values["y"], values["z"]), gp_Dir(0, 0, 1))
         torus = BRepPrimAPI_MakeTorus(axes, values["major"] / 2, values["minor"] / 2).Shape()
-        return finish(_combine(topology.shape, torus, fuse=True))
+        return finish(_add_material(topology.shape, torus, _new_body(values)))
 
 
 MAX_ARRAY_COPIES = 200

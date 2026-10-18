@@ -190,3 +190,4 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Autosave with several instances (S41)
 
 - **Two copies of the app share one autosave folder.** The launcher takes port 8765 or any free port, so a second copy starts without complaint, and both write the same `session.json` and snapshot files. *Symptom:* the second copy overwrites the first's undo history, the restore prompt offers the other copy's model, and the clean-exit flag from one copy hides a crash in the other. Planned as S41 (one folder per instance with a lock). Until then, run one copy at a time or set `PLIABLE_DATA` per copy.
+- **S29 new_body flag:** it is a plain number parameter (1 new body, 0 join), so the generic tool form shows it as a number box, not a checkbox. Primitives now default to separate bodies, so existing scripts that relied on automatic fusing need `new_body: 0`.
