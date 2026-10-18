@@ -155,8 +155,9 @@ def _wrapped_session(radius=10, hole=False):
     session._open(shape, "cyl")
     topology = session.document.current
     side = _side_face(topology)
-    session.handle({"type": "sketch_plane", "unwrap": side})
-    session.handle({"type": "sketch_regions", "unwrap": side, "sketch": _rectangle(12, 8, cx=5)})
+    plane = session.handle({"type": "sketch_plane", "unwrap": side})["plane"]
+    assert plane["origin"][0] > 20  # drawn beside the model, not over it
+    session.handle({"type": "sketch_regions", "unwrap": side, "sketch": {**_rectangle(12, 8, cx=5), "plane": plane}})
     return session, 12 * 8
 
 
