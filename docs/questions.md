@@ -41,4 +41,4 @@ Replies to the open questions in docs/research/gui-plan.md; the decisions are re
 - Tool-usage tracking is wanted for GUI planning, included in the diagnostics report, declared in the docs and shown in the report preview (S39). Remove it if testers object.
 - Tablet: accommodate while cheap, otherwise desktop only.
 - Keyboard safety: the owner dislikes programs where typing into the wrong window fires many two-key shortcuts. A research proposal is being written (docs/research/shortcut-policy.md); the work is S40.
-- Keyboard rule from the owner: bare keys are fine if they do not immediately alter the model or global application settings, and every hotkey must be user-redefinable. The research draft was stricter on tool starts; to be reconciled in S40. Open: do view toggles such as perspective/ortho count as global settings?
+- Keyboard rule from the owner: bare keys are fine if they do not immediately alter the model or global application settings, and every hotkey must be user-redefinable. The research draft was stricter on tool starts; to be reconciled in S40. Answered: view toggles such as perspective/ortho are view state, so bare keys are fine.
