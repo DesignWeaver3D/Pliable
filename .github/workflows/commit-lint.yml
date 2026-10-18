@@ -1,5 +1,6 @@
 # Rejects pushes and pull requests whose commit messages break the rules in
-# scripts/check_commit_message.py (no product names, clear subject, body for big changes).
+# scripts/check_commit_message.py and file contents against scripts/check_content.py
+# (no product names, clear subject, body for big changes).
 name: commit-lint
 
 on:
@@ -24,3 +25,5 @@ jobs:
             range="${{ github.sha }}~1..${{ github.sha }}"
           fi
           python scripts/check_commit_message.py --range "$range"
+      - name: Check file contents
+        run: python scripts/check_content.py --all

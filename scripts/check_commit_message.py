@@ -16,16 +16,18 @@ import re
 import subprocess
 import sys
 
-BANNED = [
+NAMES = [
     re.compile(p, re.I) for p in (
         r"\bplasticity\b", r"\bspace ?claim\b", r"\bsolidworks\b", r"\bfusion ?360\b",
-        r"\bonshape\b", r"\brhino(ceros)?\b", r"\btinkercad\b", r"\bfreecad\b",
-        r"\bansys\b", r"\bsiemens\b", r"\bparasolid\b", r"\bsketchup\b", r"\bautocad\b",
-        r"\bcatia\b", r"\bnx cad\b", r"\bcreo\b", r"\binventor\b", r"\bzbrush\b",
+        r"\bonshape\b", r"\brhino(ceros)?\b", r"\btinkercad\b", r"\bfreecad\b", r"\bautocad\b",
+        r"\bansys\b", r"\bsiemens\b", r"\bparasolid\b", r"\bsketchup\b", r"\bcatia\b",
+        r"\bnx cad\b", r"\bnx synchronous\b", r"\bcreo\b", r"\binventor\b", r"\bzbrush\b",
         r"\bclaude\b", r"\banthropic\b", r"\bchatgpt\b", r"\bopenai\b", r"\bgemini\b",
-        r"\bcopilot\b", r"co-authored-by", r"generated (with|by)",
+        r"\bcopilot\b",
     )
 ] + [re.compile(r"\bSolid Edge\b")]  # case-sensitive: "solid edge" is also plain geometry
+ATTRIBUTION = [re.compile(p, re.I) for p in (r"co-authored-by", r"generated (with|by) ")]
+BANNED = NAMES + ATTRIBUTION  # commit messages: names and attribution lines
 
 PREFIX = re.compile(r"^(S\d+[a-z]?\b|feat\b|fix\b|chore\b|docs\b|wip\b|progress\b|research\b)\s*[:\-]", re.I)
 BODY_FILES = 3
@@ -96,4 +98,5 @@ def main():
     sys.exit(1 if failed else 0)
 
 
-main()
+if __name__ == "__main__":
+    main()

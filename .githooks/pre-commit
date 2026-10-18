@@ -1,0 +1,3 @@
+#!/bin/sh
+# Blocks other products' names in added lines (scripts/check_content.py).
+exec python "$(git rev-parse --show-toplevel)/scripts/check_content.py" --staged
