@@ -94,3 +94,8 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Fillet editing (2026-10-18)
 
 - **Resize fillet on a variable fillet** (`features.ResizeFillet`): the start/end radii map to the sharp edge's first/last vertex as the kernel orders them, which may be the opposite of how the fillet was first made, and the tool does not show the old radii. *Symptom:* the fillet comes back mirrored; swap the two radii. It now also offers itself on any non-planar face, so it can be offered on faces that are not fillets (it then says so when run).
+
+## Hole centres (2026-10-18)
+
+- **A hole centre is the middle of the full cylinder's axis** (`measure.hole_centre`); partial cylinders (fillets) have none. Centre distance between two holes is the straight distance between those points, not the distance between parallel axes. *Symptom:* two holes at different depths report a larger distance than their axis spacing.
+- **Centre between faces** treats the single cylinder among the three picks as the hole; picking two cylinders and one plane is refused.

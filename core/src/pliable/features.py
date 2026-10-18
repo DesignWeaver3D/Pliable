@@ -502,21 +502,32 @@ class AddSlot(_PlanarFace):
 
 @register
 class CenterBetween(Tool):
-    """Centre a hole or boss between two parallel flat faces (select the hole first, then the two faces)."""
+    """Centre a hole or boss between two parallel flat faces; the three faces can be picked in any order."""
 
     id = "center_between"
     label = "Center between faces"
     accepts = Accepts(faces=(3, 3))
 
+    @staticmethod
+    def _sorted(topology, selection):
+        """(hole, flat, flat) from the three picked faces, or None unless there is exactly one cylinder and two planes."""
+        faces = [topology.face(i) for i in selection.faces]
+        holes = [f for f in faces if BRepAdaptor_Surface(f).GetType() == GeomAbs_Cylinder]
+        flats = [f for f in faces if planar_normal(f) is not None]
+        return (holes[0], flats[0], flats[1]) if len(holes) == 1 and len(flats) == 2 else None
+
     def applies(self, topology, selection):
-        hole, a, b = (topology.face(i) for i in selection.faces)
-        if BRepAdaptor_Surface(hole).GetType() != GeomAbs_Cylinder:
+        found = self._sorted(topology, selection)
+        if found is None:
             return False
-        na, nb = planar_normal(a), planar_normal(b)
-        return na is not None and nb is not None and abs(na.Dot(nb)) > 1 - 1e-6
+        na, nb = planar_normal(found[1]), planar_normal(found[2])
+        return abs(na.Dot(nb)) > 1 - 1e-6
 
     def run(self, topology, selection, values, preview):
-        hole_face, a, b = (topology.face(i) for i in selection.faces)
+        found = self._sorted(topology, selection)
+        if found is None:
+            raise OperationError("Select one hole or boss and two flat faces")
+        hole_face, a, b = found
         hole = Hole(hole_face)
         normal = planar_normal(a)
         axis_along = abs(hole.direction.Dot(normal))

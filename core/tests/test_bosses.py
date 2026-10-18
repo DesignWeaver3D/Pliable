@@ -128,3 +128,16 @@ def test_add_boss_on_a_face():
     result = run("add_boss", block, faces=[top], diameter=10, height=5, offset_u=5)
     assert volume(result.shape) - 24000 == pytest.approx(math.pi * 25 * 5, rel=1e-3)
     assert faces_where(Topology(result.shape), "Cylinder", Radius=5)
+
+
+@pytest.mark.parametrize("order", [(0, 1, 2), (1, 0, 2), (1, 2, 0), (2, 1, 0)])
+def test_center_between_ignores_pick_order(order):
+    block = Topology(load_demo("block"))
+    top = next(i for i in range(6) if measure(block, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0])
+    one = Topology(run("add_hole", block, faces=[top], diameter=4, depth=0, offset_u=-8).shape)
+    (wall,) = faces_where(one, "Cylinder", Radius=2)
+    sides = [i for i in range(one.face_count) if measure(one, Selection(faces=[i]))["items"][0]["rows"][3]["value"] in ([1.0, 0.0, 0.0], [-1.0, 0.0, 0.0])]
+    picked = [([wall] + sides)[k] for k in order]
+    centred = Topology(run("center_between", one, faces=picked).shape)
+    (moved,) = faces_where(centred, "Cylinder", Radius=2)
+    assert measure(centred, Selection(faces=[moved]))["items"][0]["anchor"][0] == pytest.approx(0, abs=1e-3)

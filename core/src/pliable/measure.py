@@ -32,7 +32,7 @@ from OCP.GProp import GProp_GProps
 from OCP.gp import gp_Vec
 from OCP.TopAbs import TopAbs_EDGE
 from OCP.TopExp import TopExp_Explorer
-from OCP.TopoDS import TopoDS
+from OCP.TopoDS import TopoDS, TopoDS_Face
 
 from .ops import OperationError, edge_outward_normal, planar_normal
 from .tools import Selection
@@ -174,6 +174,18 @@ def _cylinder_dims(surface, cylinder, fillet: bool, u0, u1, v0, v1) -> list[dict
     ]
 
 
+def hole_centre(face):
+    """The middle of a full cylinder's axis (the centre of a hole or boss), or None for any other face."""
+    surface = BRepAdaptor_Surface(face)
+    if surface.GetType() != GeomAbs_Cylinder:
+        return None
+    u0, u1, v0, v1 = BRepTools.UVBounds_s(face)
+    if (u1 - u0) < 2 * math.pi - FULL_TURN_TOL:
+        return None
+    axis = surface.Cylinder().Axis()
+    return axis.Location().Translated(gp_Vec(axis.Direction()).Multiplied((v0 + v1) / 2))
+
+
 def measure_face(topology: Topology, face_id: int, face) -> dict:
     surface = BRepAdaptor_Surface(face)
     kind = surface.GetType()
@@ -195,6 +207,9 @@ def measure_face(topology: Topology, face_id: int, face) -> dict:
             rows.append(_row("Sweep", math.degrees(u1 - u0), "°"))
         dims = _cylinder_dims(surface, cylinder, partial and title == "Fillet", u0, u1, v0, v1)
         rows.append(_dir_row("Axis", cylinder.Axis().Direction()))
+        centre = hole_centre(face)
+        if centre is not None:
+            rows += [_row("Centre X", centre.X()), _row("Centre Y", centre.Y()), _row("Centre Z", centre.Z())]
     elif kind == GeomAbs_Cone:
         cone = surface.Cone()
         title = "Cone"
@@ -234,6 +249,18 @@ def _pair_rows(topology: Topology, a: tuple, b: tuple) -> tuple[list[dict], list
     """Distance between two items (and the dimension between their closest points), and the angle
     between their directions where both have one."""
     shapes = [getattr(topology, kind)(item_id) for kind, item_id in (a, b)]
+    centres = [hole_centre(shape) if kind == "face" else None for shape, (kind, _) in zip(shapes, (a, b))]
+    if all(c is not None for c in centres):  # two holes or bosses: centre to centre
+        distance = centres[0].Distance(centres[1])
+        return [_row("Centre distance", distance)], [_dim("linear", _fmt(distance), centres)]
+    if any(c is not None for c in centres):  # a hole and a flat face: centre to the face's plane
+        centre, other = (centres[0], shapes[1]) if centres[0] is not None else (centres[1], shapes[0])
+        normal = planar_normal(other) if isinstance(other, TopoDS_Face) else None
+        if normal is not None:
+            plane = BRepAdaptor_Surface(other).Plane()
+            offset = abs(gp_Vec(plane.Location(), centre).Dot(gp_Vec(normal)))
+            foot = centre.Translated(gp_Vec(normal).Multiplied(-gp_Vec(plane.Location(), centre).Dot(gp_Vec(normal))))
+            return [_row("Centre to face", offset)], [_dim("linear", _fmt(offset), [centre, foot])]
     extrema = BRepExtrema_DistShapeShape(shapes[0], shapes[1])
     rows, dims = [], []
     if extrema.IsDone():
