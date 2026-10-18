@@ -8,7 +8,7 @@ export interface KeyHost {
   /** The element that shows the 3D view; bare keys are live while the pointer is over it or after a click in it. */
   viewport: HTMLElement;
   /** What each command id does. Ids without a handler are ignored. */
-  handlers: Record<string, () => void>;
+  handlers: Record<string, (e: KeyboardEvent) => void>;
   /** A drag or typed value entry is live. */
   entryActive: () => boolean;
   sketchActive: () => boolean;
@@ -104,7 +104,7 @@ export class KeyRouter {
     const handler = this.host.handlers[decision.run.id];
     if (!handler) return;
     e.preventDefault();
-    handler();
+    handler(e);
   }
 
   // ---- Settings dialog ------------------------------------------------------------------------------------------
@@ -182,9 +182,11 @@ export class KeyRouter {
         const change = document.createElement("button");
         change.textContent = capturing === c.id ? "Press a key..." : "Change";
         change.onclick = () => { capturing = c.id; message = ""; render(); };
+        change.hidden = !!c.fixed;
         const reset = document.createElement("button");
         reset.textContent = "Reset";
         reset.disabled = !(c.id in this.keymap.data.bindings);
+        reset.hidden = !!c.fixed;
         reset.onclick = () => { this.keymap.reset(c.id); save(this.keymap); message = ""; render(); };
         row.append(label, keyText, change, reset);
         table.append(row);

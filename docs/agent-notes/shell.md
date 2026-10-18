@@ -25,3 +25,14 @@ All three sessions are done on this branch; nothing is half-done. Remaining idea
 - Core: new param kind `per_edge` (`Param`, `_bind_pairs` in tools.py: a list of [start, end] pairs or bare numbers, one per selected edge in selection order) and tool `fillet_per_edge` (features.py): end 0 or equal to start is constant, start 0 leaves the edge sharp. Test in test_features.py.
 - Frontend: `toolpanel.ts` renders one row per selected edge (`ParamValue` type, host `selectedEdges`), tool listed in the Edges group of layout.ts. Checked in Chrome on the bracket top face edges (rows and preview).
 - Decision: a new tool instead of changing Variable fillet, so the existing one keeps its simple two-number form. If the owner wants one tool, fold the old one into this one.
+
+## S40 leftovers and S39 sketch counts (wave 2a): Done
+- Sketch keys under the router: `sketch.undo` (Ctrl+Z), `sketch.cancel` (Escape), `sketch.finish` (Enter), `sketch.delete` (Delete, Backspace). They are `fixed` (not rebindable, hidden Change button) and call the sketch's existing `onKey`, so sketch.ts changed by 3 small edits (listener line removed, `onKey` made public, usage hooks). Contexts: commands may share a key if one is `onlyInSketch` and the other `notInSketch` (Ctrl+Z). Decisions (change if the owner disagrees): Escape works without viewport engagement (cancel is harmless); Enter and Delete need it; editing keys ignore the single-key switch. Rebinding sketch keys is not offered.
+- Unsaved-work warning: `beforeunload` when undo steps exist or a sketch is open. Open-over-edits confirmation not built.
+- M measure: left in viewport.ts (only acts during a tool drag, which the router already excludes). Decision: not a router command.
+- Touch and browser-key audits: findings recorded in the watchlist, nothing built (cheap fixes would need new buttons, a GUI-rework matter for S34).
+- S39: sketch tool selections and commits counted (see watchlist).
+- Open questions: should hide/isolate/see-through get visible buttons (S34)? Is the unsaved-work warning too eager since autosave exists?
+- Checked in Chrome: Escape leaves a sketch with the pointer over the view. Tests: 178 core, 21 node.
+## Resume
+Wave 2a items are all done; nothing half-done.

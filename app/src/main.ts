@@ -581,6 +581,7 @@ const keys = new KeyRouter({
     "display.showAll": () => setVisibility("show"),
     "history.undo": () => void history("undo"),
     "history.redo": () => void history("redo"),
+    ...Object.fromEntries(["sketch.undo", "sketch.cancel", "sketch.finish", "sketch.delete"].map((id) => [id, (e: KeyboardEvent) => sketch.onKey(e)])),
   },
   entryActive: () => viewport.dragging || dragSels !== null,
   sketchActive: () => sketch.active,
@@ -588,6 +589,10 @@ const keys = new KeyRouter({
   status,
 });
 keys.installButton($("bar"));
+// Leaving with edits (undo steps) or an open sketch asks first; autosave still protects against crashes.
+window.addEventListener("beforeunload", (e) => {
+  if (!undoButton.disabled || sketch.active) e.preventDefault();
+});
 
 function toBase64(bytes: Uint8Array): string {
   let binary = "";

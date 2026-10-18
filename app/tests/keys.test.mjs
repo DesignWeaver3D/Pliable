@@ -68,11 +68,37 @@ test("held keys fire once, except where repeat is allowed", () => {
   assert.equal(ran(ev("z", { ctrlKey: true, repeat: true })), "history.undo");
 });
 
-test("sketch mode leaves undo and hide to the sketch but keeps view keys", () => {
+test("sketch mode swaps undo and hide for the sketch's own keys and keeps view keys", () => {
   const sketching = { ...live, sketchActive: true };
-  assert.equal(why(ev("z", { ctrlKey: true }), sketching), "sketch");
-  assert.equal(why(ev("h"), sketching), "sketch");
+  assert.equal(ran(ev("z", { ctrlKey: true }), sketching), "sketch.undo");
+  assert.equal(ran(ev("z", { ctrlKey: true })), "history.undo");
+  assert.equal(ran(ev("h"), sketching), null);
   assert.equal(ran(ev("1"), sketching), "view.front");
+  assert.equal(ran(ev("Delete", { code: "Delete" }), sketching), "sketch.delete");
+  assert.equal(ran(ev("Backspace", { code: "Backspace" }), sketching), "sketch.delete");
+  assert.equal(ran(ev("Delete", { code: "Delete" })), null); // not in a sketch
+  assert.equal(ran(ev("Enter", { code: "Enter" }), sketching), "sketch.finish");
+});
+
+test("sketch keys obey the guards: text fields, engagement, repeat; Escape needs no engagement", () => {
+  const sketching = { ...live, sketchActive: true };
+  const off = { ...sketching, engaged: false };
+  assert.equal(why(ev("Delete", { code: "Delete" }), { ...sketching, inTextField: true }), "text");
+  assert.equal(why(ev("Delete", { code: "Delete" }), off), "disengaged");
+  assert.equal(why(ev("Delete", { code: "Delete", repeat: true }), sketching), "repeat");
+  assert.equal(ran(ev("Escape", { code: "Escape" }), off), "sketch.cancel");
+  const noSingle = new Keymap(KEY_COMMANDS, { version: 1, singleKeys: false, bindings: {} });
+  assert.equal(ran(ev("Delete", { code: "Delete" }), sketching, noSingle), "sketch.delete"); // editing keys, not shortcuts
+});
+
+test("sketch keys are fixed and may share Ctrl+Z with the app undo", () => {
+  const undo = KEY_COMMANDS.find((c) => c.id === "history.undo");
+  const sk = KEY_COMMANDS.find((c) => c.id === "sketch.undo");
+  assert.equal(validateBinding(sk, "Ctrl+K", {}).ok, false);
+  const km = new Keymap();
+  assert.equal(validateBinding(undo, "Ctrl+Z", km.all()).ok, true); // its own key
+  const top = KEY_COMMANDS.find((c) => c.id === "view.top");
+  assert.equal(validateBinding(top, "Ctrl+Z", km.all()).ok, false); // clashes with the app undo
 });
 
 test("the single-key switch turns off bare keys only", () => {

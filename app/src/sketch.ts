@@ -9,6 +9,7 @@ import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeome
 import type { CoreClient, MeshData } from "./client";
 import type { Dimension, DimensionOverlay } from "./dimensions";
 import * as M from "./sketchmodel";
+import { usage } from "./usage";
 import type { Viewport } from "./viewport";
 
 const SNAP_PX = 10; // pointer snaps to an existing sketch point this close
@@ -100,7 +101,7 @@ export class SketchMode {
       o.frustumCulled = false;
       this.group.add(o);
     }
-    window.addEventListener("keydown", (e) => this.onKey(e));
+    // Keys reach onKey through the key router (keyrouter.ts), which applies the shortcut policy first.
     viewport.renderer.domElement.addEventListener("contextmenu", () => {
       if (this.active && this.chain.length) this.endChain();
     });
@@ -165,6 +166,7 @@ export class SketchMode {
       const mesh = await this.core.request<MeshData>("sketch_regions", this.unwrapFace === null ? { sketch: this.s } : { sketch: this.s, unwrap: this.unwrapFace });
       this.exit();
       this.host.committed(mesh);
+      usage.record("sketch_finish", "commit");
       this.host.status("Sketch closed: its regions are faces now");
     } catch (e) {
       this.exit();
@@ -374,7 +376,7 @@ export class SketchMode {
     this.render();
   }
 
-  private onKey(e: KeyboardEvent) {
+  onKey(e: KeyboardEvent) {
     if (!this.active) return;
     const target = e.target as HTMLElement;
     if (target.closest("input, select, textarea")) return;
@@ -551,6 +553,7 @@ export class SketchMode {
   }
 
   private setTool(tool: Tool) {
+    if (tool !== "select") usage.record(`sketch_${tool}`.toLowerCase().replace(/[^a-z0-9_]/g, "_"), "start", "other");
     this.tool = tool;
     this.chain = [];
     this.chainStart = undefined;
@@ -682,6 +685,7 @@ export class SketchMode {
       const mesh = await this.core.request<MeshData>("sketch_extrude", request);
       if (commit) {
         this.extrude.open = false;
+        usage.record(this.extrude.revolve ? "sketch_revolve" : "sketch_extrude", "commit");
         this.exitAfterCommit(mesh);
       } else {
         this.host.showPreview(mesh);
