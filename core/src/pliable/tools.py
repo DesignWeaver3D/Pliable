@@ -234,7 +234,7 @@ class FilletChamfer(Tool):
     params = [Param("distance", "length", drag=True)]
 
     def run(self, topology, selection, values, preview):
-        edges = [topology.edge(i) for i in selection.edges]
+        edges = [topology.edge(i) for i in sorted(selection.edges)]  # id order avoids stray zero-length edges at corners
         return fillet_chamfer(topology.shape, edges, values["distance"])
 
 

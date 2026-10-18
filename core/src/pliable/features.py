@@ -827,29 +827,55 @@ class AlignFace(_PlanarFace):
 # Whole-body transforms and more primitives -----------------------------------------------------------------
 
 
+def _on_bodies(topology, selection, change) -> TopoDS_Shape:
+    """Apply `change` (shape -> shape) to the solids that contain the selected faces; with no selection, to the whole model."""
+    if not selection.faces:
+        return change(topology.shape)
+    chosen = []
+    for i in selection.faces:
+        face = topology.face(i)
+        for solid in solids_of(topology.shape):
+            if any(f.IsSame(face) for f in _faces_of(solid)) and not any(solid.IsSame(c) for c in chosen):
+                chosen.append(solid)
+    if not chosen:
+        raise OperationError("The selected faces do not belong to a solid")
+    compound, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(compound)
+    for solid in solids_of(topology.shape):
+        builder.Add(compound, change(solid) if any(solid.IsSame(c) for c in chosen) else solid)
+    return compound
+
+
+def _faces_of(shape):
+    explorer = _Explorer(shape, TopAbs_FACE)
+    while explorer.More():
+        yield explorer.Current()
+        explorer.Next()
+
+
 @register
 class MoveBody(Tool):
-    """Move the whole model by a vector."""
+    """Move the solids containing the selected faces (the whole model when nothing is selected) by a vector."""
 
     id = "move_body"
     label = "Move body"
-    accepts = Accepts()
+    accepts = Accepts(faces=(0, None))
     params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length")]
 
     def run(self, topology, selection, values, preview):
         offset = gp_Vec(values["dx"], values["dy"], values["dz"])
         if offset.Magnitude() < MIN_DISTANCE:
             return OpResult(topology.shape, [])
-        return finish(_moved(topology.shape, offset))
+        return finish(_on_bodies(topology, selection, lambda shape: _moved(shape, offset)))
 
 
 @register
 class RotateBody(Tool):
-    """Rotate the whole model about an axis through the origin (axis: 0 = X, 1 = Y, 2 = Z)."""
+    """Rotate the selected solids (the whole model when nothing is selected) about an axis through the origin (axis: 0 = X, 1 = Y, 2 = Z)."""
 
     id = "rotate_body"
     label = "Rotate body"
-    accepts = Accepts()
+    accepts = Accepts(faces=(0, None))
     params = [Param("axis", "number", 2), Param("angle", "angle", 90)]
 
     def run(self, topology, selection, values, preview):
@@ -859,16 +885,16 @@ class RotateBody(Tool):
         direction = gp_Dir(*(1.0 if k == axis else 0.0 for k in range(3)))
         transform = gp_Trsf()
         transform.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), direction), math.radians(values["angle"]))
-        return finish(BRepBuilderAPI_Transform(topology.shape, transform, True).Shape())
+        return finish(_on_bodies(topology, selection, lambda shape: BRepBuilderAPI_Transform(shape, transform, True).Shape()))
 
 
 @register
 class ScaleBody(Tool):
-    """Scale the whole model uniformly about the origin."""
+    """Scale the selected solids (the whole model when nothing is selected) uniformly about the origin."""
 
     id = "scale_body"
     label = "Scale body"
-    accepts = Accepts()
+    accepts = Accepts(faces=(0, None))
     params = [Param("factor", "number", 1)]
 
     def run(self, topology, selection, values, preview):
@@ -877,7 +903,7 @@ class ScaleBody(Tool):
             raise OperationError("The scale factor must be between 0.001 and 1000")
         transform = gp_Trsf()
         transform.SetScale(gp_Pnt(0, 0, 0), factor)
-        return finish(BRepBuilderAPI_Transform(topology.shape, transform, True).Shape())
+        return finish(_on_bodies(topology, selection, lambda shape: BRepBuilderAPI_Transform(shape, transform, True).Shape()))
 
 
 @register
@@ -1186,7 +1212,9 @@ class FilletPerEdge(Tool):
             raise OperationError(f"Give one radius per edge: {len(selection.edges)} edges selected, {len(radii)} radii")
         maker = BRepFilletAPI_MakeFillet(topology.shape)
         edges = []
-        for edge_id, (start, end) in zip(selection.edges, radii):
+        # The kernel can leave stray zero-length edges at corners when edges are added in a different order than
+        # the model stores them, so add them in id order whatever the order they were picked in.
+        for edge_id, (start, end) in sorted(zip(selection.edges, radii), key=lambda pair: pair[0]):
             if start < 0 or end < 0:
                 raise OperationError("Radii cannot be negative")
             if start < MIN_DISTANCE:
@@ -1481,11 +1509,11 @@ class SplitPlane(Tool):
 
 @register
 class OffsetBody(Tool):
-    """Grow (positive) or shrink (negative) the whole solid by a uniform distance."""
+    """Grow (positive) or shrink (negative) the selected solids (all when nothing is selected) by a uniform distance."""
 
     id = "offset_body"
     label = "Offset body"
-    accepts = Accepts()
+    accepts = Accepts(faces=(0, None))
     params = [Param("distance", "length", 1)]
 
     def run(self, topology, selection, values, preview):
@@ -1494,14 +1522,18 @@ class OffsetBody(Tool):
         distance = values["distance"]
         if abs(distance) < MIN_DISTANCE:
             return OpResult(topology.shape, [])
-        maker = BRepOffsetAPI_MakeOffsetShape()
-        try:
-            maker.PerformByJoin(topology.shape, distance, TOL)
-        except Exception as e:  # OCCT raises Standard_Failure when the offset collapses geometry
-            raise OperationError(f"Could not offset by this distance: {e}") from None
-        if not maker.IsDone() or maker.Shape().IsNull():
-            raise OperationError("Could not offset by this distance")
-        return finish(maker.Shape())
+
+        def offset(shape):
+            maker = BRepOffsetAPI_MakeOffsetShape()
+            try:
+                maker.PerformByJoin(shape, distance, TOL)
+            except Exception as e:  # OCCT raises Standard_Failure when the offset collapses geometry
+                raise OperationError(f"Could not offset by this distance: {e}") from None
+            if not maker.IsDone() or maker.Shape().IsNull():
+                raise OperationError("Could not offset by this distance")
+            return maker.Shape()
+
+        return finish(_on_bodies(topology, selection, offset))
 
 
 @register
