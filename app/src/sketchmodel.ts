@@ -372,7 +372,7 @@ export function distanceTo(s: SketchData, e: SketchEntity, u: number, v: number)
 
 // Trim ------------------------------------------------------------------------------------------------
 
-/** Parameters t (0..1 along line `e`) where it crosses other lines and circles of the sketch. */
+/** Parameters t along line `e` (0 at its start, 1 at its end, unbounded) where it meets other lines and circles. */
 function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line" }>): number[] {
   const a = pointOf(s, e.a);
   const b = pointOf(s, e.b);
@@ -404,7 +404,7 @@ function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line" }>): n
       ts.push((-qb - root) / (2 * qa), (-qb + root) / (2 * qa));
     }
   }
-  return ts.filter((t) => t > 1e-6 && t < 1 - 1e-6).sort((x, y) => x - y);
+  return ts.sort((x, y) => x - y);
 }
 
 /**
@@ -420,7 +420,7 @@ export function trimLine(s: SketchData, entityId: number, u: number, v: number):
   const len2 = (b.u - a.u) ** 2 + (b.v - a.v) ** 2;
   if (len2 < 1e-12) return s;
   const click = Math.min(1, Math.max(0, ((u - a.u) * (b.u - a.u) + (v - a.v) * (b.v - a.v)) / len2));
-  const ts = crossings(s, e);
+  const ts = crossings(s, e).filter((t) => t > 1e-6 && t < 1 - 1e-6);
   const lo = [...ts].reverse().find((t) => t <= click);
   const hi = ts.find((t) => t >= click);
   if (lo === undefined && hi === undefined) return remove(s, { kind: "entity", id: entityId });
@@ -437,6 +437,40 @@ export function trimLine(s: SketchData, entityId: number, u: number, v: number):
   const flags = { construction: e.construction };
   if (lo !== undefined) entities.push({ id: id++, type: "line", a: e.a, b: at(lo), ...flags });
   if (hi !== undefined) entities.push({ id: id++, type: "line", a: at(hi), b: e.b, ...flags });
+  const constraints = s.constraints.filter((c) => c.entity !== entityId && !c.entities?.includes(entityId));
+  return dropOrphans({ ...s, points, entities, constraints });
+}
+
+/**
+ * Extend the end of a line nearest (u, v) to the first curve it would meet beyond that end. The end
+ * point moves when only this line uses it; a point shared with other curves is replaced by a new one so
+ * they stay put. Constraints on the line are dropped, as in trim. With nothing to reach it does nothing.
+ */
+export function extendLine(s: SketchData, entityId: number, u: number, v: number): SketchData {
+  const e = s.entities.find((x) => x.id === entityId);
+  if (!e || e.type !== "line" || e.reference) return s;
+  const a = pointOf(s, e.a);
+  const b = pointOf(s, e.b);
+  const len2 = (b.u - a.u) ** 2 + (b.v - a.v) ** 2;
+  if (len2 < 1e-12) return s;
+  const click = ((u - a.u) * (b.u - a.u) + (v - a.v) * (b.v - a.v)) / len2;
+  const atEnd = click >= 0.5;
+  const ts = crossings(s, e);
+  const t = atEnd ? ts.find((x) => x > 1 + 1e-6) : [...ts].reverse().find((x) => x < -1e-6);
+  if (t === undefined) return s;
+
+  const moved = { u: a.u + t * (b.u - a.u), v: a.v + t * (b.v - a.v) };
+  const oldId = atEnd ? e.b : e.a;
+  const shared = s.entities.some((x) => x.id !== entityId && entityPoints(x).includes(oldId));
+  let points = s.points;
+  let newId = oldId;
+  if (shared) {
+    newId = nextId(s);
+    points = [...points, { id: newId, ...moved }];
+  } else {
+    points = points.map((p) => (p.id === oldId ? { ...p, ...moved } : p));
+  }
+  const entities = s.entities.map((x) => (x.id === entityId && x.type === "line" ? { ...x, [atEnd ? "b" : "a"]: newId } : x));
   const constraints = s.constraints.filter((c) => c.entity !== entityId && !c.entities?.includes(entityId));
   return dropOrphans({ ...s, points, entities, constraints });
 }
