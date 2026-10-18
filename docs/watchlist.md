@@ -115,3 +115,7 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Sketch corner round
 
 - Works only where exactly two straight lines meet at a point; corners involving arcs or circles report a message. The tangent constraints keep the arc on both lines, but dimension constraints on the old corner point are dropped.
+
+## Sketch projection
+
+- Only lines, and circles or arcs whose axis is square to the plane, project. Tilted circles (ellipses), splines and edges square to the plane are skipped without a message. The projection is a snapshot: it does not follow later model changes.

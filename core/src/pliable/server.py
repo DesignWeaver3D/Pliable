@@ -175,6 +175,8 @@ class Session:
                 return sketch.offset_entities(request["sketch"], [int(i) for i in request["entities"]], float(request["distance"]))
             except (KeyError, TypeError, ValueError) as e:
                 raise RequestError(f"Malformed sketch request: {e!r}") from e
+        if kind == "sketch_project":
+            return self._sketch_project(request)
         if kind == "sketch_regions":
             return self._sketch_regions(request)
         if kind in ("tool_preview", "tool_commit"):
@@ -210,6 +212,10 @@ class Session:
             return sketch.face_plane(topology.face(int(request["face"])))
         except KeyError as e:
             raise RequestError("Unknown face") from e
+
+    def _sketch_project(self, request: dict) -> dict:
+        topology = self._require_document().current
+        return sketch.face_reference(topology.shape, request["plane"], project=True)
 
     def _sketch_regions(self, request: dict) -> bytes:
         """Leave a sketch: its closed regions become faces of the model (imprinted or loose) and stay selected."""

@@ -671,6 +671,43 @@ export class SketchMode {
   }
   private offset = { distance: 5 };
 
+  /** Flatten the model's edges onto the sketch plane as fixed reference geometry the sketch can snap to. */
+  private async projectModel() {
+    try {
+      const ref = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[] }>("sketch_project", { plane: this.s.plane });
+      const near = (a: M.SketchPoint, b: M.SketchPoint) => Math.hypot(a.u - b.u, a.v - b.v) < 1e-5;
+      const known = this.s.points.filter((p) => p.fixed);
+      const entityKey = (e: M.SketchEntity) => JSON.stringify([e.type, ...M.entityPoints(e).map((id) => this.s.points.find((p) => p.id === id)).map((p) => p && [Math.round(p.u * 1e4), Math.round(p.v * 1e4)])]);
+      const have = new Set(this.s.entities.filter((e) => e.reference).map(entityKey));
+      this.pushUndo();
+      const map = new Map<number, number>();
+      for (const p of ref.points) {
+        const twin = known.find((k) => near(k, p));
+        if (twin) map.set(p.id, twin.id);
+        else {
+          const id = M.nextId(this.s);
+          this.s.points.push({ ...p, id });
+          map.set(p.id, id);
+        }
+      }
+      let added = 0;
+      for (const e of ref.entities) {
+        const mapped = { ...e, id: M.nextId(this.s) } as M.SketchEntity;
+        if (mapped.type === "line") (mapped.a = map.get(mapped.a)!), (mapped.b = map.get(mapped.b)!);
+        else if (mapped.type === "circle") mapped.center = map.get(mapped.center)!;
+        else (mapped.center = map.get(mapped.center)!), (mapped.start = map.get(mapped.start)!), (mapped.end = map.get(mapped.end)!);
+        if (have.has(entityKey(mapped))) continue;
+        this.s.entities.push(mapped);
+        added++;
+      }
+      this.resolve();
+      this.render();
+      this.host.status(added ? `Projected ${added} model edge${added === 1 ? "" : "s"}` : "No new model edges to project");
+    } catch (e) {
+      this.host.status((e as Error).message, true);
+    }
+  }
+
   /** Round or bevel the selected corner (a point where two lines meet) with the rectangle corner size. */
   private roundSelectedCorner(kind: "fillet" | "chamfer") {
     const point = this.selection.find((x) => x.kind === "point");
@@ -950,6 +987,10 @@ export class SketchMode {
       construction.title = "Construction geometry guides the sketch but is not part of the profile (use it as a revolve axis)";
       constraintsBox.append(construction);
     }
+
+    const project = button("Project model edges", () => this.projectModel());
+    project.title = "Flatten the model's edges onto this plane as fixed geometry to snap and constrain to";
+    constraintsBox.append(project);
 
     const finish = button("Finish sketch", () => this.finish());
     finish.title = "Leave the sketch and keep its closed regions as faces you can push/pull or extrude";

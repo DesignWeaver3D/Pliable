@@ -392,3 +392,16 @@ def test_offset_circle_and_errors():
         sketch.offset_entities(sk, [], 1)
     with pytest.raises(OperationError):
         sketch.offset_entities(sk, [2], 0)
+
+
+def test_project_reference_flattens_model_edges_onto_the_plane():
+    from pliable.demos import load_demo
+    from pliable.sketch import STANDARD_PLANES, face_reference
+
+    block = load_demo("block")
+    top = face_reference(block, STANDARD_PLANES["XY"], project=True)
+    assert top["entities"] and all(e["type"] == "line" for e in top["entities"])
+    # Vertical edges project to nothing; four corners of the block remain.
+    assert len(top["points"]) == 4
+    bracket = face_reference(load_demo("bracket"), STANDARD_PLANES["XY"], project=True)
+    assert any(e["type"] == "circle" for e in bracket["entities"])

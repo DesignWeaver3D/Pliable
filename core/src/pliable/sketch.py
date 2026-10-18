@@ -587,16 +587,18 @@ def revolve(shape, sketch: dict, axis_entity: int, angle: float, mode: str):
     return finish(_combine(shape, revol.Shape(), fuse=mode == "join"))
 
 
-def face_reference(face_shape, plane: dict) -> dict:
+def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
     """The outline of a flat face as fixed construction geometry in sketch coordinates, so a sketch drawn on the
-    face can snap to its corners and hole centres: {"points": [...], "entities": [...]} with ids from 1."""
+    face can snap to its corners and hole centres: {"points": [...], "entities": [...]} with ids from 1.
+    With `project`, the edges of a whole shape are flattened onto the plane instead; lines square to the plane
+    and circles or arcs seen at an angle (they would project to ellipses) are left out."""
     from OCP.BRepAdaptor import BRepAdaptor_Curve
     from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Line
     from OCP.TopAbs import TopAbs_EDGE
     from OCP.TopExp import TopExp_Explorer
     from OCP.TopoDS import TopoDS
 
-    origin, x, y, _ = frame(plane)
+    origin, x, y, normal = frame(plane)
 
     def uv(p) -> tuple[float, float]:
         d = (p.X() - origin[0], p.Y() - origin[1], p.Z() - origin[2])
@@ -622,9 +624,16 @@ def face_reference(face_shape, plane: dict) -> dict:
         curve = BRepAdaptor_Curve(TopoDS.Edge(explorer.Current()))
         first, last = curve.FirstParameter(), curve.LastParameter()
         if curve.GetType() == GeomAbs_Line:
+            if project and math.dist(uv(curve.Value(first)), uv(curve.Value(last))) < 1e-6:
+                explorer.Next()
+                continue
             add({"type": "line", "a": point(curve.Value(first)), "b": point(curve.Value(last))})
         elif curve.GetType() == GeomAbs_Circle:
             circle = curve.Circle()
+            axis = circle.Axis().Direction()
+            if project and abs(abs(axis.X() * normal[0] + axis.Y() * normal[1] + axis.Z() * normal[2]) - 1) > 1e-6:
+                explorer.Next()
+                continue
             centre = point(circle.Location())
             if abs((last - first) - 2 * math.pi) < 1e-6:
                 add({"type": "circle", "center": centre, "radius": circle.Radius()})
