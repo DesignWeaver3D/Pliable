@@ -527,3 +527,31 @@ def test_fillet_per_edge_leaves_no_open_edges_in_any_pick_order():
     again.handle({"type": "tool_commit", "tool": "fillet_chamfer", "selection": {"edges": picked}, "params": {"distance": 2}})
     result = again.document.current
     assert [e for _, e in result.edges() if len(result.edge_faces(e)) == 1 and not BRepAdaptor_Curve(e).IsClosed()] == []
+
+
+def _two_bodies(block):
+    shape = run("add_box", block, width=10, depth=10, height=10, x=100, y=0, z=0, new_body=1).shape
+    return Topology(shape)
+
+
+def test_arrays_copy_only_the_chosen_body(block):
+    from pliable.ops import solids_of
+
+    two = _two_bodies(block)
+    face = next(i for i in range(two.face_count) if _box_x(two, i) > 90)
+    result = run("linear_array", two, faces=[face], count=3, dx=0, dy=0, dz=30)
+    assert volume(result.shape) == pytest.approx(24000 + 3 * 1000 + 0, rel=1e-6)
+    assert len(solids_of(result.shape)) == 4  # the block, the small box and its two copies (30 apart, so not touching)
+    whole = run("linear_array", two, count=3, dx=0, dy=0, dz=60)
+    assert volume(whole.shape) == pytest.approx(3 * 25000, rel=1e-6)
+    ring = run("circular_array", two, faces=[face], count=2, axis=2, angle=180)
+    assert volume(ring.shape) == pytest.approx(24000 + 2000, rel=1e-6)
+
+
+def _box_x(topology, i):
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+
+    box = Bnd_Box()
+    BRepBndLib.Add_s(topology.face(i), box)
+    return box.CornerMin().X()

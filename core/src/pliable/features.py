@@ -1005,21 +1005,37 @@ def _array_copies(count: float) -> int:
     return n
 
 
-def _fuse_copies(shape: TopoDS_Shape, transforms: list[gp_Trsf]) -> OpResult:
-    result = shape
+def _array_source(topology, selection) -> TopoDS_Shape:
+    """What an array copies: the solids containing the selected faces, or the whole model with no faces selected."""
+    if not selection.faces:
+        return topology.shape
+    chosen = []
+    for i in selection.faces:
+        face = topology.face(i)
+        for solid in solids_of(topology.shape):
+            if any(f.IsSame(face) for f in _faces_of(solid)) and not any(solid.IsSame(c) for c in chosen):
+                chosen.append(solid)
+    if not chosen:
+        raise OperationError("The selected faces do not belong to a solid")
+    return _compound(chosen)
+
+
+def _fuse_copies(topology, selection, transforms: list[gp_Trsf]) -> OpResult:
+    source = _array_source(topology, selection)
+    result = topology.shape
     for trsf in transforms:
-        result = _combine(result, BRepBuilderAPI_Transform(shape, trsf, True).Shape(), fuse=True)
+        result = _combine(result, BRepBuilderAPI_Transform(source, trsf, True).Shape(), fuse=True)
     return finish(result)
 
 
 @register
 class LinearArray(Tool):
-    """Copies of the whole model at equal steps (dx, dy, dz), fused with it. `count` includes the original."""
+    """Copies of the chosen body (the whole model when no face is selected) at equal steps (dx, dy, dz), fused with it. `count` includes the original."""
 
     id = "linear_array"
     label = "Linear array"
-    description = "Makes copies of the whole model in a straight line and fuses them. Nothing needs to be selected; the count includes the original."
-    accepts = Accepts()
+    description = "Makes copies of a body in a straight line and fuses them. Select any face of the body, or nothing for the whole model; the count includes the original."
+    accepts = Accepts(faces=(0, None))
     params = [Param("count", "number", 3), Param("dx", "length", 20), Param("dy", "length"), Param("dz", "length")]
 
     def run(self, topology, selection, values, preview):
@@ -1032,18 +1048,18 @@ class LinearArray(Tool):
             trsf = gp_Trsf()
             trsf.SetTranslation(step.Multiplied(k))
             transforms.append(trsf)
-        return _fuse_copies(topology.shape, transforms)
+        return _fuse_copies(topology, selection, transforms)
 
 
 @register
 class CircularArray(Tool):
-    """Copies of the whole model rotated about an axis through the origin (0 = X, 1 = Y, 2 = Z), fused with it.
+    """Copies of the chosen body (the whole model when no face is selected) rotated about an axis through the origin (0 = X, 1 = Y, 2 = Z), fused with it.
     `angle` is the total sweep; 360 spreads the copies evenly all the way round."""
 
     id = "circular_array"
     label = "Circular array"
-    description = "Makes copies of the whole model around the X, Y or Z axis through the origin (0 = X, 1 = Y, 2 = Z) and fuses them. The count includes the original; 360 spreads them round a full circle."
-    accepts = Accepts()
+    description = "Makes copies of a body (select any of its faces, or nothing for the whole model) around the X, Y or Z axis through the origin (0 = X, 1 = Y, 2 = Z) and fuses them. The count includes the original; 360 spreads them round a full circle."
+    accepts = Accepts(faces=(0, None))
     params = [Param("count", "number", 4), Param("axis", "number", 2), Param("angle", "angle", 360)]
 
     def run(self, topology, selection, values, preview):
@@ -1062,7 +1078,7 @@ class CircularArray(Tool):
             trsf = gp_Trsf()
             trsf.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), direction), math.radians(step * k))
             transforms.append(trsf)
-        return _fuse_copies(topology.shape, transforms)
+        return _fuse_copies(topology, selection, transforms)
 
 
 @register
@@ -1336,14 +1352,14 @@ class SweepFace(Tool):
 
 @register
 class PathArray(Tool):
-    """Copies of the whole model placed at equal distances along a path of one or more connected edges, starting
+    """Copies of the chosen body (the whole model when no face is selected) placed at equal distances along a path of one or more connected edges, starting
     at the model's current position (the first copy is the original); copies are moved, not turned, and fused
     with it. On a closed path the copies are spread round it without doubling up at the start."""
 
     id = "path_array"
     label = "Array along path"
-    description = "Places copies of the whole model at equal distances along connected edges. Select the edges that form the path; the count includes the original."
-    accepts = Accepts(edges=(1, None))
+    description = "Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model); the count includes the original."
+    accepts = Accepts(faces=(0, None), edges=(1, None))
     params = [Param("count", "number", 4)]
 
     def run(self, topology, selection, values, preview):
@@ -1371,7 +1387,7 @@ class PathArray(Tool):
             trsf = gp_Trsf()
             trsf.SetTranslation(gp_Vec(start, curve.Value(locator.Parameter())))
             transforms.append(trsf)
-        return _fuse_copies(topology.shape, transforms)
+        return _fuse_copies(topology, selection, transforms)
 
 
 # Re-radius a fillet ---------------------------------------------------------------------------------------
