@@ -1,4 +1,4 @@
-# Short-lived worktrees for parallel agent work.
+﻿# Short-lived worktrees for parallel agent work.
 #   .\scripts\worktree.ps1 new <name> [-Base dev]   create ..\pliable-wt\<name> on branch agent/<name>
 #   .\scripts\worktree.ps1 remove <name> [-Force]    remove it once the branch is merged
 #   .\scripts\worktree.ps1 list
@@ -19,6 +19,24 @@ $rootNotes = Get-ChildItem $repo -File -Filter *.md | Where-Object {
     git -C $repo check-ignore -q -- $_.Name; $LASTEXITCODE -eq 0
 } | ForEach-Object { $_.Name }
 $localFiles = @($rootNotes) + @("docs/research")
+
+# Each worktree gets its own core port (8801-8899) and Vite port (5201-5299), never one in use by another worktree
+# or by a listening process. The main checkout keeps 8765 and Vite's default.
+function Get-AssignedCorePorts {
+    git worktree list --porcelain | Where-Object { $_ -like "worktree *" } | ForEach-Object {
+        $envFile = Join-Path ($_ -replace "^worktree ", "") "app\.env"
+        if (Test-Path $envFile) { Select-String -Path $envFile -Pattern "^VITE_CORE_PORT=(\d+)" | ForEach-Object { [int]$_.Matches[0].Groups[1].Value } }
+    }
+}
+function Test-PortFree($port) { -not (Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue) }
+function Get-PortPair {
+    $taken = @(Get-AssignedCorePorts)
+    foreach ($n in 1..99) {
+        $core = 8800 + $n; $vite = 5200 + $n
+        if ($taken -notcontains $core -and (Test-PortFree $core) -and (Test-PortFree $vite)) { return @($core, $vite) }
+    }
+    Fail "No free port pair left; remove some worktrees."
+}
 
 function Fail($msg) { Write-Host $msg -ForegroundColor Red; exit 1 }
 
@@ -57,11 +75,25 @@ if ($Action -eq "new") {
         }
     }
 
+    $core, $vite = Get-PortPair
+    "VITE_CORE_PORT=$core" | Set-Content -Path (Join-Path $path "app\.env") -Encoding ascii
+    $portsFile = Join-Path $path "agent-ports.txt"
+    @(
+        "This worktree's ports. Use these and no others; the main checkout and other agents use different ones.",
+        "core server  (from core\): uv run pliable-server --port $core",
+        "frontend dev (from app\):  npm run dev -- --port $vite --strictPort",
+        "open:        http://localhost:$vite",
+        "(app\.env sets VITE_CORE_PORT=$core so the frontend finds the core server.)"
+    ) | Set-Content -Path $portsFile -Encoding ascii
+    $have = Get-Content $exclude
+    if ($have -notcontains "/agent-ports.txt") { Add-Content -Path $exclude -Value "/agent-ports.txt" }
+
     $leaked = git -C $path status --porcelain
     if ($leaked) { Write-Host "Warning: copied files show up in git status, they would be committed:`n$leaked" -ForegroundColor Red }
 
     Write-Host "Worktree ready: $path (branch $branch from $Base)"
-    Write-Host "Next: in core\ run 'uv sync', in app\ run 'npm ci'. Use a different server port than the main checkout (8765)."
+    Write-Host "Assigned ports: core $core, frontend $vite (details in agent-ports.txt in the worktree)."
+    Write-Host "Next: in core\ run 'uv sync', in app\ run 'npm ci'. Give the agent these ports in its prompt."
     exit 0
 }
 
