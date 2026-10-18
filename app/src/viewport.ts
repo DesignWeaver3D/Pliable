@@ -131,6 +131,10 @@ export class Viewport {
   onEyedropCancel: () => void = () => {};
   /** Dragging a hole centre moves the hole in the plane across its axis; offset is in model units. */
   onCentreDrag: (face: number, offset: THREE.Vector3, phase: "start" | "move" | "end" | "cancel") => void = () => {};
+  /** While the Divide face form is open: pressing and dragging over the model places the dividing line (see startDivideDrag). */
+  divideFrame: { face: number; centre: THREE.Vector3; u: THREE.Vector3; v: THREE.Vector3; normal: THREE.Vector3 } | null = null;
+  onDivideDrag: (across: number, offset: number, done: boolean) => void = () => {};
+  private divideDrag: { plane: THREE.Plane; x: number; y: number; start: THREE.Vector3; across: number | null; offset: number } | null = null;
   private centreDrag: { face: number; origin: THREE.Vector3; plane: THREE.Plane; start: THREE.Vector3; x: number; y: number; moved: boolean } | null = null;
   /** Measurable edges of the dragged face (empty unless a single planar face is dragged). */
   measures: Measure[] = [];
@@ -374,7 +378,7 @@ export class Viewport {
       }
       down = { x: e.clientX, y: e.clientY };
       if (e.button !== 0 || this.measureMode || this.eyedropper) return;
-      if (this.startCentreDrag(e)) return;
+      if (this.startCentreDrag(e) || this.startDivideDrag(e)) return;
       const hit = this.pickHit(e);
       this.box = null;
       const direction = hit && this.dragDirection(hit);
@@ -404,6 +408,10 @@ export class Viewport {
       }
     });
     dom.addEventListener("pointermove", (e) => {
+      if (this.divideDrag) {
+        this.moveDivideDrag(e);
+        return;
+      }
       if (this.centreDrag) {
         this.moveCentreDrag(e);
         return;
@@ -449,6 +457,13 @@ export class Viewport {
       }
       if (this.drag && e.button !== 0) return; // right/middle release ends an orbit or pan, not the tool drag
       const drag = this.drag;
+      if (this.divideDrag && e.button === 0) {
+        const d = this.divideDrag;
+        this.divideDrag = null;
+        if (d.across !== null) this.onDivideDrag(d.across, d.offset, true);
+        down = null;
+        return;
+      }
       if (this.centreDrag && e.button === 0) {
         const c = this.centreDrag;
         this.centreDrag = null;
@@ -503,6 +518,7 @@ export class Viewport {
       // M during a tool drag toggles measure mode (it used to be the right button, which now orbits).
       if ((e.key === "m" || e.key === "M") && this.drag?.moved && !e.ctrlKey && !e.metaKey && !e.altKey) this.toggleMeasure();
       if (e.key === "Escape" && this.box) this.cancelBox();
+      if (e.key === "Escape" && this.divideDrag) this.divideDrag = null;
       if (e.key === "Escape" && this.centreDrag) {
         const c = this.centreDrag;
         this.centreDrag = null;
@@ -1058,6 +1074,38 @@ export class Viewport {
       return true;
     }
     return false;
+  }
+
+  /**
+   * With the Divide face form open, pressing on the model and dragging puts the dividing line through the pointer
+   * on the face's plane. The line runs across the direction of the first clear movement (move along the face's
+   * first axis and the line is parallel to the second); the offset follows the pointer. Returns whether it began.
+   */
+  private startDivideDrag(e: PointerEvent): boolean {
+    const f = this.divideFrame;
+    if (!f || e.ctrlKey || e.metaKey || !this.pickHit(e)) return false;
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(f.normal, f.centre);
+    const start = this.rayAt(e).intersectPlane(plane, new THREE.Vector3());
+    if (!start) return false; // looking edge-on along the face
+    this.divideDrag = { plane, x: e.clientX, y: e.clientY, start, across: null, offset: 0 };
+    this.renderer.domElement.setPointerCapture(e.pointerId);
+    return true;
+  }
+
+  private moveDivideDrag(e: PointerEvent) {
+    const d = this.divideDrag!;
+    const f = this.divideFrame;
+    const at = f && this.rayAt(e).intersectPlane(d.plane, new THREE.Vector3());
+    if (!f || !at) return;
+    if (d.across === null) {
+      if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 4) return;
+      const moved = at.clone().sub(d.start);
+      // across 0 = line along u, positioned along v; so movement mostly along v keeps across 0.
+      d.across = Math.abs(moved.dot(f.v)) >= Math.abs(moved.dot(f.u)) ? 0 : 1;
+    }
+    const step = d.across === 0 ? f.v : f.u;
+    d.offset = Math.round(at.clone().sub(f.centre).dot(step) * 1000) / 1000;
+    this.onDivideDrag(d.across, d.offset, false);
   }
 
   private centreOffset(e: PointerEvent, c: NonNullable<Viewport["centreDrag"]>): THREE.Vector3 {

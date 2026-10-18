@@ -161,3 +161,19 @@ def test_ring_crosses_a_face_with_rounded_corners():
         if len(reply["edges"]) > 1:
             ringed.append(edge)
     assert 27 in ringed  # the base's front-top edge now has a ring through the rounded front face
+
+
+def test_face_frame_then_divide_through_the_server():
+    from pliable.protocol import decode_binary
+    from pliable.server import Session
+
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    frame = session.handle({"type": "face_frame", "face": 0})
+    # the dividing line placed where a drag would put it: a point 3 along the second axis from the centre
+    point = [c + 3 * v for c, v in zip(frame["centre"], frame["v"])]
+    offset = sum((p - c) * v for p, c, v in zip(point, frame["centre"], frame["v"]))
+    before = session.document.current.face_count
+    header, _ = decode_binary(session.handle({"type": "tool_commit", "tool": "divide_face", "selection": {"faces": [0]}, "params": {"across": 0, "offset": offset}}))
+    assert len(header["faces"]) == before + 1 and header["canUndo"]
+    assert session.handle({"type": "face_frame", "face": 0}) is not None

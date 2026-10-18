@@ -1,3 +1,4 @@
+import * as THREE from "three";
 import { PointPicker, ReferenceView } from "./reference";
 import { installAlphaUi, showImportNotice, showLaunchNotice } from "./alpha";
 import { CoreClient, type MeshData } from "./client";
@@ -875,6 +876,25 @@ function readValue(rows: { label: string; value: number | number[] | string }[],
   return num("Length") ?? num("Distance") ?? radius;
 }
 
+/** While the Divide face form is open, the viewport lets a drag over the model place the dividing line. */
+async function updateDivideFrame() {
+  const face = toolPanel.openToolId === "divide_face" && currentSels.length === 1 && currentSels[0].kind === "face" ? currentSels[0].id : null;
+  if (face === null) {
+    viewport.divideFrame = null;
+    return;
+  }
+  try {
+    const f = await core.request<{ centre: number[]; normal: number[]; u: number[]; v: number[] }>("face_frame", { face });
+    if (toolPanel.openToolId !== "divide_face") return;
+    const vec = (a: number[]) => new THREE.Vector3(a[0], a[1], a[2]);
+    viewport.divideFrame = { face, centre: vec(f.centre), normal: vec(f.normal), u: vec(f.u), v: vec(f.v) };
+    if (!status.classList.contains("error")) status.textContent = "Divide face: drag across the face to place the dividing edge, or type the offset";
+  } catch {
+    viewport.divideFrame = null;
+  }
+}
+viewport.onDivideDrag = (across, offset) => toolPanel.setValues({ across, offset });
+
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   selectedEdges: () => currentSels.filter((s) => s.kind === "edge").map((s) => s.id),
   pickPoint: () => pointPicker.pick(),
@@ -930,7 +950,10 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     });
   },
   cancelEyedrop,
-  changed: () => renderChips(),
+  changed: () => {
+    renderChips();
+    updateDivideFrame();
+  },
   cancel() {
     if (committed) {
       show(committed);
