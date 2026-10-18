@@ -109,9 +109,9 @@ export class SketchMode {
   // Entering and leaving ----------------------------------------------------------------------------
 
   /** Set while sketching on an unrolled cylinder face: the face the regions are wrapped back onto when finishing. */
-  private unwrapFace: number | null = null;
+  private unwrapFace: number[] | null = null;
 
-  start(plane: M.PlaneData, reference?: { points: M.SketchPoint[]; entities: M.SketchEntity[] }, unwrapFace: number | null = null) {
+  start(plane: M.PlaneData, reference?: { points: M.SketchPoint[]; entities: M.SketchEntity[] }, unwrapFace: number[] | null = null) {
     if (this.active) this.exit();
     // Reference geometry (the face outline) is fixed construction geometry that sketch points can snap to.
     this.s = { plane, points: reference?.points ?? [], entities: reference?.entities ?? [], constraints: [] };

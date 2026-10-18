@@ -24,3 +24,9 @@
 ### S30 (Done except the zone picking handed to the selection agent)
 - Automatic tangency for lines (end snaps to the touching point on a circle/arc) and arcs (start on a line end, centre square to it). Solver: `_round_tangent` also covers arcs and lines not sharing an end point, and a line whose end already lies on the curve (no duplicate hidden point, which made the solver report a conflict). Checked in Chrome (tangent line to a circle: no conflict).
 - Decision: arc tolerance 2 x AUTO_AXIS_DEG; change in `addArc` in sketch.ts. Snaps still add constraints (question 21 unchanged).
+
+### S33 extension (Done: cones, chains, seam; spheres/tori/free-form stay parked)
+- `unwrap.py` rewritten around `build_unrolling(topology, face_ids)` -> bands (one per face) with a map from the unrolled plane to each face's surface parameters; sketch regions are clipped per band (copies at -1, 0, +1 turns for closed cylinders and cones so regions across the seam work) and imprinted. Requests `sketch_plane` and `sketch_regions` take `unwrap` as one id or a list; the button is now "Sketch on unrolled faces" (a curved face, or two or more selected faces).
+- Tests: cylinder, seam crossing, cone, cone seam, chain of flat + fillet + flat (round piece area exact), non-chain refused.
+- Decisions: regions that cross a closed surface's seam become two faces (one per side); outlines are interpolated curves; a chain uses arc length, so folds without tangency also unroll (change: add a tangency check in `_strip_unrolling`). Not checked in Chrome for cones and chains (only unit tests); the cylinder path was checked earlier.
+- Open: pushing/pulling wrapped faces along the surface, kept sketches.

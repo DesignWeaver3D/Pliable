@@ -192,3 +192,10 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 - **Line tool:** the end of a line snaps to where a line from the last point would just touch a circle or arc (nearest of the two touching points to the cursor) and adds point-on plus tangent. Starting a line tangent to a curve is not offered.
 - **Arc tool:** an arc whose start lands on the end of a line, with its centre within about 6 degrees of square to that line, is made tangent to it. Other arcs get no automatic tangent.
 - **Tangency without a shared end point** (circle, or an arc and line that do not share an end) is built in the solver from helper geometry (`_round_tangent`); which of the two touching points is used is decided by the starting positions.
+
+## Unrolling cones and chains (S33, agent/sketch, wave 2a)
+
+- **A chain must be a path of faces** (each joined to the next by a shared edge, no branches) of flat faces and cylinders running in one direction; the edges between them only need to be parallel to that direction (a sharp fold unrolls like a smooth bend). The unrolled strip's y direction is the first cylinder's axis, or the first straight edge.
+- **A cone must not reach its apex and must unroll to less than half a turn**; a cone cannot be chained with other faces.
+- **A region wider than half a turn of a cylinder or cone is not supported**: each outline is kept within half a turn of its first point when mapped. Regions across the seam of a closed cylinder or cone are cut at the seam and imprint as two faces.
+- **Regions outside the strip are dropped for chains** (no wrapping past the ends); the sketch plane origin is the middle of the strip (cylinder, chain) or of the sector (cone).
