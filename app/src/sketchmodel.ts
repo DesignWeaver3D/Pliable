@@ -88,7 +88,7 @@ export function remove(s: SketchData, sel: SketchSel): SketchData {
   if (sel.kind === "entity") dropEntity(sel.id);
   else for (const e of entities.filter((e) => entityPoints(e).includes(sel.id))) dropEntity(e.id);
   const used = new Set(entities.flatMap(entityPoints));
-  const orphans = new Set(s.points.filter((p) => !used.has(p.id)).map((p) => p.id));
+  const orphans = new Set(s.points.filter((p) => !used.has(p.id) && !p.fixed).map((p) => p.id));
   const refs = (c: SketchConstraint) => [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])];
   constraints = constraints.filter((c) => !refs(c).some((id) => orphans.has(id)));
   return { ...s, entities, constraints, points: s.points.filter((p) => !orphans.has(p.id)) };
@@ -425,6 +425,28 @@ export function tangentRadius(s: SketchData, centre: { u: number; v: number }, u
   return { u: centre.u + ((u - centre.u) / ask) * hit.radius, v: centre.v + ((v - centre.v) / ask) * hit.radius, entity: hit.entity };
 }
 
+/**
+ * Fixed points for the model's origin as seen from a sketch plane: the origin projected onto the plane, and
+ * where each principal axis meets the plane. Positions already taken by `existing` are left out.
+ */
+export function originPoints(plane: PlaneData, existing: SketchPoint[]): { u: number; v: number }[] {
+  const f = frame(plane);
+  const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const candidates: number[][] = [f.n.map((c) => dot(f.origin, f.n) * c)];
+  for (const d of [[1, 0, 0], [0, 1, 0], [0, 0, 1]]) {
+    const along = dot(f.n, d);
+    if (Math.abs(along) > 1e-9) candidates.push(d.map((c) => (dot(f.n, f.origin) / along) * c));
+  }
+  const found: { u: number; v: number }[] = [];
+  for (const c of candidates) {
+    const [u, v] = toPlane(plane, c);
+    if (Math.abs(u) > 1e6 || Math.abs(v) > 1e6) continue;
+    if ([...existing, ...found].some((p) => Math.hypot(p.u - u, p.v - v) < 1e-6)) continue;
+    found.push({ u, v });
+  }
+  return found;
+}
+
 // Trim ------------------------------------------------------------------------------------------------
 
 /** Parameters t along line `e` (0 at its start, 1 at its end, unbounded) where it meets other lines and circles. */
@@ -533,7 +555,7 @@ export function extendLine(s: SketchData, entityId: number, u: number, v: number
 /** Drop points no entity uses, with the constraints that name them. */
 function dropOrphans(s: SketchData): SketchData {
   const used = new Set(s.entities.flatMap(entityPoints));
-  const orphans = new Set(s.points.filter((p) => !used.has(p.id)).map((p) => p.id));
+  const orphans = new Set(s.points.filter((p) => !used.has(p.id) && !p.fixed).map((p) => p.id));
   const refs = (c: SketchConstraint) => [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])];
   return { ...s, points: s.points.filter((p) => !orphans.has(p.id)), constraints: s.constraints.filter((c) => !refs(c).some((i) => orphans.has(i))) };
 }

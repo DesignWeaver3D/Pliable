@@ -238,7 +238,8 @@ def test_face_reference_outline_snaps_and_stays_fixed():
     top = next(i for i in range(6) if measure(block, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0])
     plane = sketch.face_plane(block.face(top))
     ref = sketch.face_reference(block.face(top), plane)
-    assert len(ref["points"]) == 4 and len(ref["entities"]) == 4
+    assert len(ref["points"]) == 5 and len(ref["entities"]) == 4  # four corners and the face centre
+    assert (ref["points"][-1]["u"], ref["points"][-1]["v"]) == pytest.approx((0, 0), abs=1e-6)
     assert all(p["fixed"] for p in ref["points"]) and all(e["construction"] for e in ref["entities"])
     # the fixed outline survives a solve, and a profile ignores it
     moved = [dict(p, u=p["u"] + 1) for p in ref["points"]]

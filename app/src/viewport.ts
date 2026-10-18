@@ -147,6 +147,29 @@ export class Viewport {
     return this.raycaster.ray.intersectPlane(plane, new THREE.Vector3());
   }
 
+  /** The model's mesh data (null before the first model arrives). */
+  get meshData(): MeshData | null {
+    return this.data;
+  }
+
+  /** Face under the pointer and the point where the ray meets it, ignoring edges and vertices (used by snapping). */
+  faceUnder(e: PointerEvent): { id: number; point: THREE.Vector3 } | null {
+    if (!this.mesh || !this.data) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), this.camera);
+    const hit = this.raycaster.intersectObject(this.mesh)[0];
+    if (!hit || hit.faceIndex == null) return null;
+    let lo = 0;
+    let hi = this.faceStarts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (this.faceStarts[mid] <= hit.faceIndex) lo = mid;
+      else hi = mid - 1;
+    }
+    const face = this.data.faces[lo];
+    return face && face.count > 0 ? { id: face.id, point: hit.point } : null;
+  }
+
   /** Screen position (CSS pixels, relative to the viewport element) of a world point. */
   toScreen(p: THREE.Vector3): THREE.Vector2 {
     return this.toPixels(p, this.renderer.domElement.getBoundingClientRect());

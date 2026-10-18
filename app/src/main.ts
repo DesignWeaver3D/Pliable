@@ -1,3 +1,4 @@
+import { PointPicker, ReferenceView } from "./reference";
 import { installAlphaUi, showImportNotice, showLaunchNotice } from "./alpha";
 import { CoreClient, type MeshData } from "./client";
 import { SketchMode } from "./sketch";
@@ -39,7 +40,11 @@ core.onBusy = (busy) => {
 const measurePanel = new MeasurePanel($("measure"));
 const dimensionOverlay = new DimensionOverlay($("viewport"), () => viewport.camera);
 const navCube = new NavCube($("navcube"), viewport);
+const reference = new ReferenceView(viewport);
+const pointPicker = new PointPicker(viewport, reference, (text) => (status.textContent = text));
+$("axes").addEventListener("click", () => reference.setVisible(!reference.visible));
 viewport.onFrame = () => {
+  reference.tick();
   dimensionOverlay.draw();
   navCube.update();
 };
@@ -711,6 +716,7 @@ renderSketchBar();
 
 // Tools without a drag parameter (and the "All tools" list) use a typed-value form with live preview.
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
+  pickPoint: () => pointPicker.pick(),
   tools: () => tools,
   usable: (tool) => acceptsSelection(tool, expand(tool, currentSels)) && (refined === null || refined.includes(tool.id)),
   async preview(tool, values) {

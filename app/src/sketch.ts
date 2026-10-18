@@ -112,6 +112,8 @@ export class SketchMode {
     if (this.active) this.exit();
     // Reference geometry (the face outline) is fixed construction geometry that sketch points can snap to.
     this.s = { plane, points: reference?.points ?? [], entities: reference?.entities ?? [], constraints: [] };
+    // The model origin and the places where the principal axes meet the plane are fixed points too.
+    for (const o of M.originPoints(plane, this.s.points)) this.s.points.push({ id: M.nextId(this.s), u: o.u, v: o.v, fixed: true });
     const f = M.frame(plane);
     this.plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(...f.n), new THREE.Vector3(...f.origin));
     this.tool = "select";

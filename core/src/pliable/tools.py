@@ -111,6 +111,9 @@ class Tool:
     params: list[Param] = []
     # Relationship rules (see relations.py) whose matching faces join the selection when the user has them on.
     related: tuple[str, ...] = ()
+    # Names of three length parameters that together are a point in space; the view offers to fill them by
+    # clicking a reference snap (origin, axis, face centre) instead of typing.
+    placement: tuple[str, str, str] | None = None
 
     def applies(self, topology: Topology, selection: Selection) -> bool:
         """Extra applicability check beyond the selection counts (e.g. planar faces only)."""
@@ -160,6 +163,7 @@ class Tool:
             "accepts": self.accepts.to_json(),
             "params": [p.to_json() for p in self.params],
             "related": list(self.related),
+            "placement": list(self.placement) if self.placement else None,
         }
 
 

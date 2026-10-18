@@ -260,6 +260,7 @@ class CircularPatternHole(_CylinderFaces):
 
     id = "pattern_hole_circular"
     label = "Circular pattern"
+    placement = ("px", "py", "pz")
     accepts = Accepts(faces=(1, 1))
     params = [
         Param("count", "number", 6),
@@ -552,6 +553,7 @@ class AddBox(Tool):
 
     id = "add_box"
     label = "Add box"
+    placement = ("x", "y", "z")
     accepts = Accepts()
     params = [
         Param("width", "length", 10),
@@ -575,6 +577,7 @@ class AddCylinder(Tool):
 
     id = "add_cylinder"
     label = "Add cylinder"
+    placement = ("x", "y", "z")
     accepts = Accepts()
     params = [Param("diameter", "length", 10), Param("height", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length")]
 
@@ -861,6 +864,7 @@ class ScaleBody(Tool):
 class AddSphere(Tool):
     id = "add_sphere"
     label = "Add sphere"
+    placement = ("x", "y", "z")
     accepts = Accepts()
     params = [Param("diameter", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length")]
 
@@ -877,6 +881,7 @@ class AddCone(Tool):
 
     id = "add_cone"
     label = "Add cone"
+    placement = ("x", "y", "z")
     accepts = Accepts()
     params = [
         Param("bottom_diameter", "length", 10),
@@ -901,6 +906,7 @@ class AddTorus(Tool):
 
     id = "add_torus"
     label = "Add torus"
+    placement = ("x", "y", "z")
     accepts = Accepts()
     params = [Param("major", "length", 20), Param("minor", "length", 5), Param("x", "length"), Param("y", "length"), Param("z", "length")]
 

@@ -693,4 +693,12 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
                     start, end = end, start
                 add({"type": "arc", "center": centre, "start": point(start), "end": point(end)})
         explorer.Next()
+    if not project:  # the face centre, for centre-snapping and constraining a sketch to the middle of a face
+        from OCP.BRepGProp import BRepGProp
+        from OCP.GProp import GProp_GProps
+
+        props = GProp_GProps()
+        BRepGProp.SurfaceProperties_s(face_shape, props)
+        if props.Mass() > 0:
+            point(props.CentreOfMass())
     return {"points": points, "entities": entities}

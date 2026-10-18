@@ -9,6 +9,8 @@ export interface ToolPanelHost {
   preview(tool: ToolInfo, values: Record<string, number>): Promise<void>;
   commit(tool: ToolInfo, values: Record<string, number>): Promise<void>;
   cancel(): void;
+  /** Let the user click a reference snap in the view; null if cancelled. */
+  pickPoint?(): Promise<number[] | null>;
 }
 
 const PREVIEW_DELAY_MS = 150;
@@ -115,6 +117,18 @@ export class ToolPanel {
     buttons.className = "buttons";
     buttons.append(apply, cancel);
     this.formEl.replaceChildren(title, ...rows, buttons);
+    const placement = tool.placement;
+    if (placement && placement.length === 3 && this.host.pickPoint) {
+      const pick = document.createElement("button");
+      pick.textContent = "Pick point (origin, axis, face)";
+      pick.addEventListener("click", async () => {
+        const point = await this.host.pickPoint!();
+        if (!point || this.open !== tool) return;
+        placement.forEach((name, i) => (inputs[name].value = String(parseFloat(point[i].toFixed(4)))));
+        this.schedulePreview(0);
+      });
+      buttons.before(pick);
+    }
     this.formEl.hidden = false;
     this.inputs = inputs;
     (Object.values(inputs)[0] ?? apply).focus();
