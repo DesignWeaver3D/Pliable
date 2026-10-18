@@ -1589,7 +1589,7 @@ class InsetFace(_PlanarFace):
         splitter.Build()
         if not splitter.IsDone() or splitter.Shape().IsNull():
             raise OperationError("Could not split the face along the inset")
-        return OpResult(splitter.Shape(), [])
+        return OpResult(splitter.Shape(), [], unified=True)  # the split is the point: skip the same-surface merge
 
 
 @register
@@ -1642,4 +1642,4 @@ class DivideFace(_PlanarFace):
         whole.Build()
         if not whole.IsDone() or whole.Shape().IsNull():
             raise OperationError("Could not divide the face")
-        return OpResult(whole.Shape(), [])
+        return OpResult(whole.Shape(), [], unified=True)  # the split is the point: skip the same-surface merge

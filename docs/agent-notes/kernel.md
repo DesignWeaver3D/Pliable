@@ -25,3 +25,6 @@ Decisions (change if the owner disagrees):
 - Param is a number, not a checkbox (no boolean param kind); a real checkbox belongs to the post-S34 form work.
 Open: move/rotate/scale act on the whole model, not a picked body (owner wants single/group moves); next step is a per-body selection for move_body etc.
 Resume: S29 core done; per-body move is the next piece. 185 tests pass.
+
+## Bug: inset/divide face were no-ops in the app
+Cause: Tool.execute merges coplanar faces after every tool (S25), undoing the intended split. Fix: inset_face and divide_face return `unified=True` so execute skips the merge. Audited: cut_plane, split_plane, patch_fill, bridge already go through execute in tests and are fine; sketch_regions and the unwrap imprint commit directly and never hit the merge. Tests in test_edgesel.py now use execute.

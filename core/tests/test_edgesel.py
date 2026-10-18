@@ -47,11 +47,11 @@ def test_inset_face_splits_the_top_face_into_ring_and_inner_region():
     t = Topology(load_demo("block"))
     top = 0
     before = len(list(t.faces()))
-    result = get_tool("inset_face").run(t, Selection(faces=[top]), {"distance": 1.0}, False)
+    result = get_tool("inset_face").execute(t, Selection(faces=[top]), {"distance": 1.0}, False)
     after = Topology(result.shape)
     assert len(list(after.faces())) == before + 1
     with pytest.raises(OperationError):
-        get_tool("inset_face").run(t, Selection(faces=[top]), {"distance": 1000.0}, False)
+        get_tool("inset_face").execute(t, Selection(faces=[top]), {"distance": 1000.0}, False)
 
 
 def test_divide_face_adds_one_face_and_rejects_a_miss():
@@ -59,10 +59,10 @@ def test_divide_face_adds_one_face_and_rejects_a_miss():
 
     t = Topology(load_demo("block"))
     before = len(list(t.faces()))
-    result = get_tool("divide_face").run(t, Selection(faces=[0]), {"across": 0, "offset": 0.0}, False)
+    result = get_tool("divide_face").execute(t, Selection(faces=[0]), {"across": 0, "offset": 0.0}, False)
     assert len(list(Topology(result.shape).faces())) == before + 1
     with pytest.raises(OperationError):
-        get_tool("divide_face").run(t, Selection(faces=[0]), {"across": 1, "offset": 1000.0}, False)
+        get_tool("divide_face").execute(t, Selection(faces=[0]), {"across": 1, "offset": 1000.0}, False)
 
 
 def test_block_ring_has_four_parallel_edges():
@@ -110,7 +110,7 @@ def test_inset_face_around_a_hole_loop():
     face = _face_with_hole(t)
     tool = get_tool("inset_face")
     before = t.face_count
-    result = tool.run(t, Selection(faces=[face]), {"distance": 1.0, "loop": 1}, False)
+    result = tool.execute(t, Selection(faces=[face]), {"distance": 1.0, "loop": 1}, False)
     assert Topology(result.shape).face_count > before
     with pytest.raises(OperationError):
         tool.run(t, Selection(faces=[face]), {"distance": 1.0, "loop": 9}, False)
@@ -121,3 +121,14 @@ def test_hole_centres_have_an_axis():
 
     mesh = tessellate(Topology(load_demo("bracket")))
     assert all(len(c["axis"]) == 3 for c in mesh.centres)
+
+
+def test_split_tools_survive_the_same_surface_merge_on_the_bracket():
+    """Through Tool.execute, which merges coplanar faces after every tool: a deliberate split must stay."""
+    from pliable.tools import Selection, get_tool
+
+    t = Topology(load_demo("bracket"))
+    face = _face_with_hole(t)
+    for tool, values in (("inset_face", {"distance": 2.0}), ("inset_face", {"distance": 1.0, "loop": 1}), ("divide_face", {"across": 0, "offset": 0.0})):
+        result = get_tool(tool).execute(t, Selection(faces=[face]), values, False)
+        assert Topology(result.shape).face_count > t.face_count, tool
