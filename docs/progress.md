@@ -6,7 +6,12 @@ Branches: work on `dev`; `rebuild` is the release candidate; `main` holds the MV
 
 ## Resume note
 
-Nothing half-done. Take the first open row below whose status is not Done or Parked. Rows marked "needs owner" wait for a `docs/questions.md` answer; build them with the stated default if the session is unattended.
+Parallel wave stopped at the usage limit (2026-10-18). Work sits on unmerged agent branches in `C:\dev\pliable-wt\<name>`; merge in the order kernel, selection, sketch, shell, running core tests, `npm test`, `tsc` and the build after each.
+- **selection** (done, 222 core / 29 node tests): S51 see-through faces, S50 chips (off by default, All/None, Parallel, Symmetric), S48 interim hole centres. Not hand-checked: All/None, Symmetric chip, snap. Expect conflicts in `index.html`, `reference.ts`.
+- **shell** (done, 35 node tests): S53 any modifier mix, S54 dimensions with extension lines and leaders, S55 hint line and tips. Not hand-checked: tooltips, dialog checkbox, search entries. The M key is hard-coded in `viewport.ts` (cannot be rebound).
+- **kernel** (partly done; committed: array the chosen body S49, Center between faces needs one side face S52). Uncommitted in the worktree: S36 stretch spike (`stretch.py`, `test_stretch.py`, edit to `tools.py`), untested. S47 core half not started.
+- **sketch** (partly done; committed: one Sketch On Face button with visible automatic constraints, axes and vertices projected into a sketch, i.e. S43 and most of S45). Uncommitted: `unwrap.py` and `test_unwrap.py` changes toward S46. Free-drag fix, S44 not done.
+Next: review the uncommitted work in kernel and sketch (run its tests; commit if green), merge, then assign S60-S63 and the leftovers.
 
 ## Open sessions
 
