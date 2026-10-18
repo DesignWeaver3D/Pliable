@@ -21,3 +21,9 @@ Decisions were made with this order: your described workflow, industry standard,
 
 - Sketch persistence: start without it (sketches are not kept after they close), add later if needed.
 - Sketching problem found: after exiting a sketch no wire edges or faces were left to extrude or push/pull. Other modelers make selectable faces from the closed regions of a sketch, and some allow overlapping wires. Decision pending on the owner's side: overlapping regions make sketching faster but the resulting selections can be cumbersome, so if regions follow suit there must be a fast zone-selection method. Folded into S30.
+- Tool GUI and the whole GUI will change; the owner has no plan yet. A research proposal is being written (docs/research/gui-plan.md); the layout rework is session S34. Open question there: keep tools hidden but discoverable, and whether the command search stays.
+- Not-built list (entry 6): the stretch spike is S36; projection constraints, horizontal and vertical distance dimensions and sketch corner fillets are in S30. Sketch trim and extend are built.
+- Relationship chips are unclear to the owner. Until contributors can judge, follow industry practice and research; the work is S35.
+- Moving one bracket hole moves all four (equal-radius rule on). May be right design intent, but the user needs a choice per operation. Hole centres should be measurable, selectable and usable as move handles and dimension anchors (S35).
+- The placeholder top bar needs a full rework with the rest of the UI (S34).
+- Edge chains: double-click chain is liked. Wanted: select all edges of a face, the coplanar edge loop of a face, and two edges plus double-click for the shared face's loop (S31).
