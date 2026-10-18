@@ -833,11 +833,14 @@ export class Viewport {
     const on = settings.seeThrough;
     if (this.surfaceMaterial) {
       this.surfaceMaterial.transparent = on;
-      this.surfaceMaterial.opacity = on ? 0.3 : 1;
+      this.surfaceMaterial.opacity = on ? 0.12 : 1; // faces nearly clear; the edges carry the shape
       this.surfaceMaterial.depthWrite = !on;
       this.surfaceMaterial.needsUpdate = true;
     }
-    if (this.edgeMaterial) this.edgeMaterial.depthTest = !on;
+    if (this.edgeMaterial) {
+      this.edgeMaterial.depthTest = !on;
+      this.edgeMaterial.color.set(on ? 0xdce6f2 : 0x111418); // light edges stand out on the dark background through clear faces
+    }
     this.hoverLine.depthTest = this.selectedLine.depthTest = !on;
   }
 
