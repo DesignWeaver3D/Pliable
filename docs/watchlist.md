@@ -131,3 +131,4 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Construction planes
 
 - Only offsets of the three world planes are offered. No plane through three points, at an angle, or midway between faces; the offset is typed, not dragged.
+- **S25 merge cost:** `unify_result` runs after every tool; measured 0.4 s on a 231-face plate with 225 holes, and it grows with face count. If large models feel slow, merge only faces near the changed region. Out-and-back and all-tools sweeps (`core/tests/test_seams.py`) found no leftover seams on the bracket.
