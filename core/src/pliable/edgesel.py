@@ -53,6 +53,16 @@ def shared_loop(topology: Topology, first: int, second: int) -> list[int]:
     return best or []
 
 
+def edge_loops(topology: Topology, edge_id: int) -> list[int]:
+    """The boundary loops that run through the edge, one per face beside it (loops follow shared faces, not angles)."""
+    out: list[int] = []
+    for face in topology.edge_faces(topology.edge(edge_id)):
+        for loop in face_loops(topology, topology.face_id(face)):
+            if edge_id in loop:
+                out.extend(e for e in loop if e not in out)
+    return out
+
+
 def _vertex_edges(topology: Topology) -> dict[int, list[int]]:
     at_vertex: dict[int, list[int]] = {}
     for i, edge in topology.edges():
@@ -95,13 +105,49 @@ def edge_ring(topology: Topology, edge_id: int) -> list[int]:
         for face in topology.edge_faces(topology.edge(current)):
             fid = topology.face_id(face)
             loops = face_loops(topology, fid)
-            if len(loops) != 1 or len(loops[0]) != 4 or current not in loops[0]:
+            if len(loops) != 1 or current not in loops[0]:
                 continue
-            for other in loops[0]:
-                if other != current and not (_edge_vertices(topology, other) & here) and other not in ring:
+            if len(loops[0]) == 4:
+                opposite = [o for o in loops[0] if o != current and not (_edge_vertices(topology, o) & here)]
+            else:
+                # A face with rounded corners or more sides: the parallel straight edge farthest from this one
+                # (a rounded rectangle still has an opposite side; short steps nearby are ignored).
+                direction = _line_direction(topology, current)
+                opposite = []
+                if direction is not None:
+                    here_mid = _midpoint(topology, current)
+                    best = 0.0
+                    for o in loops[0]:
+                        other_dir = _line_direction(topology, o)
+                        if o != current and other_dir and not (_edge_vertices(topology, o) & here) and abs(sum(a * b for a, b in zip(direction, other_dir))) > 0.999:
+                            far = math.dist(here_mid, _midpoint(topology, o))
+                            if far > best + 1e-9:
+                                best, opposite = far, [o]
+            for other in opposite:
+                if other not in ring:
                     ring.add(other)
                     frontier.append(other)
     return sorted(ring)
+
+
+def _midpoint(topology: Topology, edge_id: int) -> tuple[float, float, float]:
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+
+    curve = BRepAdaptor_Curve(topology.edge(edge_id))
+    p = curve.Value((curve.FirstParameter() + curve.LastParameter()) / 2)
+    return (p.X(), p.Y(), p.Z())
+
+
+def _line_direction(topology: Topology, edge_id: int) -> tuple[float, float, float] | None:
+    """Unit direction of a straight edge, or None for a curved one."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.GeomAbs import GeomAbs_Line
+
+    curve = BRepAdaptor_Curve(topology.edge(edge_id))
+    if curve.GetType() != GeomAbs_Line:
+        return None
+    d = curve.Line().Direction()
+    return (d.X(), d.Y(), d.Z())
 
 
 def edge_angle(topology: Topology, edge_id: int) -> float | None:

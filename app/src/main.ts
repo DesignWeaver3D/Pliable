@@ -1,3 +1,4 @@
+import * as THREE from "three";
 import { PointPicker, ReferenceView } from "./reference";
 import { installAlphaUi, showImportNotice, showLaunchNotice } from "./alpha";
 import { CoreClient, type MeshData } from "./client";
@@ -182,7 +183,7 @@ function helperSignature(): string {
 
 /** Buttons that grow a selection of faces or an edge into a selection of edges. */
 function selectionHelpers(): HTMLButtonElement[] {
-  const make = (label: string, title: string, request: Record<string, unknown>) => {
+  const make = (label: string, title: string, request: Record<string, unknown>, none = "Nothing more to select") => {
     const button = document.createElement("button");
     button.textContent = label;
     button.title = title;
@@ -194,7 +195,8 @@ function selectionHelpers(): HTMLButtonElement[] {
         const picked: Sel[] = ids.map((id) => ({ kind: "edge" as const, id }));
         viewport.selectItems(picked);
         setSelection(picked);
-        status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} selected`;
+        const same = picked.length === 1 && currentSels.length === 1 && "edge" in request;
+        status.textContent = same ? `${label}: ${none}` : `${label}: ${picked.length} edge${picked.length === 1 ? "" : "s"} selected`;
       } catch (e) {
         status.textContent = (e as Error).message;
       }
@@ -204,14 +206,15 @@ function selectionHelpers(): HTMLButtonElement[] {
   const one = currentSels.length === 1 ? currentSels[0] : null;
   if (one?.kind === "face") {
     return [
-      make("All edges", "Select every edge of the selected face", { mode: "face_edges", face: one.id }),
+      make("All edges", "Select every edge of the selected face, outline and holes", { mode: "face_edges", face: one.id }),
       make("Edge loops", "Select the closed edge loops that bound the selected face (outline and holes)", { mode: "face_loops", face: one.id }),
     ];
   }
   if (one?.kind === "edge") {
     return [
-      make("Edge ring", "Select the parallel edges across four-sided faces, like the rungs of a ladder", { mode: "ring", edge: one.id }),
-      make("Sharp edges", `Select the connected edges where faces meet at ${settings.sharpAngle} degrees or more (change in settings)`, { mode: "sharp", edge: one.id, angle: settings.sharpAngle }),
+      make("Edge loops", "Select the closed outline of each face beside this edge (loops follow the shared faces, not an angle)", { mode: "edge_loops", edge: one.id }, "this edge has no outline beyond itself"),
+      make("Edge ring", "Select the parallel edges across the faces on both sides of this edge, like the rungs of a ladder (needs four-sided faces)", { mode: "ring", edge: one.id }, "no ring: the faces beside it are not four-sided"),
+      make("Sharp edges", `Select the connected edges where faces meet at ${settings.sharpAngle} degrees or more (change the angle in settings)`, { mode: "sharp", edge: one.id, angle: settings.sharpAngle }, "no connected sharp edges"),
     ];
   }
   if (currentSels.length > 1 && currentSels.every((s) => s.kind === "face")) {
@@ -440,12 +443,15 @@ viewport.onEdgeLoop = async (edgeId, additive) => {
         // no common face: fall back to the smooth chain below
       }
     }
-    const { edges } = await core.request<{ edges: number[] }>("edge_chain", { edge: edgeId });
+    // Otherwise the outline of the faces beside the edge (shared faces decide, not the angle); an edge with no
+    // outline beyond itself falls back to the smooth chain.
+    let { edges } = await core.request<{ edges: number[] }>("edge_selection", { mode: "edge_loops", edge: edgeId });
+    if (edges.length <= 1) edges = (await core.request<{ edges: number[] }>("edge_chain", { edge: edgeId })).edges;
     const picked: Sel[] = edges.map((id) => ({ kind: "edge" as const, id }));
     const sels = additive ? [...currentSels.filter((s) => s.kind === "edge" && !edges.includes(s.id)), ...picked] : picked;
     viewport.selectItems(sels);
     setSelection(sels);
-    status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} in the chain (double-click an edge to select its whole outline)`;
+    status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} selected by double-click (the outline of the faces beside the edge)`;
   } catch (e) {
     status.textContent = (e as Error).message;
   }
@@ -869,6 +875,25 @@ function readValue(rows: { label: string; value: number | number[] | string }[],
   return num("Length") ?? num("Distance") ?? radius;
 }
 
+/** While the Divide face form is open, the viewport lets a drag over the model place the dividing line. */
+async function updateDivideFrame() {
+  const face = toolPanel.openToolId === "divide_face" && currentSels.length === 1 && currentSels[0].kind === "face" ? currentSels[0].id : null;
+  if (face === null) {
+    viewport.divideFrame = null;
+    return;
+  }
+  try {
+    const f = await core.request<{ centre: number[]; normal: number[]; u: number[]; v: number[] }>("face_frame", { face });
+    if (toolPanel.openToolId !== "divide_face") return;
+    const vec = (a: number[]) => new THREE.Vector3(a[0], a[1], a[2]);
+    viewport.divideFrame = { face, centre: vec(f.centre), normal: vec(f.normal), u: vec(f.u), v: vec(f.v) };
+    if (!status.classList.contains("error")) status.textContent = "Divide face: drag across the face to place the dividing edge, or type the offset";
+  } catch {
+    viewport.divideFrame = null;
+  }
+}
+viewport.onDivideDrag = (across, offset) => toolPanel.setValues({ across, offset });
+
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   selectedEdges: () => currentSels.filter((s) => s.kind === "edge").map((s) => s.id),
   pickPoint: () => pointPicker.pick(),
@@ -924,7 +949,10 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     });
   },
   cancelEyedrop,
-  changed: () => renderChips(),
+  changed: () => {
+    renderChips();
+    updateDivideFrame();
+  },
   cancel() {
     if (committed) {
       show(committed);

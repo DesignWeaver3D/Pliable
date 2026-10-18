@@ -215,6 +215,12 @@ export class ToolPanel {
     return box;
   }
 
+  /** Put values into the open form's fields (a drag in the viewport fills them) and refresh the preview. */
+  setValues(values: Record<string, number>) {
+    for (const [name, value] of Object.entries(values)) if (this.inputs[name]) this.inputs[name].value = String(Math.round(value * 1000) / 1000);
+    this.schedulePreview(0);
+  }
+
   private values(): Record<string, ParamValue> {
     const values: Record<string, ParamValue> = Object.fromEntries(Object.entries(this.inputs).map(([k, el]) => [k, Number(el.value)]));
     for (const [name, pairs] of Object.entries(this.pairInputs)) values[name] = pairs.map((pair) => pair.map((el) => Number(el.value)));
