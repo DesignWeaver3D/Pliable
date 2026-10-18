@@ -703,7 +703,8 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
     and circles or arcs seen at an angle (they would project to ellipses) are left out."""
     from OCP.BRepAdaptor import BRepAdaptor_Curve
     from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Line
-    from OCP.TopAbs import TopAbs_EDGE
+    from OCP.BRep import BRep_Tool
+    from OCP.TopAbs import TopAbs_EDGE, TopAbs_VERTEX
     from OCP.TopExp import TopExp_Explorer
     from OCP.TopoDS import TopoDS
 
@@ -728,12 +729,15 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
     def add(entity: dict):
         entities.append({"id": len(points) + len(entities) + 1000, "construction": True, "reference": True, **entity})
 
+    skipped = {"square": 0, "tilted_circles": 0, "other": 0}
     explorer = TopExp_Explorer(face_shape, TopAbs_EDGE)
     while explorer.More():
         curve = BRepAdaptor_Curve(TopoDS.Edge(explorer.Current()))
         first, last = curve.FirstParameter(), curve.LastParameter()
         if curve.GetType() == GeomAbs_Line:
             if project and math.dist(uv(curve.Value(first)), uv(curve.Value(last))) < 1e-6:
+                skipped["square"] += 1  # seen end-on: it is the point its vertex projects to
+                point(curve.Value(first))
                 explorer.Next()
                 continue
             add({"type": "line", "a": point(curve.Value(first)), "b": point(curve.Value(last))})
@@ -741,6 +745,9 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
             circle = curve.Circle()
             axis = circle.Axis().Direction()
             if project and abs(abs(axis.X() * normal[0] + axis.Y() * normal[1] + axis.Z() * normal[2]) - 1) > 1e-6:
+                skipped["tilted_circles"] += 1  # would be an ellipse; its end points still project
+                for t in (first, last):
+                    point(curve.Value(t))
                 explorer.Next()
                 continue
             centre = point(circle.Location())
@@ -755,7 +762,17 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
                 if turn < 0:  # the edge runs clockwise in the sketch: swap so the arc is counterclockwise
                     start, end = end, start
                 add({"type": "arc", "center": centre, "start": point(start), "end": point(end)})
+        else:
+            skipped["other"] += 1
+            if project:
+                for t in (first, last):
+                    point(curve.Value(t))
         explorer.Next()
+    if project:  # every vertex of the model is a snappable point, whether or not its edges could be drawn
+        vertices = TopExp_Explorer(face_shape, TopAbs_VERTEX)
+        while vertices.More():
+            point(BRep_Tool.Pnt_s(TopoDS.Vertex(vertices.Current())))
+            vertices.Next()
     if not project:  # the face centre, for centre-snapping and constraining a sketch to the middle of a face
         from OCP.BRepGProp import BRepGProp
         from OCP.GProp import GProp_GProps
@@ -764,4 +781,4 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
         BRepGProp.SurfaceProperties_s(face_shape, props)
         if props.Mass() > 0:
             point(props.CentreOfMass())
-    return {"points": points, "entities": entities}
+    return {"points": points, "entities": entities, **({"skipped": skipped} if project else {})}

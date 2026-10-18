@@ -83,6 +83,8 @@ export class SketchMode {
   private normal = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.line, linewidth: 2, depthTest: false }));
   private construction = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.construction, linewidth: 2, depthTest: false }));
   private marked = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.selected, linewidth: 3, depthTest: false }));
+  /** The model's principal axes as they project onto the sketch plane (red x, green y, blue z). */
+  private axes = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ linewidth: 1, vertexColors: true, depthTest: false, transparent: true, opacity: 0.7 }));
   private pending = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.pending, linewidth: 2, depthTest: false }));
   private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false }));
   private grid: THREE.GridHelper | null = null;
@@ -100,7 +102,7 @@ export class SketchMode {
     panel: HTMLElement,
   ) {
     this.panel = panel;
-    for (const o of [this.normal, this.construction, this.marked, this.pending, this.points]) {
+    for (const o of [this.axes, this.normal, this.construction, this.marked, this.pending, this.points]) {
       o.renderOrder = 5;
       o.frustumCulled = false;
       this.group.add(o);
@@ -769,7 +771,7 @@ export class SketchMode {
   /** Flatten the model's edges onto the sketch plane as fixed reference geometry the sketch can snap to. */
   private async projectModel() {
     try {
-      const ref = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[] }>("sketch_project", { plane: this.s.plane });
+      const ref = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[]; skipped?: { square: number; tilted_circles: number; other: number } }>("sketch_project", { plane: this.s.plane });
       const near = (a: M.SketchPoint, b: M.SketchPoint) => Math.hypot(a.u - b.u, a.v - b.v) < 1e-5;
       const known = this.s.points.filter((p) => p.fixed);
       const entityKey = (e: M.SketchEntity) => JSON.stringify([e.type, ...M.entityPoints(e).map((id) => this.s.points.find((p) => p.id === id)).map((p) => p && [Math.round(p.u * 1e4), Math.round(p.v * 1e4)])]);
@@ -797,7 +799,13 @@ export class SketchMode {
       }
       this.resolve();
       this.render();
-      this.host.status(added ? `Projected ${added} model edge${added === 1 ? "" : "s"}` : "No new model edges to project");
+      const sk = ref.skipped;
+      const notes = [
+        sk?.tilted_circles ? `${sk.tilted_circles} tilted circle${sk.tilted_circles === 1 ? "" : "s"} (would be ellipses) not drawn, their end points are snappable` : "",
+        sk?.other ? `${sk.other} curved edge${sk.other === 1 ? "" : "s"} of another kind skipped, their end points are snappable` : "",
+        sk?.square ? `${sk.square} edge${sk.square === 1 ? "" : "s"} seen end-on shown as points` : "",
+      ].filter(Boolean);
+      this.host.status(`${added ? `Projected ${added} model edge${added === 1 ? "" : "s"}` : "No new model edges to project"}${notes.length ? `. ${notes.join("; ")}` : ""}`, !!(sk?.tilted_circles || sk?.other));
     } catch (e) {
       this.host.status((e as Error).message, true);
     }
@@ -834,7 +842,7 @@ export class SketchMode {
 
   private onFrame() {
     const size = this.viewport.renderer.getSize(new THREE.Vector2());
-    for (const l of [this.normal, this.construction, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
+    for (const l of [this.axes, this.normal, this.construction, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
   }
 
   private world(u: number, v: number): THREE.Vector3 {
@@ -867,6 +875,7 @@ export class SketchMode {
     const marked: [number, number][][] = [];
     const guides: [number, number][][] = [];
     for (const e of this.s.entities) (this.isMarked({ kind: "entity", id: e.id }) ? marked : e.construction ? guides : normal).push(M.polyline(this.s, e));
+    this.drawAxes();
     this.set(this.normal, this.segments(normal));
     this.set(this.construction, this.segments(guides));
     this.set(this.marked, this.segments(marked));
@@ -885,6 +894,21 @@ export class SketchMode {
     this.points.geometry.computeBoundingSphere();
     this.overlay.set([...M.dimensionsOf(this.s), ...this.liveDimensions()]);
     if (panel) this.renderPanel();
+  }
+
+  private drawAxes() {
+    const reach = 400;
+    const positions: number[] = [];
+    const colors: number[] = [];
+    for (const a of M.axisLines(this.s.plane)) {
+      positions.push(...this.world(a.u - a.du * reach, a.v - a.dv * reach).toArray(), ...this.world(a.u + a.du * reach, a.v + a.dv * reach).toArray());
+      const c = new THREE.Color([0xd9534f, 0x5cb85c, 0x4a90e2][a.axis]);
+      colors.push(c.r, c.g, c.b, c.r, c.g, c.b);
+    }
+    this.axes.visible = positions.length > 0;
+    if (!positions.length) return;
+    this.axes.geometry.dispose();
+    this.axes.geometry = new LineSegmentsGeometry().setPositions(positions).setColors(colors);
   }
 
   private set(line: LineSegments2, positions: number[]) {

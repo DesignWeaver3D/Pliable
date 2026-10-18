@@ -473,18 +473,20 @@ export function tangentFrom(s: SketchData, from: { u: number; v: number }, u: nu
 }
 
 /**
- * The principal axes that lie in a sketch plane, as lines in sketch coordinates (a point and a direction).
- * An axis lies in the plane when it is square to the plane's normal and the origin is on the plane.
+ * The principal axes projected onto a sketch plane, as lines in sketch coordinates (a point and a unit
+ * direction), with the axis index (0 x, 1 y, 2 z). An axis square to the plane projects to a single point
+ * (see `originPoints`) and gives no line. An axis off the plane is shown where it appears, not where it is.
  */
-export function axisLines(plane: PlaneData): { u: number; v: number; du: number; dv: number }[] {
+export function axisLines(plane: PlaneData): { u: number; v: number; du: number; dv: number; axis: number }[] {
   const f = frame(plane);
   const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-  if (Math.abs(dot(f.origin, f.n)) > 1e-6) return [];
-  const [u, v] = toPlane(plane, [0, 0, 0]);
+  const [u, v] = toPlane(plane, f.n.map((c) => dot(f.origin, f.n) * c)); // the origin dropped onto the plane
   const lines = [];
-  for (const d of [[1, 0, 0], [0, 1, 0], [0, 0, 1]]) {
-    if (Math.abs(dot(f.n, d)) > 1e-9) continue;
-    lines.push({ u, v, du: dot(d, f.x), dv: dot(d, f.y) });
+  for (const [axis, d] of [[1, 0, 0], [0, 1, 0], [0, 0, 1]].entries()) {
+    const [du, dv] = [dot(d, f.x), dot(d, f.y)];
+    const length = Math.hypot(du, dv);
+    if (length < 1e-6) continue;
+    lines.push({ u, v, du: du / length, dv: dv / length, axis });
   }
   return lines;
 }

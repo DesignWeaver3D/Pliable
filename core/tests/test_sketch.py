@@ -556,3 +556,19 @@ def test_connected_ids_follow_entities_and_constraints_only():
     result = {"points": [{"id": 4, "u": 99, "v": 99}], "radii": {}}
     sketch._keep_unconnected(sk, {"point": 2, "u": 0, "v": 0}, result)
     assert (result["points"][0]["u"], result["points"][0]["v"]) == (0, 20)
+
+
+def test_project_reports_skipped_edges_and_keeps_every_vertex():
+    from pliable.demos import load_demo
+    from pliable.server import Session
+    from pliable.sketch import STANDARD_PLANES
+
+    session = Session()
+    session._open(load_demo("bracket"), "bracket")
+    flat = session.handle({"type": "sketch_project", "plane": STANDARD_PLANES["XY"]})
+    assert flat["skipped"]["square"] > 0  # the vertical edges are seen end-on
+    assert any(e["type"] == "circle" for e in flat["entities"])
+    # seen from the side the round holes in the top face are tilted: they are skipped and counted, their ends still project
+    side = session.handle({"type": "sketch_project", "plane": STANDARD_PLANES["XZ"]})
+    assert side["skipped"]["tilted_circles"] > 0
+    assert len(side["points"]) >= 8 and all(p["fixed"] for p in side["points"])
