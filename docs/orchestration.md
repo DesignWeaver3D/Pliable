@@ -23,7 +23,7 @@ Name the worktree and branch, then require, in this order:
 1. Use absolute paths under its worktree; never touch the main checkout or other worktrees.
 2. Read the agent rules file in the repo root, `docs/progress.md`, and the relevant `docs/questions.md` and `docs/decisions-log.md` entries.
 3. Its ports and the exact core server line with `PLIABLE_DATA` (from `agent-ports.txt`); never port 8765.
-4. Local commits on its branch after each passing step; never push; no `git update-index`; do not touch `dev`, `rebuild` or `main`.
+4. Finish one task at a time: run the tests and commit that task (one commit per task, plain subject) before starting the next, so a cutoff loses only the task in progress. Local commits on its branch only; never push; no `git update-index`; do not touch `dev`, `rebuild` or `main`.
 5. Do not edit `docs/progress.md` or `docs/questions.md`; put status, decisions (with what to change), open questions and the resume point in the final report and in a temporary `docs/agent-notes/<name>.md` on its branch; watchlist entries append-only.
 6. Commit messages pass `scripts/check_commit_message.py`; the hook also rejects names of other products and AI tools in any staged text, so describe behaviour instead.
 7. Unattended rules from the agent rules file: decide, log, keep going; ending the turn ends the run.
