@@ -103,3 +103,7 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Sketch offset (2026-10-18)
 
 - **Offset curve** (`sketch.offset_entities`, panel button "Offset" with a distance box when curves are selected): copies are plain geometry with no constraints, so they do not follow the original; a closed outline offset outward gets rounded corners. A selection of open curves offsets to the left of the drawing direction, and splines are not supported (the sketch has none). *Symptom:* an offset that "points the wrong way" on an open chain: use a negative distance.
+
+## Inset face outline
+
+- Only the outer loop is offset; hole loops are left alone. Corners use sharp (intersection) joins, so concave corners can self-intersect on large insets and report an error.

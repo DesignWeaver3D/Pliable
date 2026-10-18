@@ -1476,3 +1476,42 @@ def combine(shape: TopoDS_Shape, other: TopoDS_Shape, mode: str, offset: gp_Vec 
     if _volume(result) < 1e-9:
         raise OperationError("The result would be empty")
     return finish(result)
+
+
+@register
+class InsetFace(_PlanarFace):
+    """Offset the outline of a flat face inward and split the face along it, so the inner region can be
+    pushed, pulled or cut on its own. A negative distance is not accepted: the loop stays on the face."""
+
+    id = "inset_face"
+    label = "Inset face outline"
+    accepts = Accepts(faces=(1, 1))
+    params = [Param("distance", "length", 2)]
+
+    def run(self, topology, selection, values, preview):
+        from build123d import Face, Kind
+        from OCP.BRepAlgoAPI import BRepAlgoAPI_Splitter
+
+        distance = values["distance"]
+        if distance < MIN_DISTANCE:
+            raise OperationError("The inset distance must be positive")
+        face = Face(topology.face(selection.faces[0]))
+        try:
+            inner = face.outer_wire().offset_2d(-distance, kind=Kind.INTERSECTION)
+            inner = inner[0] if isinstance(inner, list) else inner
+            region = Face(inner)
+        except Exception:
+            raise OperationError("The inset is larger than the face") from None
+        if region.area >= face.area or region.area < MIN_DISTANCE:
+            raise OperationError("The inset is larger than the face")
+        splitter = BRepAlgoAPI_Splitter()
+        arguments, tools = List_TopoDS_Shape(), List_TopoDS_Shape()
+        arguments.Append(topology.shape)
+        tools.Append(region.wrapped)
+        splitter.SetArguments(arguments)
+        splitter.SetTools(tools)
+        splitter.SetNonDestructive(True)
+        splitter.Build()
+        if not splitter.IsDone() or splitter.Shape().IsNull():
+            raise OperationError("Could not split the face along the inset")
+        return OpResult(splitter.Shape(), [])
