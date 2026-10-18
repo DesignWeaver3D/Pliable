@@ -5,6 +5,7 @@ import { SKETCH_PLANES } from "./layout";
 import { ToolPanel } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay } from "./dimensions";
+import { createSettingsWindow } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { Palette, type Command } from "./palette";
 import { acceptsSelection, describeNeeds, dragParam, type ToolInfo } from "./tools";
@@ -38,6 +39,7 @@ core.onBusy = (busy) => {
 };
 const measurePanel = new MeasurePanel($("measure"));
 const dimensionOverlay = new DimensionOverlay($("viewport"), () => viewport.camera);
+createSettingsWindow(document.body);
 const navCube = new NavCube($("navcube"), viewport);
 viewport.onFrame = () => {
   dimensionOverlay.draw();
@@ -51,6 +53,7 @@ window.addEventListener("keydown", (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey || target.closest("input, textarea, select") || viewport.dragging || dragSels !== null) return;
   if (e.key in VIEW_KEYS) viewport.setView(VIEW_KEYS[e.key]);
   else if (e.key === "p" || e.key === "P") navCube.toggleProjection();
+  else if (e.key === "x" || e.key === "X") viewport.toggleSeeThrough();
   else if ((e.key === "v" || e.key === "V") && currentSels.length === 1 && currentSels[0].kind === "face") {
     if (!viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: could not find a view direction for this face";
   }

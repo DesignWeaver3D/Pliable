@@ -131,3 +131,10 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Construction planes
 
 - Only offsets of the three world planes are offered. No plane through three points, at an angle, or midway between faces; the offset is typed, not dragged.
+
+## Selection settings, box select and see-through (S26, S38)
+
+- Pick ranges (edge 5 px, point 8 px) are stored in the browser only and are not part of the document; the old fixed values were 6 and 9.
+- Box selection picks one kind: the kind already selected, otherwise edges. Face window/crossing tests use the face's projected bounding box, so a crossing box can catch a face it only passes near; visibility is tested with one ray per item (edge midpoint, first triangle of a face).
+- Measure mode during a drag moved from right-click to the M key; right-drag now orbits mid-drag, so the drag distance shifts if the view moves under the pointer.
+- See-through draws the surface at 30 percent opacity and ignores depth for edges. Clicking the same spot again cycles through faces behind; hidden vertices and edges are picked by screen distance only.

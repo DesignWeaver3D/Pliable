@@ -4,6 +4,7 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { MeshData } from "./client";
+import { onSettingsChange, settings, updateSettings } from "./settings";
 
 export type Kind = "face" | "edge" | "vertex";
 export interface Sel {
@@ -15,8 +16,6 @@ interface Hit extends Sel {
   point: THREE.Vector3;
 }
 
-const VERTEX_PICK_PX = 9;
-const EDGE_PICK_PX = 6;
 const EDGE_TIE_PX = 2; // edges this close on screen are told apart by depth
 const MEASURE_PICK_PX = 10; // pick radius for measurement edges in measure mode
 const MEASURE_TOL = 1e-3; // model units: on-plane / parallel tolerance when finding measurable edges
@@ -100,6 +99,8 @@ export class Viewport {
   private mesh: THREE.Mesh | null = null;
   private data: MeshData | null = null;
   private faceStarts: number[] = [];
+  private surfaceMaterial: THREE.MeshStandardMaterial | null = null;
+  private edgeMaterial: THREE.LineBasicMaterial | null = null;
   private hovered: Sel | null = null;
   private selected: Sel[] = [];
   private markSource: THREE.BufferGeometry | null = null;
@@ -109,6 +110,11 @@ export class Viewport {
   private hoverLine = new LineMaterial({ color: 0xffd36b, linewidth: 3, depthTest: true });
   private selectedLine = new LineMaterial({ color: 0xff8a1f, linewidth: 4, depthTest: true });
   private raycaster = new THREE.Raycaster();
+  /** Box selection in progress (screen coordinates); active once the pointer moved past the click threshold. */
+  private box: { x0: number; y0: number; x1: number; y1: number; active: boolean; additive: boolean } | null = null;
+  private boxEl: HTMLDivElement | null = null;
+  /** Last see-through click, so clicking the same spot again picks the next face behind. */
+  private lastClick = { x: -99, y: -99, n: 0 };
   private drag: { sels: Sel[]; normal: THREE.Vector3; point: THREE.Vector3; x: number; y: number; moved: boolean } | null = null;
   /** Called when the user changes the selection by clicking. */
   onSelect: (selection: Sel[]) => void = () => {};
@@ -327,6 +333,7 @@ export class Viewport {
       down = { x: e.clientX, y: e.clientY };
       if (e.button !== 0 || this.measureMode) return;
       const hit = this.pickHit(e);
+      this.box = null;
       const direction = hit && this.dragDirection(hit);
       // Dragging the selected face or edge starts its tool instead of orbiting.
       const additive = e.ctrlKey || e.metaKey;
@@ -344,11 +351,20 @@ export class Viewport {
           null,
         );
         this.drawMeasures(0);
-        this.controls.enabled = false;
+        // Controls stay enabled: the left button is unmapped, so right-drag orbits and
+        // middle-drag pans while the tool drag continues.
+        dom.setPointerCapture(e.pointerId);
+      } else {
+        // Not starting a tool: a drag from here is a box selection.
+        this.box = { x0: e.clientX, y0: e.clientY, x1: e.clientX, y1: e.clientY, active: false, additive };
         dom.setPointerCapture(e.pointerId);
       }
     });
     dom.addEventListener("pointermove", (e) => {
+      if (this.box) {
+        this.updateBox(e);
+        return;
+      }
       if (this.interceptor) {
         this.interceptor.move(e);
         return;
@@ -367,10 +383,7 @@ export class Viewport {
         }
       } else if (e.buttons === 0) this.setHover(this.pick(e));
     });
-    dom.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      if (this.drag?.moved) this.toggleMeasure();
-    });
+    dom.addEventListener("contextmenu", (e) => e.preventDefault());
     for (const line of [this.measureAll, this.measureHot]) {
       line.visible = false;
       line.renderOrder = 3;
@@ -387,7 +400,13 @@ export class Viewport {
         this.interceptor.up(e);
         return;
       }
+      if (this.drag && e.button !== 0) return; // right/middle release ends an orbit or pan, not the tool drag
       const drag = this.drag;
+      if (this.box) {
+        this.finishBox(e);
+        down = null;
+        return;
+      }
       if (drag && this.measureMode) {
         // Measure mode keeps the drag open: a click picks the edge to edit.
         const picked = this.nearestMeasure(e);
@@ -403,7 +422,6 @@ export class Viewport {
         this.endMeasure();
         this.drag = null;
         this.holdDrag = false;
-        this.controls.enabled = true;
         if (drag.moved) {
           this.onItemDrag(drag.sels, this.dragDistance(e, drag), "end");
           down = null;
@@ -412,21 +430,24 @@ export class Viewport {
       }
       // A click, not the end of an orbit/pan drag.
       if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4 && e.button === 0) {
-        this.clickSelect(this.pick(e), e.ctrlKey || e.metaKey);
+        this.clickSelect(this.pickCycling(e), e.ctrlKey || e.metaKey);
       }
       down = null;
     });
     window.addEventListener("keydown", (e) => {
+      // M during a tool drag toggles measure mode (it used to be the right button, which now orbits).
+      if ((e.key === "m" || e.key === "M") && this.drag?.moved && !e.ctrlKey && !e.metaKey && !e.altKey) this.toggleMeasure();
+      if (e.key === "Escape" && this.box) this.cancelBox();
       if (e.key === "Escape" && this.drag && !this.holdDrag) {
         const sels = this.drag.sels;
         this.drag = null;
         this.holdDrag = false;
-        this.controls.enabled = true;
         this.endMeasure();
         this.onItemDrag(sels, 0, "cancel");
       }
     });
     window.addEventListener("resize", () => this.resize());
+    onSettingsChange(() => this.applySeeThrough());
     this.resize();
     this.renderer.setAnimationLoop(() => {
       this.controls.update();
@@ -628,12 +649,15 @@ export class Viewport {
     });
     this.mesh = new THREE.Mesh(geometry, material);
     this.model.add(this.mesh);
+    this.surfaceMaterial = material;
     this.hoverMark = new Mark(this.model, geometry, 0xffd36b, 0.55, this.hoverLine);
     this.markSource = geometry;
 
     const edges = new THREE.BufferGeometry();
     edges.setAttribute("position", new THREE.BufferAttribute(mesh.edgePositions, 3));
-    this.model.add(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x111418 })));
+    this.edgeMaterial = new THREE.LineBasicMaterial({ color: 0x111418 });
+    this.model.add(new THREE.LineSegments(edges, this.edgeMaterial));
+    this.applySeeThrough();
 
     if (frame) this.frame(mesh.bounds);
   }
@@ -660,6 +684,200 @@ export class Viewport {
       mark.vertex.geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(vertex.position), 3));
       mark.vertex.visible = true;
     }
+  }
+
+  /** A click pick; in see-through mode clicking the same spot again goes to the next face behind the previous one. */
+  private pickCycling(e: PointerEvent): Sel | null {
+    const hit = this.pickHit(e);
+    const same = Math.hypot(e.clientX - this.lastClick.x, e.clientY - this.lastClick.y) < 3;
+    if (!settings.seeThrough || !hit || hit.kind !== "face") {
+      this.lastClick = { x: e.clientX, y: e.clientY, n: 0 };
+      return hit && { kind: hit.kind, id: hit.id };
+    }
+    const faces = this.facesUnder(e);
+    const n = same && faces.length ? (this.lastClick.n + 1) % faces.length : 0;
+    this.lastClick = { x: e.clientX, y: e.clientY, n };
+    return faces.length ? { kind: "face", id: faces[n] } : { kind: hit.kind, id: hit.id };
+  }
+
+  /** Ids of every face the ray under the pointer passes through, nearest first. */
+  private facesUnder(e: PointerEvent): number[] {
+    if (!this.mesh || !this.data) return [];
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.raycaster.setFromCamera(
+      new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1),
+      this.camera,
+    );
+    const ids: number[] = [];
+    for (const hit of this.raycaster.intersectObject(this.mesh)) {
+      if (hit.faceIndex == null) continue;
+      const id = this.faceIdAt(hit.faceIndex);
+      if (id !== null && !ids.includes(id)) ids.push(id);
+    }
+    return ids;
+  }
+
+  private faceIdAt(triangle: number): number | null {
+    let lo = 0;
+    let hi = this.faceStarts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (this.faceStarts[mid] <= triangle) lo = mid;
+      else hi = mid - 1;
+    }
+    const face = this.data!.faces[lo];
+    return face && face.count > 0 ? face.id : null;
+  }
+
+  /** See-through: the surface is drawn translucent and edges ignore depth so hidden ones can be seen and picked. */
+  private applySeeThrough() {
+    const on = settings.seeThrough;
+    if (this.surfaceMaterial) {
+      this.surfaceMaterial.transparent = on;
+      this.surfaceMaterial.opacity = on ? 0.3 : 1;
+      this.surfaceMaterial.depthWrite = !on;
+      this.surfaceMaterial.needsUpdate = true;
+    }
+    if (this.edgeMaterial) this.edgeMaterial.depthTest = !on;
+    this.hoverLine.depthTest = this.selectedLine.depthTest = !on;
+  }
+
+  toggleSeeThrough() {
+    updateSettings({ seeThrough: !settings.seeThrough });
+  }
+
+  private updateBox(e: PointerEvent) {
+    const b = this.box!;
+    b.x1 = e.clientX;
+    b.y1 = e.clientY;
+    if (!b.active && Math.hypot(b.x1 - b.x0, b.y1 - b.y0) < 4) return;
+    b.active = true;
+    if (!this.boxEl) {
+      this.boxEl = document.createElement("div");
+      this.boxEl.style.cssText = "position:fixed;pointer-events:none;z-index:2;border:1px solid #4fc3f7;background:rgba(79,195,247,0.12)";
+      document.body.appendChild(this.boxEl);
+    }
+    const crossing = b.x1 < b.x0;
+    this.boxEl.style.left = Math.min(b.x0, b.x1) + "px";
+    this.boxEl.style.top = Math.min(b.y0, b.y1) + "px";
+    this.boxEl.style.width = Math.abs(b.x1 - b.x0) + "px";
+    this.boxEl.style.height = Math.abs(b.y1 - b.y0) + "px";
+    this.boxEl.style.borderStyle = crossing ? "dashed" : "solid"; // dashed = crossing, solid = window
+    this.boxEl.style.borderColor = crossing ? "#8bc34a" : "#4fc3f7";
+  }
+
+  private cancelBox() {
+    this.box = null;
+    this.boxEl?.remove();
+    this.boxEl = null;
+  }
+
+  private finishBox(e: PointerEvent) {
+    const b = this.box!;
+    this.cancelBox();
+    if (!b.active) {
+      // Plain click on empty space or a ctrl-click: ordinary pick.
+      this.clickSelect(this.pickCycling(e), b.additive);
+      return;
+    }
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const r = {
+      x0: Math.min(b.x0, b.x1) - rect.left,
+      x1: Math.max(b.x0, b.x1) - rect.left,
+      y0: Math.min(b.y0, b.y1) - rect.top,
+      y1: Math.max(b.y0, b.y1) - rect.top,
+    };
+    const crossing = b.x1 < b.x0; // right-to-left touches; left-to-right must enclose
+    const kind: Kind = this.selected[0]?.kind ?? "edge";
+    const found = this.itemsInBox(kind, r, crossing, rect);
+    let next = found;
+    if (b.additive) {
+      const same = this.selected.filter((s) => s.kind === kind);
+      next = [...same, ...found.filter((f) => !same.some((s) => s.id === f.id))];
+    }
+    this.selectItems(next);
+    this.onSelect(next);
+  }
+
+  /** Whether a world point is hidden behind the model (never, in see-through mode). */
+  private occluded(p: THREE.Vector3): boolean {
+    if (settings.seeThrough || !this.mesh) return false;
+    const dir = p.clone().sub(this.camera.position);
+    const distance = dir.length();
+    this.raycaster.set(this.camera.position, dir.normalize());
+    const hit = this.raycaster.intersectObject(this.mesh)[0];
+    return !!hit && hit.distance < distance * 0.995;
+  }
+
+  private itemsInBox(kind: Kind, r: { x0: number; x1: number; y0: number; y1: number }, crossing: boolean, rect: DOMRect): Sel[] {
+    const data = this.data;
+    if (!data) return [];
+    this.camera.updateMatrixWorld();
+    const out: Sel[] = [];
+    const toPx = (x: number, y: number, z: number) => {
+      const n = new THREE.Vector3(x, y, z).project(this.camera);
+      return { x: ((n.x + 1) / 2) * rect.width, y: ((1 - n.y) / 2) * rect.height, behind: n.z > 1 };
+    };
+    const inside = (q: { x: number; y: number }) => q.x >= r.x0 && q.x <= r.x1 && q.y >= r.y0 && q.y <= r.y1;
+    if (kind === "vertex") {
+      for (const v of data.vertices) {
+        const q = toPx(v.position[0], v.position[1], v.position[2]);
+        if (!q.behind && inside(q) && !this.occluded(new THREE.Vector3(v.position[0], v.position[1], v.position[2]))) out.push({ kind, id: v.id });
+      }
+    } else if (kind === "edge") {
+      const ep = data.edgePositions;
+      for (const edge of data.edges) {
+        if (edge.count === 0) continue;
+        let all = true;
+        let any = false;
+        let behind = false;
+        for (let i = edge.start; i < edge.start + edge.count; i++) {
+          const q = toPx(ep[i * 3], ep[i * 3 + 1], ep[i * 3 + 2]);
+          if (q.behind) behind = true;
+          if (inside(q)) any = true;
+          else all = false;
+          // A segment can cross the box with both ends outside (crossing mode).
+          if (crossing && !any && (i - edge.start) % 2 === 1) {
+            const p = toPx(ep[(i - 1) * 3], ep[(i - 1) * 3 + 1], ep[(i - 1) * 3 + 2]);
+            if (segmentHitsRect(p, q, r)) any = true;
+          }
+        }
+        if (behind || !(crossing ? any : all)) continue;
+        const mid = edge.start + (edge.count >> 1);
+        if (!this.occluded(new THREE.Vector3(ep[mid * 3], ep[mid * 3 + 1], ep[mid * 3 + 2]))) out.push({ kind, id: edge.id });
+      }
+    } else {
+      const pos = data.positions;
+      const idx = data.indices;
+      for (const face of data.faces) {
+        if (face.count === 0) continue;
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        let behind = false;
+        for (let i = face.start; i < face.start + face.count; i++) {
+          const v = idx[i] * 3;
+          const q = toPx(pos[v], pos[v + 1], pos[v + 2]);
+          if (q.behind) behind = true;
+          minX = Math.min(minX, q.x);
+          maxX = Math.max(maxX, q.x);
+          minY = Math.min(minY, q.y);
+          maxY = Math.max(maxY, q.y);
+        }
+        if (behind) continue;
+        const hit = crossing
+          ? maxX >= r.x0 && minX <= r.x1 && maxY >= r.y0 && minY <= r.y1
+          : minX >= r.x0 && maxX <= r.x1 && minY >= r.y0 && maxY <= r.y1;
+        if (!hit) continue;
+        // Visible test on the centre of the face's first triangle: cheap and good enough.
+        const probe = new THREE.Vector3();
+        for (let k = 0; k < 3; k++) probe.add(new THREE.Vector3(pos[idx[face.start + k] * 3], pos[idx[face.start + k] * 3 + 1], pos[idx[face.start + k] * 3 + 2]));
+        probe.multiplyScalar(1 / 3);
+        if (!this.occluded(probe)) out.push({ kind, id: face.id });
+      }
+    }
+    return out;
   }
 
   private pick(e: PointerEvent): Sel | null {
@@ -704,7 +922,7 @@ export class Viewport {
     // An edge or vertex counts as visible if it is not meaningfully behind the face under the
     // pointer; allow slack for the pick radius (it grows at grazing angles).
     const pixelSize = this.pixelSizeAtDistance(faceHit?.distance ?? 0, rect.height);
-    const depthLimit = faceHit ? faceHit.distance * 1.01 + pixelSize * 12 : Infinity;
+    const depthLimit = faceHit && !settings.seeThrough ? faceHit.distance * 1.01 + pixelSize * 12 : Infinity;
 
     const vertex = this.nearestVertex(px, py, rect, depthLimit);
     if (vertex) return vertex;
@@ -726,7 +944,7 @@ export class Viewport {
 
   private nearestVertex(px: number, py: number, rect: DOMRect, depthLimit: number): Hit | null {
     let best: Hit | null = null;
-    let bestDistance = VERTEX_PICK_PX;
+    let bestDistance = settings.vertexPickPx;
     const p = new THREE.Vector3();
     for (const v of this.data!.vertices) {
       p.set(v.position[0], v.position[1], v.position[2]);
@@ -748,7 +966,8 @@ export class Viewport {
     const b = new THREE.Vector3();
     this.camera.updateMatrixWorld();
     let best: Hit | null = null;
-    let bestDistance = EDGE_PICK_PX;
+    const edgePx = settings.edgePickPx;
+    let bestDistance = edgePx;
     let bestDepth = Infinity;
     const toPx = (v: THREE.Vector3) => {
       const n = v.clone().project(this.camera);
@@ -766,7 +985,7 @@ export class Viewport {
         const lengthSq = dx * dx + dy * dy;
         const t = lengthSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSq));
         const d = Math.hypot(ax + t * dx - px, ay + t * dy - py);
-        if (d >= EDGE_PICK_PX) continue;
+        if (d >= edgePx) continue;
         const point = a.clone().lerp(b, t);
         const depth = point.distanceTo(this.camera.position);
         if (depth > depthLimit) continue;
@@ -834,4 +1053,33 @@ export class Viewport {
     this.controls.target.copy(center);
     this.controls.update();
   }
+}
+
+/** Whether the screen segment p-q touches the rectangle (Liang-Barsky clipping). */
+function segmentHitsRect(
+  p: { x: number; y: number },
+  q: { x: number; y: number },
+  r: { x0: number; x1: number; y0: number; y1: number },
+): boolean {
+  let t0 = 0;
+  let t1 = 1;
+  const dx = q.x - p.x;
+  const dy = q.y - p.y;
+  const edges: Array<[number, number]> = [
+    [-dx, p.x - r.x0],
+    [dx, r.x1 - p.x],
+    [-dy, p.y - r.y0],
+    [dy, r.y1 - p.y],
+  ];
+  for (const [pk, qk] of edges) {
+    if (pk === 0) {
+      if (qk < 0) return false;
+    } else {
+      const t = qk / pk;
+      if (pk < 0) t0 = Math.max(t0, t);
+      else t1 = Math.min(t1, t);
+      if (t0 > t1) return false;
+    }
+  }
+  return true;
 }

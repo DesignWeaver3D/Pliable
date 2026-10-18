@@ -8,6 +8,11 @@
       html, body { margin: 0; height: 100%; background: #1b1d22; color: #ddd; font: 13px system-ui, sans-serif; overflow: hidden; }
       #viewport { position: fixed; inset: 0; }
       #bar { position: fixed; top: 8px; left: 8px; display: flex; gap: 6px; align-items: center; z-index: 1; flex-wrap: wrap; max-width: calc(100vw - 16px); }
+      #gear { position: fixed; right: 8px; bottom: 8px; z-index: 4; background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; font-size: 18px; padding: 2px 8px; }
+      #settingspanel { position: fixed; right: 8px; bottom: 44px; z-index: 4; background: #23262d; color: #ddd; border: 1px solid #444; border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; width: 230px; font-size: 13px; }
+      #settingspanel[hidden] { display: none; }
+      #settingspanel label { display: flex; flex-direction: column; gap: 2px; }
+      #settingspanel label:has(input[type=checkbox]) { flex-direction: row; gap: 6px; }
       #bar span:empty { display: none; }
       #bar button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; }
       #bar span.error { color: #ff8c8c; border-color: #a44; }
