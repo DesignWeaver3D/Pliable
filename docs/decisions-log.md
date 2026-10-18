@@ -52,7 +52,7 @@ Decisions made without the owner or by the owner, grouped by topic. Each says wh
 
 ## Keys
 
-- Bare keys may change view, display, arm a tool or change selection; anything that changes the model or a setting at once needs Ctrl or Alt (to be widened per S53). Bare keys need the pointer over the view (1.5 s grace); there is a single-key off switch; no two-key sequences; undo/redo are blocked during a live drag or typed entry; browser keys, Escape, Enter, Tab, Backspace, Delete, Space and Ctrl+Alt are reserved.
+- Bare keys may change view, display, arm a tool or change selection; anything that changes the model or a setting at once needs Ctrl or Alt (to be widened per S53). Bare keys need the pointer over the view (1.5 s grace); there is a single-key off switch; no two-key sequences; undo/redo are blocked during a live drag or typed entry; browser keys, Escape, Enter, Tab, Backspace, Delete and Space are reserved (any mix of Ctrl, Alt and Shift is allowed, S53).
 - Sketch keys (Ctrl+Z, Escape, Enter, Delete/Backspace) are fixed. Escape works without engagement. M stays in `viewport.ts`.
 - The page warns when leaving with undo steps or an open sketch; opening a file over edits does not warn.
 
