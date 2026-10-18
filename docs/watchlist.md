@@ -235,3 +235,5 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Resize hole also resizes same-size holes by default
 
 - **Resize hole applies to every hole of the same size unless the chip is turned off; every other tool defaults to the selected feature only.** The per-tool defaults are `TOOL_RULES` and `ruleFor` in `main.ts` (S35, wave 2a). *Symptom:* resizing one hole of a pattern changes all of them, while moving a hole still moves only that one, so the two tools behave differently. The owner chose to keep this for now (2026-10-18). *Proposed fix if someone reports it as surprising:* set the Resize hole default to off like the other tools, or show a one-time hint on the chip saying how many other holes the change will touch.
+
+- Per-body move, rotate, scale and offset act on the solids containing the selected faces; with no selection they act on the whole model. Rotate and scale still pivot about the model origin, not the body centre, so a scaled body also moves away from the origin. Bodies that end up overlapping are not fused or checked.

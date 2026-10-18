@@ -172,3 +172,92 @@ def test_sketch_extrude_new_body_mode():
     new = sketch.extrude(block, drawn, 3, "new")
     assert count_solids(new.shape) == 2
     assert count_solids(sketch.extrude(block, drawn, 3, "join").shape) == 1
+
+
+# Per-body move, rotate, scale and offset through the server request path ---------------------------------------
+
+
+def _two_apart_session():
+    from pliable.server import Session
+
+    compound, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(compound)
+    builder.Add(compound, Box(10, 10, 10).wrapped)
+    builder.Add(compound, (Pos(30, 0, 0) * Box(10, 10, 10)).wrapped)
+    session = Session()
+    session.document = Document(compound, "two")
+    return session
+
+
+def _face_at(session, x_min, x_max):
+    top = session.document.current
+    for i, face in top.faces():
+        box = Bnd_Box()
+        BRepBndLib.Add_s(face, box)
+        if box.CornerMin().X() >= x_min and box.CornerMax().X() <= x_max:
+            return i
+    raise AssertionError("no face")
+
+
+def _centres(session):
+    out = []
+    for solid in solids_of(session.document.current.shape):
+        box = Bnd_Box()
+        BRepBndLib.Add_s(solid, box)
+        out.append(round((box.CornerMin().X() + box.CornerMax().X()) / 2, 3))
+    return sorted(out)
+
+
+def _tool(session, tool, faces, params):
+    session.handle({"type": "tool_commit", "tool": tool, "selection": {"faces": faces}, "params": params})
+
+
+def test_move_body_moves_only_the_selected_body():
+    session = _two_apart_session()
+    face = _face_at(session, 24, 36)
+    _tool(session, "move_body", [face], {"dx": 5})
+    assert _centres(session) == [0, 35]
+    assert len(solids_of(session.document.current.shape)) == 2
+
+
+def test_move_body_undo_restores_positions():
+    session = _two_apart_session()
+    _tool(session, "move_body", [_face_at(session, 24, 36)], {"dx": 5})
+    session.handle({"type": "undo"})
+    assert _centres(session) == [0.0, 30.0]
+
+
+def test_group_move_and_whole_model_default():
+    session = _two_apart_session()
+    faces = [_face_at(session, -6, 6), _face_at(session, 24, 36)]
+    _tool(session, "move_body", faces, {"dy": 7})
+    assert _centres(session) == [0.0, 30.0]
+    boxes = []
+    for solid in solids_of(session.document.current.shape):
+        box = Bnd_Box()
+        BRepBndLib.Add_s(solid, box)
+        boxes.append(round(box.CornerMin().Y(), 3))
+    assert boxes == [2.0, 2.0]
+
+
+def test_whole_model_without_selection():
+    session = _two_apart_session()
+    _tool(session, "move_body", [], {"dx": 1})
+    assert _centres(session) == [1.0, 31.0]
+    _tool(session, "scale_body", [], {"factor": 2})
+    assert _centres(session) == [2.0, 62.0]
+
+
+def test_scale_rotate_offset_selected_body_only():
+    session = _two_apart_session()
+    _tool(session, "scale_body", [_face_at(session, 24, 36)], {"factor": 0.5})
+    assert len(solids_of(session.document.current.shape)) == 2
+    assert sorted(round(volume(s)) for s in solids_of(session.document.current.shape)) == [125, 1000]
+    session = _two_apart_session()
+    _tool(session, "offset_body", [_face_at(session, 24, 36)], {"distance": 1})
+    vols = sorted(round(volume(s)) for s in solids_of(session.document.current.shape))
+    assert vols[0] == 1000 and vols[1] > 1000
+    session = _two_apart_session()
+    _tool(session, "rotate_body", [_face_at(session, 24, 36)], {"axis": 2, "angle": 90})
+    assert len(solids_of(session.document.current.shape)) == 2
+    assert _centres(session) == [0.0, 0.0]
