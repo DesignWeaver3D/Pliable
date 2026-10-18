@@ -311,7 +311,46 @@ def solve(sketch: dict, drag: dict | None = None) -> dict:
             for k, key in enumerate(("u", "v")):
                 solver.system.getParam(solver.system.getEntityParam(entity, k)).val = held[key]
             solver.add_constraint({"type": "fixed", "point": held["point"]})
-    return solver.solve()
+    result = solver.solve()
+    if drag and result["status"] == "ok":
+        _keep_unconnected(sketch, drag, result)
+    return result
+
+
+def _connected_ids(sketch: dict, start: set[int]) -> set[int]:
+    """Ids (points, entities) reachable from `start` through entities and constraints: the part of the sketch
+    that dragging one of `start` may legitimately move."""
+    links: list[set[int]] = []
+    for e in sketch.get("entities", []):
+        links.append({e["id"], *(e[k] for k in ("a", "b", "center", "start", "end") if k in e)})
+    for c in sketch.get("constraints", []):
+        group = {*c.get("points", []), *c.get("entities", [])}
+        group.update(c[k] for k in ("point", "entity") if k in c)
+        if len(group) > 1:
+            links.append(group)
+    reached = set(start)
+    changed = True
+    while changed:
+        changed = False
+        for group in links:
+            if group & reached and not group <= reached:
+                reached |= group
+                changed = True
+    return reached
+
+
+def _keep_unconnected(sketch: dict, drag: dict, result: dict) -> None:
+    """Whatever the solver did, geometry with no constraint path to the dragged points stays exactly where it was:
+    unconstrained geometry moves freely and only what the constraints require follows."""
+    held = {h["point"] for h in (drag["points"] if "points" in drag else [drag])}
+    reached = _connected_ids(sketch, held)
+    old = {p["id"]: p for p in sketch.get("points", [])}
+    for q in result["points"]:
+        if q["id"] not in reached and q["id"] in old:
+            q["u"], q["v"] = old[q["id"]]["u"], old[q["id"]]["v"]
+    for e in sketch.get("entities", []):
+        if e["id"] not in reached and e["id"] in result["radii"] and "radius" in e:
+            result["radii"][e["id"]] = e["radius"]
 
 
 def apply_solution(sketch: dict, result: dict) -> dict:

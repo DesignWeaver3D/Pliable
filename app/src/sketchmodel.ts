@@ -25,6 +25,8 @@ export interface SketchConstraint {
   entity?: number;
   entities?: number[];
   value?: number;
+  /** Added by a drawing tool rather than chosen by the user; shown as such and removable with one click. */
+  auto?: boolean;
 }
 export interface SketchData {
   plane: PlaneData;
@@ -642,7 +644,7 @@ export function roundCorner(s: SketchData, pointId: number, kind: "fillet" | "ch
     const ccw = (t[0].u - centre.u) * (t[1].v - centre.v) - (t[0].v - centre.v) * (t[1].u - centre.u) > 0;
     const arc = id++;
     entities.push({ id: arc, type: "arc", center: centre.id, start: (ccw ? t[0] : t[1]).id, end: (ccw ? t[1] : t[0]).id });
-    constraints.push({ id: id++, type: "tangent", entities: [arc, lines[0].id] }, { id: id++, type: "tangent", entities: [arc, lines[1].id] });
+    constraints.push({ id: id++, type: "tangent", entities: [arc, lines[0].id], auto: true }, { id: id++, type: "tangent", entities: [arc, lines[1].id], auto: true });
   }
   return { ...s, points: [...s.points.filter((p) => p.id !== pointId), ...added], entities, constraints };
 }

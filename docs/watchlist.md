@@ -79,3 +79,5 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - `THIRD_PARTY_NOTICES.md` was written from memory of each project's license; verify before the first release.
 - The busy indicator appears after 400 ms for requests not on the quiet list (previews, sketch solves, lookups) in `app/src/client.ts`, shows elapsed seconds only.
 - Orthographic still looks off to the owner (see decisions-log).
+- Sketch constraints that a drawing tool adds (rectangle sides, snaps onto curves, tangent starts) are flagged `auto`, listed as automatic, lit up on hover and removable singly or all at once (provisional answer (a) to question 12). The unconstrained-drag guarantee is `_keep_unconnected` in `sketch.py`: geometry with no constraint path to the dragged point is restored after each solve. The floating report itself was never reproduced.
+- Sketch On Face armed mode: pressing the button with nothing selected waits for the next face selection; only pressing the button again cancels (Escape belongs to the key router). A refused face records `sketch_on_face` as the last tool so the diagnostic report shows why.

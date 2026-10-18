@@ -134,7 +134,7 @@ export function formatDiagnostics(report: CoreReport, browser: string): string {
   return lines.join("\n");
 }
 
-async function showDiagnostics(core: Requester): Promise<void> {
+export async function showDiagnostics(core: Requester): Promise<void> {
   const { box, card } = overlay();
   card.style.width = "min(640px,92vw)";
   const title = document.createElement("h3");

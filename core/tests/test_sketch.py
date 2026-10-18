@@ -544,3 +544,15 @@ def test_dragging_a_line_body_holds_both_ends():
     after = {p["id"]: (p["u"], p["v"]) for p in result["points"]}
     assert after[1] == pytest.approx((5, -2)) and after[2] == pytest.approx((15, 1))
     assert {k: v for k, v in after.items() if k > 2} == pytest.approx({k: v for k, v in before.items() if k > 2})
+
+
+def test_connected_ids_follow_entities_and_constraints_only():
+    sk = _free_sketch()
+    sk["constraints"].append({"id": 300, "type": "point_on", "point": 2, "entity": 102})
+    reached = sketch._connected_ids(sk, {2})
+    assert {1, 2, 3, 101, 102} <= reached  # the line, the circle it touches and the circle's centre
+    assert not reached & {4, 5, 6, 7, 103, 104}  # the separate rectangle is not tied to them
+    # a drag result is forced back for anything outside that group
+    result = {"points": [{"id": 4, "u": 99, "v": 99}], "radii": {}}
+    sketch._keep_unconnected(sk, {"point": 2, "u": 0, "v": 0}, result)
+    assert (result["points"][0]["u"], result["points"][0]["v"]) == (0, 20)

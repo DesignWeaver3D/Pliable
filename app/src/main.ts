@@ -1,9 +1,9 @@
 import * as THREE from "three";
 import { PointPicker, ReferenceView } from "./reference";
-import { installAlphaUi, showImportNotice, showLaunchNotice } from "./alpha";
+import { installAlphaUi, showDiagnostics, showImportNotice, showLaunchNotice } from "./alpha";
 import { CoreClient, type MeshData } from "./client";
 import { SketchMode } from "./sketch";
-import { SKETCH_PLANES } from "./layout";
+import { SketchBar } from "./sketchbar";
 import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay } from "./dimensions";
@@ -788,70 +788,19 @@ const sketch = new SketchMode(
   },
   $("sketchpanel"),
 );
-const sketchBar = $("sketchbar");
-let planeOffset = 0; // distance of the next standard-plane sketch from the plane, along its normal
-let sketchBarKey = "";
+const sketchBar = new SketchBar({
+  core,
+  sketch,
+  bar: $("sketchbar"),
+  selection: () => currentSels,
+  status(text, error = false) {
+    status.textContent = text;
+    status.classList.toggle("error", error);
+  },
+  diagnostics: () => showDiagnostics(core),
+});
 function renderSketchBar() {
-  const face = currentSels.length === 1 && currentSels[0].kind === "face" ? committed?.faces.find((f) => f.id === currentSels[0].id) : undefined;
-  const faceSels = currentSels.filter((s) => s.kind === "face");
-  const key = `${!!face}|${!!face?.normal}|${faceSels.length}|${sketch.active}`;
-  if (key === sketchBarKey) return; // the bar only depends on these two flags; keep the buttons otherwise
-  sketchBarKey = key;
-  const onFace = document.createElement("button");
-  onFace.textContent = "Sketch on selected face";
-  onFace.disabled = !face?.normal || sketch.active;
-  onFace.title = "Start a 2D sketch drawn on the selected flat face. Select one flat face first.";
-  onFace.addEventListener("click", async () => {
-    try {
-      const reply = await core.request<{ plane: any; reference?: any }>("sketch_plane", { face: currentSels[0].id });
-      sketch.start(reply.plane, reply.reference);
-      renderSketchBar();
-    } catch (e) {
-      status.textContent = (e as Error).message;
-    }
-  });
-  const unroll = document.createElement("button");
-  unroll.textContent = "Sketch on unrolled faces";
-  unroll.disabled = !(faceSels.length > 1 || (faceSels.length === 1 && !committed?.faces.find((f) => f.id === faceSels[0].id)?.normal)) || sketch.active;
-  unroll.title = "Select a cone or cylinder face, or a chain of flat and rounded faces joined along parallel edges: they are unrolled flat, you sketch on them, and the regions are wrapped back";
-  unroll.addEventListener("click", async () => {
-    try {
-      const ids = faceSels.map((f) => f.id);
-      const reply = await core.request<{ plane: any; reference?: any }>("sketch_plane", { unwrap: ids });
-      sketch.start(reply.plane, reply.reference, ids);
-      renderSketchBar();
-    } catch (e) {
-      status.textContent = (e as Error).message;
-    }
-  });
-  const label = document.createElement("span");
-  label.textContent = "or on";
-  const offset = document.createElement("input");
-  offset.type = "number";
-  offset.step = "any";
-  offset.value = String(planeOffset);
-  offset.title = "Offset of the sketch plane from XY, XZ or YZ along its normal";
-  offset.style.width = "56px";
-  offset.addEventListener("keydown", (e) => e.stopPropagation());
-  offset.addEventListener("input", () => (planeOffset = Number(offset.value) || 0));
-  sketchBar.replaceChildren(
-    onFace,
-    unroll,
-    label,
-    ...SKETCH_PLANES.map((name) => {
-      const b = document.createElement("button");
-      b.textContent = name;
-      b.title = `Start a 2D sketch on the ${name} plane through the origin (the offset box moves the plane)`;
-      b.disabled = sketch.active;
-      b.addEventListener("click", async () => {
-        const reply = await core.request<{ plane: any }>("sketch_plane", { plane: name, offset: planeOffset });
-        sketch.start(reply.plane);
-        renderSketchBar();
-      });
-      return b;
-    }),
-    offset,
-  );
+  sketchBar.update();
 }
 renderSketchBar();
 

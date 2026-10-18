@@ -221,3 +221,29 @@ def test_chain_and_cone_through_the_server_use_the_offset_plane_and_can_be_embos
     base = _volume(session.document.current.shape)
     session.handle({"type": "tool_commit", "tool": "push_pull_surface", "selection": {"faces": [patch]}, "params": {"distance": -1.0}})
     assert _volume(session.document.current.shape) < base - 20
+
+
+def test_sketch_on_face_chooses_flat_or_unrolled_and_explains_a_refusal():
+    from build123d import Box, Cylinder, Sphere
+
+    from pliable.server import RequestError, Session
+
+    # a flat face gives its own plane and outline; a cylinder side is unrolled, with the same request
+    session = Session()
+    session._open(Cylinder(10, 40).wrapped, "cylinder")
+    topology = session.document.current
+    side = _side_face(topology)
+    flat = next(i for i in range(topology.face_count) if i != side)
+    reply = session.handle({"type": "sketch_plane", "faces": [flat]})
+    assert reply["unwrapped"] is False and reply["reference"]["entities"]
+    reply = session.handle({"type": "sketch_plane", "faces": [side]})
+    assert reply["unwrapped"] is True and max(p["u"] for p in reply["reference"]["points"]) == pytest.approx(math.pi * 10, rel=1e-6)
+
+    # a sphere cannot unroll: the message names the surface and the diagnostic report records the refusal
+    session = Session()
+    session._open(Sphere(10).wrapped, "sphere")
+    with pytest.raises(RequestError) as caught:
+        session.handle({"type": "sketch_plane", "faces": [0]})
+    assert "Sphere" in str(caught.value)
+    report = session.handle({"type": "diagnostics"})["report"]
+    assert report["lastTool"]["tool"] == "sketch_on_face" and report["lastTool"]["ok"] is False and "Sphere" in report["lastTool"]["error"]

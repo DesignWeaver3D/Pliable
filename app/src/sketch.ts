@@ -71,6 +71,8 @@ export class SketchMode {
   private tool: Tool = "select";
   private selection: M.SketchSel[] = [];
   private hover: M.SketchSel | null = null;
+  /** Geometry lit up while the pointer is over a row of the constraint list. */
+  private highlight: M.SketchSel[] = [];
   private chain: Snap[] = []; // points clicked so far for the current drawing
   private cursor: Snap | null = null;
   private drag: { id: number; startX: number; startY: number; moved: boolean; body?: { u: number; v: number; points: { id: number; u: number; v: number }[] } } | null = null;
@@ -114,7 +116,7 @@ export class SketchMode {
   /** Set while sketching on an unrolled cylinder face: the face the regions are wrapped back onto when finishing. */
   private unwrapFace: number[] | null = null;
 
-  start(plane: M.PlaneData, reference?: { points: M.SketchPoint[]; entities: M.SketchEntity[] }, unwrapFace: number[] | null = null) {
+  start(plane: M.PlaneData, reference?: { points: M.SketchPoint[]; entities: M.SketchEntity[] }, unwrapFace: number[] | null = null, distortion?: { max: number; note: string }) {
     if (this.active) this.exit();
     // Reference geometry (the face outline) is fixed construction geometry that sketch points can snap to.
     this.s = { plane, points: reference?.points ?? [], entities: reference?.entities ?? [], constraints: [] };
@@ -138,7 +140,7 @@ export class SketchMode {
     this.viewport.lookFrom(new THREE.Vector3(...f.n));
     this.viewport.onFrame2 = () => this.onFrame();
     this.render();
-    this.host.status("Sketch: choose a drawing tool (Line, Rectangle, Circle, Arc)");
+    this.host.status(distortion ? distortion.note : "Sketch: choose a drawing tool (Line, Rectangle, Circle, Arc)", !!distortion);
   }
 
   exit() {
@@ -459,7 +461,7 @@ export class SketchMode {
   }
 
   private addConstraintRaw(c: Omit<M.SketchConstraint, "id">) {
-    this.s.constraints.push({ id: M.nextId(this.s), ...c });
+    this.s.constraints.push({ id: M.nextId(this.s), ...c, auto: true }); // every caller is a drawing tool, not the user
   }
 
   /** Returns true if the line ended on the first point of the chain (a closed outline). */
@@ -847,11 +849,19 @@ export class SketchMode {
     return out;
   }
 
-  private isMarked(sel: M.SketchSel) {
-    return this.selection.some((s) => s.kind === sel.kind && s.id === sel.id) || (this.hover?.kind === sel.kind && this.hover.id === sel.id);
+  private lightUp(c: M.SketchConstraint | null) {
+    const ids = c ? [...(c.entities ?? []), ...(c.entity !== undefined ? [c.entity] : [])] : [];
+    const points = c ? [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])] : [];
+    this.highlight = [...points.map((id) => ({ kind: "point" as const, id })), ...ids.map((id) => ({ kind: "entity" as const, id }))];
+    this.render(false); // keep the panel: rebuilding it under the pointer would end the hover
   }
 
-  private render() {
+  private isMarked(sel: M.SketchSel) {
+    const same = (s: M.SketchSel) => s.kind === sel.kind && s.id === sel.id;
+    return this.selection.some(same) || this.highlight.some(same) || (this.hover?.kind === sel.kind && this.hover.id === sel.id);
+  }
+
+  private render(panel = true) {
     if (!this.active) return;
     const normal: [number, number][][] = [];
     const marked: [number, number][][] = [];
@@ -874,7 +884,7 @@ export class SketchMode {
     this.points.geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
     this.points.geometry.computeBoundingSphere();
     this.overlay.set([...M.dimensionsOf(this.s), ...this.liveDimensions()]);
-    this.renderPanel();
+    if (panel) this.renderPanel();
   }
 
   private set(line: LineSegments2, positions: number[]) {
@@ -994,19 +1004,35 @@ export class SketchMode {
     ask.hidden = true;
 
     const list = el("div", "section");
-    list.append(el("div", "group", `Constraints (${this.s.constraints.length})`));
+    const autos = this.s.constraints.filter((c) => c.auto);
+    list.append(el("div", "group", `Constraints (${this.s.constraints.length}${autos.length ? `, ${autos.length} automatic` : ""})`));
     for (const c of this.s.constraints) {
       const row = el("div", this.failed.has(c.id) ? "crow bad" : "crow");
-      row.append(el("span", "", M.describeConstraint(this.s, c)));
-      row.append(
-        button("✕", () => {
-          this.pushUndo();
-          this.s.constraints = this.s.constraints.filter((x) => x.id !== c.id);
-          this.resolve();
-          this.render();
-        }),
-      );
+      row.append(el("span", "", M.describeConstraint(this.s, c) + (c.auto ? " (automatic)" : "")));
+      row.title = c.auto ? "Added by a drawing tool. Hover to see what it holds; the x removes it so the geometry moves freely" : "Hover to see what it holds; the x removes it";
+      row.addEventListener("pointerenter", () => this.lightUp(c));
+      row.addEventListener("pointerleave", () => this.lightUp(null));
+      const remove = button("✕", () => {
+        this.pushUndo();
+        this.s.constraints = this.s.constraints.filter((x) => x.id !== c.id);
+        this.highlight = [];
+        this.resolve();
+        this.render();
+      });
+      remove.title = "Remove this constraint";
+      row.append(remove);
       list.append(row);
+    }
+    if (autos.length) {
+      const clear = button("Remove automatic constraints", () => {
+        this.pushUndo();
+        this.s.constraints = this.s.constraints.filter((x) => !x.auto);
+        this.highlight = [];
+        this.resolve();
+        this.render();
+      });
+      clear.title = "Remove every constraint a drawing tool added (horizontal and vertical sides, snaps onto curves); constraints you added stay";
+      list.append(clear);
     }
 
     const extrude = el("div", "section");

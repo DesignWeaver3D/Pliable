@@ -74,6 +74,8 @@ class Unrolling:
     bands: list[Band]
     reference: dict
     faces: list = field(default_factory=list)
+    # Set when the faces cannot unroll without stretching: {"max": worst length error as a fraction, "note": text}.
+    distortion: dict | None = None
 
 
 def unwrap_plane(shape=None, reference: dict | None = None) -> dict:
@@ -134,6 +136,24 @@ def _norm(a):
 
 def _kind(face):
     return BRepAdaptor_Surface(face).GetType()
+
+
+def is_flat(face) -> bool:
+    return _kind(face) == GeomAbs_Plane
+
+
+_SURFACE_NAMES = {}
+
+
+def describe_faces(faces) -> str:
+    """Surface types of the faces in words, for refusal messages and the diagnostic report."""
+    if not _SURFACE_NAMES:
+        from OCP import GeomAbs
+
+        for name in ("Plane", "Cylinder", "Cone", "Sphere", "Torus", "BezierSurface", "BSplineSurface", "SurfaceOfRevolution", "SurfaceOfExtrusion", "OffsetSurface"):
+            _SURFACE_NAMES[getattr(GeomAbs, "GeomAbs_" + name)] = name
+    names = [_SURFACE_NAMES.get(_kind(f), "other surface") for f in faces]
+    return "selected: " + ", ".join(f"{n} x{names.count(n)}" for n in dict.fromkeys(names))
 
 
 def _shared(f1, f2):
