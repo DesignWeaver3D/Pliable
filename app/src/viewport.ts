@@ -17,6 +17,7 @@ interface Hit extends Sel {
 }
 
 const EDGE_TIE_PX = 2; // edges this close on screen are told apart by depth
+const CENTRE_HANDLE_PX = 7; // pressing this close to a hole centre dot starts moving the hole
 const MEASURE_PICK_PX = 10; // pick radius for measurement edges in measure mode
 const MEASURE_TOL = 1e-3; // model units: on-plane / parallel tolerance when finding measurable edges
 
@@ -127,6 +128,9 @@ export class Viewport {
   /** While set, the next click picks an item for this callback instead of selecting it (eyedropper). */
   eyedropper: ((sel: Sel) => void) | null = null;
   onEyedropCancel: () => void = () => {};
+  /** Dragging a hole centre moves the hole in the plane across its axis; offset is in model units. */
+  onCentreDrag: (face: number, offset: THREE.Vector3, phase: "start" | "move" | "end" | "cancel") => void = () => {};
+  private centreDrag: { face: number; origin: THREE.Vector3; plane: THREE.Plane; start: THREE.Vector3; x: number; y: number; moved: boolean } | null = null;
   /** Measurable edges of the dragged face (empty unless a single planar face is dragged). */
   measures: Measure[] = [];
   /** The measurement nearest where the drag started; shown as context in the dimension label. */
@@ -369,6 +373,7 @@ export class Viewport {
       }
       down = { x: e.clientX, y: e.clientY };
       if (e.button !== 0 || this.measureMode || this.eyedropper) return;
+      if (this.startCentreDrag(e)) return;
       const hit = this.pickHit(e);
       this.box = null;
       const direction = hit && this.dragDirection(hit);
@@ -398,6 +403,10 @@ export class Viewport {
       }
     });
     dom.addEventListener("pointermove", (e) => {
+      if (this.centreDrag) {
+        this.moveCentreDrag(e);
+        return;
+      }
       if (this.box) {
         this.updateBox(e);
         return;
@@ -439,6 +448,18 @@ export class Viewport {
       }
       if (this.drag && e.button !== 0) return; // right/middle release ends an orbit or pan, not the tool drag
       const drag = this.drag;
+      if (this.centreDrag && e.button === 0) {
+        const c = this.centreDrag;
+        this.centreDrag = null;
+        if (c.moved) {
+          this.onCentreDrag(c.face, this.centreOffset(e, c), "end");
+          down = null;
+        } else {
+          this.clickSelect({ kind: "face", id: c.face }, e.ctrlKey || e.metaKey);
+          down = null;
+        }
+        return;
+      }
       if (this.eyedropper && e.button === 0) {
         const sel = this.pick(e);
         if (sel) this.eyedropper(sel);
@@ -481,6 +502,11 @@ export class Viewport {
       // M during a tool drag toggles measure mode (it used to be the right button, which now orbits).
       if ((e.key === "m" || e.key === "M") && this.drag?.moved && !e.ctrlKey && !e.metaKey && !e.altKey) this.toggleMeasure();
       if (e.key === "Escape" && this.box) this.cancelBox();
+      if (e.key === "Escape" && this.centreDrag) {
+        const c = this.centreDrag;
+        this.centreDrag = null;
+        if (c.moved) this.onCentreDrag(c.face, new THREE.Vector3(), "cancel");
+      }
       if (e.key === "Escape" && this.eyedropper) this.onEyedropCancel();
       if (e.key === "Escape" && this.drag && !this.holdDrag) {
         const sels = this.drag.sels;
@@ -737,9 +763,10 @@ export class Viewport {
 
   /** A click pick; in see-through mode clicking the same spot again goes to the next face behind the previous one. */
   private pickCycling(e: PointerEvent): Sel | null {
+    const through = settings.seeThrough || e.altKey; // Alt+click cycles through hidden faces without see-through
     const hit = this.pickHit(e);
     const same = Math.hypot(e.clientX - this.lastClick.x, e.clientY - this.lastClick.y) < 3;
-    if (!settings.seeThrough || !hit || hit.kind !== "face") {
+    if (!through || !hit || hit.kind !== "face") {
       this.lastClick = { x: e.clientX, y: e.clientY, n: 0 };
       return hit && { kind: hit.kind, id: hit.id };
     }
@@ -837,7 +864,7 @@ export class Viewport {
       y1: Math.max(b.y0, b.y1) - rect.top,
     };
     const crossing = b.x1 < b.x0; // right-to-left touches; left-to-right must enclose
-    const kind: Kind = this.selected[0]?.kind ?? "edge";
+    const kind: Kind = settings.boxKind === "auto" ? (this.selected[0]?.kind ?? "edge") : settings.boxKind;
     const found = this.itemsInBox(kind, r, crossing, rect);
     let next = found;
     if (b.additive) {
@@ -991,6 +1018,50 @@ export class Viewport {
     }
     const face = this.data.faces[lo];
     return face && face.count > 0 ? { kind: "face", id: face.id, point: faceHit.point } : null;
+  }
+
+  private rayAt(e: PointerEvent): THREE.Ray {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), this.camera);
+    return this.raycaster.ray.clone();
+  }
+
+  /** Pressing on a hole centre dot (not just near the hole) begins moving that hole; returns whether it did. */
+  private startCentreDrag(e: PointerEvent): boolean {
+    if (!this.data?.centres.length || e.ctrlKey || e.metaKey) return false;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    for (const c of this.data.centres) {
+      const p = new THREE.Vector3(...c.position);
+      const n = p.clone().project(this.camera);
+      if (n.z > 1 || Math.hypot(((n.x + 1) / 2) * rect.width - px, ((1 - n.y) / 2) * rect.height - py) > CENTRE_HANDLE_PX || this.occluded(p)) continue;
+      const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(...c.axis).normalize(), p);
+      const start = this.rayAt(e).intersectPlane(plane, new THREE.Vector3());
+      if (!start) return false; // looking edge-on along the hole's plane
+      this.centreDrag = { face: c.face, origin: p, plane, start, x: e.clientX, y: e.clientY, moved: false };
+      if (!this.isSelected({ kind: "face", id: c.face })) {
+        const sel = { kind: "face" as const, id: c.face };
+        this.selectItems([sel]);
+        this.onSelect([sel]);
+      }
+      this.renderer.domElement.setPointerCapture(e.pointerId);
+      return true;
+    }
+    return false;
+  }
+
+  private centreOffset(e: PointerEvent, c: NonNullable<Viewport["centreDrag"]>): THREE.Vector3 {
+    const at = this.rayAt(e).intersectPlane(c.plane, new THREE.Vector3());
+    return at ? at.sub(c.start) : new THREE.Vector3();
+  }
+
+  private moveCentreDrag(e: PointerEvent) {
+    const c = this.centreDrag!;
+    const offset = this.centreOffset(e, c);
+    if (!c.moved && Math.hypot(e.clientX - c.x, e.clientY - c.y) < 4) return;
+    c.moved = true;
+    this.onCentreDrag(c.face, offset, "move");
   }
 
   /** A hole or boss centre near the pointer picks that hole's face (centres sit inside the hole, so no depth test). */

@@ -1513,7 +1513,7 @@ class InsetFace(_PlanarFace):
     id = "inset_face"
     label = "Inset face outline"
     accepts = Accepts(faces=(1, 1))
-    params = [Param("distance", "length", 2)]
+    params = [Param("distance", "length", 2), Param("loop", "number", 0)]
 
     def run(self, topology, selection, values, preview):
         from build123d import Face, Kind
@@ -1523,13 +1523,20 @@ class InsetFace(_PlanarFace):
         if distance < MIN_DISTANCE:
             raise OperationError("The inset distance must be positive")
         face = Face(topology.face(selection.faces[0]))
+        loop = int(round(values.get("loop", 0)))
+        holes = face.inner_wires()
+        if not 0 <= loop <= len(holes):
+            raise OperationError(f"The face has {len(holes)} inner loop(s); loop must be 0 (outline) to {len(holes)}")
         try:
-            inner = face.outer_wire().offset_2d(-distance, kind=Kind.INTERSECTION)
+            if loop == 0:
+                inner = face.outer_wire().offset_2d(-distance, kind=Kind.INTERSECTION)
+            else:  # grow a hole's loop outward, so the ring around the hole becomes its own region
+                inner = holes[loop - 1].offset_2d(distance, kind=Kind.INTERSECTION)
             inner = inner[0] if isinstance(inner, list) else inner
             region = Face(inner)
         except Exception:
             raise OperationError("The inset is larger than the face") from None
-        if region.area >= face.area or region.area < MIN_DISTANCE:
+        if (loop == 0 and region.area >= face.area) or region.area < MIN_DISTANCE:
             raise OperationError("The inset is larger than the face")
         splitter = BRepAlgoAPI_Splitter()
         arguments, tools = List_TopoDS_Shape(), List_TopoDS_Shape()

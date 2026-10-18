@@ -186,7 +186,10 @@ def tessellate(topology: Topology) -> Mesh:
     for face_id, face in topology.faces():
         centre = hole_centre(face)
         if centre is not None:
-            centres.append({"face": face_id, "position": [centre.X(), centre.Y(), centre.Z()]})
+            from OCP.BRepAdaptor import BRepAdaptor_Surface
+
+            axis = BRepAdaptor_Surface(face).Cylinder().Axis().Direction()
+            centres.append({"face": face_id, "position": [centre.X(), centre.Y(), centre.Z()], "axis": [axis.X(), axis.Y(), axis.Z()]})
 
     return Mesh(
         positions=_join(positions, np.float32, (-1, 3)),

@@ -101,3 +101,23 @@ def test_mesh_reports_hole_centres():
 
     mesh = tessellate(Topology(load_demo("bracket")))
     assert len(mesh.centres) >= 4 and all(len(c["position"]) == 3 for c in mesh.centres)
+
+
+def test_inset_face_around_a_hole_loop():
+    from pliable.tools import Selection, get_tool
+
+    t = Topology(load_demo("bracket"))
+    face = _face_with_hole(t)
+    tool = get_tool("inset_face")
+    before = t.face_count
+    result = tool.run(t, Selection(faces=[face]), {"distance": 1.0, "loop": 1}, False)
+    assert Topology(result.shape).face_count > before
+    with pytest.raises(OperationError):
+        tool.run(t, Selection(faces=[face]), {"distance": 1.0, "loop": 9}, False)
+
+
+def test_hole_centres_have_an_axis():
+    from pliable.tessellate import tessellate
+
+    mesh = tessellate(Topology(load_demo("bracket")))
+    assert all(len(c["axis"]) == 3 for c in mesh.centres)

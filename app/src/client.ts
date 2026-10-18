@@ -30,6 +30,7 @@ export interface CentreInfo {
   /** The hole or boss face this centre belongs to; picking the centre selects that face. */
   face: number;
   position: [number, number, number];
+  axis: [number, number, number];
 }
 
 export interface MeshData {

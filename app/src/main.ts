@@ -6,7 +6,7 @@ import { SKETCH_PLANES } from "./layout";
 import { ToolPanel } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay } from "./dimensions";
-import { createSettingsWindow } from "./settings";
+import { createSettingsWindow, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
 import { Palette, type Command } from "./palette";
@@ -68,29 +68,56 @@ interface RelatedRule {
   faces: number[];
 }
 let related: RelatedRule[] = [];
-const ruleOn: Record<string, boolean> = { coplanar: true, equal_radius: false, coaxial: false }; // resets each session; a hole moves alone unless the user adds its twins
+// What a tool applies to is decided per tool: a saved choice for the tool, else a saved choice for all tools,
+// else the tool's own default, else the base default. A hole moves alone unless the user adds its twins.
+const BASE_RULES: Record<string, boolean> = { coplanar: true, equal_radius: false, coaxial: false };
+const TOOL_RULES: Record<string, Record<string, boolean>> = { resize_hole: { equal_radius: true } };
+const RULES_KEY = "pliable.rules";
+let ruleChoices: Record<string, boolean> = {};
+try {
+  ruleChoices = JSON.parse(localStorage.getItem(RULES_KEY) ?? "{}");
+} catch {
+  /* storage can be blocked */
+}
+function ruleFor(toolId: string | null, rule: string): boolean {
+  return ruleChoices[`${toolId}:${rule}`] ?? ruleChoices[`*:${rule}`] ?? (toolId ? TOOL_RULES[toolId]?.[rule] : undefined) ?? BASE_RULES[rule] ?? false;
+}
+/** The tool the chips speak for: the armed tool, else the open form's tool, else none (a choice for all tools). */
+function chipTool(): string | null {
+  return armedTool ?? toolPanel.openToolId;
+}
+function setRule(toolId: string | null, rule: string, on: boolean) {
+  ruleChoices[`${toolId ?? "*"}:${rule}`] = on;
+  try {
+    localStorage.setItem(RULES_KEY, JSON.stringify(ruleChoices));
+  } catch {
+    /* ignore */
+  }
+}
 
 /** The selection a tool runs on: the picked items plus the faces of its related rules that are switched on. */
 function expand(tool: ToolInfo | null, sels: Sel[]): Sel[] {
   if (!tool?.related?.length || sels.length !== 1 || sels[0].kind !== "face") return sels;
   const extra = new Set<number>();
-  for (const rule of related) if (tool.related.includes(rule.id) && ruleOn[rule.id]) rule.faces.forEach((f) => extra.add(f));
+  for (const rule of related) if (tool.related.includes(rule.id) && ruleFor(tool.id, rule.id)) rule.faces.forEach((f) => extra.add(f));
   return [...sels, ...[...extra].filter((f) => f !== sels[0].id).map((id) => ({ kind: "face" as const, id }))];
 }
 
 const chips = $("chips");
 function renderChips() {
   const shown = related.filter((r) => r.faces.length);
+  const ctx = chipTool();
+  const ruleOn = (id: string) => ruleFor(ctx, id);
   chips.replaceChildren(
     ...shown.map((rule) => {
       const b = document.createElement("button");
       const n = rule.faces.length;
       const what = `${rule.label.toLowerCase()} face${n === 1 ? "" : "s"}`;
-      b.textContent = `${ruleOn[rule.id] ? "✔ With" : "+ Add"} ${n} ${what}`;
-      b.className = ruleOn[rule.id] ? "on" : "";
-      b.title = ruleOn[rule.id] ? `Tools change the selected face and the ${n} ${what} together; click to change only the selected face` : `Tools change only the selected face; click to include the ${n} ${what} too`;
+      b.textContent = `${ruleOn(rule.id) ? "✔ With" : "+ Add"} ${n} ${what}`;
+      b.className = ruleOn(rule.id) ? "on" : "";
+      b.title = ruleOn(rule.id) ? `Tools change the selected face and the ${n} ${what} together; click to change only the selected face` : `Tools change only the selected face; click to include the ${n} ${what} too`;
       b.addEventListener("click", () => {
-        ruleOn[rule.id] = !ruleOn[rule.id];
+        setRule(ctx, rule.id, !ruleOn(rule.id));
         renderChips();
         renderToolbar();
         toolPanel.renderList();
@@ -99,7 +126,7 @@ function renderChips() {
     }),
   );
   const faces = new Set<number>();
-  for (const rule of shown) if (ruleOn[rule.id]) rule.faces.forEach((f) => faces.add(f));
+  for (const rule of shown) if (ruleOn(rule.id)) rule.faces.forEach((f) => faces.add(f));
   viewport.setRelated([...faces].map((id) => ({ kind: "face" as const, id })));
 }
 
@@ -119,6 +146,7 @@ const toolbar = $("tools");
 let toolbarKey = "";
 
 function renderToolbar() {
+  renderChips();
   const usable = usableTools();
   const active = dragToolFor(currentSels)?.id;
   const helperKey = helperSignature();
@@ -184,7 +212,7 @@ function selectionHelpers(): HTMLButtonElement[] {
   if (one?.kind === "edge") {
     return [
       make("Edge ring", "Select the parallel edges across four-sided faces, like the rungs of a ladder", { mode: "ring", edge: one.id }),
-      make("Sharp edges", "Select the connected edges where faces meet at 30 degrees or more", { mode: "sharp", edge: one.id, angle: 30 }),
+      make("Sharp edges", `Select the connected edges where faces meet at ${settings.sharpAngle} degrees or more (change in settings)`, { mode: "sharp", edge: one.id, angle: settings.sharpAngle }),
     ];
   }
   if (currentSels.length > 1 && currentSels.every((s) => s.kind === "face")) {
@@ -345,6 +373,57 @@ function pump(token: number) {
 }
 
 viewport.onSelect = setSelection;
+
+// Moving a hole by dragging its centre dot: previews the Move hole tool (latest request wins) and commits on release.
+let centreBusy = false;
+let centreQueued: { face: number; offset: { x: number; y: number; z: number } } | null = null;
+function centreRequest(face: number, o: { x: number; y: number; z: number }) {
+  const tool = tools.find((t) => t.id === "move_hole");
+  if (!tool) return null;
+  return { tool: tool.id, selection: selectionPayload(expand(tool, [{ kind: "face", id: face }])), params: { dx: o.x, dy: o.y, dz: o.z } };
+}
+async function pumpCentre() {
+  if (centreBusy || !centreQueued) return;
+  const { face, offset } = centreQueued;
+  centreQueued = null;
+  const req = centreRequest(face, offset);
+  if (!req) return;
+  centreBusy = true;
+  try {
+    show(await core.request<MeshData>("tool_preview", req));
+    status.classList.remove("error");
+    status.textContent = `Move hole: ${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)}`;
+  } catch (e) {
+    status.textContent = (e as Error).message;
+    status.classList.add("error");
+  } finally {
+    centreBusy = false;
+    void pumpCentre();
+  }
+}
+viewport.onCentreDrag = async (face, offset, phase) => {
+  if (phase === "move") {
+    centreQueued = { face, offset: { x: offset.x, y: offset.y, z: offset.z } };
+    void pumpCentre();
+    return;
+  }
+  centreQueued = null;
+  while (centreBusy) await new Promise((r) => setTimeout(r, 20));
+  if (phase === "cancel") {
+    if (committed) show(committed);
+    return;
+  }
+  const req = centreRequest(face, { x: offset.x, y: offset.y, z: offset.z });
+  if (!req) return;
+  try {
+    const mesh = await core.request<MeshData>("tool_commit", req);
+    setCommitted(mesh, false, mappedSelection(mesh));
+  } catch (e) {
+    if (committed) setCommitted(committed, false, currentSels);
+    status.textContent = (e as Error).message;
+    status.classList.add("error");
+  }
+};
 viewport.onEyedropCancel = () => cancelEyedrop();
 viewport.onEdgeLoop = async (edgeId, additive) => {
   try {
@@ -839,6 +918,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     });
   },
   cancelEyedrop,
+  changed: () => renderChips(),
   cancel() {
     if (committed) {
       show(committed);
