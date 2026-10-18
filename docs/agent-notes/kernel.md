@@ -28,3 +28,22 @@ Resume: S29 core done; per-body move is the next piece. 185 tests pass.
 
 ## Bug: inset/divide face were no-ops in the app
 Cause: Tool.execute merges coplanar faces after every tool (S25), undoing the intended split. Fix: inset_face and divide_face return `unified=True` so execute skips the merge. Audited: cut_plane, split_plane, patch_fill, bridge already go through execute in tests and are fine; sketch_regions and the unwrap imprint commit directly and never hit the merge. Tests in test_edgesel.py now use execute.
+
+## Wave 2b
+
+### S29 per-body move - Done (core; frontend unchanged)
+move_body, rotate_body, scale_body and offset_body now accept selected faces (0 or more) and change only the solids that contain them (`_on_bodies` in features.py); with nothing selected they act on the whole model as before. Selecting faces from two bodies moves both (group). Undo, hide/isolate and exports needed no change (several solids already worked). Tests in test_multisolid.py drive Session.handle (tool_commit, undo) with two separate bodies. No frontend change was needed: the existing tool buttons already appear once faces are selected.
+Decisions (change if the owner disagrees):
+- Selection by faces only (there is no body selection in the UI until S34); the owning solid is found by face identity.
+- Rotate and scale still pivot about the model origin, not the body centre (so a scaled body also drifts). A per-body pivot (centre of the body) is a one-line change in the two tools if wanted. Logged in the watchlist.
+- Edges and vertices selected alone still make these tools unavailable.
+
+### Task 2 - Chrome checks (own tab, port 5201/8801)
+- Add box + Move body on one face: Model info stayed 2 solids, bracket stayed put; group move with a face from each body moved both; undone.
+- Combine bodies (union) of overlapping box and bracket: 1 solid. The one open edge reported is genuine: the test box corner touches a hole wall tangentially (hole at x 25, y 14, radius 4; box edge at y 10); not a bug.
+- Fillet per edge apply on the 10 top face edges: worked, but found a BUG: with the edges in the order the app lists them, the result had 2 stray zero-length open edges at the corners. Fixed by adding edges in id order in fillet_per_edge and fillet_chamfer (commit f7da101, regression test in test_features.py). Re-verified in the app after the fix: 31 faces, 0 open edges. Undone.
+- Sketch extrude with mode New body (rectangle on XY plane beside the bracket): 25 faces, Model info 2 solids, valid. Undone.
+Not checked in the app: rotate/scale/offset of a single body (core tests only), hide/isolate with several bodies, exports of several bodies in the UI.
+
+### Resume point
+All Wave 2b items Done. Nothing half-done. Next ideas: body pivot for rotate/scale; a real body picker after S34.
