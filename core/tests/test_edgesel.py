@@ -52,3 +52,14 @@ def test_inset_face_splits_the_top_face_into_ring_and_inner_region():
     assert len(list(after.faces())) == before + 1
     with pytest.raises(OperationError):
         get_tool("inset_face").run(t, Selection(faces=[top]), {"distance": 1000.0}, False)
+
+
+def test_divide_face_adds_one_face_and_rejects_a_miss():
+    from pliable.tools import Selection, get_tool
+
+    t = Topology(load_demo("block"))
+    before = len(list(t.faces()))
+    result = get_tool("divide_face").run(t, Selection(faces=[0]), {"across": 0, "offset": 0.0}, False)
+    assert len(list(Topology(result.shape).faces())) == before + 1
+    with pytest.raises(OperationError):
+        get_tool("divide_face").run(t, Selection(faces=[0]), {"across": 1, "offset": 1000.0}, False)

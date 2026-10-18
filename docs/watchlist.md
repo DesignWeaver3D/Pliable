@@ -107,3 +107,7 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Inset face outline
 
 - Only the outer loop is offset; hole loops are left alone. Corners use sharp (intersection) joins, so concave corners can self-intersect on large insets and report an error.
+
+## Divide face
+
+- The dividing edge is parallel to a face axis only (the face's local x or y), not at an arbitrary angle, and is set by a number, not by dragging in the viewport.
