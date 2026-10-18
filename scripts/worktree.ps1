@@ -1,11 +1,12 @@
 ﻿# Short-lived worktrees for parallel agent work.
 #   .\scripts\worktree.ps1 new <name> [-Base dev]   create ..\pliable-wt\<name> on branch agent/<name>
 #   .\scripts\worktree.ps1 remove <name> [-Force]    remove it once the branch is merged
+#   .\scripts\worktree.ps1 refresh <name|all>      recopy the ignored project files (run before assigning or resuming an agent)
 #   .\scripts\worktree.ps1 list
 # The ignored project files (root-level notes such as the agent instructions, and docs/research) are copied in
 # and stay ignored, so they are never pushed.
 param(
-    [Parameter(Mandatory = $true, Position = 0)][ValidateSet("new", "remove", "list")][string]$Action,
+    [Parameter(Mandatory = $true, Position = 0)][ValidateSet("new", "remove", "refresh", "list")][string]$Action,
     [Parameter(Position = 1)][string]$Name,
     [string]$Base = "dev",
     [switch]$Force
@@ -50,6 +51,24 @@ if (-not $Name -or $Name -notmatch '^[A-Za-z0-9._-]+$') { Fail "Give a name usin
 
 $path = Join-Path $root $Name
 $branch = "agent/$Name"
+
+if ($Action -eq "refresh") {
+    # Ignored files are not part of a checkout, so an old worktree keeps stale rules and research until they are copied again.
+    $targets = if ($Name -eq "all") { @(Get-ChildItem $root -Directory | ForEach-Object { $_.FullName }) } else { @($path) }
+    foreach ($t in $targets) {
+        if (-not (Test-Path $t)) { Fail "$t does not exist." }
+        foreach ($f in $localFiles) {
+            $src = Join-Path $repo $f
+            if (Test-Path $src) {
+                $dst = Join-Path $t $f
+                New-Item -ItemType Directory -Force (Split-Path $dst) | Out-Null
+                Copy-Item $src $dst -Recurse -Force
+            }
+        }
+        Write-Host "Refreshed $t"
+    }
+    exit 0
+}
 
 if ($Action -eq "new") {
     if (Test-Path $path) { Fail "$path already exists." }
