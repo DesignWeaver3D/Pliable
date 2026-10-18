@@ -19,13 +19,14 @@ const POINT_SIZE_PX = 8;
 const PREVIEW_DELAY_MS = 150;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150 };
 
-type Tool = "select" | "line" | "rectangle" | "circle" | "arc" | "trim" | "extend" | "triangle" | "pentagon" | "hexagon" | "octagon";
+type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "arc" | "trim" | "extend" | "triangle" | "pentagon" | "hexagon" | "octagon";
 /** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
 const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5, hexagon: 6, octagon: 8 };
 const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "select", label: "Select", hint: "Click to select, drag points, Delete removes" },
   { id: "line", label: "Line", hint: "Click points; Enter or right-click ends the chain" },
   { id: "rectangle", label: "Rectangle", hint: "Click two opposite corners" },
+  { id: "rectcentre", label: "Centre rectangle", hint: "Click the centre, then a corner" },
   { id: "circle", label: "Circle", hint: "Click the centre, then a point on the circle" },
   { id: "arc", label: "Arc", hint: "Click the centre, the start, then the end (counterclockwise)" },
   { id: "trim", label: "Trim", hint: "Click the part of a line to remove, up to the nearest crossing curves" },
@@ -305,8 +306,8 @@ export class SketchMode {
         if (closed) this.endChain();
         else this.chain = [snap];
       }
-    } else if (this.tool === "rectangle" && this.chain.length === 2) {
-      this.addRectangle(this.chain[0], this.chain[1]);
+    } else if ((this.tool === "rectangle" || this.tool === "rectcentre") && this.chain.length === 2) {
+      this.addRectangle(this.chain[0], this.chain[1], this.tool === "rectcentre");
       this.chain = [];
     } else if (this.tool === "circle" && this.chain.length === 2) {
       this.addCircle(this.chain[0], this.chain[1]);
@@ -405,18 +406,58 @@ export class SketchMode {
   }
   private chainStart?: Snap;
 
-  private addRectangle(a: Snap, b: Snap) {
-    if (Math.abs(a.u - b.u) < 1e-6 || Math.abs(a.v - b.v) < 1e-6) return;
+  /** Corner to corner, or (centred) from the centre to a corner; optional rounded or bevelled corners. */
+  private addRectangle(a: Snap, b: Snap, centred = false) {
+    const [u0, u1] = centred ? [2 * a.u - b.u, b.u].sort((x, y) => x - y) : [a.u, b.u].sort((x, y) => x - y);
+    const [v0, v1] = centred ? [2 * a.v - b.v, b.v].sort((x, y) => x - y) : [a.v, b.v].sort((x, y) => x - y);
+    if (u1 - u0 < 1e-6 || v1 - v0 < 1e-6) return;
     this.pushUndo();
-    const p = [a, { u: b.u, v: a.v }, b, { u: a.u, v: b.v }].map((c) => this.pointFor(c as Snap));
-    const ids = p.map((_, k) => {
-      const id = M.nextId(this.s);
-      this.s.entities.push({ id, type: "line", a: p[k], b: p[(k + 1) % 4] });
-      return id;
-    });
-    ids.forEach((id, k) => this.addConstraintRaw({ type: k % 2 === 0 ? "horizontal" : "vertical", entity: id }));
+    const { corner } = this.rectOptions;
+    const size = Math.min(this.rectOptions.size, (Math.min(u1 - u0, v1 - v0) / 2) * 0.999);
+    if (corner === "none" || size < 1e-6) {
+      // Snapped corners (existing points) stay in use; the other two are new.
+      const corners: Snap[] = [{ u: u0, v: v0 }, { u: u1, v: v0 }, { u: u1, v: v1 }, { u: u0, v: v1 }].map((c) => (!centred ? [a, b].find((o) => o.id !== undefined && o.u === c.u && o.v === c.v) : undefined) ?? c);
+      const p = corners.map((c) => this.pointFor(c));
+      const ids = p.map((_, k) => this.addLineBetween(p[k], p[(k + 1) % 4]));
+      ids.forEach((id, k) => this.addConstraintRaw({ type: k % 2 === 0 ? "horizontal" : "vertical", entity: id }));
+      this.resolve();
+      return;
+    }
+    // Going counterclockwise: each side runs between its two trimmed ends, each corner is an arc or a bevel.
+    const r = size;
+    const side = (u: number, v: number) => this.pointFor({ u, v } as Snap);
+    const ends: [number, number][][] = [
+      [[u0 + r, v0], [u1 - r, v0]],
+      [[u1, v0 + r], [u1, v1 - r]],
+      [[u1 - r, v1], [u0 + r, v1]],
+      [[u0, v1 - r], [u0, v0 + r]],
+    ];
+    const pts = ends.map((e) => e.map(([u, v]) => side(u, v)));
+    const centres: [number, number][] = [[u1 - r, v0 + r], [u1 - r, v1 - r], [u0 + r, v1 - r], [u0 + r, v0 + r]];
+    const sides = pts.map(([from, to]) => this.addLineBetween(from, to));
+    sides.forEach((id, k) => this.addConstraintRaw({ type: k % 2 === 0 ? "horizontal" : "vertical", entity: id }));
+    for (let k = 0; k < 4; k++) {
+      const start = pts[k][1];
+      const end = pts[(k + 1) % 4][0];
+      if (corner === "chamfer") {
+        this.addLineBetween(start, end);
+        continue;
+      }
+      const centre = this.pointFor({ u: centres[k][0], v: centres[k][1] } as Snap);
+      const arc = M.nextId(this.s);
+      this.s.entities.push({ id: arc, type: "arc", center: centre, start, end });
+      this.addConstraintRaw({ type: "tangent", entities: [arc, sides[k]] });
+      this.addConstraintRaw({ type: "tangent", entities: [arc, sides[(k + 1) % 4]] });
+    }
     this.resolve();
   }
+
+  private addLineBetween(a: number, b: number): number {
+    const id = M.nextId(this.s);
+    this.s.entities.push({ id, type: "line", a, b });
+    return id;
+  }
+  private rectOptions: { corner: "none" | "fillet" | "chamfer"; size: number } = { corner: "none", size: 5 };
 
   private polygonCorners(center: { u: number; v: number }, corner: { u: number; v: number }, sides: number): { u: number; v: number }[] {
     const radius = Math.hypot(corner.u - center.u, corner.v - center.v);
@@ -692,6 +733,10 @@ export class SketchMode {
       return [[[last.u, last.v], [c.u, c.v]]];
     }
     if (this.tool === "rectangle") return [[[first.u, first.v], [c.u, first.v], [c.u, c.v], [first.u, c.v], [first.u, first.v]]];
+    if (this.tool === "rectcentre") {
+      const [x, y] = [2 * first.u - c.u, 2 * first.v - c.v];
+      return [[[x, y], [c.u, y], [c.u, c.v], [x, c.v], [x, y]]];
+    }
     const sides = POLYGON_SIDES[this.tool];
     if (sides) {
       const corners = this.polygonCorners(first, c, sides).map((q) => [q.u, q.v] as [number, number]);
@@ -739,6 +784,23 @@ export class SketchMode {
       const b = button(t.label, () => this.setTool(t.id), t.id === this.tool ? "active" : "");
       b.title = t.hint;
       tools.append(b);
+    }
+
+    if (this.tool === "rectangle" || this.tool === "rectcentre") {
+      const corner = document.createElement("select");
+      for (const [v, label] of [["none", "Square corners"], ["fillet", "Rounded corners"], ["chamfer", "Bevelled corners"]]) corner.append(new Option(label, v, false, v === this.rectOptions.corner));
+      corner.addEventListener("change", () => (this.rectOptions.corner = corner.value as "none" | "fillet" | "chamfer"));
+      const size = document.createElement("input");
+      size.type = "number";
+      size.step = "any";
+      size.min = "0";
+      size.value = String(this.rectOptions.size);
+      size.title = "Corner radius or bevel size";
+      size.addEventListener("keydown", (e) => e.stopPropagation());
+      size.addEventListener("input", () => (this.rectOptions.size = Math.abs(Number(size.value)) || 0));
+      const row = el("div", "row-buttons");
+      row.append(corner, size);
+      tools.append(row);
     }
 
     const options = M.optionsFor(this.s, this.selection);

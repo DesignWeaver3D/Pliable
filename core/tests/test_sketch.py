@@ -332,3 +332,40 @@ def _solid_volume(shape) -> float:
 def test_single_loop_is_one_region():
     points, lines = rectangle(10, 10)
     assert len(sketch.regions(sketch_of(points, lines))) == 1
+
+
+def _rounded_rectangle(r=5.0, w=40.0, h=30.0):
+    """The structure the frontend builds for a rectangle with rounded corners."""
+    ends = [[(r, 0), (w - r, 0)], [(w, r), (w, h - r)], [(w - r, h), (r, h)], [(0, h - r), (0, r)]]
+    points, nid = [], 1
+    pts = []
+    for pair in ends:
+        ids = []
+        for u, v in pair:
+            points.append({"id": nid, "u": u, "v": v})
+            ids.append(nid)
+            nid += 1
+        pts.append(ids)
+    entities, constraints = [], []
+    sides = []
+    for k, (a, b) in enumerate(pts):
+        entities.append({"id": 100 + k, "type": "line", "a": a, "b": b})
+        sides.append(100 + k)
+        constraints.append({"id": 200 + k, "type": "horizontal" if k % 2 == 0 else "vertical", "entity": 100 + k})
+    centres = [(w - r, r), (w - r, h - r), (r, h - r), (r, r)]
+    for k in range(4):
+        points.append({"id": nid, "u": centres[k][0] + 0.3, "v": centres[k][1] - 0.2})  # slightly off, the solver corrects it
+        entities.append({"id": 110 + k, "type": "arc", "center": nid, "start": pts[k][1], "end": pts[(k + 1) % 4][0]})
+        constraints.append({"id": 300 + 2 * k, "type": "tangent", "entities": [110 + k, sides[k]]})
+        constraints.append({"id": 301 + 2 * k, "type": "tangent", "entities": [110 + k, sides[(k + 1) % 4]]})
+        nid += 1
+    return sketch_of(points, entities, constraints)
+
+
+def test_rounded_rectangle_structure_solves_and_makes_a_face():
+    sk = _rounded_rectangle()
+    result = sketch.solve(sk)
+    assert result["status"] == "ok"
+    solved = sketch.apply_solution(sk, result)
+    (zone,) = sketch.regions(solved)
+    assert zone.area == pytest.approx(40 * 30 - (4 - math.pi) * 25, rel=1e-3)
