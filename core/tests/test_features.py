@@ -383,3 +383,53 @@ def test_unify_merges_split_coplanar_faces(block):
     result = run("unify", block)
     assert result.shape is not None
     assert Topology(result.shape).face_count == block.face_count
+
+
+def _open_box_without_top():
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_Sewing
+
+    box = Topology(load_demo("block"))
+    sewing = BRepBuilderAPI_Sewing(1e-6)
+    top = top_of(box)
+    for i, face in box.faces():
+        if i != top:
+            sewing.Add(face)
+    sewing.Perform()
+    return Topology(sewing.SewedShape())
+
+
+@pytest.mark.parametrize("continuity", [0, 1])
+def test_patch_fill_closes_an_open_body_into_a_solid(continuity):
+    from pliable.ops import solids_of
+
+    open_body = _open_box_without_top()
+    free = [i for i, e in open_body.edges() if len(open_body.edge_faces(e)) == 1]
+    assert len(free) == 4
+    result = run("patch_fill", open_body, edges=free, continuity=continuity)
+    assert len(solids_of(result.shape)) == 1
+    assert Topology(result.shape).face_count == 6
+
+
+def test_bridge_between_opposite_free_edges_closes_the_open_box():
+    from pliable.ops import solids_of
+
+    open_body = _open_box_without_top()
+    free = [i for i, e in open_body.edges() if len(open_body.edge_faces(e)) == 1]
+    # Opposite edges are the pair that shares no vertex.
+    def vertices(i):
+        from OCP.TopExp import TopExp
+
+        ids = set()
+        from OCP.TopAbs import TopAbs_VERTEX
+        from OCP.TopExp import TopExp_Explorer
+
+        ex = TopExp_Explorer(open_body.edge(i), TopAbs_VERTEX)
+        while ex.More():
+            ids.add(open_body.vertex_id(ex.Current()))
+            ex.Next()
+        return ids
+
+    a = free[0]
+    b = next(i for i in free[1:] if not vertices(i) & vertices(a))
+    result = run("bridge", open_body, edges=[a, b])
+    assert len(solids_of(result.shape)) == 1

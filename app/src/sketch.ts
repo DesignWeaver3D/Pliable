@@ -19,13 +19,17 @@ const POINT_SIZE_PX = 8;
 const PREVIEW_DELAY_MS = 150;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150 };
 
-type Tool = "select" | "line" | "rectangle" | "circle" | "arc";
+type Tool = "select" | "line" | "rectangle" | "circle" | "arc" | "trim" | "triangle" | "pentagon" | "hexagon" | "octagon";
+/** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
+const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5, hexagon: 6, octagon: 8 };
 const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "select", label: "Select", hint: "Click to select, drag points, Delete removes" },
   { id: "line", label: "Line", hint: "Click points; Enter or right-click ends the chain" },
   { id: "rectangle", label: "Rectangle", hint: "Click two opposite corners" },
   { id: "circle", label: "Circle", hint: "Click the centre, then a point on the circle" },
   { id: "arc", label: "Arc", hint: "Click the centre, the start, then the end (counterclockwise)" },
+  { id: "trim", label: "Trim", hint: "Click the part of a line to remove, up to the nearest crossing curves" },
+  ...(Object.keys(POLYGON_SIDES) as Tool[]).map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1), hint: "Click the centre, then a corner" })),
 ];
 
 export interface SketchHost {
@@ -230,7 +234,7 @@ export class SketchMode {
       if (uv) this.resolve({ point: this.drag.id, u: uv[0], v: uv[1] });
       return;
     }
-    if (this.tool === "select") this.hover = this.pick(e);
+    if (this.tool === "select" || this.tool === "trim") this.hover = this.pick(e);
     else this.cursor = this.snap(e);
     this.render();
   }
@@ -264,6 +268,18 @@ export class SketchMode {
       return;
     }
     if (this.tool === "select") return;
+    if (this.tool === "trim") {
+      const hit = this.pick(e);
+      const uv = this.planeUV(e);
+      const line = hit?.kind === "entity" ? this.s.entities.find((x) => x.id === hit.id) : undefined;
+      if (line?.type === "line" && uv && !line.reference) {
+        this.pushUndo();
+        this.s = M.trimLine(this.s, line.id, uv[0], uv[1]);
+        this.resolve();
+      }
+      this.render();
+      return;
+    }
     const snap = this.snap(e);
     if (!snap) return;
     this.chain.push(snap);
@@ -278,6 +294,9 @@ export class SketchMode {
       this.chain = [];
     } else if (this.tool === "circle" && this.chain.length === 2) {
       this.addCircle(this.chain[0], this.chain[1]);
+      this.chain = [];
+    } else if (POLYGON_SIDES[this.tool] && this.chain.length === 2) {
+      this.addPolygon(this.chain[0], this.chain[1], POLYGON_SIDES[this.tool]!);
       this.chain = [];
     } else if (this.tool === "arc" && this.chain.length === 3) {
       this.addArc(this.chain[0], this.chain[1], this.chain[2]);
@@ -380,6 +399,29 @@ export class SketchMode {
       return id;
     });
     ids.forEach((id, k) => this.addConstraintRaw({ type: k % 2 === 0 ? "horizontal" : "vertical", entity: id }));
+    this.resolve();
+  }
+
+  private polygonCorners(center: { u: number; v: number }, corner: { u: number; v: number }, sides: number): { u: number; v: number }[] {
+    const radius = Math.hypot(corner.u - center.u, corner.v - center.v);
+    const start = Math.atan2(corner.v - center.v, corner.u - center.u);
+    return Array.from({ length: sides }, (_, k) => ({
+      u: center.u + radius * Math.cos(start + (2 * Math.PI * k) / sides),
+      v: center.v + radius * Math.sin(start + (2 * Math.PI * k) / sides),
+    }));
+  }
+
+  private addPolygon(center: Snap, corner: Snap, sides: number) {
+    if (Math.hypot(corner.u - center.u, corner.v - center.v) < 1e-6) return;
+    this.pushUndo();
+    const p = this.polygonCorners(center, corner, sides).map((c) => this.pointFor(c as Snap));
+    const ids = p.map((_, k) => {
+      const id = M.nextId(this.s);
+      this.s.entities.push({ id, type: "line", a: p[k], b: p[(k + 1) % sides] });
+      return id;
+    });
+    // Equal sides keep it regular when a corner is dragged; the corners stay free.
+    ids.slice(1).forEach((id) => this.addConstraintRaw({ type: "equal", entities: [ids[0], id] }));
     this.resolve();
   }
 
@@ -634,6 +676,11 @@ export class SketchMode {
       return [[[last.u, last.v], [c.u, c.v]]];
     }
     if (this.tool === "rectangle") return [[[first.u, first.v], [c.u, first.v], [c.u, c.v], [first.u, c.v], [first.u, first.v]]];
+    const sides = POLYGON_SIDES[this.tool];
+    if (sides) {
+      const corners = this.polygonCorners(first, c, sides).map((q) => [q.u, q.v] as [number, number]);
+      return [[...corners, corners[0]]];
+    }
     const r = Math.hypot(c.u - first.u, c.v - first.v);
     if (this.tool === "circle") return [Array.from({ length: 49 }, (_, i) => [first.u + r * Math.cos((2 * Math.PI * i) / 48), first.v + r * Math.sin((2 * Math.PI * i) / 48)] as [number, number])];
     if (this.tool === "arc") {

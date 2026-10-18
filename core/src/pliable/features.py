@@ -9,7 +9,10 @@ import math
 
 from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Defeaturing
-from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy, BRepBuilderAPI_Transform
+from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy, BRepBuilderAPI_MakeSolid, BRepBuilderAPI_Sewing, BRepBuilderAPI_Transform
+from OCP.BRepFill import BRepFill_Filling
+from OCP.TopAbs import TopAbs_SHELL
+from OCP.TopExp import TopExp_Explorer as _Explorer
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepGProp import BRepGProp
 from OCP.BRepOffsetAPI import BRepOffsetAPI_DraftAngle, BRepOffsetAPI_MakeThickSolid
@@ -19,10 +22,10 @@ from OCP.Bnd import Bnd_Box
 from OCP.BRepTools import BRepTools
 from OCP.GProp import GProp_GProps
 from OCP.TopAbs import TopAbs_REVERSED
-from OCP.GeomAbs import GeomAbs_Cylinder, GeomAbs_Line, GeomAbs_Plane, GeomAbs_Torus
+from OCP.GeomAbs import GeomAbs_C0, GeomAbs_G1, GeomAbs_Cylinder, GeomAbs_Line, GeomAbs_Plane, GeomAbs_Torus
 from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
 from OCP.BRep import BRep_Builder
-from OCP.TopoDS import TopoDS_Compound, TopoDS_Shape
+from OCP.TopoDS import TopoDS, TopoDS_Compound, TopoDS_Shape
 from OCP.collections import List_TopoDS_Shape
 from OCP.gp import gp_Ax1, gp_Ax2, gp_Dir, gp_Pln, gp_Pnt, gp_Trsf, gp_Vec
 
@@ -617,6 +620,111 @@ class Mirror(_PlanarFace):
         transform.SetMirror(gp_Ax2(centre, normal))
         mirrored = BRepBuilderAPI_Transform(topology.shape, transform, True).Shape()
         return finish(_combine(topology.shape, mirrored, fuse=True))
+
+
+def _faces_of(shape):
+    from OCP.TopAbs import TopAbs_FACE
+
+    explorer = _Explorer(shape, TopAbs_FACE)
+    while explorer.More():
+        yield TopoDS.Face(explorer.Current())
+        explorer.Next()
+
+
+def _children(compound: TopoDS_Shape):
+    from OCP.TopoDS import TopoDS_Iterator
+
+    it = TopoDS_Iterator(compound)
+    while it.More():
+        yield it.Value()
+        it.Next()
+
+
+def _sew_into(shape: TopoDS_Shape, face: TopoDS_Shape) -> OpResult:
+    """Sew a new face onto a model; if that closes a shell the result becomes a solid."""
+    # Sewing edits the shapes it is given (tolerances), and the new face shares edges with the model: sew a deep copy of both.
+    pair, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(pair)
+    builder.Add(pair, shape)
+    builder.Add(pair, face)
+    parts = list(_children(BRepBuilderAPI_Copy(pair, True, False).Shape()))
+    sewing = BRepBuilderAPI_Sewing(1e-4)
+    for part in parts:
+        sewing.Add(part)
+    sewing.Perform()
+    result = sewing.SewedShape()
+    shells = _Explorer(result, TopAbs_SHELL)
+    if shells.More() and not result.IsNull():
+        shell = TopoDS.Shell(shells.Current())
+        if BRepCheck_Analyzer(shell).IsValid():
+            solid = BRepBuilderAPI_MakeSolid(shell).Solid()
+            if BRepCheck_Analyzer(solid).IsValid() and _volume(solid) > 0:
+                return finish(solid)
+    if result.IsNull() or not BRepCheck_Analyzer(result).IsValid():
+        raise OperationError("Operation produced invalid geometry")
+    return OpResult(result, [])
+
+
+@register
+class PatchFill(Tool):
+    """Close a boundary of selected edges with a filled surface patch (continuity 0 = touching, 1 = tangent to the neighbouring faces).
+    Seals the patch to the model; if that closes a shell the result becomes a solid."""
+
+    id = "patch_fill"
+    label = "Patch fill"
+    accepts = Accepts(edges=(3, None))
+    params = [Param("continuity", "number", 1)]
+
+    def run(self, topology, selection, values, preview):
+        fill = None
+        # Tangent patches fail where the neighbouring faces cannot be matched (e.g. a sharp box corner): retry touching only.
+        for tangent in ([True, False] if values["continuity"] >= 0.5 else [False]):
+            candidate = BRepFill_Filling()
+            for edge_id in selection.edges:
+                edge = topology.edge(edge_id)
+                faces = topology.edge_faces(edge)
+                if tangent and len(faces) == 1:
+                    candidate.Add(edge, faces[0], GeomAbs_G1)
+                else:
+                    candidate.Add(edge, GeomAbs_C0)
+            try:
+                candidate.Build()
+            except Exception:
+                continue
+            fill = candidate
+            break
+        if fill is None:
+            raise OperationError("The edges do not form a boundary a patch can fill")
+        if not fill.IsDone():
+            raise OperationError("The patch could not be built from these edges")
+        return _sew_into(topology.shape, fill.Face())
+
+
+@register
+class Bridge(Tool):
+    """Join two edges with a ruled surface (continuity 0), sewn to the model; a closed result becomes a solid."""
+
+    id = "bridge"
+    label = "Bridge edges"
+    accepts = Accepts(edges=(2, 2))
+    params = []
+
+    def run(self, topology, selection, values, preview):
+        # BRepFill.Face_s corrupts later OpenCASCADE fillets in the same process (spike 2026-10-17); a ruled ThruSections shell does not.
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeWire
+        from OCP.BRepOffsetAPI import BRepOffsetAPI_ThruSections
+
+        loft = BRepOffsetAPI_ThruSections(False, True)
+        for edge_id in selection.edges:
+            loft.AddWire(BRepBuilderAPI_MakeWire(topology.edge(edge_id)).Wire())
+        try:
+            loft.Build()
+        except Exception as error:
+            raise OperationError("These edges cannot be bridged") from error
+        face = next(_faces_of(loft.Shape()), None)
+        if face is None:
+            raise OperationError("These edges cannot be bridged")
+        return _sew_into(topology.shape, face)
 
 
 @register

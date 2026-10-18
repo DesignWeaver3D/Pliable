@@ -96,8 +96,12 @@ The user's rule: every feature developed before the alpha release goes into it, 
 | Split with plane (one body into two solids) | S22 | Usable | Run on a demo and check both halves are selectable | Axis-aligned planes only |
 | Variable fillet, loft between two faces, sweep a face along an edge | S23 | Usable, rough | Try each on a demo; loft needs two faces on separate solids or one solid's two faces | Variable fillet is linear start/end only; sweep follows one edge only; no wire or multi-edge paths yet |
 | Array along an edge | S23 | Usable, rough | Select an edge, run it | Copies are translated, not turned; steps are equal in curve parameter (exact for lines and circles only) |
-| Hide / isolate / show bodies (H, Shift+H, Alt+H, Ctrl+K) | S22 | Usable | Open a multi-solid file, select a face, press H then Alt+H | Visibility is view-only (not saved, not in exports); resets when solids change |
+| Hide / isolate / show bodies (H, Shift+H, Alt+H, Ctrl+K) | S22 | Usable | Open a multi-solid file, select a face, press H then Alt+H | Checked in Chrome 2026-10-17 on a single solid. Visibility is view-only (not saved, not in exports); resets when solids change |
 | Unify faces (explicit tool) | S22 | Usable | Run on an imported STEP with split coplanar faces | Whole model only |
+| Sketch regular polygons (triangle, pentagon, hexagon, octagon) | S23 | Incomplete | Sketch, pick a polygon tool, click centre then corner, drag a corner | Checked in Chrome 2026-10-17 (hexagon); equal-sides constraints only (no circumscribed-circle constraint) |
+| Patch fill (close a loop of edges with a G0/G1 surface patch) | S24 | Incomplete | Open a surface body, select the free edges of a gap, run Patch fill | G1 only where neighbouring faces allow it; falls back to touching (G0) silently; Continuity is a number (0/1) |
+| Bridge two edges with a ruled surface | S24 | Incomplete | Select two edges (e.g. opposite free edges of an open body), run Bridge edges | G0 only; no tangency, no twist control |
+| Sketch trim (lines, up to crossings with lines and circles) | S23 | Incomplete | Draw crossing lines, pick Trim, click a segment | Lines only (arcs and circles cannot be trimmed); constraints on the trimmed line are dropped; checked in Chrome 2026-10-17 |
 | Multi-solid handling, import repair and warnings | S18, S21 | Best effort | Open a multi-solid file | |
 | Autosave and restore | S19 | Solid | Item 7 | |
 | Busy indicator | S20 | Solid | Item 8 | |
