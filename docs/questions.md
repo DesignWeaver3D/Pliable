@@ -31,3 +31,13 @@ Decisions were made with this order: your described workflow, industry standard,
 - Combine STEP placing the other file at its own origin is fine for now; revisit if it becomes a problem.
 - Wanted: pick several solids, move them singly or as a group, and hide them (added to S29). Also a see-through mode where hidden edges can still be picked, after research on how other modelers do it (S38).
 - Entry 14 was unclear to the owner: Center between faces needs the hole picked first, then the two faces. Proposed fix: detect which pick is the hole by its type so order does not matter (to be done with S35).
+
+## GUI plan answers (2026-10-18)
+
+Replies to the open questions in docs/research/gui-plan.md; the decisions are recorded in the S34 row of docs/progress.md.
+
+- Fixed strip, permanent search, labels with icons, no radial menu, create tools when nothing is selected, drawer replaces the left list, dark only.
+- Icons: review all of them; procedural generation is fine for now; follow solid-modeling conventions.
+- Tool-usage tracking is wanted for GUI planning, included in the diagnostics report, declared in the docs and shown in the report preview (S39). Remove it if testers object.
+- Tablet: accommodate while cheap, otherwise desktop only.
+- Keyboard safety: the owner dislikes programs where typing into the wrong window fires many two-key shortcuts. A research proposal is being written (docs/research/shortcut-policy.md); the work is S40.
