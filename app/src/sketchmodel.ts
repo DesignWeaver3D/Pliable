@@ -447,6 +447,29 @@ export function originPoints(plane: PlaneData, existing: SketchPoint[]): { u: nu
   return found;
 }
 
+/**
+ * Point on a circle or arc where a line from `from` would just touch it, if that is within `reach` of the
+ * cursor (u, v). Used to snap the end of a line being drawn so it leaves tangent to the curve.
+ */
+export function tangentFrom(s: SketchData, from: { u: number; v: number }, u: number, v: number, reach: number): { u: number; v: number; entity: number } | null {
+  let best: { u: number; v: number; entity: number; gap: number } | null = null;
+  for (const e of s.entities) {
+    if (e.type === "line") continue;
+    const c = pointOf(s, e.center);
+    const r = e.type === "circle" ? e.radius : Math.hypot(pointOf(s, e.start).u - c.u, pointOf(s, e.start).v - c.v);
+    const d = Math.hypot(from.u - c.u, from.v - c.v);
+    if (d <= r * 1.0001) continue;
+    const base = Math.atan2(from.v - c.v, from.u - c.u);
+    const spread = Math.acos(r / d);
+    for (const angle of [base + spread, base - spread]) {
+      const t: [number, number] = [c.u + r * Math.cos(angle), c.v + r * Math.sin(angle)];
+      const gap = Math.hypot(t[0] - u, t[1] - v);
+      if (gap < reach && (!best || gap < best.gap) && distanceTo(s, e, t[0], t[1]) < 0.01 * (1 + r)) best = { u: t[0], v: t[1], entity: e.id, gap };
+    }
+  }
+  return best;
+}
+
 // Trim ------------------------------------------------------------------------------------------------
 
 /** Parameters t along line `e` (0 at its start, 1 at its end, unbounded) where it meets other lines and circles. */

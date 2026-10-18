@@ -186,3 +186,9 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 - **Only cylinder faces unroll** (`unwrap.py`). Cones, spheres, tori, free-form faces and several faces at once are refused. A cylinder face that spans the seam (a full tube) is unrolled from its angle range, so regions crossing the seam are not tested.
 - **Outlines map as 48-point interpolated curves**, not exact ellipses or helices; lines and regions are exact in size (checked by area). *Symptom:* a circle on a small cylinder imprints with a slightly different outline than a true curve.
 - **The unrolled sketch has no extrude, revolve or model-edge projection**; finishing only imprints regions onto the cylinder face. Sketches are not kept.
+
+## Automatic tangency for lines and arcs (agent/sketch, wave 2a)
+
+- **Line tool:** the end of a line snaps to where a line from the last point would just touch a circle or arc (nearest of the two touching points to the cursor) and adds point-on plus tangent. Starting a line tangent to a curve is not offered.
+- **Arc tool:** an arc whose start lands on the end of a line, with its centre within about 6 degrees of square to that line, is made tangent to it. Other arcs get no automatic tangent.
+- **Tangency without a shared end point** (circle, or an arc and line that do not share an end) is built in the solver from helper geometry (`_round_tangent`); which of the two touching points is used is decided by the starting positions.

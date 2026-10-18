@@ -233,6 +233,10 @@ export class SketchMode {
     }
     const pixel = this.viewport.pixelSizeAt(new THREE.Vector3(...M.toWorld(this.s.plane, u, v)));
     const reach = SNAP_PX * pixel;
+    if (this.tool === "line" && this.chain.length >= 1) {
+      const t = M.tangentFrom(this.s, this.chain[this.chain.length - 1], u, v, reach);
+      if (t) return { u: t.u, v: t.v, tangent: t.entity, on: { entity: t.entity } };
+    }
     if (this.tool === "circle" && this.chain.length === 1) {
       const t = M.tangentRadius(this.s, this.chain[0], u, v, reach);
       if (t) return { u: t.u, v: t.v, tangent: t.entity };
@@ -442,6 +446,7 @@ export class SketchMode {
     if (ia === ib) return false;
     const id = M.nextId(this.s);
     this.s.entities.push({ id, type: "line", a: ia, b: ib });
+    if (b.tangent !== undefined) this.addConstraintRaw({ type: "tangent", entities: [id, b.tangent] });
     if (b.axis === "h") this.addConstraintRaw({ type: "horizontal", entity: id });
     if (b.axis === "v") this.addConstraintRaw({ type: "vertical", entity: id });
     this.resolve();
@@ -546,7 +551,18 @@ export class SketchMode {
     const c = this.pointFor(center);
     const s = this.pointFor(start);
     const e = this.pointFor({ u: center.u + radius * Math.cos(angle), v: center.v + radius * Math.sin(angle) });
-    this.s.entities.push({ id: M.nextId(this.s), type: "arc", center: c, start: s, end: e });
+    const arcId = M.nextId(this.s);
+    this.s.entities.push({ id: arcId, type: "arc", center: c, start: s, end: e });
+    // An arc that starts on the end of a line, with its centre square to the line there, continues it tangentially.
+    const meets = this.s.entities.find((x) => x.type === "line" && !x.reference && (x.a === s || x.b === s));
+    if (meets && meets.type === "line") {
+      const other = M.pointOf(this.s, meets.a === s ? meets.b : meets.a);
+      const at = M.pointOf(this.s, s);
+      const [lu, lv] = [at.u - other.u, at.v - other.v];
+      const [cu, cv] = [center.u - at.u, center.v - at.v];
+      const cosine = Math.abs(lu * cu + lv * cv) / (Math.hypot(lu, lv) * Math.hypot(cu, cv) || 1);
+      if (cosine < Math.sin((AUTO_AXIS_DEG * 2 * Math.PI) / 180)) this.addConstraintRaw({ type: "tangent", entities: [arcId, meets.id] });
+    }
     this.resolve();
   }
 

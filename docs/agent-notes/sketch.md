@@ -19,3 +19,8 @@
 - Done in this run: circle tangency, auto tangent radius, snap constraints (constraining to projected edges comes from these plus fixed reference geometry), origin/centre snap points.
 - Not done: click-through zone picking and a fast multi-zone pick (box); this touches model picking in `viewport.ts`, owned by the selection group (S26/S35), so it is left for them: cycle through the faces under the pointer on repeated clicks, and use their box select for zones. Automatic tangency for lines/arcs while drawing.
 - Open question for the owner: should sketch snaps always add constraints (now yes)?
+
+## Wave 2a
+### S30 (Done except the zone picking handed to the selection agent)
+- Automatic tangency for lines (end snaps to the touching point on a circle/arc) and arcs (start on a line end, centre square to it). Solver: `_round_tangent` also covers arcs and lines not sharing an end point, and a line whose end already lies on the curve (no duplicate hidden point, which made the solver report a conflict). Checked in Chrome (tangent line to a circle: no conflict).
+- Decision: arc tolerance 2 x AUTO_AXIS_DEG; change in `addArc` in sketch.ts. Snaps still add constraints (question 21 unchanged).

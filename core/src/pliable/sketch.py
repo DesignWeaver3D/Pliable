@@ -171,15 +171,18 @@ class _Solver:
         elif kind == "tangent":
             (ka, ha), (kb, hb) = (self.entities[e] for e in c["entities"])
             ids = c["entities"]
+            round_kinds = {"arc", "circle"}
+            if "circle" in (ka, kb) or not self._joined(*ids):
+                if (ka in round_kinds or kb in round_kinds) and not (ka == "line" and kb == "line"):
+                    for h in self._round_tangent(ids[0], ids[1], c.get("id")):
+                        self.failed_ids[h] = c.get("id")
+                    return
+                raise SketchError("Tangent needs a circle or arc with a line, circle or arc")
             if "arc" in (ka, kb) and "line" in (ka, kb):
                 arc_id, line_id = (ids[0], ids[1]) if ka == "arc" else (ids[1], ids[0])
                 h = s.addArcLineTangent(self._arc_end_near(arc_id, line_id), self.entities[arc_id][1], self.entities[line_id][1], g)
             elif ka == "arc" and kb == "arc":
                 h = s.addCurvesTangent(self._arc_end_near(ids[0], ids[1]), self._arc_end_near(ids[1], ids[0]), ha, hb, wp, g)
-            elif "circle" in (ka, kb):
-                for h in self._circle_tangent(ids[0], ids[1]):
-                    self.failed_ids[h] = c.get("id")
-                return
             else:
                 raise SketchError("Tangent needs a circle or arc with a line, circle or arc")
         elif kind == "distance":
@@ -212,22 +215,42 @@ class _Solver:
             raise SketchError(f"Unknown constraint type {kind!r}")
         self.failed_ids[h] = c.get("id")
 
-    def _circle_tangent(self, id_a: int, id_b: int):
-        """Tangency with a circle: a hidden touching point built from plain constraints.
+    def _joined(self, id_a: int, id_b: int) -> bool:
+        """Whether an arc's end point is shared (to within rounding) with an end point of the other entity."""
+        entities = {e["id"]: e for e in self.sketch["entities"]}
 
-        With a line the touching point lies on the line and on the circle, and the radius to it is
-        perpendicular to the line. With a round entity it lies on both and on the line through the centres.
+        def ends(e):
+            return [e["a"], e["b"]] if e["type"] == "line" else [e["start"], e["end"]] if e["type"] == "arc" else []
+
+        return any(math.dist(self._coords(p), self._coords(q)) < 1e-6 for p in ends(entities[id_a]) for q in ends(entities[id_b]))
+
+    def _round_tangent(self, id_a: int, id_b: int, constraint_id):
+        """Tangency that SolveSpace has no direct constraint for (a circle, or an arc that does not share an end
+        point), built from plain constraints.
+
+        With a line: if a line end already lies on the round entity, its radius to that end is made perpendicular
+        to the line; otherwise a hidden touching point on both, with the radius to it perpendicular to the line.
+        With another round entity: a hidden touching point on both and on the line through the centres.
         """
         s, wp, g = self.system, self.workplane, SOLVE_GROUP
         entities = {e["id"]: e for e in self.sketch["entities"]}
         a, b = entities[id_a], entities[id_b]
-        if a["type"] != "circle":
+        if a["type"] == "line":  # the round entity comes first
             a, b, id_a, id_b = b, a, id_b, id_a
-        coords = {p["id"]: (p["u"], p["v"]) for p in self.sketch["points"]}
-        for pid in self.points:
-            coords[pid] = self._coords(pid)
+        coords = {pid: self._coords(pid) for pid in self.points}
         centre = coords[a["center"]]
+        radius = a["radius"] if a["type"] == "circle" else math.dist(centre, coords[a["start"]])
+        handles = []
         if b["type"] == "line":
+            on_round = [q for q in (b["a"], b["b"]) if abs(math.dist(coords[q], centre) - radius) < 1e-6 * (1 + radius)]
+            if on_round:
+                end = on_round[0]
+                has_point_on = any(c.get("type") == "point_on" and c.get("point") == end and c.get("entity") == id_a for c in self.sketch.get("constraints", []))
+                if not has_point_on:
+                    handles.append(s.addPointOnCircle(self._point(end), self.entities[id_a][1], g))
+                spoke = s.addLineSegment(self._point(a["center"]), self._point(end), g)
+                handles.append(s.addPerpendicular(spoke, self.entities[id_b][1], wp, g))
+                return handles
             p0, p1 = coords[b["a"]], coords[b["b"]]
             dx, dy = p1[0] - p0[0], p1[1] - p0[1]
             t = ((centre[0] - p0[0]) * dx + (centre[1] - p0[1]) * dy) / (dx * dx + dy * dy or 1.0)
@@ -235,13 +258,13 @@ class _Solver:
         else:
             other = coords[b["center"]]
             d = math.dist(centre, other) or 1.0
-            guess = (centre[0] + (other[0] - centre[0]) * a["radius"] / d, centre[1] + (other[1] - centre[1]) * a["radius"] / d)
+            guess = (centre[0] + (other[0] - centre[0]) * radius / d, centre[1] + (other[1] - centre[1]) * radius / d)
         touch = s.addPoint2dV(wp, guess[0], guess[1], g)
-        handles = [s.addPointOnCircle(touch, self.entities[id_a][1], g)]
+        handles.append(s.addPointOnCircle(touch, self.entities[id_a][1], g))
         if b["type"] == "line":
-            radius = s.addLineSegment(self._point(a["center"]), touch, g)
+            spoke = s.addLineSegment(self._point(a["center"]), touch, g)
             handles.append(s.addPointOnLine(touch, self.entities[id_b][1], wp, g))
-            handles.append(s.addPerpendicular(radius, self.entities[id_b][1], wp, g))
+            handles.append(s.addPerpendicular(spoke, self.entities[id_b][1], wp, g))
         else:
             through = s.addLineSegment(self._point(a["center"]), self._point(b["center"]), g)
             handles.append(s.addPointOnCircle(touch, self.entities[id_b][1], g))
