@@ -484,3 +484,23 @@ def test_placement_tools_declare_their_point_parameters():
         assert info["placement"] is not None
         assert all(name in {p["name"] for p in info["params"]} for name in info["placement"])
     assert TOOLS["push_pull"].describe()["placement"] is None
+
+
+def test_fillet_per_edge_gives_each_edge_its_own_radius(block):
+    _, edge = _top_face_and_edge(block)
+    other = next(e for e in range(block.edge_count) if e != edge and e not in (edge,))
+    only_one = run("fillet_per_edge", block, edges=[edge], radii=[[2, 0]])
+    constant_same = run("fillet_per_edge", block, edges=[edge], radii=[2])  # bare numbers mean a constant radius
+    assert volume(only_one.shape) == pytest.approx(volume(constant_same.shape))
+    variable = run("fillet_per_edge", block, edges=[edge], radii=[[1, 4]])
+    assert volume(variable.shape) < 24000
+    assert volume(variable.shape) != pytest.approx(volume(only_one.shape))
+    # a start of 0 leaves that edge sharp; all zero is refused
+    skipped = run("fillet_per_edge", block, edges=[edge, other], radii=[[2, 0], [0, 0]])
+    assert volume(skipped.shape) == pytest.approx(volume(only_one.shape))
+    with pytest.raises(OperationError):
+        run("fillet_per_edge", block, edges=[edge], radii=[[0, 0]])
+    with pytest.raises(OperationError):
+        run("fillet_per_edge", block, edges=[edge, other], radii=[[2, 0]])  # one radius for two edges
+    with pytest.raises(OperationError):
+        run("fillet_per_edge", block, edges=[edge], radii="big")

@@ -186,3 +186,7 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 - **Only cylinder faces unroll** (`unwrap.py`). Cones, spheres, tori, free-form faces and several faces at once are refused. A cylinder face that spans the seam (a full tube) is unrolled from its angle range, so regions crossing the seam are not tested.
 - **Outlines map as 48-point interpolated curves**, not exact ellipses or helices; lines and regions are exact in size (checked by area). *Symptom:* a circle on a small cylinder imprints with a slightly different outline than a true curve.
 - **The unrolled sketch has no extrude, revolve or model-edge projection**; finishing only imprints regions onto the cylinder face. Sketches are not kept.
+
+## Fillet per edge
+
+- **Rows are labelled by edge id** (`toolpanel.ts` `perEdgeRows`), not by position or a highlight, so with many edges it is hard to tell which row is which. Per edge a start and end radius: end 0 or equal to start is constant, start 0 leaves the edge sharp. Chamfers cannot be variable (kernel). *Symptom:* the wrong edge rounded after reading the ids; a preview error when edge radii clash at a shared vertex.

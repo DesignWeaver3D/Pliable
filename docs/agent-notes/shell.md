@@ -18,3 +18,10 @@ Sessions: S39, S40, S13. Not edited: docs/progress.md, docs/questions.md.
 
 ## Where to resume
 All three sessions are done on this branch; nothing is half-done. Remaining ideas: sketch keys under the key router, unsaved-work warning, usage counts for sketch tools.
+
+# Wave 2a
+
+## S37 per-edge fillet form: Done
+- Core: new param kind `per_edge` (`Param`, `_bind_pairs` in tools.py: a list of [start, end] pairs or bare numbers, one per selected edge in selection order) and tool `fillet_per_edge` (features.py): end 0 or equal to start is constant, start 0 leaves the edge sharp. Test in test_features.py.
+- Frontend: `toolpanel.ts` renders one row per selected edge (`ParamValue` type, host `selectedEdges`), tool listed in the Edges group of layout.ts. Checked in Chrome on the bracket top face edges (rows and preview).
+- Decision: a new tool instead of changing Variable fillet, so the existing one keeps its simple two-number form. If the owner wants one tool, fold the old one into this one.
