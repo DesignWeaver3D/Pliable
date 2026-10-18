@@ -1212,7 +1212,9 @@ class FilletPerEdge(Tool):
             raise OperationError(f"Give one radius per edge: {len(selection.edges)} edges selected, {len(radii)} radii")
         maker = BRepFilletAPI_MakeFillet(topology.shape)
         edges = []
-        for edge_id, (start, end) in zip(selection.edges, radii):
+        # The kernel can leave stray zero-length edges at corners when edges are added in a different order than
+        # the model stores them, so add them in id order whatever the order they were picked in.
+        for edge_id, (start, end) in sorted(zip(selection.edges, radii), key=lambda pair: pair[0]):
             if start < 0 or end < 0:
                 raise OperationError("Radii cannot be negative")
             if start < MIN_DISTANCE:

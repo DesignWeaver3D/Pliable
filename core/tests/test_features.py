@@ -504,3 +504,26 @@ def test_fillet_per_edge_gives_each_edge_its_own_radius(block):
         run("fillet_per_edge", block, edges=[edge, other], radii=[[2, 0]])  # one radius for two edges
     with pytest.raises(OperationError):
         run("fillet_per_edge", block, edges=[edge], radii="big")
+
+
+def test_fillet_per_edge_leaves_no_open_edges_in_any_pick_order():
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+
+    from pliable.demos import bracket
+    from pliable.document import Document
+    from pliable.server import Session
+
+    session = Session()
+    session.document = Document(bracket(), "b")
+    top = session.document.current
+    picked = [50, 33, 27, 40, 38, 41, 42, 44, 46, 48]  # the top face edges in the order the app lists them
+    session.handle({"type": "tool_commit", "tool": "fillet_per_edge", "selection": {"edges": picked}, "params": {"radii": [[2, 0]] * 10}})
+    result = session.document.current
+    assert result.face_count > top.face_count
+    open_edges = [e for _, e in result.edges() if len(result.edge_faces(e)) == 1 and not BRepAdaptor_Curve(e).IsClosed()]
+    assert open_edges == []
+    again = Session()
+    again.document = Document(bracket(), "b")
+    again.handle({"type": "tool_commit", "tool": "fillet_chamfer", "selection": {"edges": picked}, "params": {"distance": 2}})
+    result = again.document.current
+    assert [e for _, e in result.edges() if len(result.edge_faces(e)) == 1 and not BRepAdaptor_Curve(e).IsClosed()] == []
