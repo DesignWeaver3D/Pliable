@@ -20,8 +20,10 @@ ANGULAR_TOL = 1e-6
 # id -> label shown on the chip; the order is the order chips appear
 RULES = {
     "coplanar": "Coplanar",
+    "parallel": "Parallel",
     "equal_radius": "Equal radius",
     "coaxial": "Coaxial",
+    "symmetric": "Symmetric",
 }
 
 
@@ -57,6 +59,47 @@ def _same_line(a, b) -> bool:
     return math.dist(offset, [along * d for d in da]) < LINEAR_TOL
 
 
+def _same_direction(a, b) -> bool:
+    return all(abs(x - y) < ANGULAR_TOL for x, y in zip(a, b))
+
+
+def _face_signature(face) -> tuple[str, float, tuple[float, float, float]]:
+    """(surface type, area, centre of mass) used to find a face's mirror image."""
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+
+    props = GProp_GProps()
+    BRepGProp.SurfaceProperties_s(face, props)
+    c = props.CentreOfMass()
+    return str(BRepAdaptor_Surface(face).GetType()), props.Mass(), (c.X(), c.Y(), c.Z())
+
+
+def _symmetric_faces(topology: Topology, face_id: int) -> list[int]:
+    """Faces that are the mirror image of the face across a mid-plane of the model's bounding box (one of the
+    three planes through the box centre), of the same surface type and area. A face on the plane is its own mirror."""
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+
+    box = Bnd_Box()
+    BRepBndLib.Add_s(topology.shape, box)
+    lo, hi = box.CornerMin(), box.CornerMax()
+    middle = ((lo.X() + hi.X()) / 2, (lo.Y() + hi.Y()) / 2, (lo.Z() + hi.Z()) / 2)
+    kind, area, centre = _face_signature(topology.face(face_id))
+    found = set()
+    for other_id, other in topology.faces():
+        if other_id == face_id:
+            continue
+        other_kind, other_area, other_centre = _face_signature(other)
+        if other_kind != kind or abs(other_area - area) > 1e-4 * max(area, 1.0):
+            continue
+        for axis in range(3):
+            mirrored = list(centre)
+            mirrored[axis] = 2 * middle[axis] - centre[axis]
+            if abs(mirrored[axis] - centre[axis]) > LINEAR_TOL * 10 and math.dist(mirrored, other_centre) < 1e-4:
+                found.add(other_id)
+    return sorted(found)
+
+
 def find_related(topology: Topology, face_id: int) -> list[dict]:
     """Rules with at least one matching face: [{"id", "label", "faces": [face ids]}] (the face itself excluded)."""
     face = topology.face(face_id)
@@ -70,6 +113,8 @@ def find_related(topology: Topology, face_id: int) -> list[dict]:
             key = _plane_key(other)
             if key is not None and all(abs(a - b) < ANGULAR_TOL for a, b in zip(plane[0], key[0])) and abs(plane[1] - key[1]) < LINEAR_TOL:
                 found.setdefault("coplanar", []).append(other_id)
+            elif key is not None and _same_direction(plane[0], key[0]):
+                found.setdefault("parallel", []).append(other_id)
         if cylinder is not None:
             key = _cylinder_key(other)
             if key is None:
@@ -78,6 +123,9 @@ def find_related(topology: Topology, face_id: int) -> list[dict]:
                 found.setdefault("equal_radius", []).append(other_id)
             if abs(cylinder[0] - key[0]) >= LINEAR_TOL and _same_line(cylinder[1:3], key[1:3]):
                 found.setdefault("coaxial", []).append(other_id)
+    mirrors = _symmetric_faces(topology, face_id)
+    if mirrors:
+        found["symmetric"] = mirrors
     return [{"id": rule, "label": RULES[rule], "faces": found[rule]} for rule in RULES if rule in found]
 
 

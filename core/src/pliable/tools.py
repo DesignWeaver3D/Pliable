@@ -215,7 +215,7 @@ class PushPull(Tool):
     description = "Moves flat faces in or out along their normal, adding or removing material. Select one or more flat faces, then drag or type a distance. Alt+click cycles through faces under the cursor."
     accepts = Accepts(faces=(1, None))
     params = [Param("distance", "length", drag=True)]
-    related = ("coplanar",)
+    related = ("coplanar", "parallel")
 
     def applies(self, topology, selection):
         normals = [planar_normal(topology.face(i)) for i in selection.faces]

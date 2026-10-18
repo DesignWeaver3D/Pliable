@@ -110,6 +110,7 @@ export class ReferenceView {
         }
       }
     }
+    for (const p of this.viewport.shownCentres) candidates.push({ point: p, label: "Hole centre" });
     // Model vertices; hidden ones (well behind the face under the pointer) are skipped.
     const data = this.viewport.meshData;
     const hitDistance = face ? this.viewport.camera.position.distanceTo(face.point) : Infinity;

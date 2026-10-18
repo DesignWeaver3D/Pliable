@@ -74,8 +74,8 @@ interface RelatedRule {
 }
 let related: RelatedRule[] = [];
 // What a tool applies to is decided per tool: a saved choice for the tool, else a saved choice for all tools,
-// else the tool's own default, else the base default. A hole moves alone unless the user adds its twins.
-const BASE_RULES: Record<string, boolean> = { coplanar: true, equal_radius: false, coaxial: false };
+// else the tool's own default, else the base default. Until a rule is defined for a tool, its chip is shown but off.
+const BASE_RULES: Record<string, boolean> = { coplanar: false, parallel: false, equal_radius: false, coaxial: false, symmetric: false };
 const TOOL_RULES: Record<string, Record<string, boolean>> = { resize_hole: { equal_radius: true } };
 const RULES_KEY = "pliable.rules";
 let ruleChoices: Record<string, boolean> = {};
@@ -113,14 +113,28 @@ function renderChips() {
   const shown = related.filter((r) => r.faces.length);
   const ctx = chipTool();
   const ruleOn = (id: string) => ruleFor(ctx, id);
+  const all = (label: string, on: boolean) => {
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.className = "all";
+    b.title = on ? "Include every related face shown here in the selection" : "Include none of the related faces; tools change only the selected face";
+    b.addEventListener("click", () => {
+      for (const rule of shown) setRule(ctx, rule.id, on);
+      renderChips();
+      renderToolbar();
+      toolPanel.renderList();
+    });
+    return b;
+  };
   chips.replaceChildren(
+    ...(shown.length > 1 ? [all("All", true), all("None", false)] : []),
     ...shown.map((rule) => {
       const b = document.createElement("button");
       const n = rule.faces.length;
       const what = `${rule.label.toLowerCase()} face${n === 1 ? "" : "s"}`;
       b.textContent = `${ruleOn(rule.id) ? "✔ With" : "+ Add"} ${n} ${what}`;
       b.className = ruleOn(rule.id) ? "on" : "";
-      b.title = ruleOn(rule.id) ? `Tools change the selected face and the ${n} ${what} together; click to change only the selected face` : `Tools change only the selected face; click to include the ${n} ${what} too`;
+      b.title = ruleOn(rule.id) ? `The ${n} ${what} are included with the selected face; click to exclude them` : `The ${n} ${what} are not included yet; click to include them with the selected face`;
       b.addEventListener("click", () => {
         setRule(ctx, rule.id, !ruleOn(rule.id));
         renderChips();

@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { MeshData } from "./client";
+import type { CentreInfo, MeshData } from "./client";
 import { onSettingsChange, settings, updateSettings } from "./settings";
 
 export type Kind = "face" | "edge" | "vertex";
@@ -104,6 +104,9 @@ export class Viewport {
   private surfaceMaterial: THREE.MeshStandardMaterial | null = null;
   private edgeMaterial: THREE.LineBasicMaterial | null = null;
   private hovered: Sel | null = null;
+  /** Hole centres currently shown: those of the hovered or selected hole faces and the centres of circular edges. */
+  private centresShown: CentreInfo[] = [];
+  private centreDots: THREE.Points | null = null;
   private selected: Sel[] = [];
   private markSource: THREE.BufferGeometry | null = null;
   private selectedMarks: Mark[] = [];
@@ -718,6 +721,7 @@ export class Viewport {
     }
     this.hovered = null;
     this.selected = [];
+    this.centresShown = [];
     this.selectedMarks = [];
     this.relatedMarks = [];
     this.data = mesh;
@@ -744,11 +748,11 @@ export class Viewport {
     edges.setAttribute("position", new THREE.BufferAttribute(mesh.edgePositions, 3));
     this.edgeMaterial = new THREE.LineBasicMaterial({ color: 0x111418 });
     this.model.add(new THREE.LineSegments(edges, this.edgeMaterial));
-    if (mesh.centres.length) {
-      const dots = new THREE.BufferGeometry();
-      dots.setAttribute("position", new THREE.BufferAttribute(new Float32Array(mesh.centres.flatMap((c) => c.position)), 3));
-      this.model.add(new THREE.Points(dots, new THREE.PointsMaterial({ color: 0x4fc3f7, size: 6, sizeAttenuation: false })));
-    }
+    // Hole centre dots are drawn only for the hovered or selected hole (see refreshCentres).
+    this.centreDots = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: 0x4fc3f7, size: 7, sizeAttenuation: false, depthTest: false }));
+    this.centreDots.renderOrder = 3;
+    this.model.add(this.centreDots);
+    this.refreshCentres();
     this.applySeeThrough();
 
     if (frame) this.frame(mesh.bounds);
@@ -1056,11 +1060,11 @@ export class Viewport {
 
   /** Pressing on a hole centre dot (not just near the hole) begins moving that hole; returns whether it did. */
   private startCentreDrag(e: PointerEvent): boolean {
-    if (!this.data?.centres.length || e.ctrlKey || e.metaKey) return false;
+    if (!this.centresShown.length || e.ctrlKey || e.metaKey) return false;
     const rect = this.renderer.domElement.getBoundingClientRect();
     const px = e.clientX - rect.left;
     const py = e.clientY - rect.top;
-    for (const c of this.data.centres) {
+    for (const c of this.centresShown) {
       const p = new THREE.Vector3(...c.position);
       const n = p.clone().project(this.camera);
       if (n.z > 1 || Math.hypot(((n.x + 1) / 2) * rect.width - px, ((1 - n.y) / 2) * rect.height - py) > CENTRE_HANDLE_PX || this.occluded(p)) continue;
@@ -1128,7 +1132,7 @@ export class Viewport {
   private nearestCentre(px: number, py: number, rect: DOMRect): Hit | null {
     let best: Hit | null = null;
     let bestDistance = settings.vertexPickPx;
-    for (const c of this.data!.centres) {
+    for (const c of this.centresShown) {
       const p = new THREE.Vector3(...c.position);
       const n = p.clone().project(this.camera);
       if (n.z > 1) continue;
@@ -1199,9 +1203,65 @@ export class Viewport {
     return best;
   }
 
+  /** The centre of a circular edge, found from the hole centres: every point of the edge is one radius from it. */
+  private circleCentre(edgeId: number): CentreInfo | null {
+    const data = this.data;
+    const edge = data?.edges.find((e) => e.id === edgeId);
+    if (!data || !edge || edge.count < 4) return null;
+    const pts: THREE.Vector3[] = [];
+    for (let i = edge.start; i < edge.start + edge.count; i++) pts.push(new THREE.Vector3().fromArray(data.edgePositions, i * 3));
+    const tol = 1e-3;
+    for (const c of data.centres) {
+      const centre = new THREE.Vector3(...c.position);
+      const axis = new THREE.Vector3(...c.axis).normalize();
+      let axial: number | null = null;
+      let radius: number | null = null;
+      let ok = true;
+      for (const p of pts) {
+        const d = p.clone().sub(centre);
+        const along = d.dot(axis);
+        const r = d.addScaledVector(axis, -along).length();
+        axial ??= along;
+        radius ??= r;
+        if (Math.abs(along - axial) > tol || Math.abs(r - radius) > tol || r < tol) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok && axial !== null) return { face: c.face, position: centre.addScaledVector(axis, axial).toArray() as [number, number, number], axis: c.axis };
+    }
+    return null;
+  }
+
+  /** Show centre dots only for the hovered or selected holes and circular edges. */
+  private refreshCentres() {
+    const shown: CentreInfo[] = [];
+    for (const sel of [this.hovered, ...this.selected]) {
+      if (!sel || !this.data) continue;
+      if (sel.kind === "face") shown.push(...this.data.centres.filter((c) => c.face === sel.id));
+      else if (sel.kind === "edge") {
+        const c = this.circleCentre(sel.id);
+        if (c) shown.push(c);
+      }
+    }
+    this.centresShown = shown;
+    if (this.centreDots) {
+      this.centreDots.geometry.dispose();
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(shown.flatMap((c) => c.position)), 3));
+      this.centreDots.geometry = g;
+    }
+  }
+
+  /** World points of the hole and circle centres currently shown, for use as snap targets. */
+  get shownCentres(): THREE.Vector3[] {
+    return this.centresShown.map((c) => new THREE.Vector3(...c.position));
+  }
+
   private setHover(sel: Sel | null) {
     if (sel?.kind === this.hovered?.kind && sel?.id === this.hovered?.id) return;
     this.hovered = sel;
+    this.refreshCentres();
     this.show(this.hoverMark, sel);
     this.renderer.domElement.style.cursor = sel ? "pointer" : "";
   }
@@ -1221,6 +1281,7 @@ export class Viewport {
   /** Select programmatically (no onSelect callback). */
   selectItems(sels: Sel[]) {
     this.selected = sels;
+    this.refreshCentres();
     while (this.selectedMarks.length < sels.length && this.markSource) {
       this.selectedMarks.push(new Mark(this.model, this.markSource, 0xff8a1f, 0.85, this.selectedLine));
     }

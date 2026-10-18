@@ -79,3 +79,6 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - `THIRD_PARTY_NOTICES.md` was written from memory of each project's license; verify before the first release.
 - The busy indicator appears after 400 ms for requests not on the quiet list (previews, sketch solves, lookups) in `app/src/client.ts`, shows elapsed seconds only.
 - Orthographic still looks off to the owner (see decisions-log).
+
+- Symmetric chip mirrors across the three mid-planes of the model bounding box only; parallel chip finds same-direction planar faces only. No tool declares the symmetric chip yet, so it highlights but does not feed a tool.
+- Circular edge centre is recovered by matching hole centres (full holes and bosses only). Hole centre snaps appear only for hovered or selected holes.
