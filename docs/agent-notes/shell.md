@@ -36,3 +36,19 @@ All three sessions are done on this branch; nothing is half-done. Remaining idea
 - Checked in Chrome: Escape leaves a sketch with the pointer over the view. Tests: 178 core, 21 node.
 ## Resume
 Wave 2a items are all done; nothing half-done.
+
+# Wave 2b
+
+## S41 autosave with several running copies: Done
+- `core/src/pliable/autosave.py`: each Autosaver owns `autosave/inst_<id>/` with `lock.json` (pid, touched every 5 s). An instance is dead when its lock is older than 30 s or its pid is gone (so a killed server is offered at once). Only dead instances' sessions are offered, newest first; a restore claims the session with an atomic rename and deletes it (offered once). At most 5 dead sessions are kept (`MAX_OLD_SESSIONS`). `session.json` has `format` (1); newer formats are never offered or deleted; missing format counts as 0 and is offered. The old flat layout is adopted as an old session. `PLIABLE_DATA` still overrides; clean exit still keeps the session (marked clean, lock removed). server.py asks for `available(unclean_only=True)` so clean sessions are not prompted, as before.
+- Tests (test_autosave.py): two live instances never touch each other, crash offered once newest first, concurrent claim, cap, newer format, no format, flat layout, a really killed subprocess.
+- Decisions (change if the owner disagrees): 30 s staleness, cap of 5, a restore deletes the source session (so it cannot be restored twice), a second browser tab on the same core after a restore may be offered the next older dead session, empty dead folders are pruned.
+- Checked in Chrome: edited (opened a demo), a second core on 8901 sharing the data folder made its own folder and did not offer or touch the first's session, killed the first core, restarted it, the prompt offered the session, Restore brought the model back.
+
+## S42 alpha notice once per user: Done
+- `core/src/pliable/notice.py` (`NOTICE_EPOCH = 1`, `notice.json` in the data folder, temp file plus rename); requests `notice_get` and `notice_ack` (docs/protocol.md); `alpha.ts` `showLaunchNotice(core)` asks the core after connecting (called from main.ts), shows the notice unless acknowledged, records the click. If the core cannot answer the notice is shown. Text, ALPHA tag and diagnostics unchanged.
+- Decision: a different `PLIABLE_DATA` folder counts as a different user.
+- Checked in Chrome: first load shows it, I understand then reload does not, a fresh data folder shows it again.
+
+## Resume
+Both sessions done; nothing half-done. Watchlist entry added at the end of docs/watchlist.md (it also makes the older "Autosave with several instances" entry out of date; the owner or orchestrator may tidy it).

@@ -297,3 +297,27 @@ def test_export_mesh_formats(fmt, marker):
         assert marker in data[:2000] or data.startswith(marker)
     with pytest.raises(Exception):
         session.handle({"type": "export_mesh", "format": "dxf"})
+
+
+def test_notice_acknowledgement_is_per_user_and_survives_instances(tmp_path, monkeypatch):
+    from pliable import notice
+    from pliable.autosave import Autosaver
+
+    monkeypatch.setenv("PLIABLE_DATA", str(tmp_path))
+    first = Session(Autosaver(tmp_path))
+    assert first.handle({"type": "notice_get"}) == {"acknowledged": False, "epoch": notice.NOTICE_EPOCH}
+    first.handle({"type": "notice_ack"})
+    other = Session(Autosaver(tmp_path))  # another instance reads the same user-level file
+    assert other.handle({"type": "notice_get"})["acknowledged"] is True
+    assert (tmp_path / "notice.json").exists() and not list(tmp_path.glob("*.tmp"))
+    monkeypatch.setattr(notice, "NOTICE_EPOCH", notice.NOTICE_EPOCH + 1)  # risks changed: ask again
+    assert other.handle({"type": "notice_get"})["acknowledged"] is False
+
+
+def test_notice_survives_a_corrupt_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("PLIABLE_DATA", str(tmp_path))
+    (tmp_path / "notice.json").write_text("{not json")
+    session = Session()
+    assert session.handle({"type": "notice_get"})["acknowledged"] is False
+    session.handle({"type": "notice_ack"})
+    assert session.handle({"type": "notice_get"})["acknowledged"] is True

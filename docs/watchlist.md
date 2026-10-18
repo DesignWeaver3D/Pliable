@@ -235,3 +235,8 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Resize hole also resizes same-size holes by default
 
 - **Resize hole applies to every hole of the same size unless the chip is turned off; every other tool defaults to the selected feature only.** The per-tool defaults are `TOOL_RULES` and `ruleFor` in `main.ts` (S35, wave 2a). *Symptom:* resizing one hole of a pattern changes all of them, while moving a hole still moves only that one, so the two tools behave differently. The owner chose to keep this for now (2026-10-18). *Proposed fix if someone reports it as surprising:* set the Resize hole default to off like the other tools, or show a one-time hint on the chip saying how many other holes the change will touch.
+
+## Alpha notice acknowledgement and autosave instances (S41, S42)
+
+- **The alpha notice is acknowledged once per user** (`notice.json` in the shared data folder, `NOTICE_EPOCH` in `notice.py`). Bump the epoch only if the risks change materially. If the core cannot be reached the notice is shown. A separate `PLIABLE_DATA` folder (or a portable copy) is its own user.
+- **Autosave liveness is a heartbeat plus a process check.** An instance is dead when its lock file is older than 30 s or its process id is gone; a hung but running process still counts as live while it heartbeats, and a reused process id after a crash can make a dead session look live for up to 30 s. Old sessions are capped at 5; sessions from a newer format are neither offered nor deleted, so they can accumulate. A release that still uses the old flat layout would write beside the new folders; its files are adopted as an old session on the next start.

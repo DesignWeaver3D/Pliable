@@ -21,6 +21,7 @@ from websockets.datastructures import Headers
 from websockets.http11 import Response
 
 from . import __version__, sketch, unwrap
+from . import notice
 from .autosave import Autosaver
 from .demos import load_demo
 from . import diagnostics
@@ -56,9 +57,7 @@ class Session:
         self.usage = Usage()  # local tool-usage counts, shown in the diagnostics report only
         self.last_tool: dict | None = None  # name and outcome of the newest tool run, for diagnostics
         self.import_warnings: list[str] = []
-        self.unclean = autosaver.available() if autosaver else None  # offered once, if the previous run was killed
-        if self.unclean and self.unclean["clean"]:
-            self.unclean = None
+        self.unclean = autosaver.available(unclean_only=True) if autosaver else None  # a dead instance's session, offered until restored
 
     def _autosave(self, fresh: bool = False):
         if self.autosaver and self.document:
@@ -113,6 +112,11 @@ class Session:
         if kind == "usage_event":
             self.usage.record(request.get("tool"), request.get("event"), request.get("surface"))
             return {}
+        if kind == "notice_get":
+            return {"acknowledged": notice.acknowledged(), "epoch": notice.NOTICE_EPOCH}
+        if kind == "notice_ack":
+            notice.acknowledge()
+            return {"acknowledged": True, "epoch": notice.NOTICE_EPOCH}
         if kind == "usage_clear":
             self.usage.clear()
             return {}
