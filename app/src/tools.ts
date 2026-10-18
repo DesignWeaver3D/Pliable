@@ -7,6 +7,8 @@ type Range = [number, number | null];
 export interface ToolInfo {
   id: string;
   label: string;
+  /** Plain-language sentence(s) on what the tool does and what to select; shown in tooltips. */
+  description?: string;
   accepts: { faces: Range; edges: Range; vertices?: Range };
   params: { name: string; kind: string; default: number; drag: boolean }[];
   /** Relationship rules whose matching faces join the selection when switched on. */
@@ -39,6 +41,14 @@ export function describeNeeds(tool: ToolInfo): string {
   return [needs(tool.accepts.faces, "face"), needs(tool.accepts.edges, "edge"), needs(tool.accepts.vertices ?? [0, 0], "vertex")]
     .filter(Boolean)
     .join(" + ");
+}
+
+/** Tooltip for a tool button or search row: "<label>: <description> (<shortcut>)", then what the selection must hold. */
+export function toolTooltip(tool: ToolInfo, shortcut = ""): string {
+  const what = tool.description?.trim() || `${tool.label} (no description available)`;
+  const needs = describeNeeds(tool);
+  return `${tool.label}: ${what}${shortcut ? ` (${shortcut})` : ""}
+${needs ? `Needs: ${needs}` : "No selection needed"}`;
 }
 
 export function dragParam(tool: ToolInfo): string | null {

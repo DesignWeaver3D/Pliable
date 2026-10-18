@@ -125,6 +125,8 @@ def _bind_pairs(param: "Param", raw) -> list[list[float]]:
 class Tool:
     id: str
     label: str
+    # One or two plain sentences for the tooltip: what the tool does and what to select (required, see tests/test_tool_descriptions.py).
+    description: str = ""
     accepts: Accepts
     params: list[Param] = []
     # Relationship rules (see relations.py) whose matching faces join the selection when the user has them on.
@@ -181,6 +183,7 @@ class Tool:
         return {
             "id": self.id,
             "label": self.label,
+            "description": self.description,
             "accepts": self.accepts.to_json(),
             "params": [p.to_json() for p in self.params],
             "related": list(self.related),
@@ -209,6 +212,7 @@ def get_tool(tool_id: str) -> Tool:
 class PushPull(Tool):
     id = "push_pull"
     label = "Push/Pull"
+    description = "Moves flat faces in or out along their normal, adding or removing material. Select one or more flat faces, then drag or type a distance. Alt+click cycles through faces under the cursor."
     accepts = Accepts(faces=(1, None))
     params = [Param("distance", "length", drag=True)]
     related = ("coplanar",)
@@ -231,6 +235,7 @@ class PushPullSurface(Tool):
 
     id = "push_pull_surface"
     label = "Emboss/Cut along surface"
+    description = "Raises or cuts curved faces along their surface normal, for example a pattern drawn on unrolled faces. Select curved faces and type a distance; positive raises, negative cuts."
     accepts = Accepts(faces=(1, None))
     # Not a drag tool: curved faces have no single drag direction, so the distance comes from the form.
     params = [Param("distance", "length", default=1.0)]
@@ -251,6 +256,7 @@ class FilletChamfer(Tool):
 
     id = "fillet_chamfer"
     label = "Fillet/Chamfer"
+    description = "Rounds or bevels the selected edges. Select edges, then drag outward to round (fillet) or inward to bevel (chamfer), or type a distance."
     accepts = Accepts(edges=(1, None))
     params = [Param("distance", "length", drag=True)]
 

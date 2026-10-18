@@ -160,6 +160,7 @@ export class KeyRouter {
       const toggle = document.createElement("input");
       toggle.type = "checkbox";
       toggle.checked = this.keymap.data.singleKeys;
+      toggle.title = "Turn keys that need no Ctrl or Alt on or off; Ctrl and Alt shortcuts always work";
       toggle.onchange = () => {
         this.keymap.data = { ...this.keymap.data, singleKeys: toggle.checked };
         save(this.keymap);
@@ -182,10 +183,12 @@ export class KeyRouter {
         const change = document.createElement("button");
         change.textContent = capturing === c.id ? "Press a key..." : "Change";
         change.onclick = () => { capturing = c.id; message = ""; render(); };
+        change.title = `Choose a new key for: ${c.label}`;
         change.hidden = !!c.fixed;
         const reset = document.createElement("button");
         reset.textContent = "Reset";
         reset.disabled = !(c.id in this.keymap.data.bindings);
+        reset.title = "Go back to the default key for this command";
         reset.hidden = !!c.fixed;
         reset.onclick = () => { this.keymap.reset(c.id); save(this.keymap); message = ""; render(); };
         row.append(label, keyText, change, reset);
@@ -195,9 +198,11 @@ export class KeyRouter {
       buttons.style.cssText = "display:flex;gap:8px;justify-content:flex-end;margin-top:10px";
       const all = document.createElement("button");
       all.textContent = "Restore defaults";
+      all.title = "Put every shortcut back to its default key";
       all.onclick = () => { this.keymap.resetAll(); this.keymap.data = { ...this.keymap.data, singleKeys: true }; save(this.keymap); message = ""; this.refreshRing(); render(); };
       const done = document.createElement("button");
       done.textContent = "Close";
+      done.title = "Close the shortcut list";
       done.onclick = close;
       buttons.append(all, done);
       card.replaceChildren(title, rules, single, note, table, buttons);

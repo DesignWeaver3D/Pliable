@@ -2,6 +2,8 @@
 
 export interface Command {
   label: string;
+  /** Tooltip for the row (what the command does). */
+  title?: string;
   /** Extra text shown on the right (e.g. what selection a tool needs). */
   hint?: string;
   /** Disabled commands are listed but cannot run. */
@@ -70,6 +72,7 @@ export class Palette {
         row.className = "row" + (i === this.active ? " active" : "") + (command.enabled ? "" : " disabled");
         const label = document.createElement("span");
         label.textContent = command.label;
+        if (command.title) row.title = command.title;
         const hint = document.createElement("span");
         hint.className = "hint";
         hint.textContent = command.hint ?? "";

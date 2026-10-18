@@ -87,14 +87,14 @@
   <body>
     <div id="viewport"></div>
     <div id="bar">
-      <select id="demo">
+      <select id="demo" title="Open one of the built-in demo models">
         <option>bracket</option>
         <option>block</option>
         <option>perforated_plate</option>
       </select>
       <button id="axes" title="Show or hide the principal axes and origin">Axes</button>
-      <button id="open">Open STEP</button>
-      <button id="export">Export STEP</button>
+      <button id="open" title="Open a STEP file from your computer, replacing the current model">Open STEP</button>
+      <button id="export" title="Save the current model as a STEP file">Export STEP</button>
       <input id="file" type="file" accept=".step,.stp" hidden />
       <select id="combinemode" title="How the combined STEP file joins the model">
         <option value="union">union</option>
@@ -103,10 +103,10 @@
       </select>
       <button id="combine" title="Combine another STEP file with the model (placed at its own origin)">Combine STEP</button>
       <input id="combinefile" type="file" accept=".step,.stp" hidden />
-      <button id="info">Model info</button>
+      <button id="info" title="Show the size, face and edge counts and any problems found in the model">Model info</button>
       <button id="editlast" disabled title="Undo the last operation and change its values">Edit last</button>
-      <button id="undo" disabled>Undo</button>
-      <button id="redo" disabled>Redo</button>
+      <button id="undo" disabled title="Undo the last change (Ctrl+Z)">Undo</button>
+      <button id="redo" disabled title="Redo the change you undid (Ctrl+Y)">Redo</button>
       <span id="status">connecting...</span>
       <span id="selected"></span>
       <span id="latency"></span>
@@ -123,7 +123,7 @@
     <div id="dim" hidden></div>
     <div id="palette" hidden>
       <div id="palette-box">
-        <input id="palette-input" placeholder="Type a command (Esc to close)" autocomplete="off" spellcheck="false" />
+        <input id="palette-input" title="Type to search tools and commands" placeholder="Type a command (Esc to close)" autocomplete="off" spellcheck="false" />
         <div id="palette-list"></div>
       </div>
     </div>

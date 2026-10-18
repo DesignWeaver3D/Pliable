@@ -642,9 +642,11 @@ export class SketchMode {
       };
       const ok = document.createElement("button");
       ok.textContent = "OK";
+      ok.title = "Accept this value";
       ok.addEventListener("click", () => done(Number.isFinite(Number(input.value)) ? Number(input.value) : null));
       const cancel = document.createElement("button");
       cancel.textContent = "Cancel";
+      cancel.title = "Leave the value unchanged";
       cancel.addEventListener("click", () => done(null));
       input.addEventListener("keydown", (e) => {
         e.stopPropagation();
@@ -1013,8 +1015,10 @@ export class SketchMode {
       this.extrude.open = true;
       this.schedulePreview();
     };
-    const number = (value: number, on: (n: number) => void) => {
+    const tip = (b: HTMLElement, text: string) => ((b.title = text), b);
+    const number = (value: number, on: (n: number) => void, tip = "") => {
       const input = document.createElement("input");
+      input.title = tip;
       input.type = "number";
       input.step = "any";
       input.value = String(value);
@@ -1024,47 +1028,49 @@ export class SketchMode {
     };
     const mode = document.createElement("select");
     for (const m of ["join", "new", "cut"]) mode.append(new Option(m === "join" ? "Join (add material)" : m === "new" ? "New body" : "Cut (remove material)", m, false, m === this.extrude.mode));
+    mode.title = "Add the new shape to the model, keep it as a separate body, or cut it out of the model";
     mode.addEventListener("change", () => preview(() => (this.extrude.mode = mode.value as "join" | "cut" | "new")));
     const symmetric = document.createElement("input");
     symmetric.type = "checkbox";
     symmetric.checked = this.extrude.symmetric;
+    symmetric.title = "Extrude the same distance both ways from the sketch plane";
     symmetric.addEventListener("change", () => preview(() => (this.extrude.symmetric = symmetric.checked)));
     const symmetricLabel = el("label", "crow");
     symmetricLabel.append(el("span", "", "Both directions"), symmetric);
 
     extrude.append(el("div", "group", "Extrude profile"));
     const row = el("div", "crow");
-    row.append(number(this.extrude.distance, (n) => ((this.extrude.distance = n), (this.extrude.revolve = false))), mode);
+    row.append(number(this.extrude.distance, (n) => ((this.extrude.distance = n), (this.extrude.revolve = false)), "Extrude distance"), mode);
     const go = el("div", "row-buttons");
     go.append(
-      button("Preview", () => {
+      tip(button("Preview", () => {
         this.extrude.revolve = false;
         this.extrude.open = true;
         this.sendExtrude(false);
-      }),
-      button("Extrude", () => {
+      }), "Show the result without changing the model"),
+      tip(button("Extrude", () => {
         this.extrude.revolve = false;
         this.extrude.open = true;
         this.sendExtrude(true);
-      }, "active"),
+      }, "active"), "Extrude the sketch regions into the model"),
     );
     extrude.append(row, symmetricLabel, go);
 
     extrude.append(el("div", "group", "Revolve about the selected line"));
     const spin = el("div", "crow");
-    spin.append(number(this.extrude.angle, (n) => ((this.extrude.angle = n), (this.extrude.revolve = true))), el("span", "", "degrees"));
+    spin.append(number(this.extrude.angle, (n) => ((this.extrude.angle = n), (this.extrude.revolve = true)), "Revolve angle in degrees"), el("span", "", "degrees"));
     const spinGo = el("div", "row-buttons");
     spinGo.append(
-      button("Preview", () => {
+      tip(button("Preview", () => {
         this.extrude.revolve = true;
         this.extrude.open = true;
         this.sendExtrude(false);
-      }),
-      button("Revolve", () => {
+      }), "Show the result without changing the model"),
+      tip(button("Revolve", () => {
         this.extrude.revolve = true;
         this.extrude.open = true;
         this.sendExtrude(true);
-      }, "active"),
+      }, "active"), "Spin the sketch regions around the selected line into the model"),
     );
     extrude.append(spin, spinGo);
 
@@ -1106,6 +1112,7 @@ export class SketchMode {
     const finish = button("Finish sketch", () => this.finish());
     finish.title = "Leave the sketch and keep its closed regions as faces you can push/pull or extrude";
     const exit = button("Discard sketch", () => this.exit());
+    exit.title = "Leave the sketch and throw it away without changing the model";
     this.panel.replaceChildren(header, status, tools, constraintsBox, ask, list, ...(flat ? [extrude] : []), finish, exit);
   }
 }
