@@ -4,7 +4,7 @@ Only real questions that need your answer. Each one ends with a question mark an
 
 ## Open questions
 
-Research on sketch placement and solver options is still running; more questions will be added when that report is in.
+All current research is in; questions follow below.
 
 ### Holes (S48; research is in docs/research/holes-scope.md)
 
@@ -25,6 +25,14 @@ Research on sketch placement and solver options is still running; more questions
 7. **Which key removes an item from a selection?** The drafting program you use removes with a modifier on click, other tools toggle with Ctrl. Options: (a) Shift adds and Ctrl toggles; (b) the drafting convention where a modifier removes; (c) both work. Default if unanswered: (a), with removal also on Alt only if it does not collide with Alt+click cycling.
 
 8. **Is a one-time dismissible hint the first time a hidden mode becomes available acceptable, with a setting to turn all hints off?** It is how the measure pick and see-through would be found without reading documentation. Options: (a) yes; (b) never interrupt, use the always-visible hint line only. Default if unanswered: (a).
+
+### Sketching (S43-S45; research is in docs/research/sketch-placement.md)
+
+9. **Should ellipses and splines get only endpoint constraints in the first version, or must their shape (axes, control points) be dimensionable?** The current solver has neither curve, so the cheap route is our own ellipse and spline entities whose ends can be constrained but whose shapes cannot; full shape constraints would mean replacing the solver. Options: (a) endpoint constraints only now; (b) replace the solver for full constraints. Default if unanswered: (a).
+
+10. **Should projected edges and points be one-off snapshots, or update when the model changes?** The app keeps no history, and the face outline already works as fixed reference geometry. Options: (a) snapshot, fixed in the sketch; (b) live links that follow the model. Default if unanswered: (a).
+
+11. **After a face, the principal planes and the view plane, which ways of placing a sketch matter most to you?** Each is a plane built from a different input. Options, in my suggested order: plane through three points; plane from an edge and a point; offset or angled plane from a face; plane normal to a curve; plane tangent to a surface at a picked point. Default if unanswered: that order.
 
 ## Topics you asked to discuss one at a time
 
