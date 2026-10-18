@@ -34,6 +34,8 @@ All current research is in; questions follow below.
 
 11. **After a face, the principal planes and the view plane, which ways of placing a sketch matter most to you?** Each is a plane built from a different input. Options, in my suggested order: plane through three points; plane from an edge and a point; offset or angled plane from a face; plane normal to a curve; plane tangent to a surface at a picked point. Default if unanswered: that order.
 
+12. **Should sketch tools add constraints on their own?** Today a rectangle adds horizontal and vertical constraints, lines snap to horizontal or vertical within 3 degrees, and snapping onto a curve or midpoint adds a point-on or midpoint constraint. The sketch agent could not reproduce geometry failing to float freely when dragged, and suspects these automatic constraints, so a rectangle or a snapped line is never really unconstrained. Options: (a) keep them but show each one clearly and make it removable with one click; (b) never add any automatically, you add constraints yourself; (c) keep as it is. If you can, tell me the exact steps where geometry did not float. Default if unanswered: (a).
+
 ## Topics you asked to discuss one at a time
 
 These are not questions yet; I will turn each into specific questions when you pick it: keyboard shortcuts (which modifier combinations, which keys are reserved and why, where the pointer must be), the sketch keys, and the unsaved-work warning.
