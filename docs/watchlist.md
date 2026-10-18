@@ -127,3 +127,7 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Live sketch measurements
 
 - The tag is read-only: typing a value to place the shape exactly is not built. No tag for arcs yet, and values are rounded to 2 decimals.
+
+## Construction planes
+
+- Only offsets of the three world planes are offered. No plane through three points, at an angle, or midway between faces; the offset is typed, not dragged.

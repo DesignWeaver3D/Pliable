@@ -405,3 +405,11 @@ def test_project_reference_flattens_model_edges_onto_the_plane():
     assert len(top["points"]) == 4
     bracket = face_reference(load_demo("bracket"), STANDARD_PLANES["XY"], project=True)
     assert any(e["type"] == "circle" for e in bracket["entities"])
+
+
+def test_offset_plane_moves_along_the_normal():
+    from pliable.sketch import STANDARD_PLANES, offset_plane
+
+    moved = offset_plane(STANDARD_PLANES["XZ"], 5)
+    assert moved["origin"] == [0, -5, 0] and moved["normal"] == [0, -1, 0]
+    assert STANDARD_PLANES["XZ"]["origin"] == [0, 0, 0]

@@ -658,6 +658,7 @@ const sketch = new SketchMode(
   $("sketchpanel"),
 );
 const sketchBar = $("sketchbar");
+let planeOffset = 0; // distance of the next standard-plane sketch from the plane, along its normal
 let sketchBarKey = "";
 function renderSketchBar() {
   const face = currentSels.length === 1 && currentSels[0].kind === "face" ? committed?.faces.find((f) => f.id === currentSels[0].id) : undefined;
@@ -679,6 +680,14 @@ function renderSketchBar() {
   });
   const label = document.createElement("span");
   label.textContent = "or on";
+  const offset = document.createElement("input");
+  offset.type = "number";
+  offset.step = "any";
+  offset.value = String(planeOffset);
+  offset.title = "Offset of the sketch plane from XY, XZ or YZ along its normal";
+  offset.style.width = "56px";
+  offset.addEventListener("keydown", (e) => e.stopPropagation());
+  offset.addEventListener("input", () => (planeOffset = Number(offset.value) || 0));
   sketchBar.replaceChildren(
     onFace,
     label,
@@ -687,12 +696,13 @@ function renderSketchBar() {
       b.textContent = name;
       b.disabled = sketch.active;
       b.addEventListener("click", async () => {
-        const reply = await core.request<{ plane: any }>("sketch_plane", { plane: name });
+        const reply = await core.request<{ plane: any }>("sketch_plane", { plane: name, offset: planeOffset });
         sketch.start(reply.plane);
         renderSketchBar();
       });
       return b;
     }),
+    offset,
   );
 }
 renderSketchBar();

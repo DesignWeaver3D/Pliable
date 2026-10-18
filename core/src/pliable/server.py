@@ -204,9 +204,11 @@ class Session:
     def _sketch_plane(self, request: dict) -> dict:
         if "plane" in request:
             try:
-                return sketch.STANDARD_PLANES[request["plane"]]
+                return sketch.offset_plane(sketch.STANDARD_PLANES[request["plane"]], float(request.get("offset", 0)))
             except KeyError:
                 raise RequestError(f"Unknown plane {request['plane']!r}") from None
+            except (TypeError, ValueError) as e:
+                raise RequestError(f"Malformed plane request: {e!r}") from e
         topology = self._require_document().current
         try:
             return sketch.face_plane(topology.face(int(request["face"])))

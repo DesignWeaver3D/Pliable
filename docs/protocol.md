@@ -27,7 +27,7 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 | `import_step` | `name`, `data` (base64 STEP) | mesh |
 | `export_step` | | `{name, data}` (base64) |
 | `list_tools` | | `{tools: [ToolDescription]}` |
-| `sketch_plane` | `face` id, or `plane` "XY"/"XZ"/"YZ" | `{plane: {origin, normal, xdir}}` for sketching on a flat face or a world plane; for a face also `reference`: the face outline as fixed construction `points`/`entities` (points flagged `fixed`) |
+| `sketch_plane` | `face` id, or `plane` "XY"/"XZ"/"YZ" with an optional `offset` along its normal | `{plane: {origin, normal, xdir}}` for sketching on a flat face or a world plane; for a face also `reference`: the face outline as fixed construction `points`/`entities` (points flagged `fixed`) |
 | `sketch_solve` | `sketch`, optional `drag` {point, u, v} | `{status: "ok"/"failed", dof, failed: [constraint ids], points: [{id, u, v}], radii}`; sketch format and constraint types in `core/src/pliable/sketch.py` |
 | `sketch_extrude` | `sketch`, `distance` (an angle in degrees when `axis` is given), `mode` "join"/"cut", optional `symmetric` (extrude both ways about the plane), optional `axis` (id of a sketch line: revolve about it instead), `commit` | a mesh reply (preview unless `commit`): the sketch's profile extruded along the plane normal and joined or cut |
 | `sketch_regions` | `sketch` | a committed mesh reply: every closed zone of the sketch becomes a face; zones lying on a flat model face are imprinted on it, the others are added as loose faces that push/pull extrudes into solids |

@@ -520,6 +520,12 @@ STANDARD_PLANES = {
 }
 
 
+def offset_plane(plane: dict, distance: float) -> dict:
+    """The plane moved `distance` along its normal (a construction plane parallel to a standard one)."""
+    n = plane["normal"]
+    return {**plane, "origin": [o + distance * k for o, k in zip(plane["origin"], n)]}
+
+
 def extrude(shape, sketch: dict, distance: float, mode: str, symmetric: bool = False):
     """Extrude the sketch's profile along the plane normal and join it to the model (mode "join": positive
     distances go along the normal, so out of a face the sketch sits on) or cut it (mode "cut": into the material)."""
