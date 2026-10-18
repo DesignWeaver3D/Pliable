@@ -20,7 +20,7 @@ value]; radius and diameter [entity, value]; fixed [point]; midpoint [point, ent
 
 import math
 
-from build123d import Edge, Face, Wire
+from build123d import Edge, Face, Vector, Wire
 from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_Transform
 from OCP.gp import gp_Ax2, gp_Circ, gp_Dir, gp_Pnt, gp_Vec
 from py_slvs import slvs
@@ -326,6 +326,108 @@ def profile_face(sketch: dict, skip: int | None = None) -> Face:
         raise SketchError("The sketch has several separate outlines; extrude them one at a time")
     (outer_face, outer_wire) = outers[0]
     return Face(outer_wire, holes[0]) if holes[0] else outer_face
+
+
+def regions(sketch: dict) -> list[Face]:
+    """Every distinct zone of the sketch's closed loops as a planar face: overlapping loops are split where
+    they cross, and a loop inside another cuts a hole in it (the inner zone is a face of its own)."""
+    from OCP.BOPAlgo import BOPAlgo_Builder
+    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopExp import TopExp_Explorer
+
+    edges = _edges(sketch)
+    if not edges:
+        return []
+    wires = Wire.combine(edges)
+    if not isinstance(wires, list):
+        wires = [wires]
+    faces = [Face(w) for w in wires if w.is_closed]
+    faces = [f for f in faces if f.area > MIN_LOOP_AREA]
+    if not faces:
+        return []
+    split = faces[0].wrapped
+    if len(faces) > 1:  # a single loop needs no splitting (and the algorithm wants two or more arguments)
+        builder = BOPAlgo_Builder()
+        for f in faces:
+            builder.AddArgument(f.wrapped)
+        builder.Perform()
+        if builder.HasErrors():
+            raise SketchError("Could not split the sketch into regions")
+        split = builder.Shape()
+    explorer = TopExp_Explorer(split, TopAbs_FACE)
+    _, _, _, normal = frame(sketch["plane"])
+    zones = []
+    while explorer.More():
+        zone = Face(explorer.Current())
+        explorer.Next()
+        if zone.normal_at().dot(Vector(*normal)) < 0:  # outward = along the sketch plane normal
+            zone = Face(zone.wrapped.Reversed())
+        zones.append(zone)
+    return zones
+
+
+def _host_face(shape, zone: Face):
+    """A planar face of `shape` that contains the zone (same plane, zone inside it), or None."""
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Plane
+    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopExp import TopExp_Explorer
+
+    point = zone.center()  # inside for convex zones; fall back to a point on the wire
+    probe = point if zone.is_inside(point) else zone.outer_wire().position_at(0.5)
+    zone_normal = zone.normal_at()
+    explorer = TopExp_Explorer(shape, TopAbs_FACE)
+    while explorer.More():
+        host = Face(explorer.Current())
+        explorer.Next()
+        surface = BRepAdaptor_Surface(host.wrapped)
+        if surface.GetType() != GeomAbs_Plane:
+            continue
+        if abs(abs(host.normal_at().dot(zone_normal)) - 1) > 1e-6 or abs(host.distance_to(point) if False else (host.center() - point).dot(zone_normal)) > 1e-5:
+            continue
+        if host.is_inside(zone.outer_wire().position_at(0.25)) or host.is_inside(probe):
+            return host
+    return None
+
+
+def add_regions(shape, sketch: dict):
+    """Put the sketch's regions into the model so they can be picked: zones lying on a flat face of the model
+    are imprinted on it (the face is split along their outline), the others are added as free faces. Returns
+    the new shape and how many regions became faces."""
+    from OCP.BRep import BRep_Builder
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Splitter
+    from OCP.collections import List_TopoDS_Shape
+    from OCP.TopoDS import TopoDS_Compound
+
+    zones = regions(sketch)
+    if not zones:
+        raise SketchError("The sketch has no closed outline to make a face from")
+    imprint, loose = [], []
+    for zone in zones:
+        (imprint if _host_face(shape, zone) is not None else loose).append(zone)
+    result = shape
+    if imprint:
+        splitter = BRepAlgoAPI_Splitter()
+        arguments, tools = List_TopoDS_Shape(), List_TopoDS_Shape()
+        arguments.Append(shape)
+        for zone in imprint:
+            tools.Append(zone.wrapped)
+        splitter.SetArguments(arguments)
+        splitter.SetTools(tools)
+        splitter.SetNonDestructive(True)
+        splitter.Build()
+        if splitter.IsDone() and not splitter.Shape().IsNull():
+            result = splitter.Shape()
+        else:
+            loose.extend(imprint)
+    if loose:
+        compound, builder = TopoDS_Compound(), BRep_Builder()
+        builder.MakeCompound(compound)
+        builder.Add(compound, result)
+        for zone in loose:
+            builder.Add(compound, zone.wrapped)
+        result = compound
+    return result, len(zones)
 
 
 def face_plane(face_shape) -> dict:

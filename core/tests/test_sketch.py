@@ -252,3 +252,83 @@ def test_face_reference_outline_snaps_and_stays_fixed():
     base_top = max((i for i in range(bracket.face_count) if measure(bracket, Selection(faces=[i]))["items"][0]["title"] == "Plane" and measure(bracket, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0]), key=lambda i: measure(bracket, Selection(faces=[i]))["items"][0]["rows"][2]["value"])
     types = {e["type"] for e in sketch.face_reference(bracket.face(base_top), sketch.face_plane(bracket.face(base_top)))["entities"]}
     assert {"line", "circle", "arc"} <= types
+
+
+def _overlapping_sketch(plane):
+    points = [{"id": 1, "u": -10, "v": -10}, {"id": 2, "u": 10, "v": -10}, {"id": 3, "u": 10, "v": 10}, {"id": 4, "u": -10, "v": 10},
+              {"id": 5, "u": 10, "v": 0}, {"id": 7, "u": -5, "v": -5}]
+    lines = [{"id": 10 + k, "type": "line", "a": 1 + k, "b": 1 + (k + 1) % 4} for k in range(4)]
+    circles = [{"id": 14, "type": "circle", "center": 5, "radius": 6}, {"id": 15, "type": "circle", "center": 7, "radius": 2}]
+    return sketch_of(points, lines + circles, plane=plane)
+
+
+def test_regions_split_overlapping_loops():
+    zones = sketch.regions(_overlapping_sketch(XY))
+    areas = sorted(round(z.area, 1) for z in zones)
+    # square minus the two circles, the half circle inside, the half circle outside, the small circle
+    assert len(zones) == 4
+    assert areas[0] == pytest.approx(12.6, abs=0.1)
+    assert all(z.normal_at().Z > 0 for z in zones)
+
+
+def test_regions_on_a_model_face_are_imprinted():
+    from pliable.topology import Topology
+
+    shape = load_demo("block")
+    top = {"origin": [0, 0, 10], "normal": [0, 0, 1], "xdir": [1, 0, 0]}
+    result, count = sketch.add_regions(shape, _overlapping_sketch(top))
+    topology = Topology(result)
+    assert count == 4
+    assert topology.face_count == 6 - 1 + 5  # the top face becomes the four zones plus the rest around them
+    assert _solid_volume(result) == pytest.approx(volume(shape))
+
+
+def test_regions_away_from_the_model_are_loose_faces_that_push_pull_into_a_solid():
+    from pliable.ops import push_pull
+    from pliable.topology import Topology
+
+    shape = load_demo("block")
+    high = {"origin": [0, 0, 30], "normal": [0, 0, 1], "xdir": [1, 0, 0]}
+    result, _ = sketch.add_regions(shape, _overlapping_sketch(high))
+    topology = Topology(result)
+    assert topology.face_count == 6 + 4
+    loose = next(f for _, f in topology.faces() if _face_area(f) == pytest.approx(12.57, abs=0.05))
+    pulled = push_pull(result, loose, 5)
+    assert _solid_volume(pulled.shape) == pytest.approx(volume(shape) + 12.566 * 5, rel=1e-3)
+    assert len(pulled.tracked_faces) == 1
+
+
+def test_imprinted_region_pulls_like_a_face():
+    from pliable.ops import push_pull
+    from pliable.topology import Topology
+
+    shape = load_demo("block")
+    top = {"origin": [0, 0, 10], "normal": [0, 0, 1], "xdir": [1, 0, 0]}
+    result, _ = sketch.add_regions(shape, _overlapping_sketch(top))
+    topology = Topology(result)
+    small = next(f for _, f in topology.faces() if _face_area(f) == pytest.approx(12.57, abs=0.05))
+    pulled = push_pull(result, small, 4)
+    assert _solid_volume(pulled.shape) == pytest.approx(volume(shape) + 12.566 * 4, rel=1e-3)
+
+
+def test_regions_need_a_closed_outline():
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}]
+    with pytest.raises(OperationError):
+        sketch.add_regions(load_demo("block"), sketch_of(points, [{"id": 10, "type": "line", "a": 1, "b": 2}]))
+
+
+def _face_area(face) -> float:
+    props = GProp_GProps()
+    BRepGProp.SurfaceProperties_s(face, props)
+    return props.Mass()
+
+
+def _solid_volume(shape) -> float:
+    from pliable.ops import _volume_of, solids_of
+
+    return sum(_volume_of(s) for s in solids_of(shape))
+
+
+def test_single_loop_is_one_region():
+    points, lines = rectangle(10, 10)
+    assert len(sketch.regions(sketch_of(points, lines))) == 1

@@ -156,6 +156,8 @@ class Session:
             return result
         if kind == "sketch_extrude":
             return self._sketch_extrude(request)
+        if kind == "sketch_regions":
+            return self._sketch_regions(request)
         if kind in ("tool_preview", "tool_commit"):
             return self._run_tool(request, commit=kind == "tool_commit")
         if kind in ("undo", "redo"):
@@ -189,6 +191,19 @@ class Session:
             return sketch.face_plane(topology.face(int(request["face"])))
         except KeyError as e:
             raise RequestError("Unknown face") from e
+
+    def _sketch_regions(self, request: dict) -> bytes:
+        """Leave a sketch: its closed regions become faces of the model (imprinted or loose) and stay selected."""
+        document = self._require_document()
+        start = time.perf_counter()
+        try:
+            shape, count = sketch.add_regions(document.current.shape, request["sketch"])
+        except (KeyError, TypeError, ValueError) as e:
+            raise RequestError(f"Malformed sketch request: {e!r}") from e
+        timings = {"opMs": _ms(start)}
+        target = document.commit(shape)
+        self._autosave()
+        return self._mesh_reply(target, timings, preview=False, selection=Selection().to_json())
 
     def _sketch_extrude(self, request: dict) -> bytes:
         document = self._require_document()

@@ -109,6 +109,11 @@ def push_pull(
     """
     solids = solids_of(shape)
     faces = face if isinstance(face, list) else [face]
+    sheets = [f for f in faces if not any(_contains(solid, f) for solid in solids)] if solids or _is_sheet_model(shape, faces) else []
+    if sheets and len(sheets) == len(faces):
+        return _push_pull_sheets(shape, faces, distance)
+    if sheets:
+        raise OperationError("Select either faces of a solid or loose faces made from a sketch, not both")
     if len(solids) < 2 or not faces:
         return _push_pull(shape, face, distance, preview, follow_edges, follow_vertices)
     owners = set()
@@ -129,6 +134,79 @@ def push_pull(
         builder.Add(compound, result.shape if i == index else solid)
     result.shape = compound
     return result
+
+
+def _is_sheet_model(shape: TopoDS_Shape, faces: list[TopoDS_Face]) -> bool:
+    return not solids_of(shape) and any(_contains(shape, f) for f in faces)
+
+
+def _faces_of(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
+    explorer, faces = TopExp_Explorer(shape, TopAbs_FACE), []
+    while explorer.More():
+        faces.append(explorer.Current())
+        explorer.Next()
+    return faces
+
+
+def _volume_of(shape: TopoDS_Shape) -> float:
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+
+    props = GProp_GProps()
+    BRepGProp.VolumeProperties_s(shape, props)
+    return props.Mass()
+
+
+def _push_pull_sheets(shape: TopoDS_Shape, faces: list[TopoDS_Face], distance: float) -> OpResult:
+    """Push/pull on loose faces (regions of a closed sketch): extrude them along their normal into solids.
+    A negative distance cuts into the model where the face overlaps it; otherwise (and for positive
+    distances) the new solid is fused with what it touches or stands on its own."""
+    if abs(distance) < MIN_DISTANCE:
+        return OpResult(shape, list(faces), unified=True)
+    prisms, caps = [], []
+    for f in faces:
+        normal = planar_normal(f)
+        if normal is None:
+            raise OperationError("Push/pull currently supports planar faces only")
+        prism = BRepPrimAPI_MakePrism(f, gp_Vec(normal).Multiplied(distance))
+        prism.Build()
+        if not prism.IsDone():
+            raise OperationError("Could not build extrusion")
+        prisms.append(prism.Shape())
+        caps.append(prism.LastShape())
+    solids = solids_of(shape)
+    others = [f for f in _faces_of(shape) if not any(f.IsSame(p) for p in faces) and not any(_contains(solid, f) for solid in solids)]
+    builder = BRep_Builder()
+    tool = TopoDS_Compound()
+    builder.MakeCompound(tool)
+    for p in prisms:
+        builder.Add(tool, p)
+    combined = TopoDS_Compound()
+    builder.MakeCompound(combined)
+    if solids:
+        # Booleans run on the solids alone; free faces (other sketch regions) are put back afterwards.
+        body = TopoDS_Compound()
+        builder.MakeCompound(body)
+        for solid in solids:
+            builder.Add(body, solid)
+        boolean = None
+        if distance < 0:
+            cut = _boolean(body, tool, False, glue=False)
+            if cut is not None and _volume_of(cut.Shape()) < _volume_of(body) - 1e-6:
+                boolean = cut
+        if boolean is None:
+            boolean = _boolean(body, tool, True, glue=False)
+        if boolean is None:
+            raise OperationError("Boolean operation failed")
+        builder.Add(combined, boolean.Shape())
+        tracked = _follow(boolean, caps)
+    else:
+        for p in prisms:
+            builder.Add(combined, p)
+        tracked = caps
+    for f in others:
+        builder.Add(combined, f)
+    return unify_result(OpResult(combined, tracked))
 
 
 def _contains(solid: TopoDS_Shape, face: TopoDS_Face) -> bool:

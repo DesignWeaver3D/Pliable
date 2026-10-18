@@ -144,6 +144,21 @@ export class SketchMode {
     this.host.status("Sketch closed");
   }
 
+  /** Leave the sketch keeping its closed regions as faces of the model; with no closed outline just leave. */
+  async finish() {
+    if (!this.active) return;
+    clearTimeout(this.previewTimer);
+    try {
+      const mesh = await this.core.request<MeshData>("sketch_regions", { sketch: this.s });
+      this.exit();
+      this.host.committed(mesh);
+      this.host.status("Sketch closed: its regions are faces now");
+    } catch (e) {
+      this.exit();
+      this.host.status((e as Error).message);
+    }
+  }
+
   private buildGrid(f: ReturnType<typeof M.frame>) {
     if (this.grid) this.group.remove(this.grid);
     const size = 200;
@@ -818,7 +833,9 @@ export class SketchMode {
       constraintsBox.append(construction);
     }
 
-    const exit = button("Exit sketch", () => this.exit());
-    this.panel.replaceChildren(header, status, tools, constraintsBox, ask, list, extrude, exit);
+    const finish = button("Finish sketch", () => this.finish());
+    finish.title = "Leave the sketch and keep its closed regions as faces you can push/pull or extrude";
+    const exit = button("Discard sketch", () => this.exit());
+    this.panel.replaceChildren(header, status, tools, constraintsBox, ask, list, extrude, finish, exit);
   }
 }

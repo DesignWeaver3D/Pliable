@@ -77,3 +77,10 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 - Sketch extend (S23): lines only, stretches the end nearest the click to the first line or circle beyond it; arcs are neither extended nor targets. The line loses its constraints, the new end is a free point (not constrained to the target). Checked with a throwaway script and a type check; not yet exercised in a browser, and there is no frontend test runner.
 - Usage tracking (S39, planned): counts of tool use travel only inside the diagnostics report the user copies or sends, never automatically. It must stay declared in the docs and shown in the report preview; remove it if testers object.
 - Tablet and touch (S34, planned): the GUI accommodates touch only while it stays cheap; the right-click measure mode, hover highlights and the keyboard-only paths have no touch equivalent yet.
+
+## Sketch regions (2026-10-18)
+
+- **Regions come only from closed loops** (`sketch.regions`). Open lines that cross a loop or end on it (T-junctions) do not divide it. *Symptom:* a dividing line drawn across a rectangle leaves one face. Loops that share points and cross each other can also fail to split.
+- **A zone is imprinted only when it lies inside one flat model face** (`sketch._host_face`); a zone that sticks out past the face edge becomes a loose face over the model instead of splitting it. *Symptom:* a double face on part of the model; delete the loose face.
+- **Loose sketch faces are not solids:** they show and pick like faces, push/pull makes a solid from them (negative distance cuts when it overlaps material), STEP export writes them as faces. Other tools may refuse them.
+- **Sketches are not kept after Finish sketch,** only the faces (decision: sketches are not stored for now). Discard sketch or Escape leaves nothing.
