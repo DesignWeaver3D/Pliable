@@ -134,3 +134,9 @@ Anything not tied to one tool (crashes, lag on large parts, confusing messages) 
 - [ ] Per-tool applies-to chip: Resize hole also resizes same-size holes by default, other tools only the selected feature
 - [ ] Unsaved-work warning when leaving the page with edits or an open sketch
 - [ ] Keys window lists the see-through key (X) and the sketch keys; keys act only while the pointer is over the view
+
+## Per alpha build
+
+- [ ] Packaged build: unzip, run, open the bracket, push/pull, export STEP (or confirm CI is green)
+- [ ] A long open shows the busy indicator and the UI stays responsive; it clears after a failed operation too
+- [ ] Copy diagnostics shows its text first and contains nothing personal
