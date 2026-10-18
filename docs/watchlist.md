@@ -123,3 +123,7 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 ## Sketch snapping to curves
 
 - A point placed on a curve or midpoint by snapping is not tied to it with a constraint, so moving the curve later leaves the point behind. Alignment guides snap to points only (not to circle centres' tangent directions or curve ends), and the snap radius is the same 10 px as point snapping.
+
+## Live sketch measurements
+
+- The tag is read-only: typing a value to place the shape exactly is not built. No tag for arcs yet, and values are rounded to 2 decimals.

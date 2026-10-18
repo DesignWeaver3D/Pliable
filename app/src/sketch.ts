@@ -7,7 +7,7 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { CoreClient, MeshData } from "./client";
-import type { DimensionOverlay } from "./dimensions";
+import type { Dimension, DimensionOverlay } from "./dimensions";
 import * as M from "./sketchmodel";
 import type { Viewport } from "./viewport";
 
@@ -810,7 +810,7 @@ export class SketchMode {
     this.points.geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
     this.points.geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
     this.points.geometry.computeBoundingSphere();
-    this.overlay.set(M.dimensionsOf(this.s));
+    this.overlay.set([...M.dimensionsOf(this.s), ...this.liveDimensions()]);
     this.renderPanel();
   }
 
@@ -820,6 +820,22 @@ export class SketchMode {
     // A fresh geometry each time: reusing one whose segment count grows left it drawing only the first segments.
     line.geometry.dispose();
     line.geometry = new LineSegmentsGeometry().setPositions(positions);
+  }
+
+  /** Size tags next to the cursor while a shape is being placed: length and angle, width by height, or radius. */
+  private liveDimensions(): Dimension[] {
+    const c = this.cursor;
+    const a = this.chain[this.chain.length - 1];
+    if (!c || !a) return [];
+    const n = (x: number) => parseFloat(x.toFixed(2)).toString();
+    const tag = (u: number, v: number, text: string): Dimension[] => [{ kind: "tag", text, points: [M.toWorld(this.s.plane, u, v)] }];
+    const du = c.u - a.u;
+    const dv = c.v - a.v;
+    if (this.tool === "line") return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `${n(Math.hypot(du, dv))} at ${n((Math.atan2(dv, du) * 180) / Math.PI)}°`);
+    if (this.tool === "rectangle") return tag((a.u + c.u) / 2, c.v, `${n(Math.abs(du))} × ${n(Math.abs(dv))}`);
+    if (this.tool === "rectcentre") return tag(a.u, c.v, `${n(Math.abs(du) * 2)} × ${n(Math.abs(dv) * 2)}`);
+    if (this.tool === "circle" || POLYGON_SIDES[this.tool]) return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `R${n(Math.hypot(du, dv))}`);
+    return [];
   }
 
   /** Rubber-band shapes for the drawing in progress. */
