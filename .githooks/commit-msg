@@ -1,0 +1,4 @@
+#!/bin/sh
+# Enforces the commit message rules in scripts/check_commit_message.py.
+# Enable once per clone with: git config core.hooksPath .githooks
+exec python "$(git rev-parse --show-toplevel)/scripts/check_commit_message.py" --file "$1"
