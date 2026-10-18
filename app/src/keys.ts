@@ -25,9 +25,18 @@ export interface KeyCommand {
   defaults: string[];
   /** Held keys may fire the command again. */
   repeat?: boolean;
-  /** Not available while a sketch is being edited (the sketch has its own handling). */
+  /** Not available while a sketch is being edited (the sketch has its own undo and delete). */
   notInSketch?: boolean;
+  /** Only while a sketch is being edited. */
+  onlyInSketch?: boolean;
+  /** Fixed meaning that cannot be reassigned (cancel, confirm, delete). */
+  fixed?: boolean;
+  /** Works even when the viewport is not engaged: cancelling is never harmful. */
+  anyFocus?: boolean;
 }
+
+/** Whether two commands can be active at the same time (so they may not share a key). */
+const overlap = (a: KeyCommand, b: KeyCommand) => !((a.onlyInSketch && b.notInSketch) || (b.onlyInSketch && a.notInSketch));
 
 export const KEY_COMMANDS: KeyCommand[] = [
   ...(["iso", "front", "top", "right", "rear", "bottom", "left"] as const).map((name, n) => ({
@@ -44,6 +53,11 @@ export const KEY_COMMANDS: KeyCommand[] = [
   { id: "display.showAll", label: "Show all bodies", class: "display", defaults: ["Alt+H"], notInSketch: true },
   { id: "history.undo", label: "Undo", class: "history", defaults: ["Ctrl+Z"], repeat: true, notInSketch: true },
   { id: "history.redo", label: "Redo", class: "history", defaults: ["Ctrl+Y", "Ctrl+Shift+Z"], repeat: true, notInSketch: true },
+  // Sketch editing keys: fixed, but they pass through the same guards as every other shortcut.
+  { id: "sketch.undo", label: "Sketch: undo", class: "history", defaults: ["Ctrl+Z"], onlyInSketch: true, fixed: true },
+  { id: "sketch.cancel", label: "Sketch: cancel the step, then leave", class: "view", defaults: ["Escape"], onlyInSketch: true, fixed: true, anyFocus: true },
+  { id: "sketch.finish", label: "Sketch: finish the line chain", class: "view", defaults: ["Enter"], onlyInSketch: true, fixed: true },
+  { id: "sketch.delete", label: "Sketch: delete selection (Ctrl+Z restores)", class: "history", defaults: ["Delete", "Backspace"], onlyInSketch: true, fixed: true },
 ];
 
 // ---- Chords --------------------------------------------------------------------------------------------------
@@ -141,6 +155,7 @@ export function validateBinding(command: KeyCommand, chordText: string, bindings
   const chord = parseChord(chordText);
   if (!chord) return { ok: false, reason: "A shortcut is one key with optional Ctrl, Alt or Shift. Sequences of keys are not allowed." };
   const text = formatChord(chord);
+  if (command.fixed) return { ok: false, reason: `${command.label} has a fixed key.` };
   if (RESERVED_BY_BROWSER.has(text)) return { ok: false, reason: `${text} belongs to the browser and cannot be used.` };
   if (RESERVED_BY_APP.has(chord.main) && !chord.ctrl && !chord.alt) return { ok: false, reason: `${chord.main} is used to cancel, confirm or edit text and cannot be reassigned.` };
   if (chord.ctrl && chord.alt) return { ok: false, reason: "Ctrl+Alt is how many keyboards type AltGr characters; pick Ctrl or Alt." };
@@ -148,7 +163,8 @@ export function validateBinding(command: KeyCommand, chordText: string, bindings
     return { ok: false, reason: `${command.label} changes ${command.class === "model" ? "the model" : "a setting"} immediately, so it needs Ctrl or Alt.` };
   }
   for (const [id, list] of Object.entries(bindings)) {
-    if (id === command.id) continue;
+    const other = KEY_COMMANDS.find((c) => c.id === id);
+    if (id === command.id || (other && !overlap(command, other))) continue;
     if (list.some((other) => { const o = parseChord(other); return o && formatChord(o) === text; })) {
       return { ok: false, reason: `${text} is already used by ${KEY_COMMANDS.find((c) => c.id === id)?.label ?? id}.`, conflict: id };
     }
@@ -159,17 +175,17 @@ export function validateBinding(command: KeyCommand, chordText: string, bindings
 /** Problems in a set of bindings (defaults or loaded from storage); empty when sound. */
 export function checkKeymap(commands: KeyCommand[], bindings: Record<string, string[]>): string[] {
   const problems: string[] = [];
-  const seen = new Map<string, string>();
+  const seen = new Map<string, KeyCommand[]>();
   for (const c of commands) {
     for (const text of bindings[c.id] ?? []) {
       const chord = parseChord(text);
       if (!chord) { problems.push(`${c.id}: cannot read "${text}"`); continue; }
-      const v = validateBinding(c, text, {});
-      if (!v.ok) problems.push(`${c.id}: ${v.reason}`);
+      const v = c.fixed ? { ok: true } : validateBinding(c, text, {});
+      if (!v.ok) problems.push(`${c.id}: ${(v as { reason: string }).reason}`);
       const key = formatChord(chord);
-      const other = seen.get(key);
-      if (other) problems.push(`${key} is bound to both ${other} and ${c.id}`);
-      seen.set(key, c.id);
+      const clash = (seen.get(key) ?? []).find((o) => overlap(o, c));
+      if (clash) problems.push(`${key} is bound to both ${clash.id} and ${c.id}`);
+      seen.set(key, [...(seen.get(key) ?? []), c]);
     }
   }
   return problems;
@@ -231,8 +247,9 @@ export class Keymap {
   }
 
   /** The command an event triggers, ignoring focus and context rules. */
-  find(e: KeyEventLike): KeyCommand | null {
+  find(e: KeyEventLike, sketchActive = false): KeyCommand | null {
     for (const c of this.commands) {
+      if ((c.onlyInSketch && !sketchActive) || (c.notInSketch && sketchActive)) continue;
       for (const text of this.chordsOf(c.id)) {
         const chord = parseChord(text);
         if (chord && chordMatches(chord, e)) return c;
@@ -253,7 +270,7 @@ export class Keymap {
         const command = known.get(id);
         if (!command || !Array.isArray(list)) continue;
         const clean = list.filter((t): t is string => typeof t === "string");
-        const ok = clean.every((t) => validateBinding(command, t, merged).ok);
+        const ok = !command.fixed && clean.every((t) => validateBinding(command, t, merged).ok);
         if (ok) { data.bindings[id] = clean; merged[id] = clean; }
       }
     }
@@ -283,15 +300,15 @@ export function decideKey(e: KeyEventLike, ctx: KeyContext, keymap: Keymap): Dec
   if (e.isComposing || e.keyCode === 229) return { run: null, reason: "composing" };
   if (!ctx.pageFocused) return { run: null, reason: "page" };
   if (ctx.inTextField) return { run: null, reason: "text" };
-  const command = keymap.find(e);
+  const command = keymap.find(e, ctx.sketchActive);
   if (!command) return { run: null, reason: "none" };
   if (ctx.entryActive) return { run: null, reason: "entry" }; // also blocks undo under a live preview
   if (e.repeat && !command.repeat) return { run: null, reason: "repeat" };
   if (ctx.sketchActive && command.notInSketch) return { run: null, reason: "sketch" };
   const chord = chordOfEvent(e);
   if (isBare(chord)) {
-    if (!keymap.data.singleKeys) return { run: null, reason: "off" };
-    if (!ctx.engaged) return { run: null, reason: "disengaged" };
+    if (!keymap.data.singleKeys && !command.fixed) return { run: null, reason: "off" }; // fixed editing keys are not shortcuts
+    if (!ctx.engaged && !command.anyFocus) return { run: null, reason: "disengaged" };
   }
   return { run: command, chord };
 }

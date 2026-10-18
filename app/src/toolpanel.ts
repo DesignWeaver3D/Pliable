@@ -3,12 +3,17 @@ import { TOOL_GROUPS } from "./layout";
 import { describeNeeds, type ToolInfo } from "./tools";
 import { usage, type Surface } from "./usage";
 
+/** A parameter value: a number, or for `per_edge` parameters one [start, end] radius pair per selected edge. */
+export type ParamValue = number | number[][];
+
 export interface ToolPanelHost {
+  /** Ids of the selected edges, in selection order (rows of a `per_edge` parameter). */
+  selectedEdges?(): number[];
   tools(): ToolInfo[];
   usable(tool: ToolInfo): boolean;
   /** Run the tool with these values without committing (live preview). */
-  preview(tool: ToolInfo, values: Record<string, number>): Promise<void>;
-  commit(tool: ToolInfo, values: Record<string, number>): Promise<void>;
+  preview(tool: ToolInfo, values: Record<string, ParamValue>): Promise<void>;
+  commit(tool: ToolInfo, values: Record<string, ParamValue>): Promise<void>;
   cancel(): void;
   /** Eyedropper: wait for the next click on the model and give back the value it holds for `param` (null = nothing readable). Resolves null if cancelled. */
   eyedrop(param: string, kind: string): Promise<number | null>;
@@ -26,6 +31,7 @@ export class ToolPanel {
   private open: ToolInfo | null = null;
   private timer = 0;
   private inputs: Record<string, HTMLInputElement> = {};
+  private pairInputs: Record<string, HTMLInputElement[][]> = {}; // per_edge parameters: [start, end] inputs per edge
 
   constructor(
     private readonly listEl: HTMLElement,
@@ -94,7 +100,7 @@ export class ToolPanel {
   }
 
   /** Open the form for a tool; `initial` pre-fills values (used to re-edit the last operation). */
-  openForm(tool: ToolInfo, initial: Record<string, number> = {}, surface: Surface = "other") {
+  openForm(tool: ToolInfo, initial: Record<string, ParamValue> = {}, surface: Surface = "other") {
     this.close();
     usage.record(tool.id, "start", surface);
     this.open = tool;
@@ -102,7 +108,9 @@ export class ToolPanel {
     const title = document.createElement("div");
     title.className = "title";
     title.textContent = tool.label;
+    const pairInputs: Record<string, HTMLInputElement[][]> = {};
     const rows = tool.params.map((p) => {
+      if (p.kind === "per_edge") return this.perEdgeRows(p, initial[p.name], pairInputs);
       const row = document.createElement("label");
       row.className = "row";
       const name = document.createElement("span");
@@ -110,7 +118,7 @@ export class ToolPanel {
       const input = document.createElement("input");
       input.type = "number";
       input.step = "any";
-      input.value = String(initial[p.name] ?? p.default);
+      input.value = String(typeof initial[p.name] === "number" ? initial[p.name] : p.default);
       input.addEventListener("input", () => this.schedulePreview());
       input.addEventListener("keydown", (e) => {
         e.stopPropagation(); // typing must not trigger view shortcuts or tools
@@ -163,13 +171,54 @@ export class ToolPanel {
     }
     this.formEl.hidden = false;
     this.inputs = inputs;
-    (Object.values(inputs)[0] ?? apply).focus();
+    this.pairInputs = pairInputs;
+    (Object.values(inputs)[0] ?? Object.values(pairInputs)[0]?.[0]?.[0] ?? apply).focus();
     this.schedulePreview(0);
     this.host.changed?.();
   }
 
-  private values(): Record<string, number> {
-    return Object.fromEntries(Object.entries(this.inputs).map(([k, el]) => [k, Number(el.value)]));
+  /** One row per selected edge with a start and an end radius (end 0 = constant). */
+  private perEdgeRows(p: { name: string; default: number }, initial: ParamValue | undefined, store: Record<string, HTMLInputElement[][]>): HTMLElement {
+    const box = document.createElement("div");
+    const ids = this.host.selectedEdges?.() ?? [];
+    const saved = Array.isArray(initial) ? initial : [];
+    const head = document.createElement("div");
+    head.className = "row";
+    head.textContent = "Radius per edge (mm): start and end; end 0 keeps the radius constant, start 0 leaves the edge sharp";
+    box.append(head);
+    const pairs: HTMLInputElement[][] = [];
+    ids.forEach((id, i) => {
+      const row = document.createElement("label");
+      row.className = "row";
+      const name = document.createElement("span");
+      name.textContent = `edge ${id}`;
+      const pair = [0, 1].map((k) => {
+        const input = document.createElement("input");
+        input.type = "number";
+        input.step = "any";
+        input.min = "0";
+        input.title = k === 0 ? "Start radius" : "End radius (0 = same as start)";
+        input.value = String(saved[i]?.[k] ?? (k === 0 ? p.default : 0));
+        input.addEventListener("input", () => this.schedulePreview());
+        input.addEventListener("keydown", (e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") this.apply();
+          else if (e.key === "Escape") this.close();
+        });
+        return input;
+      });
+      pairs.push(pair);
+      row.append(name, ...pair);
+      box.append(row);
+    });
+    store[p.name] = pairs;
+    return box;
+  }
+
+  private values(): Record<string, ParamValue> {
+    const values: Record<string, ParamValue> = Object.fromEntries(Object.entries(this.inputs).map(([k, el]) => [k, Number(el.value)]));
+    for (const [name, pairs] of Object.entries(this.pairInputs)) values[name] = pairs.map((pair) => pair.map((el) => Number(el.value)));
+    return values;
   }
 
   private schedulePreview(delay = PREVIEW_DELAY_MS) {

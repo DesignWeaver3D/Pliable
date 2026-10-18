@@ -41,7 +41,7 @@ def _occt_reason(error: Exception) -> str:
     return reasons.get(name, "unexpected error: " + (str(error).strip().splitlines() or [name])[0][:80])
 
 
-PARAM_KINDS = ("length", "angle", "number")
+PARAM_KINDS = ("length", "angle", "number", "per_edge")
 
 
 @dataclass
@@ -89,7 +89,10 @@ class Accepts:
 
 @dataclass(frozen=True)
 class Param:
-    """A typed tool parameter. `drag` marks the one the viewport drag controls."""
+    """A typed tool parameter. `drag` marks the one the viewport drag controls.
+
+    Kind `per_edge` is a list with one [start, end] radius pair per selected edge, in selection order; `default`
+    is the start radius offered for each edge (the form builds the rows from the selection)."""
 
     name: str
     kind: str  # one of PARAM_KINDS; length is in model units, angle in degrees
@@ -102,6 +105,21 @@ class Param:
 
     def to_json(self) -> dict:
         return {"name": self.name, "kind": self.kind, "default": self.default, "drag": self.drag}
+
+
+def _bind_pairs(param: "Param", raw) -> list[list[float]]:
+    """Validate a per-edge list: numbers or [start, end] pairs; an empty or missing list means "use the default"."""
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or len(raw) > 10000:
+        raise OperationError(f"Parameter {param.name!r} must be a list")
+    pairs = []
+    for item in raw:
+        pair = item if isinstance(item, list) else [item, 0]
+        if len(pair) != 2 or any(isinstance(x, bool) or not isinstance(x, (int, float)) for x in pair):
+            raise OperationError(f"Parameter {param.name!r} must hold numbers or [start, end] pairs")
+        pairs.append([float(pair[0]), float(pair[1])])
+    return pairs
 
 
 class Tool:
@@ -137,6 +155,9 @@ class Tool:
         values = {}
         for param in self.params:
             value = raw.get(param.name, param.default)
+            if param.kind == "per_edge":
+                values[param.name] = _bind_pairs(param, raw.get(param.name))
+                continue
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 raise OperationError(f"Parameter {param.name!r} must be a number")
             values[param.name] = float(value)

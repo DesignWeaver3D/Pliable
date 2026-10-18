@@ -197,3 +197,14 @@ Open design questions for the user live in [questions.md](questions.md); this fi
 - Dragging a hole centre dot moves the hole in the plane across its axis with the Move hole tool; offsets are not snapped and the move is not recorded for Edit last.
 - Inset face takes a `loop` number (0 outline, 1 and up = inner loops, offset outward around the hole); loops are numbered in the order the face reports them.
 - Alt+click cycles through all faces under the pointer even when hidden; zone picking in sketches relies on this plus box select with Box selects set to Faces.
+## Fillet per edge
+
+- **Rows are labelled by edge id** (`toolpanel.ts` `perEdgeRows`), not by position or a highlight, so with many edges it is hard to tell which row is which. Per edge a start and end radius: end 0 or equal to start is constant, start 0 leaves the edge sharp. Chamfers cannot be variable (kernel). *Symptom:* the wrong edge rounded after reading the ids; a preview error when edge radii clash at a shared vertex.
+
+## Keyboard audits
+
+- **Sketch keys go through the router but are fixed** (`sketch.undo/cancel/finish/delete` in `keys.ts`; they call `SketchMode.onKey`). Escape works without view engagement, Enter and Delete need it. Sketch editing keys are not switched off by the single-key switch. *Symptom:* Enter or Delete does nothing in a sketch until the pointer is over the view.
+- **Leaving the page warns** whenever there are undo steps or a sketch is open (`beforeunload` in `main.ts`); an export does not clear it. No warning when opening another file over edits.
+- **Touch gaps (not built):** hide, isolate, show all, look at face and see-through have a key or the search but no visible button. **Browser keys:** Ctrl+K is taken by the search (some browsers use it for their own search box); not tested outside Chrome.
+- **M (measure mode) stays in `viewport.ts`**: it only acts during a moved tool drag, where the router is already off (value entry owns the keyboard), so moving it adds nothing.
+- **Sketch usage counts** record each drawing tool chosen as `sketch_<tool>` (start) and `sketch_extrude`, `sketch_revolve`, `sketch_finish` (commit); sketch cancels and errors are not counted.

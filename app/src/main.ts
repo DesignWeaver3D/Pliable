@@ -3,7 +3,7 @@ import { installAlphaUi, showImportNotice, showLaunchNotice } from "./alpha";
 import { CoreClient, type MeshData } from "./client";
 import { SketchMode } from "./sketch";
 import { SKETCH_PLANES } from "./layout";
-import { ToolPanel } from "./toolpanel";
+import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay } from "./dimensions";
 import { createSettingsWindow, settings } from "./settings";
@@ -283,7 +283,7 @@ function selectionPayload(sels: Sel[]) {
 
 let committed: MeshData | null = null; // last committed (non-preview) mesh
 /** The newest committed tool run, kept while nothing else has changed the model: "Edit last" undoes it and reopens its form. */
-let lastOp: { tool: ToolInfo; sels: Sel[]; values: Record<string, number> } | null = null;
+let lastOp: { tool: ToolInfo; sels: Sel[]; values: Record<string, ParamValue> } | null = null;
 
 const hiddenSolids = new Set<number>();
 
@@ -660,6 +660,7 @@ const keys = new KeyRouter({
     "display.showAll": () => setVisibility("show"),
     "history.undo": () => void history("undo"),
     "history.redo": () => void history("redo"),
+    ...Object.fromEntries(["sketch.undo", "sketch.cancel", "sketch.finish", "sketch.delete"].map((id) => [id, (e: KeyboardEvent) => sketch.onKey(e)])),
   },
   entryActive: () => viewport.dragging || dragSels !== null,
   sketchActive: () => sketch.active,
@@ -667,6 +668,10 @@ const keys = new KeyRouter({
   status,
 });
 keys.installButton($("bar"));
+// Leaving with edits (undo steps) or an open sketch asks first; autosave still protects against crashes.
+window.addEventListener("beforeunload", (e) => {
+  if (!undoButton.disabled || sketch.active) e.preventDefault();
+});
 
 function toBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -865,6 +870,7 @@ function readValue(rows: { label: string; value: number | number[] | string }[],
 }
 
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
+  selectedEdges: () => currentSels.filter((s) => s.kind === "edge").map((s) => s.id),
   pickPoint: () => pointPicker.pick(),
   tools: () => tools,
   usable: (tool) => acceptsSelection(tool, expand(tool, currentSels)) && (refined === null || refined.includes(tool.id)),
