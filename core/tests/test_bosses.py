@@ -141,3 +141,17 @@ def test_center_between_ignores_pick_order(order):
     centred = Topology(run("center_between", one, faces=picked).shape)
     (moved,) = faces_where(centred, "Cylinder", Radius=2)
     assert measure(centred, Selection(faces=[moved]))["items"][0]["anchor"][0] == pytest.approx(0, abs=1e-3)
+
+
+def test_center_between_finds_the_opposite_face_from_one_pick():
+    block = Topology(load_demo("block"))
+    top = next(i for i in range(6) if measure(block, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0])
+    one = Topology(run("add_hole", block, faces=[top], diameter=4, depth=0, offset_u=-8).shape)
+    (wall,) = faces_where(one, "Cylinder", Radius=2)
+    side = next(i for i in range(one.face_count) if measure(one, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [1.0, 0.0, 0.0])
+    centred = Topology(run("center_between", one, faces=[wall, side]).shape)
+    (moved,) = faces_where(centred, "Cylinder", Radius=2)
+    assert measure(centred, Selection(faces=[moved]))["items"][0]["anchor"][0] == pytest.approx(0, abs=1e-3)
+    with pytest.raises(Exception):
+        up = next(i for i in range(one.face_count) if measure(one, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0])
+        run("center_between", one, faces=[wall, up])  # the hole runs along that face's normal
