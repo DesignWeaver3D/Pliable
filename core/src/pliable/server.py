@@ -32,7 +32,7 @@ from OCP.gp import gp_Vec
 from .measure import measure, model_info
 from .ops import OperationError, solids_of
 from .protocol import encode_mesh
-from .edgesel import edge_ring, face_edges, face_loops, region_boundary, shared_loop, sharp_edges
+from .edgesel import edge_loops, edge_ring, face_edges, face_loops, region_boundary, shared_loop, sharp_edges
 from .relations import find_related, tangent_chain
 from .tessellate import tessellate
 from .tools import TOOLS, Selection, get_tool
@@ -159,6 +159,8 @@ class Session:
                     return {"loops": face_loops(topology, int(request["face"]))}
                 if mode == "ring":
                     return {"edges": edge_ring(topology, int(request["edge"]))}
+                if mode == "edge_loops":
+                    return {"edges": edge_loops(topology, int(request["edge"]))}
                 if mode == "sharp":
                     return {"edges": sharp_edges(topology, int(request["edge"]), float(request.get("angle", 30)))}
                 if mode == "region_boundary":

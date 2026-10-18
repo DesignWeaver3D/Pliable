@@ -132,3 +132,32 @@ def test_split_tools_survive_the_same_surface_merge_on_the_bracket():
     for tool, values in (("inset_face", {"distance": 2.0}), ("inset_face", {"distance": 1.0, "loop": 1}), ("divide_face", {"across": 0, "offset": 0.0})):
         result = get_tool(tool).execute(t, Selection(faces=[face]), values, False)
         assert Topology(result.shape).face_count > t.face_count, tool
+
+
+def test_edge_loops_through_the_server_follow_shared_faces():
+    from pliable.server import Session
+
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    t = Topology(load_demo("block"))
+    edge = face_loops(t, 0)[0][0]
+    reply = session.handle({"type": "edge_selection", "mode": "edge_loops", "edge": edge})
+    # a block edge borders two faces, each with a four-edge loop through it: 4 + 4 - 1 shared edge = 7
+    assert len(reply["edges"]) == 7 and edge in reply["edges"]
+    ring = session.handle({"type": "edge_selection", "mode": "ring", "edge": edge})
+    assert edge in ring["edges"] and len(ring["edges"]) == 4
+
+
+def test_ring_crosses_a_face_with_rounded_corners():
+    from pliable.server import Session
+
+    session = Session()
+    session.handle({"type": "open_demo", "name": "bracket"})
+    t = Topology(load_demo("bracket"))
+    # the base's front face has rounded corners, so its loop has more than four edges
+    ringed = []
+    for edge in range(t.edge_count):
+        reply = session.handle({"type": "edge_selection", "mode": "ring", "edge": edge})
+        if len(reply["edges"]) > 1:
+            ringed.append(edge)
+    assert 27 in ringed  # the base's front-top edge now has a ring through the rounded front face

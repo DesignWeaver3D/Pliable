@@ -183,7 +183,7 @@ function helperSignature(): string {
 
 /** Buttons that grow a selection of faces or an edge into a selection of edges. */
 function selectionHelpers(): HTMLButtonElement[] {
-  const make = (label: string, title: string, request: Record<string, unknown>) => {
+  const make = (label: string, title: string, request: Record<string, unknown>, none = "Nothing more to select") => {
     const button = document.createElement("button");
     button.textContent = label;
     button.title = title;
@@ -195,7 +195,8 @@ function selectionHelpers(): HTMLButtonElement[] {
         const picked: Sel[] = ids.map((id) => ({ kind: "edge" as const, id }));
         viewport.selectItems(picked);
         setSelection(picked);
-        status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} selected`;
+        const same = picked.length === 1 && currentSels.length === 1 && "edge" in request;
+        status.textContent = same ? `${label}: ${none}` : `${label}: ${picked.length} edge${picked.length === 1 ? "" : "s"} selected`;
       } catch (e) {
         status.textContent = (e as Error).message;
       }
@@ -205,14 +206,15 @@ function selectionHelpers(): HTMLButtonElement[] {
   const one = currentSels.length === 1 ? currentSels[0] : null;
   if (one?.kind === "face") {
     return [
-      make("All edges", "Select every edge of the selected face", { mode: "face_edges", face: one.id }),
+      make("All edges", "Select every edge of the selected face, outline and holes", { mode: "face_edges", face: one.id }),
       make("Edge loops", "Select the closed edge loops that bound the selected face (outline and holes)", { mode: "face_loops", face: one.id }),
     ];
   }
   if (one?.kind === "edge") {
     return [
-      make("Edge ring", "Select the parallel edges across four-sided faces, like the rungs of a ladder", { mode: "ring", edge: one.id }),
-      make("Sharp edges", `Select the connected edges where faces meet at ${settings.sharpAngle} degrees or more (change in settings)`, { mode: "sharp", edge: one.id, angle: settings.sharpAngle }),
+      make("Edge loops", "Select the closed outline of each face beside this edge (loops follow the shared faces, not an angle)", { mode: "edge_loops", edge: one.id }, "this edge has no outline beyond itself"),
+      make("Edge ring", "Select the parallel edges across the faces on both sides of this edge, like the rungs of a ladder (needs four-sided faces)", { mode: "ring", edge: one.id }, "no ring: the faces beside it are not four-sided"),
+      make("Sharp edges", `Select the connected edges where faces meet at ${settings.sharpAngle} degrees or more (change the angle in settings)`, { mode: "sharp", edge: one.id, angle: settings.sharpAngle }, "no connected sharp edges"),
     ];
   }
   if (currentSels.length > 1 && currentSels.every((s) => s.kind === "face")) {
@@ -441,12 +443,15 @@ viewport.onEdgeLoop = async (edgeId, additive) => {
         // no common face: fall back to the smooth chain below
       }
     }
-    const { edges } = await core.request<{ edges: number[] }>("edge_chain", { edge: edgeId });
+    // Otherwise the outline of the faces beside the edge (shared faces decide, not the angle); an edge with no
+    // outline beyond itself falls back to the smooth chain.
+    let { edges } = await core.request<{ edges: number[] }>("edge_selection", { mode: "edge_loops", edge: edgeId });
+    if (edges.length <= 1) edges = (await core.request<{ edges: number[] }>("edge_chain", { edge: edgeId })).edges;
     const picked: Sel[] = edges.map((id) => ({ kind: "edge" as const, id }));
     const sels = additive ? [...currentSels.filter((s) => s.kind === "edge" && !edges.includes(s.id)), ...picked] : picked;
     viewport.selectItems(sels);
     setSelection(sels);
-    status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} in the chain (double-click an edge to select its whole outline)`;
+    status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} selected by double-click (the outline of the faces beside the edge)`;
   } catch (e) {
     status.textContent = (e as Error).message;
   }
