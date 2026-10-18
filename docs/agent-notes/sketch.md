@@ -19,3 +19,19 @@
 - Done in this run: circle tangency, auto tangent radius, snap constraints (constraining to projected edges comes from these plus fixed reference geometry), origin/centre snap points.
 - Not done: click-through zone picking and a fast multi-zone pick (box); this touches model picking in `viewport.ts`, owned by the selection group (S26/S35), so it is left for them: cycle through the faces under the pointer on repeated clicks, and use their box select for zones. Automatic tangency for lines/arcs while drawing.
 - Open question for the owner: should sketch snaps always add constraints (now yes)?
+
+## Wave 2a
+### S30 (Done except the zone picking handed to the selection agent)
+- Automatic tangency for lines (end snaps to the touching point on a circle/arc) and arcs (start on a line end, centre square to it). Solver: `_round_tangent` also covers arcs and lines not sharing an end point, and a line whose end already lies on the curve (no duplicate hidden point, which made the solver report a conflict). Checked in Chrome (tangent line to a circle: no conflict).
+- Decision: arc tolerance 2 x AUTO_AXIS_DEG; change in `addArc` in sketch.ts. Snaps still add constraints (question 21 unchanged).
+
+### S33 extension (Done: cones, chains, seam; spheres/tori/free-form stay parked)
+- `unwrap.py` rewritten around `build_unrolling(topology, face_ids)` -> bands (one per face) with a map from the unrolled plane to each face's surface parameters; sketch regions are clipped per band (copies at -1, 0, +1 turns for closed cylinders and cones so regions across the seam work) and imprinted. Requests `sketch_plane` and `sketch_regions` take `unwrap` as one id or a list; the button is now "Sketch on unrolled faces" (a curved face, or two or more selected faces).
+- Tests: cylinder, seam crossing, cone, cone seam, chain of flat + fillet + flat (round piece area exact), non-chain refused.
+- Decisions: regions that cross a closed surface's seam become two faces (one per side); outlines are interpolated curves; a chain uses arc length, so folds without tangency also unroll (change: add a tangency check in `_strip_unrolling`). Not checked in Chrome for cones and chains (only unit tests); the cylinder path was checked earlier.
+- Open: pushing/pulling wrapped faces along the surface, kept sketches.
+
+### S27 extras (Done)
+- Point picker: model vertices and points on model edges (`reference.ts`, uses `viewport.meshData`/`toScreen`/`faceUnder`; no new viewport.ts edits this wave). Sketch snap to axis lines in the sketch plane (`M.axisLines`, `snap` in sketch.ts: one small block before the point-alignment guides). Checked the vertex snap in Chrome; the axis-line snap only type-checked.
+- Decision: axis snap adds no constraint (change: create a reference line entity for each in-plane axis in `start`).
+- Resume point: nothing half-done. Candidates for later: kept sketches, pushing wrapped faces, circle/line tangency starting a line from a curve.

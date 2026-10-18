@@ -171,9 +171,10 @@ class Session:
         if kind == "model_info":
             return model_info(self._require_document().current)
         if kind == "sketch_plane" and "unwrap" in request:  # a cylinder face unrolled flat to sketch on
-            face = self._require_document().current.face(int(request["unwrap"]))
+            ids = request["unwrap"] if isinstance(request["unwrap"], list) else [request["unwrap"]]
             try:
-                return {"plane": unwrap.unwrap_plane(), "reference": unwrap.unwrap_reference(face)}
+                unrolling = unwrap.build_unrolling(self._require_document().current, [int(i) for i in ids])
+                return {"plane": unwrap.unwrap_plane(), "reference": unrolling.reference}
             except unwrap.UnwrapError as e:
                 raise RequestError(str(e)) from e
         if kind == "sketch_plane":
@@ -245,7 +246,7 @@ class Session:
         start = time.perf_counter()
         try:
             if "unwrap" in request:
-                shape, count = unwrap.wrap_regions(document.current.shape, document.current, int(request["unwrap"]), request["sketch"])
+                shape, count = unwrap.wrap_regions(document.current.shape, document.current, [int(i) for i in (request["unwrap"] if isinstance(request["unwrap"], list) else [request["unwrap"]])], request["sketch"])
             else:
                 shape, count = sketch.add_regions(document.current.shape, request["sketch"])
         except unwrap.UnwrapError as e:

@@ -787,7 +787,8 @@ let planeOffset = 0; // distance of the next standard-plane sketch from the plan
 let sketchBarKey = "";
 function renderSketchBar() {
   const face = currentSels.length === 1 && currentSels[0].kind === "face" ? committed?.faces.find((f) => f.id === currentSels[0].id) : undefined;
-  const key = `${!!face}|${!!face?.normal}|${sketch.active}`;
+  const faceSels = currentSels.filter((s) => s.kind === "face");
+  const key = `${!!face}|${!!face?.normal}|${faceSels.length}|${sketch.active}`;
   if (key === sketchBarKey) return; // the bar only depends on these two flags; keep the buttons otherwise
   sketchBarKey = key;
   const onFace = document.createElement("button");
@@ -804,14 +805,14 @@ function renderSketchBar() {
     }
   });
   const unroll = document.createElement("button");
-  unroll.textContent = "Sketch on unrolled cylinder";
-  unroll.disabled = !(currentSels.length === 1 && currentSels[0].kind === "face" && face && !face.normal) || sketch.active;
-  unroll.title = "Select a cylinder face: it is unrolled flat, you sketch on it, and the regions are wrapped back onto it";
+  unroll.textContent = "Sketch on unrolled faces";
+  unroll.disabled = !(faceSels.length > 1 || (faceSels.length === 1 && !committed?.faces.find((f) => f.id === faceSels[0].id)?.normal)) || sketch.active;
+  unroll.title = "Select a cone or cylinder face, or a chain of flat and rounded faces joined along parallel edges: they are unrolled flat, you sketch on them, and the regions are wrapped back";
   unroll.addEventListener("click", async () => {
     try {
-      const id = currentSels[0].id;
-      const reply = await core.request<{ plane: any; reference?: any }>("sketch_plane", { unwrap: id });
-      sketch.start(reply.plane, reply.reference, id);
+      const ids = faceSels.map((f) => f.id);
+      const reply = await core.request<{ plane: any; reference?: any }>("sketch_plane", { unwrap: ids });
+      sketch.start(reply.plane, reply.reference, ids);
       renderSketchBar();
     } catch (e) {
       status.textContent = (e as Error).message;

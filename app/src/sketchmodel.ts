@@ -447,6 +447,46 @@ export function originPoints(plane: PlaneData, existing: SketchPoint[]): { u: nu
   return found;
 }
 
+/**
+ * Point on a circle or arc where a line from `from` would just touch it, if that is within `reach` of the
+ * cursor (u, v). Used to snap the end of a line being drawn so it leaves tangent to the curve.
+ */
+export function tangentFrom(s: SketchData, from: { u: number; v: number }, u: number, v: number, reach: number): { u: number; v: number; entity: number } | null {
+  let best: { u: number; v: number; entity: number; gap: number } | null = null;
+  for (const e of s.entities) {
+    if (e.type === "line") continue;
+    const c = pointOf(s, e.center);
+    const r = e.type === "circle" ? e.radius : Math.hypot(pointOf(s, e.start).u - c.u, pointOf(s, e.start).v - c.v);
+    const d = Math.hypot(from.u - c.u, from.v - c.v);
+    if (d <= r * 1.0001) continue;
+    const base = Math.atan2(from.v - c.v, from.u - c.u);
+    const spread = Math.acos(r / d);
+    for (const angle of [base + spread, base - spread]) {
+      const t: [number, number] = [c.u + r * Math.cos(angle), c.v + r * Math.sin(angle)];
+      const gap = Math.hypot(t[0] - u, t[1] - v);
+      if (gap < reach && (!best || gap < best.gap) && distanceTo(s, e, t[0], t[1]) < 0.01 * (1 + r)) best = { u: t[0], v: t[1], entity: e.id, gap };
+    }
+  }
+  return best;
+}
+
+/**
+ * The principal axes that lie in a sketch plane, as lines in sketch coordinates (a point and a direction).
+ * An axis lies in the plane when it is square to the plane's normal and the origin is on the plane.
+ */
+export function axisLines(plane: PlaneData): { u: number; v: number; du: number; dv: number }[] {
+  const f = frame(plane);
+  const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  if (Math.abs(dot(f.origin, f.n)) > 1e-6) return [];
+  const [u, v] = toPlane(plane, [0, 0, 0]);
+  const lines = [];
+  for (const d of [[1, 0, 0], [0, 1, 0], [0, 0, 1]]) {
+    if (Math.abs(dot(f.n, d)) > 1e-9) continue;
+    lines.push({ u, v, du: dot(d, f.x), dv: dot(d, f.y) });
+  }
+  return lines;
+}
+
 // Trim ------------------------------------------------------------------------------------------------
 
 /** Parameters t along line `e` (0 at its start, 1 at its end, unbounded) where it meets other lines and circles. */

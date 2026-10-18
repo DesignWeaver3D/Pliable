@@ -438,3 +438,48 @@ def test_circle_tangent_to_line_and_to_circle():
     c = coords(result)
     assert c[3][1] == pytest.approx(8, abs=1e-6)  # radius 8 circle sits on the line
     assert math.dist(c[3], c[4]) == pytest.approx(13, abs=1e-6)  # externally tangent circles
+
+
+def test_line_tangent_to_circle_and_arc_away_from_an_end_point():
+    points = [
+        {"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 4, "v": 10},  # line, end on the circle
+        {"id": 3, "u": 10, "v": 10}, {"id": 4, "u": 15, "v": 10}, {"id": 5, "u": 10, "v": 15},  # arc: centre, start, end
+        {"id": 6, "u": 30, "v": 0}, {"id": 7, "u": 40, "v": 3},  # second line touching the arc mid-way
+    ]
+    entities = [
+        {"id": 10, "type": "line", "a": 1, "b": 2},
+        {"id": 11, "type": "circle", "center": 3, "radius": 6},
+        {"id": 12, "type": "arc", "center": 3, "start": 4, "end": 5},
+    ]
+    constraints = [
+        {"id": 20, "type": "fixed", "point": 1},
+        {"id": 21, "type": "fixed", "point": 3},
+        {"id": 22, "type": "radius", "entity": 11, "value": 6},
+        {"id": 23, "type": "point_on", "point": 2, "entity": 11},
+        {"id": 24, "type": "tangent", "entities": [10, 11]},
+    ]
+    result = sketch.solve(sketch_of(points[:5], entities[:2], constraints))
+    assert result["status"] == "ok"
+    c = coords(result)
+    # the line leaves (0, 0) and touches the circle at a right angle to the radius
+    d = (c[2][0] - c[1][0], c[2][1] - c[1][1])
+    r = (c[2][0] - c[3][0], c[2][1] - c[3][1])
+    assert d[0] * r[0] + d[1] * r[1] == pytest.approx(0, abs=1e-6)
+    assert math.dist(c[2], c[3]) == pytest.approx(6, abs=1e-6)
+
+    # a line that does not share an end with an arc: tangent through a hidden touching point
+    mid = [
+        {"id": 3, "u": 10, "v": 10}, {"id": 4, "u": 16, "v": 10}, {"id": 5, "u": 10, "v": 16},
+        {"id": 6, "u": 0, "v": 22}, {"id": 7, "u": 20, "v": 23},
+    ]
+    arc_line = [{"id": 12, "type": "arc", "center": 3, "start": 4, "end": 5}, {"id": 13, "type": "line", "a": 6, "b": 7}]
+    cs = [
+        {"id": 30, "type": "fixed", "point": 3}, {"id": 31, "type": "fixed", "point": 4},
+        {"id": 33, "type": "fixed", "point": 6}, {"id": 34, "type": "tangent", "entities": [12, 13]},
+    ]
+    result = sketch.solve(sketch_of(mid, arc_line, cs))
+    assert result["status"] == "ok"
+    c = coords(result)
+    (x1, y1), (x2, y2) = c[6], c[7]
+    distance = abs((x2 - x1) * (y1 - 10) - (x1 - 10) * (y2 - y1)) / math.dist(c[6], c[7])
+    assert distance == pytest.approx(6, abs=1e-6)

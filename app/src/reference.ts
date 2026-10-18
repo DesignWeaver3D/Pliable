@@ -110,12 +110,39 @@ export class ReferenceView {
         }
       }
     }
+    // Model vertices; hidden ones (well behind the face under the pointer) are skipped.
+    const data = this.viewport.meshData;
+    const hitDistance = face ? this.viewport.camera.position.distanceTo(face.point) : Infinity;
+    const visible = (p: THREE.Vector3) => !face || this.viewport.camera.position.distanceTo(p) <= hitDistance * 1.01 + this.viewport.pixelSizeAt(p) * SNAP_PX;
+    for (const v of data?.vertices ?? []) {
+      const p = new THREE.Vector3(...v.position);
+      if (visible(p)) candidates.push({ point: p, label: "Vertex" });
+    }
     let best: (ReferenceSnap & { px: number }) | null = null;
     for (const c of candidates) {
       const px = this.viewport.toScreen(c.point).distanceTo(here);
       if (px < SNAP_PX && (!best || px < best.px)) best = { ...c, px };
     }
     if (best) return best;
+    // A point on a model edge.
+    if (data) {
+      const a = new THREE.Vector3();
+      const b = new THREE.Vector3();
+      for (const edge of data.edges) {
+        for (let i = edge.start; i + 1 < edge.start + edge.count; i += 2) {
+          a.fromArray(data.edgePositions, i * 3);
+          b.fromArray(data.edgePositions, (i + 1) * 3);
+          const pa = this.viewport.toScreen(a);
+          const pb = this.viewport.toScreen(b);
+          const ab = pb.clone().sub(pa);
+          const t = ab.lengthSq() === 0 ? 0 : Math.max(0, Math.min(1, here.clone().sub(pa).dot(ab) / ab.lengthSq()));
+          const px = pa.clone().addScaledVector(ab, t).distanceTo(here);
+          const point = a.clone().lerp(b, t);
+          if (px < SNAP_PX / 2 && visible(point) && (!best || px < best.px)) best = { point, label: "On edge", px };
+        }
+      }
+      if (best) return best;
+    }
     const ray = new THREE.Raycaster();
     ray.setFromCamera(new THREE.Vector2((here.x / rect.width) * 2 - 1, -(here.y / rect.height) * 2 + 1), this.viewport.camera);
     for (const axis of AXES) {
