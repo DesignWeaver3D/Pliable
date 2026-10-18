@@ -38,6 +38,14 @@ The MVP target is parity with the `v0.1.0-poc` prototype: STEP import/export, fa
 | S23 | Parity | Tier 2 of the same plan, cheapest first | Each tool built or parked | In progress: variable fillet, loft between faces, sweep along an edge built, array along edge, regular polygons and line trim in the sketch (both checked in Chrome). Next: extend, offset curve, construction planes, ellipse/spline decision, projection, array along path |
 | S24 | Parity | Tier 3 spikes, one timeboxed attempt each; stop on stagnation and record in the Parked table | Each spiked or parked with notes | In progress: patch fill built (`BRepFill_Filling`, G1 with G0 fallback). bridge (ruled, G0) built. Fillet setbacks, G2, deform and T-spline parked with theories in the parity doc |
 | S25 | Quality | Extra edges and faces after operations (reported by the owner during the alpha check, 2026-10-17; not reproduced). Every tool result now goes through the same-surface merge in `Tool.execute` (c90bd94, test in `tests/test_unify.py`). Out-and-back push/pull on the bracket, block and the cable-holder STEP gave identical face and edge counts, and random 10-step push/pull runs left no mergeable seams. Still to do: get the exact model, tool and steps from the owner; compare hover highlights (one face or two) and the Model info counts to tell a stale display line from a real edge; try the other tools (fillet, chamfer, booleans, holes) with the same out-and-back and seam checks; check the merge fallback (an invalid merged result silently keeps the unmerged shape) on imported files; measure the cost of merging on large models | A reproducible case is fixed with a test, or shown to be a display leftover and fixed in the viewer | Planned |
+| S26 | Input | Settings window behind a gear button. First setting: pick range for edges, vertices and small faces (it is too large now, so small faces are hard to hit). Box and drag selection (window versus crossing). Orbit, pan and zoom stay available during any operation; the measure mode that uses right-click during a drag moves to a key or button | Small faces and edges can be picked reliably; a box drag selects; the view can be orbited mid-drag and the operation continues | Planned |
+| S27 | Reference | Principal axes and origin drawn in the view and usable as references: snap targets for axes, origin, plane crossings, face centres, and the point where an axis meets the face under the cursor. Tools and sketches can take a snap as their reference or placement point, declared in the tool definition | Axes and origin visible; a primitive and a sketch point can snap to them; face-centre snap works | Planned |
+| S28 | Manipulators | On-screen manipulator (gizmo) framework: a tool declares handles, one per parameter, and the view draws them. First users: primitive placement and sizing, then move/rotate/scale, push/pull, fillet. Typed entry stays as the secondary method. A tool declares whether it starts from a selection or from the tool | Placing and sizing a box, cylinder and sphere is done with handles, not typing | Planned |
+| S29 | Bodies | Several solids in one document: primitives and new extrusions become separate bodies by default, combined only by an explicit boolean; each tool that adds material gets a merge/new-body choice. Builds on hide/isolate and per-solid ids | Two primitives stay separate until a boolean joins them; undo and export handle several bodies | Planned |
+| S30 | Sketch | Make sketching reliable and fluid, then lift the alpha 'unsupported' label: work through the sketch limits in the watch list, snap to the S27 references, finish arcs, trim, offset | The owner can draw, constrain and extrude a typical bracket profile without a workaround | Planned |
+| S31 | Edges | Edge selection methods: compare how several CAD programs select loops, chains, rings, boundaries and by angle, then build the best set. Offset an edge loop (planar) to create new edges that split faces, so the enclosed region can be pushed, pulled or cut. Add a dividing edge across a face and position it while creating it | Offsetting a planar edge loop on a face gives a region that push/pull can move | Planned |
+| S32 | Eyedropper | Copy a value from the model into a running operation: click another fillet to take its radius mid-operation; same idea for lengths and diameters read from the measurement data | A fillet radius is copied from another fillet by clicking it | Planned |
+| S33 | Unwrap | Sketch on curved faces or several faces at once by unwrapping them to a plane and mapping the result back. Research first; likely hard | A research note with a go/no-go, then a spike if go | Planned |
 
 **S17 plan (portable alpha, decided 2026-10-17):** `v0.2.0-mvp` (tag at `12cfff5`) preserves the MVP parity state as a source-only release. The alpha release adds the overnight and day-two progress in a form testers can run without installing uv or Node.
 
@@ -50,6 +58,27 @@ The MVP target is parity with the `v0.1.0-poc` prototype: STEP import/export, fa
 - Done when: all three smoke jobs are green on a test tag, the draft publishes, and the Windows archive passes the user's final manual check. The release notes say how to bypass the unsigned-app warnings.
 
 After the MVP, the next tools come from research/direct-modeling-tools.md (delete face with heal, fillet removal, move/rotate face, relationship detection), each planned as its own session.
+
+## Owner requirements (2026-10-18)
+
+Collected while watching a video of another direct modeler. They become sessions S26-S33 above, after the alpha tag unless the owner says otherwise. Order is a proposal, not a decision.
+
+1. Principal axes and the origin visible in the 3D view, snappable and usable as references for features and sketches (S27).
+2. On-screen manipulators for placement and dimensioning, especially primitives, which are painful with typed entry only. Typed entry stays but is not the main method (S28).
+3. Sketching has to work and feel fluid (S30). This reverses the alpha decision to leave sketching alone.
+4. Later: sketch on curved or several faces by unwrapping them (S33).
+5. Study the other program's edge-selection methods and compare them with other CAD (S31).
+6. Offset a planar edge loop to make new edges and a region that push/pull can use. This is roughly the opposite of merging faces: it adds edges on purpose (S31).
+7. Snap to a face centre, or to where a principal axis meets the face under the cursor (S27).
+8. Select-then-manipulate is the other program's model. The owner is unsure it should be the only one, but some tools will need it: each tool declares its starting mode (S28).
+9. Small faces are hard to pick because the edge pick range is too large. Needs a settings window behind a gear button (S26).
+10. Copy a fillet radius by clicking another fillet during the operation (S32).
+11. Orbit and zoom during an operation. Right-click during push/pull is used for measure mode today, so that moves (S26).
+12. Quickly add a dividing edge to a face and position it as it is created (S31).
+13. Several solids: some objects are created as separate solids and joined later by an explicit boolean. Today primitives fuse automatically (S29).
+14. Drag selection and box selection options (S26).
+
+Existing decisions these change: S10b measure mode on right-click during a drag; the alpha decision that sketching gets no extra work; the rule that every built tool fuses into the single model.
 
 ## Current status
 
