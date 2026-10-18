@@ -43,7 +43,7 @@ def finish(shape: TopoDS_Shape) -> OpResult:
     result = unify.Shape()
     if result.IsNull() or not BRepCheck_Analyzer(result).IsValid():
         raise OperationError("Operation produced invalid geometry")
-    return OpResult(result, [])
+    return OpResult(result, [], unified=True)
 
 
 def _combine(shape: TopoDS_Shape, tool: TopoDS_Shape, fuse: bool) -> TopoDS_Shape:

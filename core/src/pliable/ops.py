@@ -46,6 +46,8 @@ class OpResult:
     tracked_faces: list[TopoDS_Face]
     tracked_edges: list[TopoDS_Shape] = field(default_factory=list)
     tracked_vertices: list[TopoDS_Shape] = field(default_factory=list)
+    # True once faces that share a surface have been merged; Tool.execute unifies results that are not.
+    unified: bool = False
 
 
 def _follow(history_op, shapes: list[TopoDS_Shape]) -> list[TopoDS_Shape]:
@@ -138,6 +140,35 @@ def _contains(solid: TopoDS_Shape, face: TopoDS_Face) -> bool:
     return False
 
 
+
+def unify_result(result: OpResult) -> OpResult:
+    """Merge faces and edges that share a surface or curve, following the tracked shapes through the merge."""
+    # UnifySameDomain modifies its input in place, even in "safe input" mode,
+    # and the result of an operation shares sub-shapes with the document's shape.
+    # Unifying a topology-only copy keeps the original intact; geometry and
+    # triangulations are shared, so the copy is cheap.
+    copy = BRepBuilderAPI_Copy(result.shape, False, True)
+    tracked_c = _follow(copy, result.tracked_faces)
+    edges_c = _follow(copy, result.tracked_edges)
+    vertices_c = _follow(copy, result.tracked_vertices)
+
+    unify = ShapeUpgrade_UnifySameDomain(copy.Shape(), True, True, True)
+    unify.Build()
+    merged = unify.Shape()
+    if not merged.IsNull() and BRepCheck_Analyzer(merged).IsValid():
+        tracked = _follow(unify.History(), tracked_c)
+        edges = _follow(unify.History(), edges_c)
+        vertices = _follow(unify.History(), vertices_c)
+    else:
+        # Merging coplanar faces can corrupt very detailed solids; the plain result is still valid.
+        merged = copy.Shape()
+        tracked, edges, vertices = tracked_c, edges_c, vertices_c
+
+    if merged.IsNull() or not BRepCheck_Analyzer(merged).IsValid():
+        raise OperationError("Operation produced invalid geometry")
+    return OpResult(merged, tracked, edges, vertices, unified=True)
+
+
 def _push_pull(
     shape: TopoDS_Shape,
     face: TopoDS_Face | list[TopoDS_Face],
@@ -162,7 +193,7 @@ def _push_pull(
     """
     faces = face if isinstance(face, list) else [face]
     if abs(distance) < MIN_DISTANCE:
-        return OpResult(shape, list(faces), list(follow_edges or []), list(follow_vertices or []))
+        return OpResult(shape, list(faces), list(follow_edges or []), list(follow_vertices or []), unified=True)
     prisms, moved_faces = [], []
     for f in faces:
         normal = planar_normal(f)
@@ -196,30 +227,7 @@ def _push_pull(
     edges = _follow(boolean, list(follow_edges or []))
     vertices = _follow(boolean, list(follow_vertices or []))
 
-    # UnifySameDomain modifies its input in place, even in "safe input" mode,
-    # and the boolean result shares sub-shapes with the document's shape.
-    # Unifying a topology-only copy keeps the original intact; geometry and
-    # triangulations are shared, so the copy is cheap.
-    copy = BRepBuilderAPI_Copy(boolean.Shape(), False, True)
-    tracked_c = _follow(copy, tracked)
-    edges_c = _follow(copy, edges)
-    vertices_c = _follow(copy, vertices)
-
-    unify = ShapeUpgrade_UnifySameDomain(copy.Shape(), True, True, True)
-    unify.Build()
-    result = unify.Shape()
-    if not result.IsNull() and BRepCheck_Analyzer(result).IsValid():
-        tracked = _follow(unify.History(), tracked_c)
-        edges = _follow(unify.History(), edges_c)
-        vertices = _follow(unify.History(), vertices_c)
-    else:
-        # Merging coplanar faces can corrupt very detailed solids; the plain boolean result is still valid.
-        result = copy.Shape()
-        tracked, edges, vertices = tracked_c, edges_c, vertices_c
-
-    if result.IsNull() or not BRepCheck_Analyzer(result).IsValid():
-        raise OperationError("Operation produced invalid geometry")
-    return OpResult(result, tracked, edges, vertices)
+    return unify_result(OpResult(boolean.Shape(), tracked, edges, vertices))
 
 
 def face_normal_at_edge(face: TopoDS_Face, edge: TopoDS_Edge) -> gp_Dir | None:

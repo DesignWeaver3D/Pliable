@@ -24,7 +24,7 @@ Writing a tool:
 
 from dataclasses import dataclass, field
 
-from .ops import OperationError, OpResult, fillet_chamfer, planar_normal, push_pull
+from .ops import OperationError, OpResult, fillet_chamfer, planar_normal, push_pull, unify_result
 from .topology import Topology
 
 def _occt_reason(error: Exception) -> str:
@@ -144,7 +144,10 @@ class Tool:
             raise OperationError(f"{self.label} can't be used with this selection")
         values = self.bind(raw_params)
         try:
-            return self.run(topology, selection, values, preview)
+            result = self.run(topology, selection, values, preview)
+            if not result.unified and result.shape is not topology.shape:
+                result = unify_result(result)  # tools that skip finish() still leave no redundant faces or edges
+            return result
         except OperationError:
             raise
         except Exception as e:  # OpenCASCADE raises Standard_Failure subclasses (Standard_NoSuchObject, ...)
