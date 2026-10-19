@@ -172,12 +172,17 @@ def tangent_chain(topology: Topology, edge_id: int) -> list[int]:
             v = topology.vertex_id(vertex)
             point = BRep_Tool.Pnt_s(vertex)
             mine = _end_tangent(topology.edge(current), point)
-            for other in at_vertex.get(v, []):
-                if other in chain or mine is None:
-                    continue
-                theirs = _end_tangent(topology.edge(other), point)
-                if theirs is not None and abs(sum(a * b for a, b in zip(mine, theirs))) > 1 - 1e-4:
-                    chain.add(other)
-                    frontier.append(other)
+            if mine is not None:
+                smooth = []
+                for other in at_vertex.get(v, []):
+                    if other == current:
+                        continue
+                    theirs = _end_tangent(topology.edge(other), point)
+                    if theirs is not None and abs(sum(a * b for a, b in zip(mine, theirs))) > 1 - 1e-6:
+                        smooth.append(other)
+                # More than one smooth continuation is a branch, not a single curve: stop there.
+                if len(smooth) == 1 and smooth[0] not in chain:
+                    chain.add(smooth[0])
+                    frontier.append(smooth[0])
             explorer.Next()
     return sorted(chain)

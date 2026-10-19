@@ -448,29 +448,13 @@ viewport.onCentreDrag = async (face, offset, phase) => {
 viewport.onEyedropCancel = () => cancelEyedrop();
 viewport.onEdgeLoop = async (edgeId, additive) => {
   try {
-    // Another edge is already selected: take the loop of the face the two share.
-    const other = currentSels.find((s) => s.kind === "edge" && s.id !== edgeId);
-    if (other) {
-      try {
-        const { edges } = await core.request<{ edges: number[] }>("edge_selection", { mode: "shared_loop", first: other.id, second: edgeId });
-        const picked: Sel[] = edges.map((id) => ({ kind: "edge" as const, id }));
-        viewport.selectItems(picked);
-        setSelection(picked);
-        status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} in the loop the two edges share`;
-        return;
-      } catch {
-        // no common face: fall back to the smooth chain below
-      }
-    }
-    // Otherwise the outline of the faces beside the edge (shared faces decide, not the angle); an edge with no
-    // outline beyond itself falls back to the smooth chain.
-    let { edges } = await core.request<{ edges: number[] }>("edge_selection", { mode: "edge_loops", edge: edgeId });
-    if (edges.length <= 1) edges = (await core.request<{ edges: number[] }>("edge_chain", { edge: edgeId })).edges;
+    // The chain follows tangent continuity only (a rim, a smooth outline); Ctrl adds it to the selection.
+    const { edges } = await core.request<{ edges: number[] }>("edge_chain", { edge: edgeId });
     const picked: Sel[] = edges.map((id) => ({ kind: "edge" as const, id }));
     const sels = additive ? [...currentSels.filter((s) => s.kind === "edge" && !edges.includes(s.id)), ...picked] : picked;
     viewport.selectItems(sels);
     setSelection(sels);
-    status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} selected by double-click (the outline of the faces beside the edge)`;
+    status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} selected by double-click (edges that continue smoothly from this one; Ctrl+double-click adds them to the selection)`;
   } catch (e) {
     status.textContent = (e as Error).message;
   }
