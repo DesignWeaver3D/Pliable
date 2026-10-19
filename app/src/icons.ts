@@ -162,6 +162,9 @@ function element(inner: string, size: number, className: string): HTMLSpanElemen
   return span;
 }
 
+/** Icon on the Tools handle (left edge). Placeholder: the owner picks the final one; change this one name to swap it. */
+export const TOOLS_HANDLE_ICON = "sidebar";
+
 export const toolIcon = (id: string, label = id, size = 16) => element(toolIconInner(id, label), size, "icon");
 export const uiIcon = (name: string, size = 16) => element(UI_ICONS[name] ?? "", size, "icon");
 

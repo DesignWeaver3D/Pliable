@@ -73,3 +73,4 @@ Decisions made without the owner or by the owner, grouped by topic. Each says wh
 - Only the handle under the pointer shows its name and value; showing all labels overlapped on small models. Change in `Manipulator.update`.
 - Primitive position arrows sit a little off the reference point so the three tips do not overlap; they point away from the primitive and move it the opposite way, which feels like pulling it.
 
+- Tools button moved from the top bar to a handle on the left edge of the 3D view (rides on the drawer edge when open); its icon is a placeholder pending the owner's choice among candidates.

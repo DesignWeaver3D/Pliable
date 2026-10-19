@@ -12,7 +12,7 @@ import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
 import { HintLine } from "./hints";
 import { Palette, type Command } from "./palette";
-import { toolIcon, uiIcon } from "./icons";
+import { TOOLS_HANDLE_ICON, toolIcon, uiIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
 import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type HandleInfo, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
@@ -204,9 +204,10 @@ async function refreshSelectionHandles() {
 }
 
 const toolbar = $("tools");
+$("drawerbtn").prepend(uiIcon(TOOLS_HANDLE_ICON, 24));
 
 // Icons beside the labels of the top bar buttons (the label stays: icons alone are not self-explanatory).
-for (const [id, name] of [["drawerbtn", "sidebar"], ["menubtn", "menu"], ["undo", "undo"], ["redo", "redo"], ["editlast", "edit"]] as const) $(id).prepend(uiIcon(name));
+for (const [id, name] of [["menubtn", "menu"], ["undo", "undo"], ["redo", "redo"], ["editlast", "edit"]] as const) $(id).prepend(uiIcon(name));
 $("palette-input").parentElement!.insertBefore(Object.assign(uiIcon("search"), { className: "icon searchicon" }), $("palette-input"));
 
 // File menu: model, import/export and view toggles live in one popup so the top bar stays small.
@@ -229,6 +230,7 @@ document.addEventListener("pointerdown", (e) => {
 const drawer = $("drawer");
 function toggleDrawer(open = drawer.hidden, usableOnly?: boolean) {
   drawer.hidden = !open;
+  $("drawerbtn").setAttribute("aria-expanded", String(open));
   if (usableOnly !== undefined) {
     ($("drawerusable") as HTMLInputElement).checked = usableOnly;
     drawer.classList.toggle("usableonly", usableOnly);
