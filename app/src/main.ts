@@ -217,7 +217,6 @@ $("palette-input").parentElement!.insertBefore(Object.assign(uiIcon("search"), {
 const menuPanel = $("menupanel");
 $("menubtn").addEventListener("click", () => {
   menuPanel.hidden = !menuPanel.hidden;
-  if (!menuPanel.hidden) toggleDrawer(false);
 });
 menuPanel.addEventListener("click", (e) => {
   if ((e.target as HTMLElement).closest("button")) menuPanel.hidden = true;
@@ -229,7 +228,7 @@ document.addEventListener("pointerdown", (e) => {
   if (!menuPanel.hidden && !(e.target as HTMLElement).closest("#menuwrap")) menuPanel.hidden = true;
 }, true);
 
-// Browse drawer: every tool by group, hidden until asked for (button, key T, or the strip's "..." button).
+// Browse drawer: every tool by group, hidden until asked for (the left handle, key T, or the strip's "..." button). It opens and closes only from the handle or T: clicking tools or the 3D view never closes it.
 const drawer = $("drawer");
 function toggleDrawer(open = drawer.hidden, usableOnly?: boolean) {
   drawer.hidden = !open;
@@ -243,15 +242,7 @@ $("drawerbtn").addEventListener("click", () => {
   toggleDrawer();
   menuPanel.hidden = true;
 });
-$("drawerclose").addEventListener("click", () => toggleDrawer(false));
 $("drawerusable").addEventListener("change", (e) => drawer.classList.toggle("usableonly", (e.target as HTMLInputElement).checked));
-$("toollist").addEventListener("click", (e) => {
-  if ((e.target as HTMLElement).closest("button")) toggleDrawer(false);
-});
-$("viewport").addEventListener("pointerdown", () => toggleDrawer(false), true);
-window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !drawer.hidden) toggleDrawer(false);
-});
 
 /** Strip order: the tool a drag runs first, then the tool groups' order. */
 const GROUP_ORDER = TOOL_GROUPS.flatMap((g) => g.tools);
