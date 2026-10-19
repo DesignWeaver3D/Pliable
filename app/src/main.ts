@@ -959,20 +959,23 @@ async function updateDivideFrame() {
 }
 viewport.onDivideDrag = (across, offset) => toolPanel.setValues({ across, offset });
 
+let formPreviewSeq = 0;
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   selectedEdges: () => currentSels.filter((s) => s.kind === "edge").map((s) => s.id),
   pickPoint: () => pointPicker.pick(),
   tools: () => tools,
   usable: (tool) => acceptsSelection(tool, expand(tool, currentSels)) && (refined === null || refined.includes(tool.id)),
   async preview(tool, values) {
+    const seq = ++formPreviewSeq;
     try {
       const mesh = await core.request<MeshData>("tool_preview", { tool: tool.id, selection: selectionPayload(expand(tool, currentSels)), params: values });
-      if (!toolPanel.isOpen) return;
+      if (!toolPanel.isOpen || seq !== formPreviewSeq) return; // a newer preview was asked for: replies can arrive out of order
       show(mesh);
       viewport.manipulator.setHandles(mesh.header.handles ?? []);
       status.classList.remove("error");
       status.textContent = `${tool.label}: preview`;
     } catch (e) {
+      if (seq !== formPreviewSeq) return;
       status.textContent = (e as Error).message;
       status.classList.add("error");
     }
