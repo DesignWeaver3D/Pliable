@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/keys.test.mjs tests/boxselect.test.mjs tests/tooltip.test.mjs tests/sketchmodel.test.mjs tests/hints.test.mjs tests/icons.test.mjs tests/axes.test.mjs tests/manipulator.test.mjs"
+    "test": "node --test tests/keys.test.mjs tests/boxselect.test.mjs tests/tooltip.test.mjs tests/sketchmodel.test.mjs tests/hints.test.mjs tests/icons.test.mjs tests/axes.test.mjs tests/manipulator.test.mjs tests/seethrough.test.mjs"
   },
   "dependencies": {
     "three": "^0.186.1"

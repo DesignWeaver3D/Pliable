@@ -51,11 +51,22 @@ const navCube = new NavCube($("navcube"), viewport);
 const reference = new ReferenceView(viewport);
 const pointPicker = new PointPicker(viewport, reference, (text) => (status.textContent = text));
 const seeThroughButton = $("seethrough");
+navCube.group.append(seeThroughButton, $("axes"));
 seeThroughButton.addEventListener("click", () => viewport.toggleSeeThrough());
-const syncSeeThrough = () => seeThroughButton.classList.toggle("active", settings.seeThrough);
-onSettingsChange(syncSeeThrough);
-syncSeeThrough();
-$("axes").addEventListener("click", () => reference.setVisible(!reference.visible));
+const syncSeeThrough = () => {
+  seeThroughButton.classList.toggle("active", settings.seeThrough);
+  seeThroughButton.setAttribute("aria-pressed", String(settings.seeThrough));
+  seeThroughButton.title = `See-through ${settings.seeThrough ? "on" : "off"} (${keys.keymap.hint("display.seeThrough") || "X"}): faces transparent, hidden edges and faces can be picked`;
+};
+onSettingsChange(syncSeeThrough); // first call after the key router exists, below
+const axesButton = $("axes");
+axesButton.prepend(uiIcon("axes"));
+const syncAxes = () => axesButton.classList.toggle("active", reference.visible);
+axesButton.addEventListener("click", () => {
+  reference.setVisible(!reference.visible);
+  syncAxes();
+});
+syncAxes();
 viewport.onFrame = () => {
   // One failing part must not stop the others from updating on later frames.
   for (const part of [() => reference.tick(), () => dimensionOverlay.draw(), () => navCube.update()]) {
@@ -780,6 +791,7 @@ const keys = new KeyRouter({
   status,
   hints: { get: () => hintLine.prefs.on, set: (on) => hintLine.setOn(on) },
 });
+syncSeeThrough();
 keys.installButton($("bar"));
 // Leaving with edits (undo steps) or an open sketch asks first; autosave still protects against crashes.
 window.addEventListener("beforeunload", (e) => {

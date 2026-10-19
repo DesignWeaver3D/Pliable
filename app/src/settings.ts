@@ -6,6 +6,8 @@ export interface Settings {
   vertexPickPx: number;
   /** Draw the model translucent and let edges and faces behind it be picked (see-through). */
   seeThrough: boolean;
+  /** Face opacity in percent while see-through is on (0 to 60). */
+  seeThroughOpacity: number;
   /** Minimum angle in degrees between faces for the Sharp edges selection. */
   sharpAngle: number;
   /** What a box selection picks: "auto" follows the current selection (edges when empty). */
@@ -13,7 +15,7 @@ export interface Settings {
 }
 
 const KEY = "pliable.settings";
-const DEFAULTS: Settings = { edgePickPx: 5, vertexPickPx: 8, seeThrough: false, sharpAngle: 30, boxKind: "auto" };
+const DEFAULTS: Settings = { edgePickPx: 5, vertexPickPx: 8, seeThrough: false, seeThroughOpacity: 12, sharpAngle: 30, boxKind: "auto" };
 
 export const settings: Settings = { ...DEFAULTS };
 const listeners: Array<() => void> = [];
@@ -50,7 +52,7 @@ export function createSettingsWindow(host: HTMLElement) {
   const panel = document.createElement("div");
   panel.id = "settingspanel";
   panel.hidden = true;
-  const slider = (label: string, key: "edgePickPx" | "vertexPickPx" | "sharpAngle", min: number, max: number, hint: string) => {
+  const slider = (label: string, key: "edgePickPx" | "vertexPickPx" | "sharpAngle" | "seeThroughOpacity", min: number, max: number, hint: string) => {
     const row = document.createElement("label");
     row.title = hint;
     const text = document.createElement("span");
@@ -60,7 +62,7 @@ export function createSettingsWindow(host: HTMLElement) {
     input.min = String(min);
     input.max = String(max);
     input.step = "1";
-    const unit = key === "sharpAngle" ? "°" : " px";
+    const unit = key === "sharpAngle" ? "°" : key === "seeThroughOpacity" ? " %" : " px";
     const show = () => (text.textContent = `${label}: ${settings[key]}${unit}`);
     input.value = String(settings[key]);
     input.oninput = () => {
@@ -111,6 +113,7 @@ export function createSettingsWindow(host: HTMLElement) {
     slider("Sharp edge angle", "sharpAngle", 5, 90, "Sharp edges selects connected edges whose faces meet at this angle or more."),
     boxRow,
     seeThrough,
+    slider("See-through opacity", "seeThroughOpacity", 0, 60, "How visible the faces stay while see-through is on. 0 is fully clear; higher shows the surface more."),
     reset,
   ];
   panel.append(...build());
