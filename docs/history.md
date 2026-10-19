@@ -31,7 +31,7 @@ One line per finished session, with the findings worth keeping. Open sessions ar
 - **S50, S51 Selection:** chips off by default with All/None and Parallel/Symmetric; see-through draws faces nearly clear with a button.
 - **S53-S55 Shell:** any Ctrl/Alt/Shift mix; drafting dimensions and leaders; hint line and first-use tips.
 - **S61-S63:** one Import STEP choice and mesh export dropdown; perimeter-only Edge loops, tangent-only double-click, Shift+click adds, smaller pick ranges on small faces; reconnect with backoff and defensive measurement updates (the stall was not reproduced).
-- **S28, S47, S64, S66 Gizmos:** on-screen handles (primitives with grips on every side, move/rotate/scale body, push/pull arrow, fillet and chamfer handles), axis-coloured move arrows, base-point and destination picks, typed values during a handle drag.
+- **S28, S47, S64, S66 Gizmos:** on-screen handles (primitives with grips on every side, move/rotate/scale body, push/pull arrow, fillet and chamfer handles), axis-coloured move arrows, base-point and destination picks, typed values during a handle drag (the label shows the typed text; the shape moves only on Enter, as with tool drags and in-place dimension edits).
 - **S34 UI:** floating tool strip, search field, procedural icons, Tools handle with the toolbox icon on the left edge, view controls beside the nav cube, keyboard shortcuts reached from Settings, `?` and search.
 
 ## Parked by design
