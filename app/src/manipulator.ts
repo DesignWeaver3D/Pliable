@@ -154,6 +154,11 @@ export class Manipulator {
     return this.active !== null;
   }
 
+  /** The handle being dragged right now, if any. */
+  get dragInfo(): HandleInfo | null {
+    return this.active?.item.info ?? null;
+  }
+
   get count(): number {
     return this.items.length;
   }

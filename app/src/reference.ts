@@ -5,6 +5,7 @@ import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { Viewport } from "./viewport";
 import { holeAxisPoints } from "./holepoints.ts";
+import { mouthPoints, snapCentres } from "./placepick";
 import { AXIS_COLORS, axisHalfLength, positionsBox, type Box6 } from "./axes";
 
 const AXES = [
@@ -135,7 +136,6 @@ export class ReferenceView {
         }
       }
     }
-    for (const p of this.viewport.shownCentres) candidates.push({ point: p, label: "Hole centre" });
     // Model vertices; hidden ones (well behind the face under the pointer) are skipped.
     const data = this.viewport.meshData;
     const hitDistance = face ? this.viewport.camera.position.distanceTo(face.point) : Infinity;
@@ -145,6 +145,18 @@ export class ReferenceView {
       for (const [xyz, label] of holeAxisPoints(c)) {
         const p = new THREE.Vector3(...xyz);
         if (label === "Hole centre" || visible(p)) candidates.push({ point: p, label });
+      }
+    }
+    // Hole centres of every hole, not just the hovered one: a pick in progress never hovers, so none would be shown. A
+    // centre sits at mid-depth inside its hole, behind the face under the pointer, so the hidden-point test does not apply.
+    for (const p of snapCentres(data?.centres ?? [], () => true)) candidates.push({ point: new THREE.Vector3(...p), label: "Hole centre" });
+    // The same centres carried along their axes to the faces around each mouth: the hole centre as it appears on the surface.
+    const planes = (data?.faces ?? []).filter((f) => f.centroid && f.normal).map((f) => ({ point: f.centroid as [number, number, number], normal: f.normal as [number, number, number] }));
+    for (const c of data?.centres ?? []) {
+      if (!c.axis) continue;
+      for (const p of mouthPoints(c.position as [number, number, number], c.axis as [number, number, number], planes)) {
+        const point = new THREE.Vector3(...p);
+        if (visible(point)) candidates.push({ point, label: "Hole centre" });
       }
     }
     for (const v of data?.vertices ?? []) {

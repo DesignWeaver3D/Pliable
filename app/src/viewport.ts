@@ -6,6 +6,7 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { CentreInfo, FaceRange, MeshData } from "./client";
+import { splitDrawLists } from "./slide";
 import { Manipulator } from "./manipulator";
 import { onSettingsChange, settings, updateSettings } from "./settings";
 
@@ -104,6 +105,9 @@ export class Viewport {
   private lastClip = 0;
   private model = new THREE.Group();
   private mesh: THREE.Mesh | null = null;
+  private edgeLines: THREE.LineSegments | null = null;
+  /** Bodies drawn apart from the rest so they can be slid on the client while a move handle is dragged (see `slideBodies`). */
+  private moving: { bodies: Set<number>; surface: THREE.Mesh; edges: THREE.LineSegments; data: MeshData } | null = null;
   private data: MeshData | null = null;
   private faceStarts: number[] = [];
   private surfaceMaterial: THREE.MeshStandardMaterial | null = null;
@@ -778,7 +782,9 @@ export class Viewport {
     const edges = new THREE.BufferGeometry();
     edges.setAttribute("position", new THREE.BufferAttribute(mesh.edgePositions, 3));
     this.edgeMaterial = new THREE.LineBasicMaterial({ color: 0x111418 });
-    this.model.add(new THREE.LineSegments(edges, this.edgeMaterial));
+    this.edgeLines = new THREE.LineSegments(edges, this.edgeMaterial);
+    this.model.add(this.edgeLines);
+    this.moving = null;
     // Hole centre dots are drawn only for the hovered or selected hole (see refreshCentres).
     this.centreDots = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: 0x4fc3f7, size: 7, sizeAttenuation: false, depthTest: false }));
     this.centreDots.renderOrder = 3;
@@ -787,6 +793,49 @@ export class Viewport {
     this.applySeeThrough();
 
     if (frame) this.frame(mesh.bounds);
+  }
+
+  /**
+   * Show the given bodies moved by `offset` from where the current mesh has them, at once and without the core: the
+   * bodies are split from the mesh's draw lists the first time (and when the set changes) and then only repositioned.
+   * The next `setMesh` replaces everything, so the core's reply simply takes over.
+   */
+  slideBodies(bodies: Set<number>, offset: [number, number, number]) {
+    const data = this.data;
+    if (!data || !this.mesh || !this.edgeLines) return;
+    const same = this.moving && this.moving.data === data && this.moving.bodies.size === bodies.size && [...bodies].every((b) => this.moving!.bodies.has(b));
+    if (!same) {
+      this.unsplit();
+      const parts = splitDrawLists(data, bodies);
+      if (!parts) return;
+      const rest = this.mesh.geometry;
+      rest.setIndex(new THREE.BufferAttribute(parts.restIndices, 1));
+      const surfaceGeometry = new THREE.BufferGeometry();
+      surfaceGeometry.setAttribute("position", rest.getAttribute("position"));
+      surfaceGeometry.setAttribute("normal", rest.getAttribute("normal"));
+      surfaceGeometry.setIndex(new THREE.BufferAttribute(parts.movingIndices, 1));
+      const surface = new THREE.Mesh(surfaceGeometry, this.surfaceMaterial!);
+      this.edgeLines.geometry.setAttribute("position", new THREE.BufferAttribute(parts.restEdges, 3));
+      const edgeGeometry = new THREE.BufferGeometry();
+      edgeGeometry.setAttribute("position", new THREE.BufferAttribute(parts.movingEdges, 3));
+      const edges = new THREE.LineSegments(edgeGeometry, this.edgeMaterial!);
+      this.model.add(surface, edges);
+      this.moving = { bodies: new Set(bodies), surface, edges, data };
+    }
+    this.moving!.surface.position.set(...offset);
+    this.moving!.edges.position.set(...offset);
+  }
+
+  /** Put a split mesh back together (before the split is redone for another set of bodies). */
+  private unsplit() {
+    const m = this.moving;
+    if (!m || !this.mesh || !this.edgeLines) return;
+    this.model.remove(m.surface, m.edges);
+    m.surface.geometry.dispose();
+    m.edges.geometry.dispose();
+    this.mesh.geometry.setIndex(new THREE.BufferAttribute(m.data.indices, 1));
+    this.edgeLines.geometry.setAttribute("position", new THREE.BufferAttribute(m.data.edgePositions, 3));
+    this.moving = null;
   }
 
   private show(mark: Mark | null, sel: Sel | null) {

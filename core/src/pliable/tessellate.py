@@ -118,7 +118,8 @@ def _solid_indices(topology: Topology) -> tuple[dict, dict, dict]:
     return owner
 
 
-def tessellate(topology: Topology) -> Mesh:
+def tessellate(topology: Topology, preview: bool = False) -> Mesh:
+    """Mesh a topology. A preview skips the per-edge drag directions (most of the cost) since nothing is dragged on it."""
     shape = topology.shape
     face_solid, edge_solid, vertex_solid = _solid_indices(topology)
     solid_shapes = solids_of(shape)
@@ -176,7 +177,7 @@ def tessellate(topology: Topology) -> Mesh:
                 "id": edge_id,
                 "start": start,
                 "count": len(edge_positions) - start,
-                "normal": edge_outward_normal(topology, edge),
+                "normal": None if preview else edge_outward_normal(topology, edge),
                 "solid": edge_solid.get(edge_id, 0),
                 "body": body_of(edge_solid, edge_id),
             }
