@@ -536,6 +536,7 @@ export class Viewport {
         down = null;
         return;
       }
+      if (drag && this.holdDrag && e.button === 0) return; // a typed value overrides the drag: Enter commits, Escape cancels
       if (drag) {
         this.endMeasure();
         this.drag = null;

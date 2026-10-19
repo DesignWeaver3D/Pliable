@@ -440,6 +440,7 @@ export class Manipulator {
   up(e: PointerEvent) {
     const a = this.active;
     if (!a) return;
+    if (a.typed !== null) return; // typing overrides the drag: the button may be let go, Enter commits and Escape cancels
     this.release(a, e.clientX, e.clientY);
   }
 
