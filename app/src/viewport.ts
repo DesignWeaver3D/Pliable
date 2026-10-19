@@ -745,6 +745,7 @@ export class Viewport {
       (child as THREE.Mesh).geometry?.dispose();
     }
     this.hovered = null;
+    this.onHoverBody(null);
     this.selected = [];
     this.centresShown = [];
     this.selectedMarks = [];
@@ -1340,6 +1341,17 @@ export class Viewport {
     return this.centresShown.map((c) => new THREE.Vector3(...c.position));
   }
 
+  /** The pointer is over (or left) a body: its id, so the host can light up the body's row in the list. */
+  onHoverBody: (id: number | null) => void = () => {};
+
+  /** The id of the body an item belongs to, if the mesh says. */
+  private bodyOf(sel: Sel | null): number | null {
+    if (!sel || !this.data) return null;
+    if (sel.kind === "body") return sel.id;
+    const table = sel.kind === "face" ? this.data.faces : sel.kind === "edge" ? this.data.edges : this.data.vertices;
+    return table.find((x) => x.id === sel.id)?.body ?? null;
+  }
+
   /** Hover highlight set from outside (a row of the body list). */
   hoverItem(sel: Sel | null) {
     this.setHover(sel);
@@ -1348,6 +1360,7 @@ export class Viewport {
   private setHover(sel: Sel | null) {
     if (sel?.kind === this.hovered?.kind && sel?.id === this.hovered?.id) return;
     this.hovered = sel;
+    this.onHoverBody(this.bodyOf(sel));
     this.refreshCentres();
     this.show(this.hoverMark, sel);
     this.renderer.domElement.style.cursor = sel ? "pointer" : "";

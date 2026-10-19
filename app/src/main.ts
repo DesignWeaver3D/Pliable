@@ -514,6 +514,7 @@ function pump(token: number) {
 }
 
 viewport.onSelect = setSelection;
+viewport.onHoverBody = (id) => bodyList.setHovered(id);
 
 // Moving a hole by dragging its centre dot: previews the Move hole tool (latest request wins) and commits on release.
 let centreBusy = false;
