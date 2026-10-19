@@ -7,6 +7,7 @@ import { SketchBar } from "./sketchbar";
 import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay } from "./dimensions";
+import { DimensionEditor } from "./dimedit";
 import { createSettingsWindow, onSettingsChange, setKeysOpener, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
@@ -543,6 +544,26 @@ function pump(token: number) {
 }
 
 viewport.onSelect = setSelection;
+
+// Editing a displayed dimension in place (dimedit.ts): the core maps it to the matching tool, so it previews like one and is one undo step.
+const dimensionEditor = new DimensionEditor({
+  overlay: dimensionOverlay,
+  container: $("viewport"),
+  send: (edit, value, flip, commit) => core.request("dimension_edit", { selection: selectionPayload(currentSels), dimension: edit.kind, value, flip, commit }),
+  preview: (reply) => {
+    show(reply as MeshData);
+    status.classList.remove("error");
+  },
+  revert: () => {
+    if (committed) show(committed);
+  },
+  committed: (reply, summary) => {
+    const mesh = reply as MeshData;
+    setCommitted(mesh, false, mappedSelection(mesh));
+    status.textContent = summary;
+  },
+});
+void dimensionEditor;
 viewport.onHoverBody = (id) => bodyList.setHovered(id);
 
 // Moving a hole by dragging its centre dot: previews the Move hole tool (latest request wins) and commits on release.

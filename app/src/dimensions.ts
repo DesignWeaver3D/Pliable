@@ -1,11 +1,23 @@
 /** Drawing-style dimension leaders over the viewport, from the `dimensions` in the core's `measure` reply. */
 import * as THREE from "three";
 
+/** What the core says an in-place edit of this dimension means (see `dimedit.py`); `blocked` is why it would fail. */
+export interface DimEdit {
+  kind: string;
+  value: number | null;
+  canFlip: boolean;
+  blocked?: string;
+}
+
 export interface Dimension {
   kind: "linear" | "diameter" | "radius" | "tag";
   text: string;
   points: number[][];
   offsetDirection?: number[];
+  /** Set when double-clicking the text edits the value in place. */
+  edit?: DimEdit;
+  /** Why the value cannot be edited (the tooltip of a read-only measured dimension). */
+  editNote?: string;
 }
 
 const DIM_OFFSET_PX = 36; // distance of a linear dimension line from the measured points
@@ -30,6 +42,11 @@ export class DimensionOverlay {
   private readonly svg = document.createElementNS(NS, "svg");
   private dims: Dimension[] = [];
   private pointer: V | null = null;
+  /** Called when the text of an editable dimension is double-clicked (or clicked, when it is the only dimension). */
+  onActivate: ((index: number, at: { x: number; y: number }) => void) | null = null;
+  /** Index of the dimension whose text an inline field is covering right now. */
+  editing: number | null = null;
+  private labelAt = new Map<number, V>(); // where each interactive label was drawn last frame
 
   constructor(
     container: HTMLElement,
@@ -43,12 +60,18 @@ export class DimensionOverlay {
     });
   }
 
+  private current = 0; // index of the dimension being drawn
+  private drewLabel: V | null = null; // where its interactive label went
   private placed: Box[] = []; // text boxes of the dimensions drawn so far this frame
   private pending: Box[] = [];
   private clash = false;
   private drawn = ""; // what the SVG currently shows (camera, size, pointer, dimensions); unchanged means skip the redraw
 
+  /** Called when the dimensions are replaced while an inline editor is open (the selection changed under it). */
+  onReset: (() => void) | null = null;
+
   set(dims: Dimension[]) {
+    if (this.editing !== null) this.onReset?.();
     this.dims = dims;
     this.drawn = "";
     if (dims.length === 0) this.svg.replaceChildren();
@@ -60,16 +83,21 @@ export class DimensionOverlay {
     const rect = this.svg.getBoundingClientRect();
     const cam = this.camera();
     cam.updateMatrixWorld();
-    const state = [...cam.matrixWorld.elements, ...(cam as THREE.PerspectiveCamera).projectionMatrix.elements, rect.width, rect.height, this.pointer?.x, this.pointer?.y].join(",");
+    // The pointer only matters to labels that dodge it; the interactive ones (editable or explained) stay put under it.
+    const dodging = this.dims.some((d) => !d.edit && !d.editNote);
+    const state = [...cam.matrixWorld.elements, ...(cam as THREE.PerspectiveCamera).projectionMatrix.elements, rect.width, rect.height, dodging ? this.pointer?.x : 0, dodging ? this.pointer?.y : 0, this.editing].join(",");
     if (state === this.drawn) return; // nothing moved: rebuilding the SVG every frame made it flicker
     this.drawn = state;
     const project = (p: number[]): V => {
       const n = new THREE.Vector3(p[0], p[1], p[2]).project(this.camera());
       return { x: ((n.x + 1) / 2) * rect.width, y: ((1 - n.y) / 2) * rect.height };
     };
-    const parts: SVGElement[] = [];
+    const parts: SVGElement[] = [HIT_STYLE.cloneNode(true) as SVGElement];
     this.placed = [];
-    for (const d of this.dims) {
+    this.labelAt = new Map();
+    for (const [index, d] of this.dims.entries()) {
+      this.current = index;
+      this.drewLabel = null;
       // A dimension whose text would land on one already drawn is left out; the measurement panel still lists it.
       const mine: SVGElement[] = [];
       this.pending = [];
@@ -83,6 +111,7 @@ export class DimensionOverlay {
         continue;
       }
       if (this.clash) continue;
+      if (this.drewLabel) this.labelAt.set(index, this.drewLabel);
       parts.push(...mine);
       this.placed.push(...this.pending);
     }
@@ -154,9 +183,51 @@ export class DimensionOverlay {
     out.push(line(a, b), arrow(a, mul(dir, -1)), arrow(b, dir));
   }
 
+  /** An invisible rectangle over the text: the tooltip, the hover look and the double-click that opens the inline editor. */
+  private hitArea(half: V, dim: Dimension, at: V): SVGElement {
+    const index = this.current;
+    const r = document.createElementNS(NS, "rect");
+    r.setAttribute("x", String(-half.x));
+    r.setAttribute("y", String(-half.y));
+    r.setAttribute("width", String(half.x * 2));
+    r.setAttribute("height", String(half.y * 2));
+    r.setAttribute("rx", "3");
+    r.setAttribute("class", dim.edit ? "dimhit edit" : "dimhit");
+    const tip = document.createElementNS(NS, "title");
+    tip.textContent = dim.edit ? "Double-click to edit" : (dim.editNote ?? "");
+    r.append(tip);
+    // The pointer gestures on the text belong to the text: they must not reach the viewport (which would clear the selection).
+    for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup"]) r.addEventListener(type, (e) => e.stopPropagation());
+    if (dim.edit) {
+      r.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.onActivate?.(index, at);
+      });
+      r.addEventListener("click", (e) => {
+        if (this.dims.length === 1) {
+          e.stopPropagation();
+          this.onActivate?.(index, at);
+        }
+      });
+    }
+    return r;
+  }
+
+  /** Screen positions of the editable dimensions drawn last frame, in dimension order (for Tab to cycle through). */
+  editableLabels(): { index: number; x: number; y: number }[] {
+    return [...this.labelAt].filter(([i]) => this.dims[i].edit).map(([index, p]) => ({ index, x: p.x, y: p.y }));
+  }
+
+  dimension(index: number): Dimension | undefined {
+    return this.dims[index];
+  }
+
   private label(at: V, text: string, out: SVGElement[], dotted: boolean, angle = 0) {
+    const dim = this.dims[this.current];
+    const interactive = !!(dim?.edit || dim?.editNote);
     let p = at;
-    if (this.pointer && len(sub(p, this.pointer)) < CURSOR_CLEAR_PX) {
+    if (!interactive && this.pointer && len(sub(p, this.pointer)) < CURSOR_CLEAR_PX) {
       p = add(this.pointer, mul(unit(sub(p, this.pointer)), CURSOR_CLEAR_PX));
     }
     const half = { x: (text.length * TEXT_PX * 0.55 + 8) / 2, y: TEXT_PX / 2 + 2 };
@@ -169,8 +240,10 @@ export class DimensionOverlay {
     if (dotted) out.push(dot(at));
     const g = document.createElementNS(NS, "g");
     g.setAttribute("transform", `translate(${p.x},${p.y}) rotate(${angle})`);
+    if (interactive) this.drewLabel = p;
+    const hidden = this.editing === this.current;
     const t = document.createElementNS(NS, "text");
-    t.textContent = text;
+    t.textContent = hidden ? "" : text;
     t.setAttribute("text-anchor", "middle");
     t.setAttribute("dominant-baseline", "central");
     t.setAttribute("font-size", String(TEXT_PX));
@@ -180,9 +253,16 @@ export class DimensionOverlay {
     t.setAttribute("stroke-width", "4");
     t.setAttribute("paint-order", "stroke");
     g.append(t);
+    if (interactive && !hidden) g.append(this.hitArea(half, dim, p));
     out.push(g);
   }
 }
+
+const HIT_STYLE = (() => {
+  const style = document.createElementNS(NS, "style");
+  style.textContent = ".dimhit { fill: rgba(255,138,31,0); stroke: none; pointer-events: all; } .dimhit.edit { cursor: text; } .dimhit.edit:hover { fill: rgba(255,138,31,0.16); stroke: #ff8a1f; stroke-width: 1; }";
+  return style;
+})();
 
 interface Box {
   x0: number;
