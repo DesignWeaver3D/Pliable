@@ -20,7 +20,7 @@ const POINT_SIZE_PX = 8;
 const PREVIEW_DELAY_MS = 150;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150 };
 
-type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "arc" | "trim" | "extend" | "triangle" | "pentagon" | "hexagon" | "octagon";
+type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "arc" | "ellipse" | "spline" | "trim" | "extend" | "triangle" | "pentagon" | "hexagon" | "octagon";
 /** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
 const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5, hexagon: 6, octagon: 8 };
 const TOOLS: { id: Tool; label: string; hint: string }[] = [
@@ -30,6 +30,8 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "rectcentre", label: "Centre rectangle", hint: "Click the centre, then a corner" },
   { id: "circle", label: "Circle", hint: "Click the centre, then a point on the circle" },
   { id: "arc", label: "Arc", hint: "Click the centre, the start, then the end (counterclockwise)" },
+  { id: "ellipse", label: "Ellipse", hint: "Click the centre, the end of the long axis, then a point for the short radius" },
+  { id: "spline", label: "Spline", hint: "Click points the curve passes through; Enter or right-click ends it, clicking the first point closes it" },
   { id: "trim", label: "Trim", hint: "Click the part of a line to remove, up to the nearest crossing curves" },
   { id: "extend", label: "Extend", hint: "Click near the end of a line to stretch it to the next curve" },
   ...(Object.keys(POLYGON_SIDES) as Tool[]).map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1), hint: "Click the centre, then a corner" })),
@@ -71,6 +73,8 @@ export class SketchMode {
   private tool: Tool = "select";
   private selection: M.SketchSel[] = [];
   private hover: M.SketchSel | null = null;
+  /** Geometry lit up while the pointer is over a row of the constraint list. */
+  private highlight: M.SketchSel[] = [];
   private chain: Snap[] = []; // points clicked so far for the current drawing
   private cursor: Snap | null = null;
   private drag: { id: number; startX: number; startY: number; moved: boolean; body?: { u: number; v: number; points: { id: number; u: number; v: number }[] } } | null = null;
@@ -81,6 +85,8 @@ export class SketchMode {
   private normal = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.line, linewidth: 2, depthTest: false }));
   private construction = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.construction, linewidth: 2, depthTest: false }));
   private marked = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.selected, linewidth: 3, depthTest: false }));
+  /** The model's principal axes as they project onto the sketch plane (red x, green y, blue z). */
+  private axes = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ linewidth: 1, vertexColors: true, depthTest: false, transparent: true, opacity: 0.7 }));
   private pending = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.pending, linewidth: 2, depthTest: false }));
   private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false }));
   private grid: THREE.GridHelper | null = null;
@@ -98,7 +104,7 @@ export class SketchMode {
     panel: HTMLElement,
   ) {
     this.panel = panel;
-    for (const o of [this.normal, this.construction, this.marked, this.pending, this.points]) {
+    for (const o of [this.axes, this.normal, this.construction, this.marked, this.pending, this.points]) {
       o.renderOrder = 5;
       o.frustumCulled = false;
       this.group.add(o);
@@ -114,7 +120,7 @@ export class SketchMode {
   /** Set while sketching on an unrolled cylinder face: the face the regions are wrapped back onto when finishing. */
   private unwrapFace: number[] | null = null;
 
-  start(plane: M.PlaneData, reference?: { points: M.SketchPoint[]; entities: M.SketchEntity[] }, unwrapFace: number[] | null = null) {
+  start(plane: M.PlaneData, reference?: { points: M.SketchPoint[]; entities: M.SketchEntity[] }, unwrapFace: number[] | null = null, distortion?: { max: number; note: string }) {
     if (this.active) this.exit();
     // Reference geometry (the face outline) is fixed construction geometry that sketch points can snap to.
     this.s = { plane, points: reference?.points ?? [], entities: reference?.entities ?? [], constraints: [] };
@@ -138,7 +144,7 @@ export class SketchMode {
     this.viewport.lookFrom(new THREE.Vector3(...f.n));
     this.viewport.onFrame2 = () => this.onFrame();
     this.render();
-    this.host.status("Sketch: choose a drawing tool (Line, Rectangle, Circle, Arc)");
+    this.host.status(distortion ? distortion.note : "Sketch: choose a drawing tool (Line, Rectangle, Circle, Arc)", !!distortion);
   }
 
   exit() {
@@ -337,7 +343,7 @@ export class SketchMode {
     const entity = hit?.kind === "entity" ? this.s.entities.find((x) => x.id === hit.id) : undefined;
     const uv = this.planeUV(e);
     if (entity && uv && !additive && !entity.reference) {
-      const ids = entity.type === "line" ? [entity.a, entity.b] : entity.type === "circle" ? [entity.center] : [entity.center, entity.start, entity.end];
+      const ids = M.entityPoints(entity);
       const held = ids.map((id) => this.s.points.find((p) => p.id === id)!);
       if (held.every((p) => p && !p.fixed)) {
         this.drag = { id: 0, startX: e.clientX, startY: e.clientY, moved: false, body: { u: uv[0], v: uv[1], points: held.map((p) => ({ id: p.id, u: p.u, v: p.v })) } };
@@ -380,6 +386,16 @@ export class SketchMode {
         if (closed) this.endChain();
         else this.chain = [snap];
       }
+    } else if (this.tool === "spline") {
+      const first = this.chain[0];
+      if (this.chain.length >= 3 && snap.id !== undefined && snap.id === first.id) {
+        this.chain.pop();
+        this.addSpline(true);
+        return;
+      }
+    } else if (this.tool === "ellipse" && this.chain.length === 3) {
+      this.addEllipse(this.chain[0], this.chain[1], this.chain[2]);
+      this.chain = [];
     } else if ((this.tool === "rectangle" || this.tool === "rectcentre") && this.chain.length === 2) {
       this.addRectangle(this.chain[0], this.chain[1], this.tool === "rectcentre");
       this.chain = [];
@@ -398,6 +414,7 @@ export class SketchMode {
   }
 
   private endChain() {
+    if (this.tool === "spline" && this.chain.length >= 2) this.addSpline(false);
     this.chain = [];
     this.chainStart = undefined;
     this.cursor = null;
@@ -459,7 +476,7 @@ export class SketchMode {
   }
 
   private addConstraintRaw(c: Omit<M.SketchConstraint, "id">) {
-    this.s.constraints.push({ id: M.nextId(this.s), ...c });
+    this.s.constraints.push({ id: M.nextId(this.s), ...c, auto: true }); // every caller is a drawing tool, not the user
   }
 
   /** Returns true if the line ended on the first point of the chain (a closed outline). */
@@ -566,6 +583,33 @@ export class SketchMode {
     const id = M.nextId(this.s);
     this.s.entities.push({ id, type: "circle", center: c, radius });
     if (edge.tangent !== undefined) this.addConstraintRaw({ type: "tangent", entities: [id, edge.tangent] });
+    this.resolve();
+  }
+
+  private addEllipse(center: Snap, major: Snap, side: Snap) {
+    const a = Math.hypot(major.u - center.u, major.v - center.v);
+    if (a < 1e-6) return;
+    // the short radius is how far the third click is from the long axis
+    const minor = Math.abs(((side.u - center.u) * (major.v - center.v) - (side.v - center.v) * (major.u - center.u)) / a);
+    if (minor < 1e-6) return;
+    this.pushUndo();
+    const c = this.pointFor(center);
+    const m = this.pointFor(major);
+    this.s.entities.push({ id: M.nextId(this.s), type: "ellipse", center: c, major: m, minor });
+    this.resolve();
+  }
+
+  /** The clicked points become a spline through them; a closed one joins the last back to the first. */
+  private addSpline(closed: boolean) {
+    this.pushUndo();
+    const ids: number[] = [];
+    for (const snap of this.chain) {
+      const id = this.pointFor(snap);
+      if (ids[ids.length - 1] !== id) ids.push(id);
+    }
+    if (ids.length < 2) return;
+    this.s.entities.push({ id: M.nextId(this.s), type: "spline", points: ids, ...(closed && ids.length > 2 ? { closed: true } : {}) });
+    this.chain = [];
     this.resolve();
   }
 
@@ -767,7 +811,7 @@ export class SketchMode {
   /** Flatten the model's edges onto the sketch plane as fixed reference geometry the sketch can snap to. */
   private async projectModel() {
     try {
-      const ref = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[] }>("sketch_project", { plane: this.s.plane });
+      const ref = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[]; skipped?: { square: number; tilted_circles: number; other: number } }>("sketch_project", { plane: this.s.plane });
       const near = (a: M.SketchPoint, b: M.SketchPoint) => Math.hypot(a.u - b.u, a.v - b.v) < 1e-5;
       const known = this.s.points.filter((p) => p.fixed);
       const entityKey = (e: M.SketchEntity) => JSON.stringify([e.type, ...M.entityPoints(e).map((id) => this.s.points.find((p) => p.id === id)).map((p) => p && [Math.round(p.u * 1e4), Math.round(p.v * 1e4)])]);
@@ -788,6 +832,8 @@ export class SketchMode {
         const mapped = { ...e, id: M.nextId(this.s) } as M.SketchEntity;
         if (mapped.type === "line") (mapped.a = map.get(mapped.a)!), (mapped.b = map.get(mapped.b)!);
         else if (mapped.type === "circle") mapped.center = map.get(mapped.center)!;
+        else if (mapped.type === "ellipse") (mapped.center = map.get(mapped.center)!), (mapped.major = map.get(mapped.major)!);
+        else if (mapped.type === "spline") mapped.points = mapped.points.map((q) => map.get(q)!);
         else (mapped.center = map.get(mapped.center)!), (mapped.start = map.get(mapped.start)!), (mapped.end = map.get(mapped.end)!);
         if (have.has(entityKey(mapped))) continue;
         this.s.entities.push(mapped);
@@ -795,7 +841,13 @@ export class SketchMode {
       }
       this.resolve();
       this.render();
-      this.host.status(added ? `Projected ${added} model edge${added === 1 ? "" : "s"}` : "No new model edges to project");
+      const sk = ref.skipped;
+      const notes = [
+        sk?.tilted_circles ? `${sk.tilted_circles} tilted circle${sk.tilted_circles === 1 ? "" : "s"} (would be ellipses) not drawn, their end points are snappable` : "",
+        sk?.other ? `${sk.other} curved edge${sk.other === 1 ? "" : "s"} of another kind skipped, their end points are snappable` : "",
+        sk?.square ? `${sk.square} edge${sk.square === 1 ? "" : "s"} seen end-on shown as points` : "",
+      ].filter(Boolean);
+      this.host.status(`${added ? `Projected ${added} model edge${added === 1 ? "" : "s"}` : "No new model edges to project"}${notes.length ? `. ${notes.join("; ")}` : ""}`, !!(sk?.tilted_circles || sk?.other));
     } catch (e) {
       this.host.status((e as Error).message, true);
     }
@@ -832,7 +884,7 @@ export class SketchMode {
 
   private onFrame() {
     const size = this.viewport.renderer.getSize(new THREE.Vector2());
-    for (const l of [this.normal, this.construction, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
+    for (const l of [this.axes, this.normal, this.construction, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
   }
 
   private world(u: number, v: number): THREE.Vector3 {
@@ -847,16 +899,25 @@ export class SketchMode {
     return out;
   }
 
-  private isMarked(sel: M.SketchSel) {
-    return this.selection.some((s) => s.kind === sel.kind && s.id === sel.id) || (this.hover?.kind === sel.kind && this.hover.id === sel.id);
+  private lightUp(c: M.SketchConstraint | null) {
+    const ids = c ? [...(c.entities ?? []), ...(c.entity !== undefined ? [c.entity] : [])] : [];
+    const points = c ? [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])] : [];
+    this.highlight = [...points.map((id) => ({ kind: "point" as const, id })), ...ids.map((id) => ({ kind: "entity" as const, id }))];
+    this.render(false); // keep the panel: rebuilding it under the pointer would end the hover
   }
 
-  private render() {
+  private isMarked(sel: M.SketchSel) {
+    const same = (s: M.SketchSel) => s.kind === sel.kind && s.id === sel.id;
+    return this.selection.some(same) || this.highlight.some(same) || (this.hover?.kind === sel.kind && this.hover.id === sel.id);
+  }
+
+  private render(panel = true) {
     if (!this.active) return;
     const normal: [number, number][][] = [];
     const marked: [number, number][][] = [];
     const guides: [number, number][][] = [];
     for (const e of this.s.entities) (this.isMarked({ kind: "entity", id: e.id }) ? marked : e.construction ? guides : normal).push(M.polyline(this.s, e));
+    this.drawAxes();
     this.set(this.normal, this.segments(normal));
     this.set(this.construction, this.segments(guides));
     this.set(this.marked, this.segments(marked));
@@ -874,7 +935,22 @@ export class SketchMode {
     this.points.geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
     this.points.geometry.computeBoundingSphere();
     this.overlay.set([...M.dimensionsOf(this.s), ...this.liveDimensions()]);
-    this.renderPanel();
+    if (panel) this.renderPanel();
+  }
+
+  private drawAxes() {
+    const reach = 400;
+    const positions: number[] = [];
+    const colors: number[] = [];
+    for (const a of M.axisLines(this.s.plane)) {
+      positions.push(...this.world(a.u - a.du * reach, a.v - a.dv * reach).toArray(), ...this.world(a.u + a.du * reach, a.v + a.dv * reach).toArray());
+      const c = new THREE.Color([0xd9534f, 0x5cb85c, 0x4a90e2][a.axis]);
+      colors.push(c.r, c.g, c.b, c.r, c.g, c.b);
+    }
+    this.axes.visible = positions.length > 0;
+    if (!positions.length) return;
+    this.axes.geometry.dispose();
+    this.axes.geometry = new LineSegmentsGeometry().setPositions(positions).setColors(colors);
   }
 
   private set(line: LineSegments2, positions: number[]) {
@@ -922,6 +998,18 @@ export class SketchMode {
     if (sides) {
       const corners = this.polygonCorners(first, c, sides).map((q) => [q.u, q.v] as [number, number]);
       return [[...corners, corners[0]]];
+    }
+    if (this.tool === "spline") {
+      const through = [...this.chain, c];
+      const probe: M.SketchData = { ...this.s, points: through.map((q, i) => ({ id: -1 - i, u: q.u, v: q.v })) };
+      return [M.polyline(probe, { id: 0, type: "spline", points: through.map((_, i) => -1 - i) }, 48)];
+    }
+    if (this.tool === "ellipse") {
+      const probe: M.SketchData = { ...this.s, points: [{ id: -1, u: first.u, v: first.v }, { id: -2, u: (this.chain[1] ?? c).u, v: (this.chain[1] ?? c).v }] };
+      const a = Math.hypot(probe.points[1].u - first.u, probe.points[1].v - first.v);
+      if (!this.chain[1] || a < 1e-9) return [[[first.u, first.v], [c.u, c.v]]];
+      const minor = Math.abs(((c.u - first.u) * (probe.points[1].v - first.v) - (c.v - first.v) * (probe.points[1].u - first.u)) / a);
+      return [M.polyline(probe, { id: 0, type: "ellipse", center: -1, major: -2, minor: Math.max(minor, 1e-6) }, 48)];
     }
     const r = Math.hypot(c.u - first.u, c.v - first.v);
     if (this.tool === "circle") return [Array.from({ length: 49 }, (_, i) => [first.u + r * Math.cos((2 * Math.PI * i) / 48), first.v + r * Math.sin((2 * Math.PI * i) / 48)] as [number, number])];
@@ -994,19 +1082,35 @@ export class SketchMode {
     ask.hidden = true;
 
     const list = el("div", "section");
-    list.append(el("div", "group", `Constraints (${this.s.constraints.length})`));
+    const autos = this.s.constraints.filter((c) => c.auto);
+    list.append(el("div", "group", `Constraints (${this.s.constraints.length}${autos.length ? `, ${autos.length} automatic` : ""})`));
     for (const c of this.s.constraints) {
       const row = el("div", this.failed.has(c.id) ? "crow bad" : "crow");
-      row.append(el("span", "", M.describeConstraint(this.s, c)));
-      row.append(
-        button("✕", () => {
-          this.pushUndo();
-          this.s.constraints = this.s.constraints.filter((x) => x.id !== c.id);
-          this.resolve();
-          this.render();
-        }),
-      );
+      row.append(el("span", "", M.describeConstraint(this.s, c) + (c.auto ? " (automatic)" : "")));
+      row.title = c.auto ? "Added by a drawing tool. Hover to see what it holds; the x removes it so the geometry moves freely" : "Hover to see what it holds; the x removes it";
+      row.addEventListener("pointerenter", () => this.lightUp(c));
+      row.addEventListener("pointerleave", () => this.lightUp(null));
+      const remove = button("✕", () => {
+        this.pushUndo();
+        this.s.constraints = this.s.constraints.filter((x) => x.id !== c.id);
+        this.highlight = [];
+        this.resolve();
+        this.render();
+      });
+      remove.title = "Remove this constraint";
+      row.append(remove);
       list.append(row);
+    }
+    if (autos.length) {
+      const clear = button("Remove automatic constraints", () => {
+        this.pushUndo();
+        this.s.constraints = this.s.constraints.filter((x) => !x.auto);
+        this.highlight = [];
+        this.resolve();
+        this.render();
+      });
+      clear.title = "Remove every constraint a drawing tool added (horizontal and vertical sides, snaps onto curves); constraints you added stay";
+      list.append(clear);
     }
 
     const extrude = el("div", "section");

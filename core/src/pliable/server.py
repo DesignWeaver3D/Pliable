@@ -189,6 +189,8 @@ class Session:
             raise RequestError(f"Unknown edge selection mode {mode!r}")
         if kind == "model_info":
             return model_info(self._require_document().current)
+        if kind == "sketch_plane" and "faces" in request:
+            return self._sketch_on_faces(request)
         if kind == "sketch_plane" and "unwrap" in request:  # a cylinder face unrolled flat to sketch on
             ids = request["unwrap"] if isinstance(request["unwrap"], list) else [request["unwrap"]]
             try:
@@ -241,6 +243,32 @@ class Session:
                 raise RequestError(str(e)) from e
             return {"name": document.name, "data": base64.b64encode(data).decode()}
         raise RequestError(f"Unknown request type {kind!r}")
+
+    def _sketch_on_faces(self, request: dict) -> dict:
+        """One entry point for "Sketch On Face": a single flat face gives its plane, anything else (a cylinder or
+        cone, a chain of faces) is unrolled flat. A refusal is remembered for the diagnostic report."""
+        topology = self._require_document().current
+        ids = [int(i) for i in request["faces"]]
+        try:
+            faces = [topology.face(i) for i in ids]
+        except KeyError as e:
+            raise RequestError("Unknown face") from e
+        if not faces:
+            raise RequestError("Select a face to sketch on")
+        if len(faces) == 1 and unwrap.is_flat(faces[0]):
+            plane = sketch.face_plane(faces[0])
+            return {"plane": plane, "reference": sketch.face_reference(faces[0], plane), "unwrapped": False}
+        try:
+            unrolling = unwrap.build_unrolling(topology, ids)
+        except unwrap.UnwrapError as e:
+            message = f"{e} ({unwrap.describe_faces(faces)})"
+            self.last_tool = {"tool": "sketch_on_face", "commit": False, "ok": False, "error": diagnostics.scrub(message)}
+            raise RequestError(message) from e
+        self.last_tool = {"tool": "sketch_on_face", "commit": False, "ok": True, "error": None}
+        reply = {"plane": unwrap.unwrap_plane(topology.shape, unrolling.reference), "reference": unrolling.reference, "unwrapped": True}
+        if unrolling.distortion:
+            reply["distortion"] = unrolling.distortion
+        return reply
 
     def _sketch_plane(self, request: dict) -> dict:
         if "plane" in request:

@@ -16,7 +16,11 @@ export interface SketchPoint {
 export type SketchEntity =
   | { id: number; type: "line"; a: number; b: number; construction?: boolean; reference?: boolean }
   | { id: number; type: "circle"; center: number; radius: number; construction?: boolean; reference?: boolean }
-  | { id: number; type: "arc"; center: number; start: number; end: number; construction?: boolean; reference?: boolean };
+  | { id: number; type: "arc"; center: number; start: number; end: number; construction?: boolean; reference?: boolean }
+  /** Centre, the end of the major semi-axis, and the minor radius. Only its two points take constraints. */
+  | { id: number; type: "ellipse"; center: number; major: number; minor: number; construction?: boolean; reference?: boolean }
+  /** A smooth curve through its points in order (a closed one joins last to first). Only its points take constraints. */
+  | { id: number; type: "spline"; points: number[]; closed?: boolean; construction?: boolean; reference?: boolean };
 export interface SketchConstraint {
   id: number;
   type: string;
@@ -25,6 +29,8 @@ export interface SketchConstraint {
   entity?: number;
   entities?: number[];
   value?: number;
+  /** Added by a drawing tool rather than chosen by the user; shown as such and removable with one click. */
+  auto?: boolean;
 }
 export interface SketchData {
   plane: PlaneData;
@@ -74,7 +80,7 @@ export function nextId(s: SketchData): number {
 
 /** Points an entity is made of (line ends; circle and arc: center first). */
 export function entityPoints(e: SketchEntity): number[] {
-  return e.type === "line" ? [e.a, e.b] : e.type === "circle" ? [e.center] : [e.center, e.start, e.end];
+  return e.type === "line" ? [e.a, e.b] : e.type === "circle" ? [e.center] : e.type === "ellipse" ? [e.center, e.major] : e.type === "spline" ? [...e.points] : [e.center, e.start, e.end];
 }
 
 /** Remove a point or entity with everything that depends on it; points no entity uses any more go too. */
@@ -328,7 +334,7 @@ export function dimensionsOf(s: SketchData): Dimension[] {
       // The dimension runs along the projected leg (a to corner) and sits on the side away from the other point.
       const away = horizontal ? (pb.v >= pa.v ? -1 : 1) : pb.u >= pa.u ? -1 : 1;
       out.push({ kind: "linear", text, points: [a, corner], offsetDirection: side.map((x) => x * away) });
-    } else if ((c.type === "radius" || c.type === "diameter") && entity && entity.type !== "line") {
+    } else if ((c.type === "radius" || c.type === "diameter") && entity && (entity.type === "circle" || entity.type === "arc")) {
       const center = world(entity.center);
       const r = radiusOf(s, entity);
       const rim = entity.type === "circle" ? [0, 1, 2].map((k) => center[k] + r * f.x[k]) : world(entity.start);
@@ -339,10 +345,44 @@ export function dimensionsOf(s: SketchData): Dimension[] {
   return out;
 }
 
+/** A smooth (Catmull-Rom) curve through the spline's points, sampled for drawing and picking. */
+function splinePolyline(s: SketchData, e: Extract<SketchEntity, { type: "spline" }>, segments: number): [number, number][] {
+  const pts = e.points.map((id) => pointOf(s, id));
+  const n = pts.length;
+  if (n < 2) return [];
+  const at = (i: number) => (e.closed && n > 2 ? pts[((i % n) + n) % n] : pts[Math.max(0, Math.min(n - 1, i))]);
+  const spans = e.closed && n > 2 ? n : n - 1;
+  const per = Math.max(4, Math.ceil(segments / 4));
+  const out: [number, number][] = [];
+  for (let i = 0; i < spans; i++) {
+    const [p0, p1, p2, p3] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
+    for (let k = 0; k < per; k++) {
+      const t = k / per;
+      const f = (a: number, b: number, c: number, d: number) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t * t * t);
+      out.push([f(p0.u, p1.u, p2.u, p3.u), f(p0.v, p1.v, p2.v, p3.v)]);
+    }
+  }
+  const last = at(spans);
+  out.push([last.u, last.v]);
+  return out;
+}
+
 /** Polyline of an entity in sketch coordinates (circles and arcs sampled), for drawing and picking. */
 export function polyline(s: SketchData, e: SketchEntity, segments = 48): [number, number][] {
   if (e.type === "line") return [[pointOf(s, e.a).u, pointOf(s, e.a).v], [pointOf(s, e.b).u, pointOf(s, e.b).v]];
+  if (e.type === "spline") return splinePolyline(s, e, segments);
   const c = pointOf(s, e.center);
+  if (e.type === "ellipse") {
+    const m = pointOf(s, e.major);
+    const a = Math.hypot(m.u - c.u, m.v - c.v) || 1e-9;
+    const [ux, uy] = [(m.u - c.u) / a, (m.v - c.v) / a];
+    return Array.from({ length: segments + 1 }, (_, i) => {
+      const t = (2 * Math.PI * i) / segments;
+      const x = a * Math.cos(t);
+      const y = e.minor * Math.sin(t);
+      return [c.u + x * ux - y * uy, c.v + x * uy + y * ux];
+    });
+  }
   if (e.type === "circle") {
     return Array.from({ length: segments + 1 }, (_, i) => [c.u + e.radius * Math.cos((2 * Math.PI * i) / segments), c.v + e.radius * Math.sin((2 * Math.PI * i) / segments)]);
   }
@@ -409,7 +449,7 @@ export function tangentRadius(s: SketchData, centre: { u: number; v: number }, u
       const t = ((centre.u - a.u) * dx + (centre.v - a.v) * dy) / (dx * dx + dy * dy || 1);
       const foot: [number, number] = [a.u + t * dx, a.v + t * dy];
       if (t >= 0 && t <= 1) consider(Math.hypot(foot[0] - centre.u, foot[1] - centre.v), e.id, foot);
-    } else {
+    } else if (e.type === "circle" || e.type === "arc") {
       const c = pointOf(s, e.center);
       const r = e.type === "circle" ? e.radius : Math.hypot(pointOf(s, e.start).u - c.u, pointOf(s, e.start).v - c.v);
       const d = Math.hypot(c.u - centre.u, c.v - centre.v);
@@ -454,7 +494,7 @@ export function originPoints(plane: PlaneData, existing: SketchPoint[]): { u: nu
 export function tangentFrom(s: SketchData, from: { u: number; v: number }, u: number, v: number, reach: number): { u: number; v: number; entity: number } | null {
   let best: { u: number; v: number; entity: number; gap: number } | null = null;
   for (const e of s.entities) {
-    if (e.type === "line") continue;
+    if (e.type !== "circle" && e.type !== "arc") continue;
     const c = pointOf(s, e.center);
     const r = e.type === "circle" ? e.radius : Math.hypot(pointOf(s, e.start).u - c.u, pointOf(s, e.start).v - c.v);
     const d = Math.hypot(from.u - c.u, from.v - c.v);
@@ -471,18 +511,20 @@ export function tangentFrom(s: SketchData, from: { u: number; v: number }, u: nu
 }
 
 /**
- * The principal axes that lie in a sketch plane, as lines in sketch coordinates (a point and a direction).
- * An axis lies in the plane when it is square to the plane's normal and the origin is on the plane.
+ * The principal axes projected onto a sketch plane, as lines in sketch coordinates (a point and a unit
+ * direction), with the axis index (0 x, 1 y, 2 z). An axis square to the plane projects to a single point
+ * (see `originPoints`) and gives no line. An axis off the plane is shown where it appears, not where it is.
  */
-export function axisLines(plane: PlaneData): { u: number; v: number; du: number; dv: number }[] {
+export function axisLines(plane: PlaneData): { u: number; v: number; du: number; dv: number; axis: number }[] {
   const f = frame(plane);
   const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-  if (Math.abs(dot(f.origin, f.n)) > 1e-6) return [];
-  const [u, v] = toPlane(plane, [0, 0, 0]);
+  const [u, v] = toPlane(plane, f.n.map((c) => dot(f.origin, f.n) * c)); // the origin dropped onto the plane
   const lines = [];
-  for (const d of [[1, 0, 0], [0, 1, 0], [0, 0, 1]]) {
-    if (Math.abs(dot(f.n, d)) > 1e-9) continue;
-    lines.push({ u, v, du: dot(d, f.x), dv: dot(d, f.y) });
+  for (const [axis, d] of [[1, 0, 0], [0, 1, 0], [0, 0, 1]].entries()) {
+    const [du, dv] = [dot(d, f.x), dot(d, f.y)];
+    const length = Math.hypot(du, dv);
+    if (length < 1e-6) continue;
+    lines.push({ u, v, du: du / length, dv: dv / length, axis });
   }
   return lines;
 }
@@ -642,7 +684,7 @@ export function roundCorner(s: SketchData, pointId: number, kind: "fillet" | "ch
     const ccw = (t[0].u - centre.u) * (t[1].v - centre.v) - (t[0].v - centre.v) * (t[1].u - centre.u) > 0;
     const arc = id++;
     entities.push({ id: arc, type: "arc", center: centre.id, start: (ccw ? t[0] : t[1]).id, end: (ccw ? t[1] : t[0]).id });
-    constraints.push({ id: id++, type: "tangent", entities: [arc, lines[0].id] }, { id: id++, type: "tangent", entities: [arc, lines[1].id] });
+    constraints.push({ id: id++, type: "tangent", entities: [arc, lines[0].id], auto: true }, { id: id++, type: "tangent", entities: [arc, lines[1].id], auto: true });
   }
   return { ...s, points: [...s.points.filter((p) => p.id !== pointId), ...added], entities, constraints };
 }

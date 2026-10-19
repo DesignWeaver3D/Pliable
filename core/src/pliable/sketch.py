@@ -22,7 +22,7 @@ import math
 
 from build123d import Edge, Face, Vector, Wire
 from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_Transform
-from OCP.gp import gp_Ax2, gp_Circ, gp_Dir, gp_Pnt, gp_Vec
+from OCP.gp import gp_Ax2, gp_Circ, gp_Dir, gp_Elips, gp_Pnt, gp_Vec
 from py_slvs import slvs
 
 from .ops import OperationError
@@ -113,6 +113,10 @@ class _Solver:
             self.entities[e["id"]] = (kind, s.addCircle(self._point(e["center"]), normal, s.addDistance(param, g), g))
         elif kind == "arc":
             self.entities[e["id"]] = (kind, s.addArcOfCircle(self.workplane, self._point(e["center"]), self._point(e["start"]), self._point(e["end"]), g))
+        elif kind in ("ellipse", "spline"):
+            for pid in ([e["center"], e["major"]] if kind == "ellipse" else e["points"]):
+                self._point(pid)
+            self.entities[e["id"]] = (kind, None)  # drawn from its points; only those points take part in constraints
         else:
             raise SketchError(f"Unknown entity type {kind!r}")
 
@@ -123,6 +127,8 @@ class _Solver:
             raise SketchError(f"Unknown entity {eid}") from None
         if kinds and kind not in kinds:
             raise SketchError(f"Constraint needs a {' or '.join(kinds)}, got a {kind}")
+        if handle is None:
+            raise SketchError(f"An {kind} takes no constraint of its own: constrain its points instead")
         return handle
 
     def _coords(self, pid):
@@ -203,7 +209,7 @@ class _Solver:
                 ids.reverse()  # SolveSpace measures the projection from the second point back to the first
             h = s.addPointsProjectDistance(value, self._point(ids[0]), self._point(ids[1]), self._axis_line(horizontal), g)
         elif kind in ("radius", "diameter"):
-            _, handle = self.entities[c["entity"]]
+            handle = self._entity(c["entity"], "circle", "arc")
             h = s.addDiameter(value * (2 if kind == "radius" else 1), handle, g)
         elif kind == "fixed":
             h = s.addWhereDragged(self._point(c["point"]), wp, g)
@@ -311,7 +317,46 @@ def solve(sketch: dict, drag: dict | None = None) -> dict:
             for k, key in enumerate(("u", "v")):
                 solver.system.getParam(solver.system.getEntityParam(entity, k)).val = held[key]
             solver.add_constraint({"type": "fixed", "point": held["point"]})
-    return solver.solve()
+    result = solver.solve()
+    if drag and result["status"] == "ok":
+        _keep_unconnected(sketch, drag, result)
+    return result
+
+
+def _connected_ids(sketch: dict, start: set[int]) -> set[int]:
+    """Ids (points, entities) reachable from `start` through entities and constraints: the part of the sketch
+    that dragging one of `start` may legitimately move."""
+    links: list[set[int]] = []
+    for e in sketch.get("entities", []):
+        links.append({e["id"], *(e[k] for k in ("a", "b", "center", "start", "end", "major") if k in e), *e.get("points", [])})
+    for c in sketch.get("constraints", []):
+        group = {*c.get("points", []), *c.get("entities", [])}
+        group.update(c[k] for k in ("point", "entity") if k in c)
+        if len(group) > 1:
+            links.append(group)
+    reached = set(start)
+    changed = True
+    while changed:
+        changed = False
+        for group in links:
+            if group & reached and not group <= reached:
+                reached |= group
+                changed = True
+    return reached
+
+
+def _keep_unconnected(sketch: dict, drag: dict, result: dict) -> None:
+    """Whatever the solver did, geometry with no constraint path to the dragged points stays exactly where it was:
+    unconstrained geometry moves freely and only what the constraints require follows."""
+    held = {h["point"] for h in (drag["points"] if "points" in drag else [drag])}
+    reached = _connected_ids(sketch, held)
+    old = {p["id"]: p for p in sketch.get("points", [])}
+    for q in result["points"]:
+        if q["id"] not in reached and q["id"] in old:
+            q["u"], q["v"] = old[q["id"]]["u"], old[q["id"]]["v"]
+    for e in sketch.get("entities", []):
+        if e["id"] not in reached and e["id"] in result["radii"] and "radius" in e:
+            result["radii"][e["id"]] = e["radius"]
 
 
 def apply_solution(sketch: dict, result: dict) -> dict:
@@ -328,6 +373,18 @@ def apply_solution(sketch: dict, result: dict) -> dict:
 
 
 # Profiles --------------------------------------------------------------------------------------------
+
+
+def _ellipse_edge(center: gp_Pnt, major: gp_Pnt, minor: float, normal):
+    """A whole ellipse about `center` whose major semi-axis runs to `major` and whose minor semi-axis is `minor`."""
+    radius = center.Distance(major)
+    if radius < 1e-9 or minor < 1e-9:
+        raise SketchError("An ellipse needs a length on both axes")
+    along = gp_Vec(center, major)
+    if minor > radius:  # the longer axis is perpendicular to the one clicked
+        along = gp_Vec(*normal).Crossed(along)
+        radius, minor = minor, radius
+    return BRepBuilderAPI_MakeEdge(gp_Elips(gp_Ax2(center, gp_Dir(*normal), gp_Dir(along)), radius, minor)).Edge()
 
 
 def _edges(sketch: dict, skip: int | None = None) -> list[Edge]:
@@ -348,6 +405,15 @@ def _edges(sketch: dict, skip: int | None = None) -> list[Edge]:
                 shape = BRepBuilderAPI_MakeEdge(a, b).Edge()
             elif e["type"] == "circle":
                 shape = BRepBuilderAPI_MakeEdge(circle(points[e["center"]], e["radius"])).Edge()
+            elif e["type"] == "ellipse":
+                shape = _ellipse_edge(points[e["center"]], points[e["major"]], e["minor"], normal)
+            elif e["type"] == "spline":
+                through = [points[i] for i in e["points"]]
+                if len(through) < 2:
+                    raise SketchError("A spline needs at least two points")
+                closed = bool(e.get("closed")) and len(through) > 2
+                vectors = [Vector(p.X(), p.Y(), p.Z()) for p in through]
+                shape = Edge.make_spline(vectors, periodic=closed).wrapped
             else:
                 center, start, end = points[e["center"]], points[e["start"]], points[e["end"]]
                 shape = BRepBuilderAPI_MakeEdge(circle(center, center.Distance(start)), start, end).Edge()
@@ -664,7 +730,8 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
     and circles or arcs seen at an angle (they would project to ellipses) are left out."""
     from OCP.BRepAdaptor import BRepAdaptor_Curve
     from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Line
-    from OCP.TopAbs import TopAbs_EDGE
+    from OCP.BRep import BRep_Tool
+    from OCP.TopAbs import TopAbs_EDGE, TopAbs_VERTEX
     from OCP.TopExp import TopExp_Explorer
     from OCP.TopoDS import TopoDS
 
@@ -689,12 +756,15 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
     def add(entity: dict):
         entities.append({"id": len(points) + len(entities) + 1000, "construction": True, "reference": True, **entity})
 
+    skipped = {"square": 0, "tilted_circles": 0, "other": 0}
     explorer = TopExp_Explorer(face_shape, TopAbs_EDGE)
     while explorer.More():
         curve = BRepAdaptor_Curve(TopoDS.Edge(explorer.Current()))
         first, last = curve.FirstParameter(), curve.LastParameter()
         if curve.GetType() == GeomAbs_Line:
             if project and math.dist(uv(curve.Value(first)), uv(curve.Value(last))) < 1e-6:
+                skipped["square"] += 1  # seen end-on: it is the point its vertex projects to
+                point(curve.Value(first))
                 explorer.Next()
                 continue
             add({"type": "line", "a": point(curve.Value(first)), "b": point(curve.Value(last))})
@@ -702,6 +772,19 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
             circle = curve.Circle()
             axis = circle.Axis().Direction()
             if project and abs(abs(axis.X() * normal[0] + axis.Y() * normal[1] + axis.Z() * normal[2]) - 1) > 1e-6:
+                if abs((last - first) - 2 * math.pi) < 1e-6 and abs(axis.X() * normal[0] + axis.Y() * normal[1] + axis.Z() * normal[2]) > 1e-3:  # a whole circle seen at an angle is an ellipse
+                    cosine = abs(axis.X() * normal[0] + axis.Y() * normal[1] + axis.Z() * normal[2])
+                    # the major axis is the circle's diameter that lies in the plane: axis x normal
+                    along = (axis.Y() * normal[2] - axis.Z() * normal[1], axis.Z() * normal[0] - axis.X() * normal[2], axis.X() * normal[1] - axis.Y() * normal[0])
+                    length = math.sqrt(sum(c * c for c in along))
+                    centre = circle.Location()
+                    tip = gp_Pnt(*(c + circle.Radius() * a / length for c, a in zip((centre.X(), centre.Y(), centre.Z()), along)))
+                    add({"type": "ellipse", "center": point(centre), "major": point(tip), "minor": circle.Radius() * cosine})
+                    explorer.Next()
+                    continue
+                skipped["tilted_circles"] += 1  # a tilted arc would be part of an ellipse; its end points still project
+                for t in (first, last):
+                    point(curve.Value(t))
                 explorer.Next()
                 continue
             centre = point(circle.Location())
@@ -716,7 +799,17 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
                 if turn < 0:  # the edge runs clockwise in the sketch: swap so the arc is counterclockwise
                     start, end = end, start
                 add({"type": "arc", "center": centre, "start": point(start), "end": point(end)})
+        else:
+            skipped["other"] += 1
+            if project:
+                for t in (first, last):
+                    point(curve.Value(t))
         explorer.Next()
+    if project:  # every vertex of the model is a snappable point, whether or not its edges could be drawn
+        vertices = TopExp_Explorer(face_shape, TopAbs_VERTEX)
+        while vertices.More():
+            point(BRep_Tool.Pnt_s(TopoDS.Vertex(vertices.Current())))
+            vertices.Next()
     if not project:  # the face centre, for centre-snapping and constraining a sketch to the middle of a face
         from OCP.BRepGProp import BRepGProp
         from OCP.GProp import GProp_GProps
@@ -725,4 +818,4 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
         BRepGProp.SurfaceProperties_s(face_shape, props)
         if props.Mass() > 0:
             point(props.CentreOfMass())
-    return {"points": points, "entities": entities}
+    return {"points": points, "entities": entities, **({"skipped": skipped} if project else {})}
