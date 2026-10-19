@@ -15,6 +15,26 @@ export interface ToolInfo {
   related?: string[];
   /** Names of three length parameters that form a point; the form offers to fill them from a reference snap. */
   placement?: string[] | null;
+  /** "tool": the tool is chosen first and places something new; "selection": it acts on a selection. */
+  startsFrom?: "selection" | "tool";
+  hasHandles?: boolean;
+}
+
+/** An on-screen manipulator for one parameter (docs/protocol.md, Handles). */
+export interface HandleInfo {
+  param: string;
+  label: string;
+  anchor: [number, number, number];
+  direction: [number, number, number];
+  /** Parameter change per model unit of handle travel. */
+  scale: number;
+  min: number | null;
+  max: number | null;
+  /** A yes/no marker (0 or 1): clicking flips the value instead of dragging. */
+  toggle: boolean;
+  unit: string;
+  /** The parameter's value when the handle was computed. */
+  value: number;
 }
 
 const inRange = (n: number, [min, max]: Range) => n >= min && (max === null || n <= max);

@@ -24,7 +24,7 @@ Writing a tool:
 
 from dataclasses import dataclass, field
 
-from .ops import MIN_DISTANCE, OperationError, OpResult, fillet_chamfer, planar_normal, push_pull, unify_result
+from .ops import MIN_DISTANCE, OperationError, OpResult, edge_curve, edge_outward_normal, face_handle_point, fillet_chamfer, planar_normal, push_pull, unify_result
 from .topology import Topology
 
 def _occt_reason(error: Exception) -> str:
@@ -107,6 +107,43 @@ class Param:
         return {"name": self.name, "kind": self.kind, "default": self.default, "drag": self.drag}
 
 
+@dataclass(frozen=True)
+class Handle:
+    """An on-screen manipulator for one parameter, drawn and dragged by the view.
+
+    The handle sits at `anchor` (a model point) and slides along the straight line `direction`; dragging it by t model
+    units sets the parameter to value + scale * t, so a diameter handle on a radius uses scale 2. A rotation is declared
+    the same way: the anchor on the ring, `direction` the tangent there and `scale` the degrees per unit of travel, so
+    the view needs no separate kind of handle. `min` bounds the parameter (None = unbounded); `unit` is the text
+    shown after the value in the live label. `max` bounds it from above. A `toggle` handle is a marker for a yes/no
+    parameter (0 or 1): clicking it flips the value, it is not dragged."""
+
+    param: str
+    label: str
+    anchor: tuple[float, float, float]
+    direction: tuple[float, float, float]
+    scale: float = 1.0
+    min: float | None = None
+    unit: str = "mm"
+    max: float | None = None
+    toggle: bool = False
+
+    def to_json(self, value: float) -> dict:
+        length = sum(c * c for c in self.direction) ** 0.5 or 1.0
+        return {
+            "param": self.param,
+            "label": self.label,
+            "anchor": [float(c) for c in self.anchor],
+            "direction": [c / length for c in self.direction],
+            "scale": self.scale,
+            "min": self.min,
+            "max": self.max,
+            "toggle": self.toggle,
+            "unit": self.unit,
+            "value": value,
+        }
+
+
 def _bind_pairs(param: "Param", raw) -> list[list[float]]:
     """Validate a per-edge list: numbers or [start, end] pairs; an empty or missing list means "use the default"."""
     if raw is None:
@@ -134,6 +171,14 @@ class Tool:
     # Names of three length parameters that together are a point in space; the view offers to fill them by
     # clicking a reference snap (origin, axis, face centre) instead of typing.
     placement: tuple[str, str, str] | None = None
+    # Where the tool starts: "selection" (the user selects something, then the tool acts on it) or "tool" (the tool is
+    # chosen first and places something new, like a primitive); the view shows `handles` accordingly.
+    starts_from: str = "selection"
+
+    def handles(self, topology: Topology, selection: Selection, values: dict[str, float]) -> list[Handle]:
+        """On-screen manipulators for the current parameter values: one per parameter that can be dragged in the view.
+        Typed entry stays available for every parameter. The default is none."""
+        return []
 
     def applies(self, topology: Topology, selection: Selection) -> bool:
         """Extra applicability check beyond the selection counts (e.g. planar faces only)."""
@@ -179,6 +224,18 @@ class Tool:
         except Exception as e:  # OpenCASCADE raises Standard_Failure subclasses (Standard_NoSuchObject, ...)
             raise OperationError(f"{self.label} failed on this geometry ({_occt_reason(e)}); the model is unchanged") from None
 
+    def handle_list(self, topology: Topology, selection: Selection, raw_params: dict) -> list[dict]:
+        """`handles` for raw request values, as JSON with each parameter's current value; empty when the tool has
+        none or the selection is unusable (handles are a convenience, they never fail a request)."""
+        if type(self).handles is Tool.handles or not self.available(topology, selection):
+            return []
+        try:
+            values = self.bind(raw_params)
+            names = {p.name for p in self.params}
+            return [h.to_json(values[h.param]) for h in self.handles(topology, selection, values) if h.param in names and not isinstance(values[h.param], list)]
+        except Exception:
+            return []
+
     def describe(self) -> dict:
         return {
             "id": self.id,
@@ -188,6 +245,8 @@ class Tool:
             "params": [p.to_json() for p in self.params],
             "related": list(self.related),
             "placement": list(self.placement) if self.placement else None,
+            "startsFrom": self.starts_from,
+            "hasHandles": type(self).handles is not Tool.handles,
         }
 
 
@@ -216,6 +275,17 @@ class PushPull(Tool):
     accepts = Accepts(faces=(1, None))
     params = [Param("distance", "length", drag=True)]
     related = ("coplanar", "parallel")
+
+    def handles(self, topology, selection, values):
+        if _all_round_walls(topology, selection):
+            return []  # a hole wall is dragged along its radius in the view
+        face = topology.face(selection.faces[0])
+        normal = planar_normal(face)
+        if normal is None:
+            return []
+        point = face_handle_point(face)
+        distance = values["distance"]
+        return [Handle("distance", "Push/pull", (point.X() + normal.X() * distance, point.Y() + normal.Y() * distance, point.Z() + normal.Z() * distance), (normal.X(), normal.Y(), normal.Z()))]
 
     def applies(self, topology, selection):
         if _all_round_walls(topology, selection):
@@ -295,6 +365,16 @@ class FilletChamfer(Tool):
     description = "Rounds or bevels the selected edges. Select edges, then drag outward to round (fillet) or inward to bevel (chamfer), or type a distance."
     accepts = Accepts(edges=(1, None))
     params = [Param("distance", "length", drag=True)]
+
+    def handles(self, topology, selection, values):
+        edge = topology.edge(min(selection.edges))
+        normal = edge_outward_normal(topology, edge)
+        if normal is None:
+            return []
+        at, _, _ = edge_curve(edge)
+        mid = at(0.5)
+        d = values["distance"]
+        return [Handle("distance", "Round (outward) or bevel (inward)", tuple(m + n * d for m, n in zip(mid, normal)), tuple(normal))]
 
     def run(self, topology, selection, values, preview):
         edges = [topology.edge(i) for i in sorted(selection.edges)]  # id order avoids stray zero-length edges at corners

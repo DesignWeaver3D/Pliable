@@ -133,6 +133,11 @@ class Session:
             topology = self._require_document().current
             selection = Selection.from_json(request.get("selection"))
             return {"tools": [t.id for t in TOOLS.values() if t.available(topology, selection)]}
+        if kind == "tool_handles":
+            topology = self._require_document().current
+            tool = get_tool(str(request.get("tool")))
+            selection = Selection.from_json(request.get("selection"))
+            return {"handles": tool.handle_list(topology, selection, request.get("params") or {}), "startsFrom": tool.starts_from}
         if kind == "measure":
             topology = self._require_document().current
             try:
@@ -334,7 +339,7 @@ class Session:
         document = self._require_document()
         topology = document.current
         tool = get_tool(str(request.get("tool")))
-        selection = Selection.from_json(request.get("selection"))
+        selection = request_selection = Selection.from_json(request.get("selection"))
         start = time.perf_counter()
         self.last_tool = {"tool": tool.id, "commit": commit, "ok": False, "error": None}
         try:
@@ -351,7 +356,8 @@ class Session:
         edges = [i for e in result.tracked_edges if (i := target.edge_id(e)) is not None]
         vertices = [i for v in result.tracked_vertices if (i := target.vertex_id(v)) is not None]
         selection = Selection(faces=faces, edges=edges, vertices=vertices)
-        return self._mesh_reply(target, timings, preview=not commit, selection=selection.to_json())
+        handles = [] if commit else tool.handle_list(topology, request_selection, request.get("params") or {})
+        return self._mesh_reply(target, timings, preview=not commit, selection=selection.to_json(), handles=handles)
 
 
 # The document of the connection that dropped last, kept so the page can pick it up again after reconnecting.

@@ -29,8 +29,8 @@ from OCP.TopoDS import TopoDS, TopoDS_Compound, TopoDS_Shape
 from OCP.collections import List_TopoDS_Shape
 from OCP.gp import gp_Ax1, gp_Ax2, gp_Dir, gp_Pln, gp_Pnt, gp_Trsf, gp_Vec
 
-from .ops import MIN_DISTANCE, OperationError, OpResult, _boolean, _contains, planar_normal, push_pull, solids_of
-from .tools import Accepts, Param, Tool, get_tool, register
+from .ops import edge_curve, edge_outward_normal, face_handle_point, MIN_DISTANCE, OperationError, OpResult, _boolean, _contains, planar_normal, push_pull, solids_of
+from .tools import Accepts, Handle, Param, Tool, get_tool, register
 
 TOL = 1e-6
 
@@ -628,6 +628,19 @@ class CenterBetween(Tool):
         return finish(apply_holes(topology.shape, [hole], [(None, move)]))
 
 
+
+def _position_handles(values, size: float) -> list[Handle]:
+    """Three arrows at a primitive's reference point that move it along X, Y and Z. They sit a little off the point
+    (a tenth or so of the primitive's size) pointing away from it, so the three tips can be told apart."""
+    x, y, z = values["x"], values["y"], values["z"]
+    gap = max(size, 1.0) * 0.12
+    return [
+        Handle("x", "X", (x - gap, y, z), (-1, 0, 0), scale=-1.0),
+        Handle("y", "Y", (x, y - gap, z), (0, -1, 0), scale=-1.0),
+        Handle("z", "Z", (x, y, z - gap), (0, 0, -1), scale=-1.0),
+    ]
+
+
 # Solids ----------------------------------------------------------------------------------------------
 
 
@@ -650,6 +663,17 @@ class AddBox(Tool):
         NEW_BODY,
     ]
 
+    starts_from = "tool"
+
+    def handles(self, topology, selection, values):
+        x, y, z, w, d, h = (values[k] for k in ("x", "y", "z", "width", "depth", "height"))
+        return [
+            Handle("width", "Width", (x + w, y + d / 2, z + h / 2), (1, 0, 0), min=MIN_DISTANCE),
+            Handle("depth", "Depth", (x + w / 2, y + d, z + h / 2), (0, 1, 0), min=MIN_DISTANCE),
+            Handle("height", "Height", (x + w / 2, y + d / 2, z + h), (0, 0, 1), min=MIN_DISTANCE),
+            *_position_handles(values, max(w, d, h)),
+        ]
+
     def run(self, topology, selection, values, preview):
         if min(values["width"], values["depth"], values["height"]) < MIN_DISTANCE:
             raise OperationError("The box sizes must be positive")
@@ -667,6 +691,16 @@ class AddCylinder(Tool):
     placement = ("x", "y", "z")
     accepts = Accepts()
     params = [Param("diameter", "length", 10), Param("height", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length"), NEW_BODY]
+
+    starts_from = "tool"
+
+    def handles(self, topology, selection, values):
+        x, y, z, d, h = (values[k] for k in ("x", "y", "z", "diameter", "height"))
+        return [
+            Handle("diameter", "Diameter", (x + d / 2, y, z + h / 2), (1, 0, 0), scale=2.0, min=MIN_DISTANCE),
+            Handle("height", "Height", (x, y, z + h), (0, 0, 1), min=MIN_DISTANCE),
+            *_position_handles(values, max(d, h)),
+        ]
 
     def run(self, topology, selection, values, preview):
         if min(values["diameter"], values["height"]) < MIN_DISTANCE:
@@ -723,6 +757,24 @@ class Mirror(_PlanarFace):
         transform.SetMirror(gp_Ax2(centre, normal))
         mirrored = BRepBuilderAPI_Transform(topology.shape, transform, True).Shape()
         return finish(_combine(topology.shape, mirrored, fuse=True))
+
+
+def _body_bounds(topology, selection):
+    """Corner points (min, max) of the solids a whole-body tool acts on (the whole model with nothing selected)."""
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+
+    box = Bnd_Box()
+
+    def note(shape):
+        BRepBndLib.AddOptimal_s(shape, box, False, False)
+        return shape
+
+    _on_bodies(topology, selection, note)
+    if box.IsVoid():
+        return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)
+    lo, hi = box.CornerMin(), box.CornerMax()
+    return (lo.X(), lo.Y(), lo.Z()), (hi.X(), hi.Y(), hi.Z())
 
 
 def _faces_of(shape):
@@ -947,6 +999,21 @@ class MoveBody(Tool):
     accepts = Accepts(faces=(0, None))
     params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length")]
 
+    starts_from = "selection"
+
+    def handles(self, topology, selection, values):
+        lo, hi = _body_bounds(topology, selection)
+        centre = [(a + b) / 2 for a, b in zip(lo, hi)]
+        size = max(b - a for a, b in zip(lo, hi))
+        margin = max(size * 0.1, 3.0)
+        now = (values["dx"], values["dy"], values["dz"])
+        axes = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
+        reach = [(hi[k] - lo[k]) / 2 + margin for k in range(3)]  # each arrow sticks out past its face of the body
+        return [
+            Handle(name, f"Move {label}", tuple(centre[k] + now[k] + axes[i][k] * reach[i] for k in range(3)), axes[i])
+            for i, (name, label) in enumerate((("dx", "X"), ("dy", "Y"), ("dz", "Z")))
+        ]
+
     def run(self, topology, selection, values, preview):
         offset = gp_Vec(values["dx"], values["dy"], values["dz"])
         if offset.Magnitude() < MIN_DISTANCE:
@@ -963,6 +1030,22 @@ class RotateBody(Tool):
     description = "Rotates a whole solid about the X, Y or Z axis through the origin (0 = X, 1 = Y, 2 = Z). Select any face of the solid, or nothing for the whole model."
     accepts = Accepts(faces=(0, None))
     params = [Param("axis", "number", 2), Param("angle", "angle", 90)]
+
+    starts_from = "selection"
+
+    def handles(self, topology, selection, values):
+        lo, hi = _body_bounds(topology, selection)
+        axis = int(round(values["axis"]))
+        if axis not in (0, 1, 2):
+            return []
+        # The ring's radius reaches past the body; the handle sits on it at the current angle, its direction the tangent.
+        radius = max(max(math.hypot(c[(axis + 1) % 3], c[(axis + 2) % 3]) for c in (lo, hi)) * 1.25, 10.0)
+        u, v = (axis + 1) % 3, (axis + 2) % 3
+        angle = math.radians(values["angle"])
+        anchor, tangent = [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]
+        anchor[u], anchor[v] = radius * math.cos(angle), radius * math.sin(angle)
+        tangent[u], tangent[v] = -math.sin(angle), math.cos(angle)
+        return [Handle("angle", "Angle", tuple(anchor), tuple(tangent), scale=math.degrees(1 / radius), unit="°")]
 
     def run(self, topology, selection, values, preview):
         axis = int(round(values["axis"]))
@@ -984,6 +1067,17 @@ class ScaleBody(Tool):
     accepts = Accepts(faces=(0, None))
     params = [Param("factor", "number", 1)]
 
+    starts_from = "selection"
+
+    def handles(self, topology, selection, values):
+        lo, hi = _body_bounds(topology, selection)
+        corner = max((lo, hi), key=lambda c: math.sqrt(sum(x * x for x in c)))  # the corner farthest from the pivot
+        reach = math.sqrt(sum(x * x for x in corner))
+        if reach < 1e-6:
+            return []
+        # Moving the handle outward along the line from the origin through that corner scales the body about the origin.
+        return [Handle("factor", "Scale", tuple(x * values["factor"] for x in corner), tuple(corner), scale=1 / reach, min=1e-3, unit="x")]
+
     def run(self, topology, selection, values, preview):
         factor = values["factor"]
         if factor < 1e-3 or factor > 1e3:
@@ -1001,6 +1095,12 @@ class AddSphere(Tool):
     placement = ("x", "y", "z")
     accepts = Accepts()
     params = [Param("diameter", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length"), NEW_BODY]
+
+    starts_from = "tool"
+
+    def handles(self, topology, selection, values):
+        x, y, z, d = (values[k] for k in ("x", "y", "z", "diameter"))
+        return [Handle("diameter", "Diameter", (x + d / 2, y, z), (1, 0, 0), scale=2.0, min=MIN_DISTANCE), *_position_handles(values, d)]
 
     def run(self, topology, selection, values, preview):
         if values["diameter"] < MIN_DISTANCE:
@@ -1028,6 +1128,18 @@ class AddCone(Tool):
         NEW_BODY,
     ]
 
+    starts_from = "tool"
+
+    def handles(self, topology, selection, values):
+        x, y, z, bd, td, h = (values[k] for k in ("x", "y", "z", "bottom_diameter", "top_diameter", "height"))
+        nudge = max(bd, h) * 0.06  # keeps the top-diameter handle off the height handle when the top is a point
+        return [
+            Handle("bottom_diameter", "Bottom diameter", (x + bd / 2, y, z), (1, 0, 0), scale=2.0, min=0.0),
+            Handle("top_diameter", "Top diameter", (x + td / 2 + nudge, y, z + h), (1, 0, 0), scale=2.0, min=0.0),
+            Handle("height", "Height", (x, y, z + h), (0, 0, 1), min=MIN_DISTANCE),
+            *_position_handles(values, max(bd, h)),
+        ]
+
     def run(self, topology, selection, values, preview):
         if values["bottom_diameter"] < 0 or values["top_diameter"] < 0 or values["bottom_diameter"] + values["top_diameter"] < MIN_DISTANCE or values["height"] < MIN_DISTANCE:
             raise OperationError("Give a positive height and at least one positive diameter")
@@ -1046,6 +1158,16 @@ class AddTorus(Tool):
     placement = ("x", "y", "z")
     accepts = Accepts()
     params = [Param("major", "length", 20), Param("minor", "length", 5), Param("x", "length"), Param("y", "length"), Param("z", "length"), NEW_BODY]
+
+    starts_from = "tool"
+
+    def handles(self, topology, selection, values):
+        x, y, z, major, minor = (values[k] for k in ("x", "y", "z", "major", "minor"))
+        return [
+            Handle("major", "Ring diameter", (x + major / 2, y, z), (1, 0, 0), scale=2.0, min=MIN_DISTANCE),
+            Handle("minor", "Tube diameter", (x, y + major / 2, z + minor / 2), (0, 0, 1), scale=2.0, min=MIN_DISTANCE),
+            *_position_handles(values, major),
+        ]
 
     def run(self, topology, selection, values, preview):
         if values["minor"] < MIN_DISTANCE or values["major"] <= values["minor"]:
@@ -1205,6 +1327,37 @@ class ChamferTwoDistances(Tool):
     accepts = Accepts(faces=(1, 1), edges=(1, None))
     params = [Param("first", "length", 2), Param("second", "length", 1), Param("swap", "number", 0)]  # swap 1 puts `first` on the other side
 
+    def handles(self, topology, selection, values):
+        edge = topology.edge(selection.edges[0])
+        reference = topology.face(selection.faces[0])
+        others = [f for f in topology.edge_faces(edge) if not f.IsSame(reference)]
+        normal = edge_outward_normal(topology, edge)
+        if not others or normal is None:
+            return []
+        at, tangent, length = edge_curve(edge)
+        mid, along = at(0.5), gp_Vec(*tangent(0.5))
+
+        def into(face):  # unit direction in the face, square to the edge, pointing into the face
+            v = gp_Vec(gp_Pnt(*mid), face_handle_point(face))
+            v.Subtract(along.Multiplied(v.Dot(along)))
+            if v.Magnitude() < 1e-9:
+                return None
+            v.Normalize()
+            return (v.X(), v.Y(), v.Z())
+
+        on_reference, on_other = into(reference), into(others[0])
+        if on_reference is None or on_other is None:
+            return []
+        swapped = values["swap"] >= 0.5
+        first_dir, second_dir = (on_other, on_reference) if swapped else (on_reference, on_other)
+        point = lambda d, size: tuple(m + x * size for m, x in zip(mid, d))  # noqa: E731
+        lift = max(length * 0.1, 1.0)
+        return [
+            Handle("first", "First distance", point(first_dir, values["first"]), first_dir, min=MIN_DISTANCE),
+            Handle("second", "Second distance", point(second_dir, values["second"]), second_dir, min=MIN_DISTANCE),
+            Handle("swap", "Swap the two sides (click)", point(normal, lift), tuple(normal), toggle=True),
+        ]
+
     def run(self, topology, selection, values, preview):
         if values["first"] < MIN_DISTANCE or values["second"] < MIN_DISTANCE:
             raise OperationError("Both distances must be positive")
@@ -1294,6 +1447,27 @@ class VariableFillet(Tool):
         Param("middle", "length", 0),  # radius at an interim point along the edge; 0 means none
         Param("middle_at", "number", 0.5),  # where along the edge (0 first end, 1 last end), measured after any reverse
     ]
+
+    def handles(self, topology, selection, values):
+        edge = topology.edge(selection.edges[0])
+        normal = edge_outward_normal(topology, edge)
+        if normal is None:
+            return []
+        at, tangent, length = edge_curve(edge)
+        up = lambda point, size: tuple(p + n * size for p, n in zip(point, normal))  # noqa: E731  (a point lifted along the bisector)
+        reverse = values["reverse"] >= 0.5
+        lift = max(length * 0.08, 1.0)  # the interim and swap markers float this far above the edge so they never sit on the end handles
+        found = [
+            # The start value belongs to the edge's first end unless the ends are swapped.
+            Handle("start", "Start radius", up(at(1.0 if reverse else 0.0), values["start"]), tuple(normal), min=MIN_DISTANCE),
+            Handle("end", "End radius", up(at(0.0 if reverse else 1.0), values["end"]), tuple(normal), min=MIN_DISTANCE),
+            Handle("reverse", "Swap the two ends (click)", up(at(0.12), lift), tuple(normal), toggle=True),
+        ]
+        if len(selection.edges) == 1:
+            u = min(max(values["middle_at"], 0.02), 0.98)
+            found.append(Handle("middle", "Radius at the interim point (0 = none)", up(at(u), values["middle"] + lift), tuple(normal), min=0.0))
+            found.append(Handle("middle_at", "Interim point along the edge", at(u), tangent(u), scale=1 / max(length, MIN_DISTANCE), min=0.02, max=0.98, unit=""))
+        return found
 
     def run(self, topology, selection, values, preview):
         from OCP.BRepFilletAPI import BRepFilletAPI_MakeFillet

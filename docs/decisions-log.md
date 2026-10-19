@@ -53,7 +53,7 @@ Decisions made without the owner or by the owner, grouped by topic. Each says wh
 ## Keys
 
 - Bare keys may change view, display, arm a tool or change selection; anything that changes the model or a setting at once needs Ctrl or Alt (to be widened per S53). Bare keys need the pointer over the view (1.5 s grace); there is a single-key off switch; no two-key sequences; undo/redo are blocked during a live drag or typed entry; browser keys, Escape, Enter, Tab, Backspace, Delete and Space are reserved (any mix of Ctrl, Alt and Shift is allowed, S53).
-- Sketch keys (Ctrl+Z, Escape, Enter, Delete/Backspace) are fixed. Escape works without engagement. M stays in `viewport.ts`.
+- Sketch keys (Ctrl+Z, Escape, Enter, Delete/Backspace) are fixed. Escape works without engagement. Measure pick is the command "measure" (default M, class display, allowed while a drag is live via `duringEntry`).
 - The page warns when leaving with undo steps or an open sketch; opening a file over edits does not warn.
 
 ## Platform
@@ -65,3 +65,11 @@ Decisions made without the owner or by the owner, grouped by topic. Each says wh
 
 - Shift+click in the 3D view adds to or removes from the selection exactly like Ctrl+click (the sketch already did this), so it has one clear meaning; double-click on an edge selects only the tangent-continuous chain and Ctrl+double-click adds it.
 - GUI stage 1-3 (S34): the strip lists at most seven tools, the one a drag runs first and marked, plus an All tools button that opens the drawer filtered to usable tools; the measurement card starts collapsed (click its title to expand), which answers the open card question provisionally; icons are built from a base shape plus a mark in `app/src/icons.ts` and a tool with none shows its initials; the T key toggles the drawer (rebindable).
+
+## Handles (S28, S47)
+
+- One kind of handle: a point that slides along a straight line; a rotation is the ring point with its tangent and degrees per unit; yes/no parameters (reverse ends, swap sides) are click markers (`toggle`). The core sends handles with every preview and on `tool_handles`; the view keeps a dragged handle where the pointer is and snaps it to the reply.
+- With a selection and no form open, the tool a drag would run shows its handles and a handle drag runs the same drag path as dragging the face or edge (so one undo step); with a form open a handle sets the form field, so typed entry and handles stay in step.
+- Only the handle under the pointer shows its name and value; showing all labels overlapped on small models. Change in `Manipulator.update`.
+- Primitive position arrows sit a little off the reference point so the three tips do not overlap; they point away from the primitive and move it the opposite way, which feels like pulling it.
+
