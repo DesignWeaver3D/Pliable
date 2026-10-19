@@ -1706,10 +1706,12 @@ def combine(shape: TopoDS_Shape, other: TopoDS_Shape, mode: str, offset: gp_Vec 
     """Boolean of the model with another solid (mode "union", "cut" or "intersect"), the other optionally moved first."""
     from OCP.BRepAlgoAPI import BRepAlgoAPI_Common
 
-    if mode not in ("union", "cut", "intersect"):
-        raise OperationError("mode must be union, cut or intersect")
+    if mode not in ("union", "cut", "intersect", "add"):
+        raise OperationError("mode must be union, cut, intersect or add")
     if offset is not None and offset.Magnitude() > 0:
         other = _moved(other, offset)
+    if mode == "add":  # keep it as its own body next to the others, with no boolean
+        return finish(_compound(solids_of(shape) + solids_of(other)))
     if mode == "intersect":
         common = BRepAlgoAPI_Common(shape, other)
         common.SetRunParallel(True)
