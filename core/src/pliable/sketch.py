@@ -400,20 +400,62 @@ def point_freedom(sketch: dict) -> dict[int, int]:
     return freedom
 
 
+MAX_DRAG_STEP = 0.05  # a drag longer than this fraction of the sketch's size is solved in steps
+MAX_DRAG_STEPS = 12
+
+
+def _extent(sketch: dict) -> float:
+    pts = sketch.get("points", [])
+    if not pts:
+        return 1.0
+    us, vs = [p["u"] for p in pts], [p["v"] for p in pts]
+    return max(max(us) - min(us), max(vs) - min(vs), 1.0)
+
+
+def _drag_steps(sketch: dict, drag: dict) -> list[dict]:
+    """The drag split into smaller moves. The solver finds the solution nearest where the geometry is now, so a
+    long jump can land on the other branch of a tangency or a mirrored corner; short steps follow the right one."""
+    held = drag["points"] if "points" in drag else [drag]
+    old = {p["id"]: p for p in sketch.get("points", [])}
+    longest = max((math.dist((old[h["point"]]["u"], old[h["point"]]["v"]), (h["u"], h["v"])) for h in held if h["point"] in old), default=0.0)
+    count = min(MAX_DRAG_STEPS, math.ceil(longest / (MAX_DRAG_STEP * _extent(sketch))))
+    if count <= 1:
+        return [drag]
+    steps = []
+    for k in range(1, count + 1):
+        t = k / count
+        moved = [{"point": h["point"], "u": old[h["point"]]["u"] + (h["u"] - old[h["point"]]["u"]) * t, "v": old[h["point"]]["v"] + (h["v"] - old[h["point"]]["v"]) * t} if h["point"] in old else h for h in held]
+        steps.append({"points": moved})
+    return steps
+
+
 def solve(sketch: dict, drag: dict | None = None, detail: bool = False) -> dict:
     """Solve the sketch's constraints. `drag` = {"point": id, "u", "v"} holds one point where the pointer is
     (it is pinned there while everything else follows the constraints); {"points": [...]} holds several. On failure the points are unchanged.
+    A long drag is solved in steps from where the geometry is now, so it follows the branch it started on; if a
+    later step fails, the last step that worked is returned.
 
     `detail` adds what the sketch editor shows when nothing is being dragged: on success `freedom` (point id ->
     directions still free), on failure `conflicts` (constraint ids to blame)."""
-    result = _solved(sketch, drag)[1]
-    if drag and result["status"] == "ok":
+    if not drag:
+        result = _solved(sketch)[1]
+        if detail:
+            if result["status"] == "ok":
+                result["freedom"] = point_freedom(sketch)
+            else:
+                result["conflicts"] = conflicting_constraints(sketch)
+        return result
+    current, result = sketch, None
+    for step in _drag_steps(sketch, drag):
+        attempt = _solved(current, step)[1]
+        if attempt["status"] != "ok":
+            if result is None:
+                result = attempt
+            break
+        result = attempt
+        current = apply_solution(current, attempt)
+    if result["status"] == "ok":
         _keep_unconnected(sketch, drag, result)
-    if detail and not drag:
-        if result["status"] == "ok":
-            result["freedom"] = point_freedom(sketch)
-        else:
-            result["conflicts"] = conflicting_constraints(sketch)
     return result
 
 

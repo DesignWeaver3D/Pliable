@@ -91,6 +91,8 @@ export class SketchMode {
   private failed = new Set<number>();
   /** Directions each point can still move in (0 = placed by the constraints); empty until the first settled solve. */
   private freedom = new Map<number, number>();
+  /** Whether small tags (H, V, T, =, ...) show where constraints act. */
+  private showMarks = true;
   private undoStack: string[] = [];
   private group = new THREE.Group();
   private normal = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.line, linewidth: 2, depthTest: false }));
@@ -1143,7 +1145,7 @@ export class SketchMode {
     this.points.geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
     this.points.geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
     this.points.geometry.computeBoundingSphere();
-    this.overlay.set([...M.dimensionsOf(this.s), ...this.liveDimensions()]);
+    this.overlay.set([...M.dimensionsOf(this.s), ...(this.showMarks ? M.constraintMarks(this.s) : []), ...this.liveDimensions()]);
     if (panel) this.renderPanel();
   }
 
@@ -1320,6 +1322,12 @@ export class SketchMode {
     const list = el("div", "section");
     const autos = this.s.constraints.filter((c) => c.auto);
     list.append(el("div", "group", `Constraints (${this.s.constraints.length}${autos.length ? `, ${autos.length} automatic` : ""})`));
+    const marks = button(this.showMarks ? "Hide marks" : "Show marks", () => {
+      this.showMarks = !this.showMarks;
+      this.render();
+    });
+    marks.title = "Show or hide the small tags (H, V, T, =, ...) that mark where constraints act";
+    list.append(marks);
     for (const c of this.s.constraints) {
       const row = el("div", this.failed.has(c.id) ? "crow bad" : "crow");
       row.append(el("span", "", M.describeConstraint(this.s, c) + (c.auto ? " (automatic)" : "")));

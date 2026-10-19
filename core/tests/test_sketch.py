@@ -704,3 +704,22 @@ def test_slot_made_of_two_lines_and_two_tangent_arcs_solves_and_extrudes():
     solved = sketch.apply_solution(sk, result)
     face = sketch.profile_face(solved)
     assert face.area == pytest.approx(10 * 4 + math.pi * 4, rel=1e-6)
+
+
+def test_long_drag_is_solved_in_steps_and_matches_a_short_one():
+    points, lines = rectangle(40, 30)
+    constraints = [{"type": "horizontal", "entity": 101}, {"type": "vertical", "entity": 102}, {"type": "horizontal", "entity": 103}, {"type": "vertical", "entity": 104}, {"type": "fixed", "point": 1}]
+    sk = sketch_of(points, lines, constraints)
+    assert len(sketch._drag_steps(sk, {"point": 3, "u": 400, "v": 300})) > 1
+    assert len(sketch._drag_steps(sk, {"point": 3, "u": 41, "v": 31})) == 1
+    result = sketch.solve(sk, {"point": 3, "u": 400, "v": 300})
+    assert result["status"] == "ok"
+    assert coords(result)[3] == pytest.approx((400, 300), abs=1e-6) and coords(result)[2] == pytest.approx((400, 0), abs=1e-6)
+
+
+def test_long_drag_keeps_the_last_good_step_when_a_later_one_fails():
+    points, lines = rectangle(40, 30)
+    constraints = [{"type": "distance", "points": [1, 2], "value": 40}, {"type": "fixed", "point": 1}, {"type": "horizontal", "entity": 101}]
+    sk = sketch_of(points, lines, constraints)
+    # pulling point 2 away from the fixed distance is impossible: nothing to keep, so the failure is reported
+    assert sketch.solve(sk, {"point": 2, "u": 400, "v": 0})["status"] == "failed"

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { axisLines, polyline, distanceTo, entityPoints, measure, optionsFor, describeConstraint, dimensionsOf } from "../src/sketchmodel.ts";
+import { axisLines, polyline, distanceTo, entityPoints, measure, optionsFor, describeConstraint, dimensionsOf, constraintMarks } from "../src/sketchmodel.ts";
 
 const plane = (origin, normal, xdir) => ({ origin, normal, xdir });
 
@@ -54,4 +54,17 @@ test("reference dimensions read the current geometry and the new constraint butt
   assert.match(describeConstraint(s, reference), /Reference .* = 5$/);
   const [dimension] = dimensionsOf({ ...s, constraints: [reference] });
   assert.equal(dimension.text, "(5)");
+});
+
+test("constraint marks sit on the geometry they hold", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }],
+    constraints: [{ id: 1, type: "horizontal", entity: 10 }, { id: 2, type: "distance", entity: 10, value: 10 }, { id: 3, type: "fixed", point: 1 }],
+  };
+  const marks = constraintMarks(s);
+  assert.deepEqual(marks.map((m) => m.text), ["H", "Fix"]); // dimensions are drawn as dimensions, not marks
+  assert.deepEqual(marks[0].points[0], [5, 0, 0]);
+  assert.deepEqual(marks[1].points[0], [0, 0, 0]);
 });

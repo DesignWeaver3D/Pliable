@@ -421,6 +421,48 @@ export function dimensionsOf(s: SketchData): Dimension[] {
   return out;
 }
 
+const MARKS: Record<string, string> = {
+  horizontal: "H",
+  vertical: "V",
+  parallel: "∥",
+  perpendicular: "⟂",
+  equal: "=",
+  tangent: "T",
+  fixed: "Fix",
+  block: "Lock",
+  point_on: "On",
+  midpoint: "Mid",
+  symmetric: "Sym",
+  collinear: "Col",
+};
+
+/** Small tags that show where the non-dimension constraints act, drawn near the geometry they hold. Crowded ones drop out. */
+export function constraintMarks(s: SketchData): Dimension[] {
+  const centre = (e: SketchEntity): [number, number] => {
+    const line = polyline(s, e);
+    const mid = line[Math.floor(line.length / 2)] ?? [0, 0];
+    return e.type === "line" ? [(line[0][0] + line[1][0]) / 2, (line[0][1] + line[1][1]) / 2] : mid;
+  };
+  const out: Dimension[] = [];
+  for (const c of s.constraints) {
+    const text = MARKS[c.type];
+    if (!text) continue;
+    const anchors: [number, number][] = [];
+    for (const id of [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])]) {
+      const p = s.points.find((q) => q.id === id);
+      if (p) anchors.push([p.u, p.v]);
+    }
+    for (const id of [...(c.entities ?? []), ...(c.entity !== undefined ? [c.entity] : [])]) {
+      const e = s.entities.find((x) => x.id === id);
+      if (e) anchors.push(centre(e));
+    }
+    if (!anchors.length) continue;
+    const [u, v] = [anchors.reduce((a, q) => a + q[0], 0) / anchors.length, anchors.reduce((a, q) => a + q[1], 0) / anchors.length];
+    out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)] });
+  }
+  return out;
+}
+
 /** A smooth (Catmull-Rom) curve through the spline's points, sampled for drawing and picking. */
 function splinePolyline(s: SketchData, e: Extract<SketchEntity, { type: "spline" }>, segments: number): [number, number][] {
   const pts = e.points.map((id) => pointOf(s, id));
