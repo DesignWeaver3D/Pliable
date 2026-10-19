@@ -266,3 +266,4 @@ class FilletChamfer(Tool):
 
 
 from . import features  # noqa: E402,F401  (registers the feature tools)
+from . import stretch  # noqa: E402,F401  (registers the stretch tool)

@@ -79,3 +79,4 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - `THIRD_PARTY_NOTICES.md` was written from memory of each project's license; verify before the first release.
 - The busy indicator appears after 400 ms for requests not on the quiet list (previews, sketch solves, lookups) in `app/src/client.ts`, shows elapsed seconds only.
 - Orthographic still looks off to the owner (see decisions-log).
+- Stretch (S36): move mode only re-fits flat neighbour faces with straight edges (edges tested for straightness at three sample points assuming even parametrization); curved neighbours are refused with an Insert fallback. No keep-angle toggle yet and no on-screen handle.
