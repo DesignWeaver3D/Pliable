@@ -14,7 +14,7 @@ keeps its id and name through fillets, push/pull, moves and so on:
 Whole-body tools that keep the solids in order (`ordered=True`) match by position when the count is unchanged.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable
 
 from OCP.BRepBndLib import BRepBndLib
@@ -32,6 +32,8 @@ DEFAULT_KIND = "Body"
 class Body:
     id: int
     name: str
+    recipe: dict | None = None  # the primitive that made the body while it is still that shape (see recipes.py)
+    lost: str | None = None  # what ended the recipe ("Fillet/Chamfer"), for the reason shown to the user
 
 
 @dataclass(frozen=True)
@@ -46,11 +48,11 @@ class BodyState:
         return next((i for i, b in enumerate(self.bodies) if b.id == body_id), None)
 
     def to_json(self) -> dict:
-        return {"bodies": [[b.id, b.name] for b in self.bodies], "next": self.next_id, "counts": dict(self.counts)}
+        return {"bodies": [[b.id, b.name, b.recipe, b.lost] for b in self.bodies], "next": self.next_id, "counts": dict(self.counts)}
 
     @classmethod
     def from_json(cls, data: dict) -> "BodyState":
-        return cls(tuple(Body(int(i), str(n)) for i, n in data["bodies"]), int(data["next"]), dict(data["counts"]))
+        return cls(tuple(Body(int(row[0]), str(row[1]), row[2] if len(row) > 2 else None, row[3] if len(row) > 3 else None) for row in data["bodies"]), int(data["next"]), dict(data["counts"]))
 
 
 def box_of(shape: TopoDS_Shape) -> list[float]:
@@ -178,7 +180,7 @@ def renamed(state: BodyState, body_id: int, name: str) -> BodyState:
     if index is None:
         raise KeyError(body_id)
     bodies = list(state.bodies)
-    bodies[index] = Body(body_id, name)
+    bodies[index] = replace(bodies[index], name=name)
     return BodyState(tuple(bodies), state.next_id, state.counts)
 
 

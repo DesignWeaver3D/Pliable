@@ -3,6 +3,7 @@
 from OCP.TopoDS import TopoDS_Shape
 
 from . import bodies as body_ids
+from . import recipes
 from .bodies import BodyState
 from .topology import Topology
 
@@ -48,13 +49,20 @@ class Document:
     def shape_of(self, state_id: int) -> TopoDS_Shape:
         return self._history[self._ids.index(state_id)].shape
 
-    def preview(self, shape: TopoDS_Shape, kind: str = body_ids.DEFAULT_KIND, ordered: bool = False) -> Topology:
-        """A topology for a result that is not committed; its bodies are matched like a commit's, nothing is recorded."""
-        return Topology(shape, body_ids.carry(self.current.bodies, self.current.shape, shape, kind, ordered))
+    def _bodies_for(self, shape: TopoDS_Shape, kind: str, ordered: bool, names, change: dict | None) -> BodyState:
+        """The bodies after an operation: matched to the new solids, then their primitive recipes brought up to date.
+        `change` holds `cause` (name of the operation), `combined`, `moved` and `assign` (see recipes.settle)."""
+        prev = self.current.bodies
+        state = body_ids.carry(prev, self.current.shape, shape, kind, ordered, names)
+        return recipes.settle(prev, state, shape, **(change or {"cause": "a later change"}))
 
-    def commit(self, shape: TopoDS_Shape, kind: str = body_ids.DEFAULT_KIND, ordered: bool = False, names: list | None = None) -> Topology:
+    def preview(self, shape: TopoDS_Shape, kind: str = body_ids.DEFAULT_KIND, ordered: bool = False, change: dict | None = None) -> Topology:
+        """A topology for a result that is not committed; its bodies are matched like a commit's, nothing is recorded."""
+        return Topology(shape, self._bodies_for(shape, kind, ordered, None, change))
+
+    def commit(self, shape: TopoDS_Shape, kind: str = body_ids.DEFAULT_KIND, ordered: bool = False, names: list | None = None, change: dict | None = None) -> Topology:
         """Add a state for `shape`; the bodies of the current state are carried over to it (see bodies.py)."""
-        return self._push(shape, body_ids.carry(self.current.bodies, self.current.shape, shape, kind, ordered, names))
+        return self._push(shape, self._bodies_for(shape, kind, ordered, names, change))
 
     def rename_body(self, body_id: int, name: str) -> Topology:
         """Rename a body as an undoable step (the shape is unchanged)."""

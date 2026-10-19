@@ -295,6 +295,10 @@ function renderToolbar() {
 
 /** Which selection helper buttons apply to the current selection (also the toolbar cache key). */
 function helperSignature(): string {
+  if (currentSels.length === 1 && currentSels[0].kind === "body") {
+    const id = currentSels[0].id;
+    return `body${id}${committed ? bodiesOf(committed).find((b) => b.id === id)?.editable : ""}`;
+  }
   if (currentSels.length === 1) return `${currentSels[0].kind}${currentSels[0].id}`;
   if (currentSels.length > 1 && currentSels.every((s) => s.kind === "face")) return "faces" + currentSels.map((s) => s.id).join(",");
   return "";
@@ -323,6 +327,16 @@ function selectionHelpers(): HTMLButtonElement[] {
     return button;
   };
   const one = currentSels.length === 1 ? currentSels[0] : null;
+  if (one?.kind === "body") {
+    const body = committed ? bodiesOf(committed).find((b) => b.id === one.id) : undefined;
+    if (!body?.editable) return [];
+    const button = document.createElement("button");
+    button.textContent = "Edit primitive";
+    button.title = "Reopen the form and handles this body was made with";
+    button.className = "helper";
+    button.addEventListener("click", () => editPrimitive(one.id));
+    return [button];
+  }
   if (one?.kind === "face") {
     return [
       make("All edges", "Select every edge of the selected face, outline and holes", { mode: "face_edges", face: one.id }),
@@ -340,6 +354,22 @@ function selectionHelpers(): HTMLButtonElement[] {
     return [make("Region outline", "Select the edges around the outside of the selected faces", { mode: "region_boundary", faces: currentSels.map((s) => s.id) })];
   }
   return [];
+}
+
+/** Reopen the creation form and handles of an editable primitive body, filled with the values it was made with. */
+function editPrimitive(id: number) {
+  const body = committed ? bodiesOf(committed).find((b) => b.id === id) : undefined;
+  const tool = body?.editable && body.recipe ? tools.find((t) => t.id === body.recipe!.tool) : undefined;
+  if (!body || !tool || !body.recipe) {
+    status.textContent = body?.why ?? "That body is not an editable primitive";
+    return;
+  }
+  const picked: Sel[] = [{ kind: "body", id }];
+  viewport.selectItems(picked);
+  setSelection(picked);
+  toolPanel.openForm(tool, body.recipe.params, "other", id);
+  status.classList.remove("error");
+  status.textContent = `Editing ${body.name}: change the values or drag its handles, then Apply (Esc cancels)`;
 }
 
 function armTool(tool: ToolInfo, surface: Surface) {
@@ -558,6 +588,12 @@ viewport.onCentreDrag = async (face, offset, phase) => {
   }
 };
 viewport.onEyedropCancel = () => cancelEyedrop();
+viewport.onFaceBody = (id) => {
+  const picked: Sel[] = [{ kind: "body", id }];
+  viewport.selectItems(picked);
+  setSelection(picked);
+  status.textContent = "Whole body selected by double-click on a face (the same as its row in the body list)";
+};
 viewport.onEdgeLoop = async (edgeId, additive) => {
   try {
     // The chain follows tangent continuity only (a rim, a smooth outline); Ctrl adds it to the selection.
@@ -813,6 +849,9 @@ const bodyList = new BodyList($("bodylist"), {
   hover(id) {
     viewport.hoverItem(id === null ? null : { kind: "body", id });
   },
+  edit(id) {
+    editPrimitive(id);
+  },
 }, $("bodycount"));
 
 // Keyboard shortcuts: one router applies the policy in keys.ts (engagement, blur, repeat, entry, sketch) and runs these.
@@ -1059,10 +1098,10 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   },
   tools: () => tools,
   usable: (tool) => acceptsSelection(tool, expand(tool, currentSels)) && (refined === null || refined.includes(tool.id)),
-  async preview(tool, values) {
+  async preview(tool, values, editBody) {
     const seq = ++formPreviewSeq;
     try {
-      const mesh = await core.request<MeshData>("tool_preview", { tool: tool.id, selection: selectionPayload(expand(tool, currentSels)), params: values });
+      const mesh = await core.request<MeshData>("tool_preview", { tool: tool.id, selection: selectionPayload(editBody === undefined ? expand(tool, currentSels) : []), params: values, ...(editBody === undefined ? {} : { edit_body: editBody }) });
       if (!toolPanel.isOpen || seq !== formPreviewSeq) return; // a newer preview was asked for: replies can arrive out of order
       show(mesh);
       viewport.manipulator.setHandles(mesh.header.handles ?? []);
@@ -1074,10 +1113,10 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       status.classList.add("error");
     }
   },
-  async commit(tool, values) {
+  async commit(tool, values, editBody) {
     const sels = currentSels;
     try {
-      const mesh = await core.request<MeshData>("tool_commit", { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params: values });
+      const mesh = await core.request<MeshData>("tool_commit", { tool: tool.id, selection: selectionPayload(editBody === undefined ? expand(tool, sels) : []), params: values, ...(editBody === undefined ? {} : { edit_body: editBody }) });
       setCommitted(mesh, false, mappedSelection(mesh));
       lastOp = { tool, sels, values };
       editLastButton.disabled = false;

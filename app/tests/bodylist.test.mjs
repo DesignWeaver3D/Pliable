@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { clickRows, isIsolated, pruneHidden, toggleHidden, toggleIsolated } from "../src/bodylogic.ts";
+import { doubleClickBody, clickRows, isIsolated, pruneHidden, toggleHidden, toggleIsolated } from "../src/bodylogic.ts";
 import { filterHidden } from "../src/visibility.ts";
 
 test("the eye toggles one body", () => {
@@ -45,4 +45,12 @@ test("hiding a body removes its triangles and edges but keeps ids", () => {
   assert.equal(out.faces[1].count, 0);
   assert.equal(out.edgePositions.length, 6);
   assert.deepEqual(out.vertices.map((v) => v.id), [0]);
+});
+
+test("double-click on a face selects its body; edges, vertices and empty space do not", () => {
+  const bodyOf = (f) => (f === 4 ? 2 : undefined);
+  assert.equal(doubleClickBody({ kind: "face", id: 4 }, bodyOf), 2);
+  assert.equal(doubleClickBody({ kind: "face", id: 9 }, bodyOf), null);
+  assert.equal(doubleClickBody({ kind: "edge", id: 4 }, bodyOf), null);
+  assert.equal(doubleClickBody(null, bodyOf), null);
 });

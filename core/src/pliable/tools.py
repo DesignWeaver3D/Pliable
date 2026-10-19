@@ -205,6 +205,11 @@ class Tool:
         the placement point and the sizes. Default: none."""
         return []
 
+    def combines(self, topology: Topology, selection: Selection, values: dict) -> "list[int] | str | None":
+        """Indices of the bodies this run combines with another solid (their primitive recipes end), "all" for every
+        body, or None. The default is none; other shape changes are noticed by the recipe's signature (recipes.py)."""
+        return None
+
     def applies(self, topology: Topology, selection: Selection) -> bool:
         """Extra applicability check beyond the selection counts (e.g. planar faces only)."""
         return True

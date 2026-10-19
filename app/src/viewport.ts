@@ -1,4 +1,5 @@
 import { pointInRect, segmentHitsRect, segmentsInBox, triangleHitsRect, trianglesInBox, type Rect } from "./boxselect";
+import { doubleClickBody } from "./bodylogic";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
@@ -129,6 +130,8 @@ export class Viewport {
   onSelect: (selection: Sel[]) => void = () => {};
   /** Double-click on an edge: the host selects the whole smooth chain it belongs to (Ctrl adds to the selection). */
   onEdgeLoop: (edgeId: number, additive: boolean) => void = () => {};
+  /** Double-click on a face: select its whole body (same as clicking its row in the body list). */
+  onFaceBody: (bodyId: number) => void = () => {};
   /** Dragging a selected face or edge drives its tool on the whole selection. distance is in model units along the dragged item's outward direction. */
   onItemDrag: (sels: Sel[], distance: number, phase: "move" | "end" | "cancel", x?: number, y?: number) => void = () => {};
   /** While true (typed value entry or measure mode), pointer movement does not change the drag distance. */
@@ -474,6 +477,8 @@ export class Viewport {
       if (this.interceptor) return;
       const hit = this.pickHit(e as PointerEvent);
       if (hit?.kind === "edge") this.onEdgeLoop(hit.id, e.ctrlKey || e.metaKey);
+      const body = doubleClickBody(hit, (id) => this.data?.faces.find((f) => f.id === id)?.body);
+      if (body !== null) this.onFaceBody(body);
     });
     dom.addEventListener("pointerup", (e) => {
       if (this.interceptor && e.button === 0) {

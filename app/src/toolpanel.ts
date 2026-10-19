@@ -15,8 +15,8 @@ export interface ToolPanelHost {
   tools(): ToolInfo[];
   usable(tool: ToolInfo): boolean;
   /** Run the tool with these values without committing (live preview). */
-  preview(tool: ToolInfo, values: Record<string, ParamValue>): Promise<void>;
-  commit(tool: ToolInfo, values: Record<string, ParamValue>): Promise<void>;
+  preview(tool: ToolInfo, values: Record<string, ParamValue>, editBody?: number): Promise<void>;
+  commit(tool: ToolInfo, values: Record<string, ParamValue>, editBody?: number): Promise<void>;
   cancel(): void;
   /** Eyedropper: wait for the next click on the model and give back the value it holds for `param` (null = nothing readable). Resolves null if cancelled. */
   eyedrop(param: string, kind: string): Promise<number | null>;
@@ -36,6 +36,7 @@ const UNITS: Record<string, string> = { length: "mm", angle: "°", number: "" };
 
 export class ToolPanel {
   private open: ToolInfo | null = null;
+  private editBody: number | undefined; // set while an existing primitive body is being edited (its id)
   private timer = 0;
   private inputs: Record<string, HTMLInputElement> = {};
   private pairInputs: Record<string, HTMLInputElement[][]> = {}; // per_edge parameters: [start, end] inputs per edge
@@ -98,6 +99,7 @@ export class ToolPanel {
     if (!this.open) return;
     if (restore) usage.record(this.open.id, "cancel");
     this.open = null;
+    this.editBody = undefined;
     this.host.cancelEyedrop();
     this.host.showBase?.(null);
     clearTimeout(this.timer);
@@ -108,14 +110,15 @@ export class ToolPanel {
   }
 
   /** Open the form for a tool; `initial` pre-fills values (used to re-edit the last operation). */
-  openForm(tool: ToolInfo, initial: Record<string, ParamValue> = {}, surface: Surface = "other") {
+  openForm(tool: ToolInfo, initial: Record<string, ParamValue> = {}, surface: Surface = "other", editBody?: number) {
     this.close();
     usage.record(tool.id, "start", surface);
     this.open = tool;
+    this.editBody = editBody;
     const inputs: Record<string, HTMLInputElement> = {};
     const title = document.createElement("div");
     title.className = "title";
-    title.textContent = tool.label;
+    title.textContent = editBody === undefined ? tool.label : `Edit ${tool.label.replace(/^Add /, "").toLowerCase()}`;
     const pairInputs: Record<string, HTMLInputElement[][]> = {};
     const rows = tool.params.map((p) => {
       if (p.kind === "per_edge") return this.perEdgeRows(p, initial[p.name], pairInputs);
@@ -317,14 +320,15 @@ export class ToolPanel {
     clearTimeout(this.timer);
     const tool = this.open;
     if (!tool) return;
-    this.timer = window.setTimeout(() => this.host.preview(tool, this.values()), delay);
+    this.timer = window.setTimeout(() => this.host.preview(tool, this.values(), this.editBody), delay);
   }
 
   private async apply() {
     const tool = this.open;
     if (!tool) return;
     const values = this.values();
+    const editBody = this.editBody;
     this.close(false);
-    await this.host.commit(tool, values);
+    await this.host.commit(tool, values, editBody);
   }
 }

@@ -35,3 +35,10 @@ export function clickRows(order: readonly number[], current: readonly number[], 
   if (mods.ctrl) return { ids: current.includes(id) ? current.filter((x) => x !== id) : [...current, id], anchor: id };
   return { ids: [id], anchor: id };
 }
+
+/** What a double-click on a hit selects: a face gives its whole body; an edge keeps the chain meaning (handled
+ *  elsewhere); anything else (a vertex, empty space, a face of unknown body) does nothing new. */
+export function doubleClickBody(hit: { kind: string; id: number } | null, bodyOfFace: (faceId: number) => number | null | undefined): number | null {
+  if (!hit || hit.kind !== "face") return null;
+  return bodyOfFace(hit.id) ?? null;
+}

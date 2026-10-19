@@ -705,11 +705,16 @@ class AddBox(Tool):
             *_position_handles(values, max(w, d, h)),
         ]
 
-    def run(self, topology, selection, values, preview):
+    def make(self, values):
         if min(values["width"], values["depth"], values["height"]) < MIN_DISTANCE:
             raise OperationError("The box sizes must be positive")
-        box = BRepPrimAPI_MakeBox(gp_Pnt(values["x"], values["y"], values["z"]), values["width"], values["depth"], values["height"]).Shape()
-        return finish(_add_material(topology.shape, box, _new_body(values)))
+        return BRepPrimAPI_MakeBox(gp_Pnt(values["x"], values["y"], values["z"]), values["width"], values["depth"], values["height"]).Shape()
+
+    def combines(self, topology, selection, values):
+        return None if _new_body(values) else "all"
+
+    def run(self, topology, selection, values, preview):
+        return finish(_add_material(topology.shape, self.make(values), _new_body(values)))
 
 
 @register
@@ -741,11 +746,16 @@ class AddCylinder(Tool):
             *_position_handles(values, max(d, h)),
         ]
 
-    def run(self, topology, selection, values, preview):
+    def make(self, values):
         if min(values["diameter"], values["height"]) < MIN_DISTANCE:
             raise OperationError("The cylinder sizes must be positive")
-        cylinder = _cylinder(gp_Pnt(values["x"], values["y"], values["z"]), gp_Dir(0, 0, 1), values["diameter"] / 2, values["height"])
-        return finish(_add_material(topology.shape, cylinder, _new_body(values)))
+        return _cylinder(gp_Pnt(values["x"], values["y"], values["z"]), gp_Dir(0, 0, 1), values["diameter"] / 2, values["height"])
+
+    def combines(self, topology, selection, values):
+        return None if _new_body(values) else "all"
+
+    def run(self, topology, selection, values, preview):
+        return finish(_add_material(topology.shape, self.make(values), _new_body(values)))
 
 
 @register
@@ -1035,21 +1045,29 @@ def _pivot_point(topology, selection) -> tuple[float, float, float]:
     return tuple((a + b) / 2 for a, b in zip(lo, hi))
 
 
-def _on_bodies(topology, selection, change, pivot: bool = False) -> TopoDS_Shape:
+def _on_bodies(topology, selection, change, pivot: bool = False, trsf=None, record: dict | None = None) -> TopoDS_Shape:
     """Apply `change` (shape -> shape) to the selected bodies, else to the solids that contain the selected faces; with
-    no selection, to the whole model. With `pivot` and bodies selected, `change(shape, centre)` also gets each body's own centre."""
+    no selection, to the whole model. With `pivot` and bodies selected, `change(shape, centre)` also gets each body's own centre.
+    With `trsf` (centre -> gp_Trsf) and `record`, the transform applied to each solid is stored in `record` by solid index,
+    so editable primitives can follow the move (see recipes.py)."""
     if not selection.faces and not selection.bodies:
+        if record is not None and trsf is not None:
+            for index in range(len(solids_of(topology.shape))):
+                record[index] = trsf(None)
         return change(topology.shape)
     chosen = _chosen_solids(topology, selection)
     if not chosen:
         raise OperationError("The selected faces do not belong to a solid")
     compound, builder = TopoDS_Compound(), BRep_Builder()
     builder.MakeCompound(compound)
-    for solid in solids_of(topology.shape):
+    for index, solid in enumerate(solids_of(topology.shape)):
         if not any(solid.IsSame(c) for c in chosen):
             builder.Add(compound, solid)
         else:
-            builder.Add(compound, change(solid, _body_centre(solid)) if pivot and selection.bodies else change(solid))
+            centre = _body_centre(solid) if pivot and selection.bodies else None
+            if record is not None and trsf is not None:
+                record[index] = trsf(centre)
+            builder.Add(compound, change(solid, centre) if centre is not None else change(solid))
     return compound
 
 
@@ -1091,7 +1109,15 @@ class MoveBody(Tool):
         offset = gp_Vec(values["dx"], values["dy"], values["dz"])
         if offset.Magnitude() < MIN_DISTANCE:
             return OpResult(topology.shape, [])
-        return finish(_on_bodies(topology, selection, lambda shape: _moved(shape, offset)))
+        def move_trsf(centre):
+            t = gp_Trsf()
+            t.SetTranslation(offset)
+            return t
+
+        record: dict = {}
+        result = finish(_on_bodies(topology, selection, lambda shape: _moved(shape, offset), trsf=move_trsf, record=record))
+        result.moved = record
+        return result
 
 
 @register
@@ -1128,12 +1154,18 @@ class RotateBody(Tool):
         if axis not in (0, 1, 2):
             raise OperationError("The axis must be 0 (X), 1 (Y) or 2 (Z)")
         direction = gp_Dir(*(1.0 if k == axis else 0.0 for k in range(3)))
-        def rotate(shape, centre=None):
+        def rotation(centre=None):
             about = gp_Trsf()
             about.SetRotation(gp_Ax1(centre or gp_Pnt(0, 0, 0), direction), math.radians(values["angle"]))
-            return BRepBuilderAPI_Transform(shape, about, True).Shape()
+            return about
 
-        return finish(_on_bodies(topology, selection, rotate, pivot=True))
+        def rotate(shape, centre=None):
+            return BRepBuilderAPI_Transform(shape, rotation(centre), True).Shape()
+
+        record: dict = {}
+        result = finish(_on_bodies(topology, selection, rotate, pivot=True, trsf=rotation, record=record))
+        result.moved = record
+        return result
 
 
 @register
@@ -1165,12 +1197,18 @@ class ScaleBody(Tool):
         if factor < 1e-3 or factor > 1e3:
             raise OperationError("The scale factor must be between 0.001 and 1000")
 
-        def scale(shape, centre=None):
+        def scaling(centre=None):
             about = gp_Trsf()
             about.SetScale(centre or gp_Pnt(0, 0, 0), factor)
-            return BRepBuilderAPI_Transform(shape, about, True).Shape()
+            return about
 
-        return finish(_on_bodies(topology, selection, scale, pivot=True))
+        def scale(shape, centre=None):
+            return BRepBuilderAPI_Transform(shape, scaling(centre), True).Shape()
+
+        record: dict = {}
+        result = finish(_on_bodies(topology, selection, scale, pivot=True, trsf=scaling, record=record))
+        result.moved = record
+        return result
 
 
 @register
@@ -1198,11 +1236,16 @@ class AddSphere(Tool):
             *_position_handles(values, d),
         ]
 
-    def run(self, topology, selection, values, preview):
+    def make(self, values):
         if values["diameter"] < MIN_DISTANCE:
             raise OperationError("The diameter must be positive")
-        sphere = BRepPrimAPI_MakeSphere(gp_Pnt(values["x"], values["y"], values["z"]), values["diameter"] / 2).Shape()
-        return finish(_add_material(topology.shape, sphere, _new_body(values)))
+        return BRepPrimAPI_MakeSphere(gp_Pnt(values["x"], values["y"], values["z"]), values["diameter"] / 2).Shape()
+
+    def combines(self, topology, selection, values):
+        return None if _new_body(values) else "all"
+
+    def run(self, topology, selection, values, preview):
+        return finish(_add_material(topology.shape, self.make(values), _new_body(values)))
 
 
 @register
@@ -1244,12 +1287,17 @@ class AddCone(Tool):
             *_position_handles(values, max(bd, h)),
         ]
 
-    def run(self, topology, selection, values, preview):
+    def make(self, values):
         if values["bottom_diameter"] < 0 or values["top_diameter"] < 0 or values["bottom_diameter"] + values["top_diameter"] < MIN_DISTANCE or values["height"] < MIN_DISTANCE:
             raise OperationError("Give a positive height and at least one positive diameter")
         axes = gp_Ax2(gp_Pnt(values["x"], values["y"], values["z"]), gp_Dir(0, 0, 1))
-        cone = BRepPrimAPI_MakeCone(axes, values["bottom_diameter"] / 2, values["top_diameter"] / 2, values["height"]).Shape()
-        return finish(_add_material(topology.shape, cone, _new_body(values)))
+        return BRepPrimAPI_MakeCone(axes, values["bottom_diameter"] / 2, values["top_diameter"] / 2, values["height"]).Shape()
+
+    def combines(self, topology, selection, values):
+        return None if _new_body(values) else "all"
+
+    def run(self, topology, selection, values, preview):
+        return finish(_add_material(topology.shape, self.make(values), _new_body(values)))
 
 
 @register
@@ -1280,12 +1328,17 @@ class AddTorus(Tool):
             *_position_handles(values, major),
         ]
 
-    def run(self, topology, selection, values, preview):
+    def make(self, values):
         if values["minor"] < MIN_DISTANCE or values["major"] <= values["minor"]:
             raise OperationError("The ring diameter must be larger than the tube diameter, and both positive")
         axes = gp_Ax2(gp_Pnt(values["x"], values["y"], values["z"]), gp_Dir(0, 0, 1))
-        torus = BRepPrimAPI_MakeTorus(axes, values["major"] / 2, values["minor"] / 2).Shape()
-        return finish(_add_material(topology.shape, torus, _new_body(values)))
+        return BRepPrimAPI_MakeTorus(axes, values["major"] / 2, values["minor"] / 2).Shape()
+
+    def combines(self, topology, selection, values):
+        return None if _new_body(values) else "all"
+
+    def run(self, topology, selection, values, preview):
+        return finish(_add_material(topology.shape, self.make(values), _new_body(values)))
 
 
 MAX_ARRAY_COPIES = 200
@@ -1504,6 +1557,10 @@ class BodyBoolean(Tool):
     description = "Combines two solids: mode 0 unites them, 1 subtracts the second from the first, 2 keeps only the overlap. Select a face of the first solid, then a face of the second."
     accepts = Accepts(faces=(2, 2))
     params = [Param("mode", "number", 0)]
+
+    def combines(self, topology, selection, values):
+        solids = solids_of(topology.shape)
+        return [i for i, solid in enumerate(solids) if any(_contains(solid, topology.face(f)) for f in selection.faces)]
 
     def applies(self, topology, selection):
         return len(solids_of(topology.shape)) >= 2
