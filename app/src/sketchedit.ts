@@ -115,3 +115,46 @@ export function repeat(s: SketchData, sel: SketchSel[], count: number, step: (k:
   }
   return { sketch, selection };
 }
+
+/**
+ * Cut a line in two where the click projects onto it. The first piece keeps the line's id; both pieces keep
+ * the direction constraints (horizontal, vertical, parallel, perpendicular, angle), and a line with none stays
+ * straight through a collinear constraint. Other constraints on the old line (lengths, equal, tangent) go.
+ */
+export function splitLine(s: SketchData, lineId: number, u: number, v: number): EditResult | null {
+  const line = s.entities.find((e) => e.id === lineId);
+  if (!line || line.type !== "line" || line.reference) return null;
+  const [a, b] = [pointOf(s, line.a), pointOf(s, line.b)];
+  const [du, dv] = [b.u - a.u, b.v - a.v];
+  const length2 = du * du + dv * dv;
+  if (length2 < 1e-12) return null;
+  const t = ((u - a.u) * du + (v - a.v) * dv) / length2;
+  if (t < 0.02 || t > 0.98) return null; // too near an end to cut
+  let id = nextId(s);
+  const middle = id++;
+  const second = id++;
+  const points = [...s.points, { id: middle, u: a.u + t * du, v: a.v + t * dv }];
+  const entities = s.entities.flatMap((e) =>
+    e.id === lineId ? [{ ...e, b: middle } as SketchEntity, { id: second, type: "line", a: middle, b: line.b } as SketchEntity] : [e],
+  );
+  const directional = new Set(["horizontal", "vertical", "parallel", "perpendicular", "angle"]);
+  const constraints: SketchData["constraints"] = [];
+  let kept = false;
+  for (const c of s.constraints) {
+    const onLine = c.entity === lineId || c.entities?.includes(lineId);
+    if (!onLine) {
+      constraints.push(c);
+      continue;
+    }
+    if (directional.has(c.type)) {
+      kept = true;
+      constraints.push(c, { ...c, id: id++, ...(c.entities ? { entities: c.entities.map((x) => (x === lineId ? second : x)) } : { entity: second }) });
+    } else if (c.type === "point_on" && c.point !== undefined) {
+      const p = pointOf(s, c.point);
+      const along = ((p.u - a.u) * du + (p.v - a.v) * dv) / length2;
+      constraints.push({ ...c, entity: along > t ? second : lineId });
+    }
+  }
+  if (!kept) constraints.push({ id: id++, type: "collinear", entities: [lineId, second], auto: true });
+  return { sketch: { ...s, points, entities, constraints }, selection: [{ kind: "entity", id: lineId }, { kind: "entity", id: second }] };
+}

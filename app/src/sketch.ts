@@ -8,6 +8,7 @@ import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { CoreClient, MeshData } from "./client";
 import type { Dimension, DimensionOverlay } from "./dimensions";
+import * as Chk from "./sketchcheck";
 import * as E from "./sketchedit";
 import * as M from "./sketchmodel";
 import * as Sh from "./sketchshapes";
@@ -22,7 +23,7 @@ const POINT_SIZE_PX = 8;
 const PREVIEW_DELAY_MS = 150;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
-type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "ellipse" | "spline" | "trim" | "extend" | "triangle" | "pentagon" | "hexagon" | "octagon";
+type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "ellipse" | "spline" | "trim" | "extend" | "split" | "triangle" | "pentagon" | "hexagon" | "octagon";
 /** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
 const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5, hexagon: 6, octagon: 8 };
 const TOOLS: { id: Tool; label: string; hint: string }[] = [
@@ -39,6 +40,7 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "ellipse", label: "Ellipse", hint: "Click the centre, the end of the long axis, then a point for the short radius" },
   { id: "spline", label: "Spline", hint: "Click points the curve passes through; Enter or right-click ends it, clicking the first point closes it" },
   { id: "trim", label: "Trim", hint: "Click the part of a line to remove, up to the nearest crossing curves" },
+  { id: "split", label: "Split", hint: "Click a line where it should be cut in two" },
   { id: "extend", label: "Extend", hint: "Click near the end of a line to stretch it to the next curve" },
   ...(Object.keys(POLYGON_SIDES) as Tool[]).map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1), hint: "Click the centre, then a corner" })),
 ];
@@ -334,7 +336,7 @@ export class SketchMode {
       else if (uv) this.resolve({ point: this.drag.id, u: uv[0], v: uv[1] });
       return;
     }
-    if (this.tool === "select" || this.tool === "trim" || this.tool === "extend") this.hover = this.pick(e);
+    if (this.tool === "select" || this.tool === "trim" || this.tool === "extend" || this.tool === "split") this.hover = this.pick(e);
     else this.cursor = this.snap(e);
     this.render();
   }
@@ -382,14 +384,23 @@ export class SketchMode {
       return;
     }
     if (this.tool === "select") return;
-    if (this.tool === "trim" || this.tool === "extend") {
+    if (this.tool === "trim" || this.tool === "extend" || this.tool === "split") {
       const hit = this.pick(e);
       const uv = this.planeUV(e);
       const line = hit?.kind === "entity" ? this.s.entities.find((x) => x.id === hit.id) : undefined;
       if (line?.type === "line" && uv && !line.reference) {
-        this.pushUndo();
-        this.s = (this.tool === "trim" ? M.trimLine : M.extendLine)(this.s, line.id, uv[0], uv[1]);
-        this.resolve();
+        if (this.tool === "split") {
+          const cut = E.splitLine(this.s, line.id, uv[0], uv[1]);
+          if (cut) {
+            this.pushUndo();
+            this.s = cut.sketch;
+            this.resolve();
+          } else this.host.status("Click along the line, away from its ends, to cut it", true);
+        } else {
+          this.pushUndo();
+          this.s = (this.tool === "trim" ? M.trimLine : M.extendLine)(this.s, line.id, uv[0], uv[1]);
+          this.resolve();
+        }
       }
       this.render();
       return;
@@ -1401,6 +1412,24 @@ export class SketchMode {
     });
     marks.title = "Show or hide the small tags (H, V, T, =, ...) that mark where constraints act";
     list.append(marks);
+    const check = button("Check sketch", () => {
+      this.selection = Chk.openEnds(this.s).map((id) => ({ kind: "point" as const, id }));
+      this.host.status(Chk.describeProblems(this.s));
+      this.render();
+    });
+    check.title = "Report points that nearly touch and line ends that meet nothing; the open ends are selected";
+    const join = button("Join near points", async () => {
+      const gaps = Chk.findGaps(this.s);
+      if (!gaps.length) return this.host.status("No points nearly touch");
+      this.pushUndo();
+      this.s = Chk.joinGaps(this.s, gaps);
+      this.selection = [];
+      await this.resolve();
+      this.host.status(`Joined ${gaps.length} pair${gaps.length === 1 ? "" : "s"} of points`);
+      this.render();
+    });
+    join.title = "Merge points that are very close but not the same point, so outlines close";
+    list.append(check, join);
     for (const c of this.s.constraints) {
       const row = el("div", this.failed.has(c.id) ? "crow bad" : "crow");
       row.append(el("span", "", M.describeConstraint(this.s, c) + (c.auto ? " (automatic)" : "")));

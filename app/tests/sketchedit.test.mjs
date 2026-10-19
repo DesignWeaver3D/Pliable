@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { centroid, reflection, repeat, rotation, scaling, transform, translation } from "../src/sketchedit.ts";
+import { centroid, reflection, repeat, rotation, scaling, splitLine, transform, translation } from "../src/sketchedit.ts";
 
 const sketch = () => ({
   plane: { origin: [0, 0, 0], normal: [0, 0, 1], xdir: [1, 0, 0] },
@@ -50,4 +50,19 @@ test("a linear array adds count minus one spaced copies", () => {
   assert.equal(lines.length, 2 + 3);
   const tops = made.sketch.points.filter((p) => p.id > 5).map((p) => p.v).sort((a, b) => a - b);
   assert.deepEqual(tops, [5, 5, 10, 10, 15, 15]);
+});
+
+test("splitting a line keeps its direction constraints on both pieces, or ties them together", () => {
+  const s = sketch();
+  s.constraints = [{ id: 30, type: "horizontal", entity: 10 }, { id: 31, type: "distance", entity: 10, value: 4 }];
+  const horizontal = splitLine(s, 10, 1, 0).sketch;
+  const first = horizontal.entities.find((e) => e.id === 10);
+  assert.ok(horizontal.entities.some((e) => e.type === "line" && e.id !== 10 && e.a === first.b && e.b === 2));
+  assert.deepEqual(horizontal.constraints.map((c) => c.type), ["horizontal", "horizontal"]); // the length constraint went
+  const loose = sketch();
+  const split = splitLine(loose, 10, 1, 0).sketch;
+  assert.deepEqual(split.constraints.map((c) => c.type), ["collinear"]);
+  const pieces = split.entities.filter((e) => e.type === "line" && (e.id === 10 || e.id > 12));
+  assert.equal(pieces.length, 2);
+  assert.equal(splitLine(loose, 10, 0.01, 0), null); // too close to an end
 });
