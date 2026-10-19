@@ -178,7 +178,7 @@ function dragToolFor(sels: Sel[]): ToolInfo | null {
 const toolbar = $("tools");
 
 // Icons beside the labels of the top bar buttons (the label stays: icons alone are not self-explanatory).
-for (const [id, name] of [["drawerbtn", "tools"], ["menubtn", "menu"], ["undo", "undo"], ["redo", "redo"], ["editlast", "edit"]] as const) $(id).prepend(uiIcon(name));
+for (const [id, name] of [["drawerbtn", "sidebar"], ["menubtn", "menu"], ["undo", "undo"], ["redo", "redo"], ["editlast", "edit"]] as const) $(id).prepend(uiIcon(name));
 $("palette-input").parentElement!.insertBefore(Object.assign(uiIcon("search"), { className: "icon searchicon" }), $("palette-input"));
 
 // File menu: model, import/export and view toggles live in one popup so the top bar stays small.
