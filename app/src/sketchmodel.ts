@@ -29,6 +29,8 @@ export interface SketchConstraint {
   entity?: number;
   entities?: number[];
   value?: number;
+  /** A dimension that only reports the current measurement (shown in brackets); the solver ignores it. */
+  reference?: boolean;
   /** Added by a drawing tool rather than chosen by the user; shown as such and removable with one click. */
   auto?: boolean;
 }
@@ -123,6 +125,42 @@ function ends(s: SketchData, sel: SketchSel[]): [number, number] {
   return line && line.type === "line" ? [line.a, line.b] : [pts(sel)[0], pts(sel)[1]];
 }
 
+/** Perpendicular distance from a point to the infinite line through a line entity. */
+function pointLineDistance(s: SketchData, pointId: number, line: Extract<SketchEntity, { type: "line" }>): number {
+  const [a, b, p] = [pointOf(s, line.a), pointOf(s, line.b), pointOf(s, pointId)];
+  const length = Math.hypot(b.u - a.u, b.v - a.v) || 1;
+  return Math.abs((b.u - a.u) * (p.v - a.v) - (b.v - a.v) * (p.u - a.u)) / length;
+}
+
+/** The current value of a dimensional constraint, read from the geometry (what a reference dimension shows). */
+export function measure(s: SketchData, c: SketchConstraint): number | null {
+  const entity = s.entities.find((e) => e.id === c.entity);
+  const line = entity && entity.type === "line" ? entity : null;
+  const ends = line ? [line.a, line.b] : c.points;
+  switch (c.type) {
+    case "distance":
+      return ends ? dist(s, ends[0], ends[1]) : null;
+    case "horizontal_distance":
+      return ends ? Math.abs(pointOf(s, ends[0]).u - pointOf(s, ends[1]).u) : null;
+    case "vertical_distance":
+      return ends ? Math.abs(pointOf(s, ends[0]).v - pointOf(s, ends[1]).v) : null;
+    case "radius":
+      return entity ? radiusOf(s, entity) : null;
+    case "diameter":
+      return entity ? 2 * radiusOf(s, entity) : null;
+    case "point_line_distance":
+      return line && c.point !== undefined ? pointLineDistance(s, c.point, line) : null;
+    case "angle": {
+      const [a, b] = (c.entities ?? []).map((id) => s.entities.find((e) => e.id === id));
+      if (!a || !b || a.type !== "line" || b.type !== "line") return null;
+      const d = (l: typeof a) => [pointOf(s, l.b).u - pointOf(s, l.a).u, pointOf(s, l.b).v - pointOf(s, l.a).v];
+      const [da, db] = [d(a), d(b)];
+      return (Math.acos((da[0] * db[0] + da[1] * db[1]) / Math.hypot(...da) / Math.hypot(...db)) * 180) / Math.PI;
+    }
+  }
+  return null;
+}
+
 /** The table that decides which constraint buttons appear for a selection. Edit here to add or reorder. */
 export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
   {
@@ -199,6 +237,20 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     },
   },
   {
+    label: "Collinear",
+    build: (s, sel) => {
+      const es = entities(s, sel);
+      return es.length === 2 && only(es, "line") && !pts(sel).length ? { type: "collinear", entities: es.map((e) => e.id) } : null;
+    },
+  },
+  {
+    label: "Lock",
+    build: (s, sel) => {
+      const es = entities(s, sel);
+      return es.length === 1 && !pts(sel).length && !es[0].reference ? { type: "block", entity: es[0].id } : null;
+    },
+  },
+  {
     label: "Symmetric",
     build: (s, sel) => {
       const es = entities(s, sel);
@@ -217,6 +269,18 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
       const es = entities(s, sel);
       const line = es[0];
       return line && line.type === "line" ? dist(s, line.a, line.b) : dist(s, pts(sel)[0], pts(sel)[1]);
+    },
+  },
+  {
+    label: "Point to line distance",
+    dimension: true,
+    build: (s, sel) => {
+      const es = entities(s, sel);
+      return es.length === 1 && only(es, "line") && pts(sel).length === 1 ? { type: "point_line_distance", point: pts(sel)[0], entity: es[0].id } : null;
+    },
+    initial: (s, sel) => {
+      const line = entities(s, sel)[0] as Extract<SketchEntity, { type: "line" }>;
+      return pointLineDistance(s, pts(sel)[0], line);
     },
   },
   {
@@ -298,6 +362,9 @@ export function describeConstraint(s: SketchData, c: SketchConstraint): string {
     point_on: "Point on",
     midpoint: "Midpoint",
     symmetric: "Symmetric",
+    collinear: "Collinear",
+    block: "Lock",
+    point_line_distance: "Point to line distance",
     distance: "Distance",
     horizontal_distance: "Horizontal distance",
     vertical_distance: "Vertical distance",
@@ -307,7 +374,8 @@ export function describeConstraint(s: SketchData, c: SketchConstraint): string {
   };
   const refs = [...(c.points ?? []).map((p) => `p${p}`), ...(c.point !== undefined ? [`p${c.point}`] : []), ...(c.entity !== undefined ? [`#${c.entity}`] : []), ...(c.entities ?? []).map((e) => `#${e}`)];
   void s;
-  return `${names[c.type] ?? c.type} ${refs.join(" ")}${c.value !== undefined ? ` = ${parseFloat(c.value.toFixed(3))}` : ""}`;
+  const value = c.reference ? measure(s, c) : c.value;
+  return `${c.reference ? "Reference " : ""}${names[c.type] ?? c.type} ${refs.join(" ")}${value != null ? ` = ${parseFloat(value.toFixed(3))}` : ""}`;
 }
 
 /** Dimension annotations (drawn by DimensionOverlay) for the sketch's dimensional constraints. */
@@ -316,8 +384,9 @@ export function dimensionsOf(s: SketchData): Dimension[] {
   const out: Dimension[] = [];
   const world = (id: number) => toWorld(s.plane, pointOf(s, id).u, pointOf(s, id).v);
   for (const c of s.constraints) {
-    if (c.value === undefined) continue;
-    const text = parseFloat(c.value.toFixed(3)).toString();
+    const value = c.reference ? measure(s, c) : c.value;
+    if (value === undefined || value === null) continue;
+    const text = c.reference ? `(${parseFloat(value.toFixed(3))})` : parseFloat(value.toFixed(3)).toString();
     const entity = s.entities.find((e) => e.id === c.entity);
     if (c.type === "distance") {
       const ends = entity && entity.type === "line" ? [entity.a, entity.b] : c.points!;
@@ -334,6 +403,13 @@ export function dimensionsOf(s: SketchData): Dimension[] {
       // The dimension runs along the projected leg (a to corner) and sits on the side away from the other point.
       const away = horizontal ? (pb.v >= pa.v ? -1 : 1) : pb.u >= pa.u ? -1 : 1;
       out.push({ kind: "linear", text, points: [a, corner], offsetDirection: side.map((x) => x * away) });
+    } else if (c.type === "point_line_distance" && entity && entity.type === "line" && c.point !== undefined) {
+      const [la, lb, p] = [pointOf(s, entity.a), pointOf(s, entity.b), pointOf(s, c.point)];
+      const length = Math.hypot(lb.u - la.u, lb.v - la.v) || 1;
+      const t = ((p.u - la.u) * (lb.u - la.u) + (p.v - la.v) * (lb.v - la.v)) / (length * length);
+      const foot = toWorld(s.plane, la.u + t * (lb.u - la.u), la.v + t * (lb.v - la.v));
+      const at = world(c.point);
+      out.push({ kind: "linear", text, points: [foot, at], offsetDirection: norm(sub(at, foot)).map((x) => -x) });
     } else if ((c.type === "radius" || c.type === "diameter") && entity && (entity.type === "circle" || entity.type === "arc")) {
       const center = world(entity.center);
       const r = radiusOf(s, entity);

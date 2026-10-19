@@ -15,7 +15,10 @@ Constraint types (arguments in brackets): coincident [points a, b]; point_on [po
 vertical [entity line, or points a, b]; parallel, perpendicular, equal [entities a, b]; angle [entities a, b,
 value in degrees]; tangent [entities a, b: arc/line or arc/arc]; distance [points a, b, value] or [entity line,
 value]; radius and diameter [entity, value]; fixed [point]; midpoint [point, entity line]; symmetric
-[points a, b, entity line].
+[points a, b, entity line]; collinear [entities a, b: lines]; point_line_distance [point, entity line, value]
+(always measured as a positive distance, on whichever side the point is now); block [entity: all of its points
+(and a circle's radius) stay where they are]. A dimension with `"reference": true` is only a measurement and
+is not solved.
 """
 
 import math
@@ -76,6 +79,12 @@ def _quaternion(x, y, z) -> tuple[float, float, float, float]:
     return w, qx, qy, qz
 
 
+def _entity_point_ids(e: dict) -> list[int]:
+    """Every point an entity is built from."""
+    ids = [e[k] for k in ("a", "b", "center", "start", "end", "major") if k in e]
+    return ids + list(e.get("points", []))
+
+
 class _Solver:
     def __init__(self, sketch: dict):
         self.sketch = sketch
@@ -92,6 +101,7 @@ class _Solver:
         self.radii: dict[int, int] = {}
         for e in sketch.get("entities", []):
             self._add_entity(e)
+        self.held: set[int] = set()  # points already pinned: pinning one twice is reported as a redundancy
         self.failed_ids: dict[int, int] = {}  # slvs constraint handle -> our constraint id
         self._axes: dict[str, int] = {}
 
@@ -212,11 +222,39 @@ class _Solver:
             handle = self._entity(c["entity"], "circle", "arc")
             h = s.addDiameter(value * (2 if kind == "radius" else 1), handle, g)
         elif kind == "fixed":
+            if c["point"] in self.held:
+                return
+            self.held.add(c["point"])
             h = s.addWhereDragged(self._point(c["point"]), wp, g)
         elif kind == "midpoint":
             h = s.addMidPoint(self._point(c["point"]), self._entity(c["entity"], "line"), wp, g)
         elif kind == "symmetric":
             h = s.addSymmetricLine(points[0], points[1], self._entity(c["entity"], "line"), wp, g)
+        elif kind == "collinear":
+            a, b = (self.sketch_line(e) for e in c["entities"])
+            handles = [s.addParallel(self._entity(a["id"], "line"), self._entity(b["id"], "line"), wp, g)]
+            handles.append(s.addPointOnLine(self._point(b["a"]), self._entity(a["id"], "line"), wp, g))
+            for h in handles:
+                self.failed_ids[h] = c.get("id")
+            return
+        elif kind == "point_line_distance":
+            line = self.sketch_line(c["entity"])
+            (x0, y0), (x1, y1) = self._coords(line["a"]), self._coords(line["b"])
+            px, py = self._coords(c["point"])
+            side = (x1 - x0) * (py - y0) - (y1 - y0) * (px - x0)  # which side of the line the point is on now
+            # the solver counts the distance positive to the right of the line's direction
+            h = s.addPointLineDistance(abs(value) * (1 if side < 0 else -1), self._point(c["point"]), self._entity(c["entity"], "line"), wp, g)
+        elif kind == "block":
+            entity = next((e for e in self.sketch["entities"] if e["id"] == c["entity"]), None)
+            if entity is None:
+                raise SketchError(f"Unknown entity {c['entity']}")
+            if entity["type"] == "circle":
+                s.addDiameter(2 * entity["radius"], self._entity(entity["id"], "circle"), g)
+            for pid in _entity_point_ids(entity):
+                if pid not in self.held:
+                    self.held.add(pid)
+                    self.failed_ids[s.addWhereDragged(self._point(pid), wp, g)] = c.get("id")
+            return
         else:
             raise SketchError(f"Unknown constraint type {kind!r}")
         self.failed_ids[h] = c.get("id")
@@ -316,7 +354,7 @@ def _solved(sketch: dict, drag: dict | None = None, skip: int | None = None) -> 
     """A solver loaded with the sketch's constraints (all but `skip`) and the dragged points held, plus its result."""
     solver = _Solver(sketch)
     for c in sketch.get("constraints", []):
-        if skip is None or c.get("id") != skip:
+        if (skip is None or c.get("id") != skip) and not c.get("reference"):
             solver.add_constraint(c)
     if drag:
         # one point, or several held together ({"points": [...]}, e.g. both ends of a line dragged by its body)
@@ -351,7 +389,8 @@ def point_freedom(sketch: dict) -> dict[int, int]:
         def holds(axes) -> bool:
             solver = _Solver(sketch)
             for c in sketch.get("constraints", []):
-                solver.add_constraint(c)
+                if not c.get("reference"):
+                    solver.add_constraint(c)
             for axis in axes:
                 solver.hold_axis(p["id"], axis)
             return solver.solve()["status"] == "ok"

@@ -659,9 +659,10 @@ export class SketchMode {
     const built = option.build(this.s, this.selection);
     if (!built) return;
     if (option.dimension) {
-      const value = await this.askNumber(option.label, option.initial!(this.s, this.selection));
-      if (value === null) return;
-      built.value = value;
+      const answer = await this.askNumber(option.label, option.initial!(this.s, this.selection));
+      if (answer === null) return;
+      built.value = answer.value;
+      if (answer.reference) built.reference = true;
     }
     this.pushUndo();
     const before = JSON.stringify(this.s);
@@ -676,7 +677,8 @@ export class SketchMode {
     this.render();
   }
 
-  private askNumber(label: string, initial: number): Promise<number | null> {
+  /** Ask for a dimension's value; ticking "Reference" keeps the current measurement instead of driving the shape. */
+  private askNumber(label: string, initial: number): Promise<{ value: number; reference: boolean } | null> {
     return new Promise((resolve) => {
       const box = this.panel.querySelector<HTMLElement>(".ask")!;
       box.hidden = false;
@@ -687,10 +689,15 @@ export class SketchMode {
       input.type = "number";
       input.step = "any";
       input.value = String(parseFloat(initial.toFixed(3)));
+      const reference = document.createElement("input");
+      reference.type = "checkbox";
+      reference.title = "Only show this measurement; it does not change the shape";
+      const referenceLabel = document.createElement("label");
+      referenceLabel.append(reference, " Reference");
       const done = (value: number | null) => {
         box.hidden = true;
         box.replaceChildren();
-        resolve(value);
+        resolve(value === null ? null : { value: reference.checked ? initial : value, reference: reference.checked });
       };
       const ok = document.createElement("button");
       ok.textContent = "OK";
@@ -705,7 +712,7 @@ export class SketchMode {
         if (e.key === "Enter") ok.click();
         else if (e.key === "Escape") done(null);
       });
-      box.append(text, input, ok, cancel);
+      box.append(text, input, referenceLabel, ok, cancel);
       input.focus();
       input.select();
     });

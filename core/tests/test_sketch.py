@@ -651,3 +651,38 @@ def test_freedom_of_a_point_on_a_fixed_circle_is_one():
     entities = [{"id": 10, "type": "circle", "center": 1, "radius": 5}]
     constraints = [{"type": "fixed", "point": 1}, {"type": "radius", "entity": 10, "value": 5}, {"type": "point_on", "point": 2, "entity": 10}]
     assert sketch.solve(sketch_of(points, entities, constraints), detail=True)["freedom"] == {1: 0, 2: 1}
+
+
+def test_collinear_lines_share_a_line():
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 15, "v": 2}, {"id": 4, "u": 25, "v": 5}]
+    lines = [{"id": 10, "type": "line", "a": 1, "b": 2}, {"id": 11, "type": "line", "a": 3, "b": 4}]
+    constraints = [{"type": "fixed", "point": 1}, {"type": "fixed", "point": 2}, {"type": "collinear", "entities": [10, 11]}]
+    c = coords(sketch.solve(sketch_of(points, lines, constraints)))
+    assert c[3][1] == pytest.approx(0, abs=1e-6) and c[4][1] == pytest.approx(0, abs=1e-6)
+
+
+@pytest.mark.parametrize("v", [7.0, -7.0])
+def test_point_line_distance_keeps_the_side(v):
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 4, "v": v * 0.5}]
+    lines = [{"id": 10, "type": "line", "a": 1, "b": 2}]
+    constraints = [{"type": "fixed", "point": 1}, {"type": "fixed", "point": 2}, {"type": "point_line_distance", "point": 3, "entity": 10, "value": 7}]
+    result = sketch.solve(sketch_of(points, lines, constraints))
+    assert result["status"] == "ok"
+    assert abs(coords(result)[3][1]) == pytest.approx(7, abs=1e-6)
+    assert (coords(result)[3][1] > 0) == (v > 0)
+
+
+def test_block_holds_every_point_and_the_radius():
+    points = [{"id": 1, "u": 3, "v": 4}, {"id": 2, "u": 8, "v": 4}]
+    circle = [{"id": 10, "type": "circle", "center": 1, "radius": 2.5}, {"id": 11, "type": "line", "a": 1, "b": 2}]
+    result = sketch.solve(sketch_of(points, circle, [{"type": "block", "entity": 11}, {"type": "block", "entity": 10}]), detail=True)
+    assert result["dof"] == 0 and result["freedom"] == {1: 0, 2: 0}
+    assert coords(result)[2] == pytest.approx((8, 4), abs=1e-9)
+
+
+def test_reference_dimension_is_not_solved():
+    points, lines = rectangle()
+    constraints = [{"type": "fixed", "point": 1}, {"type": "distance", "points": [1, 2], "value": 99, "reference": True}]
+    result = sketch.solve(sketch_of(points, lines, constraints), detail=True)
+    assert result["status"] == "ok" and result["dof"] == 6  # 8 coordinates, minus the 2 of the fixed corner
+    assert result["freedom"][2] == 2

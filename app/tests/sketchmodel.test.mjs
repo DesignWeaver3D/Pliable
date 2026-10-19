@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { axisLines, polyline, distanceTo, entityPoints } from "../src/sketchmodel.ts";
+import { axisLines, polyline, distanceTo, entityPoints, measure, optionsFor, describeConstraint, dimensionsOf } from "../src/sketchmodel.ts";
 
 const plane = (origin, normal, xdir) => ({ origin, normal, xdir });
 
@@ -35,4 +35,23 @@ test("ellipses and splines are drawn from their points", () => {
   const closed = polyline(s, { ...spline, closed: true }, 48);
   assert.deepEqual(closed[0], closed[closed.length - 1]);
   assert.deepEqual(entityPoints(spline), [1, 3, 4]);
+});
+
+test("reference dimensions read the current geometry and the new constraint buttons fit their selections", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 4, v: 3 }, { id: 4, u: 0, v: 5 }, { id: 5, u: 10, v: 5 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 4, b: 5 }],
+    constraints: [],
+  };
+  assert.equal(measure(s, { id: 1, type: "point_line_distance", point: 3, entity: 10 }), 3);
+  assert.equal(measure(s, { id: 2, type: "distance", entity: 10 }), 10);
+  const labels = (sel) => optionsFor(s, sel).map((o) => o.label);
+  assert.ok(labels([{ kind: "entity", id: 10 }, { kind: "entity", id: 11 }]).includes("Collinear"));
+  assert.ok(labels([{ kind: "point", id: 3 }, { kind: "entity", id: 10 }]).includes("Point to line distance"));
+  assert.ok(labels([{ kind: "entity", id: 10 }]).includes("Lock"));
+  const reference = { id: 3, type: "distance", points: [1, 3], value: 99, reference: true };
+  assert.match(describeConstraint(s, reference), /Reference .* = 5$/);
+  const [dimension] = dimensionsOf({ ...s, constraints: [reference] });
+  assert.equal(dimension.text, "(5)");
 });
