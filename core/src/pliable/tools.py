@@ -24,7 +24,7 @@ Writing a tool:
 
 from dataclasses import dataclass, field
 
-from .ops import OperationError, OpResult, fillet_chamfer, planar_normal, push_pull, unify_result
+from .ops import MIN_DISTANCE, OperationError, OpResult, fillet_chamfer, planar_normal, push_pull, unify_result
 from .topology import Topology
 
 def _occt_reason(error: Exception) -> str:
@@ -218,14 +218,50 @@ class PushPull(Tool):
     related = ("coplanar",)
 
     def applies(self, topology, selection):
+        if _all_round_walls(topology, selection):
+            return True
         normals = [planar_normal(topology.face(i)) for i in selection.faces]
         return all(n is not None for n in normals) and all(n.IsParallel(normals[0], 1e-6) and not n.IsOpposite(normals[0], 1e-6) for n in normals)
 
     def run(self, topology, selection, values, preview):
+        if _all_round_walls(topology, selection):
+            return _push_round_walls(topology, selection, values["distance"])
         faces = [topology.face(i) for i in selection.faces]
         result = push_pull(topology.shape, faces if len(faces) > 1 else faces[0], values["distance"], preview=preview)
         result.tracked_faces = result.tracked_faces[:1]  # keep a single face selected, the related ones are found again
         return result
+
+
+def _all_round_walls(topology, selection) -> bool:
+    """True when every selected face is a whole cylinder wall (a hole or a boss)."""
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.BRepTools import BRepTools
+    from OCP.GeomAbs import GeomAbs_Cylinder
+    import math
+
+    for i in selection.faces:
+        face = topology.face(i)
+        if BRepAdaptor_Surface(face).GetType() != GeomAbs_Cylinder:
+            return False
+        u0, u1, _, _ = BRepTools.UVBounds_s(face)
+        if u1 - u0 < 2 * math.pi - 1e-6:
+            return False
+    return True
+
+
+def _push_round_walls(topology, selection, distance: float) -> OpResult:
+    """Push/pull on a hole or boss wall moves the wall along its normal: a hole shrinks when the wall is pushed
+    toward the axis (material added) and a boss grows when pulled outward, so the radius changes by `distance`."""
+    from .features import Hole, apply_holes, finish
+
+    holes = [Hole(topology.face(i)) for i in selection.faces]
+    moves = []
+    for hole in holes:
+        radius = hole.radius + distance if hole.boss else hole.radius - distance
+        if radius < MIN_DISTANCE:
+            raise OperationError("That would close the hole completely; use a smaller distance")
+        moves.append((radius, None))
+    return finish(apply_holes(topology.shape, holes, moves))
 
 
 @register
@@ -266,3 +302,4 @@ class FilletChamfer(Tool):
 
 
 from . import features  # noqa: E402,F401  (registers the feature tools)
+from . import stretch  # noqa: E402,F401  (registers the stretch tool)

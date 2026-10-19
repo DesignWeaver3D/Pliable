@@ -24,6 +24,10 @@ def test_combine_modes_and_server_request():
     assert volume(combine(block, block, "union", shifted).shape) == pytest.approx(24000 + 12000)
     assert volume(combine(block, block, "cut", shifted).shape) == pytest.approx(12000)
     assert volume(combine(block, block, "intersect", shifted).shape) == pytest.approx(12000)
+    from pliable.ops import solids_of
+
+    added = combine(block, block, "add", gp_Vec(100, 0, 0)).shape
+    assert len(solids_of(added)) == 2 and volume(added) == pytest.approx(48000)
     with pytest.raises(OperationError):
         combine(block, block, "intersect", gp_Vec(100, 0, 0))
     with pytest.raises(OperationError):

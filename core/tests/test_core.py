@@ -65,9 +65,9 @@ def test_push_pull_tracks_moved_face(box_topology):
 
 
 def test_push_pull_rejects_curved_faces():
-    from build123d import Cylinder
+    from build123d import Sphere
 
-    topology = Topology(Cylinder(5, 10).wrapped)
+    topology = Topology(Sphere(5).wrapped)
     from pliable.tools import Selection, get_tool
 
     curved = next(i for i, face in topology.faces() if planar_normal(face) is None)

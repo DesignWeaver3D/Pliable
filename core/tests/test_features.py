@@ -527,3 +527,86 @@ def test_fillet_per_edge_leaves_no_open_edges_in_any_pick_order():
     again.handle({"type": "tool_commit", "tool": "fillet_chamfer", "selection": {"edges": picked}, "params": {"distance": 2}})
     result = again.document.current
     assert [e for _, e in result.edges() if len(result.edge_faces(e)) == 1 and not BRepAdaptor_Curve(e).IsClosed()] == []
+
+
+def _two_bodies(block):
+    shape = run("add_box", block, width=10, depth=10, height=10, x=100, y=0, z=0, new_body=1).shape
+    return Topology(shape)
+
+
+def test_arrays_copy_only_the_chosen_body(block):
+    from pliable.ops import solids_of
+
+    two = _two_bodies(block)
+    face = next(i for i in range(two.face_count) if _box_x(two, i) > 90)
+    result = run("linear_array", two, faces=[face], count=3, dx=0, dy=0, dz=30)
+    assert volume(result.shape) == pytest.approx(24000 + 3 * 1000 + 0, rel=1e-6)
+    assert len(solids_of(result.shape)) == 4  # the block, the small box and its two copies (30 apart, so not touching)
+    whole = run("linear_array", two, count=3, dx=0, dy=0, dz=60)
+    assert volume(whole.shape) == pytest.approx(3 * 25000, rel=1e-6)
+    ring = run("circular_array", two, faces=[face], count=2, axis=2, angle=180)
+    assert volume(ring.shape) == pytest.approx(24000 + 2000, rel=1e-6)
+
+
+def _box_x(topology, i):
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+
+    box = Bnd_Box()
+    BRepBndLib.Add_s(topology.face(i), box)
+    return box.CornerMin().X()
+
+
+def test_variable_fillet_reverse_and_interim_radius(block):
+    _, edge = _top_face_and_edge(block)
+    plain = run("variable_fillet", block, edges=[edge], start=1, end=4)
+    flipped = run("variable_fillet", block, edges=[edge], start=1, end=4, reverse=1)
+    assert volume(flipped.shape) == pytest.approx(volume(plain.shape), rel=1e-6)  # mirrored, same material
+    assert flipped.shape.IsSame(plain.shape) is False
+    bulged = run("variable_fillet", block, edges=[edge], start=1, end=4, middle=4, middle_at=0.5)
+    assert volume(bulged.shape) < volume(plain.shape) - 1.0
+    with pytest.raises(OperationError):
+        run("variable_fillet", block, edges=[edge], start=1, end=4, middle=2, middle_at=1.0)
+
+
+def test_chamfer_two_distances_can_swap_sides(block):
+    face, edge = _top_face_and_edge(block)
+    a = run("chamfer_two_distances", block, faces=[face], edges=[edge], first=4, second=2)
+    b = run("chamfer_two_distances", block, faces=[face], edges=[edge], first=4, second=2, swap=1)
+    assert volume(a.shape) == pytest.approx(volume(b.shape), rel=1e-6)
+    assert a.tracked_faces and b.tracked_faces
+
+
+def test_push_pull_on_a_hole_wall_resizes_the_hole(bracket):
+    before = volume(bracket.shape)
+    (wall,) = faces_where(bracket, "Cylinder", Radius=7)
+    pulled = run("push_pull", bracket, faces=[wall], distance=1)  # wall moves along its normal, away from the material
+    assert volume(pulled.shape) - before == pytest.approx(math.pi * (49 - 36) * 10, rel=1e-3)
+    with pytest.raises(OperationError):
+        run("push_pull", bracket, faces=[wall], distance=7)
+
+
+def _slotted_block():
+    from build123d import Box, Pos
+
+    return Topology((Box(40, 30, 20) - Pos(0, 0, 10) * Box(10, 8, 10)).wrapped)
+
+
+def test_defeature_removes_a_square_pocket_and_explains_a_refusal():
+    pocket = _slotted_block()
+    wall = next(i for i, f in pocket.faces() if abs(measure(pocket, Selection(faces=[i]))["items"][0]["rows"][2]["value"] - 50) < 1e-6)
+    result = run("delete_face", pocket, faces=[wall])
+    assert volume(result.shape) - volume(pocket.shape) == pytest.approx(400, rel=1e-6)
+    outer = next(i for i, f in pocket.faces() if abs(measure(pocket, Selection(faces=[i]))["items"][0]["rows"][2]["value"] - 600) < 1e-6)
+    with pytest.raises(OperationError, match="nothing changed"):
+        run("delete_face", pocket, faces=[outer])
+
+
+def test_align_face_flush_and_draft_messages(bracket):
+    tall, short = 12, 17  # two faces facing +x at different depths
+    moved = run("align_face", bracket, faces=[short, tall], offset=0)
+    assert volume(moved.shape) != pytest.approx(volume(bracket.shape))
+    with pytest.raises(OperationError, match="pull direction"):
+        run("draft", bracket, faces=[7], angle=3)  # a top face cannot be drafted about Z
+    with pytest.raises(OperationError, match="smaller angle"):
+        run("draft", bracket, faces=[12], angle=3)

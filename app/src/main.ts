@@ -684,31 +684,19 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+const importMode = $("combinemode") as HTMLSelectElement;
 $("open").addEventListener("click", () => fileInput.click());
 fileInput.addEventListener("change", async () => {
   const file = fileInput.files?.[0];
   fileInput.value = "";
   if (!file) return;
+  const mode = importMode.value;
+  if (mode === "replace" && !undoButton.disabled && !window.confirm("Importing replaces the current model and its undo history. Continue? (Choose add as body to keep the model.)")) return;
   try {
     status.textContent = `importing ${file.name}...`;
     const data = toBase64(new Uint8Array(await file.arrayBuffer()));
-    setCommitted(await core.request<MeshData>("import_step", { name: file.name, data }), true);
-  } catch (e) {
-    status.textContent = (e as Error).message;
-  }
-});
-
-const combineFile = $("combinefile") as HTMLInputElement;
-$("combine").addEventListener("click", () => combineFile.click());
-combineFile.addEventListener("change", async () => {
-  const file = combineFile.files?.[0];
-  combineFile.value = "";
-  if (!file) return;
-  try {
-    status.textContent = `combining ${file.name}...`;
-    const data = toBase64(new Uint8Array(await file.arrayBuffer()));
-    const mode = ($("combinemode") as HTMLSelectElement).value;
-    setCommitted(await core.request<MeshData>("combine_step", { data, mode }), false);
+    if (mode === "replace") setCommitted(await core.request<MeshData>("import_step", { name: file.name, data }), true);
+    else setCommitted(await core.request<MeshData>("combine_step", { data, mode }), false);
   } catch (e) {
     status.textContent = (e as Error).message;
     status.classList.add("error");
@@ -717,11 +705,29 @@ combineFile.addEventListener("change", async () => {
 
 /** Ask the core for the model in a file format and save it through the browser. */
 async function exportAs(request: string, extension: string, params: Record<string, unknown> = {}) {
+  type Picker = (o: { suggestedName: string; types: { description: string; accept: Record<string, string[]> }[] }) => Promise<{ createWritable(): Promise<{ write(b: Blob): Promise<void>; close(): Promise<void> }> }>;
   try {
+    // Where the browser has a save dialog, ask for the name and place before building the file; otherwise download.
+    const pick = (window as unknown as { showSaveFilePicker?: Picker }).showSaveFilePicker;
+    let handle: Awaited<ReturnType<Picker>> | null = null;
+    if (pick) {
+      try {
+        handle = await pick({ suggestedName: `${select.value || "model"}.${extension}`, types: [{ description: extension.toUpperCase() + " file", accept: { "application/octet-stream": ["." + extension] } }] });
+      } catch (e) {
+        if ((e as Error).name === "AbortError") return; // cancelled in the dialog
+      }
+    }
     const { name, data } = await core.request<{ name: string; data: string }>(request, params);
     const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: "application/octet-stream" });
+    if (handle) {
+      const out = await handle.createWritable();
+      await out.write(blob);
+      await out.close();
+      return;
+    }
     const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+    link.href = URL.createObjectURL(blob);
     link.download = name.replace(/\.(step|stp|stl|obj|3mf)$/i, "") + "." + extension;
     link.click();
     URL.revokeObjectURL(link.href);
@@ -731,6 +737,12 @@ async function exportAs(request: string, extension: string, params: Record<strin
 }
 
 $("export").addEventListener("click", () => exportAs("export_step", "step"));
+const exportMesh = $("exportmesh") as HTMLSelectElement;
+exportMesh.addEventListener("change", () => {
+  const format = exportMesh.value;
+  exportMesh.value = "";
+  if (format) void exportAs("export_mesh", format, { format });
+});
 
 select.addEventListener("change", () => load(select.value).catch((e) => (status.textContent = e.message)));
 
@@ -758,7 +770,7 @@ function commands(): Command[] {
     { label: "Hide body", hint: keys.keymap.hint("display.hide"), enabled: currentSels.length > 0, run: () => setVisibility("hide") },
     { label: "Isolate body", hint: keys.keymap.hint("display.isolate"), enabled: currentSels.length > 0, run: () => setVisibility("isolate") },
     { label: "Show all bodies", hint: keys.keymap.hint("display.showAll"), enabled: hiddenSolids.size > 0, run: () => setVisibility("show") },
-    { label: "Open STEP file", enabled: true, run: () => fileInput.click() },
+    { label: "Import STEP file", enabled: true, run: () => fileInput.click() },
     { label: "Export STEP file", enabled: true, run: () => exportAs("export_step", "step") },
     ...["stl", "obj", "3mf"].map((format) => ({
       label: `Export ${format.toUpperCase()} mesh (lossy)`,

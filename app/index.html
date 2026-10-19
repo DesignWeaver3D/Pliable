@@ -93,16 +93,22 @@
         <option>perforated_plate</option>
       </select>
       <button id="axes" title="Show or hide the principal axes and origin">Axes</button>
-      <button id="open" title="Open a STEP file from your computer, replacing the current model">Open STEP</button>
-      <button id="export" title="Save the current model as a STEP file">Export STEP</button>
-      <input id="file" type="file" accept=".step,.stp" hidden />
-      <select id="combinemode" title="How the combined STEP file joins the model">
+      <select id="combinemode" title="What Import STEP does with the file: replace the model, or add the file to the current one">
+        <option value="replace">replace model</option>
+        <option value="add">add as body</option>
         <option value="union">union</option>
         <option value="cut">cut</option>
         <option value="intersect">intersect</option>
       </select>
-      <button id="combine" title="Combine another STEP file with the model (placed at its own origin)">Combine STEP</button>
-      <input id="combinefile" type="file" accept=".step,.stp" hidden />
+      <button id="open" title="Import a STEP file from your computer using the choice on the left. Replace model starts again from the file; the other choices add it to the current model at its own origin">Import STEP</button>
+      <input id="file" type="file" accept=".step,.stp" hidden />
+      <button id="export" title="Save the current model as a STEP file">Export STEP</button>
+      <select id="exportmesh" title="Save the model as a mesh file (lossy: curved faces become triangles)">
+        <option value="">Export mesh...</option>
+        <option value="stl">STL</option>
+        <option value="obj">OBJ</option>
+        <option value="3mf">3MF</option>
+      </select>
       <button id="info" title="Show the size, face and edge counts and any problems found in the model">Model info</button>
       <button id="editlast" disabled title="Undo the last operation and change its values">Edit last</button>
       <button id="undo" disabled title="Undo the last change (Ctrl+Z)">Undo</button>

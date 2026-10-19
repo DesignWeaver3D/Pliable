@@ -169,12 +169,12 @@ class DeleteFace(Tool):
     """Remove faces and heal: the neighbours are extended until they meet."""
 
     id = "delete_face"
-    label = "Delete face"
-    description = "Removes the selected faces and heals the gap by extending the neighbouring faces. Select one or more faces."
+    label = "Defeature"
+    description = "Removes a feature (a pocket, boss, hole, slot or round) by deleting its faces and extending the neighbouring faces to close the gap. Select one or more faces of the feature; if the faces cannot be closed over, it says why."
     accepts = Accepts(faces=(1, None))
 
     def run(self, topology, selection, values, preview):
-        return _defeature(topology, selection, "delete these faces")
+        return _defeature(topology, selection, "defeature these faces")
 
 
 @register
@@ -199,7 +199,15 @@ def _defeature(topology, selection, what: str) -> OpResult:
     operation.Build()
     if not operation.IsDone() or operation.Shape().IsNull():
         raise OperationError(f"Could not {what}: the neighbouring faces cannot be extended to close the gap")
-    return finish(operation.Shape())
+    from .topology import Topology
+
+    result = operation.Shape()
+    if abs(_volume(result) - _volume(topology.shape)) < 1e-9 and Topology(result).face_count == topology.face_count:
+        raise OperationError(
+            f"Could not {what}: nothing changed because the neighbouring faces do not close over this face. "
+            "Select a feature such as a pocket, boss, hole or round, not an outside wall of the body"
+        )
+    return finish(result)
 
 
 @register
@@ -534,41 +542,83 @@ class AddSlot(_PlanarFace):
         return finish(shape)
 
 
+def _plane_offset(face, normal: gp_Dir) -> float:
+    return gp_Vec(gp_Pnt(0, 0, 0), BRepAdaptor_Surface(face).Plane().Location()).Dot(gp_Vec(normal))
+
+
+def _opposite_flat(topology, flat, hole: "Hole"):
+    """The nearest flat face of the same solid that faces `flat` across the hole (parallel, opposite outward
+    normal, on the inner side, and covering the hole's middle), or None."""
+    normal = planar_normal(flat)
+    middle = hole.origin.Translated(gp_Vec(hole.direction).Multiplied(hole.length / 2))
+    here = _plane_offset(flat, normal)
+    best = None
+    for _, face in topology.faces():
+        other = planar_normal(face)
+        if other is None or face.IsSame(flat) or other.Dot(normal) > -1 + 1e-6:
+            continue
+        gap = here - _plane_offset(face, other.Reversed())  # distance from `flat` inward to this face
+        if gap < MIN_DISTANCE:
+            continue
+        box = Bnd_Box()
+        BRepBndLib.Add_s(face, box)
+        lo, hi = box.CornerMin(), box.CornerMax()
+        inside = all(
+            low - 1e-6 <= c <= high + 1e-6
+            for c, low, high, along in zip(
+                (middle.X(), middle.Y(), middle.Z()), (lo.X(), lo.Y(), lo.Z()), (hi.X(), hi.Y(), hi.Z()), (abs(normal.X()), abs(normal.Y()), abs(normal.Z()))
+            )
+            if along < 1 - 1e-6
+        )
+        if inside and (best is None or gap < best[0]):
+            best = (gap, face)
+    return best[1] if best else None
+
+
 @register
 class CenterBetween(Tool):
-    """Centre a hole or boss between two parallel flat faces; the three faces can be picked in any order."""
+    """Centre a hole or boss between two parallel flat faces; the three faces can be picked in any order. With only
+    one flat face picked, the nearest flat face facing it across the hole is used (so only one side needs to be seen)."""
 
     id = "center_between"
     label = "Center between faces"
-    description = "Centers a hole or boss between two parallel flat faces. Select the round face and the two flat faces, in any order."
-    accepts = Accepts(faces=(3, 3))
+    description = "Centers a hole or boss between two parallel flat faces. Select the round face and the two flat faces, in any order; or the round face and one flat face, and the opposite side is found for you."
+    accepts = Accepts(faces=(2, 3))
 
     @staticmethod
     def _sorted(topology, selection):
-        """(hole, flat, flat) from the three picked faces, or None unless there is exactly one cylinder and two planes."""
+        """(hole, flat, flat or None) from the picked faces: one cylinder plus one or two planes, or None."""
         faces = [topology.face(i) for i in selection.faces]
         holes = [f for f in faces if BRepAdaptor_Surface(f).GetType() == GeomAbs_Cylinder]
         flats = [f for f in faces if planar_normal(f) is not None]
-        return (holes[0], flats[0], flats[1]) if len(holes) == 1 and len(flats) == 2 else None
+        if len(holes) != 1 or len(flats) != len(faces) - 1:
+            return None
+        return holes[0], flats[0], (flats[1] if len(flats) == 2 else None)
 
     def applies(self, topology, selection):
         found = self._sorted(topology, selection)
         if found is None:
             return False
+        if found[2] is None:
+            return True
         na, nb = planar_normal(found[1]), planar_normal(found[2])
         return abs(na.Dot(nb)) > 1 - 1e-6
 
     def run(self, topology, selection, values, preview):
         found = self._sorted(topology, selection)
         if found is None:
-            raise OperationError("Select one hole or boss and two flat faces")
+            raise OperationError("Select one hole or boss and one or two flat faces")
         hole_face, a, b = found
         hole = Hole(hole_face)
+        if b is None:
+            b = _opposite_flat(topology, a, hole)
+            if b is None:
+                raise OperationError("No flat face faces that one across the hole; pick the second face yourself")
         normal = planar_normal(a)
         axis_along = abs(hole.direction.Dot(normal))
         if axis_along > 1 - 1e-6:
             raise OperationError("The hole runs along the faces' normal, so it cannot be centred between them")
-        offsets = [gp_Vec(gp_Pnt(0, 0, 0), BRepAdaptor_Surface(f).Plane().Location()).Dot(gp_Vec(normal)) for f in (a, b)]
+        offsets = [_plane_offset(f, normal) for f in (a, b)]
         middle = hole.origin.Translated(gp_Vec(hole.direction).Multiplied(hole.length / 2))
         here = gp_Vec(gp_Pnt(0, 0, 0), middle).Dot(gp_Vec(normal))
         delta = (offsets[0] + offsets[1]) / 2 - here
@@ -821,11 +871,21 @@ class Draft(_PlanarFace):
         for i in selection.faces:
             maker.Add(topology.face(i), direction, math.radians(values["angle"]), neutral)
             if not maker.AddDone():
-                raise OperationError("Could not draft face (it may be parallel to the pull direction)")
-        maker.Build()
+                raise OperationError(
+                    "Could not draft that face: draft tilts side walls, so a face facing along the pull direction "
+                    "(a top or bottom) or a face that is not flat cannot be drafted. Pick a side wall, or change the pull direction"
+                )
+        hint = "; try a smaller angle, or select every wall of the feature together (walls that meet the drafted face must tilt with it)"
+        try:
+            maker.Build()
+        except Exception:
+            raise OperationError("Could not draft these faces at this angle" + hint) from None
         if not maker.IsDone() or maker.Shape().IsNull():
-            raise OperationError("Could not draft these faces at this angle")
-        return finish(maker.Shape())
+            raise OperationError("Could not draft these faces at this angle" + hint)
+        try:
+            return finish(maker.Shape())
+        except OperationError:
+            raise OperationError("Drafting these faces would make the solid invalid" + hint) from None
 
 
 @register
@@ -834,7 +894,7 @@ class AlignFace(_PlanarFace):
 
     id = "align_face"
     label = "Align face"
-    description = "Moves the first selected flat face until it is flush with the second. Select two parallel flat faces, the one to move first."
+    description = "Moves the first selected flat face until it is flush with the second, plus an optional offset. Needs exactly two parallel flat faces selected, the one to move first; it stays unavailable until both are selected."
     accepts = Accepts(faces=(2, 2))
     params = [Param("offset", "length")]
 
@@ -1005,21 +1065,37 @@ def _array_copies(count: float) -> int:
     return n
 
 
-def _fuse_copies(shape: TopoDS_Shape, transforms: list[gp_Trsf]) -> OpResult:
-    result = shape
+def _array_source(topology, selection) -> TopoDS_Shape:
+    """What an array copies: the solids containing the selected faces, or the whole model with no faces selected."""
+    if not selection.faces:
+        return topology.shape
+    chosen = []
+    for i in selection.faces:
+        face = topology.face(i)
+        for solid in solids_of(topology.shape):
+            if any(f.IsSame(face) for f in _faces_of(solid)) and not any(solid.IsSame(c) for c in chosen):
+                chosen.append(solid)
+    if not chosen:
+        raise OperationError("The selected faces do not belong to a solid")
+    return _compound(chosen)
+
+
+def _fuse_copies(topology, selection, transforms: list[gp_Trsf]) -> OpResult:
+    source = _array_source(topology, selection)
+    result = topology.shape
     for trsf in transforms:
-        result = _combine(result, BRepBuilderAPI_Transform(shape, trsf, True).Shape(), fuse=True)
+        result = _combine(result, BRepBuilderAPI_Transform(source, trsf, True).Shape(), fuse=True)
     return finish(result)
 
 
 @register
 class LinearArray(Tool):
-    """Copies of the whole model at equal steps (dx, dy, dz), fused with it. `count` includes the original."""
+    """Copies of the chosen body (the whole model when no face is selected) at equal steps (dx, dy, dz), fused with it. `count` includes the original."""
 
     id = "linear_array"
     label = "Linear array"
-    description = "Makes copies of the whole model in a straight line and fuses them. Nothing needs to be selected; the count includes the original."
-    accepts = Accepts()
+    description = "Makes copies of a body in a straight line and fuses them. Select any face of the body, or nothing for the whole model; the count includes the original."
+    accepts = Accepts(faces=(0, None))
     params = [Param("count", "number", 3), Param("dx", "length", 20), Param("dy", "length"), Param("dz", "length")]
 
     def run(self, topology, selection, values, preview):
@@ -1032,18 +1108,18 @@ class LinearArray(Tool):
             trsf = gp_Trsf()
             trsf.SetTranslation(step.Multiplied(k))
             transforms.append(trsf)
-        return _fuse_copies(topology.shape, transforms)
+        return _fuse_copies(topology, selection, transforms)
 
 
 @register
 class CircularArray(Tool):
-    """Copies of the whole model rotated about an axis through the origin (0 = X, 1 = Y, 2 = Z), fused with it.
+    """Copies of the chosen body (the whole model when no face is selected) rotated about an axis through the origin (0 = X, 1 = Y, 2 = Z), fused with it.
     `angle` is the total sweep; 360 spreads the copies evenly all the way round."""
 
     id = "circular_array"
     label = "Circular array"
-    description = "Makes copies of the whole model around the X, Y or Z axis through the origin (0 = X, 1 = Y, 2 = Z) and fuses them. The count includes the original; 360 spreads them round a full circle."
-    accepts = Accepts()
+    description = "Makes copies of a body (select any of its faces, or nothing for the whole model) around the X, Y or Z axis through the origin (0 = X, 1 = Y, 2 = Z) and fuses them. The count includes the original; 360 spreads them round a full circle."
+    accepts = Accepts(faces=(0, None))
     params = [Param("count", "number", 4), Param("axis", "number", 2), Param("angle", "angle", 360)]
 
     def run(self, topology, selection, values, preview):
@@ -1062,7 +1138,7 @@ class CircularArray(Tool):
             trsf = gp_Trsf()
             trsf.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), direction), math.radians(step * k))
             transforms.append(trsf)
-        return _fuse_copies(topology.shape, transforms)
+        return _fuse_copies(topology, selection, transforms)
 
 
 @register
@@ -1127,12 +1203,13 @@ class ChamferTwoDistances(Tool):
     label = "Chamfer (two distances)"
     description = "Bevels edges with a different distance on each side. Select one face (it sets which side is first) and one or more of its edges."
     accepts = Accepts(faces=(1, 1), edges=(1, None))
-    params = [Param("first", "length", 2), Param("second", "length", 1)]
+    params = [Param("first", "length", 2), Param("second", "length", 1), Param("swap", "number", 0)]  # swap 1 puts `first` on the other side
 
     def run(self, topology, selection, values, preview):
         if values["first"] < MIN_DISTANCE or values["second"] < MIN_DISTANCE:
             raise OperationError("Both distances must be positive")
-        return _chamfer_with_face(topology, selection, lambda m, e, f: m.Add(values["first"], values["second"], e, f))
+        first, second = (values["second"], values["first"]) if values["swap"] >= 0.5 else (values["first"], values["second"])
+        return _chamfer_with_face(topology, selection, lambda m, e, f: m.Add(first, second, e, f))
 
 
 @register
@@ -1210,17 +1287,39 @@ class VariableFillet(Tool):
     label = "Variable fillet"
     description = "Rounds edges with a radius that changes along the edge, from the start value at its first end to the end value at its last. Select one or more edges."
     accepts = Accepts(edges=(1, None))
-    params = [Param("start", "length", 1), Param("end", "length", 3)]
+    params = [
+        Param("start", "length", 1),
+        Param("end", "length", 3),
+        Param("reverse", "number", 0),  # 1 swaps which end gets which value
+        Param("middle", "length", 0),  # radius at an interim point along the edge; 0 means none
+        Param("middle_at", "number", 0.5),  # where along the edge (0 first end, 1 last end), measured after any reverse
+    ]
 
     def run(self, topology, selection, values, preview):
         from OCP.BRepFilletAPI import BRepFilletAPI_MakeFillet
+        from OCP.collections import Array1_gp_Pnt2d
+        from OCP.gp import gp_Pnt2d
 
-        if values["start"] < MIN_DISTANCE or values["end"] < MIN_DISTANCE:
+        start, end, middle = values["start"], values["end"], values["middle"]
+        if start < MIN_DISTANCE or end < MIN_DISTANCE:
             raise OperationError("Both radii must be positive")
+        if middle < 0:
+            raise OperationError("The radius at the chosen point cannot be negative")
+        if middle >= MIN_DISTANCE and not 0.02 < values["middle_at"] < 0.98:
+            raise OperationError("Choose the interim point between 0.02 and 0.98 of the way along the edge")
+        if values["reverse"] >= 0.5:
+            start, end = end, start
         maker = BRepFilletAPI_MakeFillet(topology.shape)
         edges = [topology.edge(i) for i in selection.edges]
+        if middle >= MIN_DISTANCE and len(edges) != 1:
+            raise OperationError("A radius at an interim point works on one edge at a time")
         for edge in edges:
-            maker.Add(values["start"], values["end"], edge)
+            maker.Add(start, end, edge)
+        if middle >= MIN_DISTANCE:
+            points = Array1_gp_Pnt2d(1, 3)
+            for k, (u, r) in enumerate(((0.0, start), (values["middle_at"], middle), (1.0, end)), 1):
+                points.SetValue(k, gp_Pnt2d(u, r))
+            maker.SetRadius(points, 1, 1)
         try:
             maker.Build()
         except Exception as e:  # OCCT raises Standard_Failure for impossible sizes
@@ -1336,14 +1435,14 @@ class SweepFace(Tool):
 
 @register
 class PathArray(Tool):
-    """Copies of the whole model placed at equal distances along a path of one or more connected edges, starting
+    """Copies of the chosen body (the whole model when no face is selected) placed at equal distances along a path of one or more connected edges, starting
     at the model's current position (the first copy is the original); copies are moved, not turned, and fused
     with it. On a closed path the copies are spread round it without doubling up at the start."""
 
     id = "path_array"
     label = "Array along path"
-    description = "Places copies of the whole model at equal distances along connected edges. Select the edges that form the path; the count includes the original."
-    accepts = Accepts(edges=(1, None))
+    description = "Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model); the count includes the original."
+    accepts = Accepts(faces=(0, None), edges=(1, None))
     params = [Param("count", "number", 4)]
 
     def run(self, topology, selection, values, preview):
@@ -1371,7 +1470,7 @@ class PathArray(Tool):
             trsf = gp_Trsf()
             trsf.SetTranslation(gp_Vec(start, curve.Value(locator.Parameter())))
             transforms.append(trsf)
-        return _fuse_copies(topology.shape, transforms)
+        return _fuse_copies(topology, selection, transforms)
 
 
 # Re-radius a fillet ---------------------------------------------------------------------------------------
@@ -1607,10 +1706,12 @@ def combine(shape: TopoDS_Shape, other: TopoDS_Shape, mode: str, offset: gp_Vec 
     """Boolean of the model with another solid (mode "union", "cut" or "intersect"), the other optionally moved first."""
     from OCP.BRepAlgoAPI import BRepAlgoAPI_Common
 
-    if mode not in ("union", "cut", "intersect"):
-        raise OperationError("mode must be union, cut or intersect")
+    if mode not in ("union", "cut", "intersect", "add"):
+        raise OperationError("mode must be union, cut, intersect or add")
     if offset is not None and offset.Magnitude() > 0:
         other = _moved(other, offset)
+    if mode == "add":  # keep it as its own body next to the others, with no boolean
+        return finish(_compound(solids_of(shape) + solids_of(other)))
     if mode == "intersect":
         common = BRepAlgoAPI_Common(shape, other)
         common.SetRunParallel(True)
