@@ -969,6 +969,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       const mesh = await core.request<MeshData>("tool_preview", { tool: tool.id, selection: selectionPayload(expand(tool, currentSels)), params: values });
       if (!toolPanel.isOpen) return;
       show(mesh);
+      viewport.manipulator.setHandles(mesh.header.handles ?? []);
       status.classList.remove("error");
       status.textContent = `${tool.label}: preview`;
     } catch (e) {
@@ -1015,6 +1016,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   },
   cancelEyedrop,
   changed: () => {
+    if (!toolPanel.isOpen) viewport.manipulator.clear();
     renderChips();
     updateDivideFrame();
   },
@@ -1026,6 +1028,8 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   },
 });
 toolPanel.renderList();
+// A handle dragged in the view sets its parameter through the open form, so typed entry and the preview stay in step.
+viewport.manipulator.onDrag = (param, value) => toolPanel.setValues({ [param]: value });
 
 new Palette(commands);
 renderToolbar();

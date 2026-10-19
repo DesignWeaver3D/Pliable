@@ -5,6 +5,7 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { CentreInfo, FaceRange, MeshData } from "./client";
+import { Manipulator } from "./manipulator";
 import { onSettingsChange, settings, updateSettings } from "./settings";
 
 export type Kind = "face" | "edge" | "vertex";
@@ -159,6 +160,9 @@ export class Viewport {
   onFrame: () => void = () => {};
   /** A second per-frame hook, owned by sketch mode. */
   onFrame2: (() => void) | null = null;
+
+  /** The handles a tool declares for its parameters, drawn over the model and dragged with the left button. */
+  readonly manipulator: Manipulator;
 
   /** While set (sketch mode), left-button pointer events go here instead of selection and tool drags. */
   interceptor: { down(e: PointerEvent): void; move(e: PointerEvent): void; up(e: PointerEvent): void } | null = null;
@@ -380,10 +384,15 @@ export class Viewport {
     this.controls.mouseButtons = { LEFT: null as unknown as THREE.MOUSE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
     this.controls.zoomToCursor = true;
     const dom = this.renderer.domElement;
+    this.manipulator = new Manipulator(this.scene, () => this.camera, dom, (p) => this.pixelSizeAt(p));
     let down: { x: number; y: number } | null = null;
     dom.addEventListener("pointerdown", (e) => {
       if (this.interceptor && e.button === 0) {
         this.interceptor.down(e);
+        return;
+      }
+      if (e.button === 0 && this.manipulator.down(e)) {
+        dom.setPointerCapture(e.pointerId);
         return;
       }
       down = { x: e.clientX, y: e.clientY };
@@ -434,6 +443,11 @@ export class Viewport {
         this.interceptor.move(e);
         return;
       }
+      if (this.manipulator.dragging) {
+        this.manipulator.move(e);
+        return;
+      }
+      if (e.buttons === 0 && !this.drag) this.manipulator.hover(e);
       if (this.drag) {
         if (this.measureMode) {
           this.measureHover = this.nearestMeasure(e);
@@ -463,6 +477,10 @@ export class Viewport {
     dom.addEventListener("pointerup", (e) => {
       if (this.interceptor && e.button === 0) {
         this.interceptor.up(e);
+        return;
+      }
+      if (this.manipulator.dragging && e.button === 0) {
+        this.manipulator.up(e);
         return;
       }
       if (this.drag && e.button !== 0) return; // right/middle release ends an orbit or pan, not the tool drag
@@ -548,6 +566,7 @@ export class Viewport {
       this.controls.update();
       this.fitClipping();
       this.renderer.render(this.scene, this.camera);
+      this.manipulator.update();
       this.onFrame();
       this.onFrame2?.();
     });
