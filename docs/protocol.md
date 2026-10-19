@@ -40,8 +40,9 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 | `edge_selection` | `mode`: `face_edges` or `face_loops` with `face`; `shared_loop` with `first` and `second` edge ids | `{edges}` (all edges of the face; the loop of a face both edges border) or `{loops}` (one id list per boundary loop, outer first) |
 | `available_tools` | `selection` | `{tools: [id]}` tools usable with that selection |
 | `measure` | `selection` | `{items: [Measured], summary: [Row]}` measurements of the selection (one kind of item at a time) |
-| `tool_preview` | `tool`, `selection`, `params` | mesh (document unchanged) |
-| `tool_commit` | `tool`, `selection`, `params` | mesh (document updated, undoable) |
+| `tool_handles` | `tool`, `selection`, `params` | `{handles: [Handle], startsFrom}`: the on-screen manipulators for those values (see Handles); empty for a tool without any |
+| `tool_preview` | `tool`, `selection`, `params` | mesh (document unchanged), with `handles` for the previewed values |
+| `tool_commit` | `tool`, `selection`, `params` | mesh (document updated, undoable), `handles` empty |
 | `undo`, `redo` | | mesh |
 | `diagnostics` | | `{report}`: versions, last tool, import warnings, log lines and `usage` (per tool: start/commit/cancel/error counts and start surfaces) |
 | `usage_event` | `tool`, `event` (start, commit, cancel, error), `surface` (strip, search, drawer, keys, drag, other) | `{}`; counted in memory for the diagnostics report |
@@ -72,7 +73,9 @@ Previews may use a faster, slightly less exact algorithm than commits. The front
   "label": "Push/Pull",
   "description": "Moves flat faces in or out along their normal...",
   "accepts": {"faces": [1, 1], "edges": [0, 0], "vertices": [0, 0]},
-  "params": [{"name": "distance", "kind": "length", "default": 0.0, "drag": true}]
+  "params": [{"name": "distance", "kind": "length", "default": 0.0, "drag": true}],
+  "startsFrom": "selection",
+  "hasHandles": false
 }
 ```
 
@@ -80,6 +83,20 @@ Previews may use a faster, slightly less exact algorithm than commits. The front
 - `accepts`: `[min, max]` selected faces, edges and vertices (`max` null = unbounded).
 - `params[].kind`: `length` (model units), `angle` (degrees) or `number`. `drag: true` marks the parameter the viewport drag controls.
 - A tool can also refuse a selection the counts allow (push/pull rejects curved faces); `available_tools` reports that.
+
+## Handles
+
+A tool can declare on-screen manipulators (gizmos), one per parameter, by overriding `Tool.handles(topology, selection, values)` to return `Handle` objects (`core/src/pliable/tools.py`). Typed entry stays available for every parameter. Tool descriptions carry `hasHandles` and `startsFrom`: `"selection"` (select something, then the tool acts on it) or `"tool"` (the tool is chosen first and places something new, like a primitive, so its handles show from the start without a selection).
+
+```json
+{"param": "height", "label": "Height", "kind": "slide", "anchor": [x, y, z], "direction": [x, y, z],
+ "scale": 1.0, "min": 0.001, "radius": 0, "value": 10}
+```
+
+- `slide`: the handle sits at `anchor` (a model point, where the parameter's current value puts it) and moves along the unit `direction`. Dragging it by t model units sets the parameter to `value + scale * t` (a diameter handle on a radius uses scale 2), never below `min` (null = unbounded).
+- `turn`: rotates about the axis through `anchor` along `direction`; the view draws a ring of `radius` around it; dragging by t degrees sets `value + scale * t`.
+- The values the handles are computed for come from the request `params` (defaults fill the gaps), so every preview reply returns handles at the previewed values; the view moves a handle locally while dragging and snaps it to the reply.
+- Handles never fail a request: an unusable selection or an error gives an empty list.
 
 ## Adding a tool
 

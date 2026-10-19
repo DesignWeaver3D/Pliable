@@ -107,6 +107,46 @@ class Param:
         return {"name": self.name, "kind": self.kind, "default": self.default, "drag": self.drag}
 
 
+HANDLE_KINDS = ("slide", "turn")
+
+
+@dataclass(frozen=True)
+class Handle:
+    """An on-screen manipulator for one parameter, drawn and dragged by the view.
+
+    `slide` handles sit at `anchor` (a model point) and move along `direction`; dragging by t model units sets
+    the parameter to value + scale * t, so a diameter handle on a radius uses scale 2. `turn` handles rotate about
+    the axis through `anchor` along `direction`; the view draws a ring of radius `radius` around it and dragging by an
+    angle of t degrees sets value + scale * t. `min` bounds the parameter (None = unbounded)."""
+
+    param: str
+    label: str
+    anchor: tuple[float, float, float]
+    direction: tuple[float, float, float]
+    scale: float = 1.0
+    min: float | None = None
+    kind: str = "slide"
+    radius: float = 0.0
+
+    def __post_init__(self):
+        if self.kind not in HANDLE_KINDS:
+            raise ValueError(f"Unknown handle kind {self.kind!r}")
+
+    def to_json(self, value: float) -> dict:
+        length = sum(c * c for c in self.direction) ** 0.5 or 1.0
+        return {
+            "param": self.param,
+            "label": self.label,
+            "kind": self.kind,
+            "anchor": [float(c) for c in self.anchor],
+            "direction": [c / length for c in self.direction],
+            "scale": self.scale,
+            "min": self.min,
+            "radius": self.radius,
+            "value": value,
+        }
+
+
 def _bind_pairs(param: "Param", raw) -> list[list[float]]:
     """Validate a per-edge list: numbers or [start, end] pairs; an empty or missing list means "use the default"."""
     if raw is None:
@@ -134,6 +174,14 @@ class Tool:
     # Names of three length parameters that together are a point in space; the view offers to fill them by
     # clicking a reference snap (origin, axis, face centre) instead of typing.
     placement: tuple[str, str, str] | None = None
+    # Where the tool starts: "selection" (the user selects something, then the tool acts on it) or "tool" (the tool is
+    # chosen first and places something new, like a primitive); the view shows `handles` accordingly.
+    starts_from: str = "selection"
+
+    def handles(self, topology: Topology, selection: Selection, values: dict[str, float]) -> list[Handle]:
+        """On-screen manipulators for the current parameter values: one per parameter that can be dragged in the view.
+        Typed entry stays available for every parameter. The default is none."""
+        return []
 
     def applies(self, topology: Topology, selection: Selection) -> bool:
         """Extra applicability check beyond the selection counts (e.g. planar faces only)."""
@@ -179,6 +227,18 @@ class Tool:
         except Exception as e:  # OpenCASCADE raises Standard_Failure subclasses (Standard_NoSuchObject, ...)
             raise OperationError(f"{self.label} failed on this geometry ({_occt_reason(e)}); the model is unchanged") from None
 
+    def handle_list(self, topology: Topology, selection: Selection, raw_params: dict) -> list[dict]:
+        """`handles` for raw request values, as JSON with each parameter's current value; empty when the tool has
+        none or the selection is unusable (handles are a convenience, they never fail a request)."""
+        if type(self).handles is Tool.handles or not self.available(topology, selection):
+            return []
+        try:
+            values = self.bind(raw_params)
+            names = {p.name for p in self.params}
+            return [h.to_json(values[h.param]) for h in self.handles(topology, selection, values) if h.param in names and not isinstance(values[h.param], list)]
+        except Exception:
+            return []
+
     def describe(self) -> dict:
         return {
             "id": self.id,
@@ -188,6 +248,8 @@ class Tool:
             "params": [p.to_json() for p in self.params],
             "related": list(self.related),
             "placement": list(self.placement) if self.placement else None,
+            "startsFrom": self.starts_from,
+            "hasHandles": type(self).handles is not Tool.handles,
         }
 
 
