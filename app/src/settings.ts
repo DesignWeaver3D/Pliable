@@ -119,4 +119,12 @@ export function createSettingsWindow(host: HTMLElement) {
   panel.append(...build());
   button.onclick = () => (panel.hidden = !panel.hidden);
   host.append(button, panel);
+  // Close on any press outside the window (capture phase, so the 3D view cannot swallow it).
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (!panel.hidden && !panel.contains(e.target as Node) && !button.contains(e.target as Node)) panel.hidden = true;
+    },
+    true,
+  );
 }
