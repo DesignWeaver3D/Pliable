@@ -68,3 +68,16 @@ test("constraint marks sit on the geometry they hold", () => {
   assert.deepEqual(marks[0].points[0], [5, 0, 0]);
   assert.deepEqual(marks[1].points[0], [0, 0, 0]);
 });
+
+test("an ellipse offers a short radius dimension that reads its minor axis", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }],
+    entities: [{ id: 10, type: "ellipse", center: 1, major: 2, minor: 3 }],
+    constraints: [],
+  };
+  assert.ok(optionsFor(s, [{ kind: "entity", id: 10 }]).some((o) => o.label === "Short radius"));
+  assert.equal(measure(s, { id: 1, type: "minor_radius", entity: 10 }), 3);
+  const [tag] = dimensionsOf({ ...s, constraints: [{ id: 1, type: "minor_radius", entity: 10, value: 3 }] });
+  assert.deepEqual(tag.points[0].map((x) => Math.round(x * 1e6) / 1e6), [0, 3, 0]);
+});

@@ -723,3 +723,14 @@ def test_long_drag_keeps_the_last_good_step_when_a_later_one_fails():
     sk = sketch_of(points, lines, constraints)
     # pulling point 2 away from the fixed distance is impossible: nothing to keep, so the failure is reported
     assert sketch.solve(sk, {"point": 2, "u": 400, "v": 0})["status"] == "failed"
+
+
+def test_ellipse_minor_radius_dimension():
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}]
+    ellipse = [{"id": 10, "type": "ellipse", "center": 1, "major": 2, "minor": 3}]
+    sk = sketch_of(points, ellipse, [{"type": "fixed", "point": 1}, {"type": "distance", "points": [1, 2], "value": 8}, {"type": "minor_radius", "entity": 10, "value": 4.5}])
+    result = sketch.solve(sk)
+    assert result["status"] == "ok" and result["radii"][10] == 4.5
+    solved = sketch.apply_solution(sk, result)
+    assert solved["entities"][0]["minor"] == 4.5
+    assert math.dist(coords(result)[1], coords(result)[2]) == pytest.approx(8, abs=1e-6)

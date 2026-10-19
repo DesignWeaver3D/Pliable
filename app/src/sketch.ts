@@ -1003,7 +1003,10 @@ export class SketchMode {
             const q = byId.get(p.id);
             if (q) [p.u, p.v] = [q.u, q.v];
           }
-          for (const e of this.s.entities) if (e.type === "circle" && String(e.id) in reply.radii) e.radius = reply.radii[String(e.id)];
+          for (const e of this.s.entities) {
+            if (e.type === "circle" && String(e.id) in reply.radii) e.radius = reply.radii[String(e.id)];
+            if (e.type === "ellipse" && String(e.id) in reply.radii) e.minor = reply.radii[String(e.id)];
+          }
           this.dof = reply.dof;
           this.failed.clear();
           if (reply.freedom) this.freedom = new Map(Object.entries(reply.freedom).map(([id, n]) => [Number(id), n]));

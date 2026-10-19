@@ -17,7 +17,8 @@ value in degrees]; tangent [entities a, b: arc/line or arc/arc]; distance [point
 value]; radius and diameter [entity, value]; fixed [point]; midpoint [point, entity line]; symmetric
 [points a, b, entity line]; collinear [entities a, b: lines]; point_line_distance [point, entity line, value]
 (always measured as a positive distance, on whichever side the point is now); block [entity: all of its points
-(and a circle's radius) stay where they are]. A dimension with `"reference": true` is only a measurement and
+(and a circle's radius) stay where they are]; minor_radius [entity ellipse, value: its short semi-axis, which no
+other constraint can reach]. A dimension with `"reference": true` is only a measurement and
 is not solved.
 """
 
@@ -99,6 +100,7 @@ class _Solver:
                 s.addWhereDragged(self.points[p["id"]], self.workplane, SOLVE_GROUP)
         self.entities: dict[int, tuple[str, int]] = {}
         self.radii: dict[int, int] = {}
+        self.minors: dict[int, float] = {}  # ellipse id -> short semi-axis set by a minor_radius dimension
         for e in sketch.get("entities", []):
             self._add_entity(e)
         self.held: set[int] = set()  # points already pinned: pinning one twice is reported as a redundancy
@@ -140,6 +142,10 @@ class _Solver:
         if handle is None:
             raise SketchError(f"An {kind} takes no constraint of its own: constrain its points instead")
         return handle
+
+    def _entity_kind(self, eid, kind):
+        if self.entities.get(eid, (None,))[0] != kind:
+            raise SketchError(f"Constraint needs a {kind}")
 
     def _coords(self, pid):
         e = self.system.getEntity(self.points[pid])
@@ -230,6 +236,10 @@ class _Solver:
             h = s.addMidPoint(self._point(c["point"]), self._entity(c["entity"], "line"), wp, g)
         elif kind == "symmetric":
             h = s.addSymmetricLine(points[0], points[1], self._entity(c["entity"], "line"), wp, g)
+        elif kind == "minor_radius":
+            self._entity_kind(c["entity"], "ellipse")
+            self.minors[c["entity"]] = float(value)
+            return
         elif kind == "collinear":
             a, b = (self.sketch_line(e) for e in c["entities"])
             handles = [s.addParallel(self._entity(a["id"], "line"), self._entity(b["id"], "line"), wp, g)]
@@ -347,6 +357,8 @@ class _Solver:
         if ok:
             points = [{"id": pid, "u": self._coords(pid)[0], "v": self._coords(pid)[1]} for pid in self.points]
         radii = {eid: self.system.getParam(param).val for eid, param in self.radii.items()} if ok else {}
+        if ok:
+            radii.update(self.minors)  # an ellipse's short semi-axis travels with the radii
         return {"status": "ok" if ok else "failed", "code": code, "dof": self.system.Dof if ok else None, "failed": failed, "points": points, "radii": radii}
 
 
@@ -491,8 +503,8 @@ def _keep_unconnected(sketch: dict, drag: dict, result: dict) -> None:
         if q["id"] not in reached and q["id"] in old:
             q["u"], q["v"] = old[q["id"]]["u"], old[q["id"]]["v"]
     for e in sketch.get("entities", []):
-        if e["id"] not in reached and e["id"] in result["radii"] and "radius" in e:
-            result["radii"][e["id"]] = e["radius"]
+        if e["id"] not in reached and e["id"] in result["radii"] and ("radius" in e or "minor" in e):
+            result["radii"][e["id"]] = e.get("radius", e.get("minor"))
 
 
 def apply_solution(sketch: dict, result: dict) -> dict:
@@ -504,7 +516,7 @@ def apply_solution(sketch: dict, result: dict) -> dict:
             p["u"], p["v"] = solved[p["id"]]["u"], solved[p["id"]]["v"]
     for e in new["entities"]:
         if e["id"] in result["radii"]:
-            e["radius"] = result["radii"][e["id"]]
+            e["minor" if e["type"] == "ellipse" else "radius"] = result["radii"][e["id"]]
     return new
 
 

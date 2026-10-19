@@ -146,6 +146,8 @@ export function measure(s: SketchData, c: SketchConstraint): number | null {
       return ends ? Math.abs(pointOf(s, ends[0]).v - pointOf(s, ends[1]).v) : null;
     case "radius":
       return entity ? radiusOf(s, entity) : null;
+    case "minor_radius":
+      return entity && entity.type === "ellipse" ? entity.minor : null;
     case "diameter":
       return entity ? 2 * radiusOf(s, entity) : null;
     case "point_line_distance":
@@ -310,6 +312,15 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     },
   },
   {
+    label: "Short radius",
+    dimension: true,
+    build: (s, sel) => {
+      const es = entities(s, sel);
+      return es.length === 1 && only(es, "ellipse") && !pts(sel).length ? { type: "minor_radius", entity: es[0].id } : null;
+    },
+    initial: (s, sel) => (entities(s, sel)[0] as Extract<SketchEntity, { type: "ellipse" }>).minor,
+  },
+  {
     label: "Radius",
     dimension: true,
     build: (s, sel) => {
@@ -364,6 +375,7 @@ export function describeConstraint(s: SketchData, c: SketchConstraint): string {
     symmetric: "Symmetric",
     collinear: "Collinear",
     block: "Lock",
+    minor_radius: "Short radius",
     point_line_distance: "Point to line distance",
     distance: "Distance",
     horizontal_distance: "Horizontal distance",
@@ -403,6 +415,10 @@ export function dimensionsOf(s: SketchData): Dimension[] {
       // The dimension runs along the projected leg (a to corner) and sits on the side away from the other point.
       const away = horizontal ? (pb.v >= pa.v ? -1 : 1) : pb.u >= pa.u ? -1 : 1;
       out.push({ kind: "linear", text, points: [a, corner], offsetDirection: side.map((x) => x * away) });
+    } else if (c.type === "minor_radius" && entity && entity.type === "ellipse") {
+      const [m, o] = [pointOf(s, entity.center), pointOf(s, entity.major)];
+      const length = Math.hypot(o.u - m.u, o.v - m.v) || 1;
+      out.push({ kind: "tag", text: `r${text}`, points: [toWorld(s.plane, m.u - ((o.v - m.v) / length) * entity.minor, m.v + ((o.u - m.u) / length) * entity.minor)] });
     } else if (c.type === "point_line_distance" && entity && entity.type === "line" && c.point !== undefined) {
       const [la, lb, p] = [pointOf(s, entity.a), pointOf(s, entity.b), pointOf(s, c.point)];
       const length = Math.hypot(lb.u - la.u, lb.v - la.v) || 1;
