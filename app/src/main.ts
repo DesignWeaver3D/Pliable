@@ -10,6 +10,7 @@ import { DimensionOverlay } from "./dimensions";
 import { createSettingsWindow, onSettingsChange, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
+import { HintLine } from "./hints";
 import { Palette, type Command } from "./palette";
 import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
@@ -54,10 +55,22 @@ onSettingsChange(syncSeeThrough);
 syncSeeThrough();
 $("axes").addEventListener("click", () => reference.setVisible(!reference.visible));
 viewport.onFrame = () => {
-  reference.tick();
-  dimensionOverlay.draw();
-  navCube.update();
+  // One failing part must not stop the others from updating on later frames.
+  for (const part of [() => reference.tick(), () => dimensionOverlay.draw(), () => navCube.update()]) {
+    try {
+      part();
+    } catch (e) {
+      logOnce("frame", e);
+    }
+  }
 };
+const loggedErrors = new Set<string>();
+/** Console-log an error once per kind, so a failure repeating every frame does not flood the console. */
+function logOnce(kind: string, e: unknown) {
+  if (loggedErrors.has(kind)) return;
+  loggedErrors.add(kind);
+  console.error(`Pliable ${kind} update failed (later updates continue):`, e);
+}
 
 // Tool registry from the core, the current selection, and which tool a drag runs.
 let tools: ToolInfo[] = [];
@@ -284,12 +297,14 @@ function setSelection(sels: Sel[]) {
   core
     .request<MeasureReply>("measure", { selection: selectionPayload(sels) })
     .then((reply) => {
-      if (currentSels === sels && dragSels === null) {
+      // Not while a drag is live (the panel is hidden then); never on a stale dragSels left by a drag that failed to end.
+      if (currentSels === sels && !viewport.dragging) {
         measurePanel.show(reply);
         dimensionOverlay.set(reply.dimensions ?? []);
       }
     })
-    .catch(() => {
+    .catch((e) => {
+      logOnce("measurement", e);
       if (currentSels === sels) {
         measurePanel.hide();
         dimensionOverlay.set([]);
@@ -567,7 +582,11 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
   hideDim();
   session++;
   queued = null;
-  await inFlight;
+  try {
+    await inFlight;
+  } catch {
+    // a failed preview must not leave the drag state set
+  }
   dragSels = null;
   const good = lastGood;
   if (phase === "end" && previewFailed && good !== null) distance = good;
@@ -674,6 +693,7 @@ const keys = new KeyRouter({
   sketchActive: () => sketch.active,
   cancelInteraction: () => viewport.cancelDrag(),
   status,
+  hints: { get: () => hintLine.prefs.on, set: (on) => hintLine.setOn(on) },
 });
 keys.installButton($("bar"));
 // Leaving with edits (undo steps) or an open sketch asks first; autosave still protects against crashes.
@@ -773,6 +793,15 @@ function commands(): Command[] {
     { label: "Hide body", hint: keys.keymap.hint("display.hide"), enabled: currentSels.length > 0, run: () => setVisibility("hide") },
     { label: "Isolate body", hint: keys.keymap.hint("display.isolate"), enabled: currentSels.length > 0, run: () => setVisibility("isolate") },
     { label: "Show all bodies", hint: keys.keymap.hint("display.showAll"), enabled: hiddenSolids.size > 0, run: () => setVisibility("show") },
+    { label: "See-through selection (pick edges and faces behind the model)", hint: keys.keymap.hint("display.seeThrough"), enabled: true, run: () => viewport.toggleSeeThrough() },
+    {
+      label: "Measure pick (hidden mode: press M while dragging a tool)",
+      hint: "M while dragging",
+      title: "Start dragging a tool, then press M to measure distances to other geometry. It cannot start from this list.",
+      enabled: true,
+      run: () => (status.textContent = "Measure pick: start dragging a tool, then press M to pick geometry to measure against"),
+    },
+    { label: hintLine.prefs.on ? "Turn hints off" : "Turn hints on", enabled: true, run: () => hintLine.setOn(!hintLine.prefs.on) },
     { label: "Import STEP file", enabled: true, run: () => fileInput.click() },
     { label: "Export STEP file", enabled: true, run: () => exportAs("export_step", "step") },
     ...["stl", "obj", "3mf"].map((format) => ({
@@ -814,6 +843,11 @@ const sketchBar = new SketchBar({
   },
   diagnostics: () => showDiagnostics(core),
 });
+const hintLine = new HintLine(
+  $("viewport"),
+  () => ({ dragging: viewport.dragging || dragSels !== null, sketch: sketch.active, hasSelection: currentSels.length > 0 }),
+  (id) => keys.keymap.hint(id),
+);
 function renderSketchBar() {
   sketchBar.update();
 }
@@ -931,28 +965,47 @@ toolPanel.renderList();
 new Palette(commands);
 renderToolbar();
 
-// Connect to the core, retrying while it is not running and reconnecting if it stops (the model is reloaded then).
-const RETRY_MS = 2000;
-async function connectToCore() {
-  for (;;) {
-    try {
-      await core.connect();
-      break;
-    } catch {
-      status.classList.add("error");
-      status.textContent = import.meta.env.DEV
-        ? "Core not running: start it with 'uv run pliable-server' in core/ (retrying...)"
-        : "Pliable core stopped. Close this tab and start Pliable again from its launcher (retrying...)";
-      await new Promise((resolve) => setTimeout(resolve, RETRY_MS));
-    }
-  }
-  status.classList.remove("error");
+// Connect to the core, retrying with a growing delay while it is not running, and again whenever the connection drops.
+const RETRY_MIN_MS = 1000;
+const RETRY_MAX_MS = 8000;
+const reconnectButton = document.getElementById("reconnect") as HTMLButtonElement;
+let connecting = false;
+let retryTimer: number | undefined;
+let wakeRetry: (() => void) | null = null;
+reconnectButton.onclick = () => {
+  if (wakeRetry) wakeRetry();
+  else void connectToCore();
+};
+
+function waitRetry(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    wakeRetry = () => {
+      window.clearTimeout(retryTimer);
+      wakeRetry = null;
+      resolve();
+    };
+    retryTimer = window.setTimeout(wakeRetry, ms);
+  });
+}
+
+/** Everything the page needs from the core after (re)connecting: tools, then the model (kept across a reconnect when the core still holds it). */
+async function syncWithCore(hadModel: boolean) {
   void showLaunchNotice(core);
   tools = (await core.request<{ tools: ToolInfo[] }>("list_tools")).tools;
   renderToolbar();
   toolPanel.renderList();
   const { restore } = await core.request<{ restore?: { name: string; steps: number } }>("hello");
-  if (restore && (await askRestore(restore))) {
+  if (hadModel) {
+    try {
+      setCommitted(await core.request<MeshData>("resume_session"), true);
+      return;
+    } catch {
+      // The core no longer has it (it was restarted): fall through to the normal start-up.
+    }
+  }
+  const wanted = restore ? await askRestore(restore) : false;
+  if (!core.isOpen()) throw new Error("Lost connection to the core");
+  if (restore && wanted) {
     setCommitted(await core.request<MeshData>("restore_session"), true);
     status.textContent = `Restored ${restore.name} (${restore.steps} undo steps)`;
     return;
@@ -960,10 +1013,47 @@ async function connectToCore() {
   await load(select.value);
 }
 
+async function connectToCore() {
+  if (connecting) return;
+  connecting = true;
+  const hadModel = committed !== null;
+  let delay = RETRY_MIN_MS;
+  try {
+    for (;;) {
+      try {
+        await core.connect();
+        reconnectButton.hidden = true;
+        status.classList.remove("error");
+        await syncWithCore(hadModel);
+        return;
+      } catch {
+        // Not reachable, or the connection dropped again while syncing: show it and try again.
+        status.classList.add("error");
+        reconnectButton.hidden = false;
+        const seconds = Math.round(delay / 1000);
+        status.textContent = import.meta.env.DEV
+          ? `Core not reachable: is 'uv run pliable-server' running in core/? Retrying in ${seconds} s...`
+          : `Pliable core not reachable. Retrying in ${seconds} s (or close this tab and start Pliable again)...`;
+        await waitRetry(delay);
+        delay = Math.min(delay * 2, RETRY_MAX_MS);
+      }
+    }
+  } finally {
+    connecting = false;
+  }
+}
+
 /** In-page prompt (not a browser dialog, which would block the page) offered when the core was killed last time. */
+let dismissRestorePrompt: (() => void) | null = null;
 function askRestore(info: { name: string; steps: number }): Promise<boolean> {
   return new Promise((resolve) => {
     const box = document.createElement("div");
+    // A dropped connection closes the prompt, so the reconnect is not left waiting on an answer nobody can use.
+    dismissRestorePrompt = () => {
+      box.remove();
+      dismissRestorePrompt = null;
+      resolve(false);
+    };
     box.style.cssText = "position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:100";
     const card = document.createElement("div");
     card.style.cssText = "background:#2b2b2b;color:#eee;padding:20px 24px;border-radius:8px;max-width:360px;font:14px sans-serif";
@@ -977,6 +1067,7 @@ function askRestore(info: { name: string; steps: number }): Promise<boolean> {
       button.title = answer ? "Reopen the model and undo steps from the last session" : "Discard the last session and start empty";
       button.onclick = () => {
         box.remove();
+        dismissRestorePrompt = null;
         resolve(answer);
       };
       row.append(button);
@@ -988,8 +1079,10 @@ function askRestore(info: { name: string; steps: number }): Promise<boolean> {
 }
 
 core.onDisconnect = () => {
+  dismissRestorePrompt?.();
   status.classList.add("error");
   status.textContent = "Lost connection to the core (reconnecting...)";
-  void connectToCore().catch((e) => (status.textContent = e.message));
+  reconnectButton.hidden = false;
+  void connectToCore();
 };
-connectToCore().catch((e) => (status.textContent = e.message));
+void connectToCore();

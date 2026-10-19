@@ -90,6 +90,13 @@ class Session:
             if self.unclean:
                 reply["restore"] = self.unclean
             return reply
+        if kind == "resume_session":
+            document, _parked["document"] = _parked["document"], None
+            if document is None:
+                raise RequestError("Nothing to resume")
+            self.document = document
+            self._autosave(fresh=True)
+            return self._mesh_reply(document.current, {}, name=document.name)
         if kind == "restore_session":
             document = self.autosaver.restore() if self.autosaver else None
             if document is None:
@@ -347,33 +354,41 @@ class Session:
         return self._mesh_reply(target, timings, preview=not commit, selection=selection.to_json())
 
 
+# The document of the connection that dropped last, kept so the page can pick it up again after reconnecting.
+_parked: dict = {"document": None}
+
+
 async def _handle_connection(connection: ServerConnection, autosaver: Autosaver | None = None):
     session = Session(autosaver)
     log.info("client connected")
-    async for message in connection:
-        if isinstance(message, bytes):
-            continue
-        request = json.loads(message)
-        request_id = request.get("id")
-        start = time.perf_counter()
-        try:
-            # Geometry work runs off the event loop so the connection stays responsive.
-            reply = await asyncio.to_thread(session.handle, request)
-        except (RequestError, OperationError) as e:
-            reply = {"ok": False, "error": str(e)}
-        except Exception as e:
-            log.exception("request %s failed", request.get("type"))
-            reply = {"ok": False, "error": f"Internal error: {e}"}
-        if isinstance(reply, bytes):
-            # The reply id goes in a small JSON frame sent immediately before
-            # the binary frame, so the mesh header doesn't need re-encoding.
-            await connection.send(json.dumps({"id": request_id, "ok": True, "binary": True, "serverMs": _ms(start)}))
-            await connection.send(reply)
-        else:
-            reply.setdefault("ok", True)
-            reply["id"] = request_id
-            reply["serverMs"] = _ms(start)
-            await connection.send(json.dumps(reply))
+    try:
+        async for message in connection:
+            if isinstance(message, bytes):
+                continue
+            request = json.loads(message)
+            request_id = request.get("id")
+            start = time.perf_counter()
+            try:
+                # Geometry work runs off the event loop so the connection stays responsive.
+                reply = await asyncio.to_thread(session.handle, request)
+            except (RequestError, OperationError) as e:
+                reply = {"ok": False, "error": str(e)}
+            except Exception as e:
+                log.exception("request %s failed", request.get("type"))
+                reply = {"ok": False, "error": f"Internal error: {e}"}
+            if isinstance(reply, bytes):
+                # The reply id goes in a small JSON frame sent immediately before
+                # the binary frame, so the mesh header doesn't need re-encoding.
+                await connection.send(json.dumps({"id": request_id, "ok": True, "binary": True, "serverMs": _ms(start)}))
+                await connection.send(reply)
+            else:
+                reply.setdefault("ok", True)
+                reply["id"] = request_id
+                reply["serverMs"] = _ms(start)
+                await connection.send(json.dumps(reply))
+    finally:
+        if session.document is not None:
+            _parked["document"] = session.document
     log.info("client disconnected")
 
 

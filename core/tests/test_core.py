@@ -325,3 +325,16 @@ def test_notice_survives_a_corrupt_file(tmp_path, monkeypatch):
     assert session.handle({"type": "notice_get"})["acknowledged"] is False
     session.handle({"type": "notice_ack"})
     assert session.handle({"type": "notice_get"})["acknowledged"] is True
+
+
+def test_resume_session_returns_the_dropped_connections_model():
+    from pliable import server
+
+    first = Session()
+    first.handle({"type": "open_demo", "name": next(iter(DEMOS))})
+    server._parked["document"] = first.document  # what a dropped connection leaves behind
+    second = Session()
+    reply = second.handle({"type": "resume_session"})
+    assert isinstance(reply, bytes) and second.document is first.document
+    with pytest.raises(server.RequestError):
+        Session().handle({"type": "resume_session"})

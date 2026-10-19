@@ -48,6 +48,10 @@
       #toolform .row { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin: 3px 0; }
       #toolform input { width: 80px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; }
       #toolform .buttons { display: flex; gap: 6px; margin-top: 6px; }
+      #hintline { position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%); z-index: 1; display: flex; gap: 14px; white-space: nowrap; font-size: 11px; color: #8a8f98; pointer-events: none; }
+      #hintline kbd { background: #2a2d34; border: 1px solid #3a3e47; border-radius: 3px; padding: 0 4px; margin-right: 3px; color: #bbb; font: inherit; }
+      #hinttip { position: absolute; left: 50%; bottom: 100px; transform: translateX(-50%); z-index: 2; display: flex; gap: 8px; align-items: center; background: #23262d; border: 1px solid #ffb878; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: #ddd; }
+      #hinttip[hidden], #hintline[hidden] { display: none; }
       #sketchbar { position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%); z-index: 1; display: flex; gap: 6px; align-items: center; color: #aaa; }
       #sketchbar button, #sketchpanel button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 3px 8px; }
       #sketchbar button:disabled { color: #666; }
@@ -117,6 +121,7 @@
       <button id="undo" disabled title="Undo the last change (Ctrl+Z)">Undo</button>
       <button id="redo" disabled title="Redo the change you undid (Ctrl+Y)">Redo</button>
       <span id="status">connecting...</span>
+      <button id="reconnect" hidden title="Try to reach the core again now">Reconnect</button>
       <span id="selected"></span>
       <span id="latency"></span>
     </div>

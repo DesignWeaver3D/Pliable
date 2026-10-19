@@ -1,7 +1,7 @@
 // Run with: node --test app/tests   (Node 24 runs the TypeScript source directly)
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ENGAGE_GRACE_MS, Engagement, KEY_COMMANDS, Keymap, checkKeymap, decideKey, parseChord, validateBinding } from "../src/keys.ts";
+import { ENGAGE_GRACE_MS, Engagement, KEY_COMMANDS, Keymap, checkKeymap, chordMatches, decideKey, formatChord, parseChord, validateBinding } from "../src/keys.ts";
 
 const ev = (key, extra = {}) => ({ key, code: extra.code ?? (key.length === 1 && /\d/.test(key) ? `Digit${key}` : `Key${key.toUpperCase()}`), ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...extra });
 const live = { pageFocused: true, inTextField: false, entryActive: false, engaged: true, sketchActive: false };
@@ -116,9 +116,24 @@ test("sequences and bad chords are rejected", () => {
 
 test("browser-reserved and app-reserved keys are rejected", () => {
   const view = KEY_COMMANDS.find((c) => c.id === "view.top");
-  for (const text of ["Ctrl+W", "Ctrl+T", "Ctrl+Shift+N", "F5", "Alt+ArrowLeft", "Escape", "Enter", "Tab", "Ctrl+Alt+E"]) {
+  for (const text of ["Ctrl+W", "Ctrl+T", "Ctrl+Shift+N", "F5", "Alt+ArrowLeft", "Escape", "Enter", "Tab"]) {
     assert.equal(validateBinding(view, text, {}).ok, false, text);
   }
+});
+
+test("any combination of Ctrl, Alt and Shift is a valid modifier set", () => {
+  const model = { id: "x.m", label: "M", class: "model", defaults: [] };
+  const view = KEY_COMMANDS.find((c) => c.id === "view.top");
+  for (const text of ["Ctrl+Alt+E", "Ctrl+Alt+Shift+E", "Alt+Shift+E", "Ctrl+Shift+E", "Alt+E", "Shift+E"]) {
+    assert.equal(validateBinding(view, text, {}).ok, true, text);
+    assert.equal(formatChord(parseChord(text)), text);
+  }
+  assert.equal(validateBinding(model, "Ctrl+Alt+E", {}).ok, true);
+  assert.equal(validateBinding(model, "Alt+Shift+E", {}).ok, true);
+  assert.equal(validateBinding(model, "Shift+E", {}).ok, false);
+  const chord = parseChord("Ctrl+Alt+Shift+E");
+  assert.ok(chordMatches(chord, { key: "E", code: "KeyE", ctrlKey: true, metaKey: false, altKey: true, shiftKey: true }));
+  assert.ok(!chordMatches(chord, { key: "E", code: "KeyE", ctrlKey: true, metaKey: false, altKey: false, shiftKey: true }));
 });
 
 test("model and setting commands cannot take a bare key; view and arm commands can", () => {

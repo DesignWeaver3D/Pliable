@@ -158,7 +158,6 @@ export function validateBinding(command: KeyCommand, chordText: string, bindings
   if (command.fixed) return { ok: false, reason: `${command.label} has a fixed key.` };
   if (RESERVED_BY_BROWSER.has(text)) return { ok: false, reason: `${text} belongs to the browser and cannot be used.` };
   if (RESERVED_BY_APP.has(chord.main) && !chord.ctrl && !chord.alt) return { ok: false, reason: `${chord.main} is used to cancel, confirm or edit text and cannot be reassigned.` };
-  if (chord.ctrl && chord.alt) return { ok: false, reason: "Ctrl+Alt is how many keyboards type AltGr characters; pick Ctrl or Alt." };
   if ((command.class === "model" || command.class === "setting") && isBare(chord)) {
     return { ok: false, reason: `${command.label} changes ${command.class === "model" ? "the model" : "a setting"} immediately, so it needs Ctrl or Alt.` };
   }

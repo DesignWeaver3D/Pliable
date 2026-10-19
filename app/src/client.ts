@@ -95,11 +95,19 @@ export class CoreClient {
       this.socket = socket;
       socket.binaryType = "arraybuffer";
       let opened = false;
+      // A connection that neither opens nor fails (a stalled network) must not block the retry loop.
+      const giveUp = window.setTimeout(() => {
+        if (!opened) {
+          socket.close();
+          reject(new Error("Timed out connecting to the core"));
+        }
+      }, 5000);
       socket.onopen = () => {
         opened = true;
+        window.clearTimeout(giveUp);
         resolve();
       };
-      socket.onerror = () => reject(new Error("Could not connect to the core"));
+      socket.onerror = () => (window.clearTimeout(giveUp), reject(new Error("Could not connect to the core")));
       socket.onmessage = (event) => this.onMessage(event.data);
       socket.onclose = () => {
         // Requests still waiting will never be answered; fail them instead of leaving the UI on "loading".
@@ -150,6 +158,10 @@ export class CoreClient {
     if (reply.ok) entry.resolve(reply);
     else entry.reject(new Error(reply.error));
     this.updateBusy();
+  }
+
+  isOpen(): boolean {
+    return this.socket?.readyState === WebSocket.OPEN;
   }
 
   request<T = any>(type: string, params: Record<string, unknown> = {}): Promise<T> {
