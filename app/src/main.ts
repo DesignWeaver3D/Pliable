@@ -176,6 +176,22 @@ function dragToolFor(sels: Sel[]): ToolInfo | null {
 
 const toolbar = $("tools");
 
+// File menu: model, import/export and view toggles live in one popup so the top bar stays small.
+const menuPanel = $("menupanel");
+$("menubtn").addEventListener("click", () => {
+  menuPanel.hidden = !menuPanel.hidden;
+  if (!menuPanel.hidden) toggleDrawer(false);
+});
+menuPanel.addEventListener("click", (e) => {
+  if ((e.target as HTMLElement).closest("button")) menuPanel.hidden = true;
+});
+menuPanel.addEventListener("change", (e) => {
+  if (["demo", "exportmesh"].includes((e.target as HTMLElement).id)) menuPanel.hidden = true;
+});
+document.addEventListener("pointerdown", (e) => {
+  if (!menuPanel.hidden && !(e.target as HTMLElement).closest("#menuwrap")) menuPanel.hidden = true;
+}, true);
+
 // Browse drawer: every tool by group, hidden until asked for (button, key T, or the strip's "..." button).
 const drawer = $("drawer");
 function toggleDrawer(open = drawer.hidden, usableOnly?: boolean) {
@@ -185,7 +201,10 @@ function toggleDrawer(open = drawer.hidden, usableOnly?: boolean) {
     drawer.classList.toggle("usableonly", usableOnly);
   }
 }
-$("drawerbtn").addEventListener("click", () => toggleDrawer());
+$("drawerbtn").addEventListener("click", () => {
+  toggleDrawer();
+  menuPanel.hidden = true;
+});
 $("drawerclose").addEventListener("click", () => toggleDrawer(false));
 $("drawerusable").addEventListener("change", (e) => drawer.classList.toggle("usableonly", (e.target as HTMLInputElement).checked));
 $("toollist").addEventListener("click", (e) => {
