@@ -117,10 +117,10 @@ export class ReferenceView {
   }
 
   /** Reference snap nearest the pointer: origin, then a point where an axis meets the face under it, the face centre, or a point along an axis. */
-  snapAt(e: PointerEvent): ReferenceSnap | null {
+  snapAt(e: PointerEvent, extra: ReferenceSnap[] = []): ReferenceSnap | null {
     const rect = this.viewport.renderer.domElement.getBoundingClientRect();
     const here = new THREE.Vector2(e.clientX - rect.left, e.clientY - rect.top);
-    const candidates: ReferenceSnap[] = [{ point: new THREE.Vector3(), label: "Origin" }];
+    const candidates: ReferenceSnap[] = [{ point: new THREE.Vector3(), label: "Origin" }, ...extra];
     const face = this.viewport.faceUnder(e);
     const range = face ? this.viewport.meshData?.faces.find((f) => f.id === face.id) : undefined;
     if (range?.centroid) {
@@ -180,9 +180,18 @@ export class ReferenceView {
   }
 }
 
+export interface PickOptions {
+  /** More snap points to offer (the corners, edge midpoints, face centres and centre of a shape being previewed). */
+  extra?: { point: number[]; label: string }[];
+  /** A point already chosen: a line is drawn from it to the snap under the pointer. */
+  from?: number[];
+}
+
 /** Lets the user click a reference snap in the 3D view; resolves with the point, or null when cancelled. */
 export class PointPicker {
   private marker = new THREE.Points(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3()]), new THREE.PointsMaterial({ color: 0xffd36b, size: 12, sizeAttenuation: false, depthTest: false }));
+  private baseMarker = new THREE.Points(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3()]), new THREE.PointsMaterial({ color: 0x5ec8ff, size: 12, sizeAttenuation: false, depthTest: false }));
+  private line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x5ec8ff, depthTest: false }));
   private current: ReferenceSnap | null = null;
   private done: ((p: number[] | null) => void) | null = null;
 
@@ -191,9 +200,12 @@ export class PointPicker {
     private readonly reference: ReferenceView,
     private readonly status: (text: string) => void,
   ) {
-    this.marker.visible = false;
-    this.marker.renderOrder = 6;
-    viewport.scene.add(this.marker);
+    for (const o of [this.marker, this.baseMarker, this.line]) {
+      o.visible = false;
+      o.renderOrder = 6;
+      o.frustumCulled = false;
+      viewport.scene.add(o);
+    }
     window.addEventListener("keydown", (e) => {
       if (this.done && e.key === "Escape") this.finish(null);
     });
@@ -203,19 +215,30 @@ export class PointPicker {
     return this.done !== null;
   }
 
-  pick(): Promise<number[] | null> {
+  /** Keep a marker at a chosen base point (null removes it). */
+  showBase(point: number[] | null) {
+    this.baseMarker.visible = !!point;
+    if (point) this.baseMarker.position.fromArray(point);
+  }
+
+  pick(options: PickOptions = {}): Promise<number[] | null> {
     this.finish(null);
     this.reference.setVisible(true);
+    const extra = (options.extra ?? []).map((e) => ({ point: new THREE.Vector3(...e.point), label: e.label }));
+    const from = options.from ? new THREE.Vector3(...options.from) : null;
+    if (from) this.showBase(options.from!);
     this.status("Pick a point: hover the origin, an axis or a face; click to use it, Escape to cancel");
     return new Promise((resolve) => {
       this.done = resolve;
       this.viewport.interceptor = {
         down: () => {},
         move: (e) => {
-          this.current = this.reference.snapAt(e);
+          this.current = this.reference.snapAt(e, extra);
           this.marker.visible = !!this.current;
+          this.line.visible = !!this.current && !!from;
           if (this.current) {
             this.marker.position.copy(this.current.point);
+            if (from) this.line.geometry.setFromPoints([from, this.current.point]);
             this.status(`${this.current.label}: ${this.current.point.toArray().map((x) => parseFloat(x.toFixed(3))).join(", ")}`);
           }
         },
@@ -230,6 +253,7 @@ export class PointPicker {
     this.done = null;
     this.viewport.interceptor = null;
     this.marker.visible = false;
+    this.line.visible = false;
     done(point);
   }
 }

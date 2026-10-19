@@ -1,8 +1,9 @@
 /** "All tools" list (grouped by layout.ts) and the parameter form for tools that are not dragged. */
+import type { PickOptions } from "./reference";
 import { toolIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
 import { toolTooltip, type ToolInfo } from "./tools";
-import { moveVector, originFor, pointText, type AnchorInfo, type Vec3 } from "./placepick";
+import { moveVector, offsetOf, originFor, pointText, type AnchorInfo, type Vec3 } from "./placepick";
 import { usage, type Surface } from "./usage";
 
 /** A parameter value: a number, or for `per_edge` parameters one [start, end] radius pair per selected edge. */
@@ -21,7 +22,9 @@ export interface ToolPanelHost {
   eyedrop(param: string, kind: string): Promise<number | null>;
   cancelEyedrop(): void;
   /** Let the user click a reference snap in the view; null if cancelled. */
-  pickPoint?(): Promise<number[] | null>;
+  pickPoint?(options?: PickOptions): Promise<number[] | null>;
+  /** Keep a marker at the picked base point (null removes it). */
+  showBase?(point: number[] | null): void;
   /** The points of a new shape that can be put at the destination (primitives), for the current values. */
   anchors?(tool: ToolInfo, values: Record<string, ParamValue>): Promise<AnchorInfo[]>;
   /** The open form changed (opened or closed). */
@@ -96,6 +99,7 @@ export class ToolPanel {
     if (restore) usage.record(this.open.id, "cancel");
     this.open = null;
     this.host.cancelEyedrop();
+    this.host.showBase?.(null);
     clearTimeout(this.timer);
     this.formEl.hidden = true;
     this.formEl.replaceChildren();
@@ -165,50 +169,53 @@ export class ToolPanel {
     if (placement && placement.length === 3 && this.host.pickPoint) {
       const note = document.createElement("div");
       note.className = "row";
-      let anchors: AnchorInfo[] = [];
-      let which = 0;
       let destination: Vec3 | null = null;
-      const select = document.createElement("select");
-      select.title = "Which point of the new shape goes to the picked position";
+      let offset: Vec3 = [0, 0, 0]; // the picked base point relative to the placement point; zero = the placement point itself
+      let picked = false;
+      const origin = (): Vec3 => placement.map((n) => parseFloat(inputs[n].value) || 0) as unknown as Vec3;
+      const show = () => (note.textContent = `${picked ? "Base picked" : "Base: placement point"}${destination ? `, destination ${pointText(destination)}` : ""}`);
+      show();
       const place = () => {
         if (!destination) return;
-        const offset = anchors[which]?.offset ?? [0, 0, 0];
         originFor(destination, offset).forEach((c, i) => (inputs[placement[i]].value = String(parseFloat(c.toFixed(4)))));
         this.schedulePreview(0);
       };
-      select.addEventListener("change", () => {
-        which = select.selectedIndex;
-        place();
-      });
-      const label = document.createElement("span");
-      label.textContent = "base point";
-      const baseRow = document.createElement("label");
-      baseRow.className = "row";
-      baseRow.hidden = true;
-      baseRow.append(label, select);
-      const refresh = async () => {
-        if (!this.host.anchors) return;
-        const list = await this.host.anchors(tool, this.values());
-        if (this.open !== tool || !list.length) return;
-        anchors = list;
-        select.replaceChildren(...list.map((a) => Object.assign(document.createElement("option"), { textContent: a.label })));
-        select.selectedIndex = Math.min(which, list.length - 1);
-        baseRow.hidden = false;
-      };
-      const pick = document.createElement("button");
-      pick.textContent = "Pick destination point";
-      pick.title = "Click a vertex, edge, face centre, hole centre, axis or the origin; the chosen base point of the shape goes there";
-      pick.addEventListener("click", async () => {
-        await refresh();
-        const point = await this.host.pickPoint!();
+      const pickDestination = async () => {
+        const from = picked ? [0, 1, 2].map((i) => origin()[i] + offset[i]) : undefined;
+        const point = await this.host.pickPoint!(from ? { from } : {});
         if (!point || this.open !== tool) return;
         destination = [point[0], point[1], point[2]];
-        note.textContent = `Destination ${pointText(destination)}`;
+        show();
         place();
+        this.host.showBase?.([...destination]);
+      };
+      const pickBase = document.createElement("button");
+      pickBase.textContent = "Pick base point";
+      pickBase.title = "Click the point of the new shape (a corner, edge midpoint, face centre or the centre) or any other point (a vertex, edge, axis, hole centre or the origin) that goes to the destination";
+      pickBase.addEventListener("click", async () => {
+        const list = this.host.anchors ? await this.host.anchors(tool, this.values()) : [];
+        if (this.open !== tool) return;
+        const at = origin();
+        const extra = list.map((a) => ({ point: [at[0] + a.offset[0], at[1] + a.offset[1], at[2] + a.offset[2]], label: a.label }));
+        const point = await this.host.pickPoint!({ extra });
+        if (!point || this.open !== tool) return;
+        offset = offsetOf([point[0], point[1], point[2]], at);
+        picked = true;
+        this.host.showBase?.(point);
+        show();
+        place();
+        if (!destination) await pickDestination(); // a base alone moves nothing, so go straight on to the destination
       });
-      for (const name of placement) inputs[name].addEventListener("input", () => (destination = null));
-      buttons.before(baseRow, pick, note);
-      void refresh();
+      const pick = document.createElement("button");
+      pick.textContent = "Pick destination point";
+      pick.title = "Click a vertex, edge, face centre, hole centre, axis or the origin; the base point goes there";
+      pick.addEventListener("click", () => void pickDestination());
+      for (const name of placement)
+        inputs[name].addEventListener("input", () => {
+          destination = null;
+          show();
+        });
+      buttons.before(pickBase, pick, note);
     }
     const vector = tool.moveVector;
     if (vector && vector.length === 3 && this.host.pickPoint) {

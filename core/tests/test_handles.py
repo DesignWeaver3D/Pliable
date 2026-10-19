@@ -412,7 +412,9 @@ def test_primitives_offer_anchor_points_with_the_default_at_the_placement_point(
         assert len({a["label"] for a in anchors}) == len(anchors)
     box = {a["label"]: a["offset"] for a in session.handle({"type": "tool_handles", "tool": "add_box", "params": {"width": 4, "depth": 6, "height": 8}})["anchors"]}
     assert box["Centre"] == [2.0, 3.0, 4.0] and box["Corner (high X, high Y, high Z)"] == [4.0, 6.0, 8.0]
-    assert len(box) == 15
+    assert len(box) == 27
+    assert box["Middle of Z edge (high X, low Y)"] == [4.0, 0.0, 4.0]
+    assert box["Middle of X edge (low Y, high Z)"] == [2.0, 0.0, 8.0]
 
 
 def test_vector_tools_declare_their_move_vector(session):
@@ -469,3 +471,25 @@ def test_cylinder_cone_sphere_and_torus_resize_handles(session):
     assert {h["param"] for h in cone} == {"bottom_diameter", "top_diameter", "height"} and len(cone) == 6
     torus = of("add_torus", x=0, y=0, z=0, major=20, minor=6)
     assert {h["param"] for h in torus} == {"major", "minor"} and len(torus) == 4
+
+
+@pytest.mark.parametrize("tool_id", PRIMITIVES)
+def test_a_picked_base_point_goes_to_the_destination_even_off_the_shape(tool_id):
+    """The view's rule: placement = destination - (base - placement). The new shape moves by destination minus base."""
+    params = PRIMITIVES[tool_id]
+    tool = TOOLS[tool_id]
+    builder = BRep_Builder()
+    compound = TopoDS_Compound()
+    builder.MakeCompound(compound)
+    empty = Topology(compound)
+
+    def bounds(values):
+        return _bounds(tool.execute(empty, Selection(), {**values, "new_body": 1}, preview=True).shape)
+
+    origin = (params["x"], params["y"], params["z"])
+    base = (40.0, -7.0, 25.0)  # nowhere near the shape
+    destination = (1.0, 2.0, 3.0)
+    placed = tuple(o + d - b for o, d, b in zip(origin, destination, base))
+    before, after = bounds(params), bounds({**params, "x": placed[0], "y": placed[1], "z": placed[2]})
+    for i in range(6):
+        assert after[i] - before[i] == pytest.approx(destination[i % 3] - base[i % 3], abs=1e-3)

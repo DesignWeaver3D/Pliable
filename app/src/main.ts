@@ -1007,7 +1007,8 @@ viewport.onDivideDrag = (across, offset) => toolPanel.setValues({ across, offset
 let formPreviewSeq = 0;
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   selectedEdges: () => currentSels.filter((s) => s.kind === "edge").map((s) => s.id),
-  pickPoint: () => pointPicker.pick(),
+  pickPoint: (options) => pointPicker.pick(options),
+  showBase: (point) => pointPicker.showBase(point),
   async anchors(tool, values) {
     try {
       return (await core.request<{ anchors: AnchorInfo[] }>("tool_handles", { tool: tool.id, selection: selectionPayload([]), params: values })).anchors;
