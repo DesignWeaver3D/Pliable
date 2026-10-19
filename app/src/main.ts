@@ -226,7 +226,7 @@ function selectionHelpers(): HTMLButtonElement[] {
   if (one?.kind === "face") {
     return [
       make("All edges", "Select every edge of the selected face, outline and holes", { mode: "face_edges", face: one.id }),
-      make("Edge loops", "Select the closed edge loops that bound the selected face (outline and holes)", { mode: "face_loops", face: one.id }),
+      make("Edge loops", "Select only the perimeter (outer) loop of the selected face, leaving out any holes", { mode: "face_outline", face: one.id }),
     ];
   }
   if (one?.kind === "edge") {
