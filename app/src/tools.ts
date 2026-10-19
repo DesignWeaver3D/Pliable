@@ -29,6 +29,9 @@ export interface HandleInfo {
   /** Parameter change per model unit of handle travel. */
   scale: number;
   min: number | null;
+  max: number | null;
+  /** A yes/no marker (0 or 1): clicking flips the value instead of dragging. */
+  toggle: boolean;
   unit: string;
   /** The parameter's value when the handle was computed. */
   value: number;

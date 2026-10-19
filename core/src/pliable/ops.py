@@ -41,6 +41,31 @@ def planar_normal(face: TopoDS_Face) -> gp_Dir | None:
     return normal
 
 
+def edge_curve(edge: TopoDS_Edge):
+    """(point_at, tangent_at, length) helpers for an edge: `point_at(u)` and `tangent_at(u)` take u from 0 (the edge's
+    first end) to 1 (its last) and give xyz tuples (the tangent is a unit vector); length is the arc length."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+
+    curve = BRepAdaptor_Curve(edge)
+    first, last = curve.FirstParameter(), curve.LastParameter()
+
+    def point_at(u: float):
+        p = curve.Value(first + (last - first) * u)
+        return (p.X(), p.Y(), p.Z())
+
+    def tangent_at(u: float):
+        p, v = gp_Pnt(), gp_Vec()
+        curve.D1(first + (last - first) * u, p, v)
+        m = v.Magnitude() or 1.0
+        return (v.X() / m, v.Y() / m, v.Z() / m)
+
+    props = GProp_GProps()
+    BRepGProp.LinearProperties_s(edge, props)
+    return point_at, tangent_at, props.Mass()
+
+
 def face_handle_point(face: TopoDS_Face) -> gp_Pnt:
     """A point on a planar face to hang an on-screen handle on: the centre of mass when it lies on the face, else the
     middle of the face's longest boundary edge (an L-shaped or ring-shaped face has its centre of mass off the face)."""

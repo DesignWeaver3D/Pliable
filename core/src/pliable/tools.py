@@ -24,7 +24,7 @@ Writing a tool:
 
 from dataclasses import dataclass, field
 
-from .ops import MIN_DISTANCE, OperationError, OpResult, face_handle_point, fillet_chamfer, planar_normal, push_pull, unify_result
+from .ops import MIN_DISTANCE, OperationError, OpResult, edge_curve, edge_outward_normal, face_handle_point, fillet_chamfer, planar_normal, push_pull, unify_result
 from .topology import Topology
 
 def _occt_reason(error: Exception) -> str:
@@ -115,7 +115,8 @@ class Handle:
     units sets the parameter to value + scale * t, so a diameter handle on a radius uses scale 2. A rotation is declared
     the same way: the anchor on the ring, `direction` the tangent there and `scale` the degrees per unit of travel, so
     the view needs no separate kind of handle. `min` bounds the parameter (None = unbounded); `unit` is the text
-    shown after the value in the live label."""
+    shown after the value in the live label. `max` bounds it from above. A `toggle` handle is a marker for a yes/no
+    parameter (0 or 1): clicking it flips the value, it is not dragged."""
 
     param: str
     label: str
@@ -124,6 +125,8 @@ class Handle:
     scale: float = 1.0
     min: float | None = None
     unit: str = "mm"
+    max: float | None = None
+    toggle: bool = False
 
     def to_json(self, value: float) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
@@ -134,6 +137,8 @@ class Handle:
             "direction": [c / length for c in self.direction],
             "scale": self.scale,
             "min": self.min,
+            "max": self.max,
+            "toggle": self.toggle,
             "unit": self.unit,
             "value": value,
         }
@@ -360,6 +365,16 @@ class FilletChamfer(Tool):
     description = "Rounds or bevels the selected edges. Select edges, then drag outward to round (fillet) or inward to bevel (chamfer), or type a distance."
     accepts = Accepts(edges=(1, None))
     params = [Param("distance", "length", drag=True)]
+
+    def handles(self, topology, selection, values):
+        edge = topology.edge(min(selection.edges))
+        normal = edge_outward_normal(topology, edge)
+        if normal is None:
+            return []
+        at, _, _ = edge_curve(edge)
+        mid = at(0.5)
+        d = values["distance"]
+        return [Handle("distance", "Round (outward) or bevel (inward)", tuple(m + n * d for m, n in zip(mid, normal)), tuple(normal))]
 
     def run(self, topology, selection, values, preview):
         edges = [topology.edge(i) for i in sorted(selection.edges)]  # id order avoids stray zero-length edges at corners

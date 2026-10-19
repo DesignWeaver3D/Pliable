@@ -261,3 +261,132 @@ def _is_whole_cylinder(face):
             return face
 
     return _all_round_walls(_T(), Selection(faces=[0]))
+
+
+# ---- Fillet and chamfer ---------------------------------------------------------------------------------------------
+
+from OCP.BRepClass3d import BRepClass3d_SolidClassifier  # noqa: E402
+from OCP.TopAbs import TopAbs_OUT  # noqa: E402
+from OCP.gp import gp_Pnt as _Pnt  # noqa: E402
+
+from pliable.features import solids_of  # noqa: E402
+from pliable.ops import edge_curve, edge_outward_normal  # noqa: E402
+
+
+def _block():
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    return session, session.document.current
+
+
+def _removed(shape, point) -> bool:
+    """Whether a point is outside the solid (material was cut away there)."""
+    solid = solids_of(shape)[0]
+    return BRepClass3d_SolidClassifier(solid, _Pnt(*point), 1e-7).State() == TopAbs_OUT
+
+
+def _fillet_edges(topology):
+    """Straight 90-degree edges of the block, the ones the corner-depth test below applies to."""
+    return [(i, e) for i, e in topology.edges() if len(topology.edge_faces(e)) == 2]
+
+
+def test_fillet_chamfer_handle_sits_on_the_edge_bisector_and_follows_the_distance():
+    session, topology = _block()
+    edge_id, edge = _fillet_edges(topology)[0]
+    sel = {"edges": [edge_id]}
+    normal = edge_outward_normal(topology, edge)
+    at, _, _ = edge_curve(edge)
+    (h0,) = session.handle({"type": "tool_handles", "tool": "fillet_chamfer", "selection": sel, "params": {}})["handles"]
+    assert h0["anchor"] == pytest.approx(list(at(0.5))) and h0["direction"] == pytest.approx(normal)
+    (h3,) = session.handle({"type": "tool_handles", "tool": "fillet_chamfer", "selection": sel, "params": {"distance": 3}})["handles"]
+    assert h3["anchor"] == pytest.approx([a + 3 * n for a, n in zip(at(0.5), normal)])
+    (hn,) = session.handle({"type": "tool_handles", "tool": "fillet_chamfer", "selection": sel, "params": {"distance": -2}})["handles"]
+    assert hn["anchor"] == pytest.approx([a - 2 * n for a, n in zip(at(0.5), normal)])
+
+
+@pytest.mark.parametrize("reverse", [0, 1])
+def test_variable_fillet_end_handles_mark_the_ends_that_really_get_those_radii(reverse):
+    """With start 5 and end 1 the big radius is at the handle named Start: material near that end is cut away deeper."""
+    session, topology = _block()
+    tool = TOOLS["variable_fillet"]
+    checked = 0
+    for edge_id, edge in _fillet_edges(topology):
+        sel = Selection(edges=[edge_id])
+        params = {"start": 5.0, "end": 1.0, "reverse": reverse}
+        handles = {h["param"]: h for h in tool.handle_list(topology, sel, params)}
+        normal = edge_outward_normal(topology, edge)
+        at, _, _ = edge_curve(edge)
+        try:
+            shape = tool.execute(topology, sel, params, preview=True).shape
+        except Exception:
+            continue
+        # The handle's base point on the edge is where its anchor stands minus the radius along the bisector.
+        def base(name):
+            return [a - n * handles[name]["value"] for a, n in zip(handles[name]["anchor"], normal)]
+
+        deep = lambda p: [x - n * 1.4 for x, n in zip(p, normal)]  # noqa: E731  (1.4 in from the corner: cut at radius 5, not at 1)
+        big_end, small_end = base("start"), base("end")
+        for point in (big_end, small_end):  # move off the vertex a little along the edge
+            assert min(sum((a - b) ** 2 for a, b in zip(point, at(u))) for u in (0.0, 1.0)) < 1e-12
+        mid = at(0.5)
+        toward = lambda p: [m + (x - m) * 0.9 for m, x in zip(mid, p)]  # noqa: E731
+        assert _removed(shape, deep(toward(big_end))), (edge_id, reverse)
+        assert not _removed(shape, deep(toward(small_end))), (edge_id, reverse)
+        checked += 1
+    assert checked >= 4
+
+
+def test_variable_fillet_offers_interim_and_swap_handles_only_where_they_make_sense():
+    session, topology = _block()
+    (edge_id, _), (other_id, _) = _fillet_edges(topology)[:2]
+    one = {h["param"]: h for h in TOOLS["variable_fillet"].handle_list(topology, Selection(edges=[edge_id]), {})}
+    assert set(one) == {"start", "end", "reverse", "middle", "middle_at"}
+    assert one["reverse"]["toggle"] and not one["start"]["toggle"]
+    assert one["middle_at"]["min"] == 0.02 and one["middle_at"]["max"] == 0.98 and one["middle_at"]["value"] == 0.5
+    two = {h["param"] for h in TOOLS["variable_fillet"].handle_list(topology, Selection(edges=[edge_id, other_id]), {})}
+    assert two == {"start", "end", "reverse"}  # an interim point works on one edge at a time
+
+
+def test_variable_fillet_interim_handles_follow_their_values():
+    session, topology = _block()
+    edge_id, edge = _fillet_edges(topology)[0]
+    tool, sel = TOOLS["variable_fillet"], Selection(edges=[edge_id])
+    at, tangent, length = edge_curve(edge)
+    normal = edge_outward_normal(topology, edge)
+    a = {h["param"]: h for h in tool.handle_list(topology, sel, {"middle": 2, "middle_at": 0.5})}
+    b = {h["param"]: h for h in tool.handle_list(topology, sel, {"middle": 4, "middle_at": 0.7})}
+    assert b["middle"]["anchor"][0] != a["middle"]["anchor"][0] or b["middle"]["anchor"][1] != a["middle"]["anchor"][1] or b["middle"]["anchor"][2] != a["middle"]["anchor"][2]
+    # the point-along-edge handle moves by scale^-1 per fraction along the edge's own direction
+    moved = [y - x for x, y in zip(a["middle_at"]["anchor"], b["middle_at"]["anchor"])]
+    assert moved == pytest.approx([d * 0.2 * length for d in tangent(0.5)], abs=1e-6)
+    assert a["middle_at"]["scale"] == pytest.approx(1 / length)
+
+
+def test_chamfer_two_distances_handles_mark_the_leg_on_each_side_and_follow_the_swap():
+    session, topology = _block()
+    tool = TOOLS["chamfer_two_distances"]
+    checked = 0
+    for edge_id, edge in _fillet_edges(topology):
+        face_id, face = next(((i, f) for i, f in topology.faces() if any(f.IsSame(x) for x in topology.edge_faces(edge))), (None, None))
+        sel = Selection(faces=[face_id], edges=[edge_id])
+        got = {}
+        for swap in (0, 1):
+            params = {"first": 3.0, "second": 1.0, "swap": swap}
+            handles = {h["param"]: h for h in tool.handle_list(topology, sel, params)}
+            assert set(handles) == {"first", "second", "swap"} and handles["swap"]["toggle"]
+            shape = tool.execute(topology, sel, params, preview=True).shape
+            at, _, _ = edge_curve(edge)
+            corner = at(0.5)
+            first_dir = handles["first"]["direction"]
+            # the "first" handle's leg really is the long one: a point 2 along it, just off the corner, is cut away only then
+            probe = [c + d * 2.0 for c, d in zip(corner, first_dir)]
+            other = [c + d * 0.05 for c, d in zip(probe, handles["second"]["direction"])]
+            got[swap] = _removed(shape, other)
+            assert handles["first"]["anchor"] == pytest.approx([c + d * 3.0 for c, d in zip(corner, first_dir)])
+        assert got == {0: True, 1: True}, (edge_id, got)  # the first handle tracks the long leg on whichever side it lies
+        a0 = {h["param"]: h for h in tool.handle_list(topology, sel, {"swap": 0})}
+        a1 = {h["param"]: h for h in tool.handle_list(topology, sel, {"swap": 1})}
+        assert a0["first"]["direction"] == pytest.approx(a1["second"]["direction"])
+        assert a0["first"]["direction"] != pytest.approx(a1["first"]["direction"])
+        checked += 1
+    assert checked >= 4

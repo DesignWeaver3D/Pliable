@@ -29,7 +29,7 @@ from OCP.TopoDS import TopoDS, TopoDS_Compound, TopoDS_Shape
 from OCP.collections import List_TopoDS_Shape
 from OCP.gp import gp_Ax1, gp_Ax2, gp_Dir, gp_Pln, gp_Pnt, gp_Trsf, gp_Vec
 
-from .ops import MIN_DISTANCE, OperationError, OpResult, _boolean, _contains, planar_normal, push_pull, solids_of
+from .ops import edge_curve, edge_outward_normal, face_handle_point, MIN_DISTANCE, OperationError, OpResult, _boolean, _contains, planar_normal, push_pull, solids_of
 from .tools import Accepts, Handle, Param, Tool, get_tool, register
 
 TOL = 1e-6
@@ -1327,6 +1327,37 @@ class ChamferTwoDistances(Tool):
     accepts = Accepts(faces=(1, 1), edges=(1, None))
     params = [Param("first", "length", 2), Param("second", "length", 1), Param("swap", "number", 0)]  # swap 1 puts `first` on the other side
 
+    def handles(self, topology, selection, values):
+        edge = topology.edge(selection.edges[0])
+        reference = topology.face(selection.faces[0])
+        others = [f for f in topology.edge_faces(edge) if not f.IsSame(reference)]
+        normal = edge_outward_normal(topology, edge)
+        if not others or normal is None:
+            return []
+        at, tangent, length = edge_curve(edge)
+        mid, along = at(0.5), gp_Vec(*tangent(0.5))
+
+        def into(face):  # unit direction in the face, square to the edge, pointing into the face
+            v = gp_Vec(gp_Pnt(*mid), face_handle_point(face))
+            v.Subtract(along.Multiplied(v.Dot(along)))
+            if v.Magnitude() < 1e-9:
+                return None
+            v.Normalize()
+            return (v.X(), v.Y(), v.Z())
+
+        on_reference, on_other = into(reference), into(others[0])
+        if on_reference is None or on_other is None:
+            return []
+        swapped = values["swap"] >= 0.5
+        first_dir, second_dir = (on_other, on_reference) if swapped else (on_reference, on_other)
+        point = lambda d, size: tuple(m + x * size for m, x in zip(mid, d))  # noqa: E731
+        lift = max(length * 0.1, 1.0)
+        return [
+            Handle("first", "First distance", point(first_dir, values["first"]), first_dir, min=MIN_DISTANCE),
+            Handle("second", "Second distance", point(second_dir, values["second"]), second_dir, min=MIN_DISTANCE),
+            Handle("swap", "Swap the two sides (click)", point(normal, lift), tuple(normal), toggle=True),
+        ]
+
     def run(self, topology, selection, values, preview):
         if values["first"] < MIN_DISTANCE or values["second"] < MIN_DISTANCE:
             raise OperationError("Both distances must be positive")
@@ -1416,6 +1447,27 @@ class VariableFillet(Tool):
         Param("middle", "length", 0),  # radius at an interim point along the edge; 0 means none
         Param("middle_at", "number", 0.5),  # where along the edge (0 first end, 1 last end), measured after any reverse
     ]
+
+    def handles(self, topology, selection, values):
+        edge = topology.edge(selection.edges[0])
+        normal = edge_outward_normal(topology, edge)
+        if normal is None:
+            return []
+        at, tangent, length = edge_curve(edge)
+        up = lambda point, size: tuple(p + n * size for p, n in zip(point, normal))  # noqa: E731  (a point lifted along the bisector)
+        reverse = values["reverse"] >= 0.5
+        lift = max(length * 0.08, 1.0)  # the interim and swap markers float this far above the edge so they never sit on the end handles
+        found = [
+            # The start value belongs to the edge's first end unless the ends are swapped.
+            Handle("start", "Start radius", up(at(1.0 if reverse else 0.0), values["start"]), tuple(normal), min=MIN_DISTANCE),
+            Handle("end", "End radius", up(at(0.0 if reverse else 1.0), values["end"]), tuple(normal), min=MIN_DISTANCE),
+            Handle("reverse", "Swap the two ends (click)", up(at(0.12), lift), tuple(normal), toggle=True),
+        ]
+        if len(selection.edges) == 1:
+            u = min(max(values["middle_at"], 0.02), 0.98)
+            found.append(Handle("middle", "Radius at the interim point (0 = none)", up(at(u), values["middle"] + lift), tuple(normal), min=0.0))
+            found.append(Handle("middle_at", "Interim point along the edge", at(u), tangent(u), scale=1 / max(length, MIN_DISTANCE), min=0.02, max=0.98, unit=""))
+        return found
 
     def run(self, topology, selection, values, preview):
         from OCP.BRepFilletAPI import BRepFilletAPI_MakeFillet

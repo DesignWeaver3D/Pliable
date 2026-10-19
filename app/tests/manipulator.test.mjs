@@ -13,6 +13,13 @@ test("travel changes the value by scale times the distance, never below the mini
   assert.equal(handleValue({ ...h, min: null }, -50), -40);
 });
 
+test("a maximum caps the value", () => {
+  const f = { value: 0.5, scale: 1, min: 0.02, max: 0.98 };
+  assert.equal(handleValue(f, 5), 0.98);
+  assert.equal(handleValue(f, -5), 0.02);
+  assert.equal(handleValue(f, 0.1), 0.6);
+});
+
 test("travelFor is the inverse of handleValue", () => {
   assert.equal(travelFor({ value: 10, scale: 2 }, 16), 3);
   assert.equal(travelFor({ value: 10, scale: -1 }, 7), 3);

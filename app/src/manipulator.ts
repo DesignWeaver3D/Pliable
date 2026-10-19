@@ -9,11 +9,14 @@ export const ARM_PX = 34;
 export const GRAB_PX = 9;
 const COLOR = 0xffb347;
 const COLOR_HOT = 0xffffff;
+const COLOR_TOGGLE = 0x6fd3ff;
 
 /** The parameter value a handle shows after travelling `travel` (model units along the handle line). */
-export function handleValue(h: Pick<HandleInfo, "value" | "scale" | "min">, travel: number): number {
+export function handleValue(h: Pick<HandleInfo, "value" | "scale" | "min"> & { max?: number | null }, travel: number): number {
   const v = h.value + h.scale * travel;
-  return h.min !== null && v < h.min ? h.min : v;
+  if (h.min !== null && v < h.min) return h.min;
+  if (h.max != null && v > h.max) return h.max;
+  return v;
 }
 
 /** The travel that gives `value` (inverse of handleValue; used to keep the handle where the clamp put it). */
@@ -125,13 +128,15 @@ export class Manipulator {
     group.renderOrder = 10;
     const dir = new THREE.Vector3(...info.direction);
     group.position.set(...info.anchor);
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.42, 16), material());
+    const tip = new THREE.Mesh(info.toggle ? new THREE.SphereGeometry(0.17, 16, 12) : new THREE.ConeGeometry(0.16, 0.42, 16), material());
     tip.renderOrder = 11;
-    tip.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-    // The anchor is the grab point at the end of the arm; the arm runs back toward the model.
-    tip.position.copy(dir).multiplyScalar(-0.21);
+    if (!info.toggle) {
+      tip.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      // The anchor is the grab point at the end of the arm; the arm runs back toward the model.
+      tip.position.copy(dir).multiplyScalar(-0.21);
+    }
     const arm = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), dir.clone().multiplyScalar(-1)]),
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), info.toggle ? new THREE.Vector3() : dir.clone().multiplyScalar(-1)]),
       new THREE.LineBasicMaterial({ color: COLOR, depthTest: false, transparent: true }),
     );
     arm.renderOrder = 10;
@@ -153,7 +158,7 @@ export class Manipulator {
       const size = this.pixelSizeAt(pos) * ARM_PX;
       group.scale.setScalar(size);
       const hot = item === this.hot || item === this.active?.item;
-      (item.tip.material as THREE.MeshBasicMaterial).color.setHex(hot ? COLOR_HOT : COLOR);
+      (item.tip.material as THREE.MeshBasicMaterial).color.setHex(hot ? COLOR_HOT : info.toggle ? COLOR_TOGGLE : COLOR);
       (item.arm.material as THREE.LineBasicMaterial).color.setHex(hot ? COLOR_HOT : COLOR);
       const value = handleValue(info, item.travel);
       const p = pos.clone().project(this.camera());
@@ -161,7 +166,7 @@ export class Manipulator {
       item.label.style.display = behind || !hot ? "none" : "block"; // only the handle under the pointer or being dragged names itself
       item.label.style.left = `${((p.x + 1) / 2) * rect.width}px`;
       item.label.style.top = `${((1 - p.y) / 2) * rect.height}px`;
-      item.label.textContent = `${info.label} ${formatValue(value)}${info.unit === "°" || !info.unit ? info.unit : " " + info.unit}`;
+      item.label.textContent = info.toggle ? info.label : `${info.label} ${formatValue(value)}${info.unit === "°" || !info.unit ? info.unit : " " + info.unit}`;
       item.label.style.fontWeight = hot ? "bold" : "normal";
     }
   }
@@ -187,7 +192,7 @@ export class Manipulator {
       const tip = this.tipPoint(item);
       const a = this.screen(tip);
       const dir = new THREE.Vector3(...item.info.direction);
-      const b = this.screen(tip.clone().addScaledVector(dir, -this.pixelSizeAt(tip) * ARM_PX));
+      const b = item.info.toggle ? a : this.screen(tip.clone().addScaledVector(dir, -this.pixelSizeAt(tip) * ARM_PX));
       const ab = b.clone().sub(a);
       const t = ab.lengthSq() < 1e-6 ? 0 : Math.max(0, Math.min(1, pointer.clone().sub(a).dot(ab) / ab.lengthSq()));
       const d = pointer.distanceTo(a.clone().addScaledVector(ab, t)) - (t === 0 ? 2 : 0); // the tip wins ties
@@ -245,7 +250,7 @@ export class Manipulator {
 
   move(e: PointerEvent) {
     const a = this.active;
-    if (!a) return;
+    if (!a || a.item.info.toggle) return; // a toggle is clicked, not dragged
     a.moved = true;
     const value = handleValue(a.item.info, this.travelAt(a, e));
     a.item.travel = travelFor(a.item.info, value);
@@ -258,6 +263,10 @@ export class Manipulator {
     this.active = null;
     this.dom.style.cursor = "";
     const { info, travel } = a.item;
+    if (info.toggle) {
+      this.onDrag(info.param, info.value >= 0.5 ? 0 : 1, "end", e.clientX, e.clientY);
+      return;
+    }
     if (a.moved) this.onDrag(info.param, Math.round(handleValue(info, travel) * 1000) / 1000, "end", e.clientX, e.clientY);
   }
 }

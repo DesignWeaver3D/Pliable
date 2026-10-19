@@ -1039,7 +1039,10 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   },
   cancelEyedrop,
   changed: () => {
-    if (!toolPanel.isOpen) viewport.manipulator.clear();
+    if (!toolPanel.isOpen) {
+      viewport.manipulator.clear();
+      void refreshSelectionHandles(); // back to the selection's own handles
+    }
     renderChips();
     updateDivideFrame();
   },
