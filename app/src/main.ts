@@ -51,6 +51,7 @@ const navCube = new NavCube($("navcube"), viewport);
 const reference = new ReferenceView(viewport);
 const pointPicker = new PointPicker(viewport, reference, (text) => (status.textContent = text));
 const seeThroughButton = $("seethrough");
+navCube.group.append(seeThroughButton, $("axes"));
 seeThroughButton.addEventListener("click", () => viewport.toggleSeeThrough());
 const syncSeeThrough = () => seeThroughButton.classList.toggle("active", settings.seeThrough);
 onSettingsChange(syncSeeThrough);

@@ -17,6 +17,8 @@ export const VIEW_KEYS: Record<string, string> = { "0": "iso", "1": "front", "2"
 
 export class NavCube {
   private readonly cube = document.createElement("div");
+  /** The row of view buttons under the cube; other controls (axes, see-through) are moved into it. */
+  readonly group = document.createElement("div");
   readonly projectionButton = document.createElement("button");
 
   constructor(
@@ -46,7 +48,9 @@ export class NavCube {
     home.title = "Isometric view (0)";
     home.addEventListener("click", () => viewport.setView("iso"));
     this.projectionButton.addEventListener("click", () => this.toggleProjection());
-    host.append(scene, home, this.projectionButton);
+    this.group.className = "viewctl";
+    this.group.append(home, this.projectionButton);
+    host.append(scene, this.group);
     this.updateProjectionLabel();
   }
 
