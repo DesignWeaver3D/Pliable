@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor } from "../src/manipulator.ts";
+import { linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep } from "../src/manipulator.ts";
 
 const h = { value: 10, scale: 1, min: 1 };
 
@@ -70,4 +70,42 @@ test("a clamped size keeps the linked origin consistent", () => {
   const low = { value: 10, scale: 1, min: 1, links: [{ param: "x", scale: -1, value: 2 }] };
   const travel = travelFor(low, handleValue(low, -50)); // clamps at width 1, travel -9
   assert.deepEqual(linkedValues(low, travel), { x: 11 });
+});
+
+test("a typed number is the size for a resize grip, in either direction of its scale", () => {
+  const grip = { kind: "resize", value: 10, scale: 1, min: 0.1 };
+  assert.equal(handleValue(grip, typedTravel(grip, "25", false)), 25);
+  const low = { ...grip, scale: -1 }; // a low face grows the size by moving the other way
+  assert.equal(typedTravel(low, "25", false), -15);
+  assert.equal(handleValue(low, typedTravel(low, "25", false)), 25);
+  assert.equal(handleValue(grip, typedTravel(grip, "4", true)), 0.1); // never below the minimum
+  assert.equal(handleValue(grip, typedTravel(grip, "2.5", false)), 2.5);
+});
+
+test("a typed number is the distance along the axis for a move arrow, negative going back", () => {
+  const arrow = { kind: "move", value: 3, scale: 1, min: null };
+  assert.equal(typedTravel(arrow, "10", false), 10);
+  assert.equal(typedTravel(arrow, "10", true), -10);
+  assert.equal(handleValue(arrow, typedTravel(arrow, "10", true)), -7);
+});
+
+test("a typed number is the value of a radius or distance handle", () => {
+  const fillet = { kind: "arrow", value: 1, scale: 1, min: 0.01, max: 50 };
+  assert.equal(handleValue(fillet, typedTravel(fillet, "3", false)), 3);
+  assert.equal(handleValue(fillet, typedTravel(fillet, "99", false)), 50);
+});
+
+test("nothing usable typed gives no travel, and entry keys build the text", () => {
+  const grip = { kind: "resize", value: 10, scale: 1, min: 0.1 };
+  assert.equal(typedTravel(grip, "", false), null);
+  assert.equal(typedTravel(grip, ".", false), null);
+  let st = typedStep(null, false, "2");
+  st = typedStep(st.text, st.negative, "5");
+  assert.deepEqual(st, { text: "25", negative: false });
+  assert.deepEqual(typedStep("25", false, "-"), { text: "25", negative: true });
+  assert.deepEqual(typedStep("25", true, "-"), { text: "25", negative: false });
+  assert.equal(typedStep("2.5", false, "."), null);
+  assert.deepEqual(typedStep("25", false, "Backspace"), { text: "2", negative: false });
+  assert.equal(typedStep(null, false, "Backspace"), null);
+  assert.equal(typedStep(null, false, "Tab"), null);
 });

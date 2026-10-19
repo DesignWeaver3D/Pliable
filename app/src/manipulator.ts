@@ -50,6 +50,26 @@ export function travelFor(h: Pick<HandleInfo, "value" | "scale">, value: number)
   return h.scale === 0 ? 0 : (value - h.value) / h.scale;
 }
 
+/** The handle travel that a typed number asks for, or null while nothing usable is typed. A move arrow's number is the
+ *  distance along its axis (negative goes backwards); any other handle's number is the parameter value itself (the size
+ *  of a resize grip, a radius), with the handle's direction kept and the declared limits applied. */
+export function typedTravel(h: Pick<HandleInfo, "value" | "scale" | "min" | "kind"> & { max?: number | null }, text: string, negative: boolean): number | null {
+  const n = text === "" || text === "." ? NaN : Number(text);
+  if (!Number.isFinite(n)) return null;
+  const signed = negative ? -n : n;
+  const raw = h.kind === "move" ? signed : travelFor(h, signed);
+  return travelFor(h, handleValue(h, raw));
+}
+
+/** One key of typed entry: the new text and sign, or null when the key is not part of entry. A second "-" flips the sign back. */
+export function typedStep(text: string | null, negative: boolean, key: string): { text: string; negative: boolean } | null {
+  if (key === "-") return { text: text ?? "", negative: !negative };
+  if (/^[0-9]$/.test(key)) return { text: (text ?? "") + key, negative };
+  if (key === "." && !(text ?? "").includes(".")) return { text: (text ?? "") + ".", negative };
+  if (key === "Backspace" && text !== null) return { text: text.slice(0, -1), negative };
+  return null;
+}
+
 /** Where along the line (point p, unit direction d) the pointer ray passes closest, as a distance from p; null when the
  *  ray is nearly parallel to the line (looking along it), where the position is not defined. */
 export function lineParam(p: THREE.Vector3, d: THREE.Vector3, rayOrigin: THREE.Vector3, rayDir: THREE.Vector3): number | null {
@@ -84,11 +104,16 @@ interface Active {
   axisPx: THREE.Vector2;
   travel0: number;
   moved: boolean;
+  lastX?: number;
+  lastY?: number;
+  /** Typed entry: the text so far (null while the mouse sets the value) and its sign. */
+  typed: string | null;
+  negative: boolean;
 }
 
 export class Manipulator {
   /** Called with the new parameter value while a handle is dragged, then once more with phase "end". */
-  onDrag: (param: string, value: number, phase: "move" | "end", x: number, y: number, linked: Record<string, number>) => void = () => {};
+  onDrag: (param: string, value: number, phase: "move" | "end" | "cancel", x: number, y: number, linked: Record<string, number>) => void = () => {};
 
   private readonly root = new THREE.Group();
   private items: Item[] = [];
@@ -200,7 +225,11 @@ export class Manipulator {
       item.label.style.display = behind || !hot ? "none" : "block"; // only the handle under the pointer or being dragged names itself
       item.label.style.left = `${((p.x + 1) / 2) * rect.width}px`;
       item.label.style.top = `${((1 - p.y) / 2) * rect.height}px`;
-      item.label.textContent = info.toggle ? info.label : `${info.label} ${formatValue(value)}${info.unit === "Â°" || !info.unit ? info.unit : " " + info.unit}`;
+      const unit = info.unit === "Â°" || !info.unit ? info.unit : " " + info.unit;
+      const typing = item === this.active?.item && this.active.typed !== null;
+      const shown = typing ? `${this.active!.negative ? "-" : ""}${this.active!.typed}|` : formatValue(value);
+      item.label.textContent = info.toggle ? info.label : `${info.label} ${shown}${unit}`;
+      item.label.style.outline = typing ? "1px solid #ffb347" : "";
       item.label.style.fontWeight = hot ? "bold" : "normal";
     }
   }
@@ -268,8 +297,9 @@ export class Manipulator {
     const t0 = lineParam(anchor, dir, ray.origin, ray.direction) ?? 0;
     const tip = this.tipPoint(item);
     const axisPx = this.screen(tip.clone().addScaledVector(dir, this.pixelSizeAt(tip) * ARM_PX)).sub(this.screen(tip));
-    this.active = { item, t0: t0 - item.travel, x: e.clientX, y: e.clientY, axisPx, travel0: item.travel, moved: false };
+    this.active = { item, t0: t0 - item.travel, x: e.clientX, y: e.clientY, axisPx, travel0: item.travel, moved: false, typed: null, negative: false };
     this.dom.style.cursor = "grabbing";
+    (document.activeElement as HTMLElement | null)?.blur?.(); // typed digits belong to the handle, not to a form field that had focus
     return true;
   }
 
@@ -289,18 +319,80 @@ export class Manipulator {
   move(e: PointerEvent) {
     const a = this.active;
     if (!a || a.item.info.toggle) return; // a toggle is clicked, not dragged
+    a.lastX = e.clientX;
+    a.lastY = e.clientY;
+    if (a.typed !== null) return; // a typed value holds the handle; the mouse is ignored
     a.moved = true;
     const value = handleValue(a.item.info, this.travelAt(a, e));
     a.item.travel = travelFor(a.item.info, value);
     this.onDrag(a.item.info.param, Math.round(value * 1000) / 1000, "move", e.clientX, e.clientY, linkedValues(a.item.info, a.item.travel));
   }
 
-  up(e: PointerEvent) {
+  /** Whether a number is being typed for the handle being dragged. */
+  get typing(): boolean {
+    return this.active?.typed != null;
+  }
+
+  /** Keyboard entry for the handle being dragged: digits, "." and "-" start typing at once, Backspace edits, Enter
+   *  commits, Escape cancels the drag. Returns whether the key was used (the caller then prevents its default). */
+  key(e: { key: string }): boolean {
+    const a = this.active;
+    if (!a || a.item.info.toggle) return false;
+    if (e.key === "Enter") {
+      this.finish();
+      return true;
+    }
+    if (e.key === "Escape") {
+      this.cancel();
+      return true;
+    }
+    const step = typedStep(a.typed, a.negative, e.key);
+    if (!step) return false;
+    a.typed = step.text;
+    a.negative = step.negative;
+    const travel = typedTravel(a.item.info, a.typed, a.negative);
+    if (travel !== null) {
+      a.moved = true;
+      this.setTravel(a, travel);
+    }
+    return true;
+  }
+
+  private setTravel(a: Active, travel: number) {
+    a.item.travel = travel;
+    const { info } = a.item;
+    this.onDrag(info.param, Math.round(handleValue(info, travel) * 1000) / 1000, "move", a.lastX ?? a.x, a.lastY ?? a.y, linkedValues(info, travel));
+  }
+
+  /** Ends the drag as if the pointer was released (a typed value is committed). */
+  finish() {
+    const a = this.active;
+    if (!a) return;
+    this.release(a, a.lastX ?? a.x, a.lastY ?? a.y);
+  }
+
+  /** Abandons the drag, typed text included: the handle goes back where it started. */
+  cancel() {
     const a = this.active;
     if (!a) return;
     this.active = null;
     this.dom.style.cursor = "";
+    const { info } = a.item;
+    a.item.travel = a.travel0;
+    if (a.moved) this.onDrag(info.param, Math.round(handleValue(info, a.travel0) * 1000) / 1000, "cancel", a.lastX ?? a.x, a.lastY ?? a.y, linkedValues(info, a.travel0));
+  }
+
+  up(e: PointerEvent) {
+    const a = this.active;
+    if (!a) return;
+    this.release(a, e.clientX, e.clientY);
+  }
+
+  private release(a: Active, x: number, y: number) {
+    this.active = null;
+    this.dom.style.cursor = "";
     const { info, travel } = a.item;
+    const e = { clientX: x, clientY: y };
     if (info.toggle) {
       this.onDrag(info.param, info.value >= 0.5 ? 0 : 1, "end", e.clientX, e.clientY, {});
       return;
