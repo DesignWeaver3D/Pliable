@@ -3,16 +3,16 @@ import * as THREE from "three";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { MeshData } from "./client";
 import type { Viewport } from "./viewport";
+import { AXIS_COLORS, axisHalfLength, positionsBox, type Box6 } from "./axes";
 
 const AXES = [
-  { name: "X axis", dir: new THREE.Vector3(1, 0, 0), color: 0xe5484d },
-  { name: "Y axis", dir: new THREE.Vector3(0, 1, 0), color: 0x46a758 },
-  { name: "Z axis", dir: new THREE.Vector3(0, 0, 1), color: 0x3e8bff },
+  { name: "X axis", dir: new THREE.Vector3(1, 0, 0), color: AXIS_COLORS.x },
+  { name: "Y axis", dir: new THREE.Vector3(0, 1, 0), color: AXIS_COLORS.y },
+  { name: "Z axis", dir: new THREE.Vector3(0, 0, 1), color: AXIS_COLORS.z },
 ];
 const SNAP_PX = 12;
-const MIN_HALF_LENGTH = 25;
+type Box3Holder = THREE.Object3D;
 
 export interface ReferenceSnap {
   point: THREE.Vector3;
@@ -43,13 +43,17 @@ export class ReferenceView {
   private readonly lines: LineSegments2[] = [];
   private readonly origin = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
   private half = 0;
-  private bounds: number[] | null = null;
+  private seen: unknown = null;
   private shown = true;
 
   constructor(private readonly viewport: Viewport) {
     for (const axis of AXES) {
-      for (const positive of [true, false]) {
-        const line = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: axis.color, linewidth: positive ? 2 : 1, transparent: true, opacity: positive ? 0.9 : 0.35, depthTest: true }));
+      for (const [positive, depthTest] of [[true, true], [false, true], [true, false], [false, false]] as const) {
+        // The depth-tested lines are the solid ones; the others show faintly through the model so the axes never vanish inside a solid.
+        const line = new LineSegments2(
+          new LineSegmentsGeometry(),
+          new LineMaterial({ color: axis.color, linewidth: depthTest ? (positive ? 2 : 1) : 1, transparent: true, opacity: depthTest ? (positive ? 0.9 : 0.35) : positive ? 0.25 : 0.1, depthTest }),
+        );
         line.userData = { dir: axis.dir, positive };
         line.renderOrder = 1;
         line.frustumCulled = false;
@@ -73,22 +77,42 @@ export class ReferenceView {
 
   /** Call every frame: follows the model's size and keeps line widths right. */
   tick() {
-    const data = this.viewport.meshData;
-    if (data && data.bounds !== this.bounds) this.rebuild(data);
+    this.refreshLength();
     const size = this.viewport.renderer.getSize(new THREE.Vector2());
     for (const l of this.lines) l.material.resolution.set(size.x, size.y);
     const scale = this.viewport.pixelSizeAt(new THREE.Vector3()) * 4;
     this.origin.scale.setScalar(scale);
   }
 
-  private rebuild(data: MeshData) {
-    this.bounds = data.bounds;
-    const [x0, y0, z0, x1, y1, z1] = data.bounds;
-    this.half = Math.max(MIN_HALF_LENGTH, 1.25 * Math.max(Math.abs(x0), Math.abs(y0), Math.abs(z0), Math.abs(x1), Math.abs(y1), Math.abs(z1)));
+  /** Axis length follows everything visible: the shown model (committed or preview, hidden bodies left out) and sketch geometry. */
+  private refreshLength() {
+    const data = this.viewport.meshData;
+    const extras: Box3Holder[] = [];
+    this.viewport.scene.traverse((o) => {
+      if (o.userData.extent && o.parent) extras.push(o);
+    });
+    const boxes: Box6[] = [];
+    const box = new THREE.Box3();
+    for (const o of extras) {
+      box.makeEmpty().setFromObject(o);
+      if (!box.isEmpty()) boxes.push([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z]);
+    }
+    // The mesh's edge list only holds visible solids, so it is the visible extent; its own bounds still cover a mesh with no edges.
+    const modelBox = data ? (positionsBox(data.edgePositions) ?? (data.edges.length === 0 ? data.bounds : null)) : null;
+    if (modelBox) boxes.push(modelBox);
+    const key = data;
+    const half = axisHalfLength(boxes);
+    if (key === this.seen && half === this.half) return;
+    this.seen = key;
+    this.setHalf(half);
+  }
+
+  private setHalf(half: number) {
+    this.half = half;
     for (const line of this.lines) {
       const d = line.userData.dir as THREE.Vector3;
       const sign = line.userData.positive ? 1 : -1;
-      line.geometry.setPositions([0, 0, 0, d.x * sign * this.half, d.y * sign * this.half, d.z * sign * this.half]);
+      line.geometry.setPositions([0, 0, 0, d.x * sign * half, d.y * sign * half, d.z * sign * half]);
     }
   }
 
