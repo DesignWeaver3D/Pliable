@@ -67,6 +67,8 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Rules are enforced at assignment and load only. Digit view keys ignore Shift. Only the first chord shows as the hint; rebinding replaces all chords. Ctrl+K may clash with a browser's own search in browsers other than Chrome.
 - Leaving the page warns whenever undo steps exist or a sketch is open (an export does not clear it); opening another file over edits does not warn.
 - Touch gaps: hide, isolate, show all, look at face and see-through have a key or search entry but no visible button; right-click, hover and keyboard-only paths have no touch equivalent.
+- Touch sizing is a CSS rule for coarse pointers only (40 px targets for the bar, tool strip, view controls, Tools handle and search rows); not tried on a real touch screen. The Getting started card and search chips have no touch-specific layout.
+- Search ranking: loose letter matching only for queries of 3 letters or fewer; tool keywords are a fixed table in `search.ts` keyed by tool id pattern, so new tools may need words added. Recent commands are stored by label, so renamed commands drop out of the recent list.
 - Dimension overlap avoidance estimates text width from the character count (`dimensions.ts`); the first dimension drawn wins.
 - Tool-usage counts live in core memory and reset on restart or reconnect; surfaces are `strip`, `search`, `drawer`, `keys`, `drag`, `other`; sketch tools are counted as `sketch_<tool>`, `sketch_extrude`, `sketch_revolve`, `sketch_finish`.
 

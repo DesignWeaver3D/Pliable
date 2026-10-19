@@ -151,6 +151,14 @@
       #palette .group { padding-bottom: 2px; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
       #palette .scopes button { background: #1b1d22; color: #ffb878; border: 1px solid #444; border-radius: 3px; font: inherit; padding: 0 5px; cursor: pointer; }
       #palette .row.empty { white-space: normal; }
+      /* Touch screens: finger-sized targets (40 px) for the bar, the tool strip, the view controls and the Tools handle. Mouse layout is unchanged. */
+      @media (pointer: coarse) {
+        #bar button, #bar select, #tools button, .viewctl button, #gear, #drawer .drawerhead button { min-height: 40px; min-width: 40px; }
+        #drawerbtn { width: 40px; height: 56px; }
+        #drawerbtn[aria-expanded="true"] { left: 280px; }
+        #palette .row { min-height: 40px; box-sizing: border-box; align-items: center; }
+        #palette-input { min-height: 40px; }
+      }
     </style>
   </head>
   <body>
