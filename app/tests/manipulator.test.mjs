@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { Manipulator, linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep } from "../src/manipulator.ts";
+import { Manipulator, linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep, pickScore, MOVE_ARM_PX } from "../src/manipulator.ts";
 
 const h = { value: 10, scale: 1, min: 1 };
 
@@ -135,4 +135,23 @@ test("Escape while typing a handle value restores the start without applying", (
   m.key({ key: "5" });
   m.key({ key: "Escape" });
   assert.deepEqual(seen, []);
+});
+
+test("a move arrow has a fixed screen length of about 80 px", () => {
+  assert.ok(MOVE_ARM_PX >= 80 && MOVE_ARM_PX <= 100);
+});
+
+test("a move arrowhead beats a resize grip under the same pixel, but its start does not", () => {
+  // Same pixel distance 5: the head of the arrow wins, the grip wins over the arrow's start at the origin.
+  assert.ok(pickScore(5, "move", 1) < pickScore(5, "resize", 0));
+  assert.ok(pickScore(5, "move", 0) >= pickScore(5, "resize", 0));
+  assert.ok(pickScore(5, "arrow", 0) < pickScore(5, "arrow", 0.5));
+});
+
+test("a radius handle on a diameter parameter types a radius, a diameter handle types the diameter", () => {
+  const radius = { value: 10, scale: 2, min: 0.001, kind: "resize", factor: 0.5 };
+  const diameter = { value: 10, scale: 2, min: 0.001, kind: "resize", factor: 1 };
+  // Typing 7 on the radius handle sets the parameter to 14; typing 7 on the diameter handle sets it to 7.
+  assert.equal(handleValue(radius, typedTravel(radius, "7", false)), 14);
+  assert.equal(handleValue(diameter, typedTravel(diameter, "7", false)), 7);
 });

@@ -8,6 +8,8 @@ import type { HandleInfo } from "./tools";
 /** Length of a handle's arm and the radius of its grab target, in screen pixels. */
 export const ARM_PX = 34;
 export const GRAB_PX = 9;
+/** A move arrow is this long on screen, from its anchor to the arrowhead, whatever the size of the object. */
+export const MOVE_ARM_PX = 80;
 const COLOR = 0xffb347;
 const COLOR_HOT = 0xffffff;
 const COLOR_TOGGLE = 0x6fd3ff;
@@ -16,6 +18,15 @@ const AXIS_LINE = 0xffb347;
 /** Resize grips are neutral squares (orange on hover) so they never read as the coloured move arrows. */
 const COLOR_RESIZE = 0xc8ccd4;
 const COLOR_RESIZE_HOT = 0xffb347;
+
+/** How close a handle counts for picking: its pixel distance, lowered when it should win a tie. `t` is the position
+ *  along the handle from its tail (the anchor of a resize grip, the start of a move arrow) to its head (0..1). The head
+ *  half of a move arrow beats a resize grip under the same pixel; the tail of a move arrow, where it starts on the
+ *  object's origin, does not, so the grip stays reachable; a pull handle's tip wins over its own arm. */
+export function pickScore(distPx: number, kind: string | undefined, t: number): number {
+  if (kind === "move") return t >= 0.5 ? distPx - 6 : distPx;
+  return t === 0 ? distPx - 2 : distPx;
+}
 
 /** The origin-axis colour of a direction (its largest component), or white-ish for none. */
 export function axisColorOf(d: readonly number[]): number {
@@ -55,11 +66,11 @@ export function travelFor(h: Pick<HandleInfo, "value" | "scale">, value: number)
 /** The handle travel that a typed number asks for, or null while nothing usable is typed. A move arrow's number is the
  *  distance along its axis (negative goes backwards); any other handle's number is the parameter value itself (the size
  *  of a resize grip, a radius), with the handle's direction kept and the declared limits applied. */
-export function typedTravel(h: Pick<HandleInfo, "value" | "scale" | "min" | "kind"> & { max?: number | null }, text: string, negative: boolean): number | null {
+export function typedTravel(h: Pick<HandleInfo, "value" | "scale" | "min" | "kind"> & { factor?: number } & { max?: number | null }, text: string, negative: boolean): number | null {
   const n = text === "" || text === "." ? NaN : Number(text);
   if (!Number.isFinite(n)) return null;
   const signed = negative ? -n : n;
-  const raw = h.kind === "move" ? signed : travelFor(h, signed);
+  const raw = h.kind === "move" ? signed : travelFor(h, signed / (h.factor || 1));
   return travelFor(h, handleValue(h, raw));
 }
 
@@ -248,6 +259,12 @@ export class Manipulator {
       }
       const size = this.pixelSizeAt(pos) * ARM_PX;
       group.scale.setScalar(size);
+      if (info.kind === "move") {
+        const ratio = MOVE_ARM_PX / ARM_PX;
+        const dir = new THREE.Vector3(...info.direction);
+        item.arm.scale.setScalar(ratio);
+        item.tip.position.copy(dir).multiplyScalar(ratio - 0.21);
+      }
       const hot = item === this.hot || item === this.active?.item;
       const colors = handleColors(info);
       const color = hot ? colors.hot : colors.rest;
@@ -262,7 +279,8 @@ export class Manipulator {
       item.label.style.top = `${((1 - p.y) / 2) * rect.height}px`;
       const unit = info.unit === "Â°" || !info.unit ? info.unit : " " + info.unit;
       const typing = item === this.active?.item && this.active.typed !== null;
-      const shown = typing ? `${this.active!.negative ? "-" : ""}${this.active!.typed}|` : formatValue(value);
+      const symbol = info.symbol ?? "";
+      const shown = symbol + (typing ? `${this.active!.negative ? "-" : ""}${this.active!.typed}|` : formatValue(value * (info.factor || 1)));
       item.label.textContent = info.toggle ? info.label : `${info.label} ${shown}${unit}`;
       item.label.style.outline = typing ? "1px solid #ffb347" : "";
       item.label.style.fontWeight = hot ? "bold" : "normal";
@@ -290,14 +308,15 @@ export class Manipulator {
       const tip = this.tipPoint(item);
       const dir = new THREE.Vector3(...item.info.direction);
       const move = item.info.kind === "move";
-      const reach = (move ? 1 : -1) * this.pixelSizeAt(tip) * ARM_PX;
+      const ratio = move ? MOVE_ARM_PX / ARM_PX : 1;
+      const reach = (move ? 1 : -1) * this.pixelSizeAt(tip) * ARM_PX * ratio;
       const end = item.info.toggle ? this.screen(tip) : this.screen(tip.clone().addScaledVector(dir, reach));
-      // The arrowhead end wins ties: the tip of a pull arrow, the far end of a move arrow (all three start at one point).
-      const a = move ? end : this.screen(tip);
-      const b = move ? this.screen(tip) : end;
+      // a is the tail (a move arrow's start, a pull handle's grab point) and b the head (a move arrow's tip, a pull handle's arm end).
+      const a = this.screen(tip);
+      const b = end;
       const ab = b.clone().sub(a);
       const t = ab.lengthSq() < 1e-6 ? 0 : Math.max(0, Math.min(1, pointer.clone().sub(a).dot(ab) / ab.lengthSq()));
-      const d = pointer.distanceTo(a.clone().addScaledVector(ab, t)) - (t === 0 ? 2 : 0); // the tip wins ties
+      const d = pickScore(pointer.distanceTo(a.clone().addScaledVector(ab, t)), item.info.kind, t);
       if (d < bestD) {
         bestD = d;
         best = item;

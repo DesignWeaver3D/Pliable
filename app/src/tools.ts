@@ -39,6 +39,9 @@ export interface HandleInfo {
   unit: string;
   /** An axis handle: the other end of the line drawn from here (a hole's opening), or null. */
   axisFrom?: [number, number, number] | null;
+  /** The number shown and typed is the parameter times `factor` (0.5: a diameter parameter shown as a radius), after `symbol`. */
+  factor?: number;
+  symbol?: string;
   /** The parameter's value when the handle was computed. */
   value: number;
   /** Other parameters that move with this one: each changes by `scale` per model unit of travel (a low box face also moves the origin). */

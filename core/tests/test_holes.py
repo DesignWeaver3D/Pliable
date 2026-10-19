@@ -160,6 +160,8 @@ def test_edit_hole_handles(block):
     assert depth["value"] == pytest.approx(8) and depth["max"] == pytest.approx(20) and depth["axisFrom"][2] == pytest.approx(10)
     assert depth["anchor"][2] == pytest.approx(2) and depth["direction"] == pytest.approx([0, 0, -1])
     assert handles["diameter"]["value"] == pytest.approx(6) and handles["diameter"]["scale"] == 2
+    rim = [h for h in tool.handle_list(part, Selection(faces=[wall]), {}) if h["param"] == "diameter"]
+    assert sorted(h["symbol"] for h in rim) == ["R", "Ø", "Ø"] and all(h["value"] == pytest.approx(6) for h in rim)
     moved = {h["param"]: h for h in tool.handle_list(part, Selection(faces=[wall]), {"dx": 5, "depth": 12})}
     assert moved["depth"]["anchor"][0] == pytest.approx(5) and moved["depth"]["value"] == pytest.approx(12)
     # not a hole: no tool, no handles

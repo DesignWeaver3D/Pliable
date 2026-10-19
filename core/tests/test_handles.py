@@ -461,16 +461,35 @@ def test_cylinder_cone_sphere_and_torus_resize_handles(session):
     def of(tool, **params):
         return [h for h in session.handle({"type": "tool_handles", "tool": tool, "params": params})["handles"] if h["kind"] == "resize"]
 
+    def check_pair(handles, param):
+        """One single-ended radius handle plus a double-ended diameter handle across it, all setting `param`."""
+        mine = [h for h in handles if h["param"] == param]
+        (radius,) = [h for h in mine if h["symbol"] == "R"]
+        pair = [h for h in mine if h["symbol"] == "Ø"]
+        assert len(mine) == 3 and len(pair) == 2
+        assert radius["factor"] == 0.5 and all(h["factor"] == 1.0 and h["scale"] == 2.0 for h in pair) and radius["scale"] == 2.0
+        dot = lambda a, b: sum(x * y for x, y in zip(a, b))
+        assert dot(pair[0]["direction"], pair[1]["direction"]) == pytest.approx(-1)  # the two ends face opposite ways
+        assert dot(pair[0]["direction"], radius["direction"]) == pytest.approx(0)  # across, perpendicular to the radius handle
+        return radius, pair
+
     cyl = of("add_cylinder", x=0, y=0, z=0, diameter=10, height=20)
-    assert sum(h["param"] == "diameter" for h in cyl) == 4 and all(h["scale"] == 2.0 for h in cyl if h["param"] == "diameter")
+    radius, pair = check_pair(cyl, "diameter")
+    assert radius["anchor"] == [5.0, 0.0, 10.0] and radius["value"] == 10
     bottom = next(h for h in cyl if h["param"] == "height" and h["direction"] == [0.0, 0.0, -1.0])
     assert bottom["anchor"] == [0.0, 0.0, 0.0] and bottom["links"][0]["param"] == "z" and bottom["links"][0]["scale"] == -1.0
     assert next(h for h in cyl if h["param"] == "height" and h["direction"] == [0.0, 0.0, 1.0])["anchor"] == [0.0, 0.0, 20.0]
-    assert len(of("add_sphere", x=0, y=0, z=0, diameter=10)) == 6
+    sphere = of("add_sphere", x=0, y=0, z=0, diameter=10)
+    check_pair(sphere, "diameter")
+    assert len(sphere) == 3  # one parameter: one radius handle and the double-ended diameter handle, nothing else
     cone = of("add_cone", x=0, y=0, z=0, bottom_diameter=10, top_diameter=4, height=8)
-    assert {h["param"] for h in cone} == {"bottom_diameter", "top_diameter", "height"} and len(cone) == 6
+    assert {h["param"] for h in cone} == {"bottom_diameter", "top_diameter", "height"} and len(cone) == 8
+    (_, bottom_pair), (_, top_pair) = check_pair(cone, "bottom_diameter"), check_pair(cone, "top_diameter")
+    assert abs(sum(a * b for a, b in zip(bottom_pair[0]["direction"], top_pair[0]["direction"]))) < 1e-9  # the top set is turned a quarter turn
     torus = of("add_torus", x=0, y=0, z=0, major=20, minor=6)
-    assert {h["param"] for h in torus} == {"major", "minor"} and len(torus) == 4
+    assert {h["param"] for h in torus} == {"major", "minor"} and len(torus) == 6
+    check_pair(torus, "major")
+    check_pair(torus, "minor")
 
 
 @pytest.mark.parametrize("tool_id", PRIMITIVES)

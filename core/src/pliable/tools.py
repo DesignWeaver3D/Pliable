@@ -141,6 +141,10 @@ class Handle:
     # size), and, for an axis handle, the other end of the line the view draws from there to the anchor.
     shown: float | None = None
     axis_from: tuple[float, float, float] | None = None
+    # What the view shows and accepts as a typed number: the parameter times `factor` (0.5 shows a diameter parameter as
+    # a radius), led by `symbol` ("R" or the diameter sign) so the typed value's meaning is clear.
+    factor: float = 1.0
+    symbol: str = ""
 
     def to_json(self, value: float, values: dict | None = None) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
@@ -158,9 +162,27 @@ class Handle:
             "toggle": self.toggle,
             "kind": "toggle" if self.toggle else self.kind,
             "unit": self.unit,
+            "factor": self.factor,
+            "symbol": self.symbol,
             "value": value,
             "links": [{"param": name, "scale": scale, "value": (values or {}).get(name, 0.0)} for name, scale in self.links if values is None or name in values],
         }
+
+
+def round_handles(param: str, name: str, centre, radial, across, diameter: float, offset: float = 0.0, **kw) -> list[Handle]:
+    """The handles of a diameter-valued `param`: one radius handle from `centre` outward along `radial`, and a
+    double-ended diameter handle across the feature along `across` (perpendicular to `radial`). Both set the same
+    parameter, so dragging either (or typing R or a diameter) changes the one value. `offset` pushes the grips out
+    along their direction, and `kw` (min, max, shown, kind...) goes to every handle."""
+    reach = diameter / 2 + offset
+    kw.setdefault("kind", "resize")
+    point = lambda d: tuple(c + d[k] * reach for k, c in enumerate(centre))
+    flip = tuple(-c for c in across)
+    return [
+        Handle(param, f"{name} radius", point(radial), tuple(radial), scale=2.0, factor=0.5, symbol="R", **kw),
+        Handle(param, f"{name} diameter (+)", point(across), tuple(across), scale=2.0, symbol="Ø", **kw),
+        Handle(param, f"{name} diameter (-)", point(flip), flip, scale=2.0, symbol="Ø", **kw),
+    ]
 
 
 def _bind_pairs(param: "Param", raw) -> list[list[float]]:

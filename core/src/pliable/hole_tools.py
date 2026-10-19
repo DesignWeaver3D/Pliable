@@ -14,7 +14,7 @@ from OCP.gp import gp_Vec
 from .features import finish
 from .holes import NOT_ROUND, HoleInfo, find_hole, rebuild_hole
 from .ops import MIN_DISTANCE, OperationError, OpResult
-from .tools import Accepts, Handle, Param, Tool, register
+from .tools import Accepts, Handle, Param, Tool, register, round_handles
 
 CLEARANCE = 1e-3  # how far past a counterbore or countersink the bore must still reach
 
@@ -46,6 +46,13 @@ class _HoleTool(Tool):
         if len(selection.faces) + len(selection.edges) != 1:
             raise OperationError("Select one face of a hole, or the circle at its opening")
         return find_hole(topology, reach=reach, **_target(selection))
+
+
+def _perpendicular(axis, unit) -> tuple[float, float, float]:
+    """The unit direction across the hole at right angles to `unit` (axis cross unit)."""
+    c = (axis[1] * unit[2] - axis[2] * unit[1], axis[2] * unit[0] - axis[0] * unit[2], axis[0] * unit[1] - axis[1] * unit[0])
+    n = math.sqrt(sum(v * v for v in c)) or 1.0
+    return tuple(v / n for v in c)
 
 
 @register
@@ -105,11 +112,11 @@ class EditHole(_HoleTool):
             Handle("depth", "Hole depth (end = through)", at(end), axis, min=deepest + 10 * CLEARANCE, max=info.pass_length, kind="resize", shown=end, axis_from=at(0.0)),
         ]
         if across:
-            unit = [1.0 if k == across[0] else 0.0 for k in range(3)]
+            unit = tuple(1.0 if k == across[0] else 0.0 for k in range(3))
             rim = info.point(0.0)
-            rim_at = (rim.X() + shift[0] + unit[0] * diameter / 2, rim.Y() + shift[1] + unit[1] * diameter / 2, rim.Z() + shift[2] + unit[2] * diameter / 2)
+            centre = (rim.X() + shift[0], rim.Y() + shift[1], rim.Z() + shift[2])
             widest = min((s["diameter"] for s in info.stages), default=math.inf)
-            out.append(Handle("diameter", "Hole diameter", rim_at, tuple(unit), scale=2.0, min=MIN_DISTANCE, max=None if math.isinf(widest) else widest - CLEARANCE, kind="resize", shown=diameter))
+            out.extend(round_handles("diameter", "Hole", centre, unit, _perpendicular(axis, unit), diameter, min=MIN_DISTANCE, max=None if math.isinf(widest) else widest - CLEARANCE, shown=diameter))
         middle = at(end / 2)
         names = ("dx", "dy", "dz")
         for i in across:
@@ -151,8 +158,7 @@ class ConvertToCountersink(_HoleTool):
             return []
         unit = tuple(1.0 if k == across[0] else 0.0 for k in range(3))
         rim = info.point(0.0)
-        r = values["sink_diameter"] / 2
-        return [Handle("sink_diameter", "Countersink diameter", (rim.X() + unit[0] * r, rim.Y() + unit[1] * r, rim.Z() + unit[2] * r), unit, scale=2.0, min=info.diameter + 10 * CLEARANCE, kind="resize")]
+        return round_handles("sink_diameter", "Countersink", (rim.X(), rim.Y(), rim.Z()), unit, _perpendicular(axis, unit), values["sink_diameter"], min=info.diameter + 10 * CLEARANCE)
 
 
 __all__ = ["EditHole", "ConvertToCountersink", "NOT_ROUND"]
