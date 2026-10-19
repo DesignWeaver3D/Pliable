@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { moveHandlesAt } from "./placepick";
 import { PointPicker, ReferenceView } from "./reference";
 import { installAlphaUi, showDiagnostics, showImportNotice, showLaunchNotice } from "./alpha";
 import { CoreClient, type MeshData } from "./client";
@@ -1104,7 +1105,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       const mesh = await core.request<MeshData>("tool_preview", { tool: tool.id, selection: selectionPayload(editBody === undefined ? expand(tool, currentSels) : []), params: values, ...(editBody === undefined ? {} : { edit_body: editBody }) });
       if (!toolPanel.isOpen || seq !== formPreviewSeq) return; // a newer preview was asked for: replies can arrive out of order
       show(mesh);
-      viewport.manipulator.setHandles(mesh.header.handles ?? []);
+      viewport.manipulator.setHandles(moveHandlesAt(mesh.header.handles ?? [], toolPanel.basePosition()));
       status.classList.remove("error");
       status.textContent = `${tool.label}: preview`;
     } catch (e) {

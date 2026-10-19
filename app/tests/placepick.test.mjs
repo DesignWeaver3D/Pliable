@@ -24,3 +24,15 @@ test("a picked base becomes an offset from the placement point and lands on the 
   assert.deepEqual(originFor([1, 2, 3], offset), [-36, 7, -21]);
   assert.deepEqual(offsetOf([3, -2, 1], [3, -2, 1]), [0, 0, 0]);
 });
+
+test("move arrows relocate to the picked base point, other handles stay", async () => {
+  const { moveHandlesAt } = await import("../src/placepick.ts");
+  const hs = [
+    { kind: "move", anchor: [0, 0, 0], param: "x" },
+    { kind: "resize", anchor: [1, 1, 1], param: "w" },
+  ];
+  const out = moveHandlesAt(hs, [5, 6, 7]);
+  assert.deepEqual(out[0].anchor, [5, 6, 7]);
+  assert.deepEqual(out[1].anchor, [1, 1, 1]);
+  assert.equal(moveHandlesAt(hs, null), hs);
+});

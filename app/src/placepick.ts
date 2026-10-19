@@ -26,3 +26,9 @@ export interface AnchorInfo {
   label: string;
   offset: [number, number, number];
 }
+
+/** The handles with every move arrow relocated to `point` (the picked base point), so the arrows grab the thing being moved. */
+export function moveHandlesAt<T extends { kind?: string; anchor: [number, number, number] }>(handles: T[], point: Vec3 | null): T[] {
+  if (!point) return handles;
+  return handles.map((h) => (h.kind === "move" ? { ...h, anchor: [point[0], point[1], point[2]] as [number, number, number] } : h));
+}

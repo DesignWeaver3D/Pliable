@@ -39,6 +39,8 @@ export class ToolPanel {
   private editBody: number | undefined; // set while an existing primitive body is being edited (its id)
   private timer = 0;
   private inputs: Record<string, HTMLInputElement> = {};
+  /** Where the picked base point is now (the move arrows are drawn there); null until a base is picked. */
+  private baseNow: (() => Vec3 | null) | null = null;
   private pairInputs: Record<string, HTMLInputElement[][]> = {}; // per_edge parameters: [start, end] inputs per edge
 
   constructor(
@@ -94,11 +96,17 @@ export class ToolPanel {
     return this.open !== null;
   }
 
+  /** The picked base point's current position, or null (then the tool's own handle positions stand). */
+  basePosition(): Vec3 | null {
+    return this.baseNow ? this.baseNow() : null;
+  }
+
   /** Close the form without committing (the host restores the committed model). */
   close(restore = true) {
     if (!this.open) return;
     if (restore) usage.record(this.open.id, "cancel");
     this.open = null;
+    this.baseNow = null;
     this.editBody = undefined;
     this.host.cancelEyedrop();
     this.host.showBase?.(null);
@@ -115,6 +123,7 @@ export class ToolPanel {
     usage.record(tool.id, "start", surface);
     this.open = tool;
     this.editBody = editBody;
+    this.baseNow = null;
     const inputs: Record<string, HTMLInputElement> = {};
     const title = document.createElement("div");
     title.className = "title";
@@ -178,6 +187,11 @@ export class ToolPanel {
       const origin = (): Vec3 => placement.map((n) => parseFloat(inputs[n].value) || 0) as unknown as Vec3;
       const show = () => (note.textContent = `${picked ? "Base picked" : "Base: placement point"}${destination ? `, destination ${pointText(destination)}` : ""}`);
       show();
+      this.baseNow = () => {
+        if (!picked) return null;
+        const at = origin();
+        return [at[0] + offset[0], at[1] + offset[1], at[2] + offset[2]];
+      };
       const place = () => {
         if (!destination) return;
         originFor(destination, offset).forEach((c, i) => (inputs[placement[i]].value = String(parseFloat(c.toFixed(4)))));
@@ -190,7 +204,7 @@ export class ToolPanel {
         destination = [point[0], point[1], point[2]];
         show();
         place();
-        this.host.showBase?.([...destination]);
+        this.host.showBase?.(null); // the move arrows now mark the base point
       };
       const pickBase = document.createElement("button");
       pickBase.textContent = "Pick base point";
@@ -207,6 +221,7 @@ export class ToolPanel {
         this.host.showBase?.(point);
         show();
         place();
+        this.schedulePreview(0); // the arrows move to the base
         if (!destination) await pickDestination(); // a base alone moves nothing, so go straight on to the destination
       });
       const pick = document.createElement("button");
@@ -228,6 +243,12 @@ export class ToolPanel {
       note.className = "row";
       const show = () => (note.textContent = `Base ${pointText(base)}${destination ? `, destination ${pointText(destination)}` : ""}`);
       show();
+      let picked = false;
+      this.baseNow = () => {
+        if (!picked) return null;
+        const v = vector.map((n) => parseFloat(inputs[n].value) || 0);
+        return [base[0] + v[0], base[1] + v[1], base[2] + v[2]];
+      };
       const apply = () => {
         if (!destination) return;
         moveVector(base, destination).forEach((c, i) => (inputs[vector[i]].value = String(parseFloat(c.toFixed(4)))));
@@ -239,6 +260,7 @@ export class ToolPanel {
         destination = [point[0], point[1], point[2]];
         show();
         apply();
+        this.host.showBase?.(null);
       };
       const pickBase = document.createElement("button");
       pickBase.textContent = "Pick base point";
@@ -247,8 +269,11 @@ export class ToolPanel {
         const point = await this.host.pickPoint!();
         if (!point || this.open !== tool) return;
         base = [point[0], point[1], point[2]];
+        picked = true;
+        this.host.showBase?.(point);
         show();
         apply();
+        this.schedulePreview(0);
         if (!destination) await pickDestination(); // a base alone moves nothing, so go straight on to the destination
       });
       const pickDest = document.createElement("button");
