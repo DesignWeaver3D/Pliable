@@ -12,6 +12,11 @@ export function originFor(destination: Vec3, offset: Vec3): [number, number, num
   return [destination[0] - offset[0], destination[1] - offset[1], destination[2] - offset[2]];
 }
 
+/** Where a picked base point sits relative to the placement point (the offset `originFor` takes). */
+export function offsetOf(base: Vec3, origin: Vec3): [number, number, number] {
+  return [base[0] - origin[0], base[1] - origin[1], base[2] - origin[2]];
+}
+
 /** A point for a label: at most three decimals. */
 export function pointText(p: Vec3): string {
   return p.map((c) => String(Math.round(c * 1000) / 1000)).join(", ");

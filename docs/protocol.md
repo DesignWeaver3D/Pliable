@@ -103,7 +103,7 @@ A tool can declare on-screen manipulators (gizmos), one per parameter, by overri
 
 ## Base points
 
-`list_tools` also carries `moveVector` (three parameter names, for move and copy-step tools). The form then offers "Pick base point" and "Pick destination point" and fills the vector with destination minus base (base = origin by default). `tool_handles` replies carry `anchors`: `[{label, offset}]` for a tool with `placement` (the primitives), the points of the new shape (corners, centre, face centres) as offsets from the placement point; the form's "base point" list picks one and the destination pick sets the placement point to destination minus offset.
+`list_tools` also carries `moveVector` (three parameter names, for move and copy-step tools). The form then offers "Pick base point" and "Pick destination point" and fills the vector with destination minus base (base = origin by default). `tool_handles` replies carry `anchors`: `[{label, offset}]` for a tool with `placement` (the primitives), the snap points of the new shape (corners, edge midpoints, face centres, centre, axis end points) as offsets from the placement point. There is no base-point list: "Pick base point" offers these anchors (at placement point plus offset) together with the ordinary snap points, and the picked point, wherever it is, becomes the base; the placement point is then set to destination minus (base minus the placement point at pick time). With no base picked the base is the placement point.
 
 ## Adding a tool
 

@@ -675,6 +675,15 @@ class AddBox(Tool):
                 for iz in (0, 1):
                     if (ix, iy, iz) != (0, 0, 0):
                         found.append((f"Corner ({'high' if ix else 'low'} X, {'high' if iy else 'low'} Y, {'high' if iz else 'low'} Z)", (ix * w, iy * d, iz * h)))
+        # Edge midpoints: two coordinates at a low/high end, the third in the middle.
+        for axis, name in enumerate("XYZ"):
+            others = [i for i in range(3) if i != axis]
+            for a in (0, 1):
+                for b in (0, 1):
+                    at = [w / 2, d / 2, h / 2][:]
+                    size = (w, d, h)
+                    at[others[0]], at[others[1]] = a * size[others[0]], b * size[others[1]]
+                    found.append((f"Middle of {name} edge ({'high' if a else 'low'} {'XYZ'[others[0]]}, {'high' if b else 'low'} {'XYZ'[others[1]]})", tuple(at)))
         return found
 
     def handles(self, topology, selection, values):
