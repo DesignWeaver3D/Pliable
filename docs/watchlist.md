@@ -81,3 +81,5 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Orthographic still looks off to the owner (see decisions-log).
 - Hint line (`app/src/hints.ts`) polls its context every 250 ms and sits above the chips bar; the M measure key is hard-coded in viewport.ts so it is not user-redefinable or shown from the keymap. Hint text for mouse actions is limited to Ctrl+click.
 - Distances between two items put the dimension line on the upper side of the screen-space line; no way to drag it to another side yet.
+- Measurement panel and leaders sometimes stopped updating until reload (owner report): not reproduced in a push/pull then select run. Defensive fixes in `main.ts`/`dimensions.ts`: measure replies no longer gated on a possibly stale `dragSels`, a failed update is logged once and cannot stop later frame updates, one undrawable dimension is skipped. If it recurs, check the console for "update failed".
+- After a dropped connection the page resumes the dropped connection's model only if the same core process is still running (one parked document, not per tab); a restarted core falls back to the restore prompt or the demo.

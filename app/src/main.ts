@@ -50,10 +50,22 @@ const reference = new ReferenceView(viewport);
 const pointPicker = new PointPicker(viewport, reference, (text) => (status.textContent = text));
 $("axes").addEventListener("click", () => reference.setVisible(!reference.visible));
 viewport.onFrame = () => {
-  reference.tick();
-  dimensionOverlay.draw();
-  navCube.update();
+  // One failing part must not stop the others from updating on later frames.
+  for (const part of [() => reference.tick(), () => dimensionOverlay.draw(), () => navCube.update()]) {
+    try {
+      part();
+    } catch (e) {
+      logOnce("frame", e);
+    }
+  }
 };
+const loggedErrors = new Set<string>();
+/** Console-log an error once per kind, so a failure repeating every frame does not flood the console. */
+function logOnce(kind: string, e: unknown) {
+  if (loggedErrors.has(kind)) return;
+  loggedErrors.add(kind);
+  console.error(`Pliable ${kind} update failed (later updates continue):`, e);
+}
 
 // Tool registry from the core, the current selection, and which tool a drag runs.
 let tools: ToolInfo[] = [];
@@ -266,12 +278,14 @@ function setSelection(sels: Sel[]) {
   core
     .request<MeasureReply>("measure", { selection: selectionPayload(sels) })
     .then((reply) => {
-      if (currentSels === sels && dragSels === null) {
+      // Not while a drag is live (the panel is hidden then); never on a stale dragSels left by a drag that failed to end.
+      if (currentSels === sels && !viewport.dragging) {
         measurePanel.show(reply);
         dimensionOverlay.set(reply.dimensions ?? []);
       }
     })
-    .catch(() => {
+    .catch((e) => {
+      logOnce("measurement", e);
       if (currentSels === sels) {
         measurePanel.hide();
         dimensionOverlay.set([]);
@@ -565,7 +579,11 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
   hideDim();
   session++;
   queued = null;
-  await inFlight;
+  try {
+    await inFlight;
+  } catch {
+    // a failed preview must not leave the drag state set
+  }
   dragSels = null;
   const good = lastGood;
   if (phase === "end" && previewFailed && good !== null) distance = good;

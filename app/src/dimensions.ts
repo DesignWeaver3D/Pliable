@@ -74,9 +74,14 @@ export class DimensionOverlay {
       const mine: SVGElement[] = [];
       this.pending = [];
       this.clash = false;
-      if (d.kind === "linear") this.linear(d, project, mine);
-      else if (d.kind === "tag") this.label(project(d.points[0]), d.text, mine, true);
-      else this.leader(d, project, mine);
+      try {
+        if (d.kind === "linear") this.linear(d, project, mine);
+        else if (d.kind === "tag") this.label(project(d.points[0]), d.text, mine, true);
+        else this.leader(d, project, mine);
+      } catch (e) {
+        console.error("A dimension could not be drawn and was skipped:", d, e);
+        continue;
+      }
       if (this.clash) continue;
       parts.push(...mine);
       this.placed.push(...this.pending);
