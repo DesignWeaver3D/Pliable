@@ -104,6 +104,7 @@ export class SketchMode {
     panel: HTMLElement,
   ) {
     this.panel = panel;
+    for (const o of [this.normal, this.construction, this.points]) o.userData.extent = true; // counted by the origin axes' length
     for (const o of [this.axes, this.normal, this.construction, this.marked, this.pending, this.points]) {
       o.renderOrder = 5;
       o.frustumCulled = false;

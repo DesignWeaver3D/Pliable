@@ -50,17 +50,7 @@ export function hintItems(ctx: HintContext, mods: Modifiers, keyText: (id: strin
   } else if (mods.alt) {
     items = [{ keys: k("display.showAll", "Alt+H"), text: "show all bodies" }];
   } else {
-    items = [
-      { keys: k("display.seeThrough", "X"), text: "see-through" },
-      ...(ctx.hasSelection
-        ? [
-            { keys: k("display.hide", "H"), text: "hide body" },
-            { keys: k("view.lookAtFace", "V"), text: "look at face" },
-          ]
-        : []),
-      { keys: "Ctrl+click", text: "multi-select" },
-      { keys: "Ctrl+K", text: "search every command" },
-    ];
+    items = []; // idle: no static legend; the search box shows its own shortcut and the Keys dialog lists the rest
   }
   return items.slice(0, MAX_HINTS);
 }
