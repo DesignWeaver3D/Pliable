@@ -2,11 +2,12 @@
 
 Live status for the rebuild in [ROADMAP.md](../ROADMAP.md). Read this first in every session; commit rules are in [CONTRIBUTING.md](../CONTRIBUTING.md). Finished sessions are one line each in [history.md](history.md). Other files: [watchlist.md](watchlist.md) (shortcuts, guesses, limits), [decisions-log.md](decisions-log.md), [questions.md](questions.md) (owner questions only), [protocol.md](protocol.md) (core API), [testing-checklist.md](testing-checklist.md).
 
-Branches: work on `dev`; `rebuild` is the release candidate; `main` holds the MVP (`v0.2.0-mvp` tag preserves it). Last known state: 307 core tests, 74 node tests, typecheck and build passing.
+Branches: work on `dev`; `rebuild` is the release candidate; `main` holds the MVP (`v0.2.0-mvp` tag preserves it). Last known state: 331 core tests, 84 node tests, typecheck and build passing.
 
 ## Resume note
 
-Wave 2 (2026-10-18) is merged into `dev` (243 core tests, 37 node tests, typecheck and build pass). The agent branches in `C:\dev\pliable-wt\<name>` are fully merged. Not hand-checked in the app: import and export, hole-wall push/pull, draft, Shift+click, Ctrl+double-click, small-face picking, closing a spline, All/None chips, Symmetric chip, search entries and tooltips. The owner's core on 8765 must be restarted to pick up the merged code. Next: the owner's hand test (`testing-checklist.md`), then S48 full scope, S56.
+Unattended run of 2026-10-19: everything below was built and merged into `dev` with tests re-run by the orchestrator, nothing pushed. Done since the last owner check: body list with stable ids (S65), editable primitives (S68), face double-click selects its body, hole model with axis handles and countersink conversion (S48), in-place dimension editing (S56), handles at the picked base point (S69), hole-centre snaps (S70), faster handle drags (S71), typed values during handle drags (S66), primitive base point by picking (S67), Tools handle with the toolbox icon, view controls beside the nav cube, drawer only opened and closed from its handle or T.
+Not hand-checked in the app (agents checked only part): Shift range select in the body list, rotate and scale of a body, Edit primitive from the row menu, moving a box before editing it, face and hole distance and draft angle dimension edits, Tab between dimension edits, the diameter grip and move arrows of the hole gizmo, the pocket-or-slot message, cone, sphere and torus grips, chamfer handles, base pick on array tools. The owner's checklist is `testing-checklist.md`. Ids of bodies are matched by shape and volume after operations (watchlist). Next: the S34 leftovers below, then the owner's hand test and reports.
 
 ## Open sessions
 
