@@ -15,6 +15,8 @@ export interface ToolInfo {
   related?: string[];
   /** Names of three length parameters that form a point; the form offers to fill them from a reference snap. */
   placement?: string[] | null;
+  /** Names of three length parameters that form a displacement; the form offers a base and a destination pick. */
+  moveVector?: string[] | null;
   /** "tool": the tool is chosen first and places something new; "selection": it acts on a selection. */
   startsFrom?: "selection" | "tool";
   hasHandles?: boolean;

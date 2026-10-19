@@ -401,3 +401,20 @@ def test_primitive_move_arrows_point_the_positive_way_and_resize_grips_are_marke
             h = moves[param]
             assert h["direction"][i] == 1.0 and h["scale"] == 1.0 and h["value"] == (5, 6, 7)[i]
         assert all(h["kind"] == "resize" for h in handles if h["kind"] != "move")
+
+
+def test_primitives_offer_anchor_points_with_the_default_at_the_placement_point(session):
+    for tool in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus"):
+        anchors = session.handle({"type": "tool_handles", "tool": tool})["anchors"]
+        assert anchors and anchors[0]["offset"] == [0.0, 0.0, 0.0]
+        assert len({a["label"] for a in anchors}) == len(anchors)
+    box = {a["label"]: a["offset"] for a in session.handle({"type": "tool_handles", "tool": "add_box", "params": {"width": 4, "depth": 6, "height": 8}})["anchors"]}
+    assert box["Centre"] == [2.0, 3.0, 4.0] and box["Corner (high X, high Y, high Z)"] == [4.0, 6.0, 8.0]
+    assert len(box) == 15
+
+
+def test_vector_tools_declare_their_move_vector(session):
+    tools = {t["id"]: t for t in session.handle({"type": "list_tools"})["tools"]}
+    for name in ("move_body", "linear_array", "move_hole", "pattern_hole"):
+        assert tools[name]["moveVector"] == ["dx", "dy", "dz"]
+    assert tools["add_box"]["moveVector"] is None and tools["push_pull"]["moveVector"] is None

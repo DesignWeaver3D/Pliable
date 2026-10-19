@@ -137,7 +137,7 @@ class Session:
             topology = self._require_document().current
             tool = get_tool(str(request.get("tool")))
             selection = Selection.from_json(request.get("selection"))
-            return {"handles": tool.handle_list(topology, selection, request.get("params") or {}), "startsFrom": tool.starts_from}
+            return {"handles": tool.handle_list(topology, selection, request.get("params") or {}), "startsFrom": tool.starts_from, "anchors": tool.anchor_list(request.get("params") or {})}
         if kind == "measure":
             topology = self._require_document().current
             try:

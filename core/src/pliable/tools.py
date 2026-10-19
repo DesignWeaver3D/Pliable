@@ -175,6 +175,9 @@ class Tool:
     # Names of three length parameters that together are a point in space; the view offers to fill them by
     # clicking a reference snap (origin, axis, face centre) instead of typing.
     placement: tuple[str, str, str] | None = None
+    # Names of three length parameters that are a displacement (move, copy step); the view offers to pick a base point
+    # and a destination point and fills them with destination minus base.
+    move_vector: tuple[str, str, str] | None = None
     # Where the tool starts: "selection" (the user selects something, then the tool acts on it) or "tool" (the tool is
     # chosen first and places something new, like a primitive); the view shows `handles` accordingly.
     starts_from: str = "selection"
@@ -182,6 +185,12 @@ class Tool:
     def handles(self, topology: Topology, selection: Selection, values: dict[str, float]) -> list[Handle]:
         """On-screen manipulators for the current parameter values: one per parameter that can be dragged in the view.
         Typed entry stays available for every parameter. The default is none."""
+        return []
+
+    def anchors(self, values: dict[str, float]) -> list[tuple[str, tuple[float, float, float]]]:
+        """For a tool with `placement`: the points of the new shape that can be put at the destination, as (label,
+        offset from the placement point). The first is the default and has offset zero, so the stored parameters stay
+        the placement point and the sizes. Default: none."""
         return []
 
     def applies(self, topology: Topology, selection: Selection) -> bool:
@@ -240,6 +249,15 @@ class Tool:
         except Exception:
             return []
 
+    def anchor_list(self, raw_params: dict) -> list[dict]:
+        """`anchors` for raw request values as JSON; empty on any problem (a convenience, never fails a request)."""
+        if type(self).anchors is Tool.anchors:
+            return []
+        try:
+            return [{"label": label, "offset": [float(c) for c in offset]} for label, offset in self.anchors(self.bind(raw_params))]
+        except Exception:
+            return []
+
     def describe(self) -> dict:
         return {
             "id": self.id,
@@ -249,6 +267,7 @@ class Tool:
             "params": [p.to_json() for p in self.params],
             "related": list(self.related),
             "placement": list(self.placement) if self.placement else None,
+            "moveVector": list(self.move_vector) if self.move_vector else None,
             "startsFrom": self.starts_from,
             "hasHandles": type(self).handles is not Tool.handles,
         }

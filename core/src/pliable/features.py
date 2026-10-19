@@ -252,6 +252,7 @@ class MoveHole(_CylinderFaces):
     related = ("equal_radius",)
     accepts = Accepts(faces=(1, None))
     params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length")]
+    move_vector = ("dx", "dy", "dz")
 
     def run(self, topology, selection, values, preview):
         offset = gp_Vec(values["dx"], values["dy"], values["dz"])
@@ -271,6 +272,7 @@ class PatternHole(_CylinderFaces):
     description = "Makes copies of a hole or boss in a straight line. Select its round face, then set the total count and the step between copies along X, Y and Z."
     accepts = Accepts(faces=(1, 1))
     params = [Param("count", "number", 3), Param("dx", "length", 10), Param("dy", "length"), Param("dz", "length")]
+    move_vector = ("dx", "dy", "dz")
 
     def run(self, topology, selection, values, preview):
         count = int(round(values["count"]))
@@ -664,6 +666,17 @@ class AddBox(Tool):
 
     starts_from = "tool"
 
+    def anchors(self, values):
+        w, d, h = values["width"], values["depth"], values["height"]
+        found = [("Corner (lowest X, Y and Z)", (0, 0, 0)), ("Centre", (w / 2, d / 2, h / 2)), ("Bottom centre", (w / 2, d / 2, 0)), ("Top centre", (w / 2, d / 2, h))]
+        found += [("Centre of low X face", (0, d / 2, h / 2)), ("Centre of high X face", (w, d / 2, h / 2)), ("Centre of low Y face", (w / 2, 0, h / 2)), ("Centre of high Y face", (w / 2, d, h / 2))]
+        for ix in (0, 1):
+            for iy in (0, 1):
+                for iz in (0, 1):
+                    if (ix, iy, iz) != (0, 0, 0):
+                        found.append((f"Corner ({'high' if ix else 'low'} X, {'high' if iy else 'low'} Y, {'high' if iz else 'low'} Z)", (ix * w, iy * d, iz * h)))
+        return found
+
     def handles(self, topology, selection, values):
         x, y, z, w, d, h = (values[k] for k in ("x", "y", "z", "width", "depth", "height"))
         return [
@@ -692,6 +705,10 @@ class AddCylinder(Tool):
     params = [Param("diameter", "length", 10), Param("height", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length"), NEW_BODY]
 
     starts_from = "tool"
+
+    def anchors(self, values):
+        h = values["height"]
+        return [("Bottom centre", (0, 0, 0)), ("Centre", (0, 0, h / 2)), ("Top centre", (0, 0, h))]
 
     def handles(self, topology, selection, values):
         x, y, z, d, h = (values[k] for k in ("x", "y", "z", "diameter", "height"))
@@ -997,6 +1014,7 @@ class MoveBody(Tool):
     description = "Moves a whole solid by the given distances along X, Y and Z. Select any face of the solid, or nothing to move the whole model."
     accepts = Accepts(faces=(0, None))
     params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length")]
+    move_vector = ("dx", "dy", "dz")
 
     starts_from = "selection"
 
@@ -1097,6 +1115,10 @@ class AddSphere(Tool):
 
     starts_from = "tool"
 
+    def anchors(self, values):
+        r = values["diameter"] / 2
+        return [("Centre", (0, 0, 0)), ("Bottom", (0, 0, -r)), ("Top", (0, 0, r))]
+
     def handles(self, topology, selection, values):
         x, y, z, d = (values[k] for k in ("x", "y", "z", "diameter"))
         return [Handle("diameter", "Resize diameter", (x + d / 2, y, z), (1, 0, 0), scale=2.0, min=MIN_DISTANCE, kind="resize"), *_position_handles(values, d)]
@@ -1129,6 +1151,10 @@ class AddCone(Tool):
 
     starts_from = "tool"
 
+    def anchors(self, values):
+        h = values["height"]
+        return [("Bottom centre", (0, 0, 0)), ("Centre", (0, 0, h / 2)), ("Top centre", (0, 0, h))]
+
     def handles(self, topology, selection, values):
         x, y, z, bd, td, h = (values[k] for k in ("x", "y", "z", "bottom_diameter", "top_diameter", "height"))
         nudge = max(bd, h) * 0.06  # keeps the top-diameter handle off the height handle when the top is a point
@@ -1159,6 +1185,10 @@ class AddTorus(Tool):
     params = [Param("major", "length", 20), Param("minor", "length", 5), Param("x", "length"), Param("y", "length"), Param("z", "length"), NEW_BODY]
 
     starts_from = "tool"
+
+    def anchors(self, values):
+        t = values["minor"] / 2
+        return [("Centre", (0, 0, 0)), ("Bottom", (0, 0, -t)), ("Top", (0, 0, t))]
 
     def handles(self, topology, selection, values):
         x, y, z, major, minor = (values[k] for k in ("x", "y", "z", "major", "minor"))
@@ -1218,6 +1248,7 @@ class LinearArray(Tool):
     description = "Makes copies of a body in a straight line and fuses them. Select any face of the body, or nothing for the whole model; the count includes the original."
     accepts = Accepts(faces=(0, None))
     params = [Param("count", "number", 3), Param("dx", "length", 20), Param("dy", "length"), Param("dz", "length")]
+    move_vector = ("dx", "dy", "dz")
 
     def run(self, topology, selection, values, preview):
         count = _array_copies(values["count"])

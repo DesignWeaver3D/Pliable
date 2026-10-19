@@ -14,6 +14,7 @@ import { HintLine } from "./hints";
 import { Palette, type Command } from "./palette";
 import { toolIcon, uiIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
+import type { AnchorInfo } from "./placepick";
 import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type HandleInfo, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
 import { usage, type Surface } from "./usage";
@@ -997,6 +998,13 @@ let formPreviewSeq = 0;
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   selectedEdges: () => currentSels.filter((s) => s.kind === "edge").map((s) => s.id),
   pickPoint: () => pointPicker.pick(),
+  async anchors(tool, values) {
+    try {
+      return (await core.request<{ anchors: AnchorInfo[] }>("tool_handles", { tool: tool.id, selection: selectionPayload([]), params: values })).anchors;
+    } catch {
+      return [];
+    }
+  },
   tools: () => tools,
   usable: (tool) => acceptsSelection(tool, expand(tool, currentSels)) && (refined === null || refined.includes(tool.id)),
   async preview(tool, values) {
