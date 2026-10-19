@@ -38,7 +38,7 @@ class Mesh:
     edges: list[dict] = field(default_factory=list)
     # Per vertex: id and position
     vertices: list[dict] = field(default_factory=list)
-    centres: list[dict] = field(default_factory=list)  # hole and boss centres: {"face": id, "position": [x, y, z]}
+    centres: list[dict] = field(default_factory=list)  # hole and boss centres: {"face": id, "position": [x, y, z], "axis": [x, y, z], "length": axis length}
     bodies: list[dict] = field(default_factory=list)  # per solid: id, name, solid number, bounds
     bounds: list[float] = field(default_factory=list)  # xmin, ymin, zmin, xmax, ymax, zmax
 
@@ -195,8 +195,11 @@ def tessellate(topology: Topology) -> Mesh:
         if centre is not None:
             from OCP.BRepAdaptor import BRepAdaptor_Surface
 
+            from OCP.BRepTools import BRepTools
+
             axis = BRepAdaptor_Surface(face).Cylinder().Axis().Direction()
-            centres.append({"face": face_id, "position": [centre.X(), centre.Y(), centre.Z()], "axis": [axis.X(), axis.Y(), axis.Z()]})
+            _, _, v0, v1 = BRepTools.UVBounds_s(face)
+            centres.append({"face": face_id, "position": [centre.X(), centre.Y(), centre.Z()], "axis": [axis.X(), axis.Y(), axis.Z()], "length": v1 - v0})
 
     return Mesh(
         positions=_join(positions, np.float32, (-1, 3)),

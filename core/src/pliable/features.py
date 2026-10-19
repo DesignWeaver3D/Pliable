@@ -163,6 +163,11 @@ class _CylinderFaces(Tool):
     def applies(self, topology, selection):
         return all(BRepAdaptor_Surface(topology.face(i)).GetType() == GeomAbs_Cylinder for i in selection.faces)
 
+    def refusal(self, topology, selection):
+        from .holes import NOT_ROUND
+
+        return NOT_ROUND if self.accepts.matches(selection) else None
+
 
 @register
 class DeleteFace(Tool):
@@ -2169,3 +2174,6 @@ class DivideFace(_PlanarFace):
         if not whole.IsDone() or whole.Shape().IsNull():
             raise OperationError("Could not divide the face")
         return OpResult(whole.Shape(), [], unified=True)  # the split is the point: skip the same-surface merge
+
+
+from . import hole_tools  # noqa: E402,F401  (registers the hole tools; it needs `finish` defined above)

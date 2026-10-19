@@ -189,10 +189,18 @@ function dragToolFor(sels: Sel[]): ToolInfo | null {
   return candidates.find((t) => t.id === armedTool) ?? candidates[0] ?? null;
 }
 
+/** The hole tool whose axis handles show for a selected hole face or rim (none while a drag tool is armed). */
+function holeHandleTool(sels: Sel[]): ToolInfo | null {
+  if (armedTool !== null || sels.length !== 1 || !refined?.includes("edit_hole")) return null;
+  return tools.find((t) => t.id === "edit_hole") ?? null;
+}
+let selectionHandleTool: ToolInfo | null = null; // the tool the handles now shown on the selection belong to
+
 /** With a selection and no form open, the tool a drag would run shows its handles (push/pull's arrow on the face). */
 async function refreshSelectionHandles() {
   const sels = currentSels;
-  const tool = sels.length && !toolPanel.isOpen ? dragToolFor(sels) : null;
+  const tool = sels.length && !toolPanel.isOpen ? (holeHandleTool(sels) ?? dragToolFor(sels)) : null;
+  selectionHandleTool = tool;
   if (!tool?.hasHandles || tool.startsFrom === "tool") {
     viewport.manipulator.clear();
     return;
@@ -1171,7 +1179,11 @@ toolPanel.renderList();
 // With no form open (a selection waiting for its drag tool) the handle runs that tool's normal drag instead.
 viewport.manipulator.onDrag = (param, value, phase, x, y, linked) => {
   if (toolPanel.isOpen) toolPanel.setValues({ ...linked, [param]: value });
-  else void viewport.onItemDrag(currentSels, phase === "cancel" ? 0 : value, phase, x, y);
+  else if (selectionHandleTool && dragParam(selectionHandleTool) === null) {
+    // A tool without a drag value (a hole's size, depth and position): its handle opens the form, which then carries the preview.
+    toolPanel.openForm(selectionHandleTool, {}, "drag");
+    toolPanel.setValues({ ...linked, [param]: value });
+  } else void viewport.onItemDrag(currentSels, phase === "cancel" ? 0 : value, phase, x, y);
 };
 
 new Palette(commands);

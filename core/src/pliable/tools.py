@@ -137,10 +137,17 @@ class Handle:
     # Other parameters that change together with this one, as (parameter, change per unit of travel). A box face handle
     # that pulls the low X face sets width +1 and x -1 per unit, so the high X face stays where it is.
     links: tuple[tuple[str, float], ...] = ()
+    # The value the handle shows when it is not the parameter itself (a hole's "0 = unchanged" parameters show the real
+    # size), and, for an axis handle, the other end of the line the view draws from there to the anchor.
+    shown: float | None = None
+    axis_from: tuple[float, float, float] | None = None
 
     def to_json(self, value: float, values: dict | None = None) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
+        if self.shown is not None:
+            value = self.shown
         return {
+            "axisFrom": [float(c) for c in self.axis_from] if self.axis_from else None,
             "param": self.param,
             "label": self.label,
             "anchor": [float(c) for c in self.anchor],
@@ -214,6 +221,10 @@ class Tool:
         """Extra applicability check beyond the selection counts (e.g. planar faces only)."""
         return True
 
+    def refusal(self, topology: Topology, selection: Selection) -> str | None:
+        """A plain reason this selection is refused, when the generic "can't be used" would not say enough (None = generic)."""
+        return None
+
     def run(self, topology: Topology, selection: Selection, values: dict[str, float], preview: bool) -> OpResult:
         raise NotImplementedError
 
@@ -245,7 +256,7 @@ class Tool:
 
     def execute(self, topology: Topology, selection: Selection, raw_params: dict, preview: bool) -> OpResult:
         if not self.available(topology, selection):
-            raise OperationError(f"{self.label} can't be used with this selection")
+            raise OperationError(self.refusal(topology, selection) or f"{self.label} can't be used with this selection")
         values = self.bind(raw_params)
         try:
             result = self.run(topology, selection, values, preview)
