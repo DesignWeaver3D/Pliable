@@ -12,24 +12,24 @@ For every tool, check these five things once, then only note the exceptions:
 Test on: a simple block, a part with holes (the bracket), and an imported STEP file.
 
 ## File, view and selection
-- [ ] Open STEP
-- [ ] Export STEP
-- [ ] Export STL / OBJ / 3MF
-- [ ] Combine STEP (other file at its own origin)
-- [ ] Undo / redo across several different tools
-- [ ] Click select: face, edge, vertex; shift/ctrl multi-select
-- [ ] Double-click an edge selects its smooth chain; ctrl+double-click adds
-- [ ] Related-face chips (coplanar, equal radius, coaxial): toggle on/off, highlight is correct
-- [ ] "All edges" and "Edge loops" for a selected face
-- [ ] Number keys for standard views (0 to 6), `P` perspective/orthographic toggle
-- [ ] Orthographic camera looks right when rotated and zoomed
-- [ ] Measurements shown for a selected edge, hole wall, flat face, fillet face, vertex
+- [r] Open STEP- does not warn that current model will be deleted. Does not offer option to add to current session (mulitple solids).
+- [r] Export STEP - does not provide dialog to define export name or file type or destination.
+- [x] Export STL / OBJ / 3MF - I don't see this tool or functionality at all.
+- [r] Combine STEP (other file at its own origin) - see open step above. Maybe the options should just be import or exxport and work from there.
+- [w] Undo / redo across several different tools
+- [r] Click select: face, edge, vertex; shift/ctrl multi-select - unclear what shift select does. Appears to create selection chips but then don't know what to do next. Sometimes hard to select edges. hard to select small faces without zooming way in.
+- [r] Double-click an edge selects its smooth chain; ctrl+double-click adds - sometimes adds non-tangent edges which is wrong. Ctrl+doubleclick doesn't behave as expected.
+- [r] Related-face chips (coplanar, equal radius, coaxial): toggle on/off, highlight is correct - highlight appears correct but unknown how to work with chips altogether.
+- [r] "All edges" and "Edge loops" for a selected face - both appear to do same thing. Edge loop should be the outperimeter edges, or have a different name perhaps.
+- [w] Number keys for standard views (0 to 6), `P` perspective/orthographic toggle
+- [w] Orthographic camera looks right when rotated and zoomed
+- [r] Measurements shown for a selected edge, hole wall, flat face, fillet face, vertex - this seems to work good, but sometimes after other tool usage stops working and need to refresh the browser tab to get it working again.
 
 ## Edit faces
-- [ ] push_pull — flat face out and in; hole wall; onto another body (merge)
-- [ ] delete_face — heals the gap; fails clearly when it cannot
-- [ ] align_face
-- [ ] draft
+- [r] push_pull — flat face out and in; hole wall; onto another body (merge) - push/pull flat face works pretty good, but M mode is regression that doesn't work when right-click mode did (can't use right click because need right-drag for orbit?). Push/pull hole face does nothing at all, starts a box selection.
+- [r] delete_face — heals the gap; fails clearly when it cannot - works on circular holes. fails otherwise with no error or message why. This was supposed to be named Defeature. Delete face doesn't make sense in all the contexts that this is supposed to work.
+- [x] align_face - this is grayed out and i have no idea what it's supposed to do anyway.
+- [x] draft - doesn't appear to work at all.
 - [ ] round_face
 - [ ] divide_face (under "Other")
 - [ ] inset_face (under "Other")
