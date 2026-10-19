@@ -161,14 +161,14 @@
           <button id="seethrough" title="See-through (X): make faces transparent so every edge shows and hidden edges and faces can be picked">X</button>
           <button id="axes" title="Show or hide the principal axes and origin"></button>
       </div>
-      <input id="palette-input" title="Search every tool, setting and command (Ctrl+K or /)" placeholder="Search tools (Ctrl+K, ? for shortcuts)" autocomplete="off" spellcheck="false" />
+      <button id="editlast" disabled title="Undo the last operation and change its values">Edit last</button>
+      <button id="undo" disabled title="Undo the last change (Ctrl+Z)">Undo</button>
+      <button id="redo" disabled title="Redo the change you undid (Ctrl+Y)">Redo</button>
       <span id="status">connecting...</span>
       <button id="reconnect" hidden title="Try to reach the core again now">Reconnect</button>
       <span id="selected"></span>
       <span id="latency"></span>
-      <button id="editlast" disabled title="Undo the last operation and change its values">Edit last</button>
-      <button id="undo" disabled title="Undo the last change (Ctrl+Z)">Undo</button>
-      <button id="redo" disabled title="Redo the change you undid (Ctrl+Y)">Redo</button>
+      <input id="palette-input" title="Search every tool, setting and command (Ctrl+K or /)" placeholder="Search tools (Ctrl+K, ? for shortcuts)" autocomplete="off" spellcheck="false" />
     </div>
     <div id="busy" hidden><i></i><span id="busytext"></span></div>
     <div id="tools"></div>

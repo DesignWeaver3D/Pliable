@@ -60,7 +60,8 @@ export class Palette {
   open(focus = true) {
     if (this.isOpen && !focus) return;
     const box = this.input.getBoundingClientRect();
-    this.root.style.left = `${box.left}px`;
+    // The search field sits at the right end of the bar, so keep the 520 px result box on screen.
+    this.root.style.left = `${Math.max(8, Math.min(box.left, window.innerWidth - Math.min(520, window.innerWidth * 0.92) - 8))}px`;
     this.root.hidden = false;
     if (focus) this.input.value = "";
     this.active = 0;
