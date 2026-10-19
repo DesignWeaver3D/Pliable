@@ -252,6 +252,7 @@ class MoveHole(_CylinderFaces):
     related = ("equal_radius",)
     accepts = Accepts(faces=(1, None))
     params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length")]
+    move_vector = ("dx", "dy", "dz")
 
     def run(self, topology, selection, values, preview):
         offset = gp_Vec(values["dx"], values["dy"], values["dz"])
@@ -271,6 +272,7 @@ class PatternHole(_CylinderFaces):
     description = "Makes copies of a hole or boss in a straight line. Select its round face, then set the total count and the step between copies along X, Y and Z."
     accepts = Accepts(faces=(1, 1))
     params = [Param("count", "number", 3), Param("dx", "length", 10), Param("dy", "length"), Param("dz", "length")]
+    move_vector = ("dx", "dy", "dz")
 
     def run(self, topology, selection, values, preview):
         count = int(round(values["count"]))
@@ -630,14 +632,13 @@ class CenterBetween(Tool):
 
 
 def _position_handles(values, size: float) -> list[Handle]:
-    """Three arrows at a primitive's reference point that move it along X, Y and Z. They sit a little off the point
-    (a tenth or so of the primitive's size) pointing away from it, so the three tips can be told apart."""
+    """Three move arrows at a primitive's reference point, one per axis, each starting there and pointing the positive
+    way along its axis (drawn in the axis colour), like an axis gizmo."""
     x, y, z = values["x"], values["y"], values["z"]
-    gap = max(size, 1.0) * 0.12
     return [
-        Handle("x", "X", (x - gap, y, z), (-1, 0, 0), scale=-1.0),
-        Handle("y", "Y", (x, y - gap, z), (0, -1, 0), scale=-1.0),
-        Handle("z", "Z", (x, y, z - gap), (0, 0, -1), scale=-1.0),
+        Handle("x", "Move along X", (x, y, z), (1, 0, 0), kind="move"),
+        Handle("y", "Move along Y", (x, y, z), (0, 1, 0), kind="move"),
+        Handle("z", "Move along Z", (x, y, z), (0, 0, 1), kind="move"),
     ]
 
 
@@ -665,12 +666,32 @@ class AddBox(Tool):
 
     starts_from = "tool"
 
+    def anchors(self, values):
+        w, d, h = values["width"], values["depth"], values["height"]
+        found = [("Corner (lowest X, Y and Z)", (0, 0, 0)), ("Centre", (w / 2, d / 2, h / 2)), ("Bottom centre", (w / 2, d / 2, 0)), ("Top centre", (w / 2, d / 2, h))]
+        found += [("Centre of low X face", (0, d / 2, h / 2)), ("Centre of high X face", (w, d / 2, h / 2)), ("Centre of low Y face", (w / 2, 0, h / 2)), ("Centre of high Y face", (w / 2, d, h / 2))]
+        for ix in (0, 1):
+            for iy in (0, 1):
+                for iz in (0, 1):
+                    if (ix, iy, iz) != (0, 0, 0):
+                        found.append((f"Corner ({'high' if ix else 'low'} X, {'high' if iy else 'low'} Y, {'high' if iz else 'low'} Z)", (ix * w, iy * d, iz * h)))
+        return found
+
     def handles(self, topology, selection, values):
         x, y, z, w, d, h = (values[k] for k in ("x", "y", "z", "width", "depth", "height"))
+        cx, cy, cz = x + w / 2, y + d / 2, z + h / 2
+        # One grip on each of the six faces. A high face grows its own side; a low face grows the other way and moves
+        # the origin by the same amount, so the opposite face stays where it is.
+        faces = [
+            ("width", "Resize width (high X face)", (x + w, cy, cz), (1, 0, 0), ()),
+            ("width", "Resize width (low X face, moves the origin)", (x, cy, cz), (-1, 0, 0), (("x", -1.0),)),
+            ("depth", "Resize depth (high Y face)", (cx, y + d, cz), (0, 1, 0), ()),
+            ("depth", "Resize depth (low Y face, moves the origin)", (cx, y, cz), (0, -1, 0), (("y", -1.0),)),
+            ("height", "Resize height (top face)", (cx, cy, z + h), (0, 0, 1), ()),
+            ("height", "Resize height (bottom face, moves the origin)", (cx, cy, z), (0, 0, -1), (("z", -1.0),)),
+        ]
         return [
-            Handle("width", "Width", (x + w, y + d / 2, z + h / 2), (1, 0, 0), min=MIN_DISTANCE),
-            Handle("depth", "Depth", (x + w / 2, y + d, z + h / 2), (0, 1, 0), min=MIN_DISTANCE),
-            Handle("height", "Height", (x + w / 2, y + d / 2, z + h), (0, 0, 1), min=MIN_DISTANCE),
+            *(Handle(param, label, anchor, direction, min=MIN_DISTANCE, kind="resize", links=links) for param, label, anchor, direction, links in faces),
             *_position_handles(values, max(w, d, h)),
         ]
 
@@ -694,11 +715,18 @@ class AddCylinder(Tool):
 
     starts_from = "tool"
 
+    def anchors(self, values):
+        h = values["height"]
+        return [("Bottom centre", (0, 0, 0)), ("Centre", (0, 0, h / 2)), ("Top centre", (0, 0, h))]
+
     def handles(self, topology, selection, values):
         x, y, z, d, h = (values[k] for k in ("x", "y", "z", "diameter", "height"))
+        r = d / 2
+        sides = [("(+X side)", (x + r, y, z + h / 2), (1, 0, 0)), ("(-X side)", (x - r, y, z + h / 2), (-1, 0, 0)), ("(+Y side)", (x, y + r, z + h / 2), (0, 1, 0)), ("(-Y side)", (x, y - r, z + h / 2), (0, -1, 0))]
         return [
-            Handle("diameter", "Diameter", (x + d / 2, y, z + h / 2), (1, 0, 0), scale=2.0, min=MIN_DISTANCE),
-            Handle("height", "Height", (x, y, z + h), (0, 0, 1), min=MIN_DISTANCE),
+            *(Handle("diameter", f"Resize diameter {name}", at, direction, scale=2.0, min=MIN_DISTANCE, kind="resize") for name, at, direction in sides),
+            Handle("height", "Resize height (top end)", (x, y, z + h), (0, 0, 1), min=MIN_DISTANCE, kind="resize"),
+            Handle("height", "Resize height (bottom end, moves the origin)", (x, y, z), (0, 0, -1), min=MIN_DISTANCE, kind="resize", links=(("z", -1.0),)),
             *_position_handles(values, max(d, h)),
         ]
 
@@ -998,6 +1026,7 @@ class MoveBody(Tool):
     description = "Moves a whole solid by the given distances along X, Y and Z. Select any face of the solid, or nothing to move the whole model."
     accepts = Accepts(faces=(0, None))
     params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length")]
+    move_vector = ("dx", "dy", "dz")
 
     starts_from = "selection"
 
@@ -1010,7 +1039,7 @@ class MoveBody(Tool):
         axes = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
         reach = [(hi[k] - lo[k]) / 2 + margin for k in range(3)]  # each arrow sticks out past its face of the body
         return [
-            Handle(name, f"Move {label}", tuple(centre[k] + now[k] + axes[i][k] * reach[i] for k in range(3)), axes[i])
+            Handle(name, f"Move along {label}", tuple(centre[k] + now[k] + axes[i][k] * reach[i] for k in range(3)), axes[i], kind="move")
             for i, (name, label) in enumerate((("dx", "X"), ("dy", "Y"), ("dz", "Z")))
         ]
 
@@ -1098,9 +1127,18 @@ class AddSphere(Tool):
 
     starts_from = "tool"
 
+    def anchors(self, values):
+        r = values["diameter"] / 2
+        return [("Centre", (0, 0, 0)), ("Bottom", (0, 0, -r)), ("Top", (0, 0, r))]
+
     def handles(self, topology, selection, values):
         x, y, z, d = (values[k] for k in ("x", "y", "z", "diameter"))
-        return [Handle("diameter", "Diameter", (x + d / 2, y, z), (1, 0, 0), scale=2.0, min=MIN_DISTANCE), *_position_handles(values, d)]
+        r = d / 2
+        around = [("+X", (x + r, y, z), (1, 0, 0)), ("-X", (x - r, y, z), (-1, 0, 0)), ("+Y", (x, y + r, z), (0, 1, 0)), ("-Y", (x, y - r, z), (0, -1, 0)), ("top", (x, y, z + r), (0, 0, 1)), ("bottom", (x, y, z - r), (0, 0, -1))]
+        return [
+            *(Handle("diameter", f"Resize diameter ({name})", at, direction, scale=2.0, min=MIN_DISTANCE, kind="resize") for name, at, direction in around),
+            *_position_handles(values, d),
+        ]
 
     def run(self, topology, selection, values, preview):
         if values["diameter"] < MIN_DISTANCE:
@@ -1130,13 +1168,20 @@ class AddCone(Tool):
 
     starts_from = "tool"
 
+    def anchors(self, values):
+        h = values["height"]
+        return [("Bottom centre", (0, 0, 0)), ("Centre", (0, 0, h / 2)), ("Top centre", (0, 0, h))]
+
     def handles(self, topology, selection, values):
         x, y, z, bd, td, h = (values[k] for k in ("x", "y", "z", "bottom_diameter", "top_diameter", "height"))
-        nudge = max(bd, h) * 0.06  # keeps the top-diameter handle off the height handle when the top is a point
+        nudge = max(bd, h) * 0.06  # keeps the top-diameter handles off the height handle when the top is a point
         return [
-            Handle("bottom_diameter", "Bottom diameter", (x + bd / 2, y, z), (1, 0, 0), scale=2.0, min=0.0),
-            Handle("top_diameter", "Top diameter", (x + td / 2 + nudge, y, z + h), (1, 0, 0), scale=2.0, min=0.0),
-            Handle("height", "Height", (x, y, z + h), (0, 0, 1), min=MIN_DISTANCE),
+            Handle("bottom_diameter", "Resize bottom diameter (+X side)", (x + bd / 2, y, z), (1, 0, 0), scale=2.0, min=0.0, kind="resize"),
+            Handle("bottom_diameter", "Resize bottom diameter (-X side)", (x - bd / 2, y, z), (-1, 0, 0), scale=2.0, min=0.0, kind="resize"),
+            Handle("top_diameter", "Resize top diameter (+X side)", (x + td / 2 + nudge, y, z + h), (1, 0, 0), scale=2.0, min=0.0, kind="resize"),
+            Handle("top_diameter", "Resize top diameter (-X side)", (x - td / 2 - nudge, y, z + h), (-1, 0, 0), scale=2.0, min=0.0, kind="resize"),
+            Handle("height", "Resize height (top end)", (x, y, z + h), (0, 0, 1), min=MIN_DISTANCE, kind="resize"),
+            Handle("height", "Resize height (bottom end, moves the origin)", (x, y, z), (0, 0, -1), min=MIN_DISTANCE, kind="resize", links=(("z", -1.0),)),
             *_position_handles(values, max(bd, h)),
         ]
 
@@ -1161,11 +1206,17 @@ class AddTorus(Tool):
 
     starts_from = "tool"
 
+    def anchors(self, values):
+        t = values["minor"] / 2
+        return [("Centre", (0, 0, 0)), ("Bottom", (0, 0, -t)), ("Top", (0, 0, t))]
+
     def handles(self, topology, selection, values):
         x, y, z, major, minor = (values[k] for k in ("x", "y", "z", "major", "minor"))
         return [
-            Handle("major", "Ring diameter", (x + major / 2, y, z), (1, 0, 0), scale=2.0, min=MIN_DISTANCE),
-            Handle("minor", "Tube diameter", (x, y + major / 2, z + minor / 2), (0, 0, 1), scale=2.0, min=MIN_DISTANCE),
+            Handle("major", "Resize ring diameter (+X side)", (x + major / 2, y, z), (1, 0, 0), scale=2.0, min=MIN_DISTANCE, kind="resize"),
+            Handle("major", "Resize ring diameter (-X side)", (x - major / 2, y, z), (-1, 0, 0), scale=2.0, min=MIN_DISTANCE, kind="resize"),
+            Handle("minor", "Resize tube diameter (top)", (x, y + major / 2, z + minor / 2), (0, 0, 1), scale=2.0, min=MIN_DISTANCE, kind="resize"),
+            Handle("minor", "Resize tube diameter (bottom)", (x, y + major / 2, z - minor / 2), (0, 0, -1), scale=2.0, min=MIN_DISTANCE, kind="resize"),
             *_position_handles(values, major),
         ]
 
@@ -1219,6 +1270,7 @@ class LinearArray(Tool):
     description = "Makes copies of a body in a straight line and fuses them. Select any face of the body, or nothing for the whole model; the count includes the original."
     accepts = Accepts(faces=(0, None))
     params = [Param("count", "number", 3), Param("dx", "length", 20), Param("dy", "length"), Param("dz", "length")]
+    move_vector = ("dx", "dy", "dz")
 
     def run(self, topology, selection, values, preview):
         count = _array_copies(values["count"])

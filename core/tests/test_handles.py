@@ -127,8 +127,10 @@ def test_handles_follow_their_parameter(tool_id):
     for h in _handles(tool_id, params):
         t = 1.5
         new = max(h["value"] + h["scale"] * t, h["min"] if h["min"] is not None else -1e9)
-        moved = {h2["param"]: h2 for h2 in _handles(tool_id, {**params, h["param"]: new})}[h["param"]]
         travel = (new - h["value"]) / h["scale"]
+        linked = {link["param"]: link["value"] + link["scale"] * travel for link in h["links"]}  # a low face also moves the origin
+        after = _handles(tool_id, {**params, **linked, h["param"]: new})
+        moved = next(h2 for h2 in after if h2["param"] == h["param"] and h2["direction"] == h["direction"])
         for a, b, d in zip(h["anchor"], moved["anchor"], h["direction"]):
             assert b == pytest.approx(a + d * travel), (tool_id, h["param"])
 
@@ -390,3 +392,80 @@ def test_chamfer_two_distances_handles_mark_the_leg_on_each_side_and_follow_the_
         assert a0["first"]["direction"] != pytest.approx(a1["first"]["direction"])
         checked += 1
     assert checked >= 4
+
+
+def test_primitive_move_arrows_point_the_positive_way_and_resize_grips_are_marked(session):
+    for tool in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus"):
+        handles = session.handle({"type": "tool_handles", "tool": tool, "params": {"x": 5, "y": 6, "z": 7}})["handles"]
+        moves = {h["param"]: h for h in handles if h["kind"] == "move"}
+        assert set(moves) == {"x", "y", "z"}
+        for param, i in (("x", 0), ("y", 1), ("z", 2)):
+            h = moves[param]
+            assert h["direction"][i] == 1.0 and h["scale"] == 1.0 and h["value"] == (5, 6, 7)[i]
+        assert all(h["kind"] == "resize" for h in handles if h["kind"] != "move")
+
+
+def test_primitives_offer_anchor_points_with_the_default_at_the_placement_point(session):
+    for tool in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus"):
+        anchors = session.handle({"type": "tool_handles", "tool": tool})["anchors"]
+        assert anchors and anchors[0]["offset"] == [0.0, 0.0, 0.0]
+        assert len({a["label"] for a in anchors}) == len(anchors)
+    box = {a["label"]: a["offset"] for a in session.handle({"type": "tool_handles", "tool": "add_box", "params": {"width": 4, "depth": 6, "height": 8}})["anchors"]}
+    assert box["Centre"] == [2.0, 3.0, 4.0] and box["Corner (high X, high Y, high Z)"] == [4.0, 6.0, 8.0]
+    assert len(box) == 15
+
+
+def test_vector_tools_declare_their_move_vector(session):
+    tools = {t["id"]: t for t in session.handle({"type": "list_tools"})["tools"]}
+    for name in ("move_body", "linear_array", "move_hole", "pattern_hole"):
+        assert tools[name]["moveVector"] == ["dx", "dy", "dz"]
+    assert tools["add_box"]["moveVector"] is None and tools["push_pull"]["moveVector"] is None
+
+
+def _box_handles(session, **params):
+    return session.handle({"type": "tool_handles", "tool": "add_box", "params": params})["handles"]
+
+
+def test_box_has_a_resize_grip_on_each_of_its_six_faces(session):
+    handles = [h for h in _box_handles(session, x=1, y=2, z=3, width=4, depth=6, height=8) if h["kind"] == "resize"]
+    assert len(handles) == 6
+    anchors = {tuple(h["anchor"]) for h in handles}
+    assert anchors == {(5, 5, 7), (1, 5, 7), (3, 8, 7), (3, 2, 7), (3, 5, 11), (3, 5, 3)}
+
+
+def test_a_low_face_handle_grows_the_size_and_moves_the_origin_so_the_far_face_stays(session):
+    handles = _box_handles(session, x=1, y=2, z=3, width=4, depth=6, height=8)
+    low_x = next(h for h in handles if h["param"] == "width" and h["direction"] == [-1.0, 0.0, 0.0])
+    assert low_x["scale"] == 1.0 and low_x["links"] == [{"param": "x", "scale": -1.0, "value": 1.0}]
+    t = 2.5  # dragging outward by t along its direction
+    width, x = low_x["value"] + low_x["scale"] * t, 1 + (-1.0) * t
+    assert x + width == 1 + 4  # the high X face did not move
+    high_x = next(h for h in handles if h["param"] == "width" and h["direction"] == [1.0, 0.0, 0.0])
+    assert high_x["links"] == []
+
+
+def test_dragging_a_low_face_keeps_the_far_face_in_the_real_preview(session):
+    """Apply the values a low-face handle drag produces and read the box's bounds back from the preview mesh."""
+    handles = _box_handles(session, x=1, y=2, z=3, width=4, depth=6, height=8)
+    low_x = next(h for h in handles if h["param"] == "width" and h["direction"] == [-1.0, 0.0, 0.0])
+    t = 2.5
+    params = {"x": 1 + low_x["links"][0]["scale"] * t, "y": 2, "z": 3, "width": low_x["value"] + low_x["scale"] * t, "depth": 6, "height": 8, "new_body": 1}
+    header, _ = decode_binary(session.handle({"type": "tool_preview", "tool": "add_box", "params": params}))
+    lo, hi = header["bounds"][:3], header["bounds"][3:]
+    assert hi[0] >= 5 - 1e-6 and lo[0] <= -1.5 + 1e-6  # the model now reaches the new low face at x = -1.5 and still the high face at x = 5
+
+
+def test_cylinder_cone_sphere_and_torus_resize_handles(session):
+    def of(tool, **params):
+        return [h for h in session.handle({"type": "tool_handles", "tool": tool, "params": params})["handles"] if h["kind"] == "resize"]
+
+    cyl = of("add_cylinder", x=0, y=0, z=0, diameter=10, height=20)
+    assert sum(h["param"] == "diameter" for h in cyl) == 4 and all(h["scale"] == 2.0 for h in cyl if h["param"] == "diameter")
+    bottom = next(h for h in cyl if h["param"] == "height" and h["direction"] == [0.0, 0.0, -1.0])
+    assert bottom["anchor"] == [0.0, 0.0, 0.0] and bottom["links"][0]["param"] == "z" and bottom["links"][0]["scale"] == -1.0
+    assert next(h for h in cyl if h["param"] == "height" and h["direction"] == [0.0, 0.0, 1.0])["anchor"] == [0.0, 0.0, 20.0]
+    assert len(of("add_sphere", x=0, y=0, z=0, diameter=10)) == 6
+    cone = of("add_cone", x=0, y=0, z=0, bottom_diameter=10, top_diameter=4, height=8)
+    assert {h["param"] for h in cone} == {"bottom_diameter", "top_diameter", "height"} and len(cone) == 6
+    torus = of("add_torus", x=0, y=0, z=0, major=20, minor=6)
+    assert {h["param"] for h in torus} == {"major", "minor"} and len(torus) == 4

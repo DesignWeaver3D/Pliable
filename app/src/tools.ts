@@ -15,6 +15,8 @@ export interface ToolInfo {
   related?: string[];
   /** Names of three length parameters that form a point; the form offers to fill them from a reference snap. */
   placement?: string[] | null;
+  /** Names of three length parameters that form a displacement; the form offers a base and a destination pick. */
+  moveVector?: string[] | null;
   /** "tool": the tool is chosen first and places something new; "selection": it acts on a selection. */
   startsFrom?: "selection" | "tool";
   hasHandles?: boolean;
@@ -32,9 +34,13 @@ export interface HandleInfo {
   max: number | null;
   /** A yes/no marker (0 or 1): clicking flips the value instead of dragging. */
   toggle: boolean;
+  /** How it is drawn: a plain arrow, a move arrow in its axis colour, a square resize grip, or a click marker. */
+  kind?: "arrow" | "move" | "resize" | "toggle";
   unit: string;
   /** The parameter's value when the handle was computed. */
   value: number;
+  /** Other parameters that move with this one: each changes by `scale` per model unit of travel (a low box face also moves the origin). */
+  links?: { param: string; scale: number; value: number }[];
 }
 
 const inRange = (n: number, [min, max]: Range) => n >= min && (max === null || n <= max);

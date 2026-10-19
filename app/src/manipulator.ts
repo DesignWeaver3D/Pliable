@@ -2,6 +2,7 @@
  *  dragged with the left button. One handle sets one parameter; the host receives the new value while dragging.
  *  The maths that does not need a camera is exported for tests (`node --test app/tests`). */
 import * as THREE from "three";
+import { AXIS_COLORS } from "./axes.ts";
 import type { HandleInfo } from "./tools";
 
 /** Length of a handle's arm and the radius of its grab target, in screen pixels. */
@@ -10,6 +11,24 @@ export const GRAB_PX = 9;
 const COLOR = 0xffb347;
 const COLOR_HOT = 0xffffff;
 const COLOR_TOGGLE = 0x6fd3ff;
+/** Resize grips are neutral squares (orange on hover) so they never read as the coloured move arrows. */
+const COLOR_RESIZE = 0xc8ccd4;
+const COLOR_RESIZE_HOT = 0xffb347;
+
+/** The origin-axis colour of a direction (its largest component), or white-ish for none. */
+export function axisColorOf(d: readonly number[]): number {
+  const a = d.map(Math.abs);
+  const k = a.indexOf(Math.max(...a));
+  return [AXIS_COLORS.x, AXIS_COLORS.y, AXIS_COLORS.z][k];
+}
+
+/** The look of a handle: its resting and hover colour. */
+export function handleColors(info: Pick<HandleInfo, "kind" | "toggle" | "direction">): { rest: number; hot: number } {
+  if (info.toggle || info.kind === "toggle") return { rest: COLOR_TOGGLE, hot: COLOR_HOT };
+  if (info.kind === "move") return { rest: axisColorOf(info.direction), hot: COLOR_HOT };
+  if (info.kind === "resize") return { rest: COLOR_RESIZE, hot: COLOR_RESIZE_HOT };
+  return { rest: COLOR, hot: COLOR_HOT };
+}
 
 /** The parameter value a handle shows after travelling `travel` (model units along the handle line). */
 export function handleValue(h: Pick<HandleInfo, "value" | "scale" | "min"> & { max?: number | null }, travel: number): number {
@@ -17,6 +36,13 @@ export function handleValue(h: Pick<HandleInfo, "value" | "scale" | "min"> & { m
   if (h.min !== null && v < h.min) return h.min;
   if (h.max != null && v > h.max) return h.max;
   return v;
+}
+
+/** The values of a handle's linked parameters after travelling `travel`. */
+export function linkedValues(h: Pick<HandleInfo, "links">, travel: number): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const l of h.links ?? []) out[l.param] = Math.round((l.value + l.scale * travel) * 1000) / 1000;
+  return out;
 }
 
 /** The travel that gives `value` (inverse of handleValue; used to keep the handle where the clamp put it). */
@@ -62,7 +88,7 @@ interface Active {
 
 export class Manipulator {
   /** Called with the new parameter value while a handle is dragged, then once more with phase "end". */
-  onDrag: (param: string, value: number, phase: "move" | "end", x: number, y: number) => void = () => {};
+  onDrag: (param: string, value: number, phase: "move" | "end", x: number, y: number, linked: Record<string, number>) => void = () => {};
 
   private readonly root = new THREE.Group();
   private items: Item[] = [];
@@ -123,21 +149,26 @@ export class Manipulator {
   }
 
   private build(info: HandleInfo): Item {
-    const material = () => new THREE.MeshBasicMaterial({ color: COLOR, depthTest: false, transparent: true });
+    const material = () => new THREE.MeshBasicMaterial({ color: handleColors(info).rest, depthTest: false, transparent: true });
     const group = new THREE.Group();
     group.renderOrder = 10;
     const dir = new THREE.Vector3(...info.direction);
     group.position.set(...info.anchor);
-    const tip = new THREE.Mesh(info.toggle ? new THREE.SphereGeometry(0.17, 16, 12) : new THREE.ConeGeometry(0.16, 0.42, 16), material());
+    const resize = info.kind === "resize" && !info.toggle;
+    const geometry = info.toggle ? new THREE.SphereGeometry(0.17, 16, 12) : resize ? new THREE.BoxGeometry(0.3, 0.3, 0.3) : new THREE.ConeGeometry(0.16, 0.42, 16);
+    const tip = new THREE.Mesh(geometry, material());
     tip.renderOrder = 11;
-    if (!info.toggle) {
+    if (resize) {
+      tip.position.copy(dir).multiplyScalar(-0.15); // the grip sits on the anchor, with a thin stem back to the model
+    } else if (!info.toggle) {
       tip.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-      // The anchor is the grab point at the end of the arm; the arm runs back toward the model.
-      tip.position.copy(dir).multiplyScalar(-0.21);
+      // The anchor is the grab point at the end of the arm; the arm runs back toward the model. A move arrow is the
+      // opposite: it starts at its anchor (the point being moved) and points away along its axis, like an axis gizmo.
+      tip.position.copy(dir).multiplyScalar(info.kind === "move" ? 0.79 : -0.21);
     }
     const arm = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), info.toggle ? new THREE.Vector3() : dir.clone().multiplyScalar(-1)]),
-      new THREE.LineBasicMaterial({ color: COLOR, depthTest: false, transparent: true }),
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), info.toggle ? new THREE.Vector3() : dir.clone().multiplyScalar(info.kind === "move" ? 1 : -1)]),
+      new THREE.LineBasicMaterial({ color: handleColors(info).rest, depthTest: false, transparent: true }),
     );
     arm.renderOrder = 10;
     group.add(tip, arm);
@@ -158,15 +189,18 @@ export class Manipulator {
       const size = this.pixelSizeAt(pos) * ARM_PX;
       group.scale.setScalar(size);
       const hot = item === this.hot || item === this.active?.item;
-      (item.tip.material as THREE.MeshBasicMaterial).color.setHex(hot ? COLOR_HOT : info.toggle ? COLOR_TOGGLE : COLOR);
-      (item.arm.material as THREE.LineBasicMaterial).color.setHex(hot ? COLOR_HOT : COLOR);
+      const colors = handleColors(info);
+      const color = hot ? colors.hot : colors.rest;
+      (item.tip.material as THREE.MeshBasicMaterial).color.setHex(color);
+      (item.arm.material as THREE.LineBasicMaterial).color.setHex(color);
+      group.scale.multiplyScalar(item === this.active?.item ? 1.3 : hot ? 1.15 : 1); // hovered and dragged handles grow
       const value = handleValue(info, item.travel);
       const p = pos.clone().project(this.camera());
       const behind = p.z > 1;
       item.label.style.display = behind || !hot ? "none" : "block"; // only the handle under the pointer or being dragged names itself
       item.label.style.left = `${((p.x + 1) / 2) * rect.width}px`;
       item.label.style.top = `${((1 - p.y) / 2) * rect.height}px`;
-      item.label.textContent = info.toggle ? info.label : `${info.label} ${formatValue(value)}${info.unit === "°" || !info.unit ? info.unit : " " + info.unit}`;
+      item.label.textContent = info.toggle ? info.label : `${info.label} ${formatValue(value)}${info.unit === "Â°" || !info.unit ? info.unit : " " + info.unit}`;
       item.label.style.fontWeight = hot ? "bold" : "normal";
     }
   }
@@ -190,9 +224,13 @@ export class Manipulator {
     let bestD = GRAB_PX;
     for (const item of this.items) {
       const tip = this.tipPoint(item);
-      const a = this.screen(tip);
       const dir = new THREE.Vector3(...item.info.direction);
-      const b = item.info.toggle ? a : this.screen(tip.clone().addScaledVector(dir, -this.pixelSizeAt(tip) * ARM_PX));
+      const move = item.info.kind === "move";
+      const reach = (move ? 1 : -1) * this.pixelSizeAt(tip) * ARM_PX;
+      const end = item.info.toggle ? this.screen(tip) : this.screen(tip.clone().addScaledVector(dir, reach));
+      // The arrowhead end wins ties: the tip of a pull arrow, the far end of a move arrow (all three start at one point).
+      const a = move ? end : this.screen(tip);
+      const b = move ? this.screen(tip) : end;
       const ab = b.clone().sub(a);
       const t = ab.lengthSq() < 1e-6 ? 0 : Math.max(0, Math.min(1, pointer.clone().sub(a).dot(ab) / ab.lengthSq()));
       const d = pointer.distanceTo(a.clone().addScaledVector(ab, t)) - (t === 0 ? 2 : 0); // the tip wins ties
@@ -254,7 +292,7 @@ export class Manipulator {
     a.moved = true;
     const value = handleValue(a.item.info, this.travelAt(a, e));
     a.item.travel = travelFor(a.item.info, value);
-    this.onDrag(a.item.info.param, Math.round(value * 1000) / 1000, "move", e.clientX, e.clientY);
+    this.onDrag(a.item.info.param, Math.round(value * 1000) / 1000, "move", e.clientX, e.clientY, linkedValues(a.item.info, a.item.travel));
   }
 
   up(e: PointerEvent) {
@@ -264,9 +302,10 @@ export class Manipulator {
     this.dom.style.cursor = "";
     const { info, travel } = a.item;
     if (info.toggle) {
-      this.onDrag(info.param, info.value >= 0.5 ? 0 : 1, "end", e.clientX, e.clientY);
+      this.onDrag(info.param, info.value >= 0.5 ? 0 : 1, "end", e.clientX, e.clientY, {});
       return;
     }
-    if (a.moved) this.onDrag(info.param, Math.round(handleValue(info, travel) * 1000) / 1000, "end", e.clientX, e.clientY);
+    if (a.moved) this.onDrag(info.param, Math.round(handleValue(info, travel) * 1000) / 1000, "end", e.clientX, e.clientY, linkedValues(info, travel));
   }
 }
+

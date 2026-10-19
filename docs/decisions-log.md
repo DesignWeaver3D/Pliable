@@ -74,3 +74,8 @@ Decisions made without the owner or by the owner, grouped by topic. Each says wh
 - Primitive position arrows sit a little off the reference point so the three tips do not overlap; they point away from the primitive and move it the opposite way, which feels like pulling it.
 
 - Tools button moved from the top bar to a handle on the left edge of the 3D view (rides on the drawer edge when open); its icon is a placeholder pending the owner's choice among candidates.
+
+## Base point by pick (S64)
+
+- Move body, move hole, pattern hole and linear array declare `move_vector` (dx, dy, dz). The form offers "Pick base point" (then goes straight on to the destination) and "Pick destination point"; the vector is destination minus base, and the base defaults to the origin. Typing a vector value forgets the picked destination.
+- Primitives declare `anchors` (the corner, centre and face centres of the new shape as offsets from the placement point). The form has a "base point" list and "Pick destination point"; the stored parameters stay the placement point and sizes, only the origin is set to destination minus the anchor offset. The base of a not-yet-placed shape is chosen from the list because there is nothing to click on before it exists.

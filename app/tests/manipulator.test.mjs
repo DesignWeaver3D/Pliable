@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { formatValue, handleValue, lineParam, travelFor } from "../src/manipulator.ts";
+import { linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor } from "../src/manipulator.ts";
 
 const h = { value: 10, scale: 1, min: 1 };
 
@@ -44,4 +44,30 @@ test("a ray along the line has no defined position", () => {
 test("labels show at most three decimals", () => {
   assert.equal(formatValue(24.28412), "24.284");
   assert.equal(formatValue(10), "10");
+});
+
+test("move arrows take the origin-axis colour of their direction and resize grips are neutral", async () => {
+  const { AXIS_COLORS } = await import("../src/axes.ts");
+  assert.equal(axisColorOf([1, 0, 0]), AXIS_COLORS.x);
+  assert.equal(axisColorOf([0, -1, 0]), AXIS_COLORS.y);
+  assert.equal(axisColorOf([0.1, 0.2, 0.9]), AXIS_COLORS.z);
+  assert.equal(handleColors({ kind: "move", toggle: false, direction: [0, 0, 1] }).rest, AXIS_COLORS.z);
+  const resize = handleColors({ kind: "resize", toggle: false, direction: [1, 0, 0] });
+  assert.notEqual(resize.rest, AXIS_COLORS.x);
+  assert.notEqual(resize.hot, handleColors({ kind: "arrow", toggle: false, direction: [1, 0, 0] }).hot);
+});
+
+test("a low face handle moves the origin the opposite way so the far face stays put", () => {
+  // box x = 2, width = 10: the low X face handle points to -x; dragging it 3 units outward gives width 13 and x -1
+  const low = { value: 10, scale: 1, min: 0.001, links: [{ param: "x", scale: -1, value: 2 }] };
+  assert.equal(handleValue(low, 3), 13);
+  assert.deepEqual(linkedValues(low, 3), { x: -1 });
+  assert.deepEqual(linkedValues({}, 3), {});
+  // the far face (x + width) is unchanged: 2 + 10 = -1 + 13
+});
+
+test("a clamped size keeps the linked origin consistent", () => {
+  const low = { value: 10, scale: 1, min: 1, links: [{ param: "x", scale: -1, value: 2 }] };
+  const travel = travelFor(low, handleValue(low, -50)); // clamps at width 1, travel -9
+  assert.deepEqual(linkedValues(low, travel), { x: 11 });
 });

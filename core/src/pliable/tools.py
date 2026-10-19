@@ -116,7 +116,7 @@ class Handle:
     the same way: the anchor on the ring, `direction` the tangent there and `scale` the degrees per unit of travel, so
     the view needs no separate kind of handle. `min` bounds the parameter (None = unbounded); `unit` is the text
     shown after the value in the live label. `max` bounds it from above. A `toggle` handle is a marker for a yes/no
-    parameter (0 or 1): clicking it flips the value, it is not dragged."""
+    parameter (0 or 1): clicking it flips the value, it is not dragged. `kind` selects the look (see the field); `links` moves other parameters along with it."""
 
     param: str
     label: str
@@ -127,8 +127,14 @@ class Handle:
     unit: str = "mm"
     max: float | None = None
     toggle: bool = False
+    # How the view draws it: "arrow" (a plain drag arrow), "move" (an arrow in its axis colour that moves something along
+    # that axis) or "resize" (a square grip that changes a size).
+    kind: str = "arrow"
+    # Other parameters that change together with this one, as (parameter, change per unit of travel). A box face handle
+    # that pulls the low X face sets width +1 and x -1 per unit, so the high X face stays where it is.
+    links: tuple[tuple[str, float], ...] = ()
 
-    def to_json(self, value: float) -> dict:
+    def to_json(self, value: float, values: dict | None = None) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
         return {
             "param": self.param,
@@ -139,8 +145,10 @@ class Handle:
             "min": self.min,
             "max": self.max,
             "toggle": self.toggle,
+            "kind": "toggle" if self.toggle else self.kind,
             "unit": self.unit,
             "value": value,
+            "links": [{"param": name, "scale": scale, "value": (values or {}).get(name, 0.0)} for name, scale in self.links if values is None or name in values],
         }
 
 
@@ -171,6 +179,9 @@ class Tool:
     # Names of three length parameters that together are a point in space; the view offers to fill them by
     # clicking a reference snap (origin, axis, face centre) instead of typing.
     placement: tuple[str, str, str] | None = None
+    # Names of three length parameters that are a displacement (move, copy step); the view offers to pick a base point
+    # and a destination point and fills them with destination minus base.
+    move_vector: tuple[str, str, str] | None = None
     # Where the tool starts: "selection" (the user selects something, then the tool acts on it) or "tool" (the tool is
     # chosen first and places something new, like a primitive); the view shows `handles` accordingly.
     starts_from: str = "selection"
@@ -178,6 +189,12 @@ class Tool:
     def handles(self, topology: Topology, selection: Selection, values: dict[str, float]) -> list[Handle]:
         """On-screen manipulators for the current parameter values: one per parameter that can be dragged in the view.
         Typed entry stays available for every parameter. The default is none."""
+        return []
+
+    def anchors(self, values: dict[str, float]) -> list[tuple[str, tuple[float, float, float]]]:
+        """For a tool with `placement`: the points of the new shape that can be put at the destination, as (label,
+        offset from the placement point). The first is the default and has offset zero, so the stored parameters stay
+        the placement point and the sizes. Default: none."""
         return []
 
     def applies(self, topology: Topology, selection: Selection) -> bool:
@@ -232,7 +249,16 @@ class Tool:
         try:
             values = self.bind(raw_params)
             names = {p.name for p in self.params}
-            return [h.to_json(values[h.param]) for h in self.handles(topology, selection, values) if h.param in names and not isinstance(values[h.param], list)]
+            return [h.to_json(values[h.param], values) for h in self.handles(topology, selection, values) if h.param in names and not isinstance(values[h.param], list)]
+        except Exception:
+            return []
+
+    def anchor_list(self, raw_params: dict) -> list[dict]:
+        """`anchors` for raw request values as JSON; empty on any problem (a convenience, never fails a request)."""
+        if type(self).anchors is Tool.anchors:
+            return []
+        try:
+            return [{"label": label, "offset": [float(c) for c in offset]} for label, offset in self.anchors(self.bind(raw_params))]
         except Exception:
             return []
 
@@ -245,6 +271,7 @@ class Tool:
             "params": [p.to_json() for p in self.params],
             "related": list(self.related),
             "placement": list(self.placement) if self.placement else None,
+            "moveVector": list(self.move_vector) if self.move_vector else None,
             "startsFrom": self.starts_from,
             "hasHandles": type(self).handles is not Tool.handles,
         }
