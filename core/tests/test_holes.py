@@ -182,3 +182,12 @@ def test_convert_to_countersink(block):
     # converting again replaces the cone
     again = Topology(run("convert_to_countersink", result, faces=[hole.faces[0]], sink_diameter=10, sink_angle=82).shape)
     assert only_hole(again).stages[0]["diameter"] == pytest.approx(10)
+
+
+def test_mesh_centres_carry_the_axis_length():
+    from pliable.tessellate import tessellate
+
+    bracket = Topology(load_demo("bracket"))
+    mesh = tessellate(bracket)
+    lengths = sorted(round(c["length"], 6) for c in mesh.centres)
+    assert lengths == [10.0] * 5

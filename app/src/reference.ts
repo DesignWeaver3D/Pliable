@@ -4,6 +4,7 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { Viewport } from "./viewport";
+import { holeAxisPoints } from "./holepoints.ts";
 import { AXIS_COLORS, axisHalfLength, positionsBox, type Box6 } from "./axes";
 
 const AXES = [
@@ -139,6 +140,13 @@ export class ReferenceView {
     const data = this.viewport.meshData;
     const hitDistance = face ? this.viewport.camera.position.distanceTo(face.point) : Infinity;
     const visible = (p: THREE.Vector3) => !face || this.viewport.camera.position.distanceTo(p) <= hitDistance * 1.01 + this.viewport.pixelSizeAt(p) * SNAP_PX;
+    // Every hole's axis: its middle and its two end points (the circle centres at both openings).
+    for (const c of data?.centres ?? []) {
+      for (const [xyz, label] of holeAxisPoints(c)) {
+        const p = new THREE.Vector3(...xyz);
+        if (label === "Hole centre" || visible(p)) candidates.push({ point: p, label });
+      }
+    }
     for (const v of data?.vertices ?? []) {
       const p = new THREE.Vector3(...v.position);
       if (visible(p)) candidates.push({ point: p, label: "Vertex" });

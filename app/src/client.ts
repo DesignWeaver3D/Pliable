@@ -35,6 +35,8 @@ export interface CentreInfo {
   face: number;
   position: [number, number, number];
   axis: [number, number, number];
+  /** Length of the hole or boss along its axis (its two axis end points are the position plus or minus half of it). */
+  length?: number;
 }
 
 export interface MeshData {
