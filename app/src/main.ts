@@ -12,6 +12,8 @@ import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
 import { HintLine } from "./hints";
 import { Palette, type Command } from "./palette";
+import { toolIcon, uiIcon } from "./icons";
+import { TOOL_GROUPS } from "./layout";
 import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
 import { usage, type Surface } from "./usage";
@@ -175,6 +177,53 @@ function dragToolFor(sels: Sel[]): ToolInfo | null {
 
 const toolbar = $("tools");
 
+// Icons beside the labels of the top bar buttons (the label stays: icons alone are not self-explanatory).
+for (const [id, name] of [["drawerbtn", "tools"], ["menubtn", "menu"], ["undo", "undo"], ["redo", "redo"], ["editlast", "edit"]] as const) $(id).prepend(uiIcon(name));
+$("palette-input").parentElement!.insertBefore(Object.assign(uiIcon("search"), { className: "icon searchicon" }), $("palette-input"));
+
+// File menu: model, import/export and view toggles live in one popup so the top bar stays small.
+const menuPanel = $("menupanel");
+$("menubtn").addEventListener("click", () => {
+  menuPanel.hidden = !menuPanel.hidden;
+  if (!menuPanel.hidden) toggleDrawer(false);
+});
+menuPanel.addEventListener("click", (e) => {
+  if ((e.target as HTMLElement).closest("button")) menuPanel.hidden = true;
+});
+menuPanel.addEventListener("change", (e) => {
+  if (["demo", "exportmesh"].includes((e.target as HTMLElement).id)) menuPanel.hidden = true;
+});
+document.addEventListener("pointerdown", (e) => {
+  if (!menuPanel.hidden && !(e.target as HTMLElement).closest("#menuwrap")) menuPanel.hidden = true;
+}, true);
+
+// Browse drawer: every tool by group, hidden until asked for (button, key T, or the strip's "..." button).
+const drawer = $("drawer");
+function toggleDrawer(open = drawer.hidden, usableOnly?: boolean) {
+  drawer.hidden = !open;
+  if (usableOnly !== undefined) {
+    ($("drawerusable") as HTMLInputElement).checked = usableOnly;
+    drawer.classList.toggle("usableonly", usableOnly);
+  }
+}
+$("drawerbtn").addEventListener("click", () => {
+  toggleDrawer();
+  menuPanel.hidden = true;
+});
+$("drawerclose").addEventListener("click", () => toggleDrawer(false));
+$("drawerusable").addEventListener("change", (e) => drawer.classList.toggle("usableonly", (e.target as HTMLInputElement).checked));
+$("toollist").addEventListener("click", (e) => {
+  if ((e.target as HTMLElement).closest("button")) toggleDrawer(false);
+});
+$("viewport").addEventListener("pointerdown", () => toggleDrawer(false), true);
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !drawer.hidden) toggleDrawer(false);
+});
+
+/** Strip order: the tool a drag runs first, then the tool groups' order. */
+const GROUP_ORDER = TOOL_GROUPS.flatMap((g) => g.tools);
+const STRIP_MAX = 7;
+
 let toolbarKey = "";
 
 function renderToolbar() {
@@ -190,19 +239,33 @@ function renderToolbar() {
     const hint = document.createElement("span");
     hint.className = "none";
     hint.textContent = currentSels.length ? "No tools for this selection" : "Select a face or edge (Ctrl+K for commands)";
-    toolbar.replaceChildren(hint);
+    const browse = document.createElement("button");
+    browse.append(uiIcon("more"), "All tools");
+    browse.className = "more";
+    browse.title = "Open the tool drawer (T)";
+    browse.addEventListener("click", () => toggleDrawer(true));
+    toolbar.replaceChildren(hint, browse);
     return;
   }
+  const rank = (t: ToolInfo) => (t.id === active ? -1 : GROUP_ORDER.includes(t.id) ? GROUP_ORDER.indexOf(t.id) : GROUP_ORDER.length);
+  const ordered = [...usable].sort((a, b) => rank(a) - rank(b));
+  const shown = ordered.slice(0, STRIP_MAX);
+  const more = document.createElement("button");
+  more.append(uiIcon("more"), ordered.length > STRIP_MAX ? `${ordered.length - STRIP_MAX} more` : "All tools");
+  more.className = "more";
+  more.title = "Open the tool drawer, showing the tools that work now (T)";
+  more.addEventListener("click", () => toggleDrawer(true, true));
   toolbar.replaceChildren(
-    ...usable.map((tool) => {
+    ...shown.map((tool) => {
       const button = document.createElement("button");
-      button.textContent = tool.label;
+      button.append(toolIcon(tool.id, tool.label), tool.label);
       button.title = toolTooltip(tool);
       button.className = tool.id === active ? "active" : "";
       button.addEventListener("click", () => armTool(tool, "strip"));
       return button;
     }),
     ...helpers,
+    more,
   );
 }
 
@@ -682,6 +745,8 @@ const keys = new KeyRouter({
     "view.lookAtFace": () => {
       if (currentSels.length === 1 && currentSels[0].kind === "face" && !viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: could not find a view direction for this face";
     },
+    measure: () => viewport.toggleMeasureKey(),
+    "display.drawer": () => toggleDrawer(),
     "display.hide": () => setVisibility("hide"),
     "display.isolate": () => setVisibility("isolate"),
     "display.showAll": () => setVisibility("show"),
@@ -795,9 +860,9 @@ function commands(): Command[] {
     { label: "Show all bodies", hint: keys.keymap.hint("display.showAll"), enabled: hiddenSolids.size > 0, run: () => setVisibility("show") },
     { label: "See-through selection (pick edges and faces behind the model)", hint: keys.keymap.hint("display.seeThrough"), enabled: true, run: () => viewport.toggleSeeThrough() },
     {
-      label: "Measure pick (hidden mode: press M while dragging a tool)",
-      hint: "M while dragging",
-      title: "Start dragging a tool, then press M to measure distances to other geometry. It cannot start from this list.",
+      label: `Measure pick (hidden mode: press ${keys.keymap.hint("measure") || "its key"} while dragging a tool)`,
+      hint: `${keys.keymap.hint("measure")} while dragging`,
+      title: "Start dragging a tool, then press the measure key to measure distances to other geometry. It cannot start from this list.",
       enabled: true,
       run: () => (status.textContent = "Measure pick: start dragging a tool, then press M to pick geometry to measure against"),
     },

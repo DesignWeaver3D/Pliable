@@ -200,3 +200,13 @@ test("engagement: pointer, grace period, click and blur", () => {
   eng.release(); // clicking elsewhere or opening a dialog
   assert.equal(eng.active(0), false);
 });
+
+test("measure key runs during a tool drag and can be rebound", () => {
+  const drag = { ...live, entryActive: true };
+  assert.equal(ran(ev("m"), drag), "measure");
+  assert.equal(ran(ev("x"), drag), null); // other keys stay blocked under a live drag
+  const km = new Keymap();
+  km.assign("measure", ["K"]);
+  assert.equal(ran(ev("k"), drag, km), "measure");
+  assert.equal(ran(ev("m"), drag, km), null);
+});

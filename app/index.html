@@ -8,9 +8,22 @@
       html, body { margin: 0; height: 100%; background: #1b1d22; color: #ddd; font: 13px system-ui, sans-serif; overflow: hidden; }
       #viewport { position: fixed; inset: 0; }
       #viewport.engaged::after { content: ""; position: absolute; inset: 0; border: 2px solid rgba(255, 138, 31, 0.45); pointer-events: none; z-index: 1; }
-      #bar { position: fixed; top: 8px; left: 8px; display: flex; gap: 6px; align-items: center; z-index: 1; flex-wrap: wrap; max-width: calc(100vw - 16px); }
-      #gear { position: fixed; right: 8px; bottom: 8px; z-index: 4; background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; font-size: 18px; padding: 2px 8px; }
-      #settingspanel { position: fixed; right: 8px; bottom: 44px; z-index: 4; background: #23262d; color: #ddd; border: 1px solid #444; border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; width: 230px; font-size: 13px; }
+      #bar { position: fixed; top: 0; left: 0; right: 0; box-sizing: border-box; padding: 6px 52px 6px 8px; display: flex; gap: 6px; align-items: center; z-index: 3; flex-wrap: nowrap; background: rgba(27, 29, 34, 0.88); border-bottom: 1px solid #2d3038; white-space: nowrap; }
+      .icon { display: inline-flex; vertical-align: middle; margin-right: 5px; }
+      #bar button .icon, #tools button .icon { margin-right: 5px; }
+      #bar .searchicon { margin: 0 -26px 0 6px; color: #888; pointer-events: none; z-index: 1; }
+      #palette-input { padding-left: 28px !important; }
+      #toollist button { display: flex; align-items: center; }
+      #bar #status { flex: 1; min-width: 40px; overflow: hidden; text-overflow: ellipsis; }
+      #menuwrap { position: relative; }
+      #menupanel { position: absolute; top: 34px; left: 0; z-index: 6; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px; min-width: 190px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
+      #menupanel[hidden] { display: none; }
+      #menupanel .group { color: #ffb878; font-size: 11px; margin-top: 2px; }
+      #bar #menupanel button, #bar #menupanel select { text-align: left; }
+      #palette-input { width: 190px; box-sizing: border-box; padding: 4px 8px; background: #1b1d22; color: #eee; border: 1px solid #444; border-radius: 4px; font: inherit; outline: none; }
+      #palette-input:focus { width: 300px; border-color: #ff8a1f; }
+      #gear { position: fixed; right: 8px; top: 5px; z-index: 4; background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; font-size: 18px; padding: 2px 8px; }
+      #settingspanel { position: fixed; right: 8px; top: 44px; z-index: 4; background: #23262d; color: #ddd; border: 1px solid #444; border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; width: 230px; font-size: 13px; }
       #settingspanel[hidden] { display: none; }
       #settingspanel label { display: flex; flex-direction: column; gap: 2px; }
       #settingspanel label:has(input[type=checkbox]) { flex-direction: row; gap: 6px; }
@@ -21,9 +34,11 @@
       #bar button:disabled { opacity: 0.4; }
       #bar button.active { border-color: #ff8a1f; color: #ffb878; }
       #bar select, #bar span { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; }
-      #tools { position: fixed; top: 76px; max-width: calc(100vw - 150px); left: 8px; display: flex; gap: 6px; align-items: center; z-index: 1; }
+      #tools { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); max-width: min(980px, calc(100vw - 340px)); display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; align-items: center; z-index: 2; background: rgba(35, 38, 45, 0.92); border: 1px solid #3a3e47; border-radius: 8px; padding: 5px 6px; }
       #tools button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 10px; }
       #tools button.active { border-color: #ff8a1f; color: #ffb878; }
+      #tools button.active::after { content: "drag"; margin-left: 6px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a1f; }
+      #tools button.more { color: #aaa; }
       #tools .none { color: #888; padding: 4px 2px; }
       #busy { position: fixed; top: 44px; left: 8px; z-index: 3; display: flex; gap: 8px; align-items: center; background: #23262d; color: #ffb878; border: 1px solid #ff8a1f; border-radius: 4px; padding: 4px 10px; font-variant-numeric: tabular-nums; pointer-events: none; }
       #busy[hidden] { display: none; }
@@ -38,11 +53,18 @@
       .navcube-face { position: absolute; text-align: center; font-size: 11px; color: #cfd6e4; background: rgba(60, 68, 84, 0.85); border: 1px solid #7d8aa5; box-sizing: border-box; cursor: pointer; user-select: none; }
       .navcube-face:hover { background: rgba(255, 138, 31, 0.8); color: #fff; }
       .navcube button { font-size: 11px; padding: 2px 8px; }
-      #toollist { position: fixed; top: 116px; left: 8px; z-index: 1; display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; width: 150px; }
+      #drawer { position: fixed; top: 48px; left: 0; bottom: 0; width: 280px; z-index: 5; background: rgba(35, 38, 45, 0.97); border-right: 1px solid #444; display: flex; flex-direction: column; box-shadow: 4px 0 18px rgba(0, 0, 0, 0.4); }
+      #drawer[hidden] { display: none; }
+      #drawer .drawerhead { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-bottom: 1px solid #3a3e47; }
+      #drawer .drawerhead b { color: #ffb878; flex: 1; }
+      #drawer .drawerhead button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; }
+      #drawer.usableonly #toollist > div:not(:has(button:enabled)) { display: none; }
+      #drawer.usableonly #toollist button:disabled { display: none; }
+      #toollist { padding: 4px 10px 16px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1; }
       #toollist .group { color: #ffb878; font-size: 11px; margin-top: 4px; }
       #toollist button, #toolform button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 3px 8px; text-align: left; display: block; width: 100%; margin-top: 2px; }
       #toollist button:disabled { color: #666; }
-      #toolform { position: fixed; top: 116px; left: 170px; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
+      #toolform { position: fixed; top: 104px; left: 8px; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
       #toolform[hidden] { display: none; }
       #toolform .title { color: #ffb878; font-weight: 600; margin-bottom: 4px; }
       #toolform .row { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin: 3px 0; }
@@ -73,16 +95,18 @@
       #chips button.on { color: #ffb878; border-color: #ff8a1f; }
       #measure { position: fixed; left: 8px; bottom: 8px; z-index: 1; min-width: 190px; max-height: 60vh; overflow-y: auto; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 4px 0; font-variant-numeric: tabular-nums; }
       #measure[hidden] { display: none; }
-      #measure .title { padding: 4px 10px 2px; color: #ffb878; font-weight: 600; }
+      #measure .title { padding: 4px 10px 2px; color: #ffb878; font-weight: 600; cursor: pointer; }
+      #measure .title::after { content: " B8"; color: #8a8f98; }
+      #measure:not(.collapsed) .title::after { content: " BE"; }
+      #measure.collapsed .section:nth-child(n+2), #measure.collapsed .row:nth-child(n+4) { display: none; }
       #measure .section + .section { border-top: 1px solid #3a3e47; margin-top: 4px; }
       #measure .row { display: flex; justify-content: space-between; gap: 18px; padding: 1px 10px; cursor: pointer; }
       #measure .row:hover { background: #2f333b; }
       #measure .row.copied { background: #3b4a38; }
       #measure .value { color: #fff; }
-      #palette { position: fixed; inset: 0; z-index: 10; display: flex; justify-content: center; align-items: flex-start; padding-top: 14vh; background: rgba(0, 0, 0, 0.35); }
+      #palette { position: fixed; top: 44px; left: 0; z-index: 10; }
       #palette[hidden] { display: none; }
       #palette-box { width: min(520px, 92vw); background: #23262d; border: 1px solid #444; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); }
-      #palette-input { width: 100%; box-sizing: border-box; padding: 12px 14px; background: #1b1d22; color: #eee; border: 0; border-bottom: 1px solid #444; font: inherit; font-size: 15px; outline: none; }
       #palette-list { max-height: 50vh; overflow-y: auto; }
       #palette .row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 14px; cursor: pointer; }
       #palette .row.active { background: #343944; }
@@ -93,13 +117,16 @@
   <body>
     <div id="viewport"></div>
     <div id="bar">
+      <button id="drawerbtn" title="Browse every tool by group (T)">Tools</button>
+      <div id="menuwrap">
+        <button id="menubtn" title="File, import, export and view options">Menu</button>
+        <div id="menupanel" hidden>
+          <div class="group">Model</div>
       <select id="demo" title="Open one of the built-in demo models">
         <option>bracket</option>
         <option>block</option>
         <option>perforated_plate</option>
       </select>
-      <button id="seethrough" title="See-through (X): make faces transparent so every edge shows and hidden edges and faces can be picked">See-through</button>
-      <button id="axes" title="Show or hide the principal axes and origin">Axes</button>
       <select id="combinemode" title="What Import STEP does with the file: replace the model, or add the file to the current one">
         <option value="replace">replace model</option>
         <option value="add">add as body</option>
@@ -117,19 +144,32 @@
         <option value="3mf">3MF</option>
       </select>
       <button id="info" title="Show the size, face and edge counts and any problems found in the model">Model info</button>
-      <button id="editlast" disabled title="Undo the last operation and change its values">Edit last</button>
-      <button id="undo" disabled title="Undo the last change (Ctrl+Z)">Undo</button>
-      <button id="redo" disabled title="Redo the change you undid (Ctrl+Y)">Redo</button>
+          <div class="group">View</div>
+          <button id="seethrough" title="See-through (X): make faces transparent so every edge shows and hidden edges and faces can be picked">See-through</button>
+          <button id="axes" title="Show or hide the principal axes and origin">Axes</button>
+        </div>
+      </div>
+      <input id="palette-input" title="Search every tool, setting and command (Ctrl+K or /)" placeholder="Search tools (Ctrl+K)" autocomplete="off" spellcheck="false" />
       <span id="status">connecting...</span>
       <button id="reconnect" hidden title="Try to reach the core again now">Reconnect</button>
       <span id="selected"></span>
       <span id="latency"></span>
+      <button id="editlast" disabled title="Undo the last operation and change its values">Edit last</button>
+      <button id="undo" disabled title="Undo the last change (Ctrl+Z)">Undo</button>
+      <button id="redo" disabled title="Redo the change you undid (Ctrl+Y)">Redo</button>
     </div>
     <div id="busy" hidden><i></i><span id="busytext"></span></div>
     <div id="tools"></div>
     <div id="chips"></div>
     <div id="navcube"></div>
-    <div id="toollist"></div>
+    <div id="drawer" hidden>
+      <div class="drawerhead">
+        <b>All tools</b>
+        <label title="Show only the tools that work with the current selection"><input type="checkbox" id="drawerusable" /> usable now</label>
+        <button id="drawerclose" title="Close the tool list (Escape)">Close</button>
+      </div>
+      <div id="toollist"></div>
+    </div>
     <div id="sketchbar"></div>
     <div id="sketchpanel" hidden></div>
     <div id="toolform" hidden></div>
@@ -137,7 +177,6 @@
     <div id="dim" hidden></div>
     <div id="palette" hidden>
       <div id="palette-box">
-        <input id="palette-input" title="Type to search tools and commands" placeholder="Type a command (Esc to close)" autocomplete="off" spellcheck="false" />
         <div id="palette-list"></div>
       </div>
     </div>

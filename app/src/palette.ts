@@ -1,4 +1,4 @@
-// Ctrl+K command search: type to filter, arrows to move, Enter to run, Escape to close.
+// Command search: a permanent field in the top bar (Ctrl+K or / focuses it) with a results list under it. Type to filter, arrows to move, Enter to run, Escape to close.
 
 export interface Command {
   label: string;
@@ -23,6 +23,8 @@ function matches(label: string, query: string): boolean {
   return true;
 }
 
+const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
+
 export class Palette {
   private root = document.getElementById("palette")!;
   private input = document.getElementById("palette-input") as HTMLInputElement;
@@ -32,6 +34,10 @@ export class Palette {
 
   constructor(private getCommands: () => Command[]) {
     this.input.addEventListener("input", () => this.render());
+    this.input.addEventListener("focus", () => this.open(false));
+    document.addEventListener("pointerdown", (e) => {
+      if (this.isOpen && e.target !== this.input && !this.root.contains(e.target as Node)) this.close();
+    });
     this.input.addEventListener("keydown", (e) => this.onKey(e));
     this.root.addEventListener("pointerdown", (e) => {
       if (e.target === this.root) this.close();
@@ -40,6 +46,9 @@ export class Palette {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         this.isOpen ? this.close() : this.open();
+      } else if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping(e.target)) {
+        e.preventDefault();
+        this.open();
       }
     });
   }
@@ -48,16 +57,20 @@ export class Palette {
     return !this.root.hidden;
   }
 
-  open() {
+  open(focus = true) {
+    if (this.isOpen && !focus) return;
+    const box = this.input.getBoundingClientRect();
+    this.root.style.left = `${box.left}px`;
     this.root.hidden = false;
-    this.input.value = "";
+    if (focus) this.input.value = "";
     this.active = 0;
     this.render();
-    this.input.focus();
+    if (focus) this.input.focus();
   }
 
   close() {
     this.root.hidden = true;
+    this.input.blur();
   }
 
   private render() {
@@ -91,6 +104,7 @@ export class Palette {
 
   private run(command: Command) {
     if (!command.enabled) return;
+    this.input.value = "";
     this.close();
     command.run();
   }

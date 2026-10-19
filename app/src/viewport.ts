@@ -15,6 +15,8 @@ export interface Sel {
 
 interface Hit extends Sel {
   point: THREE.Vector3;
+  /** Surface normal at the point (faces only), pointing out of the solid. */
+  surfaceNormal?: THREE.Vector3;
 }
 
 const EDGE_TIE_PX = 2; // edges this close on screen are told apart by depth
@@ -337,6 +339,11 @@ export class Viewport {
     return best;
   }
 
+  /** Measure mode on or off; only meaningful during a tool drag. Bound to the "measure" key action in keys.ts. */
+  toggleMeasureKey() {
+    if (this.drag?.moved) this.toggleMeasure();
+  }
+
   private toggleMeasure() {
     if (this.measureMode) {
       this.measureMode = false;
@@ -518,8 +525,6 @@ export class Viewport {
       down = null;
     });
     window.addEventListener("keydown", (e) => {
-      // M during a tool drag toggles measure mode (it used to be the right button, which now orbits).
-      if ((e.key === "m" || e.key === "M") && this.drag?.moved && !e.ctrlKey && !e.metaKey && !e.altKey) this.toggleMeasure();
       if (e.key === "Escape" && this.box) this.cancelBox();
       if (e.key === "Escape" && this.divideDrag) this.divideDrag = null;
       if (e.key === "Escape" && this.centreDrag) {
@@ -1001,7 +1006,11 @@ export class Viewport {
         : hit.kind === "edge"
           ? this.data?.edges.find((e) => e.id === hit.id)?.normal
           : null;
-    return normal ? new THREE.Vector3(...normal) : null;
+    if (normal) return new THREE.Vector3(...normal);
+    // A whole hole or boss wall has no single normal: it is pushed or pulled along the wall's normal where it was
+    // pressed, and the core changes the radius by the distance (docs/protocol.md, push_pull).
+    if (hit.kind === "face" && hit.surfaceNormal && this.data?.centres.some((c) => c.face === hit.id)) return hit.surfaceNormal.clone();
+    return null;
   }
 
   /** Distance along the dragged item's axis implied by the pointer position. */
@@ -1057,7 +1066,9 @@ export class Viewport {
 
     if (!faceHit || faceHit.faceIndex == null) return null;
     const face = this.data.faces[lo];
-    return face && face.count > 0 ? { kind: "face", id: face.id, point: faceHit.point } : null;
+    if (!face || face.count === 0) return null;
+    const surfaceNormal = faceHit.face ? faceHit.face.normal.clone().transformDirection(this.mesh.matrixWorld) : undefined;
+    return { kind: "face", id: face.id, point: faceHit.point, surfaceNormal };
   }
 
   private rayAt(e: PointerEvent): THREE.Ray {
