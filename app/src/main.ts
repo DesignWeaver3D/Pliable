@@ -1040,6 +1040,7 @@ function commands(): Command[] {
     },
     { label: "Keyboard shortcuts (see and change them; hotkeys)", scope: "view", keywords: ["keys", "bindings", "rebind"], hint: keys.keymap.hint("ui.shortcuts"), enabled: true, run: () => keys.openSettings() },
     { label: hintLine.prefs.on ? "Turn hints off" : "Turn hints on", scope: "view", keywords: ["tips", "help line"], enabled: true, run: () => hintLine.setOn(!hintLine.prefs.on) },
+    { label: "Getting started (the first things to try)", scope: "view", keywords: ["help", "tutorial", "learn", "tips", "intro", "basics"], enabled: true, run: () => hintLine.showGettingStarted() },
     { label: "Import STEP file", scope: "file", enabled: true, run: () => fileInput.click() },
     { label: "Export STEP file", scope: "file", enabled: true, run: () => exportAs("export_step", "step") },
     ...["stl", "obj", "3mf"].map((format) => ({
@@ -1288,6 +1289,8 @@ viewport.manipulator.onDrag = (param, value, phase, x, y, linked) => {
 };
 
 new Palette(commands);
+$("gettingstartedbtn").addEventListener("click", () => hintLine.showGettingStarted());
+window.setTimeout(() => hintLine.autoShowGettingStarted(), 1500);
 renderToolbar();
 
 // Connect to the core, retrying with a growing delay while it is not running, and again whenever the connection drops.
