@@ -842,7 +842,7 @@ export class Viewport {
     const on = settings.seeThrough;
     if (this.surfaceMaterial) {
       this.surfaceMaterial.transparent = on;
-      this.surfaceMaterial.opacity = on ? 0.12 : 1; // faces nearly clear; the edges carry the shape
+      this.surfaceMaterial.opacity = on ? settings.seeThroughOpacity / 100 : 1; // faces nearly clear by default; the edges carry the shape
       this.surfaceMaterial.depthWrite = !on;
       this.surfaceMaterial.needsUpdate = true;
     }
