@@ -134,7 +134,6 @@ export const UI_ICONS: Record<string, string> = {
   export: '<path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M5 20h14"/>',
   home: '<path d="M4 12l8-7 8 7M6.5 10.5V20h11v-9.5"/>',
   measure: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>',
-  toolsHammer: '<g stroke-width="2"><path d="M5 4h14v5.5h-5.5v10.5a1.5 1.5 0 0 1-3 0V9.5H5z" transform="rotate(-45 12 12)" fill="currentColor" fill-opacity=".22"/></g>',
   toolsBox: '<g stroke-width="2"><rect x="3" y="9" width="18" height="11" rx="2" fill="currentColor" fill-opacity=".22"/><path d="M9 9V6.5A1.5 1.5 0 0 1 10.5 5h3A1.5 1.5 0 0 1 15 6.5V9M3 13.5h18"/><rect x="10.5" y="12" width="3" height="3.5" rx=".7" fill="currentColor"/></g>',
   keys: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 11h.01M11 11h.01M15 11h.01M8 14h8"/>',
 };
@@ -164,8 +163,8 @@ function element(inner: string, size: number, className: string): HTMLSpanElemen
   return span;
 }
 
-/** Icon on the Tools handle (left edge). Placeholder: the owner picks the final one; change this one name to swap it. */
-export const TOOLS_HANDLE_ICON = "sidebar";
+/** Icon on the Tools handle (left edge). The owner chose the toolbox; change this one name to swap it. */
+export const TOOLS_HANDLE_ICON = "toolsBox";
 
 export const toolIcon = (id: string, label = id, size = 16) => element(toolIconInner(id, label), size, "icon");
 export const uiIcon = (name: string, size = 16) => element(UI_ICONS[name] ?? "", size, "icon");
