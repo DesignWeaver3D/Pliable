@@ -9,7 +9,7 @@ export interface ToolInfo {
   label: string;
   /** Plain-language sentence(s) on what the tool does and what to select; shown in tooltips. */
   description?: string;
-  accepts: { faces: Range; edges: Range; vertices?: Range };
+  accepts: { faces: Range; edges: Range; vertices?: Range; bodies?: Range };
   params: { name: string; kind: string; default: number; drag: boolean }[];
   /** Relationship rules whose matching faces join the selection when switched on. */
   related?: string[];
@@ -51,7 +51,8 @@ export function acceptsSelection(tool: ToolInfo, sels: Sel[]): boolean {
   return (
     inRange(count("face"), tool.accepts.faces) &&
     inRange(count("edge"), tool.accepts.edges) &&
-    inRange(count("vertex"), tool.accepts.vertices ?? [0, 0])
+    inRange(count("vertex"), tool.accepts.vertices ?? [0, 0]) &&
+    inRange(count("body"), tool.accepts.bodies ?? [0, 0])
   );
 }
 
@@ -64,7 +65,7 @@ function needs(range: Range, noun: string): string | null {
 
 /** A short description of the selection a tool needs, e.g. "1 face" or "1+ edges". */
 export function describeNeeds(tool: ToolInfo): string {
-  return [needs(tool.accepts.faces, "face"), needs(tool.accepts.edges, "edge"), needs(tool.accepts.vertices ?? [0, 0], "vertex")]
+  return [needs(tool.accepts.faces, "face"), needs(tool.accepts.edges, "edge"), needs(tool.accepts.vertices ?? [0, 0], "vertex"), needs(tool.accepts.bodies ?? [0, 0], "body")]
     .filter(Boolean)
     .join(" + ");
 }

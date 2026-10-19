@@ -8,7 +8,8 @@ import type { CentreInfo, FaceRange, MeshData } from "./client";
 import { Manipulator } from "./manipulator";
 import { onSettingsChange, settings, updateSettings } from "./settings";
 
-export type Kind = "face" | "edge" | "vertex";
+/** A "body" selection is a whole solid (every face of the body), chosen from the body list. */
+export type Kind = "face" | "edge" | "vertex" | "body";
 export interface Sel {
   kind: Kind;
   id: number;
@@ -744,6 +745,7 @@ export class Viewport {
       (child as THREE.Mesh).geometry?.dispose();
     }
     this.hovered = null;
+    this.onHoverBody(null);
     this.selected = [];
     this.centresShown = [];
     this.selectedMarks = [];
@@ -786,7 +788,30 @@ export class Viewport {
     if (!mark || !this.mesh || !this.data) return;
     mark.hide();
     if (!sel) return;
-    if (sel.kind === "face") {
+    if (sel.kind === "body") {
+      const faces = this.data.faces.filter((f) => f.body === sel.id && f.count > 0);
+      if (faces.length === 0) return;
+      const source = this.mesh.geometry.getIndex()!.array as Uint32Array;
+      const indices = new Uint32Array(faces.reduce((n, f) => n + f.count, 0));
+      let at = 0;
+      for (const f of faces) {
+        indices.set(source.subarray(f.start, f.start + f.count), at);
+        at += f.count;
+      }
+      mark.face.geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+      mark.face.visible = true;
+      const edges = this.data.edges.filter((e) => e.body === sel.id && e.count > 0);
+      if (edges.length) {
+        const lines = new Float32Array(edges.reduce((n, e) => n + e.count * 3, 0));
+        let to = 0;
+        for (const e of edges) {
+          lines.set(this.data.edgePositions.subarray(e.start * 3, (e.start + e.count) * 3), to);
+          to += e.count * 3;
+        }
+        mark.edge.geometry.setPositions(lines);
+        mark.edge.visible = true;
+      }
+    } else if (sel.kind === "face") {
       const range = this.data.faces.find((f) => f.id === sel.id);
       if (!range) return;
       const source = this.mesh.geometry.getIndex()!.array as Uint32Array;
@@ -1316,9 +1341,26 @@ export class Viewport {
     return this.centresShown.map((c) => new THREE.Vector3(...c.position));
   }
 
+  /** The pointer is over (or left) a body: its id, so the host can light up the body's row in the list. */
+  onHoverBody: (id: number | null) => void = () => {};
+
+  /** The id of the body an item belongs to, if the mesh says. */
+  private bodyOf(sel: Sel | null): number | null {
+    if (!sel || !this.data) return null;
+    if (sel.kind === "body") return sel.id;
+    const table = sel.kind === "face" ? this.data.faces : sel.kind === "edge" ? this.data.edges : this.data.vertices;
+    return table.find((x) => x.id === sel.id)?.body ?? null;
+  }
+
+  /** Hover highlight set from outside (a row of the body list). */
+  hoverItem(sel: Sel | null) {
+    this.setHover(sel);
+  }
+
   private setHover(sel: Sel | null) {
     if (sel?.kind === this.hovered?.kind && sel?.id === this.hovered?.id) return;
     this.hovered = sel;
+    this.onHoverBody(this.bodyOf(sel));
     this.refreshCentres();
     this.show(this.hoverMark, sel);
     this.renderer.domElement.style.cursor = sel ? "pointer" : "";

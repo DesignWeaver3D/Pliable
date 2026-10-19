@@ -9,6 +9,8 @@ export interface FaceRange {
   centroid: [number, number, number] | null;
   /** Which solid of the model the face belongs to (hide / isolate). */
   solid?: number;
+  /** Id of the body that owns the face (stable across operations); null for loose faces. */
+  body?: number | null;
 }
 
 export interface EdgeRange {
@@ -18,11 +20,13 @@ export interface EdgeRange {
   /** Unit direction pointing away from the material (drag axis for fillet/chamfer). */
   normal: [number, number, number] | null;
   solid?: number;
+  body?: number | null;
 }
 
 export interface VertexInfo {
   id: number;
   solid?: number;
+  body?: number | null;
   position: [number, number, number];
 }
 

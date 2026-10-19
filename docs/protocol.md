@@ -15,7 +15,9 @@ The Python core (`core/src/pliable/server.py`) talks to the frontend over one We
 
 Fields: `kind: "mesh"`, `faces` (`id`, `start`, `count` into `indices`, `normal` for planar faces, `centroid`), `edges` (`id`, `start`, `count` into `edgePositions`, `normal`: unit vector pointing away from the material, the bisector of the adjacent faces' outward normals, or null), `vertices` (`id`, `position`), `bounds` `[xmin,ymin,zmin,xmax,ymax,zmax]`, `timings` (`opMs`, `meshMs`, `importMs`), `canUndo`, `canRedo`, `name` (on open). Buffers: `positions`, `normals` (f32 xyz), `indices` (u32), `edgePositions` (f32 xyz, consecutive pairs are segments).
 
-Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selection` (`{"faces": [ids], "edges": [ids], "vertices": [ids]}`): the faces in the **new** mesh that the old selection maps to, so the UI can keep selecting them. Face and edge ids belong to one mesh; they are not stable across operations except through this mapping.
+`bodies`: one entry per solid, `{id, name, solid, bounds}`, in creation order of the solids' list. A body id is stable (it survives fillets, push/pull, moves, undo and redo; a split keeps it on the larger part, a union keeps the first body's id and consumes the second); a name is auto-made from the tool that created it ("Box 1", "Cylinder 2", numbered per kind) or taken from the STEP part name on import. Faces, edges and vertices carry `body` (the id of the body that owns them, null for loose faces) next to `solid` (the solid's index). Hidden state is frontend only. A selection may also carry `bodies` (body ids, not indices): move, rotate, scale and offset body then act on those bodies directly, rotate and scale pivoting about each body's bounding-box centre; every other tool refuses a body selection. Renaming a body is an undoable step.
+
+Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selection` (`{"faces": [ids], "edges": [ids], "vertices": [ids], "bodies": [ids]}`): the faces in the **new** mesh that the old selection maps to, so the UI can keep selecting them. Face and edge ids belong to one mesh; they are not stable across operations except through this mapping.
 
 ## Requests
 
@@ -33,6 +35,7 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 | `sketch_regions` | `sketch` | a committed mesh reply: every closed zone of the sketch becomes a face; zones lying on a flat model face are imprinted on it, the others are added as loose faces that push/pull extrudes into solids |
 | `sketch_offset` | `sketch`, `entities` (ids), `distance` | `{points, entities}`: parallel copies of the chosen lines, arcs and circles with fresh ids and no constraints (positive grows a closed outline) |
 | `sketch_project` | `plane` | `{points, entities}`: every model edge flattened onto the plane as fixed reference geometry (lines square to the plane and tilted circles are left out) |
+| `rename_body` | `body` (id), `name` | a mesh reply with the new name (an undo step); an empty name or unknown id is an error |
 | `combine_step` | `data` (base64 STEP), `mode` "union"/"cut"/"intersect", optional `dx`, `dy`, `dz` | a mesh reply: the model combined with the imported solid (committed) |
 | `model_info` | | the measure reply format with one `model` item: validity, counts, open edges, volume, size |
 | `related` | `face` id | `{rules: [{id, label, faces: [ids]}]}`: coplanar, equal-radius and coaxial faces (relationship chips) |

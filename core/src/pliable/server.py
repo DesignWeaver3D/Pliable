@@ -21,6 +21,7 @@ from websockets.datastructures import Headers
 from websockets.http11 import Response
 
 from . import __version__, sketch, unwrap
+from . import bodies as body_ids
 from . import notice
 from .autosave import Autosaver
 from .demos import load_demo
@@ -28,7 +29,7 @@ from . import diagnostics
 from .usage import Usage
 from .document import Document
 from .features import combine
-from .files import read_step, read_step_checked, write_mesh, write_step
+from .files import part_names, read_step_parts, read_step_tree, write_mesh, write_step
 from OCP.gp import gp_Vec
 from .measure import measure, model_info
 from .ops import OperationError, solids_of
@@ -109,8 +110,8 @@ class Session:
             return self._open(load_demo(request["name"]), request["name"])
         if kind == "import_step":
             start = time.perf_counter()
-            shape, warnings = read_step_checked(base64.b64decode(request["data"]))
-            self.document = Document(shape, request.get("name", "Imported"))
+            shape, warnings, named = read_step_parts(base64.b64decode(request["data"]))
+            self.document = Document(shape, request.get("name", "Imported"), body_ids.fresh(shape, body_ids.namer(named)))
             self.import_warnings = warnings
             self._autosave(fresh=True)
             return self._mesh_reply(self.document.current, {"importMs": _ms(start)}, name=self.document.name, warnings=warnings, solids=len(solids_of(shape)))
@@ -147,10 +148,11 @@ class Session:
         if kind == "combine_step":
             document = self._require_document()
             start = time.perf_counter()
-            other = read_step(base64.b64decode(request["data"]))
+            root = read_step_tree(base64.b64decode(request["data"]))
+            other, named = root.wrapped, part_names(root)
             offset = gp_Vec(float(request.get("dx", 0)), float(request.get("dy", 0)), float(request.get("dz", 0)))
             result = combine(document.current.shape, other, str(request.get("mode", "union")), offset)
-            target = document.commit(result.shape)
+            target = document.commit(result.shape, names=body_ids.namer(named, by_size=True))
             self._autosave()
             return self._mesh_reply(target, {"opMs": _ms(start)}, selection=Selection().to_json())
         if kind == "related":
@@ -243,6 +245,17 @@ class Session:
                 raise RequestError(f"Nothing to {kind}")
             self._autosave()
             return self._mesh_reply(document.current, {})
+        if kind == "rename_body":
+            document = self._require_document()
+            name = str(request.get("name", "")).strip()[:80]
+            if not name:
+                raise RequestError("A body needs a name")
+            try:
+                target = document.rename_body(int(request["body"]), name)
+            except (KeyError, ValueError, TypeError) as e:
+                raise RequestError("Unknown body") from e
+            self._autosave()
+            return self._mesh_reply(target, {})
         if kind == "export_step":
             document = self._require_document()
             data = write_step(document.current.shape)
@@ -330,7 +343,8 @@ class Session:
         except (KeyError, TypeError, ValueError) as e:
             raise RequestError(f"Malformed sketch request: {e!r}") from e
         timings = {"opMs": _ms(start)}
-        target = document.commit(result.shape) if commit else Topology(result.shape)
+        body_kind = "Revolution" if "axis" in request else "Extrusion"
+        target = document.commit(result.shape, body_kind) if commit else document.preview(result.shape, body_kind)
         if commit:
             self._autosave()
         return self._mesh_reply(target, timings, preview=not commit, selection=Selection().to_json())
@@ -349,13 +363,15 @@ class Session:
             raise
         self.last_tool["ok"] = True
         timings = {"opMs": _ms(start)}
-        target = document.commit(result.shape) if commit else Topology(result.shape)
+        body_kind, ordered = tool.body_kind, tool.keeps_body_order
+        target = document.commit(result.shape, body_kind, ordered) if commit else document.preview(result.shape, body_kind, ordered)
         if commit:
             self._autosave()
         faces = [i for f in result.tracked_faces if (i := target.face_id(f)) is not None]
         edges = [i for e in result.tracked_edges if (i := target.edge_id(e)) is not None]
         vertices = [i for v in result.tracked_vertices if (i := target.vertex_id(v)) is not None]
-        selection = Selection(faces=faces, edges=edges, vertices=vertices)
+        kept = {b.id for b in target.bodies.bodies}
+        selection = Selection(faces=faces, edges=edges, vertices=vertices, bodies=[b for b in request_selection.bodies if b in kept])
         handles = [] if commit else tool.handle_list(topology, request_selection, request.get("params") or {})
         return self._mesh_reply(target, timings, preview=not commit, selection=selection.to_json(), handles=handles)
 

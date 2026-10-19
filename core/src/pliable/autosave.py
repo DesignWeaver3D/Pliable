@@ -31,6 +31,7 @@ from OCP.BRep import BRep_Builder
 from OCP.BRepTools import BRepTools
 from OCP.TopoDS import TopoDS_Shape
 
+from .bodies import BodyState
 from .document import Document
 
 log = logging.getLogger("pliable.autosave")
@@ -213,7 +214,7 @@ class Autosaver:
         ids = document.ids
         with self._lock:
             new = {i: document.shape_of(i) for i in ids if fresh or i not in self._written}
-        meta = {"format": FORMAT, "name": document.name, "ids": ids, "index": document.index, "clean": False}
+        meta = {"format": FORMAT, "name": document.name, "ids": ids, "index": document.index, "clean": False, "bodies": [b.to_json() for b in document.body_states]}
         self._pool.submit(self._write, new, meta)
 
     def _write(self, new: dict[int, TopoDS_Shape], meta: dict) -> None:
@@ -286,7 +287,8 @@ class Autosaver:
         try:
             meta = json.loads((claimed / "session.json").read_text())
             shapes = [_read_brep(claimed / f"state_{i}.brep") for i in meta["ids"]]
-            document = Document.from_states(shapes, meta["ids"], int(meta["index"]), meta["name"])
+            saved = [BodyState.from_json(b) for b in meta["bodies"]] if "bodies" in meta else None
+            document = Document.from_states(shapes, meta["ids"], int(meta["index"]), meta["name"], saved)
         except (OSError, ValueError, KeyError, IndexError):
             log.exception("restore failed")
             return None

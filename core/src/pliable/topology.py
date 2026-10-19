@@ -13,9 +13,16 @@ from OCP.collections import (
 from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as ShapeIndexedMap
 
 
+def _fresh_bodies(shape):
+    from .bodies import fresh
+
+    return fresh(shape)
+
+
 class Topology:
-    def __init__(self, shape: TopoDS_Shape):
+    def __init__(self, shape: TopoDS_Shape, bodies=None):
         self.shape = shape
+        self.bodies = bodies if bodies is not None else _fresh_bodies(shape)  # a BodyState: id and name of each solid
         self._edge_ancestors = None
         self._faces = ShapeIndexedMap()
         self._edges = ShapeIndexedMap()

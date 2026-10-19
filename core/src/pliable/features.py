@@ -650,6 +650,7 @@ class AddBox(Tool):
     """A box added as a new body (new_body 0 joins it to the model), given by its minimum corner and size."""
 
     id = "add_box"
+    body_kind = "Box"
     label = "Add box"
     description = "Adds a box, given by its corner and size. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
@@ -716,6 +717,7 @@ class AddCylinder(Tool):
     """A cylinder standing on the XY plane at (x, y, z), joined to the model."""
 
     id = "add_cylinder"
+    body_kind = "Cylinder"
     label = "Add cylinder"
     description = "Adds a cylinder standing on the XY plane at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
@@ -1000,22 +1002,54 @@ class AlignFace(_PlanarFace):
 # Whole-body transforms and more primitives -----------------------------------------------------------------
 
 
-def _on_bodies(topology, selection, change) -> TopoDS_Shape:
-    """Apply `change` (shape -> shape) to the solids that contain the selected faces; with no selection, to the whole model."""
-    if not selection.faces:
-        return change(topology.shape)
+def _chosen_solids(topology, selection) -> list:
+    """The solids a whole-body tool acts on: the selected bodies, else the ones containing the selected faces."""
+    solids = solids_of(topology.shape)
     chosen = []
+    for body_id in selection.bodies:
+        index = topology.bodies.find(body_id)
+        if index is None or index >= len(solids):
+            raise OperationError("The selected body no longer exists")
+        chosen.append(solids[index])
     for i in selection.faces:
         face = topology.face(i)
-        for solid in solids_of(topology.shape):
+        for solid in solids:
             if any(f.IsSame(face) for f in _faces_of(solid)) and not any(solid.IsSame(c) for c in chosen):
                 chosen.append(solid)
+    return chosen
+
+
+def _body_centre(shape) -> gp_Pnt:
+    """The middle of a body's bounding box: the pivot of rotate and scale when whole bodies are selected."""
+    box = Bnd_Box()
+    BRepBndLib.AddOptimal_s(shape, box, False, False)
+    lo, hi = box.CornerMin(), box.CornerMax()
+    return gp_Pnt((lo.X() + hi.X()) / 2, (lo.Y() + hi.Y()) / 2, (lo.Z() + hi.Z()) / 2)
+
+
+def _pivot_point(topology, selection) -> tuple[float, float, float]:
+    """Where rotate and scale pivot for the handles: the middle of the selected bodies' box, else the origin."""
+    if not selection.bodies:
+        return (0.0, 0.0, 0.0)
+    lo, hi = _body_bounds(topology, selection)
+    return tuple((a + b) / 2 for a, b in zip(lo, hi))
+
+
+def _on_bodies(topology, selection, change, pivot: bool = False) -> TopoDS_Shape:
+    """Apply `change` (shape -> shape) to the selected bodies, else to the solids that contain the selected faces; with
+    no selection, to the whole model. With `pivot` and bodies selected, `change(shape, centre)` also gets each body's own centre."""
+    if not selection.faces and not selection.bodies:
+        return change(topology.shape)
+    chosen = _chosen_solids(topology, selection)
     if not chosen:
         raise OperationError("The selected faces do not belong to a solid")
     compound, builder = TopoDS_Compound(), BRep_Builder()
     builder.MakeCompound(compound)
     for solid in solids_of(topology.shape):
-        builder.Add(compound, change(solid) if any(solid.IsSame(c) for c in chosen) else solid)
+        if not any(solid.IsSame(c) for c in chosen):
+            builder.Add(compound, solid)
+        else:
+            builder.Add(compound, change(solid, _body_centre(solid)) if pivot and selection.bodies else change(solid))
     return compound
 
 
@@ -1031,9 +1065,10 @@ class MoveBody(Tool):
     """Move the solids containing the selected faces (the whole model when nothing is selected) by a vector."""
 
     id = "move_body"
+    keeps_body_order = True
     label = "Move body"
-    description = "Moves a whole solid by the given distances along X, Y and Z. Select any face of the solid, or nothing to move the whole model."
-    accepts = Accepts(faces=(0, None))
+    description = "Moves a whole solid by the given distances along X, Y and Z. Select bodies from the list, any face of the solid, or nothing to move the whole model."
+    accepts = Accepts(faces=(0, None), bodies=(0, None))
     params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length")]
     move_vector = ("dx", "dy", "dz")
 
@@ -1061,12 +1096,13 @@ class MoveBody(Tool):
 
 @register
 class RotateBody(Tool):
-    """Rotate the selected solids (the whole model when nothing is selected) about an axis through the origin (axis: 0 = X, 1 = Y, 2 = Z)."""
+    """Rotate the selected solids (the whole model when nothing is selected) about an axis through the origin (axis: 0 = X, 1 = Y, 2 = Z), or through each selected body's centre when bodies are selected."""
 
     id = "rotate_body"
+    keeps_body_order = True
     label = "Rotate body"
-    description = "Rotates a whole solid about the X, Y or Z axis through the origin (0 = X, 1 = Y, 2 = Z). Select any face of the solid, or nothing for the whole model."
-    accepts = Accepts(faces=(0, None))
+    description = "Rotates a whole solid about the X, Y or Z axis (0 = X, 1 = Y, 2 = Z): through the origin, or through the body's centre when you select bodies from the list. Select bodies, any face of a solid, or nothing for the whole model."
+    accepts = Accepts(faces=(0, None), bodies=(0, None))
     params = [Param("axis", "number", 2), Param("angle", "angle", 90)]
 
     starts_from = "selection"
@@ -1077,11 +1113,13 @@ class RotateBody(Tool):
         if axis not in (0, 1, 2):
             return []
         # The ring's radius reaches past the body; the handle sits on it at the current angle, its direction the tangent.
+        pivot = _pivot_point(topology, selection)
+        lo, hi = [tuple(c[k] - pivot[k] for k in range(3)) for c in (lo, hi)]
         radius = max(max(math.hypot(c[(axis + 1) % 3], c[(axis + 2) % 3]) for c in (lo, hi)) * 1.25, 10.0)
         u, v = (axis + 1) % 3, (axis + 2) % 3
         angle = math.radians(values["angle"])
-        anchor, tangent = [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]
-        anchor[u], anchor[v] = radius * math.cos(angle), radius * math.sin(angle)
+        anchor, tangent = list(pivot), [0.0, 0.0, 0.0]
+        anchor[u], anchor[v] = pivot[u] + radius * math.cos(angle), pivot[v] + radius * math.sin(angle)
         tangent[u], tangent[v] = -math.sin(angle), math.cos(angle)
         return [Handle("angle", "Angle", tuple(anchor), tuple(tangent), scale=math.degrees(1 / radius), unit="°")]
 
@@ -1090,9 +1128,12 @@ class RotateBody(Tool):
         if axis not in (0, 1, 2):
             raise OperationError("The axis must be 0 (X), 1 (Y) or 2 (Z)")
         direction = gp_Dir(*(1.0 if k == axis else 0.0 for k in range(3)))
-        transform = gp_Trsf()
-        transform.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), direction), math.radians(values["angle"]))
-        return finish(_on_bodies(topology, selection, lambda shape: BRepBuilderAPI_Transform(shape, transform, True).Shape()))
+        def rotate(shape, centre=None):
+            about = gp_Trsf()
+            about.SetRotation(gp_Ax1(centre or gp_Pnt(0, 0, 0), direction), math.radians(values["angle"]))
+            return BRepBuilderAPI_Transform(shape, about, True).Shape()
+
+        return finish(_on_bodies(topology, selection, rotate, pivot=True))
 
 
 @register
@@ -1100,34 +1141,42 @@ class ScaleBody(Tool):
     """Scale the selected solids (the whole model when nothing is selected) uniformly about the origin."""
 
     id = "scale_body"
+    keeps_body_order = True
     label = "Scale body"
-    description = "Scales a whole solid evenly about the origin. Select any face of the solid, or nothing for the whole model; 2 doubles the size."
-    accepts = Accepts(faces=(0, None))
+    description = "Scales a whole solid evenly, about the origin or about the body's centre when you select bodies from the list. Select bodies, any face of a solid, or nothing for the whole model; 2 doubles the size."
+    accepts = Accepts(faces=(0, None), bodies=(0, None))
     params = [Param("factor", "number", 1)]
 
     starts_from = "selection"
 
     def handles(self, topology, selection, values):
         lo, hi = _body_bounds(topology, selection)
+        pivot = _pivot_point(topology, selection)
+        lo, hi = [tuple(c[k] - pivot[k] for k in range(3)) for c in (lo, hi)]
         corner = max((lo, hi), key=lambda c: math.sqrt(sum(x * x for x in c)))  # the corner farthest from the pivot
         reach = math.sqrt(sum(x * x for x in corner))
         if reach < 1e-6:
             return []
-        # Moving the handle outward along the line from the origin through that corner scales the body about the origin.
-        return [Handle("factor", "Scale", tuple(x * values["factor"] for x in corner), tuple(corner), scale=1 / reach, min=1e-3, unit="x")]
+        # Moving the handle outward along the line from the pivot through that corner scales the body about the pivot.
+        return [Handle("factor", "Scale", tuple(pivot[k] + corner[k] * values["factor"] for k in range(3)), tuple(corner), scale=1 / reach, min=1e-3, unit="x")]
 
     def run(self, topology, selection, values, preview):
         factor = values["factor"]
         if factor < 1e-3 or factor > 1e3:
             raise OperationError("The scale factor must be between 0.001 and 1000")
-        transform = gp_Trsf()
-        transform.SetScale(gp_Pnt(0, 0, 0), factor)
-        return finish(_on_bodies(topology, selection, lambda shape: BRepBuilderAPI_Transform(shape, transform, True).Shape()))
+
+        def scale(shape, centre=None):
+            about = gp_Trsf()
+            about.SetScale(centre or gp_Pnt(0, 0, 0), factor)
+            return BRepBuilderAPI_Transform(shape, about, True).Shape()
+
+        return finish(_on_bodies(topology, selection, scale, pivot=True))
 
 
 @register
 class AddSphere(Tool):
     id = "add_sphere"
+    body_kind = "Sphere"
     label = "Add sphere"
     description = "Adds a sphere at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
@@ -1161,6 +1210,7 @@ class AddCone(Tool):
     """A cone (or truncated cone) standing on the XY plane at (x, y, z)."""
 
     id = "add_cone"
+    body_kind = "Cone"
     label = "Add cone"
     description = "Adds a cone or truncated cone (set a top diameter of 0 for a point) at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
@@ -1207,6 +1257,7 @@ class AddTorus(Tool):
     """A torus lying on the XY plane, centred at (x, y, z). `major` is the ring's centre-line diameter."""
 
     id = "add_torus"
+    body_kind = "Torus"
     label = "Add torus"
     description = "Adds a ring shape (donut) at the given position, from the ring radius and the tube radius. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
@@ -1891,9 +1942,10 @@ class OffsetBody(Tool):
     """Grow (positive) or shrink (negative) the selected solids (all when nothing is selected) by a uniform distance."""
 
     id = "offset_body"
+    keeps_body_order = True
     label = "Offset body"
-    description = "Grows (positive) or shrinks (negative) a solid evenly in all directions. Select any face of the solid, or nothing for the whole model."
-    accepts = Accepts(faces=(0, None))
+    description = "Grows (positive) or shrinks (negative) a solid evenly in all directions. Select bodies, any face of the solid, or nothing for the whole model."
+    accepts = Accepts(faces=(0, None), bodies=(0, None))
     params = [Param("distance", "length", 1)]
 
     def run(self, topology, selection, values, preview):

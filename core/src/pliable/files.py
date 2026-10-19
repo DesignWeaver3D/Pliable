@@ -35,14 +35,39 @@ def read_step(data: bytes) -> TopoDS_Shape:
     return read_step_tree(data).wrapped
 
 
+GENERIC_LABELS = {"COMPOUND", "SOLID", "SHELL", "Part", "Unknown"}  # what the reader calls parts the file did not name
+
+
+def part_names(root) -> list[tuple[TopoDS_Shape, str]]:
+    """(solid, part name) for every solid of an imported tree whose part has a name; deeper parts win, and a part with
+    several solids numbers them."""
+    named: list[tuple[TopoDS_Shape, str]] = []
+    for leaf in [root, *root.descendants]:
+        label = (getattr(leaf, "label", "") or "").strip()
+        solids = solids_of(leaf.wrapped)
+        if not label or label in GENERIC_LABELS or not solids:
+            continue
+        for n, solid in enumerate(solids):
+            named = [(s, t) for s, t in named if not s.IsPartner(solid)]
+            named.append((solid, label if len(solids) == 1 else f"{label} {n + 1}"))
+    return named
+
+
 def read_step_checked(data: bytes) -> tuple[TopoDS_Shape, list[str]]:
     """Import, heal and report: the shape plus plain-language warnings."""
+    shape, warnings, _ = read_step_parts(data)
+    return shape, warnings
+
+
+def read_step_parts(data: bytes) -> tuple[TopoDS_Shape, list[str], list[tuple[TopoDS_Shape, str]]]:
+    """Like read_step_checked, plus the (solid, part name) pairs of the file's named parts."""
     root = read_step_tree(data)
     names = []  # (shell, part name) for every surface body outside a solid
     for leaf in [root, *root.descendants]:
         for shell in _loose_shells(leaf.wrapped):
             names.append((shell, getattr(leaf, "label", "") or "unnamed"))
-    return check_import(root.wrapped, names)
+    shape, warnings = check_import(root.wrapped, names)
+    return shape, warnings, part_names(root)
 
 
 def write_step(shape: TopoDS_Shape) -> bytes:

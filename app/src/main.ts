@@ -18,7 +18,9 @@ import type { AnchorInfo } from "./placepick";
 import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type HandleInfo, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
 import { usage, type Surface } from "./usage";
-import { filterHidden, solidsOf } from "./visibility";
+import { BodyList } from "./bodylist";
+import { pruneHidden, toggleHidden, toggleIsolated } from "./bodylogic";
+import { bodiesOf, filterHidden } from "./visibility";
 
 const $ = (id: string) => document.getElementById(id)!;
 const status = $("status");
@@ -365,6 +367,7 @@ function setSelection(sels: Sel[]) {
   if (toolPanel.isOpen) toolPanel.close(false); // the selection changed under an open tool form
   viewport.manipulator.clear();
   currentSels = sels;
+  bodyList.setSelected(sels.filter((s) => s.kind === "body").map((s) => s.id));
   refined = null;
   related = [];
   selected.textContent = describe(sels);
@@ -411,25 +414,30 @@ function setSelection(sels: Sel[]) {
 
 function selectionPayload(sels: Sel[]) {
   const ids = (kind: Sel["kind"]) => sels.filter((s) => s.kind === kind).map((s) => s.id);
-  return { faces: ids("face"), edges: ids("edge"), vertices: ids("vertex") };
+  return { faces: ids("face"), edges: ids("edge"), vertices: ids("vertex"), bodies: ids("body") };
 }
 
 let committed: MeshData | null = null; // last committed (non-preview) mesh
 /** The newest committed tool run, kept while nothing else has changed the model: "Edit last" undoes it and reopens its form. */
 let lastOp: { tool: ToolInfo; sels: Sel[]; values: Record<string, ParamValue> } | null = null;
 
-const hiddenSolids = new Set<number>();
+/** Ids of the hidden bodies (view only). Ids are stable, so a hidden body stays hidden through operations. */
+let hiddenBodies: ReadonlySet<number> = new Set();
 
 function show(mesh: MeshData, frame = false) {
-  const present = new Set(solidsOf(mesh));
-  for (const n of hiddenSolids) if (!present.has(n)) hiddenSolids.delete(n);
-  viewport.setMesh(filterHidden(mesh, hiddenSolids), frame);
+  hiddenBodies = pruneHidden(hiddenBodies, bodiesOf(mesh).map((b) => b.id));
+  viewport.setMesh(filterHidden(mesh, hiddenBodies), frame);
+  if (!mesh.header.preview) bodyList.setBodies(bodiesOf(mesh), hiddenBodies);
   undoButton.disabled = !mesh.header.canUndo;
   redoButton.disabled = !mesh.header.canRedo;
 }
 
 function describe(sels: Sel[]): string {
   if (sels.length === 0) return "";
+  if (sels[0].kind === "body") {
+    const name = (id: number) => (committed ? bodiesOf(committed).find((b) => b.id === id)?.name : undefined) ?? `body ${id}`;
+    return sels.length === 1 ? name(sels[0].id) : `${sels.length} bodies`;
+  }
   return sels.length === 1 ? `${sels[0].kind} ${sels[0].id}` : `${sels.length} ${sels[0].kind}s`;
 }
 
@@ -437,7 +445,7 @@ function describe(sels: Sel[]): string {
 function mappedSelection(mesh: MeshData): Sel[] {
   const s = mesh.header.selection ?? {};
   const result: Sel[] = [];
-  for (const [key, kind] of [["faces", "face"], ["edges", "edge"], ["vertices", "vertex"]] as const) {
+  for (const [key, kind] of [["faces", "face"], ["edges", "edge"], ["vertices", "vertex"], ["bodies", "body"]] as const) {
     for (const id of s[key] ?? []) result.push({ kind, id });
   }
   return result;
@@ -506,6 +514,7 @@ function pump(token: number) {
 }
 
 viewport.onSelect = setSelection;
+viewport.onHoverBody = (id) => bodyList.setHovered(id);
 
 // Moving a hole by dragging its centre dot: previews the Move hole tool (latest request wins) and commits on release.
 let centreBusy = false;
@@ -757,22 +766,63 @@ $("info").addEventListener("click", async () => {
 });
 undoButton.addEventListener("click", () => history("undo"));
 redoButton.addEventListener("click", () => history("redo"));
-/** H hides the solid of the selection, Shift+H isolates it, Alt+H shows everything. */
-function setVisibility(action: "hide" | "isolate" | "show") {
+/** Redraw after the hidden set changed, dropping selected items that are no longer visible. */
+function applyVisibility() {
   if (!committed) return;
-  const owner = (s: Sel) => (s.kind === "face" ? committed!.faces : s.kind === "edge" ? committed!.edges : committed!.vertices).find((x) => x.id === s.id)?.solid ?? 0;
-  const picked = new Set(currentSels.map(owner));
-  if (action === "show") hiddenSolids.clear();
-  else if (picked.size) {
-    const all = solidsOf(committed);
-    for (const n of all) if (action === "isolate" ? !picked.has(n) : picked.has(n)) hiddenSolids.add(n);
-    if (action === "isolate") for (const n of picked) hiddenSolids.delete(n);
-  }
   const keep = currentSels;
   show(committed);
-  viewport.selectItems(keep.filter((s) => !hiddenSolids.has(owner(s))));
-  setSelection(currentSels.filter((s) => !hiddenSolids.has(owner(s))));
+  viewport.selectItems(keep.filter((s) => !hiddenBodies.has(ownerBody(s) ?? -1)));
+  setSelection(currentSels.filter((s) => !hiddenBodies.has(ownerBody(s) ?? -1)));
 }
+
+/** The id of the body a selected item belongs to. */
+function ownerBody(s: Sel): number | null {
+  if (!committed) return null;
+  if (s.kind === "body") return s.id;
+  return (s.kind === "face" ? committed.faces : s.kind === "edge" ? committed.edges : committed.vertices).find((x) => x.id === s.id)?.body ?? null;
+}
+
+/** H hides the body of the selection, Shift+H isolates it, Alt+H shows everything. */
+function setVisibility(action: "hide" | "isolate" | "show") {
+  if (!committed) return;
+  const all = bodiesOf(committed).map((b) => b.id);
+  const picked = new Set(currentSels.map(ownerBody).filter((id): id is number => id !== null));
+  if (action === "show") hiddenBodies = new Set();
+  else if (picked.size) {
+    hiddenBodies = action === "isolate" ? new Set(all.filter((id) => !picked.has(id))) : new Set([...hiddenBodies, ...picked]);
+  }
+  applyVisibility();
+}
+
+const bodyList = new BodyList($("bodylist"), {
+  toggleHide(id) {
+    hiddenBodies = toggleHidden(hiddenBodies, id);
+    applyVisibility();
+  },
+  toggleIsolate(id) {
+    if (!committed) return;
+    hiddenBodies = toggleIsolated(hiddenBodies, bodiesOf(committed).map((b) => b.id), id);
+    applyVisibility();
+  },
+  rename(id, name) {
+    core
+      .request<MeshData>("rename_body", { body: id, name })
+      .then((mesh) => setCommitted(mesh, false, currentSels))
+      .catch((e) => {
+        status.textContent = (e as Error).message;
+        status.classList.add("error");
+        if (committed) bodyList.setBodies(bodiesOf(committed), hiddenBodies);
+      });
+  },
+  select(ids) {
+    const picked: Sel[] = ids.map((id) => ({ kind: "body" as const, id }));
+    viewport.selectItems(picked);
+    setSelection(picked);
+  },
+  hover(id) {
+    viewport.hoverItem(id === null ? null : { kind: "body", id });
+  },
+}, $("bodycount"));
 
 // Keyboard shortcuts: one router applies the policy in keys.ts (engagement, blur, repeat, entry, sketch) and runs these.
 const keys = new KeyRouter({
@@ -901,7 +951,7 @@ function commands(): Command[] {
     { label: "Redo", hint: keys.keymap.hint("history.redo"), enabled: !redoButton.disabled, run: () => history("redo") },
     { label: "Hide body", hint: keys.keymap.hint("display.hide"), enabled: currentSels.length > 0, run: () => setVisibility("hide") },
     { label: "Isolate body", hint: keys.keymap.hint("display.isolate"), enabled: currentSels.length > 0, run: () => setVisibility("isolate") },
-    { label: "Show all bodies", hint: keys.keymap.hint("display.showAll"), enabled: hiddenSolids.size > 0, run: () => setVisibility("show") },
+    { label: "Show all bodies", hint: keys.keymap.hint("display.showAll"), enabled: hiddenBodies.size > 0, run: () => setVisibility("show") },
     { label: "See-through selection (pick edges and faces behind the model)", hint: keys.keymap.hint("display.seeThrough"), enabled: true, run: () => viewport.toggleSeeThrough() },
     {
       label: `Measure pick (hidden mode: press ${keys.keymap.hint("measure") || "its key"} while dragging a tool)`,
@@ -1218,3 +1268,16 @@ core.onDisconnect = () => {
   void connectToCore();
 };
 void connectToCore();
+
+$("bodyhead").addEventListener("click", () => {
+  const head = $("bodyhead");
+  head.setAttribute("aria-expanded", String(head.getAttribute("aria-expanded") !== "true"));
+});
+
+// Escape clears a body selection (when nothing else is using the key).
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || e.defaultPrevented || !currentSels.some((s) => s.kind === "body")) return;
+  if (toolPanel.isOpen || viewport.dragging || (e.target as HTMLElement).closest?.("input, textarea")) return;
+  viewport.selectItems([]);
+  setSelection([]);
+});

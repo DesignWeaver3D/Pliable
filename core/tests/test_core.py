@@ -139,7 +139,7 @@ def test_session_push_pull_flow():
     assert header["preview"] and not session.document.can_undo
     commit = session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": [face]}, "params": {"distance": 3}})
     header, _ = decode_binary(commit)
-    assert header["canUndo"] and header["selection"] == {"faces": [top_face(session.document.current)], "edges": [], "vertices": []}
+    assert header["canUndo"] and header["selection"] == {"faces": [top_face(session.document.current)], "edges": [], "vertices": [], "bodies": []}
     exported = session.handle({"type": "export_step"})
     assert volume(read_step(base64.b64decode(exported["data"]))) == pytest.approx(40 * 30 * 23)
     json.dumps(exported)
@@ -159,7 +159,7 @@ def test_push_pull_leaves_source_shape_untouched(preview):
 def test_tool_registry_describes_push_pull():
     reply = Session().handle({"type": "list_tools"})
     (tool,) = [t for t in reply["tools"] if t["id"] == "push_pull"]
-    assert tool["accepts"] == {"faces": [1, None], "edges": [0, 0], "vertices": [0, 0]}
+    assert tool["accepts"] == {"faces": [1, None], "edges": [0, 0], "vertices": [0, 0], "bodies": [0, 0]}
     assert tool["params"] == [{"name": "distance", "kind": "length", "default": 0.0, "drag": True}]
     json.dumps(reply)
 
