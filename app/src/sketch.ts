@@ -8,6 +8,7 @@ import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { CoreClient, MeshData } from "./client";
 import type { Dimension, DimensionOverlay } from "./dimensions";
+import * as E from "./sketchedit";
 import * as M from "./sketchmodel";
 import { usage } from "./usage";
 import type { Viewport } from "./viewport";
@@ -678,6 +679,127 @@ export class SketchMode {
   }
 
   /** Ask for a dimension's value; ticking "Reference" keeps the current measurement instead of driving the shape. */
+  /** Several numbers at once (and optionally a Copy box) in the ask strip. Resolves null when cancelled. */
+  private askForm(title: string, fields: { label: string; value: number; integer?: boolean }[], copy?: boolean): Promise<{ values: number[]; copy: boolean } | null> {
+    return new Promise((resolve) => {
+      const box = this.panel.querySelector<HTMLElement>(".ask")!;
+      box.hidden = false;
+      box.replaceChildren();
+      const inputs = fields.map((f) => {
+        const input = document.createElement("input");
+        input.type = "number";
+        input.step = f.integer ? "1" : "any";
+        input.value = String(parseFloat(f.value.toFixed(3)));
+        input.title = f.label;
+        input.addEventListener("keydown", (e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") ok.click();
+          else if (e.key === "Escape") done(null);
+        });
+        return input;
+      });
+      const copyBox = document.createElement("input");
+      copyBox.type = "checkbox";
+      copyBox.checked = copy ?? false;
+      const done = (values: number[] | null) => {
+        box.hidden = true;
+        box.replaceChildren();
+        resolve(values ? { values, copy: copyBox.checked } : null);
+      };
+      const ok = document.createElement("button");
+      ok.textContent = "OK";
+      ok.addEventListener("click", () => {
+        const values = inputs.map((i) => Number(i.value));
+        done(values.every(Number.isFinite) ? values : null);
+      });
+      const cancel = document.createElement("button");
+      cancel.textContent = "Cancel";
+      cancel.addEventListener("click", () => done(null));
+      const rows = fields.map((f, k) => {
+        const label = document.createElement("label");
+        label.append(`${f.label} `, inputs[k]);
+        return label;
+      });
+      const copyLabel = document.createElement("label");
+      copyLabel.append(copyBox, " Copy");
+      box.append(title, ...rows, ...(copy === undefined ? [] : [copyLabel]), ok, cancel);
+      inputs[0]?.focus();
+      inputs[0]?.select();
+    });
+  }
+
+  /** Replace the sketch with an edited one (move, copy, array) and settle it; a result the constraints refuse is undone. */
+  private async applyEdit(make: () => E.EditResult) {
+    this.pushUndo();
+    const before = JSON.stringify(this.s);
+    const made = make();
+    this.s = made.sketch;
+    this.selection = made.selection;
+    const ok = await this.resolve();
+    if (!ok) {
+      this.s = JSON.parse(before);
+      this.undoStack.pop();
+      this.selection = [];
+      await this.resolve();
+      this.host.status("The constraints do not allow that change, so it was not made", true);
+    }
+    this.render();
+  }
+
+  private transformButtons(): HTMLElement | null {
+    if (!E.selected(this.s, this.selection).points.length) return null;
+    const [cu, cv] = E.centroid(this.s, this.selection);
+    const sel = [...this.selection];
+    const row = document.createElement("div");
+    row.className = "row-buttons";
+    const add = (label: string, tip: string, run: () => Promise<void> | void) => {
+      const b = document.createElement("button");
+      b.textContent = label;
+      b.title = tip;
+      b.addEventListener("click", () => void run());
+      row.append(b);
+    };
+    add("Move…", "Move the selection by a distance along the sketch axes, or copy it there", async () => {
+      const a = await this.askForm("Move", [{ label: "Across", value: 0 }, { label: "Up", value: 0 }], false);
+      if (a) await this.applyEdit(() => E.transform(this.s, sel, E.translation(a.values[0], a.values[1]), { copy: a.copy }));
+    });
+    add("Rotate…", "Rotate the selection by an angle about a point (starts at its middle)", async () => {
+      const a = await this.askForm("Rotate", [{ label: "Degrees", value: 90 }, { label: "About across", value: cu }, { label: "About up", value: cv }], false);
+      if (a) await this.applyEdit(() => E.transform(this.s, sel, E.rotation(a.values[0], a.values[1], a.values[2]), { copy: a.copy }));
+    });
+    add("Scale…", "Scale the selection about a point (starts at its middle)", async () => {
+      const a = await this.askForm("Scale", [{ label: "Factor", value: 2 }, { label: "About across", value: cu }, { label: "About up", value: cv }], false);
+      if (a && a.values[0] > 0) await this.applyEdit(() => E.transform(this.s, sel, E.scaling(a.values[0], a.values[1], a.values[2]), { copy: a.copy, scale: a.values[0] }));
+    });
+    const lines = sel.filter((x) => x.kind === "entity" && this.s.entities.find((e) => e.id === x.id)?.type === "line");
+    const rest = sel.filter((x) => !lines.length || x !== lines[lines.length - 1]);
+    if (lines.length && E.selected(this.s, rest).points.length) {
+      const axis = lines[lines.length - 1].id;
+      add("Mirror", "Add a mirror image of the selection across the last line you selected, kept symmetric by constraints", () => {
+        const l = this.s.entities.find((e) => e.id === axis) as Extract<M.SketchEntity, { type: "line" }>;
+        const [a, b] = [M.pointOf(this.s, l.a), M.pointOf(this.s, l.b)];
+        return this.applyEdit(() => E.transform(this.s, rest, E.reflection(a.u, a.v, b.u - a.u, b.v - a.v), { copy: true, mirror: true, axis }));
+      });
+    }
+    add("Mirror in horizontal axis", "Add a mirror image across the horizontal axis of the sketch", () =>
+      this.applyEdit(() => E.transform(this.s, sel, E.reflection(0, 0, 1, 0), { copy: true, mirror: true })));
+    add("Mirror in vertical axis", "Add a mirror image across the vertical axis of the sketch", () =>
+      this.applyEdit(() => E.transform(this.s, sel, E.reflection(0, 0, 0, 1), { copy: true, mirror: true })));
+    add("Row of copies…", "Repeat the selection in a row", async () => {
+      const a = await this.askForm("Row", [{ label: "Count", value: 3, integer: true }, { label: "Step across", value: 10 }, { label: "Step up", value: 0 }]);
+      if (a && a.values[0] >= 2 && a.values[0] <= 200) await this.applyEdit(() => E.repeat(this.s, sel, Math.round(a.values[0]), (k) => ({ map: E.translation(k * a.values[1], k * a.values[2]) })));
+    });
+    add("Circle of copies…", "Repeat the selection around a centre", async () => {
+      const a = await this.askForm("Around", [{ label: "Count", value: 6, integer: true }, { label: "Total degrees", value: 360 }, { label: "Centre across", value: cu }, { label: "Centre up", value: cv }]);
+      if (!a || a.values[0] < 2 || a.values[0] > 200) return;
+      const count = Math.round(a.values[0]);
+      const full = Math.abs(a.values[1]) >= 360;
+      const step = a.values[1] / (full ? count : count - 1);
+      await this.applyEdit(() => E.repeat(this.s, sel, count, (k) => ({ map: E.rotation(k * step, a.values[2], a.values[3]) })));
+    });
+    return row;
+  }
+
   private askNumber(label: string, initial: number): Promise<{ value: number; reference: boolean } | null> {
     return new Promise((resolve) => {
       const box = this.panel.querySelector<HTMLElement>(".ask")!;
@@ -1103,6 +1225,9 @@ export class SketchMode {
     const constraintsBox = el("div", "section");
     constraintsBox.append(el("div", "group", this.selection.length ? "Constrain selection" : "Select items to constrain"), constraints);
 
+    const transformRow = this.transformButtons();
+    const transformBox = el("div", "section");
+    if (transformRow) transformBox.append(el("div", "group", "Edit selection"), transformRow);
     const ask = el("div", "ask");
     ask.hidden = true;
 
@@ -1242,6 +1367,6 @@ export class SketchMode {
     finish.title = "Leave the sketch and keep its closed regions as faces you can push/pull or extrude";
     const exit = button("Discard sketch", () => this.exit());
     exit.title = "Leave the sketch and throw it away without changing the model";
-    this.panel.replaceChildren(header, status, tools, constraintsBox, ask, list, ...(flat ? [extrude] : []), finish, exit);
+    this.panel.replaceChildren(header, status, tools, constraintsBox, ...(transformRow ? [transformBox] : []), ask, list, ...(flat ? [extrude] : []), finish, exit);
   }
 }
