@@ -100,3 +100,4 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Push/pull handle sits at the face centre of mass, or the middle of the longest boundary edge when that point is off the face (`face_handle_point` in `ops.py`); a hole wall has no arrow and still drags along its radius.
 - Handle grab range is 9 px and arm length 34 px (`manipulator.ts`, named constants); only the handle under the pointer shows its label.
 - Rotate body handle slides along the ring tangent while dragged and snaps back onto the ring after each preview; the axis (0, 1, 2) is typed.
+- Editable primitives keep a recipe (tool, values, rotation) that is checked by a shape signature (volume, face count, box within 1e-5 of the size); a change too small for that tolerance would not drop the recipe. A rotated primitive can be edited by size, but its position handles are hidden (the base point is in the primitive's own frame).

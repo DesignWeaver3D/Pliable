@@ -102,6 +102,8 @@ class OpResult:
     tracked_vertices: list[TopoDS_Shape] = field(default_factory=list)
     # True once faces that share a surface have been merged; Tool.execute unifies results that are not.
     unified: bool = False
+    # Whole-body transforms: the gp_Trsf applied to each solid, by index of the solid in the input (see recipes.py).
+    moved: dict = field(default_factory=dict)
 
 
 def _follow(history_op, shapes: list[TopoDS_Shape]) -> list[TopoDS_Shape]:

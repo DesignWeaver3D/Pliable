@@ -22,13 +22,16 @@ from websockets.http11 import Response
 
 from . import __version__, sketch, unwrap
 from . import bodies as body_ids
+from . import recipes
+from OCP.BRep import BRep_Builder
+from OCP.TopoDS import TopoDS_Compound
 from . import notice
 from .autosave import Autosaver
 from .demos import load_demo
 from . import diagnostics
 from .usage import Usage
 from .document import Document
-from .features import combine
+from .features import combine, finish
 from .files import part_names, read_step_parts, read_step_tree, write_mesh, write_step
 from OCP.gp import gp_Vec
 from .measure import measure, model_info
@@ -349,10 +352,64 @@ class Session:
             self._autosave()
         return self._mesh_reply(target, timings, preview=not commit, selection=Selection().to_json())
 
+    @staticmethod
+    def _recipe_change(tool, topology, selection, raw_params: dict, result) -> dict:
+        """What the tool did to the primitive recipes of the bodies (see recipes.py): which it combined, moved or created."""
+        bodies = topology.bodies.bodies
+        change: dict = {"cause": tool.label}
+        try:
+            values = tool.bind(raw_params)
+            combined = tool.combines(topology, selection, values)
+        except Exception:
+            values, combined = {}, None
+        if combined == "all":
+            change["combined"] = "all"
+        elif combined:
+            change["combined"] = {bodies[i].id for i in combined if i < len(bodies)}
+        if result.moved:
+            change["moved"] = {bodies[i].id: t for i, t in result.moved.items() if i < len(bodies)}
+        if tool.starts_from == "tool" and hasattr(tool, "make") and values.get("new_body", 0.0) >= 0.5:
+            change["assign"] = {None: {"tool": tool.id, "params": {k: v for k, v in values.items() if isinstance(v, float)}, "m": list(recipes.IDENTITY)}}
+        return change
+
+    def _edit_primitive(self, request: dict, tool, commit: bool) -> bytes:
+        """Replace one primitive body by the same primitive with new values: it keeps its id, name and place in the list."""
+        document = self._require_document()
+        topology = document.current
+        body_id = int(request["edit_body"])
+        index = topology.bodies.find(body_id)
+        if index is None:
+            raise RequestError("That body no longer exists")
+        body = topology.bodies.bodies[index]
+        why = recipes.reason(body)
+        if why is not None:
+            raise RequestError(why)
+        if body.recipe["tool"] != tool.id:
+            raise RequestError("That body was made by a different tool")
+        start = time.perf_counter()
+        raw = {**(request.get("params") or {}), "new_body": 1}
+        values = tool.bind(raw)
+        recipe = recipes.make(tool.id, values, tool.make(values), body.recipe["m"])
+        solid = recipes.build(recipe)
+        result = finish(solid)
+        compound, builder = TopoDS_Compound(), BRep_Builder()
+        builder.MakeCompound(compound)
+        for n, old in enumerate(solids_of(topology.shape)):
+            builder.Add(compound, solids_of(result.shape)[0] if n == index else old)
+        timings = {"opMs": _ms(start)}
+        change = {"cause": tool.label, "assign": {body_id: {k: recipe[k] for k in ("tool", "params", "m")}}}
+        target = document.commit(compound, ordered=True, change=change) if commit else document.preview(compound, ordered=True, change=change)
+        if commit:
+            self._autosave()
+        handles = [] if commit else recipes.transform_handles(tool.handle_list(topology, Selection(), values), recipe)
+        return self._mesh_reply(target, timings, preview=not commit, selection=Selection(bodies=[body_id]).to_json(), handles=handles)
+
     def _run_tool(self, request: dict, commit: bool) -> bytes:
         document = self._require_document()
         topology = document.current
         tool = get_tool(str(request.get("tool")))
+        if request.get("edit_body") is not None:
+            return self._edit_primitive(request, tool, commit)
         selection = request_selection = Selection.from_json(request.get("selection"))
         start = time.perf_counter()
         self.last_tool = {"tool": tool.id, "commit": commit, "ok": False, "error": None}
@@ -364,7 +421,8 @@ class Session:
         self.last_tool["ok"] = True
         timings = {"opMs": _ms(start)}
         body_kind, ordered = tool.body_kind, tool.keeps_body_order
-        target = document.commit(result.shape, body_kind, ordered) if commit else document.preview(result.shape, body_kind, ordered)
+        change = self._recipe_change(tool, topology, selection, request.get("params") or {}, result)
+        target = document.commit(result.shape, body_kind, ordered, change=change) if commit else document.preview(result.shape, body_kind, ordered, change=change)
         if commit:
             self._autosave()
         faces = [i for f in result.tracked_faces if (i := target.face_id(f)) is not None]

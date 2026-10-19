@@ -19,6 +19,7 @@ from OCP.TopExp import TopExp_Explorer
 from OCP.TopLoc import TopLoc_Location
 from OCP.TopoDS import TopoDS_Shape
 
+from . import recipes
 from .ops import edge_outward_normal, planar_normal, solids_of
 from .topology import Topology
 
@@ -206,6 +207,6 @@ def tessellate(topology: Topology) -> Mesh:
         edges=edges,
         vertices=vertices,
         centres=centres,
-        bodies=[{"id": b.id, "name": b.name, "solid": n, "bounds": bounds(solid_shapes[n])} for n, b in enumerate(owners) if n < len(solid_shapes)],
+        bodies=[{"id": b.id, "name": b.name, "solid": n, "bounds": bounds(solid_shapes[n]), **recipes.info(b)} for n, b in enumerate(owners) if n < len(solid_shapes)],
         bounds=bounds(shape),
     )
