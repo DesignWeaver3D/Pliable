@@ -12,6 +12,7 @@ import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
 import { HintLine } from "./hints";
 import { Palette, type Command } from "./palette";
+import { TOOL_GROUPS } from "./layout";
 import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
 import { usage, type Surface } from "./usage";
@@ -175,6 +176,30 @@ function dragToolFor(sels: Sel[]): ToolInfo | null {
 
 const toolbar = $("tools");
 
+// Browse drawer: every tool by group, hidden until asked for (button, key T, or the strip's "..." button).
+const drawer = $("drawer");
+function toggleDrawer(open = drawer.hidden, usableOnly?: boolean) {
+  drawer.hidden = !open;
+  if (usableOnly !== undefined) {
+    ($("drawerusable") as HTMLInputElement).checked = usableOnly;
+    drawer.classList.toggle("usableonly", usableOnly);
+  }
+}
+$("drawerbtn").addEventListener("click", () => toggleDrawer());
+$("drawerclose").addEventListener("click", () => toggleDrawer(false));
+$("drawerusable").addEventListener("change", (e) => drawer.classList.toggle("usableonly", (e.target as HTMLInputElement).checked));
+$("toollist").addEventListener("click", (e) => {
+  if ((e.target as HTMLElement).closest("button")) toggleDrawer(false);
+});
+$("viewport").addEventListener("pointerdown", () => toggleDrawer(false), true);
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !drawer.hidden) toggleDrawer(false);
+});
+
+/** Strip order: the tool a drag runs first, then the tool groups' order. */
+const GROUP_ORDER = TOOL_GROUPS.flatMap((g) => g.tools);
+const STRIP_MAX = 7;
+
 let toolbarKey = "";
 
 function renderToolbar() {
@@ -190,11 +215,24 @@ function renderToolbar() {
     const hint = document.createElement("span");
     hint.className = "none";
     hint.textContent = currentSels.length ? "No tools for this selection" : "Select a face or edge (Ctrl+K for commands)";
-    toolbar.replaceChildren(hint);
+    const browse = document.createElement("button");
+    browse.textContent = "...";
+    browse.className = "more";
+    browse.title = "Open the tool drawer (T)";
+    browse.addEventListener("click", () => toggleDrawer(true));
+    toolbar.replaceChildren(hint, browse);
     return;
   }
+  const rank = (t: ToolInfo) => (t.id === active ? -1 : GROUP_ORDER.includes(t.id) ? GROUP_ORDER.indexOf(t.id) : GROUP_ORDER.length);
+  const ordered = [...usable].sort((a, b) => rank(a) - rank(b));
+  const shown = ordered.slice(0, STRIP_MAX);
+  const more = document.createElement("button");
+  more.textContent = ordered.length > STRIP_MAX ? `... ${ordered.length - STRIP_MAX} more` : "...";
+  more.className = "more";
+  more.title = "Open the tool drawer, showing the tools that work now (T)";
+  more.addEventListener("click", () => toggleDrawer(true, true));
   toolbar.replaceChildren(
-    ...usable.map((tool) => {
+    ...shown.map((tool) => {
       const button = document.createElement("button");
       button.textContent = tool.label;
       button.title = toolTooltip(tool);
@@ -203,6 +241,7 @@ function renderToolbar() {
       return button;
     }),
     ...helpers,
+    more,
   );
 }
 
@@ -683,6 +722,7 @@ const keys = new KeyRouter({
       if (currentSels.length === 1 && currentSels[0].kind === "face" && !viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: could not find a view direction for this face";
     },
     measure: () => viewport.toggleMeasureKey(),
+    "display.drawer": () => toggleDrawer(),
     "display.hide": () => setVisibility("hide"),
     "display.isolate": () => setVisibility("isolate"),
     "display.showAll": () => setVisibility("show"),

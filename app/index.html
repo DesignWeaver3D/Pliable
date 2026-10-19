@@ -21,9 +21,11 @@
       #bar button:disabled { opacity: 0.4; }
       #bar button.active { border-color: #ff8a1f; color: #ffb878; }
       #bar select, #bar span { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; }
-      #tools { position: fixed; top: 76px; max-width: calc(100vw - 150px); left: 8px; display: flex; gap: 6px; align-items: center; z-index: 1; }
+      #tools { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); max-width: min(980px, calc(100vw - 340px)); display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; align-items: center; z-index: 2; background: rgba(35, 38, 45, 0.92); border: 1px solid #3a3e47; border-radius: 8px; padding: 5px 6px; }
       #tools button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 10px; }
       #tools button.active { border-color: #ff8a1f; color: #ffb878; }
+      #tools button.active::after { content: "drag"; margin-left: 6px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a1f; }
+      #tools button.more { color: #aaa; }
       #tools .none { color: #888; padding: 4px 2px; }
       #busy { position: fixed; top: 44px; left: 8px; z-index: 3; display: flex; gap: 8px; align-items: center; background: #23262d; color: #ffb878; border: 1px solid #ff8a1f; border-radius: 4px; padding: 4px 10px; font-variant-numeric: tabular-nums; pointer-events: none; }
       #busy[hidden] { display: none; }
@@ -38,11 +40,18 @@
       .navcube-face { position: absolute; text-align: center; font-size: 11px; color: #cfd6e4; background: rgba(60, 68, 84, 0.85); border: 1px solid #7d8aa5; box-sizing: border-box; cursor: pointer; user-select: none; }
       .navcube-face:hover { background: rgba(255, 138, 31, 0.8); color: #fff; }
       .navcube button { font-size: 11px; padding: 2px 8px; }
-      #toollist { position: fixed; top: 116px; left: 8px; z-index: 1; display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; width: 150px; }
+      #drawer { position: fixed; top: 48px; left: 0; bottom: 0; width: 280px; z-index: 5; background: rgba(35, 38, 45, 0.97); border-right: 1px solid #444; display: flex; flex-direction: column; box-shadow: 4px 0 18px rgba(0, 0, 0, 0.4); }
+      #drawer[hidden] { display: none; }
+      #drawer .drawerhead { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-bottom: 1px solid #3a3e47; }
+      #drawer .drawerhead b { color: #ffb878; flex: 1; }
+      #drawer .drawerhead button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; }
+      #drawer.usableonly #toollist > div:not(:has(button:enabled)) { display: none; }
+      #drawer.usableonly #toollist button:disabled { display: none; }
+      #toollist { padding: 4px 10px 16px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1; }
       #toollist .group { color: #ffb878; font-size: 11px; margin-top: 4px; }
       #toollist button, #toolform button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 3px 8px; text-align: left; display: block; width: 100%; margin-top: 2px; }
       #toollist button:disabled { color: #666; }
-      #toolform { position: fixed; top: 116px; left: 170px; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
+      #toolform { position: fixed; top: 104px; left: 8px; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
       #toolform[hidden] { display: none; }
       #toolform .title { color: #ffb878; font-weight: 600; margin-bottom: 4px; }
       #toolform .row { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin: 3px 0; }
@@ -93,6 +102,7 @@
   <body>
     <div id="viewport"></div>
     <div id="bar">
+      <button id="drawerbtn" title="Browse every tool by group (T)">Tools</button>
       <select id="demo" title="Open one of the built-in demo models">
         <option>bracket</option>
         <option>block</option>
@@ -129,7 +139,14 @@
     <div id="tools"></div>
     <div id="chips"></div>
     <div id="navcube"></div>
-    <div id="toollist"></div>
+    <div id="drawer" hidden>
+      <div class="drawerhead">
+        <b>All tools</b>
+        <label title="Show only the tools that work with the current selection"><input type="checkbox" id="drawerusable" /> usable now</label>
+        <button id="drawerclose" title="Close the tool list (Escape)">Close</button>
+      </div>
+      <div id="toollist"></div>
+    </div>
     <div id="sketchbar"></div>
     <div id="sketchpanel" hidden></div>
     <div id="toolform" hidden></div>
