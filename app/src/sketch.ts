@@ -20,7 +20,7 @@ const POINT_SIZE_PX = 8;
 const PREVIEW_DELAY_MS = 150;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150 };
 
-type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "arc" | "trim" | "extend" | "triangle" | "pentagon" | "hexagon" | "octagon";
+type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "arc" | "ellipse" | "spline" | "trim" | "extend" | "triangle" | "pentagon" | "hexagon" | "octagon";
 /** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
 const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5, hexagon: 6, octagon: 8 };
 const TOOLS: { id: Tool; label: string; hint: string }[] = [
@@ -30,6 +30,8 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "rectcentre", label: "Centre rectangle", hint: "Click the centre, then a corner" },
   { id: "circle", label: "Circle", hint: "Click the centre, then a point on the circle" },
   { id: "arc", label: "Arc", hint: "Click the centre, the start, then the end (counterclockwise)" },
+  { id: "ellipse", label: "Ellipse", hint: "Click the centre, the end of the long axis, then a point for the short radius" },
+  { id: "spline", label: "Spline", hint: "Click points the curve passes through; Enter or right-click ends it, clicking the first point closes it" },
   { id: "trim", label: "Trim", hint: "Click the part of a line to remove, up to the nearest crossing curves" },
   { id: "extend", label: "Extend", hint: "Click near the end of a line to stretch it to the next curve" },
   ...(Object.keys(POLYGON_SIDES) as Tool[]).map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1), hint: "Click the centre, then a corner" })),
@@ -341,7 +343,7 @@ export class SketchMode {
     const entity = hit?.kind === "entity" ? this.s.entities.find((x) => x.id === hit.id) : undefined;
     const uv = this.planeUV(e);
     if (entity && uv && !additive && !entity.reference) {
-      const ids = entity.type === "line" ? [entity.a, entity.b] : entity.type === "circle" ? [entity.center] : [entity.center, entity.start, entity.end];
+      const ids = M.entityPoints(entity);
       const held = ids.map((id) => this.s.points.find((p) => p.id === id)!);
       if (held.every((p) => p && !p.fixed)) {
         this.drag = { id: 0, startX: e.clientX, startY: e.clientY, moved: false, body: { u: uv[0], v: uv[1], points: held.map((p) => ({ id: p.id, u: p.u, v: p.v })) } };
@@ -384,6 +386,16 @@ export class SketchMode {
         if (closed) this.endChain();
         else this.chain = [snap];
       }
+    } else if (this.tool === "spline") {
+      const first = this.chain[0];
+      if (this.chain.length >= 3 && snap.id !== undefined && snap.id === first.id) {
+        this.chain.pop();
+        this.addSpline(true);
+        return;
+      }
+    } else if (this.tool === "ellipse" && this.chain.length === 3) {
+      this.addEllipse(this.chain[0], this.chain[1], this.chain[2]);
+      this.chain = [];
     } else if ((this.tool === "rectangle" || this.tool === "rectcentre") && this.chain.length === 2) {
       this.addRectangle(this.chain[0], this.chain[1], this.tool === "rectcentre");
       this.chain = [];
@@ -402,6 +414,7 @@ export class SketchMode {
   }
 
   private endChain() {
+    if (this.tool === "spline" && this.chain.length >= 2) this.addSpline(false);
     this.chain = [];
     this.chainStart = undefined;
     this.cursor = null;
@@ -570,6 +583,33 @@ export class SketchMode {
     const id = M.nextId(this.s);
     this.s.entities.push({ id, type: "circle", center: c, radius });
     if (edge.tangent !== undefined) this.addConstraintRaw({ type: "tangent", entities: [id, edge.tangent] });
+    this.resolve();
+  }
+
+  private addEllipse(center: Snap, major: Snap, side: Snap) {
+    const a = Math.hypot(major.u - center.u, major.v - center.v);
+    if (a < 1e-6) return;
+    // the short radius is how far the third click is from the long axis
+    const minor = Math.abs(((side.u - center.u) * (major.v - center.v) - (side.v - center.v) * (major.u - center.u)) / a);
+    if (minor < 1e-6) return;
+    this.pushUndo();
+    const c = this.pointFor(center);
+    const m = this.pointFor(major);
+    this.s.entities.push({ id: M.nextId(this.s), type: "ellipse", center: c, major: m, minor });
+    this.resolve();
+  }
+
+  /** The clicked points become a spline through them; a closed one joins the last back to the first. */
+  private addSpline(closed: boolean) {
+    this.pushUndo();
+    const ids: number[] = [];
+    for (const snap of this.chain) {
+      const id = this.pointFor(snap);
+      if (ids[ids.length - 1] !== id) ids.push(id);
+    }
+    if (ids.length < 2) return;
+    this.s.entities.push({ id: M.nextId(this.s), type: "spline", points: ids, ...(closed && ids.length > 2 ? { closed: true } : {}) });
+    this.chain = [];
     this.resolve();
   }
 
@@ -792,6 +832,8 @@ export class SketchMode {
         const mapped = { ...e, id: M.nextId(this.s) } as M.SketchEntity;
         if (mapped.type === "line") (mapped.a = map.get(mapped.a)!), (mapped.b = map.get(mapped.b)!);
         else if (mapped.type === "circle") mapped.center = map.get(mapped.center)!;
+        else if (mapped.type === "ellipse") (mapped.center = map.get(mapped.center)!), (mapped.major = map.get(mapped.major)!);
+        else if (mapped.type === "spline") mapped.points = mapped.points.map((q) => map.get(q)!);
         else (mapped.center = map.get(mapped.center)!), (mapped.start = map.get(mapped.start)!), (mapped.end = map.get(mapped.end)!);
         if (have.has(entityKey(mapped))) continue;
         this.s.entities.push(mapped);
@@ -956,6 +998,18 @@ export class SketchMode {
     if (sides) {
       const corners = this.polygonCorners(first, c, sides).map((q) => [q.u, q.v] as [number, number]);
       return [[...corners, corners[0]]];
+    }
+    if (this.tool === "spline") {
+      const through = [...this.chain, c];
+      const probe: M.SketchData = { ...this.s, points: through.map((q, i) => ({ id: -1 - i, u: q.u, v: q.v })) };
+      return [M.polyline(probe, { id: 0, type: "spline", points: through.map((_, i) => -1 - i) }, 48)];
+    }
+    if (this.tool === "ellipse") {
+      const probe: M.SketchData = { ...this.s, points: [{ id: -1, u: first.u, v: first.v }, { id: -2, u: (this.chain[1] ?? c).u, v: (this.chain[1] ?? c).v }] };
+      const a = Math.hypot(probe.points[1].u - first.u, probe.points[1].v - first.v);
+      if (!this.chain[1] || a < 1e-9) return [[[first.u, first.v], [c.u, c.v]]];
+      const minor = Math.abs(((c.u - first.u) * (probe.points[1].v - first.v) - (c.v - first.v) * (probe.points[1].u - first.u)) / a);
+      return [M.polyline(probe, { id: 0, type: "ellipse", center: -1, major: -2, minor: Math.max(minor, 1e-6) }, 48)];
     }
     const r = Math.hypot(c.u - first.u, c.v - first.v);
     if (this.tool === "circle") return [Array.from({ length: 49 }, (_, i) => [first.u + r * Math.cos((2 * Math.PI * i) / 48), first.v + r * Math.sin((2 * Math.PI * i) / 48)] as [number, number])];
