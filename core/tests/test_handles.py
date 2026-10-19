@@ -390,3 +390,14 @@ def test_chamfer_two_distances_handles_mark_the_leg_on_each_side_and_follow_the_
         assert a0["first"]["direction"] != pytest.approx(a1["first"]["direction"])
         checked += 1
     assert checked >= 4
+
+
+def test_primitive_move_arrows_point_the_positive_way_and_resize_grips_are_marked(session):
+    for tool in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus"):
+        handles = session.handle({"type": "tool_handles", "tool": tool, "params": {"x": 5, "y": 6, "z": 7}})["handles"]
+        moves = {h["param"]: h for h in handles if h["kind"] == "move"}
+        assert set(moves) == {"x", "y", "z"}
+        for param, i in (("x", 0), ("y", 1), ("z", 2)):
+            h = moves[param]
+            assert h["direction"][i] == 1.0 and h["scale"] == 1.0 and h["value"] == (5, 6, 7)[i]
+        assert all(h["kind"] == "resize" for h in handles if h["kind"] != "move")

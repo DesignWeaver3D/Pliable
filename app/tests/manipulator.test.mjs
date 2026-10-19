@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { formatValue, handleValue, lineParam, travelFor } from "../src/manipulator.ts";
+import { axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor } from "../src/manipulator.ts";
 
 const h = { value: 10, scale: 1, min: 1 };
 
@@ -44,4 +44,15 @@ test("a ray along the line has no defined position", () => {
 test("labels show at most three decimals", () => {
   assert.equal(formatValue(24.28412), "24.284");
   assert.equal(formatValue(10), "10");
+});
+
+test("move arrows take the origin-axis colour of their direction and resize grips are neutral", async () => {
+  const { AXIS_COLORS } = await import("../src/axes.ts");
+  assert.equal(axisColorOf([1, 0, 0]), AXIS_COLORS.x);
+  assert.equal(axisColorOf([0, -1, 0]), AXIS_COLORS.y);
+  assert.equal(axisColorOf([0.1, 0.2, 0.9]), AXIS_COLORS.z);
+  assert.equal(handleColors({ kind: "move", toggle: false, direction: [0, 0, 1] }).rest, AXIS_COLORS.z);
+  const resize = handleColors({ kind: "resize", toggle: false, direction: [1, 0, 0] });
+  assert.notEqual(resize.rest, AXIS_COLORS.x);
+  assert.notEqual(resize.hot, handleColors({ kind: "arrow", toggle: false, direction: [1, 0, 0] }).hot);
 });

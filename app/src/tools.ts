@@ -32,6 +32,8 @@ export interface HandleInfo {
   max: number | null;
   /** A yes/no marker (0 or 1): clicking flips the value instead of dragging. */
   toggle: boolean;
+  /** How it is drawn: a plain arrow, a move arrow in its axis colour, a square resize grip, or a click marker. */
+  kind?: "arrow" | "move" | "resize" | "toggle";
   unit: string;
   /** The parameter's value when the handle was computed. */
   value: number;

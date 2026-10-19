@@ -116,7 +116,7 @@ class Handle:
     the same way: the anchor on the ring, `direction` the tangent there and `scale` the degrees per unit of travel, so
     the view needs no separate kind of handle. `min` bounds the parameter (None = unbounded); `unit` is the text
     shown after the value in the live label. `max` bounds it from above. A `toggle` handle is a marker for a yes/no
-    parameter (0 or 1): clicking it flips the value, it is not dragged."""
+    parameter (0 or 1): clicking it flips the value, it is not dragged. `kind` selects the look (see the field)."""
 
     param: str
     label: str
@@ -127,6 +127,9 @@ class Handle:
     unit: str = "mm"
     max: float | None = None
     toggle: bool = False
+    # How the view draws it: "arrow" (a plain drag arrow), "move" (an arrow in its axis colour that moves something along
+    # that axis) or "resize" (a square grip that changes a size).
+    kind: str = "arrow"
 
     def to_json(self, value: float) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
@@ -139,6 +142,7 @@ class Handle:
             "min": self.min,
             "max": self.max,
             "toggle": self.toggle,
+            "kind": "toggle" if self.toggle else self.kind,
             "unit": self.unit,
             "value": value,
         }
