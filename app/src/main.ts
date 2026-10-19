@@ -10,11 +10,12 @@ import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
-import { createSettingsWindow, onSettingsChange, setKeysOpener, settings } from "./settings";
+import { SETTING_ENTRIES, createSettingsWindow, onSettingsChange, openSettings, setHintsBinding, setKeysOpener, settingValue, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
 import { HintLine } from "./hints";
 import { Palette, type Command } from "./palette";
+import { toolKeywords } from "./search";
 import { TOOLS_HANDLE_ICON, toolIcon, uiIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
 import type { AnchorInfo } from "./placepick";
@@ -916,6 +917,7 @@ const keys = new KeyRouter({
 });
 syncSeeThrough();
 setKeysOpener(() => keys.openSettings());
+setHintsBinding({ get: () => hintLine.prefs.on, set: (on) => hintLine.setOn(on) });
 // Leaving with edits (undo steps) or an open sketch asks first; autosave still protects against crashes.
 window.addEventListener("beforeunload", (e) => {
   if (!undoButton.disabled || sketch.active) e.preventDefault();
@@ -993,6 +995,8 @@ function commands(): Command[] {
   const usable = new Set(usableTools().map((t) => t.id));
   const toolCommands: Command[] = tools.map((tool) => ({
     label: tool.label,
+    scope: "tool" as const,
+    keywords: toolKeywords(tool.id),
     title: toolTooltip(tool),
     hint: usable.has(tool.id) ? "drag the selection" : `select ${describeNeeds(tool)}`,
     enabled: usable.has(tool.id),
@@ -1000,33 +1004,49 @@ function commands(): Command[] {
   }));
   const demos: Command[] = [...select.options].map((option) => ({
     label: `Open demo: ${option.value}`,
+    scope: "file" as const,
     enabled: true,
     run: () => {
       select.value = option.value;
       load(option.value).catch((e) => (status.textContent = e.message));
     },
   }));
+  const settingCommands: Command[] = SETTING_ENTRIES.map((entry) => ({
+    label: `Setting: ${entry.label}`,
+    scope: "setting" as const,
+    keywords: entry.keywords,
+    hint: settingValue(entry.id),
+    title: "Open the settings window at this row",
+    enabled: true,
+    run: () => openSettings(entry.id),
+  }));
   return [
     ...toolCommands,
-    { label: "Undo", hint: keys.keymap.hint("history.undo"), enabled: !undoButton.disabled, run: () => history("undo") },
-    { label: "Redo", hint: keys.keymap.hint("history.redo"), enabled: !redoButton.disabled, run: () => history("redo") },
-    { label: "Hide body", hint: keys.keymap.hint("display.hide"), enabled: currentSels.length > 0, run: () => setVisibility("hide") },
-    { label: "Isolate body", hint: keys.keymap.hint("display.isolate"), enabled: currentSels.length > 0, run: () => setVisibility("isolate") },
-    { label: "Show all bodies", hint: keys.keymap.hint("display.showAll"), enabled: hiddenBodies.size > 0, run: () => setVisibility("show") },
-    { label: "See-through selection (pick edges and faces behind the model)", hint: keys.keymap.hint("display.seeThrough"), enabled: true, run: () => viewport.toggleSeeThrough() },
+    ...settingCommands,
+    { label: "Undo", scope: "view", hint: keys.keymap.hint("history.undo"), enabled: !undoButton.disabled, run: () => history("undo") },
+    { label: "Redo", scope: "view", hint: keys.keymap.hint("history.redo"), enabled: !redoButton.disabled, run: () => history("redo") },
+    { label: "Hide body", scope: "body", hint: keys.keymap.hint("display.hide"), enabled: currentSels.length > 0, run: () => setVisibility("hide") },
+    { label: "Isolate body", scope: "body", hint: keys.keymap.hint("display.isolate"), enabled: currentSels.length > 0, run: () => setVisibility("isolate") },
+    { label: "Show all bodies", scope: "body", hint: keys.keymap.hint("display.showAll"), enabled: hiddenBodies.size > 0, run: () => setVisibility("show") },
+    { label: "See-through selection (pick edges and faces behind the model)", scope: "view", keywords: ["x ray", "transparent", "xray"], hint: keys.keymap.hint("display.seeThrough"), enabled: true, run: () => viewport.toggleSeeThrough() },
     {
       label: `Measure pick (hidden mode: press ${keys.keymap.hint("measure") || "its key"} while dragging a tool)`,
+      scope: "view" as const,
+      keywords: ["distance", "dimension", "ruler"],
       hint: `${keys.keymap.hint("measure")} while dragging`,
       title: "Start dragging a tool, then press the measure key to measure distances to other geometry. It cannot start from this list.",
       enabled: true,
       run: () => (status.textContent = "Measure pick: start dragging a tool, then press M to pick geometry to measure against"),
     },
-    { label: "Keyboard shortcuts (see and change them; hotkeys)", hint: keys.keymap.hint("ui.shortcuts"), enabled: true, run: () => keys.openSettings() },
-    { label: hintLine.prefs.on ? "Turn hints off" : "Turn hints on", enabled: true, run: () => hintLine.setOn(!hintLine.prefs.on) },
-    { label: "Import STEP file", enabled: true, run: () => fileInput.click() },
-    { label: "Export STEP file", enabled: true, run: () => exportAs("export_step", "step") },
+    { label: "Keyboard shortcuts (see and change them; hotkeys)", scope: "view", keywords: ["keys", "bindings", "rebind"], hint: keys.keymap.hint("ui.shortcuts"), enabled: true, run: () => keys.openSettings() },
+    { label: hintLine.prefs.on ? "Turn hints off" : "Turn hints on", scope: "view", keywords: ["tips", "help line"], enabled: true, run: () => hintLine.setOn(!hintLine.prefs.on) },
+    { label: "Getting started (the first things to try)", scope: "view", keywords: ["help", "tutorial", "learn", "tips", "intro", "basics"], enabled: true, run: () => hintLine.showGettingStarted() },
+    { label: "Import STEP file", scope: "file", enabled: true, run: () => fileInput.click() },
+    { label: "Export STEP file", scope: "file", enabled: true, run: () => exportAs("export_step", "step") },
     ...["stl", "obj", "3mf"].map((format) => ({
       label: `Export ${format.toUpperCase()} mesh (lossy)`,
+      scope: "file" as const,
+      keywords: ["save", "download", "print"],
       enabled: true,
       run: () => exportAs("export_mesh", format, { format }),
     })),
@@ -1269,6 +1289,8 @@ viewport.manipulator.onDrag = (param, value, phase, x, y, linked) => {
 };
 
 new Palette(commands);
+$("gettingstartedbtn").addEventListener("click", () => hintLine.showGettingStarted());
+window.setTimeout(() => hintLine.autoShowGettingStarted(), 1500);
 renderToolbar();
 
 // Connect to the core, retrying with a growing delay while it is not running, and again whenever the connection drops.

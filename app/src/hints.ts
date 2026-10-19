@@ -65,6 +65,27 @@ export const TIPS: Tip[] = [
   { id: "seethrough", text: "Tip: press X to see through the model and pick edges and faces behind it." },
 ];
 
+/** Id under which the Getting started card is marked as seen in the dismissed list. */
+export const GETTING_STARTED_ID = "getting-started";
+
+/** The six interactions worth knowing first. `keyText` gives the current key for a command id. */
+export function gettingStartedItems(keyText: (id: string) => string): HintItem[] {
+  const k = (id: string, fallback: string) => keyText(id) || fallback;
+  return [
+    { keys: "Click", text: "select a face, edge or point (Ctrl+click adds, drag a box selects several)" },
+    { keys: "Drag", text: "push or pull a selected face; the arrow on the model changes its size" },
+    { keys: "0-9", text: "while dragging, type an exact value and press Enter" },
+    { keys: "Ctrl+K", text: "search every tool, setting and command (t: tools, s: settings)" },
+    { keys: "T", text: "browse all tools in the drawer on the left" },
+    { keys: k("ui.shortcuts", "?"), text: "see and change the keyboard shortcuts" },
+  ];
+}
+
+/** The card opens by itself once, while hints are on and it has not been closed before. */
+export function shouldAutoShowGettingStarted(prefs: HintPrefs): boolean {
+  return prefs.on && !prefs.dismissed.includes(GETTING_STARTED_ID);
+}
+
 export interface HintPrefs {
   /** Master switch: false hides the hint line and all tips. */
   on: boolean;
@@ -116,11 +137,14 @@ export class HintLine {
   private readonly tip = document.createElement("div");
   private mods: Modifiers = { ctrl: false, alt: false, shift: false };
   private shown = "";
+  private card: HTMLElement | null = null;
+  private readonly host: HTMLElement;
 
   private readonly context: () => HintContext;
   private readonly keyText: (id: string) => string;
 
   constructor(host: HTMLElement, context: () => HintContext, keyText: (id: string) => string) {
+    this.host = host;
     this.context = context;
     this.keyText = keyText;
     this.line.id = "hintline";
@@ -140,6 +164,51 @@ export class HintLine {
     });
     window.setInterval(() => this.refresh(), 250); // the context lives in other modules; a cheap poll keeps this one independent
     this.refresh();
+  }
+
+  /** Show the Getting started card (opened from the menu or the search, or once on first use). */
+  showGettingStarted() {
+    this.card?.remove();
+    const card = document.createElement("div");
+    card.id = "gettingstarted";
+    const title = document.createElement("b");
+    title.textContent = "Getting started";
+    const list = document.createElement("ol");
+    for (const item of gettingStartedItems(this.keyText)) {
+      const li = document.createElement("li");
+      const key = document.createElement("kbd");
+      key.textContent = item.keys;
+      li.append(key, ` ${item.text}`);
+      list.append(li);
+    }
+    const close = () => {
+      if (!this.prefs.dismissed.includes(GETTING_STARTED_ID)) this.prefs.dismissed.push(GETTING_STARTED_ID);
+      savePrefs(this.prefs);
+      card.remove();
+      this.card = null;
+    };
+    const got = document.createElement("button");
+    got.textContent = "Got it";
+    got.title = "Close this card; find it again under Menu or by searching for getting started";
+    got.onclick = close;
+    const off = document.createElement("button");
+    off.textContent = "Turn all hints off";
+    off.title = "Hide the hint line, tips and this card on start (turn them back on in settings)";
+    off.onclick = () => {
+      close();
+      this.setOn(false);
+    };
+    const buttons = document.createElement("div");
+    buttons.className = "buttons";
+    buttons.append(got, off);
+    card.append(title, list, buttons);
+    this.host.append(card);
+    this.card = card;
+  }
+
+  /** First run: open the card once if hints are on. */
+  autoShowGettingStarted() {
+    if (shouldAutoShowGettingStarted(this.prefs)) this.showGettingStarted();
   }
 
   setOn(on: boolean) {
