@@ -791,6 +791,17 @@ def face_plane(face_shape) -> dict:
     return {"origin": [centre.X(), centre.Y(), centre.Z()], "normal": [normal.X(), normal.Y(), normal.Z()], "xdir": [u.X(), u.Y(), u.Z()]}
 
 
+def plane_through(p1, p2, p3) -> dict:
+    """The sketch plane through three points: origin at the first, x along the first to the second, normal by
+    the right-hand rule from the first-to-second and first-to-third directions."""
+    a = [q - o for q, o in zip(p2, p1)]
+    b = [q - o for q, o in zip(p3, p1)]
+    normal = _cross(a, b)
+    if math.sqrt(sum(c * c for c in normal)) < 1e-9 * max(1.0, math.sqrt(sum(c * c for c in a)) * math.sqrt(sum(c * c for c in b))):
+        raise SketchError("Those three points are in a line, so they do not define a plane")
+    return {"origin": list(p1), "normal": list(_unit(normal)), "xdir": list(_unit(a))}
+
+
 STANDARD_PLANES = {
     "XY": {"origin": [0, 0, 0], "normal": [0, 0, 1], "xdir": [1, 0, 0]},
     "XZ": {"origin": [0, 0, 0], "normal": [0, -1, 0], "xdir": [1, 0, 0]},

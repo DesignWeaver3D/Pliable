@@ -61,6 +61,21 @@ export class SketchBar {
     this.render();
   }
 
+  /** Start a sketch on a plane the core builds from selected vertices, or from an edge and a vertex. */
+  private async beginThrough(request: Record<string, unknown>) {
+    const { core, sketch } = this.d;
+    this.problem = null;
+    try {
+      const reply = await core.request<PlaneReply>("sketch_plane", request);
+      sketch.start(reply.plane, undefined, null);
+    } catch (e) {
+      this.problem = (e as Error).message;
+      this.d.status(`Cannot sketch there: ${this.problem}`, true);
+    }
+    this.key = "";
+    this.render();
+  }
+
   private press() {
     const faces = this.d.selection().filter((s) => s.kind === "face");
     if (faces.length) return void this.begin(faces.map((f) => f.id));
@@ -74,7 +89,11 @@ export class SketchBar {
   render() {
     const { sketch, bar } = this.d;
     const faces = this.d.selection().filter((s) => s.kind === "face").length;
-    const key = `${faces}|${sketch.active}|${this.armed}|${this.problem}`;
+    const selected = this.d.selection();
+    const vertices = selected.filter((s) => s.kind === "vertex").map((s) => s.id);
+    const edges = selected.filter((s) => s.kind === "edge").map((s) => s.id);
+    const through = vertices.length === 3 && !edges.length && !faces ? { vertices } : vertices.length === 1 && edges.length === 1 && !faces ? { edge: edges[0], vertex: vertices[0] } : null;
+    const key = `${faces}|${sketch.active}|${this.armed}|${this.problem}|${JSON.stringify(through)}`;
     if (key === this.key) return; // keep the buttons (and the offset box focus) when nothing relevant changed
     this.key = key;
     const onFace = document.createElement("button");
@@ -84,6 +103,13 @@ export class SketchBar {
     onFace.title = "Start a 2D sketch on a face. Select the face first, or press this and then click the face. Curved faces and chains of faces are unrolled flat automatically";
     onFace.addEventListener("click", () => this.press());
     const parts: HTMLElement[] = [onFace];
+    if (through && !sketch.active) {
+      const here = document.createElement("button");
+      here.textContent = "vertices" in through ? "Sketch Through 3 Points" : "Sketch Through Edge And Point";
+      here.title = "Start a sketch on the plane through the three selected vertices, or through the selected straight edge and vertex";
+      here.addEventListener("click", () => void this.beginThrough(through));
+      parts.push(here);
+    }
     if (this.problem) {
       const why = document.createElement("span");
       why.textContent = `Cannot sketch on this: ${this.problem}`;

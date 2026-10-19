@@ -734,3 +734,22 @@ def test_ellipse_minor_radius_dimension():
     solved = sketch.apply_solution(sk, result)
     assert solved["entities"][0]["minor"] == 4.5
     assert math.dist(coords(result)[1], coords(result)[2]) == pytest.approx(8, abs=1e-6)
+
+
+def test_plane_through_three_vertices_and_through_an_edge_and_a_vertex():
+    from OCP.BRep import BRep_Tool
+
+    from pliable.server import RequestError, Session
+
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})  # a box from z = -10 to 10
+    topology = session.document.current
+    bottom = [i for i in range(topology.vertex_count) if BRep_Tool.Pnt_s(topology.vertex(i)).Z() < 0][:3]
+    plane = session.handle({"type": "sketch_plane", "vertices": bottom})["plane"]
+    assert abs(plane["normal"][2]) == pytest.approx(1) and plane["origin"][2] == pytest.approx(-10)
+    with pytest.raises(RequestError):
+        session.handle({"type": "sketch_plane", "vertices": [bottom[0], bottom[1], bottom[0]]})
+    with pytest.raises(sketch.SketchError):
+        sketch.plane_through((0, 0, 0), (1, 0, 0), (2, 0, 0))
+    edge_plane = session.handle({"type": "sketch_plane", "edge": 0, "vertex": bottom[2]})["plane"]
+    assert math.sqrt(sum(c * c for c in edge_plane["normal"])) == pytest.approx(1)

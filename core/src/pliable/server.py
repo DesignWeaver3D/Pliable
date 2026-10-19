@@ -312,10 +312,37 @@ class Session:
             except (TypeError, ValueError) as e:
                 raise RequestError(f"Malformed plane request: {e!r}") from e
         topology = self._require_document().current
+        if "vertices" in request or "edge" in request:
+            return self._sketch_plane_through(topology, request)
         try:
             return sketch.face_plane(topology.face(int(request["face"])))
         except KeyError as e:
             raise RequestError("Unknown face") from e
+
+    def _sketch_plane_through(self, topology, request: dict) -> dict:
+        """A plane through three vertices, or through a straight edge and a vertex."""
+        from OCP.BRep import BRep_Tool
+        from OCP.TopExp import TopExp
+        from OCP.TopoDS import TopoDS_Vertex
+
+        def point(vertex):
+            p = BRep_Tool.Pnt_s(vertex)
+            return (p.X(), p.Y(), p.Z())
+
+        try:
+            if "edge" in request:
+                v1, v2 = TopoDS_Vertex(), TopoDS_Vertex()
+                TopExp.Vertices_s(topology.edge(int(request["edge"])), v1, v2)
+                points = [point(v1), point(v2), point(topology.vertex(int(request["vertex"])))]
+            else:
+                points = [point(topology.vertex(int(i))) for i in request["vertices"]]
+                if len(points) != 3:
+                    raise RequestError("A plane needs three vertices")
+            return sketch.plane_through(*points)
+        except sketch.SketchError as e:
+            raise RequestError(str(e)) from e
+        except (KeyError, TypeError, ValueError) as e:
+            raise RequestError(f"Unknown vertex or edge: {e!r}") from e
 
     def _sketch_project(self, request: dict) -> dict:
         topology = self._require_document().current
