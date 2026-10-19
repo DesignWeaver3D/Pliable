@@ -1185,12 +1185,13 @@ class ChamferTwoDistances(Tool):
     label = "Chamfer (two distances)"
     description = "Bevels edges with a different distance on each side. Select one face (it sets which side is first) and one or more of its edges."
     accepts = Accepts(faces=(1, 1), edges=(1, None))
-    params = [Param("first", "length", 2), Param("second", "length", 1)]
+    params = [Param("first", "length", 2), Param("second", "length", 1), Param("swap", "number", 0)]  # swap 1 puts `first` on the other side
 
     def run(self, topology, selection, values, preview):
         if values["first"] < MIN_DISTANCE or values["second"] < MIN_DISTANCE:
             raise OperationError("Both distances must be positive")
-        return _chamfer_with_face(topology, selection, lambda m, e, f: m.Add(values["first"], values["second"], e, f))
+        first, second = (values["second"], values["first"]) if values["swap"] >= 0.5 else (values["first"], values["second"])
+        return _chamfer_with_face(topology, selection, lambda m, e, f: m.Add(first, second, e, f))
 
 
 @register
@@ -1268,17 +1269,39 @@ class VariableFillet(Tool):
     label = "Variable fillet"
     description = "Rounds edges with a radius that changes along the edge, from the start value at its first end to the end value at its last. Select one or more edges."
     accepts = Accepts(edges=(1, None))
-    params = [Param("start", "length", 1), Param("end", "length", 3)]
+    params = [
+        Param("start", "length", 1),
+        Param("end", "length", 3),
+        Param("reverse", "number", 0),  # 1 swaps which end gets which value
+        Param("middle", "length", 0),  # radius at an interim point along the edge; 0 means none
+        Param("middle_at", "number", 0.5),  # where along the edge (0 first end, 1 last end), measured after any reverse
+    ]
 
     def run(self, topology, selection, values, preview):
         from OCP.BRepFilletAPI import BRepFilletAPI_MakeFillet
+        from OCP.collections import Array1_gp_Pnt2d
+        from OCP.gp import gp_Pnt2d
 
-        if values["start"] < MIN_DISTANCE or values["end"] < MIN_DISTANCE:
+        start, end, middle = values["start"], values["end"], values["middle"]
+        if start < MIN_DISTANCE or end < MIN_DISTANCE:
             raise OperationError("Both radii must be positive")
+        if middle < 0:
+            raise OperationError("The radius at the chosen point cannot be negative")
+        if middle >= MIN_DISTANCE and not 0.02 < values["middle_at"] < 0.98:
+            raise OperationError("Choose the interim point between 0.02 and 0.98 of the way along the edge")
+        if values["reverse"] >= 0.5:
+            start, end = end, start
         maker = BRepFilletAPI_MakeFillet(topology.shape)
         edges = [topology.edge(i) for i in selection.edges]
+        if middle >= MIN_DISTANCE and len(edges) != 1:
+            raise OperationError("A radius at an interim point works on one edge at a time")
         for edge in edges:
-            maker.Add(values["start"], values["end"], edge)
+            maker.Add(start, end, edge)
+        if middle >= MIN_DISTANCE:
+            points = Array1_gp_Pnt2d(1, 3)
+            for k, (u, r) in enumerate(((0.0, start), (values["middle_at"], middle), (1.0, end)), 1):
+                points.SetValue(k, gp_Pnt2d(u, r))
+            maker.SetRadius(points, 1, 1)
         try:
             maker.Build()
         except Exception as e:  # OCCT raises Standard_Failure for impossible sizes

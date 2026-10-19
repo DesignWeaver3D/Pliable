@@ -555,3 +555,23 @@ def _box_x(topology, i):
     box = Bnd_Box()
     BRepBndLib.Add_s(topology.face(i), box)
     return box.CornerMin().X()
+
+
+def test_variable_fillet_reverse_and_interim_radius(block):
+    _, edge = _top_face_and_edge(block)
+    plain = run("variable_fillet", block, edges=[edge], start=1, end=4)
+    flipped = run("variable_fillet", block, edges=[edge], start=1, end=4, reverse=1)
+    assert volume(flipped.shape) == pytest.approx(volume(plain.shape), rel=1e-6)  # mirrored, same material
+    assert flipped.shape.IsSame(plain.shape) is False
+    bulged = run("variable_fillet", block, edges=[edge], start=1, end=4, middle=4, middle_at=0.5)
+    assert volume(bulged.shape) < volume(plain.shape) - 1.0
+    with pytest.raises(OperationError):
+        run("variable_fillet", block, edges=[edge], start=1, end=4, middle=2, middle_at=1.0)
+
+
+def test_chamfer_two_distances_can_swap_sides(block):
+    face, edge = _top_face_and_edge(block)
+    a = run("chamfer_two_distances", block, faces=[face], edges=[edge], first=4, second=2)
+    b = run("chamfer_two_distances", block, faces=[face], edges=[edge], first=4, second=2, swap=1)
+    assert volume(a.shape) == pytest.approx(volume(b.shape), rel=1e-6)
+    assert a.tracked_faces and b.tracked_faces

@@ -80,3 +80,4 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - The busy indicator appears after 400 ms for requests not on the quiet list (previews, sketch solves, lookups) in `app/src/client.ts`, shows elapsed seconds only.
 - Orthographic still looks off to the owner (see decisions-log).
 - Stretch (S36): move mode only re-fits flat neighbour faces with straight edges (edges tested for straightness at three sample points assuming even parametrization); curved neighbours are refused with an Insert fallback. No keep-angle toggle yet and no on-screen handle.
+- Variable fillet interim radius (S47) works on one edge at a time and only as one extra point; the radius curve is interpolated by OCCT, so it can overshoot between points.
