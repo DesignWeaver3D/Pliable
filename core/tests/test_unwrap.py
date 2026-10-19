@@ -224,7 +224,7 @@ def test_chain_and_cone_through_the_server_use_the_offset_plane_and_can_be_embos
 
 
 def test_sketch_on_face_chooses_flat_or_unrolled_and_explains_a_refusal():
-    from build123d import Box, Cylinder, Sphere
+    from build123d import Box, Cylinder
 
     from pliable.server import RequestError, Session
 
@@ -239,11 +239,68 @@ def test_sketch_on_face_chooses_flat_or_unrolled_and_explains_a_refusal():
     reply = session.handle({"type": "sketch_plane", "faces": [side]})
     assert reply["unwrapped"] is True and max(p["u"] for p in reply["reference"]["points"]) == pytest.approx(math.pi * 10, rel=1e-6)
 
-    # a sphere cannot unroll: the message names the surface and the diagnostic report records the refusal
+    # two faces that do not touch cannot be one sketch face: the message names the surfaces and the diagnostic
+    # report records the refusal
+    session = Session()
+    session._open(Box(10, 10, 10).wrapped, "box")
+    topology = session.document.current
+    opposite = next(i for i in range(1, topology.face_count) if not unwrap._shared(topology.face(0), topology.face(i)))
+    with pytest.raises(RequestError) as caught:
+        session.handle({"type": "sketch_plane", "faces": [0, opposite]})
+    assert "Plane x2" in str(caught.value)
+    report = session.handle({"type": "diagnostics"})["report"]
+    assert report["lastTool"]["tool"] == "sketch_on_face" and report["lastTool"]["ok"] is False and "chain" in report["lastTool"]["error"]
+
+
+def test_a_sphere_face_flattens_approximately_and_says_how_wrong():
+    from build123d import Sphere
+
+    from pliable.server import Session
+
     session = Session()
     session._open(Sphere(10).wrapped, "sphere")
-    with pytest.raises(RequestError) as caught:
-        session.handle({"type": "sketch_plane", "faces": [0]})
-    assert "Sphere" in str(caught.value)
-    report = session.handle({"type": "diagnostics"})["report"]
-    assert report["lastTool"]["tool"] == "sketch_on_face" and report["lastTool"]["ok"] is False and "Sphere" in report["lastTool"]["error"]
+    reply = session.handle({"type": "sketch_plane", "faces": [0]})
+    assert reply["unwrapped"] is True and reply["distortion"]["max"] > 0.3 and "Approximate" in reply["distortion"]["note"]
+    assert reply["reference"]["entities"] and reply["reference"]["points"]
+    # a small round patch drawn near the middle wraps back onto the sphere as a face of about that size
+    plane = reply["plane"]
+    circle = {"plane": plane, "points": [{"id": 1, "u": 0, "v": 0}], "entities": [{"id": 2, "type": "circle", "center": 1, "radius": 2}], "constraints": []}
+    before = session.document.current.face_count
+    session.handle({"type": "sketch_regions", "unwrap": [0], "sketch": circle})
+    after = session.document.current
+    assert after.face_count > before
+    areas = sorted(_area(after.face(i)) for i in range(after.face_count))
+    assert any(abs(a - math.pi * 4) / (math.pi * 4) < 0.5 for a in areas)  # roughly the drawn area, not exactly
+
+
+def test_three_sides_and_two_fillets_are_one_sketch_face():
+    from build123d import Box, fillet
+
+    from pliable.server import Session
+
+    box = Box(40, 30, 10)
+    edges = box.edges().filter_by(lambda e: abs(abs(e.center().X) - 20) < 1e-6 and abs(e.center().Y - 15) < 1e-6)
+    session = Session()
+    session._open(fillet(list(edges), 4).wrapped, "sides")
+    topology = session.document.current
+    # the faces along the +y side: its flat face, the two rounds beside it and the flat faces at their far ends
+    rounds = [i for i in range(topology.face_count) if _kind_is_cylinder(topology.face(i))]
+    assert len(rounds) == 2
+    middle = next(i for i in range(topology.face_count) if _is_vertical_flat(topology.face(i)) and all(unwrap._shared(topology.face(i), topology.face(r)) for r in rounds))
+    ends = [next(i for i in range(topology.face_count) if i not in (middle, *rounds) and unwrap._shared(topology.face(i), topology.face(r)) and _is_vertical_flat(topology.face(i))) for r in rounds]
+    ids = [ends[0], rounds[0], middle, rounds[1], ends[1]]
+    reply = session.handle({"type": "sketch_plane", "faces": ids})
+    assert reply["unwrapped"] is True and "distortion" not in reply
+    width = max(p["u"] for p in reply["reference"]["points"]) - min(p["u"] for p in reply["reference"]["points"])
+    assert width > 40
+    session.handle({"type": "sketch_regions", "unwrap": ids, "sketch": {**_rectangle(30, 6, cx=0, cy=0), "plane": reply["plane"]}})
+    assert session.document.current.face_count > topology.face_count
+
+
+def _kind_is_cylinder(face):
+    return BRepAdaptor_Surface(face).GetType() == GeomAbs_Cylinder
+
+
+def _is_vertical_flat(face):
+    surface = BRepAdaptor_Surface(face)
+    return unwrap._kind(face) == unwrap.GeomAbs_Plane and abs(surface.Plane().Axis().Direction().Z()) < 1e-6

@@ -232,6 +232,84 @@ def _cone_unrolling(face) -> Unrolling:
     return Unrolling([band], {"points": points, "entities": entities}, faces=[face])
 
 
+# One face that cannot unroll exactly (sphere, torus, free-form) --------------------------------------
+
+
+OUTLINE_SAMPLES = 24
+GRID = 12
+
+
+def _parametric_unrolling(face) -> Unrolling:
+    """Flatten one face by laying out its own (u, v) parameters, each scaled by the typical length of a step in
+    that direction. Lengths and angles are only approximately right (a sphere is stretched toward its poles);
+    the worst length error over the face is reported as `distortion` so the sketch can say so."""
+    from OCP.BRepClass import BRepClass_FaceClassifier
+    from OCP.gp import gp_Pnt as Pnt, gp_Vec
+    from OCP.TopAbs import TopAbs_IN
+
+    surface = BRepAdaptor_Surface(face)
+    u0, u1, v0, v1 = BRepTools.UVBounds_s(face)
+    if not all(math.isfinite(x) for x in (u0, u1, v0, v1)):
+        raise UnwrapError("This face has no finite extent to flatten")
+    umid, vmid = (u0 + u1) / 2, (v0 + v1) / 2
+
+    def derivatives(u, v):
+        p, du, dv = Pnt(), gp_Vec(), gp_Vec()
+        surface.D1(u, v, p, du, dv)
+        return du.Magnitude(), dv.Magnitude(), du.Dot(dv)
+
+    inside = []
+    for i in range(GRID + 1):
+        for j in range(GRID + 1):
+            u, v = u0 + (u1 - u0) * i / GRID, v0 + (v1 - v0) * j / GRID
+            classifier = BRepClass_FaceClassifier(face, gp_Pnt2d(u, v), 1e-7)
+            if classifier.State() == TopAbs_IN:
+                inside.append(derivatives(u, v) + (u, v))
+    if not inside:
+        raise UnwrapError("Could not sample this face to flatten it")
+    # scale each direction by its median step so the flat outline is the right size where most of the face is
+    su = sorted(d[0] for d in inside)[len(inside) // 2]
+    sv = sorted(d[1] for d in inside)[len(inside) // 2]
+    if su < 1e-9 or sv < 1e-9:
+        raise UnwrapError("This face is too degenerate to flatten")
+    worst = 0.0
+    for du, dv, dot, _, _ in inside:
+        if du < 1e-9 or dv < 1e-9:
+            worst = max(worst, 1.0)
+            continue
+        worst = max(worst, abs(du / su - 1), abs(dv / sv - 1), abs(dot / (du * dv)))  # stretch each way, and shear
+
+    def to_plane(u, v):
+        return (u - umid) * su, (v - vmid) * sv
+
+    def to_param(x, y):
+        return umid + x / su, vmid + y / sv
+
+    points: list[dict] = []
+    entities: list[dict] = []
+
+    def point(x, y):
+        points.append({"id": len(points) + 1, "u": x, "v": y, "fixed": True})
+        return len(points)
+
+    for edge in _edges(face):
+        curve = BRep_Tool.CurveOnSurface_s(edge, face, 0.0, 1.0)
+        first, last = BRep_Tool.Range_s(edge, face)
+        samples = [curve.Value(first + (last - first) * k / OUTLINE_SAMPLES) for k in range(OUTLINE_SAMPLES + 1)]
+        ids = [point(*to_plane(p.X(), p.Y())) for p in samples]
+        for a, b in zip(ids, ids[1:]):
+            entities.append({"id": 1001 + len(entities), "type": "line", "a": a, "b": b, "construction": True, "reference": True})
+    half_u, half_v = (u1 - u0) / 2 * su, (v1 - v0) / 2 * sv
+
+    def clip(_k: int) -> list[tuple[float, float]]:
+        return [(-half_u, -half_v), (half_u, -half_v), (half_u, half_v), (-half_u, half_v)]
+
+    band = Band(face, BRep_Tool.Surface_s(face), -math.inf, math.inf, to_param, linear=False, clip=clip)
+    percent = round(worst * 100)
+    note = f"Approximate flattening: this face cannot be unrolled without stretching, so lengths and angles drawn here are off by up to {percent}% (most near the edges that squeeze together). Sizes are not exact when wrapped back."
+    return Unrolling([band], {"points": points, "entities": entities}, faces=[face], distortion={"max": worst, "note": note})
+
+
 # Chains of flat faces and cylinders ------------------------------------------------------------------
 
 
@@ -383,6 +461,8 @@ def build_unrolling(topology, face_ids: list[int]) -> Unrolling:
         return _cone_unrolling(faces[0])
     if any(_kind(f) == GeomAbs_Cone for f in faces):
         raise UnwrapError("A cone can only be unrolled on its own")
+    if len(faces) == 1 and _kind(faces[0]) not in (GeomAbs_Plane, GeomAbs_Cylinder):
+        return _parametric_unrolling(faces[0])
     return _strip_unrolling(faces)
 
 
