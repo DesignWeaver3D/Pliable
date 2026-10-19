@@ -2,7 +2,7 @@
 
 Live status for the rebuild in [ROADMAP.md](../ROADMAP.md). Read this first in every session; commit rules are in [CONTRIBUTING.md](../CONTRIBUTING.md). Finished sessions are one line each in [history.md](history.md). Other files: [watchlist.md](watchlist.md) (shortcuts, guesses, limits), [decisions-log.md](decisions-log.md), [questions.md](questions.md) (owner questions only), [protocol.md](protocol.md) (core API), [testing-checklist.md](testing-checklist.md).
 
-Branches: work on `dev`; `rebuild` is the release candidate; `main` holds the MVP (`v0.2.0-mvp` tag preserves it). Last known state: 193 core tests, 21 node tests, typecheck and build passing.
+Branches: work on `dev`; `rebuild` is the release candidate; `main` holds the MVP (`v0.2.0-mvp` tag preserves it). Last known state: 307 core tests, 74 node tests, typecheck and build passing.
 
 ## Resume note
 
@@ -19,7 +19,6 @@ Wave 2 (2026-10-18) is merged into `dev` (243 core tests, 37 node tests, typeche
 | S56 | Measure | Edit displayed dimensions in place (hole diameter, fillet radius, edge length, face-to-face distance, face angle; one undo step; red reason when impossible). Research done; discuss with the owner, then scope a build | Planned, needs owner |
 | S64 | Gizmos | Owner feedback on the primitive handles: move arrows use the axis colours and point in the positive direction, and look different from resize handles; a pick point can set the base point of a move (not only the destination), so the object origin is not the only anchor; resize handles on all six sides of a box (the opposite side extends the other way, moving the origin), with the same flexibility designed per primitive type (cylinder, sphere, cone, torus) | Done, awaiting owner: move arrows are axis-coloured and positive-pointing, resize grips are neutral squares; base-point pick for move body, move hole, pattern hole, linear array, and a base-point list for primitives; resize grips on all faces/ends of the five primitives. Not hand-checked: cone, sphere, torus grips in the app (tested in core), Pick base point on arrays |
 
-| S68 | Bodies | Editable primitives, decided 2026-10-19: the core stores each primitive's recipe (tool id, size, base point, location) on its body (needs S65 stable ids); the body stays editable while its geometry still matches the recipe; moves, rotations and uniform scales update the stored placement and keep it editable; Edit primitive (right-click on the row or the strip) reopens the creation form and handles prefilled, the preview replaces the body, Apply is one undo step and keeps the id, name and hidden/isolated state. Owner decision 2026-10-19 (option A): when a primitive is combined with another solid it becomes an ordinary solid and the recipe is dropped (undo is the way back); other shape changes (fillet, cut) also end it, with the reason shown on a greyed menu entry. Also: a double-click on a face selects its whole body | Planned |
 
 ## Done, awaiting owner review
 

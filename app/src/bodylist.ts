@@ -9,6 +9,10 @@ export interface BodyInfo {
   name: string;
   solid: number;
   bounds: number[];
+  /** True while the body is still the primitive that made it; `why` says what ended that. */
+  editable?: boolean;
+  why?: string | null;
+  recipe?: { tool: string; params: Record<string, number>; rotated: boolean };
 }
 
 export interface BodyListHost {
@@ -18,6 +22,8 @@ export interface BodyListHost {
   /** The rows the user selected (empty when cleared). */
   select(ids: number[]): void;
   hover(id: number | null): void;
+  /** Reopen the creation form of an editable primitive. */
+  edit(id: number): void;
 }
 
 export class BodyList {
@@ -134,12 +140,13 @@ export class BodyList {
     const menu = document.createElement("div");
     menu.className = "bodymenu";
     menu.setAttribute("role", "menu");
-    const item = (label: string, run: (() => void) | null) => {
+    const item = (label: string, run: (() => void) | null, title = "") => {
       const button = document.createElement("button");
       button.type = "button";
       button.setAttribute("role", "menuitem");
       button.textContent = label;
       button.disabled = run === null;
+      if (title) button.title = title;
       if (run) {
         button.addEventListener("click", () => {
           this.closeMenu();
@@ -149,10 +156,15 @@ export class BodyList {
       menu.append(button);
     };
     item("Rename", () => this.startRename(body));
+    item(
+      "Edit primitive",
+      body.editable ? () => this.host.edit(body.id) : null,
+      body.editable ? "Reopen the form and handles this body was made with" : (body.why ?? "This body is not a primitive"),
+    );
     item("Duplicate", null); // later actions: the places are here so the menu does not move when they arrive
     item("Delete", null);
     menu.style.left = `${Math.min(x, window.innerWidth - 150)}px`;
-    menu.style.top = `${Math.min(y, window.innerHeight - 110)}px`;
+    menu.style.top = `${Math.min(y, window.innerHeight - 140)}px`;
     document.body.append(menu);
     this.menu = menu;
   }
