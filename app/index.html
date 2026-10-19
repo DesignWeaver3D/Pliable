@@ -9,6 +9,11 @@
       #viewport { position: fixed; inset: 0; }
       #viewport.engaged::after { content: ""; position: absolute; inset: 0; border: 2px solid rgba(255, 138, 31, 0.45); pointer-events: none; z-index: 1; }
       #bar { position: fixed; top: 0; left: 0; right: 0; box-sizing: border-box; padding: 6px 52px 6px 8px; display: flex; gap: 6px; align-items: center; z-index: 3; flex-wrap: nowrap; background: rgba(27, 29, 34, 0.88); border-bottom: 1px solid #2d3038; white-space: nowrap; }
+      .icon { display: inline-flex; vertical-align: middle; margin-right: 5px; }
+      #bar button .icon, #tools button .icon { margin-right: 5px; }
+      #bar .searchicon { margin: 0 -26px 0 6px; color: #888; pointer-events: none; z-index: 1; }
+      #palette-input { padding-left: 28px !important; }
+      #toollist button { display: flex; align-items: center; }
       #bar #status { flex: 1; min-width: 40px; overflow: hidden; text-overflow: ellipsis; }
       #menuwrap { position: relative; }
       #menupanel { position: absolute; top: 34px; left: 0; z-index: 6; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px; min-width: 190px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }

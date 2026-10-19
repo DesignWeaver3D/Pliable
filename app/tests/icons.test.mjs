@@ -1,0 +1,15 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { TOOL_GROUPS } from "../src/layout.ts";
+import { allToolIconIds, initialsIcon, toolIconInner } from "../src/icons.ts";
+
+test("every tool in the layout groups has a drawn icon", () => {
+  const drawn = new Set(allToolIconIds());
+  const missing = TOOL_GROUPS.flatMap((g) => g.tools).filter((id) => !drawn.has(id));
+  assert.deepEqual(missing, []);
+});
+
+test("a tool without an icon falls back to its initials", () => {
+  assert.equal(toolIconInner("no_such_tool", "Fill hole"), initialsIcon("Fill hole"));
+  assert.match(initialsIcon("Fill hole"), />FH</);
+});

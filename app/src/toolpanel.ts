@@ -1,4 +1,5 @@
 /** "All tools" list (grouped by layout.ts) and the parameter form for tools that are not dragged. */
+import { toolIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
 import { toolTooltip, type ToolInfo } from "./tools";
 import { usage, type Surface } from "./usage";
@@ -66,7 +67,7 @@ export class ToolPanel {
         box.append(title);
         for (const tool of group.tools) {
           const button = document.createElement("button");
-          button.textContent = tool.label;
+          button.append(toolIcon(tool.id, tool.label), tool.label);
           button.disabled = !this.host.usable(tool);
           button.title = toolTooltip(tool);
           button.addEventListener("click", () => this.openForm(tool, {}, "drawer"));

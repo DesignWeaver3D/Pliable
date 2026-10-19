@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pliable icons</title>
+    <style>
+      body { margin: 0; padding: 16px; background: #1b1d22; color: #ddd; font: 13px system-ui, sans-serif; }
+      h1 { font-size: 16px; color: #ffb878; } h2 { font-size: 13px; color: #ffb878; margin: 18px 0 6px; }
+      .grid { display: flex; flex-wrap: wrap; gap: 8px; }
+      .cell { width: 150px; background: #23262d; border: 1px solid #3a3e47; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+      .row { display: flex; align-items: center; gap: 10px; } .cell code { color: #8a8f98; font-size: 11px; }
+      .icon { display: inline-flex; }
+    </style>
+  </head>
+  <body>
+    <h1>Pliable icon contact sheet (24 px, 16 px, and 48 px for detail)</h1>
+    <div id="sheet"></div>
+    <script type="module" src="/src/iconsheet.ts"></script>
+  </body>
+</html>

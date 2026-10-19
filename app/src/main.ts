@@ -12,6 +12,7 @@ import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
 import { HintLine } from "./hints";
 import { Palette, type Command } from "./palette";
+import { toolIcon, uiIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
 import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
@@ -176,6 +177,10 @@ function dragToolFor(sels: Sel[]): ToolInfo | null {
 
 const toolbar = $("tools");
 
+// Icons beside the labels of the top bar buttons (the label stays: icons alone are not self-explanatory).
+for (const [id, name] of [["drawerbtn", "tools"], ["menubtn", "menu"], ["undo", "undo"], ["redo", "redo"], ["editlast", "edit"]] as const) $(id).prepend(uiIcon(name));
+$("palette-input").parentElement!.insertBefore(Object.assign(uiIcon("search"), { className: "icon searchicon" }), $("palette-input"));
+
 // File menu: model, import/export and view toggles live in one popup so the top bar stays small.
 const menuPanel = $("menupanel");
 $("menubtn").addEventListener("click", () => {
@@ -235,7 +240,7 @@ function renderToolbar() {
     hint.className = "none";
     hint.textContent = currentSels.length ? "No tools for this selection" : "Select a face or edge (Ctrl+K for commands)";
     const browse = document.createElement("button");
-    browse.textContent = "...";
+    browse.append(uiIcon("more"), "All tools");
     browse.className = "more";
     browse.title = "Open the tool drawer (T)";
     browse.addEventListener("click", () => toggleDrawer(true));
@@ -246,14 +251,14 @@ function renderToolbar() {
   const ordered = [...usable].sort((a, b) => rank(a) - rank(b));
   const shown = ordered.slice(0, STRIP_MAX);
   const more = document.createElement("button");
-  more.textContent = ordered.length > STRIP_MAX ? `... ${ordered.length - STRIP_MAX} more` : "...";
+  more.append(uiIcon("more"), ordered.length > STRIP_MAX ? `${ordered.length - STRIP_MAX} more` : "All tools");
   more.className = "more";
   more.title = "Open the tool drawer, showing the tools that work now (T)";
   more.addEventListener("click", () => toggleDrawer(true, true));
   toolbar.replaceChildren(
     ...shown.map((tool) => {
       const button = document.createElement("button");
-      button.textContent = tool.label;
+      button.append(toolIcon(tool.id, tool.label), tool.label);
       button.title = toolTooltip(tool);
       button.className = tool.id === active ? "active" : "";
       button.addEventListener("click", () => armTool(tool, "strip"));
