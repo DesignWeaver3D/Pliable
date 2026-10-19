@@ -68,6 +68,8 @@ Previews may use a faster, slightly less exact algorithm than commits. The front
 
 `title` is the geometry type (Line, Circle, Arc, Ellipse, Plane, Cylinder, Cone, Sphere, Torus, Fillet, Vertex); rows depend on it (`core/src/pliable/measure.py`). `anchor` is a point on the item for placing a label. The summary has the count, totals (length or area) and, for exactly two items, their distance and the angle between them when both define a direction (lines, planes). Unknown ids give an error reply, as does a mix of kinds.
 
+A face or circular edge that belongs to a round hole (plain, counterbore, countersink, blind or through) also carries `hole`: `{kind, faces, rimEdges, entry, end, centre, direction, diameter, depth, through, bottom, tipAngle, stages, passLength}`. `entry` is on the axis at the opening, `direction` runs into the material, `depth` is to the end of the main bore, `stages` lists counterbores (`diameter`, `depth`) and countersinks (`diameter`, `angle`, `depth`), `passLength` is the depth that means "through". Non-round cuts (rectangles, slots, partial rounds) have none; they are pockets. The description comes from `core/src/pliable/holes.py`.
+
 ## Tool description
 
 ```json

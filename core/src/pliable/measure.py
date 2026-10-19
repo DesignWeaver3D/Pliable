@@ -34,6 +34,7 @@ from OCP.TopAbs import TopAbs_EDGE
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS, TopoDS_Face
 
+from .holes import find_hole
 from .ops import OperationError, edge_outward_normal, planar_normal
 from .tools import Selection
 from .topology import Topology
@@ -79,6 +80,19 @@ def _props(shape, surface: bool) -> GProp_GProps:
     return props
 
 
+def _hole_facts(topology: Topology | None, face_id: int | None = None, edge_id: int | None = None) -> tuple[dict | None, list[dict]]:
+    """The round hole a face or rim edge belongs to, as the item's `hole` description plus summary rows (None if none)."""
+    if topology is None:
+        return None, []
+    try:
+        hole = find_hole(topology, face_id=face_id, edge_id=edge_id)
+    except OperationError:
+        return None, []
+    rows = [_row("Hole", hole.kind), _row("Hole diameter", hole.diameter), _row("Hole depth", "through" if hole.through else hole.depth)]
+    rows += [_row(f"Hole {s['type']}", f"{_fmt(s['diameter'])}" + (f" at {_fmt(s['angle'])}°" if s["type"] == "countersink" else f" x {_fmt(s['depth'])}")) for s in hole.stages]
+    return hole.to_json(), rows
+
+
 def measure_edge(edge_id: int, edge, topology: Topology | None = None) -> dict:
     curve = BRepAdaptor_Curve(edge)
     kind = curve.GetType()
@@ -112,7 +126,13 @@ def measure_edge(edge_id: int, edge, topology: Topology | None = None) -> dict:
         rows += [_row("Major radius", ellipse.MajorRadius()), _row("Minor radius", ellipse.MinorRadius())]
     else:
         title = "Curve"
-    return {"kind": "edge", "id": edge_id, "title": title, "rows": rows, "anchor": _xyz(props.CentreOfMass()), "dimensions": dims}
+    item = {"kind": "edge", "id": edge_id, "title": title, "rows": rows, "anchor": _xyz(props.CentreOfMass()), "dimensions": dims}
+    if kind == GeomAbs_Circle:
+        hole, hole_rows = _hole_facts(topology, edge_id=edge_id)
+        if hole:
+            item["hole"] = hole
+            rows += hole_rows
+    return item
 
 
 def _normal_at(face, point):
@@ -224,7 +244,13 @@ def measure_face(topology: Topology, face_id: int, face) -> dict:
     else:
         title = "Surface"
         rows = [area]
-    return {"kind": "face", "id": face_id, "title": title, "rows": rows, "anchor": _xyz(props.CentreOfMass()), "dimensions": dims}
+    item = {"kind": "face", "id": face_id, "title": title, "rows": rows, "anchor": _xyz(props.CentreOfMass()), "dimensions": dims}
+    if kind in (GeomAbs_Plane, GeomAbs_Cylinder, GeomAbs_Cone):
+        hole, hole_rows = _hole_facts(topology, face_id=face_id)
+        if hole:
+            item["hole"] = hole
+            rows += hole_rows
+    return item
 
 
 def measure_vertex(vertex_id: int, vertex) -> dict:
