@@ -28,10 +28,18 @@ Name the worktree and branch, then require, in this order:
 6. Commit messages pass `scripts/check_commit_message.py`; the hook also rejects names of other products and AI tools in any staged text, so describe behaviour instead.
 7. Unattended rules from the agent rules file: decide, log, keep going; ending the turn ends the run.
 8. Tests go through the real code path (`Tool.execute` or the server handlers, never helpers that skip steps the app applies); run core tests, `npm test`, `npx tsc --noEmit` and `npm run build`.
-9. Verify its own work in the running app in Chrome on its own ports: exercise the real feature, undo every change, avoid dialogs. Its final report lists what it checked in the app and what it did not.
+9. Verify its own work in the running app in Chrome on its own ports: exercise the real feature, undo every change, avoid dialogs. Its final report lists what it checked in the app and what it did not. Keep the browser check cheap: one targeted check per user-visible change (not per sub-step), take screenshots at scale 0.5 and zoom into the region of interest instead of full-size shots, prefer reading the page text, console messages or element titles when they answer the question, and take no more than about six screenshots per task.
 10. No runaway processes and no background commands; every command finishes within about two minutes.
 11. Clean up when finished: stop its own servers and close its own Chrome tabs; never touch the owner's test tab or servers.
 12. Final report under 150 words: done or parked, commits, test counts, checked and not checked.
+
+## Keeping usage low (owner request 2026-10-19)
+
+- **Fewer, smaller agents:** one agent per code area at a time. Related new tasks go to the agent already working there by message (SendMessage), not to a new agent. Do not start a second agent for work in the same files.
+- **Right-sized tasks:** give an agent only the tasks it needs now, with the files to read named, so it does not explore the whole repo; tell it to read excerpts, not whole large files (`main.ts`, `viewport.ts`, `features.py`).
+- **Cheap verification:** the browser check rule in item 9; unit and Session.handle tests carry most of the verification, the browser only confirms that the feature is visible and usable.
+- **Orchestrator:** no re-tests for a single clean agent merge (only when several concurrent branches are merged or a code conflict was resolved); no re-reading of agent transcripts; reports stay under 150 words.
+- **Model:** agents run on the cheaper model (sonnet); research agents use the researcher definition.
 
 ## Spot-checking
 
