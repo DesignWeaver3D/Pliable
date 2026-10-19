@@ -35,7 +35,7 @@ export function hintItems(ctx: HintContext, mods: Modifiers, keyText: (id: strin
     ];
   } else if (ctx.dragging) {
     items = [
-      { keys: "M", text: "measure pick (while dragging)" },
+      { keys: k("measure", "M"), text: "measure pick (while dragging)" },
       { keys: "0-9", text: "type an exact value" },
       { keys: "Esc", text: "cancel" },
     ];
@@ -71,7 +71,7 @@ export interface Tip {
 }
 
 export const TIPS: Tip[] = [
-  { id: "measure", text: "Tip: press M while dragging a tool to measure distances to other geometry (pick mode)." },
+  { id: "measure", text: "Tip: press the measure key (M unless you changed it) while dragging a tool to measure distances to other geometry (pick mode)." },
   { id: "seethrough", text: "Tip: press X to see through the model and pick edges and faces behind it." },
 ];
 

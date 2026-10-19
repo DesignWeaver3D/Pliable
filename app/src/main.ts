@@ -679,6 +679,7 @@ const keys = new KeyRouter({
     ...Object.fromEntries(Object.entries(VIEW_KEYS).map(([, name]) => [`view.${name}`, () => viewport.setView(name)])),
     "view.projection": () => navCube.toggleProjection(),
     "display.seeThrough": () => viewport.toggleSeeThrough(),
+    measure: () => viewport.pressMeasure(),
     "view.lookAtFace": () => {
       if (currentSels.length === 1 && currentSels[0].kind === "face" && !viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: could not find a view direction for this face";
     },
@@ -796,7 +797,7 @@ function commands(): Command[] {
     { label: "See-through selection (pick edges and faces behind the model)", hint: keys.keymap.hint("display.seeThrough"), enabled: true, run: () => viewport.toggleSeeThrough() },
     {
       label: "Measure pick (hidden mode: press M while dragging a tool)",
-      hint: "M while dragging",
+      hint: keys.keymap.hint("measure") + " while dragging",
       title: "Start dragging a tool, then press M to measure distances to other geometry. It cannot start from this list.",
       enabled: true,
       run: () => (status.textContent = "Measure pick: start dragging a tool, then press M to pick geometry to measure against"),

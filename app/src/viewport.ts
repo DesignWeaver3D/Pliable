@@ -15,6 +15,8 @@ export interface Sel {
 
 interface Hit extends Sel {
   point: THREE.Vector3;
+  /** Surface normal at the point, for face hits found by the ray (outward from the material). */
+  normal?: THREE.Vector3;
 }
 
 const EDGE_TIE_PX = 2; // edges this close on screen are told apart by depth
@@ -351,6 +353,11 @@ export class Viewport {
     this.onMeasureChange();
   }
 
+  /** The "measure" key: toggles measure pick, only while a tool drag is under way (the key itself is set in keys.ts). */
+  pressMeasure() {
+    if (this.drag?.moved) this.toggleMeasure();
+  }
+
   /** Leaves measure mode and returns to the plain drag (one Escape level). */
   exitMeasure() {
     if (this.measureMode) this.toggleMeasure();
@@ -518,8 +525,6 @@ export class Viewport {
       down = null;
     });
     window.addEventListener("keydown", (e) => {
-      // M during a tool drag toggles measure mode (it used to be the right button, which now orbits).
-      if ((e.key === "m" || e.key === "M") && this.drag?.moved && !e.ctrlKey && !e.metaKey && !e.altKey) this.toggleMeasure();
       if (e.key === "Escape" && this.box) this.cancelBox();
       if (e.key === "Escape" && this.divideDrag) this.divideDrag = null;
       if (e.key === "Escape" && this.centreDrag) {
@@ -995,6 +1000,8 @@ export class Viewport {
 
   /** Axis a picked item is dragged along (faces: normal, edges: outward bisector), or null if it has none. */
   private dragDirection(hit: Hit): THREE.Vector3 | null {
+    const wall = hit.kind === "face" ? this.wallDirection(hit) : null;
+    if (wall) return wall;
     const normal =
       hit.kind === "face"
         ? this.data?.faces.find((f) => f.id === hit.id)?.normal
@@ -1002,6 +1009,20 @@ export class Viewport {
           ? this.data?.edges.find((e) => e.id === hit.id)?.normal
           : null;
     return normal ? new THREE.Vector3(...normal) : null;
+  }
+
+  /** A whole hole or boss wall has no single normal; its drag goes along the radius at the press point, away from the material
+   *  (the core's push/pull then changes the radius: pulling toward the axis shrinks a hole, away from it grows a boss). */
+  private wallDirection(hit: Hit): THREE.Vector3 | null {
+    const centre = this.data?.centres.find((c) => c.face === hit.id);
+    if (!centre) return null;
+    const axis = new THREE.Vector3(...centre.axis).normalize();
+    const radial = hit.point.clone().sub(new THREE.Vector3(...centre.position));
+    radial.addScaledVector(axis, -radial.dot(axis));
+    if (radial.length() < 1e-6) return null; // the press was on the centre dot, not the wall
+    radial.normalize();
+    if (hit.normal && hit.normal.dot(radial) < 0) radial.negate();
+    return radial;
   }
 
   /** Distance along the dragged item's axis implied by the pointer position. */
@@ -1057,7 +1078,7 @@ export class Viewport {
 
     if (!faceHit || faceHit.faceIndex == null) return null;
     const face = this.data.faces[lo];
-    return face && face.count > 0 ? { kind: "face", id: face.id, point: faceHit.point } : null;
+    return face && face.count > 0 ? { kind: "face", id: face.id, point: faceHit.point, normal: faceHit.face?.normal.clone() } : null;
   }
 
   private rayAt(e: PointerEvent): THREE.Ray {
