@@ -95,7 +95,10 @@
       #chips button.on { color: #ffb878; border-color: #ff8a1f; }
       #measure { position: fixed; left: 8px; bottom: 8px; z-index: 1; min-width: 190px; max-height: 60vh; overflow-y: auto; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 4px 0; font-variant-numeric: tabular-nums; }
       #measure[hidden] { display: none; }
-      #measure .title { padding: 4px 10px 2px; color: #ffb878; font-weight: 600; }
+      #measure .title { padding: 4px 10px 2px; color: #ffb878; font-weight: 600; cursor: pointer; }
+      #measure .title::after { content: " B8"; color: #8a8f98; }
+      #measure:not(.collapsed) .title::after { content: " BE"; }
+      #measure.collapsed .section:nth-child(n+2), #measure.collapsed .row:nth-child(n+4) { display: none; }
       #measure .section + .section { border-top: 1px solid #3a3e47; margin-top: 4px; }
       #measure .row { display: flex; justify-content: space-between; gap: 18px; padding: 1px 10px; cursor: pointer; }
       #measure .row:hover { background: #2f333b; }

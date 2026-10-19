@@ -37,7 +37,12 @@ export function formatValue(value: number | number[] | string, unit: string): st
 
 export class MeasurePanel {
   constructor(private readonly el: HTMLElement) {
+    el.classList.add("collapsed"); // starts short: the first rows of the first item; a click on a title shows or hides the rest
     el.addEventListener("click", (e) => {
+      if ((e.target as HTMLElement).closest(".title")) {
+        el.classList.toggle("collapsed");
+        return;
+      }
       const row = (e.target as HTMLElement).closest<HTMLElement>(".row");
       if (!row?.dataset.copy) return;
       navigator.clipboard?.writeText(row.dataset.copy).catch(() => {});
