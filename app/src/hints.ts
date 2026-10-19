@@ -71,7 +71,7 @@ export interface Tip {
 }
 
 export const TIPS: Tip[] = [
-  { id: "measure", text: "Tip: press the measure key (M unless you changed it) while dragging a tool to measure distances to other geometry (pick mode)." },
+  { id: "measure", text: "Tip: press M while dragging a tool to measure distances to other geometry (pick mode)." },
   { id: "seethrough", text: "Tip: press X to see through the model and pick edges and faces behind it." },
 ];
 

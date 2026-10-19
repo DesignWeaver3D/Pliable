@@ -64,3 +64,4 @@ Decisions made without the owner or by the owner, grouped by topic. Each says wh
 - Packaged builds serve HTTP on 127.0.0.1 only; the launcher exits 20 s after the last tab closes.
 
 - Shift+click in the 3D view adds to or removes from the selection exactly like Ctrl+click (the sketch already did this), so it has one clear meaning; double-click on an edge selects only the tangent-continuous chain and Ctrl+double-click adds it.
+- GUI stage 1-3 (S34): the strip lists at most seven tools, the one a drag runs first and marked, plus an All tools button that opens the drawer filtered to usable tools; the measurement card starts collapsed (click its title to expand), which answers the open card question provisionally; icons are built from a base shape plus a mark in `app/src/icons.ts` and a tool with none shows its initials; the T key toggles the drawer (rebindable).

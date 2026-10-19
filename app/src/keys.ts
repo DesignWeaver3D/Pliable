@@ -33,8 +33,8 @@ export interface KeyCommand {
   fixed?: boolean;
   /** Works even when the viewport is not engaged: cancelling is never harmful. */
   anyFocus?: boolean;
-  /** Still fires while a tool drag or typed value entry is live (for commands that help the drag, like measure pick). */
-  duringEntry?: boolean;
+  /** Also runs while a tool drag is live (the command is about the drag itself). */
+  duringDrag?: boolean;
 }
 
 /** Whether two commands can be active at the same time (so they may not share a key). */
@@ -50,7 +50,8 @@ export const KEY_COMMANDS: KeyCommand[] = [
   { id: "view.projection", label: "Toggle perspective / orthographic", class: "view", defaults: ["P"] },
   { id: "view.lookAtFace", label: "Look at selected face", class: "view", defaults: ["V"] },
   { id: "display.seeThrough", label: "Toggle see-through selection", class: "display", defaults: ["X"] },
-  { id: "measure", label: "Measure pick (while dragging a tool)", class: "display", defaults: ["M"], notInSketch: true, duringEntry: true },
+  { id: "display.drawer", label: "Show or hide the tool drawer", class: "display", defaults: ["T"], notInSketch: true },
+  { id: "measure", label: "Measure to other geometry while dragging a tool", class: "display", defaults: ["M"], duringDrag: true, notInSketch: true },
   { id: "display.hide", label: "Hide body", class: "display", defaults: ["H"], notInSketch: true },
   { id: "display.isolate", label: "Isolate body", class: "display", defaults: ["Shift+H"], notInSketch: true },
   { id: "display.showAll", label: "Show all bodies", class: "display", defaults: ["Alt+H"], notInSketch: true },
@@ -304,7 +305,7 @@ export function decideKey(e: KeyEventLike, ctx: KeyContext, keymap: Keymap): Dec
   if (ctx.inTextField) return { run: null, reason: "text" };
   const command = keymap.find(e, ctx.sketchActive);
   if (!command) return { run: null, reason: "none" };
-  if (ctx.entryActive && !command.duringEntry) return { run: null, reason: "entry" }; // also blocks undo under a live preview
+  if (ctx.entryActive && !command.duringDrag) return { run: null, reason: "entry" }; // also blocks undo under a live preview
   if (e.repeat && !command.repeat) return { run: null, reason: "repeat" };
   if (ctx.sketchActive && command.notInSketch) return { run: null, reason: "sketch" };
   const chord = chordOfEvent(e);

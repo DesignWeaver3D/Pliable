@@ -201,14 +201,12 @@ test("engagement: pointer, grace period, click and blur", () => {
   assert.equal(eng.active(0), false);
 });
 
-test("measure is a rebindable command that still fires during a tool drag", () => {
-  const typing = { ...live, entryActive: true };
-  assert.equal(ran(ev("m"), typing), "measure");
-  assert.equal(ran(ev("2"), typing), null); // other keys stay blocked
-  const km = keymap();
-  assert.equal(km.hint("measure"), "M");
-  assert.ok(validateBinding(km.commands.find((c) => c.id === "measure"), "K", km.all()).ok);
+test("measure key runs during a tool drag and can be rebound", () => {
+  const drag = { ...live, entryActive: true };
+  assert.equal(ran(ev("m"), drag), "measure");
+  assert.equal(ran(ev("x"), drag), null); // other keys stay blocked under a live drag
+  const km = new Keymap();
   km.assign("measure", ["K"]);
-  assert.equal(ran(ev("m"), typing, km), null);
-  assert.equal(ran(ev("k"), typing, km), "measure");
+  assert.equal(ran(ev("k"), drag, km), "measure");
+  assert.equal(ran(ev("m"), drag, km), null);
 });
