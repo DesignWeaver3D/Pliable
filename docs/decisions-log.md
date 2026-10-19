@@ -18,6 +18,8 @@ Decisions made without the owner or by the owner, grouped by topic. Each says wh
 
 - Body list (S65): stable body ids and auto names; a plain list on the left in the drawer (not a card); rows with name, eye and isolate, rename and later actions by right-click; clicking a row selects the whole body and tools use bodies directly with a body-centre pivot; hover highlight both ways.
 
+- First alpha release (S17) is deferred by the owner (2026-10-19) until more of the current work has been tested; the build and CI stay as they are, no tag.
+
 ## View and selection
 
 - Orthographic is a true orthographic camera. The owner says it still looks off compared with another CAD program and the cause is undiagnosed; candidates are shading and lighting, orbit about the target versus the cursor, zoom toward the cursor, line widths, default isometric direction, framing on projection switch. Needs a screenshot pair.
