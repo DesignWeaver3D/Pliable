@@ -679,10 +679,19 @@ class AddBox(Tool):
 
     def handles(self, topology, selection, values):
         x, y, z, w, d, h = (values[k] for k in ("x", "y", "z", "width", "depth", "height"))
+        cx, cy, cz = x + w / 2, y + d / 2, z + h / 2
+        # One grip on each of the six faces. A high face grows its own side; a low face grows the other way and moves
+        # the origin by the same amount, so the opposite face stays where it is.
+        faces = [
+            ("width", "Resize width (high X face)", (x + w, cy, cz), (1, 0, 0), ()),
+            ("width", "Resize width (low X face, moves the origin)", (x, cy, cz), (-1, 0, 0), (("x", -1.0),)),
+            ("depth", "Resize depth (high Y face)", (cx, y + d, cz), (0, 1, 0), ()),
+            ("depth", "Resize depth (low Y face, moves the origin)", (cx, y, cz), (0, -1, 0), (("y", -1.0),)),
+            ("height", "Resize height (top face)", (cx, cy, z + h), (0, 0, 1), ()),
+            ("height", "Resize height (bottom face, moves the origin)", (cx, cy, z), (0, 0, -1), (("z", -1.0),)),
+        ]
         return [
-            Handle("width", "Resize width", (x + w, y + d / 2, z + h / 2), (1, 0, 0), min=MIN_DISTANCE, kind="resize"),
-            Handle("depth", "Resize depth", (x + w / 2, y + d, z + h / 2), (0, 1, 0), min=MIN_DISTANCE, kind="resize"),
-            Handle("height", "Resize height", (x + w / 2, y + d / 2, z + h), (0, 0, 1), min=MIN_DISTANCE, kind="resize"),
+            *(Handle(param, label, anchor, direction, min=MIN_DISTANCE, kind="resize", links=links) for param, label, anchor, direction, links in faces),
             *_position_handles(values, max(w, d, h)),
         ]
 
@@ -712,9 +721,12 @@ class AddCylinder(Tool):
 
     def handles(self, topology, selection, values):
         x, y, z, d, h = (values[k] for k in ("x", "y", "z", "diameter", "height"))
+        r = d / 2
+        sides = [("(+X side)", (x + r, y, z + h / 2), (1, 0, 0)), ("(-X side)", (x - r, y, z + h / 2), (-1, 0, 0)), ("(+Y side)", (x, y + r, z + h / 2), (0, 1, 0)), ("(-Y side)", (x, y - r, z + h / 2), (0, -1, 0))]
         return [
-            Handle("diameter", "Resize diameter", (x + d / 2, y, z + h / 2), (1, 0, 0), scale=2.0, min=MIN_DISTANCE, kind="resize"),
-            Handle("height", "Resize height", (x, y, z + h), (0, 0, 1), min=MIN_DISTANCE, kind="resize"),
+            *(Handle("diameter", f"Resize diameter {name}", at, direction, scale=2.0, min=MIN_DISTANCE, kind="resize") for name, at, direction in sides),
+            Handle("height", "Resize height (top end)", (x, y, z + h), (0, 0, 1), min=MIN_DISTANCE, kind="resize"),
+            Handle("height", "Resize height (bottom end, moves the origin)", (x, y, z), (0, 0, -1), min=MIN_DISTANCE, kind="resize", links=(("z", -1.0),)),
             *_position_handles(values, max(d, h)),
         ]
 
@@ -1121,7 +1133,12 @@ class AddSphere(Tool):
 
     def handles(self, topology, selection, values):
         x, y, z, d = (values[k] for k in ("x", "y", "z", "diameter"))
-        return [Handle("diameter", "Resize diameter", (x + d / 2, y, z), (1, 0, 0), scale=2.0, min=MIN_DISTANCE, kind="resize"), *_position_handles(values, d)]
+        r = d / 2
+        around = [("+X", (x + r, y, z), (1, 0, 0)), ("-X", (x - r, y, z), (-1, 0, 0)), ("+Y", (x, y + r, z), (0, 1, 0)), ("-Y", (x, y - r, z), (0, -1, 0)), ("top", (x, y, z + r), (0, 0, 1)), ("bottom", (x, y, z - r), (0, 0, -1))]
+        return [
+            *(Handle("diameter", f"Resize diameter ({name})", at, direction, scale=2.0, min=MIN_DISTANCE, kind="resize") for name, at, direction in around),
+            *_position_handles(values, d),
+        ]
 
     def run(self, topology, selection, values, preview):
         if values["diameter"] < MIN_DISTANCE:
@@ -1157,11 +1174,14 @@ class AddCone(Tool):
 
     def handles(self, topology, selection, values):
         x, y, z, bd, td, h = (values[k] for k in ("x", "y", "z", "bottom_diameter", "top_diameter", "height"))
-        nudge = max(bd, h) * 0.06  # keeps the top-diameter handle off the height handle when the top is a point
+        nudge = max(bd, h) * 0.06  # keeps the top-diameter handles off the height handle when the top is a point
         return [
-            Handle("bottom_diameter", "Resize bottom diameter", (x + bd / 2, y, z), (1, 0, 0), scale=2.0, min=0.0, kind="resize"),
-            Handle("top_diameter", "Resize top diameter", (x + td / 2 + nudge, y, z + h), (1, 0, 0), scale=2.0, min=0.0, kind="resize"),
-            Handle("height", "Resize height", (x, y, z + h), (0, 0, 1), min=MIN_DISTANCE, kind="resize"),
+            Handle("bottom_diameter", "Resize bottom diameter (+X side)", (x + bd / 2, y, z), (1, 0, 0), scale=2.0, min=0.0, kind="resize"),
+            Handle("bottom_diameter", "Resize bottom diameter (-X side)", (x - bd / 2, y, z), (-1, 0, 0), scale=2.0, min=0.0, kind="resize"),
+            Handle("top_diameter", "Resize top diameter (+X side)", (x + td / 2 + nudge, y, z + h), (1, 0, 0), scale=2.0, min=0.0, kind="resize"),
+            Handle("top_diameter", "Resize top diameter (-X side)", (x - td / 2 - nudge, y, z + h), (-1, 0, 0), scale=2.0, min=0.0, kind="resize"),
+            Handle("height", "Resize height (top end)", (x, y, z + h), (0, 0, 1), min=MIN_DISTANCE, kind="resize"),
+            Handle("height", "Resize height (bottom end, moves the origin)", (x, y, z), (0, 0, -1), min=MIN_DISTANCE, kind="resize", links=(("z", -1.0),)),
             *_position_handles(values, max(bd, h)),
         ]
 
@@ -1193,8 +1213,10 @@ class AddTorus(Tool):
     def handles(self, topology, selection, values):
         x, y, z, major, minor = (values[k] for k in ("x", "y", "z", "major", "minor"))
         return [
-            Handle("major", "Resize ring diameter", (x + major / 2, y, z), (1, 0, 0), scale=2.0, min=MIN_DISTANCE, kind="resize"),
-            Handle("minor", "Resize tube diameter", (x, y + major / 2, z + minor / 2), (0, 0, 1), scale=2.0, min=MIN_DISTANCE, kind="resize"),
+            Handle("major", "Resize ring diameter (+X side)", (x + major / 2, y, z), (1, 0, 0), scale=2.0, min=MIN_DISTANCE, kind="resize"),
+            Handle("major", "Resize ring diameter (-X side)", (x - major / 2, y, z), (-1, 0, 0), scale=2.0, min=MIN_DISTANCE, kind="resize"),
+            Handle("minor", "Resize tube diameter (top)", (x, y + major / 2, z + minor / 2), (0, 0, 1), scale=2.0, min=MIN_DISTANCE, kind="resize"),
+            Handle("minor", "Resize tube diameter (bottom)", (x, y + major / 2, z - minor / 2), (0, 0, -1), scale=2.0, min=MIN_DISTANCE, kind="resize"),
             *_position_handles(values, major),
         ]
 

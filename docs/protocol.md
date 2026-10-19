@@ -90,13 +90,20 @@ A tool can declare on-screen manipulators (gizmos), one per parameter, by overri
 
 ```json
 {"param": "height", "label": "Height", "anchor": [x, y, z], "direction": [x, y, z],
- "scale": 1.0, "min": 0.001, "unit": "mm", "value": 10}
+ "scale": 1.0, "min": 0.001, "unit": "mm", "value": 10, "kind": "resize",
+ "links": [{"param": "x", "scale": -1.0, "value": 0}]}
 ```
 
 - The handle sits at `anchor` (a model point, where the parameter's current value puts it) and slides along the straight unit `direction`. Dragging it by t model units sets the parameter to `value + scale * t` (a diameter handle on a radius uses scale 2), never below `min` (null = unbounded). `unit` follows the value in the live label.
+- `kind` is how the view draws it: `"arrow"` (a plain drag arrow, orange), `"move"` (an arrow in the origin-axis colour that starts at its anchor and points the positive way along its axis; it moves something), `"resize"` (a neutral square grip with an orange hover; it changes a size) or `"toggle"` (a click marker). Hovered and dragged handles grow slightly and show their name and value.
+- `links` lists other parameters that change together with this one, each by `scale` per unit of travel. A grip on the low face of a box has direction -X, sets `width` with scale 1 and links `x` with scale -1, so dragging it outward grows the box that way and the high face stays fixed; the stored parameters stay size plus origin. The view applies linked values in the same form update. Primitives declare: box, a grip on each of the six faces; cylinder, four side grips for the diameter and a grip on each end for the height (the bottom one moves `z`); cone, both diameters from either side and the height from either end; sphere, six grips for the diameter (about the centre); torus, the ring diameter from both sides and the tube diameter from top and bottom.
 - A rotation is declared the same way: the anchor sits on the ring, `direction` is the tangent there and `scale` is degrees per unit of travel (`unit` "°"); after each preview the handle is placed on the ring again at the new angle.
 - The values the handles are computed for come from the request `params` (defaults fill the gaps), so every preview reply returns handles at the previewed values; the view moves a handle locally while dragging and snaps it to the reply.
 - Handles never fail a request: an unusable selection or an error gives an empty list.
+
+## Base points
+
+`list_tools` also carries `moveVector` (three parameter names, for move and copy-step tools). The form then offers "Pick base point" and "Pick destination point" and fills the vector with destination minus base (base = origin by default). `tool_handles` replies carry `anchors`: `[{label, offset}]` for a tool with `placement` (the primitives), the points of the new shape (corners, centre, face centres) as offsets from the placement point; the form's "base point" list picks one and the destination pick sets the placement point to destination minus offset.
 
 ## Adding a tool
 

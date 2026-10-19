@@ -116,7 +116,7 @@ class Handle:
     the same way: the anchor on the ring, `direction` the tangent there and `scale` the degrees per unit of travel, so
     the view needs no separate kind of handle. `min` bounds the parameter (None = unbounded); `unit` is the text
     shown after the value in the live label. `max` bounds it from above. A `toggle` handle is a marker for a yes/no
-    parameter (0 or 1): clicking it flips the value, it is not dragged. `kind` selects the look (see the field)."""
+    parameter (0 or 1): clicking it flips the value, it is not dragged. `kind` selects the look (see the field); `links` moves other parameters along with it."""
 
     param: str
     label: str
@@ -130,8 +130,11 @@ class Handle:
     # How the view draws it: "arrow" (a plain drag arrow), "move" (an arrow in its axis colour that moves something along
     # that axis) or "resize" (a square grip that changes a size).
     kind: str = "arrow"
+    # Other parameters that change together with this one, as (parameter, change per unit of travel). A box face handle
+    # that pulls the low X face sets width +1 and x -1 per unit, so the high X face stays where it is.
+    links: tuple[tuple[str, float], ...] = ()
 
-    def to_json(self, value: float) -> dict:
+    def to_json(self, value: float, values: dict | None = None) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
         return {
             "param": self.param,
@@ -145,6 +148,7 @@ class Handle:
             "kind": "toggle" if self.toggle else self.kind,
             "unit": self.unit,
             "value": value,
+            "links": [{"param": name, "scale": scale, "value": (values or {}).get(name, 0.0)} for name, scale in self.links if values is None or name in values],
         }
 
 
@@ -245,7 +249,7 @@ class Tool:
         try:
             values = self.bind(raw_params)
             names = {p.name for p in self.params}
-            return [h.to_json(values[h.param]) for h in self.handles(topology, selection, values) if h.param in names and not isinstance(values[h.param], list)]
+            return [h.to_json(values[h.param], values) for h in self.handles(topology, selection, values) if h.param in names and not isinstance(values[h.param], list)]
         except Exception:
             return []
 

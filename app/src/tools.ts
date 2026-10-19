@@ -39,6 +39,8 @@ export interface HandleInfo {
   unit: string;
   /** The parameter's value when the handle was computed. */
   value: number;
+  /** Other parameters that move with this one: each changes by `scale` per model unit of travel (a low box face also moves the origin). */
+  links?: { param: string; scale: number; value: number }[];
 }
 
 const inRange = (n: number, [min, max]: Range) => n >= min && (max === null || n <= max);

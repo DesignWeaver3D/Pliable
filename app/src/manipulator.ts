@@ -38,6 +38,13 @@ export function handleValue(h: Pick<HandleInfo, "value" | "scale" | "min"> & { m
   return v;
 }
 
+/** The values of a handle's linked parameters after travelling `travel`. */
+export function linkedValues(h: Pick<HandleInfo, "links">, travel: number): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const l of h.links ?? []) out[l.param] = Math.round((l.value + l.scale * travel) * 1000) / 1000;
+  return out;
+}
+
 /** The travel that gives `value` (inverse of handleValue; used to keep the handle where the clamp put it). */
 export function travelFor(h: Pick<HandleInfo, "value" | "scale">, value: number): number {
   return h.scale === 0 ? 0 : (value - h.value) / h.scale;
@@ -81,7 +88,7 @@ interface Active {
 
 export class Manipulator {
   /** Called with the new parameter value while a handle is dragged, then once more with phase "end". */
-  onDrag: (param: string, value: number, phase: "move" | "end", x: number, y: number) => void = () => {};
+  onDrag: (param: string, value: number, phase: "move" | "end", x: number, y: number, linked: Record<string, number>) => void = () => {};
 
   private readonly root = new THREE.Group();
   private items: Item[] = [];
@@ -285,7 +292,7 @@ export class Manipulator {
     a.moved = true;
     const value = handleValue(a.item.info, this.travelAt(a, e));
     a.item.travel = travelFor(a.item.info, value);
-    this.onDrag(a.item.info.param, Math.round(value * 1000) / 1000, "move", e.clientX, e.clientY);
+    this.onDrag(a.item.info.param, Math.round(value * 1000) / 1000, "move", e.clientX, e.clientY, linkedValues(a.item.info, a.item.travel));
   }
 
   up(e: PointerEvent) {
@@ -295,10 +302,10 @@ export class Manipulator {
     this.dom.style.cursor = "";
     const { info, travel } = a.item;
     if (info.toggle) {
-      this.onDrag(info.param, info.value >= 0.5 ? 0 : 1, "end", e.clientX, e.clientY);
+      this.onDrag(info.param, info.value >= 0.5 ? 0 : 1, "end", e.clientX, e.clientY, {});
       return;
     }
-    if (a.moved) this.onDrag(info.param, Math.round(handleValue(info, travel) * 1000) / 1000, "end", e.clientX, e.clientY);
+    if (a.moved) this.onDrag(info.param, Math.round(handleValue(info, travel) * 1000) / 1000, "end", e.clientX, e.clientY, linkedValues(info, travel));
   }
 }
 

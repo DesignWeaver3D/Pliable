@@ -1078,8 +1078,8 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
 toolPanel.renderList();
 // A handle dragged in the view sets its parameter through the open form, so typed entry and the preview stay in step.
 // With no form open (a selection waiting for its drag tool) the handle runs that tool's normal drag instead.
-viewport.manipulator.onDrag = (param, value, phase, x, y) => {
-  if (toolPanel.isOpen) toolPanel.setValues({ [param]: value });
+viewport.manipulator.onDrag = (param, value, phase, x, y, linked) => {
+  if (toolPanel.isOpen) toolPanel.setValues({ ...linked, [param]: value });
   else void viewport.onItemDrag(currentSels, value, phase, x, y);
 };
 
