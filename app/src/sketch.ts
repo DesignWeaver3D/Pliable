@@ -811,13 +811,52 @@ export class SketchMode {
     }
     this.pushUndo();
     const before = JSON.stringify(this.s);
-    this.s.constraints.push({ id: M.nextId(this.s), ...built });
+    const added = { id: M.nextId(this.s), ...built };
+    this.s.constraints.push(added);
     const ok = await this.resolve();
     if (!ok) {
+      const clash = this.s.constraints.filter((c) => this.failed.has(c.id) && c.id !== added.id).map((c) => M.describeConstraint(this.s, c));
       this.s = JSON.parse(before);
       this.undoStack.pop();
       await this.resolve();
-      this.host.status("That constraint conflicts with the existing ones (or is redundant), so it was not added", true);
+      this.host.status(`That constraint conflicts with ${clash.length ? clash.join("; ") : "the existing ones"} (or is redundant), so it was not added`, true);
+    }
+    this.render();
+  }
+
+  /** Change the value of an existing dimension; a value the other constraints refuse is undone. */
+  private async editDimension(id: number) {
+    const c = this.s.constraints.find((x) => x.id === id);
+    if (!c || c.value === undefined) return;
+    const answer = await this.askNumber(M.describeConstraint(this.s, c).replace(/ = .*$/, ""), c.value);
+    if (answer === null || answer.reference) return;
+    await this.changeConstraints((cs) => cs.map((x) => (x.id === id ? { ...x, value: answer.value } : x)), "That value conflicts with other constraints, so it was not changed");
+  }
+
+  /** Switch a dimension between driving the shape and only measuring it; a driving one starts from the current measurement. */
+  private async toggleReference(id: number) {
+    await this.changeConstraints((cs) =>
+      cs.map((x) => {
+        if (x.id !== id) return x;
+        if (x.reference) {
+          const { reference: _unused, ...rest } = x;
+          return { ...rest, value: M.measure(this.s, x) ?? x.value };
+        }
+        return { ...x, reference: true, value: M.measure(this.s, x) ?? x.value };
+      }),
+      "Making that dimension drive the shape conflicts with other constraints, so it stays a reference",
+    );
+  }
+
+  private async changeConstraints(change: (cs: M.SketchConstraint[]) => M.SketchConstraint[], failure: string) {
+    this.pushUndo();
+    const before = JSON.stringify(this.s);
+    this.s.constraints = change(this.s.constraints);
+    if (!(await this.resolve())) {
+      this.s = JSON.parse(before);
+      this.undoStack.pop();
+      await this.resolve();
+      this.host.status(failure, true);
     }
     this.render();
   }
@@ -1436,6 +1475,13 @@ export class SketchMode {
       row.title = c.auto ? "Added by a drawing tool. Hover to see what it holds; the x removes it so the geometry moves freely" : "Hover to see what it holds; the x removes it";
       row.addEventListener("pointerenter", () => this.lightUp(c));
       row.addEventListener("pointerleave", () => this.lightUp(null));
+      if (c.value !== undefined) {
+        const edit = button("✎", () => void this.editDimension(c.id));
+        edit.title = c.reference ? "Make this a driving dimension again" : "Change the value";
+        const ref = button(c.reference ? "Drive" : "Ref", () => void this.toggleReference(c.id));
+        ref.title = c.reference ? "Make this dimension drive the shape" : "Keep only the measurement; the dimension stops driving the shape";
+        row.append(...(c.reference ? [ref] : [edit, ref]));
+      }
       const remove = button("✕", () => {
         this.pushUndo();
         this.s.constraints = this.s.constraints.filter((x) => x.id !== c.id);
