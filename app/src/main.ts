@@ -622,6 +622,11 @@ function hideDim() {
 }
 
 window.addEventListener("keydown", (e) => {
+  // A handle being dragged owns the keyboard: typed digits set its value (see Manipulator.key).
+  if (viewport.manipulator.dragging && !e.ctrlKey && !e.metaKey && !e.altKey && viewport.manipulator.key(e)) {
+    e.preventDefault();
+    return;
+  }
   if (!viewport.dragging || e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^[0-9.-]$/.test(e.key)) {
     if (e.key === "-" && viewport.measureMode) return; // lengths are not signed
@@ -789,9 +794,12 @@ const keys = new KeyRouter({
     "history.redo": () => void history("redo"),
     ...Object.fromEntries(["sketch.undo", "sketch.cancel", "sketch.finish", "sketch.delete"].map((id) => [id, (e: KeyboardEvent) => sketch.onKey(e)])),
   },
-  entryActive: () => viewport.dragging || dragSels !== null,
+  entryActive: () => viewport.dragging || dragSels !== null || viewport.manipulator.dragging,
   sketchActive: () => sketch.active,
-  cancelInteraction: () => viewport.cancelDrag(),
+  cancelInteraction: () => {
+    viewport.cancelDrag();
+    viewport.manipulator.cancel();
+  },
   status,
   hints: { get: () => hintLine.prefs.on, set: (on) => hintLine.setOn(on) },
 });
@@ -1082,7 +1090,7 @@ toolPanel.renderList();
 // With no form open (a selection waiting for its drag tool) the handle runs that tool's normal drag instead.
 viewport.manipulator.onDrag = (param, value, phase, x, y, linked) => {
   if (toolPanel.isOpen) toolPanel.setValues({ ...linked, [param]: value });
-  else void viewport.onItemDrag(currentSels, value, phase, x, y);
+  else void viewport.onItemDrag(currentSels, phase === "cancel" ? 0 : value, phase, x, y);
 };
 
 new Palette(commands);
