@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import { TOOL_GROUPS } from "../src/layout.ts";
 import { allToolIconIds, initialsIcon, toolIconInner } from "../src/icons.ts";
@@ -28,4 +28,15 @@ test("the view controls have drawn icons, and axes is drawn with three axis line
   const { UI_ICONS, allUiIconNames } = await import("../src/icons.ts");
   for (const name of ["axes", "iso", "perspective", "orthographic"]) assert.ok(allUiIconNames().includes(name), name);
   assert.equal((UI_ICONS.axes.match(/<path/g) ?? []).length, 3);
+});
+
+test("the tools handle candidates are drawn as valid, currentColor-based SVG", async () => {
+  const { UI_ICONS, svgFor } = await import("../src/icons.ts");
+  for (const id of ["toolsHammer", "toolsBox"]) {
+    assert.ok(UI_ICONS[id] && UI_ICONS[id].length > 0, id);
+    const svg = svgFor(UI_ICONS[id], 24);
+    assert.match(svg, /^<svg [^>]*viewBox="0 0 24 24"[^>]*stroke="currentColor"[\s\S]*<\/svg>$/);
+    assert.ok((svg.match(/<(path|g|rect)\b/g) ?? []).length > 0);
+    assert.equal((svg.match(/<g\b/g) ?? []).length, (svg.match(/<\/g>/g) ?? []).length);
+  }
 });
