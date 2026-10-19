@@ -81,3 +81,5 @@ Decisions made without the owner or by the owner, grouped by topic. Each says wh
 
 - Move body, move hole, pattern hole and linear array declare `move_vector` (dx, dy, dz). The form offers "Pick base point" (then goes straight on to the destination) and "Pick destination point"; the vector is destination minus base, and the base defaults to the origin. Typing a vector value forgets the picked destination.
 - Primitives declare `anchors` (the corner, centre and face centres of the new shape as offsets from the placement point). The form has a "base point" list and "Pick destination point"; the stored parameters stay the placement point and sizes, only the origin is set to destination minus the anchor offset. The base of a not-yet-placed shape is chosen from the list because there is nothing to click on before it exists.
+
+- 2026-10-19 (S65): Body ids and names are carried by matching solids (same shape, then bounding-box overlap, then equal volume) rather than by per-operation face history, because most tools rebuild the shape and return no history; whole-body transforms match by position. Rename is an undoable step.

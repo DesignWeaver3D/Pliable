@@ -650,6 +650,7 @@ class AddBox(Tool):
     """A box added as a new body (new_body 0 joins it to the model), given by its minimum corner and size."""
 
     id = "add_box"
+    body_kind = "Box"
     label = "Add box"
     description = "Adds a box, given by its corner and size. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
@@ -716,6 +717,7 @@ class AddCylinder(Tool):
     """A cylinder standing on the XY plane at (x, y, z), joined to the model."""
 
     id = "add_cylinder"
+    body_kind = "Cylinder"
     label = "Add cylinder"
     description = "Adds a cylinder standing on the XY plane at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
@@ -1031,6 +1033,7 @@ class MoveBody(Tool):
     """Move the solids containing the selected faces (the whole model when nothing is selected) by a vector."""
 
     id = "move_body"
+    keeps_body_order = True
     label = "Move body"
     description = "Moves a whole solid by the given distances along X, Y and Z. Select any face of the solid, or nothing to move the whole model."
     accepts = Accepts(faces=(0, None))
@@ -1064,6 +1067,7 @@ class RotateBody(Tool):
     """Rotate the selected solids (the whole model when nothing is selected) about an axis through the origin (axis: 0 = X, 1 = Y, 2 = Z)."""
 
     id = "rotate_body"
+    keeps_body_order = True
     label = "Rotate body"
     description = "Rotates a whole solid about the X, Y or Z axis through the origin (0 = X, 1 = Y, 2 = Z). Select any face of the solid, or nothing for the whole model."
     accepts = Accepts(faces=(0, None))
@@ -1100,6 +1104,7 @@ class ScaleBody(Tool):
     """Scale the selected solids (the whole model when nothing is selected) uniformly about the origin."""
 
     id = "scale_body"
+    keeps_body_order = True
     label = "Scale body"
     description = "Scales a whole solid evenly about the origin. Select any face of the solid, or nothing for the whole model; 2 doubles the size."
     accepts = Accepts(faces=(0, None))
@@ -1128,6 +1133,7 @@ class ScaleBody(Tool):
 @register
 class AddSphere(Tool):
     id = "add_sphere"
+    body_kind = "Sphere"
     label = "Add sphere"
     description = "Adds a sphere at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
@@ -1161,6 +1167,7 @@ class AddCone(Tool):
     """A cone (or truncated cone) standing on the XY plane at (x, y, z)."""
 
     id = "add_cone"
+    body_kind = "Cone"
     label = "Add cone"
     description = "Adds a cone or truncated cone (set a top diameter of 0 for a point) at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
@@ -1207,6 +1214,7 @@ class AddTorus(Tool):
     """A torus lying on the XY plane, centred at (x, y, z). `major` is the ring's centre-line diameter."""
 
     id = "add_torus"
+    body_kind = "Torus"
     label = "Add torus"
     description = "Adds a ring shape (donut) at the given position, from the ring radius and the tube radius. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
@@ -1891,6 +1899,7 @@ class OffsetBody(Tool):
     """Grow (positive) or shrink (negative) the selected solids (all when nothing is selected) by a uniform distance."""
 
     id = "offset_body"
+    keeps_body_order = True
     label = "Offset body"
     description = "Grows (positive) or shrinks (negative) a solid evenly in all directions. Select any face of the solid, or nothing for the whole model."
     accepts = Accepts(faces=(0, None))

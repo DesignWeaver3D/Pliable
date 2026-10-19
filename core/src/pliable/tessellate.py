@@ -19,7 +19,7 @@ from OCP.TopExp import TopExp_Explorer
 from OCP.TopLoc import TopLoc_Location
 from OCP.TopoDS import TopoDS_Shape
 
-from .ops import edge_outward_normal, planar_normal
+from .ops import edge_outward_normal, planar_normal, solids_of
 from .topology import Topology
 
 ANGULAR_DEFLECTION = 0.5  # radians
@@ -38,6 +38,7 @@ class Mesh:
     # Per vertex: id and position
     vertices: list[dict] = field(default_factory=list)
     centres: list[dict] = field(default_factory=list)  # hole and boss centres: {"face": id, "position": [x, y, z]}
+    bodies: list[dict] = field(default_factory=list)  # per solid: id, name, solid number, bounds
     bounds: list[float] = field(default_factory=list)  # xmin, ymin, zmin, xmax, ymax, zmax
 
 
@@ -119,6 +120,9 @@ def _solid_indices(topology: Topology) -> tuple[dict, dict, dict]:
 def tessellate(topology: Topology) -> Mesh:
     shape = topology.shape
     face_solid, edge_solid, vertex_solid = _solid_indices(topology)
+    solid_shapes = solids_of(shape)
+    owners = topology.bodies.bodies
+    body_of = lambda table, i: owners[table[i]].id if i in table and table[i] < len(owners) else None  # noqa: E731
     deflection = linear_deflection(shape)
     # Faces unchanged from a previous shape keep their triangulation, so
     # re-meshing after an operation only meshes the faces that changed.
@@ -151,6 +155,7 @@ def tessellate(topology: Topology) -> Mesh:
                 "normal": [normal.X(), normal.Y(), normal.Z()] if normal is not None else None,
                 "centroid": centroid,
                 "solid": face_solid.get(face_id, 0),
+                "body": body_of(face_solid, face_id),
             }
         )
 
@@ -172,13 +177,14 @@ def tessellate(topology: Topology) -> Mesh:
                 "count": len(edge_positions) - start,
                 "normal": edge_outward_normal(topology, edge),
                 "solid": edge_solid.get(edge_id, 0),
+                "body": body_of(edge_solid, edge_id),
             }
         )
 
     vertices = []
     for vertex_id, vertex in topology.vertices():
         p = BRep_Tool.Pnt_s(vertex)
-        vertices.append({"id": vertex_id, "position": [p.X(), p.Y(), p.Z()], "solid": vertex_solid.get(vertex_id, 0)})
+        vertices.append({"id": vertex_id, "position": [p.X(), p.Y(), p.Z()], "solid": vertex_solid.get(vertex_id, 0), "body": body_of(vertex_solid, vertex_id)})
 
     from .measure import hole_centre
 
@@ -200,5 +206,6 @@ def tessellate(topology: Topology) -> Mesh:
         edges=edges,
         vertices=vertices,
         centres=centres,
+        bodies=[{"id": b.id, "name": b.name, "solid": n, "bounds": bounds(solid_shapes[n])} for n, b in enumerate(owners) if n < len(solid_shapes)],
         bounds=bounds(shape),
     )

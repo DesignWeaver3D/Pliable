@@ -185,6 +185,10 @@ class Tool:
     # Where the tool starts: "selection" (the user selects something, then the tool acts on it) or "tool" (the tool is
     # chosen first and places something new, like a primitive); the view shows `handles` accordingly.
     starts_from: str = "selection"
+    # Name for bodies this tool creates ("Box" gives "Box 1", "Box 2"), and whether it keeps the solids in their order
+    # (whole-body transforms), which lets the bodies be matched by position (see bodies.py).
+    body_kind: str = "Body"
+    keeps_body_order: bool = False
 
     def handles(self, topology: Topology, selection: Selection, values: dict[str, float]) -> list[Handle]:
         """On-screen manipulators for the current parameter values: one per parameter that can be dragged in the view.

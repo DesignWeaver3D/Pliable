@@ -13,7 +13,8 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - The selection carries over onto a drag's result on purpose (the new round faces stay selected). If faces show orange while nothing is selected, suspect `setRelated` in `viewport.ts`.
 - Axes are drawn to 1.25 times the largest model coordinate (at least 25 mm) and resize only when a new mesh arrives; they are depth-tested.
 - Open surfaces render like solids; free edges are not highlighted.
-- Hide/isolate is view-only: hidden bodies still feed whole-model tools and exports. Solid numbers follow explorer order and can change after an operation (the hidden set drops numbers that vanish).
+- Hide/isolate is view-only: hidden bodies still feed whole-model tools and exports.
+- Body identity (S65) is matched by shape and bounding box after each operation, not by the operation's face history: same shape or same box and volume is the same body, else the most overlapping box, else equal volume (a moved body), else a lone leftover pair. A body that is moved onto a large overlap with another, or changed beyond recognition next to unchanged bodies, can swap or lose its id. Whole-body transforms match by position.
 
 ## Selection
 
