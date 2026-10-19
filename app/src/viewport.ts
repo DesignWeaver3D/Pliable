@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { CentreInfo, MeshData } from "./client";
+import type { CentreInfo, FaceRange, MeshData } from "./client";
 import { onSettingsChange, settings, updateSettings } from "./settings";
 
 export type Kind = "face" | "edge" | "vertex";
@@ -1032,22 +1032,30 @@ export class Viewport {
     const pixelSize = this.pixelSizeAtDistance(faceHit?.distance ?? 0, rect.height);
     const depthLimit = faceHit && !settings.seeThrough ? faceHit.distance * 1.01 + pixelSize * 12 : Infinity;
 
-    const vertex = this.nearestVertex(px, py, rect, depthLimit);
+    // Face under the pointer; a small face shrinks the edge and point ranges so its borders do not swallow it.
+    let lo = 0;
+    if (faceHit && faceHit.faceIndex != null) {
+      // Face ranges are sorted by start; find the last range starting at or before this triangle.
+      let hi = this.faceStarts.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (this.faceStarts[mid] <= faceHit.faceIndex) lo = mid;
+        else hi = mid - 1;
+      }
+    }
+    const under = faceHit && faceHit.faceIndex != null ? this.data.faces[lo] : null;
+    const size = under ? this.faceScreenSize(under, rect) : Infinity;
+    const edgeRange = Math.min(settings.edgePickPx, Math.max(2, size / 4));
+    const pointRange = Math.min(settings.vertexPickPx, Math.max(3, size / 3));
+
+    const vertex = this.nearestVertex(px, py, rect, depthLimit, pointRange);
     if (vertex) return vertex;
     const centre = this.nearestCentre(px, py, rect);
     if (centre) return centre;
-    const edge = this.nearestEdge(px, py, rect, depthLimit);
+    const edge = this.nearestEdge(px, py, rect, depthLimit, edgeRange);
     if (edge) return edge;
 
     if (!faceHit || faceHit.faceIndex == null) return null;
-    // Face ranges are sorted by start; find the last range starting at or before this triangle.
-    let lo = 0;
-    let hi = this.faceStarts.length - 1;
-    while (lo < hi) {
-      const mid = (lo + hi + 1) >> 1;
-      if (this.faceStarts[mid] <= faceHit.faceIndex) lo = mid;
-      else hi = mid - 1;
-    }
     const face = this.data.faces[lo];
     return face && face.count > 0 ? { kind: "face", id: face.id, point: faceHit.point } : null;
   }
@@ -1145,9 +1153,29 @@ export class Viewport {
     return best;
   }
 
-  private nearestVertex(px: number, py: number, rect: DOMRect, depthLimit: number): Hit | null {
+  /** The larger side of a face's bounding box on screen, in pixels (the face's visible size for pick ranges). */
+  private faceScreenSize(face: FaceRange, rect: DOMRect): number {
+    const data = this.data!;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    const p = new THREE.Vector3();
+    for (let i = face.start; i < face.start + face.count; i++) {
+      p.fromArray(data.positions, data.indices[i] * 3).project(this.camera);
+      const x = ((p.x + 1) / 2) * rect.width;
+      const y = ((1 - p.y) / 2) * rect.height;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    return Math.max(maxX - minX, maxY - minY);
+  }
+
+  private nearestVertex(px: number, py: number, rect: DOMRect, depthLimit: number, range = settings.vertexPickPx): Hit | null {
     let best: Hit | null = null;
-    let bestDistance = settings.vertexPickPx;
+    let bestDistance = range;
     const p = new THREE.Vector3();
     for (const v of this.data!.vertices) {
       p.set(v.position[0], v.position[1], v.position[2]);
@@ -1163,13 +1191,13 @@ export class Viewport {
     return best;
   }
 
-  private nearestEdge(px: number, py: number, rect: DOMRect, depthLimit: number): Hit | null {
+  private nearestEdge(px: number, py: number, rect: DOMRect, depthLimit: number, range = settings.edgePickPx): Hit | null {
     const data = this.data!;
     const a = new THREE.Vector3();
     const b = new THREE.Vector3();
     this.camera.updateMatrixWorld();
     let best: Hit | null = null;
-    const edgePx = settings.edgePickPx;
+    const edgePx = range;
     let bestDistance = edgePx;
     let bestDepth = Infinity;
     const toPx = (v: THREE.Vector3) => {

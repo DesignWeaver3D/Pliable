@@ -82,3 +82,5 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 
 - Symmetric chip mirrors across the three mid-planes of the model bounding box only; parallel chip finds same-direction planar faces only. No tool declares the symmetric chip yet, so it highlights but does not feed a tool.
 - Circular edge centre is recovered by matching hole centres (full holes and bosses only). Hole centre snaps appear only for hovered or selected holes.
+
+- Pick ranges shrink on small faces (edge range = a quarter of the face's on-screen size, min 2 px; point range a third, min 3 px); the face size is computed from all its triangles on every pointer move, which may be slow on very large curved faces.
