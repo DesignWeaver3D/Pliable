@@ -123,6 +123,8 @@ interface Active {
   lastY?: number;
   /** Typed entry: the text so far (null while the mouse sets the value) and its sign. */
   typed: string | null;
+  /** The button was let go while a typed value held the handle. */
+  released?: boolean;
   negative: boolean;
 }
 
@@ -403,6 +405,11 @@ export class Manipulator {
       return true;
     }
     if (e.key === "Escape") {
+      if (a.typed !== null && !a.released) {
+        a.typed = null; // button still held: back to dragging
+        a.negative = false;
+        return true;
+      }
       this.cancel();
       return true;
     }
@@ -440,7 +447,10 @@ export class Manipulator {
   up(e: PointerEvent) {
     const a = this.active;
     if (!a) return;
-    if (a.typed !== null) return; // typing overrides the drag: the button may be let go, Enter commits and Escape cancels
+    if (a.typed !== null) {
+      a.released = true; // typing overrides the drag: the button may be let go, Enter commits and Escape cancels
+      return;
+    }
     this.release(a, e.clientX, e.clientY);
   }
 

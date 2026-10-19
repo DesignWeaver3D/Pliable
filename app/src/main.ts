@@ -740,14 +740,14 @@ window.addEventListener("keydown", (e) => {
     viewport.finishDrag();
     return;
   } else if (e.key === "Escape" && typed !== null) {
-    // Measure mode: the first Escape goes back to the edge pick. Otherwise the button is already up, so Escape cancels the drag.
-    if (!viewport.measureMode) {
+    // Button still held (or measure mode): the first Escape leaves entry and goes back to the mouse. Button already up: Escape cancels the drag.
+    if (!viewport.measureMode && viewport.dragReleased) {
       typed = null;
       viewport.cancelDrag();
       return;
     }
     typed = null;
-    viewport.holdDrag = true;
+    viewport.holdDrag = viewport.measureMode;
     renderDim();
     return;
   } else if (e.key === "Escape" && viewport.measureMode) {

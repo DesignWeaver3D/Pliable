@@ -140,6 +140,8 @@ export class Viewport {
   onItemDrag: (sels: Sel[], distance: number, phase: "move" | "end" | "cancel", x?: number, y?: number) => void = () => {};
   /** While true (typed value entry or measure mode), pointer movement does not change the drag distance. */
   holdDrag = false;
+  /** Set when the button was let go while a typed value held the drag; Escape then cancels instead of resuming the mouse. */
+  dragReleased = false;
   /** While set, the next click picks an item for this callback instead of selecting it (eyedropper). */
   eyedropper: ((sel: Sel) => void) | null = null;
   onEyedropCancel: () => void = () => {};
@@ -418,6 +420,7 @@ export class Viewport {
           this.selectItems([sel]);
           this.onSelect([sel]);
         }
+        this.dragReleased = false;
         this.drag = { sels: [...this.selected], normal: direction, point: hit.point, x: e.clientX, y: e.clientY, moved: false };
         this.measures = this.drag.sels.length === 1 && hit.kind === "face" ? this.findMeasures(this.drag.sels[0], direction, hit.point) : [];
         this.primaryMeasure = this.measures.reduce<Measure | null>(
@@ -536,7 +539,10 @@ export class Viewport {
         down = null;
         return;
       }
-      if (drag && this.holdDrag && e.button === 0) return; // a typed value overrides the drag: Enter commits, Escape cancels
+      if (drag && this.holdDrag && e.button === 0) {
+        this.dragReleased = true; // a typed value overrides the drag: Enter commits, Escape cancels
+        return;
+      }
       if (drag) {
         this.endMeasure();
         this.drag = null;
