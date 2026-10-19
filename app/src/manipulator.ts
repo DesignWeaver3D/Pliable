@@ -8,9 +8,8 @@ import type { HandleInfo } from "./tools";
 /** Length of a handle's arm and the radius of its grab target, in screen pixels. */
 export const ARM_PX = 34;
 export const GRAB_PX = 9;
-/** A move arrow is never shorter than this on screen, and otherwise about half the object's size on screen (capped). */
-export const MOVE_MIN_PX = 80;
-export const MOVE_MAX_PX = 260;
+/** A move arrow is this long on screen, from its anchor to the arrowhead, whatever the size of the object. */
+export const MOVE_ARM_PX = 80;
 const COLOR = 0xffb347;
 const COLOR_HOT = 0xffffff;
 const COLOR_TOGGLE = 0x6fd3ff;
@@ -19,11 +18,6 @@ const AXIS_LINE = 0xffb347;
 /** Resize grips are neutral squares (orange on hover) so they never read as the coloured move arrows. */
 const COLOR_RESIZE = 0xc8ccd4;
 const COLOR_RESIZE_HOT = 0xffb347;
-
-/** The screen length of a move arrow for an object that looks `objectPx` pixels across. */
-export function moveArmPx(objectPx: number): number {
-  return Math.max(MOVE_MIN_PX, Math.min(MOVE_MAX_PX, objectPx * 0.5));
-}
 
 /** How close a handle counts for picking: its pixel distance, lowered when it should win a tie. `t` is the position
  *  along the handle from its tail (the anchor of a resize grip, the start of a move arrow) to its head (0..1). The head
@@ -266,7 +260,7 @@ export class Manipulator {
       const size = this.pixelSizeAt(pos) * ARM_PX;
       group.scale.setScalar(size);
       if (info.kind === "move") {
-        const ratio = this.moveArmRatio(info, pos);
+        const ratio = MOVE_ARM_PX / ARM_PX;
         const dir = new THREE.Vector3(...info.direction);
         item.arm.scale.setScalar(ratio);
         item.tip.position.copy(dir).multiplyScalar(ratio - 0.21);
@@ -300,12 +294,6 @@ export class Manipulator {
     return new THREE.Vector2(((n.x + 1) / 2) * rect.width + rect.left, ((1 - n.y) / 2) * rect.height + rect.top);
   }
 
-  /** A move arrow's length in units of ARM_PX at `pos`. */
-  private moveArmRatio(info: HandleInfo, pos: THREE.Vector3): number {
-    const px = this.pixelSizeAt(pos);
-    return moveArmPx((info.reach ?? 0) / (px || 1)) / ARM_PX;
-  }
-
   private tipPoint(item: Item): THREE.Vector3 {
     return new THREE.Vector3(...item.info.anchor).addScaledVector(new THREE.Vector3(...item.info.direction), item.travel);
   }
@@ -319,7 +307,7 @@ export class Manipulator {
       const tip = this.tipPoint(item);
       const dir = new THREE.Vector3(...item.info.direction);
       const move = item.info.kind === "move";
-      const ratio = move ? this.moveArmRatio(item.info, tip) : 1;
+      const ratio = move ? MOVE_ARM_PX / ARM_PX : 1;
       const reach = (move ? 1 : -1) * this.pixelSizeAt(tip) * ARM_PX * ratio;
       const end = item.info.toggle ? this.screen(tip) : this.screen(tip.clone().addScaledVector(dir, reach));
       // a is the tail (a move arrow's start, a pull handle's grab point) and b the head (a move arrow's tip, a pull handle's arm end).

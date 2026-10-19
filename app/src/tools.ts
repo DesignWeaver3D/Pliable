@@ -39,8 +39,6 @@ export interface HandleInfo {
   unit: string;
   /** An axis handle: the other end of the line drawn from here (a hole's opening), or null. */
   axisFrom?: [number, number, number] | null;
-  /** A move arrow's object size in model units (it sets the arrow's length when the object looks large). */
-  reach?: number;
   /** The parameter's value when the handle was computed. */
   value: number;
   /** Other parameters that move with this one: each changes by `scale` per model unit of travel (a low box face also moves the origin). */

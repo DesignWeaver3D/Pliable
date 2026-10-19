@@ -641,9 +641,9 @@ def _position_handles(values, size: float) -> list[Handle]:
     way along its axis (drawn in the axis colour), like an axis gizmo."""
     x, y, z = values["x"], values["y"], values["z"]
     return [
-        Handle("x", "Move along X", (x, y, z), (1, 0, 0), kind="move", reach=size),
-        Handle("y", "Move along Y", (x, y, z), (0, 1, 0), kind="move", reach=size),
-        Handle("z", "Move along Z", (x, y, z), (0, 0, 1), kind="move", reach=size),
+        Handle("x", "Move along X", (x, y, z), (1, 0, 0), kind="move"),
+        Handle("y", "Move along Y", (x, y, z), (0, 1, 0), kind="move"),
+        Handle("z", "Move along Z", (x, y, z), (0, 0, 1), kind="move"),
     ]
 
 
