@@ -11,6 +11,7 @@ import { NavCube, VIEW_KEYS } from "./navcube";
 import { fitStripCount, stripRoom } from "./stripfit";
 import { DimensionOverlay } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
+import { LatestWins } from "./latestwins";
 import { SETTING_ENTRIES, createSettingsWindow, onSettingsChange, openSettings, setHintsBinding, setKeysOpener, settingValue, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
@@ -599,40 +600,33 @@ void dimensionEditor;
 viewport.onHoverBody = (id) => bodyList.setHovered(id);
 
 // Moving a hole by dragging its centre dot: previews the Move hole tool (latest request wins) and commits on release.
-let centreBusy = false;
-let centreQueued: { face: number; offset: { x: number; y: number; z: number } } | null = null;
+type CentreMove = { face: number; offset: { x: number; y: number; z: number } };
 function centreRequest(face: number, o: { x: number; y: number; z: number }) {
   const tool = tools.find((t) => t.id === "move_hole");
   if (!tool) return null;
   return { tool: tool.id, selection: selectionPayload(expand(tool, [{ kind: "face", id: face }])), params: { dx: o.x, dy: o.y, dz: o.z } };
 }
-async function pumpCentre() {
-  if (centreBusy || !centreQueued) return;
-  const { face, offset } = centreQueued;
-  centreQueued = null;
+const centrePreviews = new LatestWins<CentreMove>(async ({ face, offset }, current) => {
   const req = centreRequest(face, offset);
   if (!req) return;
-  centreBusy = true;
   try {
-    show(await core.request<MeshData>("tool_preview", req));
+    const mesh = await core.request<MeshData>("tool_preview", req);
+    if (!current()) return; // released or cancelled while this was computed
+    show(mesh);
     status.classList.remove("error");
     status.textContent = `Move hole: ${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)}`;
   } catch (e) {
+    if (!current()) return;
     status.textContent = (e as Error).message;
     status.classList.add("error");
-  } finally {
-    centreBusy = false;
-    void pumpCentre();
   }
-}
+});
 viewport.onCentreDrag = async (face, offset, phase) => {
   if (phase === "move") {
-    centreQueued = { face, offset: { x: offset.x, y: offset.y, z: offset.z } };
-    void pumpCentre();
+    centrePreviews.push({ face, offset: { x: offset.x, y: offset.y, z: offset.z } });
     return;
   }
-  centreQueued = null;
-  while (centreBusy) await new Promise((r) => setTimeout(r, 20));
+  await centrePreviews.cancel();
   if (phase === "cancel") {
     if (committed) show(committed);
     return;
