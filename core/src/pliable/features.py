@@ -163,6 +163,11 @@ class _CylinderFaces(Tool):
     def applies(self, topology, selection):
         return all(BRepAdaptor_Surface(topology.face(i)).GetType() == GeomAbs_Cylinder for i in selection.faces)
 
+    def refusal(self, topology, selection):
+        from .holes import NOT_ROUND
+
+        return NOT_ROUND if self.accepts.matches(selection) else None
+
 
 @register
 class DeleteFace(Tool):

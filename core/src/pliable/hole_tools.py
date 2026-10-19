@@ -39,6 +39,9 @@ class _HoleTool(Tool):
             return False
         return True
 
+    def refusal(self, topology, selection):
+        return NOT_ROUND if self.accepts.matches(selection) else None
+
     def hole(self, topology, selection, reach: bool = True) -> HoleInfo:
         if len(selection.faces) + len(selection.edges) != 1:
             raise OperationError("Select one face of a hole, or the circle at its opening")

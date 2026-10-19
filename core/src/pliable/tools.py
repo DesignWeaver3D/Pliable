@@ -216,6 +216,10 @@ class Tool:
         """Extra applicability check beyond the selection counts (e.g. planar faces only)."""
         return True
 
+    def refusal(self, topology: Topology, selection: Selection) -> str | None:
+        """A plain reason this selection is refused, when the generic "can't be used" would not say enough (None = generic)."""
+        return None
+
     def run(self, topology: Topology, selection: Selection, values: dict[str, float], preview: bool) -> OpResult:
         raise NotImplementedError
 
@@ -247,7 +251,7 @@ class Tool:
 
     def execute(self, topology: Topology, selection: Selection, raw_params: dict, preview: bool) -> OpResult:
         if not self.available(topology, selection):
-            raise OperationError(f"{self.label} can't be used with this selection")
+            raise OperationError(self.refusal(topology, selection) or f"{self.label} can't be used with this selection")
         values = self.bind(raw_params)
         try:
             result = self.run(topology, selection, values, preview)

@@ -191,3 +191,13 @@ def test_mesh_centres_carry_the_axis_length():
     mesh = tessellate(bracket)
     lengths = sorted(round(c["length"], 6) for c in mesh.centres)
     assert lengths == [10.0] * 5
+
+
+def test_hole_tools_explain_when_given_a_pocket(block):
+    from build123d import Box
+
+    plate = Topology((Box(40, 30, 10) - Box(10, 8, 20)).wrapped)
+    wall = next(i for i in range(plate.face_count) if i != top_face(plate) and _flat(plate, i))
+    for tool in ("resize_hole", "edit_hole", "convert_to_countersink", "fill_hole"):
+        with pytest.raises(OperationError, match="pocket or slot"):
+            run(tool, plate, faces=[wall])
