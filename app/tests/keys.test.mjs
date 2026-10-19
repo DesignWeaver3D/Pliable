@@ -210,3 +210,12 @@ test("measure key runs during a tool drag and can be rebound", () => {
   assert.equal(ran(ev("k"), drag, km), "measure");
   assert.equal(ran(ev("m"), drag, km), null);
 });
+
+test("the shortcuts dialog opens with ? (Shift+/) on any layout and passes the key policy", () => {
+  const chord = parseChord("Shift+?");
+  assert.ok(chord);
+  const ev = { key: "?", code: "Slash", ctrlKey: false, metaKey: false, altKey: false, shiftKey: true };
+  assert.equal(chordMatches(chord, ev), true);
+  assert.equal(chordMatches(chord, { ...ev, shiftKey: false, key: "/" }), false);
+  assert.equal(validateBinding(KEY_COMMANDS.find((c) => c.id === "ui.shortcuts"), "Shift+?", {}).ok, true);
+});

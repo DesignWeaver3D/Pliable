@@ -43,6 +43,12 @@ export function updateSettings(patch: Partial<Settings>) {
   listeners.forEach((fn) => fn());
 }
 
+let openKeys: (() => void) | null = null;
+/** The keyboard shortcuts dialog is owned by the key router, which is created after the settings window. */
+export function setKeysOpener(fn: () => void) {
+  openKeys = fn;
+}
+
 /** A gear button that opens a small settings window inside `host`. */
 export function createSettingsWindow(host: HTMLElement) {
   const button = document.createElement("button");
@@ -106,6 +112,13 @@ export function createSettingsWindow(host: HTMLElement) {
     updateSettings({ edgePickPx: DEFAULTS.edgePickPx, vertexPickPx: DEFAULTS.vertexPickPx });
     panel.replaceChildren(...build());
   };
+  const keysButton = document.createElement("button");
+  keysButton.textContent = "Keyboard shortcuts...";
+  keysButton.title = "See and change the keyboard shortcuts (also: press ? or search for shortcuts)";
+  keysButton.onclick = () => {
+    panel.hidden = true;
+    openKeys?.();
+  };
   const build = () => [
     heading,
     slider("Edge pick range", "edgePickPx", 1, 14, "How close the pointer must be to an edge to pick it. Lower it to reach small faces."),
@@ -115,6 +128,7 @@ export function createSettingsWindow(host: HTMLElement) {
     seeThrough,
     slider("See-through opacity", "seeThroughOpacity", 0, 60, "How visible the faces stay while see-through is on. 0 is fully clear; higher shows the surface more."),
     reset,
+    keysButton,
   ];
   panel.append(...build());
   button.onclick = () => (panel.hidden = !panel.hidden);

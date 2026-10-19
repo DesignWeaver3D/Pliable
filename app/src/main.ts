@@ -7,7 +7,7 @@ import { SketchBar } from "./sketchbar";
 import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay } from "./dimensions";
-import { createSettingsWindow, onSettingsChange, settings } from "./settings";
+import { createSettingsWindow, onSettingsChange, setKeysOpener, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
 import { HintLine } from "./hints";
@@ -773,6 +773,7 @@ const keys = new KeyRouter({
     ...Object.fromEntries(Object.entries(VIEW_KEYS).map(([, name]) => [`view.${name}`, () => viewport.setView(name)])),
     "view.projection": () => navCube.toggleProjection(),
     "display.seeThrough": () => viewport.toggleSeeThrough(),
+    "ui.shortcuts": () => keys.openSettings(),
     "view.lookAtFace": () => {
       if (currentSels.length === 1 && currentSels[0].kind === "face" && !viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: could not find a view direction for this face";
     },
@@ -792,7 +793,7 @@ const keys = new KeyRouter({
   hints: { get: () => hintLine.prefs.on, set: (on) => hintLine.setOn(on) },
 });
 syncSeeThrough();
-keys.installButton($("bar"));
+setKeysOpener(() => keys.openSettings());
 // Leaving with edits (undo steps) or an open sketch asks first; autosave still protects against crashes.
 window.addEventListener("beforeunload", (e) => {
   if (!undoButton.disabled || sketch.active) e.preventDefault();
@@ -898,6 +899,7 @@ function commands(): Command[] {
       enabled: true,
       run: () => (status.textContent = "Measure pick: start dragging a tool, then press M to pick geometry to measure against"),
     },
+    { label: "Keyboard shortcuts (see and change them; hotkeys)", hint: keys.keymap.hint("ui.shortcuts"), enabled: true, run: () => keys.openSettings() },
     { label: hintLine.prefs.on ? "Turn hints off" : "Turn hints on", enabled: true, run: () => hintLine.setOn(!hintLine.prefs.on) },
     { label: "Import STEP file", enabled: true, run: () => fileInput.click() },
     { label: "Export STEP file", enabled: true, run: () => exportAs("export_step", "step") },

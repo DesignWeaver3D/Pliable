@@ -49,6 +49,7 @@ export const KEY_COMMANDS: KeyCommand[] = [
   })),
   { id: "view.projection", label: "Toggle perspective / orthographic", class: "view", defaults: ["P"] },
   { id: "view.lookAtFace", label: "Look at selected face", class: "view", defaults: ["V"] },
+  { id: "ui.shortcuts", label: "Show keyboard shortcuts", class: "view", defaults: ["Shift+?"] },
   { id: "display.seeThrough", label: "Toggle see-through selection", class: "display", defaults: ["X"] },
   { id: "display.drawer", label: "Show or hide the tool drawer", class: "display", defaults: ["T"], notInSketch: true },
   { id: "measure", label: "Measure to other geometry while dragging a tool", class: "display", defaults: ["M"], duringDrag: true, notInSketch: true },
