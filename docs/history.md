@@ -25,6 +25,12 @@ One line per finished session, with the findings worth keeping. Open sessions ar
 - **S40 Keys:** policy in `keys.ts`, router in `keyrouter.ts` (pointer engagement for bare keys, fixed sketch keys, user-rebindable others, unsaved-work warning on leaving).
 - **S41-S42 Quality:** each running copy autosaves in its own `inst_<id>` folder with a heartbeat lock; the alpha notice is acknowledged once per user (`NOTICE_EPOCH`).
 - **S57-S59:** box select rewritten on exact projected geometry; Edge loops/ring/sharp edges with messages and tooltips; a plain-language description on every tool, shown as tooltips.
+- **S36 Stretch:** `stretch` tool (move mode re-fits flat neighbours, insert mode; refuses curved neighbours).
+- **S43-S46 Sketch:** one Sketch On Face button with visible automatic constraints and a diagnostic fallback; axes, vertices and tilted circles projected; ellipse and spline with end-point constraints; chains of adjacent and curved faces flattened into one sketch face.
+- **S49, S52 Tools:** arrays act on the chosen body; Center between faces needs one side face.
+- **S50, S51 Selection:** chips off by default with All/None and Parallel/Symmetric; see-through draws faces nearly clear with a button.
+- **S53-S55 Shell:** any Ctrl/Alt/Shift mix; drafting dimensions and leaders; hint line and first-use tips.
+- **S61-S63:** one Import STEP choice and mesh export dropdown; perimeter-only Edge loops, tangent-only double-click, Shift+click adds, smaller pick ranges on small faces; reconnect with backoff and defensive measurement updates (the stall was not reproduced).
 
 ## Parked by design
 
