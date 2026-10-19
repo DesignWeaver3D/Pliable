@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { axisHalfLength, positionsBox, MIN_HALF_LENGTH } from "../src/axes.ts";
+import { axisHalfLength, positionsBox, modelBounds, MIN_HALF_LENGTH } from "../src/axes.ts";
 
 test("an empty scene gets the minimum length", () => {
   assert.equal(axisHalfLength([]), MIN_HALF_LENGTH);
@@ -27,4 +27,18 @@ test("non-finite boxes are ignored", () => {
 test("positionsBox", () => {
   assert.deepEqual(positionsBox([1, 2, 3, -1, 5, 0]), [-1, 2, 0, 1, 5, 3]);
   assert.equal(positionsBox([]), null);
+});
+
+test("the model box is the core bounds, which still cover hidden bodies", () => {
+  // Hidden bodies leave no edge positions, but the bounds stay: the axes keep their length.
+  const bounds = [0, 0, 0, 400, 50, 50];
+  assert.deepEqual(modelBounds(bounds, []), bounds);
+  assert.equal(axisHalfLength([modelBounds(bounds, [])]), axisHalfLength([bounds]));
+  assert.ok(axisHalfLength([modelBounds(bounds, [])]) > 400);
+});
+
+test("without usable bounds the edge positions give the box", () => {
+  assert.deepEqual(modelBounds(undefined, [1, 2, 3, -1, 5, 0]), [-1, 2, 0, 1, 5, 3]);
+  assert.deepEqual(modelBounds([NaN, 0, 0, 1, 1, 1], [0, 0, 0, 2, 2, 2]), [0, 0, 0, 2, 2, 2]);
+  assert.equal(modelBounds(undefined, []), null);
 });

@@ -10,7 +10,7 @@ export const AXIS_MARGIN = 1.25;
 /** A box as [xmin, ymin, zmin, xmax, ymax, zmax]. */
 export type Box6 = readonly number[];
 
-/** Half-length of the origin axes for the visible content: past the largest extent of all boxes (taken together with the origin). */
+/** Half-length of the origin axes for the whole project's content (hidden bodies included): past the largest extent of all boxes (taken together with the origin). */
 export function axisHalfLength(boxes: readonly Box6[]): number {
   const lo = [0, 0, 0];
   const hi = [0, 0, 0];
@@ -37,4 +37,10 @@ export function positionsBox(p: ArrayLike<number>): Box6 | null {
     }
   }
   return b;
+}
+
+/** The box of the whole model: the core's bounds when they are a usable box, else the box of the edge positions. */
+export function modelBounds(bounds: readonly number[] | undefined, edgePositions: ArrayLike<number>): Box6 | null {
+  if (bounds && bounds.length >= 6 && bounds.every((v) => Number.isFinite(v))) return bounds;
+  return positionsBox(edgePositions);
 }

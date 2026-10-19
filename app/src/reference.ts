@@ -6,7 +6,7 @@ import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeome
 import type { Viewport } from "./viewport";
 import { holeAxisPoints } from "./holepoints.ts";
 import { mouthPoints, snapCentres } from "./placepick";
-import { AXIS_COLORS, axisHalfLength, positionsBox, type Box6 } from "./axes";
+import { AXIS_COLORS, axisHalfLength, modelBounds, type Box6 } from "./axes";
 
 const AXES = [
   { name: "X axis", dir: new THREE.Vector3(1, 0, 0), color: AXIS_COLORS.x },
@@ -86,7 +86,7 @@ export class ReferenceView {
     this.origin.scale.setScalar(scale);
   }
 
-  /** Axis length follows everything visible: the shown model (committed or preview, hidden bodies left out) and sketch geometry. */
+  /** Axis length follows the whole project: the model's bounds (committed or preview, hidden bodies included, so hiding never shrinks the axes) and sketch geometry. */
   private refreshLength() {
     const data = this.viewport.meshData;
     const extras: Box3Holder[] = [];
@@ -99,8 +99,8 @@ export class ReferenceView {
       box.makeEmpty().setFromObject(o);
       if (!box.isEmpty()) boxes.push([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z]);
     }
-    // The mesh's edge list only holds visible solids, so it is the visible extent; its own bounds still cover a mesh with no edges.
-    const modelBox = data ? (positionsBox(data.edgePositions) ?? (data.edges.length === 0 ? data.bounds : null)) : null;
+    // The mesh bounds come from the core and cover every body; hiding only filters what is drawn.
+    const modelBox = data ? modelBounds(data.bounds, data.edgePositions) : null;
     if (modelBox) boxes.push(modelBox);
     const key = data;
     const half = axisHalfLength(boxes);

@@ -8,6 +8,7 @@ import { SketchMode } from "./sketch";
 import { SketchBar } from "./sketchbar";
 import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
+import { fitStripCount, stripRoom } from "./stripfit";
 import { DimensionOverlay } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
 import { SETTING_ENTRIES, createSettingsWindow, onSettingsChange, openSettings, setHintsBinding, setKeysOpener, settingValue, settings } from "./settings";
@@ -244,6 +245,8 @@ document.addEventListener("pointerdown", (e) => {
 const drawer = $("drawer");
 function toggleDrawer(open = drawer.hidden, usableOnly?: boolean) {
   drawer.hidden = !open;
+  document.documentElement.style.setProperty("--leftw", open ? "492px" : "212px"); // the tool form and the measurement card sit beside the list and the drawer
+  renderToolbar(); // the strip's room depends on the drawer
   $("drawerbtn").setAttribute("aria-expanded", String(open));
   if (usableOnly !== undefined) {
     ($("drawerusable") as HTMLInputElement).checked = usableOnly;
@@ -258,7 +261,17 @@ $("drawerusable").addEventListener("change", (e) => drawer.classList.toggle("usa
 
 /** Strip order: the tool a drag runs first, then the tool groups' order. */
 const GROUP_ORDER = TOOL_GROUPS.flatMap((g) => g.tools);
-const STRIP_MAX = 7;
+
+/** Room for the context strip: between the left side (body list, open drawer with its handle) and the right side (nav cube and view controls). */
+function stripWidthAvailable(): { width: number; centre: number } {
+  const vw = document.documentElement.clientWidth;
+  const left = drawer.hidden ? LEFT_RESERVE_PX : DRAWER_RESERVE_PX;
+  const cube = $("navcube").getBoundingClientRect();
+  const right = cube.width > 0 ? vw - cube.left + 12 : 160;
+  return stripRoom(vw, left, right);
+}
+const DRAWER_RESERVE_PX = 532; // list, drawer and its handle
+const LEFT_RESERVE_PX = 240;
 
 let toolbarKey = "";
 
@@ -267,9 +280,14 @@ function renderToolbar() {
   const usable = usableTools();
   const active = dragToolFor(currentSels)?.id;
   const helperKey = helperSignature();
-  const key = `${usable.map((t) => t.id).join(",")}|${active}|${currentSels.length}|${helperKey}`;
+  const room = stripWidthAvailable();
+  const available = Math.round(room.width);
+  const centre = Math.round(room.centre);
+  const key = `${usable.map((t) => t.id).join(",")}|${active}|${currentSels.length}|${helperKey}|${available}|${centre}`;
   if (key === toolbarKey) return; // unchanged: keep the buttons (avoids flicker as the core's replies arrive)
   toolbarKey = key;
+  toolbar.style.maxWidth = `${available}px`;
+  toolbar.style.left = `${centre}px`;
   const helpers = selectionHelpers();
   if (usable.length === 0 && helpers.length === 0) {
     const hint = document.createElement("span");
@@ -285,25 +303,35 @@ function renderToolbar() {
   }
   const rank = (t: ToolInfo) => (t.id === active ? -1 : GROUP_ORDER.includes(t.id) ? GROUP_ORDER.indexOf(t.id) : GROUP_ORDER.length);
   const ordered = [...usable].sort((a, b) => rank(a) - rank(b));
-  const shown = ordered.slice(0, STRIP_MAX);
   const more = document.createElement("button");
-  more.append(uiIcon("more"), ordered.length > STRIP_MAX ? `${ordered.length - STRIP_MAX} more` : "All tools");
   more.className = "more";
   more.title = "Open the tool drawer, showing the tools that work now (T)";
   more.addEventListener("click", () => toggleDrawer(true, true));
-  toolbar.replaceChildren(
-    ...shown.map((tool) => {
-      const button = document.createElement("button");
-      button.append(toolIcon(tool.id, tool.label), tool.label);
-      button.title = toolTooltip(tool);
-      button.className = tool.id === active ? "active" : "";
-      button.addEventListener("click", () => armTool(tool, "strip"));
-      return button;
-    }),
-    ...helpers,
-    more,
-  );
+  const buttons = ordered.map((tool) => {
+    const button = document.createElement("button");
+    button.append(toolIcon(tool.id, tool.label), tool.label);
+    button.title = toolTooltip(tool);
+    button.className = tool.id === active ? "active" : "";
+    button.addEventListener("click", () => armTool(tool, "strip"));
+    return button;
+  });
+  const setMore = (hidden: number) => {
+    more.replaceChildren(uiIcon("more"), hidden > 0 ? `${hidden} more` : "All tools");
+  };
+  // Measure pass: lay everything out, read the widths, then keep only the tools that fit in the available width.
+  setMore(ordered.length);
+  toolbar.replaceChildren(...buttons, ...helpers, more);
+  const gap = parseFloat(getComputedStyle(toolbar).columnGap) || 6;
+  const style = getComputedStyle(toolbar);
+  const chrome = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2;
+  const widths = buttons.map((b) => b.getBoundingClientRect().width);
+  const helperWidth = helpers.reduce((sum, h, i) => sum + h.getBoundingClientRect().width + (i ? gap : 0), 0);
+  const count = fitStripCount({ tools: widths, helpers: helperWidth, more: more.getBoundingClientRect().width, gap, chrome }, available);
+  for (const b of buttons.slice(count)) b.remove();
+  setMore(ordered.length - count);
 }
+
+window.addEventListener("resize", () => renderToolbar());
 
 /** Which selection helper buttons apply to the current selection (also the toolbar cache key). */
 function helperSignature(): string {
@@ -885,6 +913,7 @@ const bodyList = new BodyList($("bodylist"), {
     editPrimitive(id);
   },
 }, $("bodycount"));
+bodyList.setBodies([], new Set()); // the list is always shown; before a model exists it says so
 
 // Keyboard shortcuts: one router applies the policy in keys.ts (engagement, blur, repeat, entry, sketch) and runs these.
 const keys = new KeyRouter({

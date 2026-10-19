@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep } from "../src/manipulator.ts";
+import { Manipulator, linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep } from "../src/manipulator.ts";
 
 const h = { value: 10, scale: 1, min: 1 };
 
@@ -108,4 +108,31 @@ test("nothing usable typed gives no travel, and entry keys build the text", () =
   assert.deepEqual(typedStep("25", false, "Backspace"), { text: "2", negative: false });
   assert.equal(typedStep(null, false, "Backspace"), null);
   assert.equal(typedStep(null, false, "Tab"), null);
+});
+
+test("typing a handle value changes nothing until Enter applies it", () => {
+  const info = { param: "w", value: 10, scale: 1, min: 1, kind: "resize", direction: [1, 0, 0], anchor: [0, 0, 0] };
+  const m = Object.create(Manipulator.prototype);
+  const seen = [];
+  m.onDrag = (param, value, phase) => seen.push([param, value, phase]);
+  m.dom = { style: {} };
+  m.active = { item: { info, travel: 0 }, travel0: 0, moved: false, typed: null, negative: false, x: 0, y: 0 };
+  assert.equal(m.key({ key: "5" }), true);
+  assert.equal(m.key({ key: "0" }), true);
+  assert.deepEqual(seen, []); // nothing applied while typing
+  assert.equal(m.active.item.travel, 0);
+  m.key({ key: "Enter" });
+  assert.deepEqual(seen, [["w", 50, "move"], ["w", 50, "end"]]);
+});
+
+test("Escape while typing a handle value restores the start without applying", () => {
+  const info = { param: "w", value: 10, scale: 1, min: 1, kind: "resize", direction: [1, 0, 0], anchor: [0, 0, 0] };
+  const m = Object.create(Manipulator.prototype);
+  const seen = [];
+  m.onDrag = (param, value, phase) => seen.push(phase);
+  m.dom = { style: {} };
+  m.active = { item: { info, travel: 0 }, travel0: 0, moved: false, typed: null, negative: false, x: 0, y: 0 };
+  m.key({ key: "5" });
+  m.key({ key: "Escape" });
+  assert.deepEqual(seen, []);
 });

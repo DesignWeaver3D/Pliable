@@ -16,7 +16,6 @@ export interface DimensionEditorHost {
   committed(reply: unknown, summary: string): void;
 }
 
-const PREVIEW_DELAY_MS = 90;
 
 const HINTS: Record<string, string> = {
   face_distance: "The face you clicked last moves; the other stays. Use the arrows to swap.",
@@ -110,7 +109,8 @@ export class DimensionEditor {
     this.host.overlay.editing = index;
     this.host.container.append(box);
     this.say(state, edit.blocked ?? HINTS[edit.kind] ?? "", !!edit.blocked);
-    input.addEventListener("input", () => this.schedule(state, PREVIEW_DELAY_MS));
+    // Typing only checks the text; the value is applied on Enter (the swap button still previews at once).
+    input.addEventListener("input", () => this.check(state));
     input.addEventListener("keydown", (e) => {
       e.stopPropagation(); // typing here is never a viewport shortcut
       if (e.key === "Enter") {
@@ -163,6 +163,12 @@ export class DimensionEditor {
     s.input.style.borderColor = error ? "#ff4d4d" : "#ff8a1f";
     s.input.style.color = error ? "#ff6b6b" : "#ff8a1f";
     s.input.setAttribute("aria-invalid", error ? "true" : "false");
+  }
+
+  private check(s: Open) {
+    const blank = s.input.value.trim() === "";
+    const ok = blank || parseValue(s.input.value) !== null;
+    this.say(s, ok ? (HINTS[s.edit.kind] ?? "") : "Enter a number", !ok);
   }
 
   private schedule(s: Open, delay: number) {

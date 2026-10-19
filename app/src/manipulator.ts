@@ -374,6 +374,12 @@ export class Manipulator {
     const a = this.active;
     if (!a || a.item.info.toggle) return false;
     if (e.key === "Enter") {
+      // The typed value is applied only now; while typing, only the label shows it and the shape stays put.
+      const travel = a.typed === null ? null : typedTravel(a.item.info, a.typed, a.negative);
+      if (travel !== null) {
+        a.moved = true;
+        this.setTravel(a, travel);
+      }
       this.finish();
       return true;
     }
@@ -385,11 +391,6 @@ export class Manipulator {
     if (!step) return false;
     a.typed = step.text;
     a.negative = step.negative;
-    const travel = typedTravel(a.item.info, a.typed, a.negative);
-    if (travel !== null) {
-      a.moved = true;
-      this.setTravel(a, travel);
-    }
     return true;
   }
 
