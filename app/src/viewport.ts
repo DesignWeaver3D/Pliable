@@ -386,7 +386,7 @@ export class Viewport {
       this.box = null;
       const direction = hit && this.dragDirection(hit);
       // Dragging the selected face or edge starts its tool instead of orbiting.
-      const additive = e.ctrlKey || e.metaKey;
+      const additive = e.ctrlKey || e.metaKey || e.shiftKey;
       if (hit && direction && !additive) {
         // Pressing on an item selects it and starts its tool drag in one motion.
         if (!this.isSelected(hit)) {
@@ -474,7 +474,7 @@ export class Viewport {
           this.onCentreDrag(c.face, this.centreOffset(e, c), "end");
           down = null;
         } else {
-          this.clickSelect({ kind: "face", id: c.face }, e.ctrlKey || e.metaKey);
+          this.clickSelect({ kind: "face", id: c.face }, e.ctrlKey || e.metaKey || e.shiftKey);
           down = null;
         }
         return;
@@ -513,7 +513,7 @@ export class Viewport {
       }
       // A click, not the end of an orbit/pan drag.
       if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4 && e.button === 0) {
-        this.clickSelect(this.pickCycling(e), e.ctrlKey || e.metaKey);
+        this.clickSelect(this.pickCycling(e), e.ctrlKey || e.metaKey || e.shiftKey);
       }
       down = null;
     });

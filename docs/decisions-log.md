@@ -62,3 +62,5 @@ Decisions made without the owner or by the owner, grouped by topic. Each says wh
 - Autosave: per-instance folder with a heartbeat lock, dead after 30 s or when the pid is gone, at most 5 old sessions, a restore deletes its source, newer formats are never offered or deleted, `PLIABLE_DATA` overrides the folder.
 - The alpha notice lives in `notice.json` with `NOTICE_EPOCH` in `notice.py`; bump it only when the risks change materially.
 - Packaged builds serve HTTP on 127.0.0.1 only; the launcher exits 20 s after the last tab closes.
+
+- Shift+click in the 3D view adds to or removes from the selection exactly like Ctrl+click (the sketch already did this), so it has one clear meaning; double-click on an edge selects only the tangent-continuous chain and Ctrl+double-click adds it.
