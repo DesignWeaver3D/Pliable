@@ -6,7 +6,12 @@ Branches: work on `dev`; `rebuild` is the release candidate; `main` holds the MV
 
 ## Resume note
 
-Nothing half-done. Take the first open row below whose status is not Done or Parked. Rows marked "needs owner" wait for a `docs/questions.md` answer; build them with the stated default if the session is unattended.
+Parallel wave stopped at the usage limit (2026-10-18). Work sits on unmerged agent branches in `C:\dev\pliable-wt\<name>`; merge in the order kernel, selection, sketch, shell, running core tests, `npm test`, `tsc` and the build after each.
+- **selection** (done, 222 core / 29 node tests): S51 see-through faces, S50 chips (off by default, All/None, Parallel, Symmetric), S48 interim hole centres. Not hand-checked: All/None, Symmetric chip, snap. Expect conflicts in `index.html`, `reference.ts`.
+- **shell** (done, 35 node tests): S53 any modifier mix, S54 dimensions with extension lines and leaders, S55 hint line and tips. Not hand-checked: tooltips, dialog checkbox, search entries. The M key is hard-coded in `viewport.ts` (cannot be rebound).
+- **kernel** (partly done; committed: array the chosen body S49, Center between faces needs one side face S52). Uncommitted in the worktree: S36 stretch spike (`stretch.py`, `test_stretch.py`, edit to `tools.py`), untested. S47 core half not started.
+- **sketch** (partly done; committed: one Sketch On Face button with visible automatic constraints, axes and vertices projected into a sketch, i.e. S43 and most of S45). Uncommitted: `unwrap.py` and `test_unwrap.py` changes toward S46. Free-drag fix, S44 not done.
+Next: review the uncommitted work in kernel and sketch (run its tests; commit if green), merge, then assign S60-S63 and the leftovers.
 
 ## Open sessions
 
@@ -31,6 +36,10 @@ Nothing half-done. Take the first open row below whose status is not Done or Par
 | S54 | Measure | True dimensions (extension lines, dimension line, arrowheads) for lengths and distances, and leaders (text with a line pointing at a feature) for radii and holes. Today they are plain labels | Done |
 | S55 | Discovery | Make hidden modes discoverable, starting with the measure pick (M during a drag) and see-through: one hint line at the bottom of the view, tooltips with shortcuts, searchable names for hidden modes, a dismissible first-use hint (`docs/research/interaction-patterns.md`) | Done |
 | S56 | Measure | Edit displayed dimensions in place (hole diameter, fillet radius, edge length, face-to-face distance, face angle; one undo step; red reason when impossible). Research done; discuss with the owner, then scope a build | Planned, needs owner |
+| S60 | Bugs | Owner checklist, edit faces: Push/pull on a hole wall does nothing; rename Delete face to Defeature, make it work on non-circular features and give a reason when it fails; align_face is greyed out and unexplained (make it reachable with a tooltip or park it); draft does not work | Each works in a hand test or fails with a clear message | Planned |
+| S61 | Bugs | Export: STL/OBJ/3MF is not in the interface (add buttons or palette entries and check Ctrl+K lists them); Export STEP asks for no name, type or destination (use the browser save dialog where available); Open STEP does not warn that it replaces the model and offers no add to the current session (merge with Combine STEP into one Import choice) | Export and import behave as described | Planned |
+| S62 | Bugs | Selection: Edge loops and All edges give the same result, so Edge loops should select only the perimeter loop (or be renamed); Ctrl+double-click on an edge behaves unexpectedly and the double-click chain sometimes adds non-tangent edges; Shift+click creates chips with no obvious next step; small faces and edges are hard to pick | Hand test of each | Planned |
+| S63 | Bugs | Measurement panel and leaders sometimes stop updating after other tools until the tab is reloaded: reproduce, then fix. Also check why the page shows "core stopped" and does not reconnect after a dropped connection (owner's 5180 session, 2026-10-18; the core was still running) | Repro found and fixed, or parked with notes | Planned |
 
 ## Done, awaiting owner review
 
