@@ -43,6 +43,7 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 | `edge_chain` | `edge` id | `{edges: [ids]}`: the edge and every edge joined to it through smooth vertices (a rim or outline) |
 | `edge_selection` | `mode`: `face_edges` or `face_loops` with `face`; `shared_loop` with `first` and `second` edge ids | `{edges}` (all edges of the face; the loop of a face both edges border) or `{loops}` (one id list per boundary loop, outer first) |
 | `available_tools` | `selection` | `{tools: [id]}` tools usable with that selection |
+| `dimension_edit` | `selection`, `dimension`, `value`, `commit`, `flip?` | the same mesh reply as `tool_preview` / `tool_commit`: sets an editable dimension (see `edit` below) through the matching tool; `commit` false is the live preview, true is one undo step; an impossible edit is an error reply with a one-line reason |
 | `measure` | `selection` | `{items: [Measured], summary: [Row]}` measurements of the selection (one kind of item at a time) |
 | `tool_handles` | `tool`, `selection`, `params` | `{handles: [Handle], startsFrom}`: the on-screen manipulators for those values (see Handles); empty for a tool without any |
 | `tool_preview` | `tool`, `selection`, `params` | mesh (document unchanged), with `handles` for the previewed values |
@@ -68,6 +69,8 @@ Previews may use a faster, slightly less exact algorithm than commits. The front
 ```
 
 `title` is the geometry type (Line, Circle, Arc, Ellipse, Plane, Cylinder, Cone, Sphere, Torus, Fillet, Vertex); rows depend on it (`core/src/pliable/measure.py`). `anchor` is a point on the item for placing a label. The summary has the count, totals (length or area) and, for exactly two items, their distance and the angle between them when both define a direction (lines, planes). Unknown ids give an error reply, as does a mix of kinds.
+
+Each dimension in `dimensions` carries either `edit: {kind, value, canFlip, blocked?}` or `editNote`. `kind` is one of `hole_diameter`, `fillet_radius`, `edge_length`, `face_distance`, `hole_distance`, `face_angle` (the `dimension` of a `dimension_edit`); `value` is the current number; `canFlip` says which face or hole moves can be swapped (`flip` in the request; the default mover is the last selected item, or the far end of an edge); `blocked` is why an edit would fail (the field shows it in red). `editNote` is the tooltip for a dimension that cannot be edited. A single flat, nearly upright face also gets a `tag` dimension `∠n°` (draft angle about Z).
 
 A face or circular edge that belongs to a round hole (plain, counterbore, countersink, blind or through) also carries `hole`: `{kind, faces, rimEdges, entry, end, centre, direction, diameter, depth, through, bottom, tipAngle, stages, passLength}`. `entry` is on the axis at the opening, `direction` runs into the material, `depth` is to the end of the main bore, `stages` lists counterbores (`diameter`, `depth`) and countersinks (`diameter`, `angle`, `depth`), `passLength` is the depth that means "through". Non-round cuts (rectangles, slots, partial rounds) have none; they are pockets. The description comes from `core/src/pliable/holes.py`.
 

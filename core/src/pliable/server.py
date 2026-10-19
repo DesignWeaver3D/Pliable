@@ -22,7 +22,7 @@ from websockets.http11 import Response
 
 from . import __version__, sketch, unwrap
 from . import bodies as body_ids
-from . import recipes
+from . import dimedit, recipes
 from OCP.BRep import BRep_Builder
 from OCP.TopoDS import TopoDS_Compound
 from . import notice
@@ -145,7 +145,10 @@ class Session:
         if kind == "measure":
             topology = self._require_document().current
             try:
-                return measure(topology, Selection.from_json(request.get("selection")))
+                selection = Selection.from_json(request.get("selection"))
+                result = measure(topology, selection)
+                dimedit.annotate(topology, selection, result)
+                return result
             except KeyError as e:
                 raise RequestError(e.args[0]) from e
         if kind == "combine_step":
@@ -239,6 +242,8 @@ class Session:
             return self._sketch_project(request)
         if kind == "sketch_regions":
             return self._sketch_regions(request)
+        if kind == "dimension_edit":
+            return self._dimension_edit(request)
         if kind in ("tool_preview", "tool_commit"):
             return self._run_tool(request, commit=kind == "tool_commit")
         if kind in ("undo", "redo"):
@@ -403,6 +408,16 @@ class Session:
             self._autosave()
         handles = [] if commit else recipes.transform_handles(tool.handle_list(topology, Selection(), values), recipe)
         return self._mesh_reply(target, timings, preview=not commit, selection=Selection(bodies=[body_id]).to_json(), handles=handles)
+
+    def _dimension_edit(self, request: dict) -> bytes:
+        """Set a displayed dimension to a typed value through the matching tool; `commit` false is the live preview."""
+        topology = self._require_document().current
+        try:
+            value = float(request["value"])
+            tool, selection, params = dimedit.resolve(topology, Selection.from_json(request.get("selection")), str(request.get("dimension")), value, bool(request.get("flip")))
+        except (KeyError, TypeError, ValueError) as e:
+            raise RequestError(f"Malformed dimension edit: {e!r}") from e
+        return self._run_tool({"tool": tool, "selection": selection, "params": params}, commit=bool(request.get("commit")))
 
     def _run_tool(self, request: dict, commit: bool) -> bytes:
         document = self._require_document()
