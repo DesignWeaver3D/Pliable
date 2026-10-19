@@ -1,4 +1,5 @@
 /** Navigation cube: a small CSS 3D cube that mirrors the camera; clicking a face looks at the model from that side. */
+import { AXIS_COLORS } from "./axes";
 import type { Viewport } from "./viewport";
 
 const CUBE_PX = 64; // edge length of the cube
@@ -38,6 +39,7 @@ export class NavCube {
       el.addEventListener("click", () => viewport.setView(face.view));
       this.cube.append(el);
     }
+    this.addOriginEdges();
     scene.append(this.cube);
     const home = document.createElement("button");
     home.textContent = "Iso (0)";
@@ -46,6 +48,29 @@ export class NavCube {
     this.projectionButton.addEventListener("click", () => this.toggleProjection());
     host.append(scene, home, this.projectionButton);
     this.updateProjectionLabel();
+  }
+
+  /**
+   * The three cube edges that meet at the model's origin corner (the corner at -X, -Y, -Z, where the positive axes
+   * leave it), coloured like the origin axes. The cube's own frame is CSS: x = world X, y(down) = world -Z, z = world -Y.
+   */
+  private addOriginEdges() {
+    const half = CUBE_PX / 2;
+    const edges: { color: number; move: string; turn: string }[] = [
+      { color: AXIS_COLORS.x, move: `translate3d(0, ${half}px, ${half}px)`, turn: "" },
+      { color: AXIS_COLORS.y, move: `translate3d(${-half}px, ${half}px, 0)`, turn: "rotateY(90deg)" },
+      { color: AXIS_COLORS.z, move: `translate3d(${-half}px, 0, ${half}px)`, turn: "rotateZ(90deg)" },
+    ];
+    for (const e of edges) {
+      // Two crossed strips make the edge visible from either side.
+      for (const roll of ["", "rotateX(90deg)"]) {
+        const bar = document.createElement("div");
+        bar.className = "navcube-edge";
+        bar.style.cssText = `position:absolute;left:0;top:${half - 2}px;width:${CUBE_PX}px;height:4px;pointer-events:none;background:#${e.color.toString(16).padStart(6, "0")}`;
+        bar.style.transform = `${e.move} ${e.turn} ${roll}`;
+        this.cube.append(bar);
+      }
+    }
   }
 
   toggleProjection() {
