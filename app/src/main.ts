@@ -567,6 +567,12 @@ viewport.onCentreDrag = async (face, offset, phase) => {
   }
 };
 viewport.onEyedropCancel = () => cancelEyedrop();
+viewport.onFaceBody = (id) => {
+  const picked: Sel[] = [{ kind: "body", id }];
+  viewport.selectItems(picked);
+  setSelection(picked);
+  status.textContent = "Whole body selected by double-click on a face (the same as its row in the body list)";
+};
 viewport.onEdgeLoop = async (edgeId, additive) => {
   try {
     // The chain follows tangent continuity only (a rim, a smooth outline); Ctrl adds it to the selection.
