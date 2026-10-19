@@ -402,6 +402,7 @@ def test_primitive_move_arrows_point_the_positive_way_and_resize_grips_are_marke
         for param, i in (("x", 0), ("y", 1), ("z", 2)):
             h = moves[param]
             assert h["direction"][i] == 1.0 and h["scale"] == 1.0 and h["value"] == (5, 6, 7)[i]
+            assert h["reach"] > 0  # the object's size, so the view can grow the arrow with it
         assert all(h["kind"] == "resize" for h in handles if h["kind"] != "move")
 
 

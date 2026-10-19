@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { Manipulator, linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep } from "../src/manipulator.ts";
+import { Manipulator, linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep, moveArmPx, pickScore, MOVE_MIN_PX } from "../src/manipulator.ts";
 
 const h = { value: 10, scale: 1, min: 1 };
 
@@ -135,4 +135,19 @@ test("Escape while typing a handle value restores the start without applying", (
   m.key({ key: "5" });
   m.key({ key: "Escape" });
   assert.deepEqual(seen, []);
+});
+
+test("a move arrow is at least 80 px long and grows with the object", () => {
+  assert.ok(MOVE_MIN_PX >= 80);
+  assert.equal(moveArmPx(0), MOVE_MIN_PX);
+  assert.equal(moveArmPx(100), MOVE_MIN_PX);
+  assert.equal(moveArmPx(400), 200);
+  assert.ok(moveArmPx(100000) <= 260);
+});
+
+test("a move arrowhead beats a resize grip under the same pixel, but its start does not", () => {
+  // Same pixel distance 5: the head of the arrow wins, the grip wins over the arrow's start at the origin.
+  assert.ok(pickScore(5, "move", 1) < pickScore(5, "resize", 0));
+  assert.ok(pickScore(5, "move", 0) >= pickScore(5, "resize", 0));
+  assert.ok(pickScore(5, "arrow", 0) < pickScore(5, "arrow", 0.5));
 });

@@ -141,6 +141,9 @@ class Handle:
     # size), and, for an axis handle, the other end of the line the view draws from there to the anchor.
     shown: float | None = None
     axis_from: tuple[float, float, float] | None = None
+    # A move arrow's object size (model units): the view draws the arrow at least a fixed number of pixels long and
+    # longer when the object looks bigger than that.
+    reach: float = 0.0
 
     def to_json(self, value: float, values: dict | None = None) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
@@ -158,6 +161,7 @@ class Handle:
             "toggle": self.toggle,
             "kind": "toggle" if self.toggle else self.kind,
             "unit": self.unit,
+            "reach": self.reach,
             "value": value,
             "links": [{"param": name, "scale": scale, "value": (values or {}).get(name, 0.0)} for name, scale in self.links if values is None or name in values],
         }
