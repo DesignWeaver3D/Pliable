@@ -169,12 +169,12 @@ class DeleteFace(Tool):
     """Remove faces and heal: the neighbours are extended until they meet."""
 
     id = "delete_face"
-    label = "Delete face"
-    description = "Removes the selected faces and heals the gap by extending the neighbouring faces. Select one or more faces."
+    label = "Defeature"
+    description = "Removes a feature (a pocket, boss, hole, slot or round) by deleting its faces and extending the neighbouring faces to close the gap. Select one or more faces of the feature; if the faces cannot be closed over, it says why."
     accepts = Accepts(faces=(1, None))
 
     def run(self, topology, selection, values, preview):
-        return _defeature(topology, selection, "delete these faces")
+        return _defeature(topology, selection, "defeature these faces")
 
 
 @register
@@ -199,7 +199,15 @@ def _defeature(topology, selection, what: str) -> OpResult:
     operation.Build()
     if not operation.IsDone() or operation.Shape().IsNull():
         raise OperationError(f"Could not {what}: the neighbouring faces cannot be extended to close the gap")
-    return finish(operation.Shape())
+    from .topology import Topology
+
+    result = operation.Shape()
+    if abs(_volume(result) - _volume(topology.shape)) < 1e-9 and Topology(result).face_count == topology.face_count:
+        raise OperationError(
+            f"Could not {what}: nothing changed because the neighbouring faces do not close over this face. "
+            "Select a feature such as a pocket, boss, hole or round, not an outside wall of the body"
+        )
+    return finish(result)
 
 
 @register
@@ -863,11 +871,21 @@ class Draft(_PlanarFace):
         for i in selection.faces:
             maker.Add(topology.face(i), direction, math.radians(values["angle"]), neutral)
             if not maker.AddDone():
-                raise OperationError("Could not draft face (it may be parallel to the pull direction)")
-        maker.Build()
+                raise OperationError(
+                    "Could not draft that face: draft tilts side walls, so a face facing along the pull direction "
+                    "(a top or bottom) or a face that is not flat cannot be drafted. Pick a side wall, or change the pull direction"
+                )
+        hint = "; try a smaller angle, or select every wall of the feature together (walls that meet the drafted face must tilt with it)"
+        try:
+            maker.Build()
+        except Exception:
+            raise OperationError("Could not draft these faces at this angle" + hint) from None
         if not maker.IsDone() or maker.Shape().IsNull():
-            raise OperationError("Could not draft these faces at this angle")
-        return finish(maker.Shape())
+            raise OperationError("Could not draft these faces at this angle" + hint)
+        try:
+            return finish(maker.Shape())
+        except OperationError:
+            raise OperationError("Drafting these faces would make the solid invalid" + hint) from None
 
 
 @register
@@ -876,7 +894,7 @@ class AlignFace(_PlanarFace):
 
     id = "align_face"
     label = "Align face"
-    description = "Moves the first selected flat face until it is flush with the second. Select two parallel flat faces, the one to move first."
+    description = "Moves the first selected flat face until it is flush with the second, plus an optional offset. Needs exactly two parallel flat faces selected, the one to move first; it stays unavailable until both are selected."
     accepts = Accepts(faces=(2, 2))
     params = [Param("offset", "length")]
 
