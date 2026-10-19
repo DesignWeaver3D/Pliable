@@ -23,3 +23,9 @@ test("the Tools button uses the left-sidebar icon: a frame, a divider and a fill
   assert.match(inner, /<path d="M10 4\.5v15"\/>/);
   assert.match(inner, /fill="currentColor"/);
 });
+
+test("the view controls have drawn icons, and axes is drawn with three axis lines", async () => {
+  const { UI_ICONS, allUiIconNames } = await import("../src/icons.ts");
+  for (const name of ["axes", "iso", "perspective", "orthographic"]) assert.ok(allUiIconNames().includes(name), name);
+  assert.equal((UI_ICONS.axes.match(/<path/g) ?? []).length, 3);
+});

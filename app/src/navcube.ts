@@ -1,5 +1,6 @@
 /** Navigation cube: a small CSS 3D cube that mirrors the camera; clicking a face looks at the model from that side. */
 import { AXIS_COLORS } from "./axes";
+import { uiIcon } from "./icons";
 import type { Viewport } from "./viewport";
 
 const CUBE_PX = 64; // edge length of the cube
@@ -44,7 +45,8 @@ export class NavCube {
     this.addOriginEdges();
     scene.append(this.cube);
     const home = document.createElement("button");
-    home.textContent = "Iso (0)";
+    home.id = "isoview";
+    home.append(uiIcon("iso"));
     home.title = "Isometric view (0)";
     home.addEventListener("click", () => viewport.setView("iso"));
     this.projectionButton.addEventListener("click", () => this.toggleProjection());
@@ -83,8 +85,9 @@ export class NavCube {
   }
 
   private updateProjectionLabel() {
-    this.projectionButton.textContent = this.viewport.orthographic ? "Orthographic" : "Perspective";
-    this.projectionButton.title = "Toggle perspective / orthographic (P)";
+    const ortho = this.viewport.orthographic;
+    this.projectionButton.replaceChildren(uiIcon(ortho ? "orthographic" : "perspective"));
+    this.projectionButton.title = `${ortho ? "Orthographic" : "Perspective"} view: click to switch to ${ortho ? "perspective" : "orthographic"} (P)`;
   }
 
   /** Called every frame. */
