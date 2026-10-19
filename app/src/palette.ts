@@ -1,26 +1,20 @@
 // Command search: a permanent field in the top bar (Ctrl+K or / focuses it) with a results list under it. Type to filter, arrows to move, Enter to run, Escape to close.
 
+import { loadRecents, pushRecent, saveRecents, searchItems, SCOPES, parseQuery, type Scope } from "./search";
+
 export interface Command {
   label: string;
   /** Tooltip for the row (what the command does). */
   title?: string;
   /** Extra text shown on the right (e.g. what selection a tool needs). */
   hint?: string;
+  /** Which prefix group the command belongs to (t: s: b: v: f:). */
+  scope?: Scope;
+  /** Extra search words (other names for the command). */
+  keywords?: string[];
   /** Disabled commands are listed but cannot run. */
   enabled: boolean;
   run: () => void;
-}
-
-/** Subsequence match, so "fc" finds "Fillet/Chamfer". */
-function matches(label: string, query: string): boolean {
-  const text = label.toLowerCase();
-  let at = 0;
-  for (const ch of query.toLowerCase()) {
-    at = text.indexOf(ch, at);
-    if (at < 0) return false;
-    at++;
-  }
-  return true;
 }
 
 const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
@@ -31,6 +25,7 @@ export class Palette {
   private list = document.getElementById("palette-list")!;
   private shown: Command[] = [];
   private active = 0;
+  private recents = loadRecents();
 
   constructor(private getCommands: () => Command[]) {
     this.input.addEventListener("input", () => this.render());
@@ -75,36 +70,69 @@ export class Palette {
   }
 
   private render() {
-    const query = this.input.value.trim();
-    this.shown = this.getCommands()
-      .filter((c) => matches(c.label, query))
-      .sort((a, b) => Number(b.enabled) - Number(a.enabled)); // stable: usable commands first
+    const raw = this.input.value;
+    const { scope, text } = parseQuery(raw);
+    const found = searchItems(this.getCommands(), raw, this.recents);
+    // Usable commands first, keeping the ranking inside each group.
+    this.shown = [...found.filter((c) => c.enabled), ...found.filter((c) => !c.enabled)];
     this.active = Math.min(this.active, Math.max(this.shown.length - 1, 0));
-    this.list.replaceChildren(
-      ...this.shown.map((command, i) => {
-        const row = document.createElement("div");
-        row.className = "row" + (i === this.active ? " active" : "") + (command.enabled ? "" : " disabled");
-        const label = document.createElement("span");
-        label.textContent = command.label;
-        if (command.title) row.title = command.title;
-        const hint = document.createElement("span");
-        hint.className = "hint";
-        hint.textContent = command.hint ?? "";
-        row.append(label, hint);
-        row.addEventListener("click", () => this.run(command));
-        return row;
-      }),
-    );
+    const children: HTMLElement[] = [];
+    if (!raw.trim()) {
+      const help = document.createElement("div");
+      help.className = "scopes";
+      help.append("Type to search, or start with ");
+      for (const s of SCOPES) {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.textContent = `${s.prefix}:`;
+        chip.title = `Only ${s.name}`;
+        chip.onpointerdown = (e) => e.preventDefault(); // keep the field focused
+        chip.onclick = () => {
+          this.input.value = `${s.prefix}:`;
+          this.active = 0;
+          this.render();
+          this.input.focus();
+        };
+        help.append(chip, ` ${s.name}  `);
+      }
+      children.push(help);
+    } else if (scope && !text) {
+      const name = SCOPES.find((s) => s.scope === scope)!.name;
+      const head = document.createElement("div");
+      head.className = "scopes";
+      head.textContent = `Showing ${name} only`;
+      children.push(head);
+    }
+    const recentCount = !raw.trim() ? this.shown.filter((c) => this.recents.includes(c.label)).length : 0;
+    this.shown.forEach((command, i) => {
+      if (recentCount && i === 0) children.push(Object.assign(document.createElement("div"), { className: "group", textContent: "Recent" }));
+      if (recentCount && i === recentCount) children.push(Object.assign(document.createElement("div"), { className: "group", textContent: "All commands" }));
+      const row = document.createElement("div");
+      row.className = "row" + (i === this.active ? " active" : "") + (command.enabled ? "" : " disabled");
+      const label = document.createElement("span");
+      label.textContent = command.label;
+      if (command.title) row.title = command.title;
+      const hint = document.createElement("span");
+      hint.className = "hint";
+      hint.textContent = command.hint ?? "";
+      row.append(label, hint);
+      row.addEventListener("click", () => this.run(command));
+      children.push(row);
+    });
     if (this.shown.length === 0) {
       const empty = document.createElement("div");
-      empty.className = "row disabled";
-      empty.textContent = "No matching commands";
-      this.list.replaceChildren(empty);
+      empty.className = "row disabled empty";
+      empty.textContent = raw.trim() ? `Nothing matches "${raw.trim()}". Try another word, or clear the field to see recent commands.` : "No commands";
+      children.push(empty);
     }
+    this.list.replaceChildren(...children);
+    this.list.querySelector(".row.active")?.scrollIntoView({ block: "nearest" });
   }
 
   private run(command: Command) {
     if (!command.enabled) return;
+    this.recents = pushRecent(this.recents, command.label);
+    saveRecents(this.recents);
     this.input.value = "";
     this.close();
     command.run();
