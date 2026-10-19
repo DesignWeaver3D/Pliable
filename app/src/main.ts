@@ -964,14 +964,22 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-const importMode = $("combinemode") as HTMLSelectElement;
-$("open").addEventListener("click", () => fileInput.click());
+// Import adds the file as a body and keeps the session; "Open as new model" starts again from the file.
+let importAsNew = false;
+$("open").addEventListener("click", () => {
+  importAsNew = false;
+  fileInput.click();
+});
+$("openasnew").addEventListener("click", () => {
+  importAsNew = true;
+  fileInput.click();
+});
 fileInput.addEventListener("change", async () => {
   const file = fileInput.files?.[0];
   fileInput.value = "";
   if (!file) return;
-  const mode = importMode.value;
-  if (mode === "replace" && !undoButton.disabled && !window.confirm("Importing replaces the current model and its undo history. Continue? (Choose add as body to keep the model.)")) return;
+  const mode = importAsNew ? "replace" : "add";
+  if (mode === "replace" && !undoButton.disabled && !window.confirm("Opening a file as a new model replaces the current model and its undo history. Continue? (Use Import STEP to add the file to the current model instead.)")) return;
   try {
     status.textContent = `importing ${file.name}...`;
     const data = toBase64(new Uint8Array(await file.arrayBuffer()));
@@ -1024,7 +1032,15 @@ exportMesh.addEventListener("change", () => {
   if (format) void exportAs("export_mesh", format, { format });
 });
 
-select.addEventListener("change", () => load(select.value).catch((e) => (status.textContent = e.message)));
+let loadedSample = select.value;
+select.addEventListener("change", () => {
+  if (!undoButton.disabled && !window.confirm("Opening a sample model replaces the current model and its undo history. Continue?")) {
+    select.value = loadedSample;
+    return;
+  }
+  loadedSample = select.value;
+  load(select.value).catch((e) => (status.textContent = e.message));
+});
 
 function commands(): Command[] {
   const usable = new Set(usableTools().map((t) => t.id));
@@ -1038,12 +1054,12 @@ function commands(): Command[] {
     run: () => armTool(tool, "search"),
   }));
   const demos: Command[] = [...select.options].map((option) => ({
-    label: `Open demo: ${option.value}`,
+    label: `Open sample model: ${option.value}`,
     scope: "file" as const,
     enabled: true,
     run: () => {
       select.value = option.value;
-      load(option.value).catch((e) => (status.textContent = e.message));
+      select.dispatchEvent(new Event("change")); // same confirm as the menu
     },
   }));
   const settingCommands: Command[] = SETTING_ENTRIES.map((entry) => ({
@@ -1076,7 +1092,8 @@ function commands(): Command[] {
     { label: "Keyboard shortcuts (see and change them; hotkeys)", scope: "view", keywords: ["keys", "bindings", "rebind"], hint: keys.keymap.hint("ui.shortcuts"), enabled: true, run: () => keys.openSettings() },
     { label: hintLine.prefs.on ? "Turn hints off" : "Turn hints on", scope: "view", keywords: ["tips", "help line"], enabled: true, run: () => hintLine.setOn(!hintLine.prefs.on) },
     { label: "Getting started (the first things to try)", scope: "view", keywords: ["help", "tutorial", "learn", "tips", "intro", "basics"], enabled: true, run: () => hintLine.showGettingStarted() },
-    { label: "Import STEP file", scope: "file", enabled: true, run: () => fileInput.click() },
+    { label: "Import STEP file (add to model)", scope: "file", enabled: true, run: () => $("open").click() },
+    { label: "Open STEP file as new model", scope: "file", enabled: true, run: () => $("openasnew").click() },
     { label: "Export STEP file", scope: "file", enabled: true, run: () => exportAs("export_step", "step") },
     ...["stl", "obj", "3mf"].map((format) => ({
       label: `Export ${format.toUpperCase()} mesh (lossy)`,

@@ -9,7 +9,7 @@
       html, body { margin: 0; height: 100%; background: #1b1d22; color: #ddd; font: 13px system-ui, sans-serif; overflow: hidden; }
       #viewport { position: fixed; inset: 0; }
       #viewport.engaged::after { content: ""; position: absolute; inset: 0; border: 2px solid rgba(255, 138, 31, 0.45); pointer-events: none; z-index: 1; }
-      #bar { position: fixed; top: 0; left: 0; right: 0; box-sizing: border-box; padding: 6px 52px 6px 8px; display: flex; gap: 6px; align-items: center; z-index: 3; flex-wrap: nowrap; background: rgba(27, 29, 34, 0.88); border-bottom: 1px solid #2d3038; white-space: nowrap; }
+      #bar { position: fixed; top: 0; left: 0; right: 0; box-sizing: border-box; padding: 6px 52px 6px 8px; display: flex; gap: 6px; align-items: center; z-index: 7; flex-wrap: nowrap; background: rgba(27, 29, 34, 0.88); border-bottom: 1px solid #2d3038; white-space: nowrap; }
       .icon { display: inline-flex; vertical-align: middle; margin-right: 5px; }
       #bar button .icon, #tools button .icon { margin-right: 5px; }
       #bar .searchicon { margin: 0 -26px 0 6px; color: #888; pointer-events: none; z-index: 1; }
@@ -173,19 +173,8 @@
         <div id="menupanel" hidden>
           <button id="gettingstartedbtn" title="Show the six interactions worth knowing first">Getting started</button>
           <div class="group">Model</div>
-      <select id="demo" title="Open one of the built-in demo models">
-        <option>bracket</option>
-        <option>block</option>
-        <option>perforated_plate</option>
-      </select>
-      <select id="combinemode" title="What Import STEP does with the file: replace the model, or add the file to the current one">
-        <option value="replace">replace model</option>
-        <option value="add">add as body</option>
-        <option value="union">union</option>
-        <option value="cut">cut</option>
-        <option value="intersect">intersect</option>
-      </select>
-      <button id="open" title="Import a STEP file from your computer using the choice on the left. Replace model starts again from the file; the other choices add it to the current model at its own origin">Import STEP</button>
+      <button id="open" title="Add a STEP file to the model you have now, as a new body at its own origin. Nothing in the current model changes. Use the Combine bodies tool to join, subtract or intersect bodies afterwards">Import STEP (add to model)</button>
+      <button id="openasnew" title="Close the current model and start a new one from a STEP file">Open STEP as new model</button>
       <input id="file" type="file" accept=".step,.stp" hidden />
       <button id="export" title="Save the current model as a STEP file">Export STEP</button>
       <select id="exportmesh" title="Save the model as a mesh file (lossy: curved faces become triangles)">
@@ -195,6 +184,12 @@
         <option value="3mf">3MF</option>
       </select>
       <button id="info" title="Show the size, face and edge counts and any problems found in the model">Model info</button>
+          <div class="group">Sample models (replace the current model)</div>
+      <select id="demo" title="Replace the current model with a built-in sample model for trying the tools">
+        <option>bracket</option>
+        <option>block</option>
+        <option>perforated_plate</option>
+      </select>
         </div>
       </div>
       <div id="viewbuttons" hidden>
