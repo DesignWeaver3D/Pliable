@@ -210,3 +210,54 @@ def test_body_handles_respect_the_selected_solid():
     whole = session.handle({"type": "tool_handles", "tool": "move_body", "params": {}})["handles"]
     one_face = session.handle({"type": "tool_handles", "tool": "move_body", "selection": {"faces": [0]}, "params": {}})["handles"]
     assert whole and one_face
+
+
+# ---- Push/pull ----------------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("demo", ["block", "bracket", "perforated_plate"])
+def test_push_pull_handle_sits_on_every_flat_face_and_points_along_its_normal(demo):
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+    from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+    from OCP.gp import gp_Pnt
+
+    from pliable.ops import planar_normal
+
+    session = Session()
+    session.handle({"type": "open_demo", "name": demo})
+    topology = session.document.current
+    checked = 0
+    for face_id, face in topology.faces():
+        normal = planar_normal(face)
+        if normal is None:
+            continue
+        (h,) = session.handle({"type": "tool_handles", "tool": "push_pull", "selection": {"faces": [face_id]}, "params": {}})["handles"]
+        assert h["direction"] == pytest.approx([normal.X(), normal.Y(), normal.Z()])
+        vertex = BRepBuilderAPI_MakeVertex(gp_Pnt(*h["anchor"])).Vertex()
+        assert BRepExtrema_DistShapeShape(face, vertex).Value() < 1e-6, (demo, face_id)
+        checked += 1
+    assert checked >= 6
+
+
+def test_push_pull_handle_follows_the_distance_and_skips_hole_walls():
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    flat = {"faces": [next(i for i, f in session.document.current.faces() if __import__("pliable.ops", fromlist=["x"]).planar_normal(f) is not None)]}
+    h0 = session.handle({"type": "tool_handles", "tool": "push_pull", "selection": flat, "params": {}})["handles"][0]
+    h5 = session.handle({"type": "tool_handles", "tool": "push_pull", "selection": flat, "params": {"distance": 5}})["handles"][0]
+    assert h5["anchor"] == pytest.approx([a + 5 * d for a, d in zip(h0["anchor"], h0["direction"])])
+    assert h5["value"] == 5
+
+    session.handle({"type": "open_demo", "name": "bracket"})
+    wall = next(i for i, f in session.document.current.faces() if _is_whole_cylinder(f))
+    assert session.handle({"type": "tool_handles", "tool": "push_pull", "selection": {"faces": [wall]}, "params": {}})["handles"] == []
+
+
+def _is_whole_cylinder(face):
+    from pliable.tools import _all_round_walls
+
+    class _T:
+        def face(self, i):
+            return face
+
+    return _all_round_walls(_T(), Selection(faces=[0]))

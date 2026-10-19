@@ -59,7 +59,7 @@ interface Active {
 
 export class Manipulator {
   /** Called with the new parameter value while a handle is dragged, then once more with phase "end". */
-  onDrag: (param: string, value: number, phase: "move" | "end") => void = () => {};
+  onDrag: (param: string, value: number, phase: "move" | "end", x: number, y: number) => void = () => {};
 
   private readonly root = new THREE.Group();
   private items: Item[] = [];
@@ -249,15 +249,15 @@ export class Manipulator {
     a.moved = true;
     const value = handleValue(a.item.info, this.travelAt(a, e));
     a.item.travel = travelFor(a.item.info, value);
-    this.onDrag(a.item.info.param, Math.round(value * 1000) / 1000, "move");
+    this.onDrag(a.item.info.param, Math.round(value * 1000) / 1000, "move", e.clientX, e.clientY);
   }
 
-  up(_e: PointerEvent) {
+  up(e: PointerEvent) {
     const a = this.active;
     if (!a) return;
     this.active = null;
     this.dom.style.cursor = "";
     const { info, travel } = a.item;
-    if (a.moved) this.onDrag(info.param, Math.round(handleValue(info, travel) * 1000) / 1000, "end");
+    if (a.moved) this.onDrag(info.param, Math.round(handleValue(info, travel) * 1000) / 1000, "end", e.clientX, e.clientY);
   }
 }

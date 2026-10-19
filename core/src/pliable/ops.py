@@ -15,7 +15,7 @@ from OCP.BRepOffset import BRepOffset_MakeOffset, BRepOffset_Skin
 from OCP.GeomAbs import GeomAbs_Arc
 from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.GeomAbs import GeomAbs_Plane
-from OCP.gp import gp_Dir, gp_Vec
+from OCP.gp import gp_Dir, gp_Pnt, gp_Vec
 from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
 from OCP.TopAbs import TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID
 from OCP.TopExp import TopExp_Explorer
@@ -39,6 +39,33 @@ def planar_normal(face: TopoDS_Face) -> gp_Dir | None:
     if face.Orientation() == TopAbs_REVERSED:
         normal = normal.Reversed()
     return normal
+
+
+def face_handle_point(face: TopoDS_Face) -> gp_Pnt:
+    """A point on a planar face to hang an on-screen handle on: the centre of mass when it lies on the face, else the
+    middle of the face's longest boundary edge (an L-shaped or ring-shaped face has its centre of mass off the face)."""
+    from OCP.BRepClass import BRepClass_FaceClassifier
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+    from OCP.TopAbs import TopAbs_IN
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopAbs import TopAbs_EDGE
+    from OCP.TopoDS import TopoDS
+
+    props = GProp_GProps()
+    BRepGProp.SurfaceProperties_s(face, props)
+    centre = props.CentreOfMass()
+    if BRepClass_FaceClassifier(face, centre, 1e-6).State() == TopAbs_IN:
+        return centre
+    best, best_length = centre, -1.0
+    explorer = TopExp_Explorer(face, TopAbs_EDGE)
+    while explorer.More():
+        edge_props = GProp_GProps()
+        BRepGProp.LinearProperties_s(explorer.Current(), edge_props)
+        if edge_props.Mass() > best_length:
+            best, best_length = edge_props.CentreOfMass(), edge_props.Mass()
+        explorer.Next()
+    return best
 
 
 @dataclass

@@ -24,7 +24,7 @@ Writing a tool:
 
 from dataclasses import dataclass, field
 
-from .ops import MIN_DISTANCE, OperationError, OpResult, fillet_chamfer, planar_normal, push_pull, unify_result
+from .ops import MIN_DISTANCE, OperationError, OpResult, face_handle_point, fillet_chamfer, planar_normal, push_pull, unify_result
 from .topology import Topology
 
 def _occt_reason(error: Exception) -> str:
@@ -270,6 +270,17 @@ class PushPull(Tool):
     accepts = Accepts(faces=(1, None))
     params = [Param("distance", "length", drag=True)]
     related = ("coplanar", "parallel")
+
+    def handles(self, topology, selection, values):
+        if _all_round_walls(topology, selection):
+            return []  # a hole wall is dragged along its radius in the view
+        face = topology.face(selection.faces[0])
+        normal = planar_normal(face)
+        if normal is None:
+            return []
+        point = face_handle_point(face)
+        distance = values["distance"]
+        return [Handle("distance", "Push/pull", (point.X() + normal.X() * distance, point.Y() + normal.Y() * distance, point.Z() + normal.Z() * distance), (normal.X(), normal.Y(), normal.Z()))]
 
     def applies(self, topology, selection):
         if _all_round_walls(topology, selection):

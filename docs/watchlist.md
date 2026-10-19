@@ -96,3 +96,6 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Distances between two items put the dimension line on the upper side of the screen-space line; no way to drag it to another side yet.
 - Measurement panel and leaders sometimes stopped updating until reload (owner report): not reproduced in a push/pull then select run. Defensive fixes in `main.ts`/`dimensions.ts`: measure replies no longer gated on a possibly stale `dragSels`, a failed update is logged once and cannot stop later frame updates, one undrawable dimension is skipped. If it recurs, check the console for "update failed".
 - After a dropped connection the page resumes the dropped connection's model only if the same core process is still running (one parked document, not per tab); a restarted core falls back to the restore prompt or the demo.
+- Push/pull handle sits at the face centre of mass, or the middle of the longest boundary edge when that point is off the face (`face_handle_point` in `ops.py`); a hole wall has no arrow and still drags along its radius.
+- Handle grab range is 9 px and arm length 34 px (`manipulator.ts`, named constants); only the handle under the pointer shows its label.
+- Rotate body handle slides along the ring tangent while dragged and snaps back onto the ring after each preview; the axis (0, 1, 2) is typed.

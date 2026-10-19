@@ -14,7 +14,7 @@ import { HintLine } from "./hints";
 import { Palette, type Command } from "./palette";
 import { toolIcon, uiIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
-import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type ToolInfo } from "./tools";
+import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type HandleInfo, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
 import { usage, type Surface } from "./usage";
 import { filterHidden, solidsOf } from "./visibility";
@@ -175,6 +175,23 @@ function dragToolFor(sels: Sel[]): ToolInfo | null {
   return candidates.find((t) => t.id === armedTool) ?? candidates[0] ?? null;
 }
 
+/** With a selection and no form open, the tool a drag would run shows its handles (push/pull's arrow on the face). */
+async function refreshSelectionHandles() {
+  const sels = currentSels;
+  const tool = sels.length && !toolPanel.isOpen ? dragToolFor(sels) : null;
+  if (!tool?.hasHandles || tool.startsFrom === "tool") {
+    viewport.manipulator.clear();
+    return;
+  }
+  try {
+    const reply = await core.request<{ handles: HandleInfo[] }>("tool_handles", { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params: {} });
+    if (currentSels !== sels || toolPanel.isOpen) return; // the selection changed or a form took over while waiting
+    viewport.manipulator.setHandles(reply.handles);
+  } catch {
+    viewport.manipulator.clear(); // handles are a convenience; the plain drag still works
+  }
+}
+
 const toolbar = $("tools");
 
 // Icons beside the labels of the top bar buttons (the label stays: icons alone are not self-explanatory).
@@ -325,12 +342,14 @@ function armTool(tool: ToolInfo, surface: Surface) {
   }
   usage.record(tool.id, "start", surface);
   armedTool = tool.id;
+  void refreshSelectionHandles();
   renderToolbar();
   if (!status.classList.contains("error")) status.textContent = `${tool.label}: drag the selection`;
 }
 
 function setSelection(sels: Sel[]) {
   if (toolPanel.isOpen) toolPanel.close(false); // the selection changed under an open tool form
+  viewport.manipulator.clear();
   currentSels = sels;
   refined = null;
   related = [];
@@ -352,6 +371,7 @@ function setSelection(sels: Sel[]) {
     if (currentSels !== sels) return; // the selection changed while waiting
     related = rulesReply.status === "fulfilled" ? rulesReply.value.rules : [];
     refined = availableReply.status === "fulfilled" ? availableReply.value.tools : null;
+    void refreshSelectionHandles();
     renderChips();
     renderToolbar();
     toolPanel.renderList();
@@ -1032,7 +1052,11 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
 });
 toolPanel.renderList();
 // A handle dragged in the view sets its parameter through the open form, so typed entry and the preview stay in step.
-viewport.manipulator.onDrag = (param, value) => toolPanel.setValues({ [param]: value });
+// With no form open (a selection waiting for its drag tool) the handle runs that tool's normal drag instead.
+viewport.manipulator.onDrag = (param, value, phase, x, y) => {
+  if (toolPanel.isOpen) toolPanel.setValues({ [param]: value });
+  else void viewport.onItemDrag(currentSels, value, phase, x, y);
+};
 
 new Palette(commands);
 renderToolbar();
