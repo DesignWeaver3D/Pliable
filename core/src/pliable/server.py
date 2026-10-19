@@ -227,7 +227,7 @@ class Session:
             return reply
         if kind == "sketch_solve":
             try:
-                result = sketch.solve(request["sketch"], request.get("drag"))
+                result = sketch.solve(request["sketch"], request.get("drag"), bool(request.get("detail")))
             except (KeyError, TypeError, ValueError) as e:
                 raise RequestError(f"Malformed sketch: {e!r}") from e
             return result

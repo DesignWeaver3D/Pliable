@@ -622,3 +622,32 @@ def test_projecting_onto_a_tilted_plane_gives_an_ellipse_for_a_circle():
     assert ellipses and ellipses[0]["minor"] == pytest.approx(5 * math.cos(math.radians(60)), rel=1e-6)
     major = {p["id"]: p for p in ref["points"]}
     assert math.dist((major[ellipses[0]["major"]]["u"], major[ellipses[0]["major"]]["v"]), (major[ellipses[0]["center"]]["u"], major[ellipses[0]["center"]]["v"])) == pytest.approx(5, rel=1e-6)
+
+
+def test_detail_blames_every_conflicting_constraint():
+    points, lines = rectangle()
+    constraints = [
+        {"id": 7, "type": "distance", "points": [1, 2], "value": 40},
+        {"id": 8, "type": "distance", "points": [1, 2], "value": 50},
+        {"id": 9, "type": "horizontal", "entity": 101},
+    ]
+    result = sketch.solve(sketch_of(points, lines, constraints), detail=True)
+    assert result["status"] == "failed"
+    assert set(result["conflicts"]) == {7, 8}  # the solver names one; removing either fixes it; the unrelated one is not blamed
+
+
+def test_detail_reports_how_free_each_point_is():
+    points, lines = rectangle()
+    constraints = [{"type": "horizontal", "entity": 101}, {"type": "vertical", "entity": 102}, {"type": "horizontal", "entity": 103}, {"type": "vertical", "entity": 104},
+                   {"type": "fixed", "point": 1}, {"type": "distance", "points": [1, 2], "value": 40}]
+    freedom = sketch.solve(sketch_of(points, lines, constraints), detail=True)["freedom"]
+    assert freedom[1] == 0 and freedom[2] == 0  # pinned corner and the corner on its horizontal at a set distance
+    assert freedom[3] == 1 and freedom[4] == 1  # still free in height only
+    assert "freedom" not in sketch.solve(sketch_of(points, lines, constraints))
+
+
+def test_freedom_of_a_point_on_a_fixed_circle_is_one():
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 5, "v": 0.1}]
+    entities = [{"id": 10, "type": "circle", "center": 1, "radius": 5}]
+    constraints = [{"type": "fixed", "point": 1}, {"type": "radius", "entity": 10, "value": 5}, {"type": "point_on", "point": 2, "entity": 10}]
+    assert sketch.solve(sketch_of(points, entities, constraints), detail=True)["freedom"] == {1: 0, 2: 1}

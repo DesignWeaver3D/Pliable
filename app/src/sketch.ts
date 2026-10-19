@@ -18,7 +18,7 @@ const AUTO_AXIS_DEG = 3; // a line drawn within this angle of horizontal/vertica
 const DRAG_START_PX = 3;
 const POINT_SIZE_PX = 8;
 const PREVIEW_DELAY_MS = 150;
-const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150 };
+const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
 type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "arc" | "ellipse" | "spline" | "trim" | "extend" | "triangle" | "pentagon" | "hexagon" | "octagon";
 /** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
@@ -62,6 +62,9 @@ interface SolveReply {
   failed: (number | null)[];
   points: { id: number; u: number; v: number }[];
   radii: Record<string, number>;
+  /** Only when nothing is being dragged. On success: directions each point can still move in. On failure: constraints to blame. */
+  freedom?: Record<string, number>;
+  conflicts?: number[];
 }
 
 type Drag = { point: number; u: number; v: number } | { points: { point: number; u: number; v: number }[] };
@@ -80,10 +83,13 @@ export class SketchMode {
   private drag: { id: number; startX: number; startY: number; moved: boolean; body?: { u: number; v: number; points: { id: number; u: number; v: number }[] } } | null = null;
   private dof: number | null = null;
   private failed = new Set<number>();
+  /** Directions each point can still move in (0 = placed by the constraints); empty until the first settled solve. */
+  private freedom = new Map<number, number>();
   private undoStack: string[] = [];
   private group = new THREE.Group();
   private normal = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.line, linewidth: 2, depthTest: false }));
   private construction = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.construction, linewidth: 2, depthTest: false }));
+  private placed = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.placed, linewidth: 2, depthTest: false }));
   private marked = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.selected, linewidth: 3, depthTest: false }));
   /** The model's principal axes as they project onto the sketch plane (red x, green y, blue z). */
   private axes = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ linewidth: 1, vertexColors: true, depthTest: false, transparent: true, opacity: 0.7 }));
@@ -104,8 +110,8 @@ export class SketchMode {
     panel: HTMLElement,
   ) {
     this.panel = panel;
-    for (const o of [this.normal, this.construction, this.points]) o.userData.extent = true; // counted by the origin axes' length
-    for (const o of [this.axes, this.normal, this.construction, this.marked, this.pending, this.points]) {
+    for (const o of [this.normal, this.placed, this.construction, this.points]) o.userData.extent = true; // counted by the origin axes' length
+    for (const o of [this.axes, this.normal, this.placed, this.construction, this.marked, this.pending, this.points]) {
       o.renderOrder = 5;
       o.frustumCulled = false;
       this.group.add(o);
@@ -135,6 +141,7 @@ export class SketchMode {
     this.chain = [];
     this.dof = null;
     this.failed.clear();
+    this.freedom.clear();
     this.undoStack = [];
     this.extrude = { distance: 10, mode: "join", symmetric: false, revolve: false, angle: 360, open: false };
     this.active = true;
@@ -722,7 +729,7 @@ export class SketchMode {
         this.queued = null;
         let reply: SolveReply;
         try {
-          reply = await this.core.request<SolveReply>("sketch_solve", { sketch: this.s, drag: job.drag });
+          reply = await this.core.request<SolveReply>("sketch_solve", { sketch: this.s, drag: job.drag, detail: !job.drag });
         } catch (e) {
           this.host.status((e as Error).message, true);
           ok = false;
@@ -737,9 +744,10 @@ export class SketchMode {
           for (const e of this.s.entities) if (e.type === "circle" && String(e.id) in reply.radii) e.radius = reply.radii[String(e.id)];
           this.dof = reply.dof;
           this.failed.clear();
+          if (reply.freedom) this.freedom = new Map(Object.entries(reply.freedom).map(([id, n]) => [Number(id), n]));
           ok = true;
         } else if (!job.drag) {
-          this.failed = new Set(reply.failed.filter((x): x is number => x !== null));
+          this.failed = new Set([...reply.failed, ...(reply.conflicts ?? [])].filter((x): x is number => x !== null));
           ok = false;
         }
         this.render();
@@ -885,7 +893,7 @@ export class SketchMode {
 
   private onFrame() {
     const size = this.viewport.renderer.getSize(new THREE.Vector2());
-    for (const l of [this.axes, this.normal, this.construction, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
+    for (const l of [this.axes, this.normal, this.placed, this.construction, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
   }
 
   private world(u: number, v: number): THREE.Vector3 {
@@ -912,16 +920,25 @@ export class SketchMode {
     return this.selection.some(same) || this.highlight.some(same) || (this.hover?.kind === sel.kind && this.hover.id === sel.id);
   }
 
+  /** Whether the constraints already place every point of the entity (drawn green, like a fully constrained shape). */
+  private isPlaced(e: M.SketchEntity): boolean {
+    if (!this.freedom.size || this.failed.size) return false;
+    const ids = M.entityPoints(e);
+    return ids.length > 0 && ids.every((id) => this.freedom.get(id) === 0);
+  }
+
   private render(panel = true) {
     if (!this.active) return;
     const normal: [number, number][][] = [];
     const marked: [number, number][][] = [];
     const guides: [number, number][][] = [];
-    for (const e of this.s.entities) (this.isMarked({ kind: "entity", id: e.id }) ? marked : e.construction ? guides : normal).push(M.polyline(this.s, e));
+    const placed: [number, number][][] = [];
+    for (const e of this.s.entities) (this.isMarked({ kind: "entity", id: e.id }) ? marked : e.construction ? guides : this.isPlaced(e) ? placed : normal).push(M.polyline(this.s, e));
     this.drawAxes();
     this.set(this.normal, this.segments(normal));
     this.set(this.construction, this.segments(guides));
     this.set(this.marked, this.segments(marked));
+    this.set(this.placed, this.segments(placed));
     this.set(this.pending, this.segments(this.pendingShapes()));
 
     const positions: number[] = [];
@@ -929,7 +946,7 @@ export class SketchMode {
     const color = new THREE.Color();
     for (const p of this.s.points) {
       positions.push(...this.world(p.u, p.v).toArray());
-      color.set(this.isMarked({ kind: "point", id: p.id }) ? COLORS.selected : this.cursor?.id === p.id ? COLORS.hover : p.fixed ? COLORS.construction : COLORS.line);
+      color.set(this.isMarked({ kind: "point", id: p.id }) ? COLORS.selected : this.cursor?.id === p.id ? COLORS.hover : p.fixed ? COLORS.construction : this.freedom.get(p.id) === 0 ? COLORS.placed : COLORS.line);
       colors.push(color.r, color.g, color.b);
     }
     this.points.geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
@@ -1046,7 +1063,7 @@ export class SketchMode {
     };
 
     const header = el("div", "title", "Sketch");
-    const status = el("div", "dof", this.failed.size ? `Conflict in constraints: ${[...this.failed].join(", ")}` : this.dof === null ? "" : this.dof === 0 ? "Fully constrained" : `${this.dof} degrees of freedom left`);
+    const status = el("div", "dof", this.failed.size ? `Conflict: ${this.s.constraints.filter((c) => this.failed.has(c.id)).map((c) => M.describeConstraint(this.s, c)).join("; ") || [...this.failed].join(", ")}. Remove one (red rows below)` : this.dof === null ? "" : this.dof === 0 ? "Fully constrained" : `${this.dof} degrees of freedom left`);
     if (this.failed.size) status.classList.add("bad");
 
     const tools = el("div", "row-buttons");

@@ -287,6 +287,14 @@ class _Solver:
             self._axes[key] = s.addLineSegment(a, b, 1)
         return self._axes[key]
 
+    def hold_axis(self, pid: int, axis: int) -> None:
+        """Hold one coordinate (0 = u, 1 = v) of a point where it is: it is put on a fixed line through it."""
+        s = self.system
+        u, v = self._coords(pid)
+        a = s.addPoint2dV(self.workplane, u, v, 1)
+        b = s.addPoint2dV(self.workplane, u if axis == 0 else u + 1, v + 1 if axis == 0 else v, 1)
+        s.addPointOnLine(self._point(pid), s.addLineSegment(a, b, 1), self.workplane, SOLVE_GROUP)
+
     def sketch_line(self, eid) -> dict:
         for e in self.sketch["entities"]:
             if e["id"] == eid and e["type"] == "line":
@@ -304,12 +312,12 @@ class _Solver:
         return {"status": "ok" if ok else "failed", "code": code, "dof": self.system.Dof if ok else None, "failed": failed, "points": points, "radii": radii}
 
 
-def solve(sketch: dict, drag: dict | None = None) -> dict:
-    """Solve the sketch's constraints. `drag` = {"point": id, "u", "v"} holds one point where the pointer is
-    (it is pinned there while everything else follows the constraints); {"points": [...]} holds several. On failure the points are unchanged."""
+def _solved(sketch: dict, drag: dict | None = None, skip: int | None = None) -> tuple[_Solver, dict]:
+    """A solver loaded with the sketch's constraints (all but `skip`) and the dragged points held, plus its result."""
     solver = _Solver(sketch)
     for c in sketch.get("constraints", []):
-        solver.add_constraint(c)
+        if skip is None or c.get("id") != skip:
+            solver.add_constraint(c)
     if drag:
         # one point, or several held together ({"points": [...]}, e.g. both ends of a line dragged by its body)
         for held in drag["points"] if "points" in drag else [drag]:
@@ -317,9 +325,56 @@ def solve(sketch: dict, drag: dict | None = None) -> dict:
             for k, key in enumerate(("u", "v")):
                 solver.system.getParam(solver.system.getEntityParam(entity, k)).val = held[key]
             solver.add_constraint({"type": "fixed", "point": held["point"]})
-    result = solver.solve()
+    return solver, solver.solve()
+
+
+def conflicting_constraints(sketch: dict) -> list[int]:
+    """Ids of the constraints whose removal, alone, lets a failing sketch solve: the ones to blame. The solver
+    itself names only the constraint it tripped over last, which may be an innocent one."""
+    blamed = []
+    for c in sketch.get("constraints", []):
+        if c.get("id") is not None and _solved(sketch, skip=c["id"])[1]["status"] == "ok":
+            blamed.append(c["id"])
+    return blamed
+
+
+def point_freedom(sketch: dict) -> dict[int, int]:
+    """How many directions (0, 1 or 2) each point can still move in. The solver reports a redundancy when a
+    point is held in a direction the constraints already fix, so holding the point one coordinate at a time, and
+    then both, shows which are free. 0 means the constraints already place it."""
+    freedom = {}
+    for p in sketch.get("points", []):
+        if p.get("fixed"):
+            freedom[p["id"]] = 0
+            continue
+
+        def holds(axes) -> bool:
+            solver = _Solver(sketch)
+            for c in sketch.get("constraints", []):
+                solver.add_constraint(c)
+            for axis in axes:
+                solver.hold_axis(p["id"], axis)
+            return solver.solve()["status"] == "ok"
+
+        free = [axis for axis in (0, 1) if holds([axis])]
+        freedom[p["id"]] = 1 if len(free) == 2 and not holds([0, 1]) else len(free)
+    return freedom
+
+
+def solve(sketch: dict, drag: dict | None = None, detail: bool = False) -> dict:
+    """Solve the sketch's constraints. `drag` = {"point": id, "u", "v"} holds one point where the pointer is
+    (it is pinned there while everything else follows the constraints); {"points": [...]} holds several. On failure the points are unchanged.
+
+    `detail` adds what the sketch editor shows when nothing is being dragged: on success `freedom` (point id ->
+    directions still free), on failure `conflicts` (constraint ids to blame)."""
+    result = _solved(sketch, drag)[1]
     if drag and result["status"] == "ok":
         _keep_unconnected(sketch, drag, result)
+    if detail and not drag:
+        if result["status"] == "ok":
+            result["freedom"] = point_freedom(sketch)
+        else:
+            result["conflicts"] = conflicting_constraints(sketch)
     return result
 
 
