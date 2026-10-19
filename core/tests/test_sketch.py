@@ -572,3 +572,53 @@ def test_project_reports_skipped_edges_and_keeps_every_vertex():
     side = session.handle({"type": "sketch_project", "plane": STANDARD_PLANES["XZ"]})
     assert side["skipped"]["tilted_circles"] > 0
     assert len(side["points"]) >= 8 and all(p["fixed"] for p in side["points"])
+
+
+def _ellipse_sketch(major=10.0, minor=5.0):
+    return {
+        "plane": sketch.STANDARD_PLANES["XY"],
+        "points": [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": major, "v": 0}],
+        "entities": [{"id": 3, "type": "ellipse", "center": 1, "major": 2, "minor": minor}],
+        "constraints": [],
+    }
+
+
+def test_an_ellipse_is_a_profile_and_its_points_take_constraints():
+    sk = _ellipse_sketch()
+    assert sketch.profile_face(sk).area == pytest.approx(math.pi * 50, rel=1e-6)
+    # the minor axis longer than the clicked one still gives the same ellipse turned a quarter
+    assert sketch.profile_face(_ellipse_sketch(5, 10)).area == pytest.approx(math.pi * 50, rel=1e-6)
+    sk["constraints"] = [{"id": 4, "type": "fixed", "point": 1}, {"id": 5, "type": "distance", "points": [1, 2], "value": 20}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok"
+    solved = sketch.apply_solution(sk, result)
+    assert sketch.profile_face(solved).area == pytest.approx(math.pi * 20 * 5, rel=1e-6)
+    with pytest.raises(sketch.SketchError):
+        sketch.solve({**sk, "constraints": [{"id": 6, "type": "radius", "entity": 3, "value": 2}]})
+
+
+def test_a_closed_spline_is_a_profile_and_dragging_its_point_moves_only_it():
+    sk = {
+        "plane": sketch.STANDARD_PLANES["XY"],
+        "points": [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 10, "v": 10}, {"id": 4, "u": 0, "v": 10}, {"id": 5, "u": 50, "v": 50}],
+        "entities": [{"id": 6, "type": "spline", "points": [1, 2, 3, 4], "closed": True}],
+        "constraints": [{"id": 7, "type": "horizontal", "points": [1, 2]}],
+    }
+    assert sketch.profile_face(sk).area > 80
+    moved = sketch.solve(sk, {"point": 3, "u": 12, "v": 11})
+    by_id = {p["id"]: p for p in moved["points"]}
+    assert by_id["3" if "3" in by_id else 3]["u"] == pytest.approx(12) and by_id[5]["u"] == pytest.approx(50)
+    open_spline = {**sk, "entities": [{"id": 6, "type": "spline", "points": [1, 2, 3]}]}
+    with pytest.raises(sketch.SketchError):
+        sketch.profile_face(open_spline)
+
+
+def test_projecting_onto_a_tilted_plane_gives_an_ellipse_for_a_circle():
+    from build123d import Cylinder
+
+    tilted = {"origin": [0, 0, 0], "normal": [0, math.sin(math.radians(60)), math.cos(math.radians(60))], "xdir": [1, 0, 0]}
+    ref = sketch.face_reference(Cylinder(5, 10).wrapped, tilted, project=True)
+    ellipses = [e for e in ref["entities"] if e["type"] == "ellipse"]
+    assert ellipses and ellipses[0]["minor"] == pytest.approx(5 * math.cos(math.radians(60)), rel=1e-6)
+    major = {p["id"]: p for p in ref["points"]}
+    assert math.dist((major[ellipses[0]["major"]]["u"], major[ellipses[0]["major"]]["v"]), (major[ellipses[0]["center"]]["u"], major[ellipses[0]["center"]]["v"])) == pytest.approx(5, rel=1e-6)
