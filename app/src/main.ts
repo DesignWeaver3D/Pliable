@@ -10,7 +10,7 @@ import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
-import { createSettingsWindow, onSettingsChange, setKeysOpener, settings } from "./settings";
+import { SETTING_ENTRIES, createSettingsWindow, onSettingsChange, openSettings, setHintsBinding, setKeysOpener, settingValue, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
 import { HintLine } from "./hints";
@@ -917,6 +917,7 @@ const keys = new KeyRouter({
 });
 syncSeeThrough();
 setKeysOpener(() => keys.openSettings());
+setHintsBinding({ get: () => hintLine.prefs.on, set: (on) => hintLine.setOn(on) });
 // Leaving with edits (undo steps) or an open sketch asks first; autosave still protects against crashes.
 window.addEventListener("beforeunload", (e) => {
   if (!undoButton.disabled || sketch.active) e.preventDefault();
@@ -1010,8 +1011,18 @@ function commands(): Command[] {
       load(option.value).catch((e) => (status.textContent = e.message));
     },
   }));
+  const settingCommands: Command[] = SETTING_ENTRIES.map((entry) => ({
+    label: `Setting: ${entry.label}`,
+    scope: "setting" as const,
+    keywords: entry.keywords,
+    hint: settingValue(entry.id),
+    title: "Open the settings window at this row",
+    enabled: true,
+    run: () => openSettings(entry.id),
+  }));
   return [
     ...toolCommands,
+    ...settingCommands,
     { label: "Undo", scope: "view", hint: keys.keymap.hint("history.undo"), enabled: !undoButton.disabled, run: () => history("undo") },
     { label: "Redo", scope: "view", hint: keys.keymap.hint("history.redo"), enabled: !redoButton.disabled, run: () => history("redo") },
     { label: "Hide body", scope: "body", hint: keys.keymap.hint("display.hide"), enabled: currentSels.length > 0, run: () => setVisibility("hide") },
@@ -1027,8 +1038,8 @@ function commands(): Command[] {
       enabled: true,
       run: () => (status.textContent = "Measure pick: start dragging a tool, then press M to pick geometry to measure against"),
     },
-    { label: "Keyboard shortcuts (see and change them; hotkeys)", scope: "setting", keywords: ["keys", "bindings", "rebind"], hint: keys.keymap.hint("ui.shortcuts"), enabled: true, run: () => keys.openSettings() },
-    { label: hintLine.prefs.on ? "Turn hints off" : "Turn hints on", scope: "setting", keywords: ["tips", "help line"], enabled: true, run: () => hintLine.setOn(!hintLine.prefs.on) },
+    { label: "Keyboard shortcuts (see and change them; hotkeys)", scope: "view", keywords: ["keys", "bindings", "rebind"], hint: keys.keymap.hint("ui.shortcuts"), enabled: true, run: () => keys.openSettings() },
+    { label: hintLine.prefs.on ? "Turn hints off" : "Turn hints on", scope: "view", keywords: ["tips", "help line"], enabled: true, run: () => hintLine.setOn(!hintLine.prefs.on) },
     { label: "Import STEP file", scope: "file", enabled: true, run: () => fileInput.click() },
     { label: "Export STEP file", scope: "file", enabled: true, run: () => exportAs("export_step", "step") },
     ...["stl", "obj", "3mf"].map((format) => ({

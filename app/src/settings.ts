@@ -49,6 +49,51 @@ export function setKeysOpener(fn: () => void) {
   openKeys = fn;
 }
 
+/** Hints on/off live in the hint module; main.ts connects them so the settings window can show the switch. */
+let hintsBinding: { get: () => boolean; set: (on: boolean) => void } | null = null;
+export function setHintsBinding(b: { get: () => boolean; set: (on: boolean) => void }) {
+  hintsBinding = b;
+}
+
+/** Every row of the settings window, for the command search. `id` is the row's data-setting value. */
+export const SETTING_ENTRIES: { id: string; label: string; keywords: string[] }[] = [
+  { id: "edgePickPx", label: "Edge pick range", keywords: ["select", "radius", "reach", "pixels"] },
+  { id: "vertexPickPx", label: "Point pick range", keywords: ["vertex", "hole centre", "snap", "radius", "pixels"] },
+  { id: "sharpAngle", label: "Sharp edge angle", keywords: ["crease", "select edges", "degrees"] },
+  { id: "boxKind", label: "Box selects", keywords: ["marquee", "rubber band", "drag box", "edges", "faces", "vertices"] },
+  { id: "seeThrough", label: "See-through", keywords: ["transparent", "x ray", "hidden edges"] },
+  { id: "seeThroughOpacity", label: "See-through opacity", keywords: ["transparency", "alpha", "faces"] },
+  { id: "hints", label: "Hints", keywords: ["tips", "help line", "learning", "turn off"] },
+  { id: "keys", label: "Keyboard shortcuts", keywords: ["hotkeys", "bindings", "rebind"] },
+];
+
+/** Current value text for a setting row, shown beside it in the search. */
+export function settingValue(id: string): string {
+  switch (id) {
+    case "edgePickPx":
+    case "vertexPickPx":
+      return `${settings[id]} px`;
+    case "sharpAngle":
+      return `${settings.sharpAngle}°`;
+    case "seeThroughOpacity":
+      return `${settings.seeThroughOpacity} %`;
+    case "seeThrough":
+      return settings.seeThrough ? "on" : "off";
+    case "boxKind":
+      return settings.boxKind;
+    case "hints":
+      return hintsBinding ? (hintsBinding.get() ? "on" : "off") : "";
+    default:
+      return "";
+  }
+}
+
+let showSettings: ((id?: string) => void) | null = null;
+/** Open the settings window and highlight one row (by SETTING_ENTRIES id). */
+export function openSettings(id?: string) {
+  showSettings?.(id);
+}
+
 /** A gear button that opens a small settings window inside `host`. */
 export function createSettingsWindow(host: HTMLElement) {
   const button = document.createElement("button");
@@ -61,6 +106,7 @@ export function createSettingsWindow(host: HTMLElement) {
   const slider = (label: string, key: "edgePickPx" | "vertexPickPx" | "sharpAngle" | "seeThroughOpacity", min: number, max: number, hint: string) => {
     const row = document.createElement("label");
     row.title = hint;
+    row.dataset.setting = key;
     const text = document.createElement("span");
     const input = document.createElement("input");
     input.type = "range";
@@ -103,6 +149,14 @@ export function createSettingsWindow(host: HTMLElement) {
   boxSelect.value = settings.boxKind;
   boxSelect.onchange = () => updateSettings({ boxKind: boxSelect.value as Settings["boxKind"] });
   boxRow.append(boxText, boxSelect);
+  const hintsRow = document.createElement("label");
+  hintsRow.title = "Show the key hint line and first-use tips at the bottom of the view";
+  const hintsCheck = document.createElement("input");
+  hintsCheck.type = "checkbox";
+  hintsCheck.checked = hintsBinding?.get() ?? true;
+  hintsCheck.title = hintsRow.title;
+  hintsCheck.onchange = () => hintsBinding?.set(hintsCheck.checked);
+  hintsRow.append(hintsCheck, " Hints and tips");
   const heading = document.createElement("b");
   heading.textContent = "Settings";
   const reset = document.createElement("button");
@@ -119,7 +173,17 @@ export function createSettingsWindow(host: HTMLElement) {
     panel.hidden = true;
     openKeys?.();
   };
-  const build = () => [
+  const build = () => {
+    seeThrough.dataset.setting = "seeThrough";
+    boxRow.dataset.setting = "boxKind";
+    hintsRow.dataset.setting = "hints";
+    keysButton.dataset.setting = "keys";
+    check.checked = settings.seeThrough;
+    boxSelect.value = settings.boxKind;
+    hintsCheck.checked = hintsBinding?.get() ?? true;
+    return rows();
+  };
+  const rows = () => [
     heading,
     slider("Edge pick range", "edgePickPx", 1, 14, "How close the pointer must be to an edge to pick it. Lower it to reach small faces."),
     slider("Point pick range", "vertexPickPx", 1, 16, "How close the pointer must be to a vertex or hole centre to pick it."),
@@ -127,11 +191,25 @@ export function createSettingsWindow(host: HTMLElement) {
     boxRow,
     seeThrough,
     slider("See-through opacity", "seeThroughOpacity", 0, 60, "How visible the faces stay while see-through is on. 0 is fully clear; higher shows the surface more."),
+    hintsRow,
     reset,
     keysButton,
   ];
   panel.append(...build());
-  button.onclick = () => (panel.hidden = !panel.hidden);
+  button.onclick = () => {
+    if (panel.hidden) panel.replaceChildren(...build());
+    panel.hidden = !panel.hidden;
+  };
+  showSettings = (id) => {
+    panel.replaceChildren(...build());
+    panel.hidden = false;
+    const row = id ? panel.querySelector<HTMLElement>(`[data-setting="${id}"]`) : null;
+    if (!row) return;
+    row.classList.add("found");
+    row.scrollIntoView({ block: "nearest" });
+    row.querySelector<HTMLElement>("input,select,button")?.focus({ preventScroll: true });
+    window.setTimeout(() => row.classList.remove("found"), 4000);
+  };
   host.append(button, panel);
   // Close on any press outside the window (capture phase, so the 3D view cannot swallow it).
   document.addEventListener(
