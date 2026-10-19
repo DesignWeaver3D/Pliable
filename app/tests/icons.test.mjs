@@ -32,7 +32,7 @@ test("the view controls have drawn icons, and axes is drawn with three axis line
 
 test("the tools handle candidates are drawn as valid, currentColor-based SVG", async () => {
   const { UI_ICONS, svgFor } = await import("../src/icons.ts");
-  for (const id of ["toolsPlain", "toolsCrossed", "toolsCrossedBold"]) {
+  for (const id of ["toolsHammer", "toolsBox"]) {
     assert.ok(UI_ICONS[id] && UI_ICONS[id].length > 0, id);
     const svg = svgFor(UI_ICONS[id], 24);
     assert.match(svg, /^<svg [^>]*viewBox="0 0 24 24"[^>]*stroke="currentColor"[\s\S]*<\/svg>$/);

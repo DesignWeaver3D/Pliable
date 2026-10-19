@@ -134,9 +134,8 @@ export const UI_ICONS: Record<string, string> = {
   export: '<path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M5 20h14"/>',
   home: '<path d="M4 12l8-7 8 7M6.5 10.5V20h11v-9.5"/>',
   measure: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>',
-  toolsPlain: '<path d="M9.2 2.5V7h5.6V2.5H17q1.5 0 1.5 2V8q0 2-2.5 3l-2.3 1v8a1.7 1.7 0 0 1-3.4 0v-8L8 11Q5.5 10 5.5 8V4.5q0-2 1.5-2z" transform="rotate(45 12 12)" fill="currentColor" fill-opacity=".22"/>',
-  toolsCrossed: '<path d="M9.2 2.5V7h5.6V2.5H17q1.5 0 1.5 2V8q0 2-2.5 3l-2.3 1v8a1.7 1.7 0 0 1-3.4 0v-8L8 11Q5.5 10 5.5 8V4.5q0-2 1.5-2z" transform="rotate(45 12 12)" fill="currentColor" fill-opacity=".22"/><path d="M5.5 5.5L10 10M14 14l1.5 1.5"/><path d="M16.2 13.3l5.2 5.2-2.9 2.9-5.2-5.2z" fill="currentColor" fill-opacity=".22"/>',
-  toolsCrossedBold: '<g stroke-width="2"><path d="M20.24 6.84A3.8 3.8 0 1 1 17.16 3.76"/><path d="M13.81 10.19L4.5 19.5"/><path d="M15.5 15.5L13.5 13.5M10.5 10.5L5.5 5.5"/><path d="M16.91 14.09l4.5 4.5-2.82 2.82-4.5-4.5z"/></g>',
+  toolsHammer: '<g stroke-width="2"><path d="M5 4h14v5.5h-5.5v10.5a1.5 1.5 0 0 1-3 0V9.5H5z" transform="rotate(-45 12 12)" fill="currentColor" fill-opacity=".22"/></g>',
+  toolsBox: '<g stroke-width="2"><rect x="3" y="9" width="18" height="11" rx="2" fill="currentColor" fill-opacity=".22"/><path d="M9 9V6.5A1.5 1.5 0 0 1 10.5 5h3A1.5 1.5 0 0 1 15 6.5V9M3 13.5h18"/><rect x="10.5" y="12" width="3" height="3.5" rx=".7" fill="currentColor"/></g>',
   keys: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 11h.01M11 11h.01M15 11h.01M8 14h8"/>',
 };
 
