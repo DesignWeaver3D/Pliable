@@ -30,7 +30,7 @@ from OCP.collections import List_TopoDS_Shape
 from OCP.gp import gp_Ax1, gp_Ax2, gp_Dir, gp_Pln, gp_Pnt, gp_Trsf, gp_Vec
 
 from .ops import edge_curve, edge_outward_normal, face_handle_point, MIN_DISTANCE, OperationError, OpResult, _boolean, _contains, planar_normal, push_pull, solids_of
-from .tools import Accepts, Handle, Param, Tool, get_tool, register
+from .tools import Accepts, Handle, Param, Tool, get_tool, register, round_handles
 
 TOL = 1e-6
 
@@ -742,10 +742,8 @@ class AddCylinder(Tool):
 
     def handles(self, topology, selection, values):
         x, y, z, d, h = (values[k] for k in ("x", "y", "z", "diameter", "height"))
-        r = d / 2
-        sides = [("(+X side)", (x + r, y, z + h / 2), (1, 0, 0)), ("(-X side)", (x - r, y, z + h / 2), (-1, 0, 0)), ("(+Y side)", (x, y + r, z + h / 2), (0, 1, 0)), ("(-Y side)", (x, y - r, z + h / 2), (0, -1, 0))]
         return [
-            *(Handle("diameter", f"Resize diameter {name}", at, direction, scale=2.0, min=MIN_DISTANCE, kind="resize") for name, at, direction in sides),
+            *round_handles("diameter", "Cylinder", (x, y, z + h / 2), (1, 0, 0), (0, 1, 0), d, min=MIN_DISTANCE),
             Handle("height", "Resize height (top end)", (x, y, z + h), (0, 0, 1), min=MIN_DISTANCE, kind="resize"),
             Handle("height", "Resize height (bottom end, moves the origin)", (x, y, z), (0, 0, -1), min=MIN_DISTANCE, kind="resize", links=(("z", -1.0),)),
             *_position_handles(values, max(d, h)),
@@ -1234,10 +1232,8 @@ class AddSphere(Tool):
 
     def handles(self, topology, selection, values):
         x, y, z, d = (values[k] for k in ("x", "y", "z", "diameter"))
-        r = d / 2
-        around = [("+X", (x + r, y, z), (1, 0, 0)), ("-X", (x - r, y, z), (-1, 0, 0)), ("+Y", (x, y + r, z), (0, 1, 0)), ("-Y", (x, y - r, z), (0, -1, 0)), ("top", (x, y, z + r), (0, 0, 1)), ("bottom", (x, y, z - r), (0, 0, -1))]
         return [
-            *(Handle("diameter", f"Resize diameter ({name})", at, direction, scale=2.0, min=MIN_DISTANCE, kind="resize") for name, at, direction in around),
+            *round_handles("diameter", "Sphere", (x, y, z), (1, 0, 0), (0, 1, 0), d, min=MIN_DISTANCE),
             *_position_handles(values, d),
         ]
 
@@ -1283,10 +1279,8 @@ class AddCone(Tool):
         x, y, z, bd, td, h = (values[k] for k in ("x", "y", "z", "bottom_diameter", "top_diameter", "height"))
         nudge = max(bd, h) * 0.06  # keeps the top-diameter handles off the height handle when the top is a point
         return [
-            Handle("bottom_diameter", "Resize bottom diameter (+X side)", (x + bd / 2, y, z), (1, 0, 0), scale=2.0, min=0.0, kind="resize"),
-            Handle("bottom_diameter", "Resize bottom diameter (-X side)", (x - bd / 2, y, z), (-1, 0, 0), scale=2.0, min=0.0, kind="resize"),
-            Handle("top_diameter", "Resize top diameter (+X side)", (x + td / 2 + nudge, y, z + h), (1, 0, 0), scale=2.0, min=0.0, kind="resize"),
-            Handle("top_diameter", "Resize top diameter (-X side)", (x - td / 2 - nudge, y, z + h), (-1, 0, 0), scale=2.0, min=0.0, kind="resize"),
+            *round_handles("bottom_diameter", "Bottom", (x, y, z), (1, 0, 0), (0, 1, 0), bd, min=0.0),
+            *round_handles("top_diameter", "Top", (x, y, z + h), (0, 1, 0), (1, 0, 0), td, offset=nudge, min=0.0),
             Handle("height", "Resize height (top end)", (x, y, z + h), (0, 0, 1), min=MIN_DISTANCE, kind="resize"),
             Handle("height", "Resize height (bottom end, moves the origin)", (x, y, z), (0, 0, -1), min=MIN_DISTANCE, kind="resize", links=(("z", -1.0),)),
             *_position_handles(values, max(bd, h)),
@@ -1326,10 +1320,8 @@ class AddTorus(Tool):
     def handles(self, topology, selection, values):
         x, y, z, major, minor = (values[k] for k in ("x", "y", "z", "major", "minor"))
         return [
-            Handle("major", "Resize ring diameter (+X side)", (x + major / 2, y, z), (1, 0, 0), scale=2.0, min=MIN_DISTANCE, kind="resize"),
-            Handle("major", "Resize ring diameter (-X side)", (x - major / 2, y, z), (-1, 0, 0), scale=2.0, min=MIN_DISTANCE, kind="resize"),
-            Handle("minor", "Resize tube diameter (top)", (x, y + major / 2, z + minor / 2), (0, 0, 1), scale=2.0, min=MIN_DISTANCE, kind="resize"),
-            Handle("minor", "Resize tube diameter (bottom)", (x, y + major / 2, z - minor / 2), (0, 0, -1), scale=2.0, min=MIN_DISTANCE, kind="resize"),
+            *round_handles("major", "Ring", (x, y, z), (1, 0, 0), (0, 1, 0), major, min=MIN_DISTANCE),
+            *round_handles("minor", "Tube", (x - major / 2, y, z), (0, 0, 1), (1, 0, 0), minor, min=MIN_DISTANCE),
             *_position_handles(values, major),
         ]
 

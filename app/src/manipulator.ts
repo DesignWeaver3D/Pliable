@@ -66,11 +66,11 @@ export function travelFor(h: Pick<HandleInfo, "value" | "scale">, value: number)
 /** The handle travel that a typed number asks for, or null while nothing usable is typed. A move arrow's number is the
  *  distance along its axis (negative goes backwards); any other handle's number is the parameter value itself (the size
  *  of a resize grip, a radius), with the handle's direction kept and the declared limits applied. */
-export function typedTravel(h: Pick<HandleInfo, "value" | "scale" | "min" | "kind"> & { max?: number | null }, text: string, negative: boolean): number | null {
+export function typedTravel(h: Pick<HandleInfo, "value" | "scale" | "min" | "kind"> & { factor?: number } & { max?: number | null }, text: string, negative: boolean): number | null {
   const n = text === "" || text === "." ? NaN : Number(text);
   if (!Number.isFinite(n)) return null;
   const signed = negative ? -n : n;
-  const raw = h.kind === "move" ? signed : travelFor(h, signed);
+  const raw = h.kind === "move" ? signed : travelFor(h, signed / (h.factor || 1));
   return travelFor(h, handleValue(h, raw));
 }
 
@@ -279,7 +279,8 @@ export class Manipulator {
       item.label.style.top = `${((1 - p.y) / 2) * rect.height}px`;
       const unit = info.unit === "Â°" || !info.unit ? info.unit : " " + info.unit;
       const typing = item === this.active?.item && this.active.typed !== null;
-      const shown = typing ? `${this.active!.negative ? "-" : ""}${this.active!.typed}|` : formatValue(value);
+      const symbol = info.symbol ?? "";
+      const shown = symbol + (typing ? `${this.active!.negative ? "-" : ""}${this.active!.typed}|` : formatValue(value * (info.factor || 1)));
       item.label.textContent = info.toggle ? info.label : `${info.label} ${shown}${unit}`;
       item.label.style.outline = typing ? "1px solid #ffb347" : "";
       item.label.style.fontWeight = hot ? "bold" : "normal";

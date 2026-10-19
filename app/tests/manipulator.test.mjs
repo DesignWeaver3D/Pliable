@@ -147,3 +147,11 @@ test("a move arrowhead beats a resize grip under the same pixel, but its start d
   assert.ok(pickScore(5, "move", 0) >= pickScore(5, "resize", 0));
   assert.ok(pickScore(5, "arrow", 0) < pickScore(5, "arrow", 0.5));
 });
+
+test("a radius handle on a diameter parameter types a radius, a diameter handle types the diameter", () => {
+  const radius = { value: 10, scale: 2, min: 0.001, kind: "resize", factor: 0.5 };
+  const diameter = { value: 10, scale: 2, min: 0.001, kind: "resize", factor: 1 };
+  // Typing 7 on the radius handle sets the parameter to 14; typing 7 on the diameter handle sets it to 7.
+  assert.equal(handleValue(radius, typedTravel(radius, "7", false)), 14);
+  assert.equal(handleValue(diameter, typedTravel(diameter, "7", false)), 7);
+});
