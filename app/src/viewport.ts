@@ -8,7 +8,8 @@ import type { CentreInfo, FaceRange, MeshData } from "./client";
 import { Manipulator } from "./manipulator";
 import { onSettingsChange, settings, updateSettings } from "./settings";
 
-export type Kind = "face" | "edge" | "vertex";
+/** A "body" selection is a whole solid (every face of the body), chosen from the body list. */
+export type Kind = "face" | "edge" | "vertex" | "body";
 export interface Sel {
   kind: Kind;
   id: number;
@@ -786,7 +787,30 @@ export class Viewport {
     if (!mark || !this.mesh || !this.data) return;
     mark.hide();
     if (!sel) return;
-    if (sel.kind === "face") {
+    if (sel.kind === "body") {
+      const faces = this.data.faces.filter((f) => f.body === sel.id && f.count > 0);
+      if (faces.length === 0) return;
+      const source = this.mesh.geometry.getIndex()!.array as Uint32Array;
+      const indices = new Uint32Array(faces.reduce((n, f) => n + f.count, 0));
+      let at = 0;
+      for (const f of faces) {
+        indices.set(source.subarray(f.start, f.start + f.count), at);
+        at += f.count;
+      }
+      mark.face.geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+      mark.face.visible = true;
+      const edges = this.data.edges.filter((e) => e.body === sel.id && e.count > 0);
+      if (edges.length) {
+        const lines = new Float32Array(edges.reduce((n, e) => n + e.count * 3, 0));
+        let to = 0;
+        for (const e of edges) {
+          lines.set(this.data.edgePositions.subarray(e.start * 3, (e.start + e.count) * 3), to);
+          to += e.count * 3;
+        }
+        mark.edge.geometry.setPositions(lines);
+        mark.edge.visible = true;
+      }
+    } else if (sel.kind === "face") {
       const range = this.data.faces.find((f) => f.id === sel.id);
       if (!range) return;
       const source = this.mesh.geometry.getIndex()!.array as Uint32Array;
@@ -1314,6 +1338,11 @@ export class Viewport {
   /** World points of the hole and circle centres currently shown, for use as snap targets. */
   get shownCentres(): THREE.Vector3[] {
     return this.centresShown.map((c) => new THREE.Vector3(...c.position));
+  }
+
+  /** Hover highlight set from outside (a row of the body list). */
+  hoverItem(sel: Sel | null) {
+    this.setHover(sel);
   }
 
   private setHover(sel: Sel | null) {

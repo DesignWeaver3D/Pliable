@@ -51,6 +51,7 @@ class Selection:
     faces: list[int] = field(default_factory=list)
     edges: list[int] = field(default_factory=list)
     vertices: list[int] = field(default_factory=list)
+    bodies: list[int] = field(default_factory=list)  # stable body ids (see bodies.py): whole solids chosen from the body list
 
     @classmethod
     def from_json(cls, data: dict | None) -> "Selection":
@@ -59,10 +60,11 @@ class Selection:
             faces=[int(i) for i in data.get("faces", [])],
             edges=[int(i) for i in data.get("edges", [])],
             vertices=[int(i) for i in data.get("vertices", [])],
+            bodies=[int(i) for i in data.get("bodies", [])],
         )
 
     def to_json(self) -> dict:
-        return {"faces": self.faces, "edges": self.edges, "vertices": self.vertices}
+        return {"faces": self.faces, "edges": self.edges, "vertices": self.vertices, "bodies": self.bodies}
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,7 @@ class Accepts:
     faces: tuple[int, int | None] = (0, 0)
     edges: tuple[int, int | None] = (0, 0)
     vertices: tuple[int, int | None] = (0, 0)
+    bodies: tuple[int, int | None] = (0, 0)
 
     def matches(self, selection: Selection) -> bool:
         return all(
@@ -80,11 +83,12 @@ class Accepts:
                 (self.faces, selection.faces),
                 (self.edges, selection.edges),
                 (self.vertices, selection.vertices),
+                (self.bodies, selection.bodies),
             )
         )
 
     def to_json(self) -> dict:
-        return {"faces": list(self.faces), "edges": list(self.edges), "vertices": list(self.vertices)}
+        return {"faces": list(self.faces), "edges": list(self.edges), "vertices": list(self.vertices), "bodies": list(self.bodies)}
 
 
 @dataclass(frozen=True)
@@ -212,6 +216,9 @@ class Tool:
 
     def available(self, topology: Topology, selection: Selection) -> bool:
         if any(not 0 <= i < n for ids, n in ((selection.faces, topology.face_count), (selection.edges, topology.edge_count), (selection.vertices, topology.vertex_count)) for i in ids):
+            return False
+        known = {b.id for b in topology.bodies.bodies}
+        if any(i not in known for i in selection.bodies):
             return False
         try:
             return self.accepts.matches(selection) and self.applies(topology, selection)

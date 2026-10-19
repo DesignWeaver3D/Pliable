@@ -367,6 +367,7 @@ function setSelection(sels: Sel[]) {
   if (toolPanel.isOpen) toolPanel.close(false); // the selection changed under an open tool form
   viewport.manipulator.clear();
   currentSels = sels;
+  bodyList.setSelected(sels.filter((s) => s.kind === "body").map((s) => s.id));
   refined = null;
   related = [];
   selected.textContent = describe(sels);
@@ -413,7 +414,7 @@ function setSelection(sels: Sel[]) {
 
 function selectionPayload(sels: Sel[]) {
   const ids = (kind: Sel["kind"]) => sels.filter((s) => s.kind === kind).map((s) => s.id);
-  return { faces: ids("face"), edges: ids("edge"), vertices: ids("vertex") };
+  return { faces: ids("face"), edges: ids("edge"), vertices: ids("vertex"), bodies: ids("body") };
 }
 
 let committed: MeshData | null = null; // last committed (non-preview) mesh
@@ -433,6 +434,10 @@ function show(mesh: MeshData, frame = false) {
 
 function describe(sels: Sel[]): string {
   if (sels.length === 0) return "";
+  if (sels[0].kind === "body") {
+    const name = (id: number) => (committed ? bodiesOf(committed).find((b) => b.id === id)?.name : undefined) ?? `body ${id}`;
+    return sels.length === 1 ? name(sels[0].id) : `${sels.length} bodies`;
+  }
   return sels.length === 1 ? `${sels[0].kind} ${sels[0].id}` : `${sels.length} ${sels[0].kind}s`;
 }
 
@@ -440,7 +445,7 @@ function describe(sels: Sel[]): string {
 function mappedSelection(mesh: MeshData): Sel[] {
   const s = mesh.header.selection ?? {};
   const result: Sel[] = [];
-  for (const [key, kind] of [["faces", "face"], ["edges", "edge"], ["vertices", "vertex"]] as const) {
+  for (const [key, kind] of [["faces", "face"], ["edges", "edge"], ["vertices", "vertex"], ["bodies", "body"]] as const) {
     for (const id of s[key] ?? []) result.push({ kind, id });
   }
   return result;
@@ -772,6 +777,7 @@ function applyVisibility() {
 /** The id of the body a selected item belongs to. */
 function ownerBody(s: Sel): number | null {
   if (!committed) return null;
+  if (s.kind === "body") return s.id;
   return (s.kind === "face" ? committed.faces : s.kind === "edge" ? committed.edges : committed.vertices).find((x) => x.id === s.id)?.body ?? null;
 }
 
@@ -807,8 +813,14 @@ const bodyList = new BodyList($("bodylist"), {
         if (committed) bodyList.setBodies(bodiesOf(committed), hiddenBodies);
       });
   },
-  select() {},
-  hover() {},
+  select(ids) {
+    const picked: Sel[] = ids.map((id) => ({ kind: "body" as const, id }));
+    viewport.selectItems(picked);
+    setSelection(picked);
+  },
+  hover(id) {
+    viewport.hoverItem(id === null ? null : { kind: "body", id });
+  },
 }, $("bodycount"));
 
 // Keyboard shortcuts: one router applies the policy in keys.ts (engagement, blur, repeat, entry, sketch) and runs these.
@@ -1259,4 +1271,12 @@ void connectToCore();
 $("bodyhead").addEventListener("click", () => {
   const head = $("bodyhead");
   head.setAttribute("aria-expanded", String(head.getAttribute("aria-expanded") !== "true"));
+});
+
+// Escape clears a body selection (when nothing else is using the key).
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || e.defaultPrevented || !currentSels.some((s) => s.kind === "body")) return;
+  if (toolPanel.isOpen || viewport.dragging || (e.target as HTMLElement).closest?.("input, textarea")) return;
+  viewport.selectItems([]);
+  setSelection([]);
 });

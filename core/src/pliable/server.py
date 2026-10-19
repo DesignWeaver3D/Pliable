@@ -370,7 +370,8 @@ class Session:
         faces = [i for f in result.tracked_faces if (i := target.face_id(f)) is not None]
         edges = [i for e in result.tracked_edges if (i := target.edge_id(e)) is not None]
         vertices = [i for v in result.tracked_vertices if (i := target.vertex_id(v)) is not None]
-        selection = Selection(faces=faces, edges=edges, vertices=vertices)
+        kept = {b.id for b in target.bodies.bodies}
+        selection = Selection(faces=faces, edges=edges, vertices=vertices, bodies=[b for b in request_selection.bodies if b in kept])
         handles = [] if commit else tool.handle_list(topology, request_selection, request.get("params") or {})
         return self._mesh_reply(target, timings, preview=not commit, selection=selection.to_json(), handles=handles)
 
