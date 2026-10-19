@@ -36,6 +36,12 @@ All current research is in; questions follow below.
 
 12. **Should sketch tools add constraints on their own?** Today a rectangle adds horizontal and vertical constraints, lines snap to horizontal or vertical within 3 degrees, and snapping onto a curve or midpoint adds a point-on or midpoint constraint. The sketch agent could not reproduce geometry failing to float freely when dragged, and suspects these automatic constraints, so a rectangle or a snapped line is never really unconstrained. Options: (a) keep them but show each one clearly and make it removable with one click; (b) never add any automatically, you add constraints yourself; (c) keep as it is. If you can, tell me the exact steps where geometry did not float. Default if unanswered: (a).
 
+13. **Should a finished sketch be kept as an object you can reopen, or stay a one-way step that only leaves faces?** The model has no history, so a kept sketch would need its own place in undo, autosave and saved files, and a rule for what happens to the faces it made when you edit it. Options: (a) keep sketches as they are, one-way; (b) keep each sketch as a named item that can be reopened and re-finished, replacing the faces it made; (c) keep only a copy you can reuse as a starting point for a new sketch. Default if unanswered: (a).
+
+14. **Do ellipses and splines need full shape constraints (axes, control points, tangent and equal links to other shapes), or is the current limit enough?** Today you can place their points and dimension an ellipse's short radius, but not tie their shape to other geometry. Full constraints need a different solver, and the one candidate has no macOS build, so the cost is real. Options: (a) accept the limit; (b) switch solvers and carry the packaging cost. Default if unanswered: (a).
+
+15. **Should sketch dimensions accept named values and formulas?** Typing a name or a formula such as width / 2 in a dimension would let one value drive several, but it is a history-style feature that sits oddly with direct modeling. Options: (a) numbers only; (b) named values and formulas in sketch dimensions only. Default if unanswered: (a).
+
 ## Topics you asked to discuss one at a time
 
 These are not questions yet; I will turn each into specific questions when you pick it: keyboard shortcuts (which modifier combinations, which keys are reserved and why, where the pointer must be), the sketch keys, and the unsaved-work warning.

@@ -2,6 +2,8 @@
 
 Live status for the rebuild in [ROADMAP.md](../ROADMAP.md). Read this first in every session; commit rules are in [CONTRIBUTING.md](../CONTRIBUTING.md). Finished sessions are one line each in [history.md](history.md). Other files: [watchlist.md](watchlist.md) (shortcuts, guesses, limits), [decisions-log.md](decisions-log.md), [questions.md](questions.md) (owner questions only), [protocol.md](protocol.md) (core API), [testing-checklist.md](testing-checklist.md).
 
+**Last unattended run (2026-10-19):** sketch parity pass S75-S82 (see Done, awaiting owner review and history.md), plus S73 partly. Everything is committed on `dev`, nothing pushed. Resume: wait for the owner's hand test of the new sketch features (list in the awaiting-review paragraph) and answers to questions 13-15; parked rows S73 and S74 need them. Tests at the end: 344 core, 121 node, typecheck and build passing.
+
 Branches: work on `dev`; `rebuild` is the release candidate; `main` holds the MVP (`v0.2.0-mvp` tag preserves it). Last known state (2026-10-19, `dev` at the last commit): 331 core tests, 103 node tests, typecheck and build passing, no warnings. Nothing has been pushed; `dev` is ahead of `origin/dev`.
 
 ## Resume note
