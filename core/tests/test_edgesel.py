@@ -1,7 +1,7 @@
 import pytest
 
 from pliable.demos import load_demo
-from pliable.edgesel import edge_angle, edge_ring, face_edges, face_loops, region_boundary, shared_loop, sharp_edges
+from pliable.edgesel import edge_angle, edge_ring, face_edges, face_loops, outer_loop, region_boundary, shared_loop, sharp_edges
 from pliable.ops import OperationError
 from pliable.topology import Topology
 
@@ -177,3 +177,11 @@ def test_face_frame_then_divide_through_the_server():
     header, _ = decode_binary(session.handle({"type": "tool_commit", "tool": "divide_face", "selection": {"faces": [0]}, "params": {"across": 0, "offset": offset}}))
     assert len(header["faces"]) == before + 1 and header["canUndo"]
     assert session.handle({"type": "face_frame", "face": 0}) is not None
+
+
+def test_outer_loop_leaves_out_holes():
+    t = Topology(load_demo("bracket"))
+    i = _face_with_hole(t)
+    outer = outer_loop(t, i)
+    assert outer and len(outer) < len(face_edges(t, i))
+    assert all(e in face_edges(t, i) for e in outer)

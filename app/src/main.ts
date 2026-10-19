@@ -7,7 +7,7 @@ import { SKETCH_PLANES } from "./layout";
 import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay } from "./dimensions";
-import { createSettingsWindow, settings } from "./settings";
+import { createSettingsWindow, onSettingsChange, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
 import { Palette, type Command } from "./palette";
@@ -47,6 +47,11 @@ createSettingsWindow(document.body);
 const navCube = new NavCube($("navcube"), viewport);
 const reference = new ReferenceView(viewport);
 const pointPicker = new PointPicker(viewport, reference, (text) => (status.textContent = text));
+const seeThroughButton = $("seethrough");
+seeThroughButton.addEventListener("click", () => viewport.toggleSeeThrough());
+const syncSeeThrough = () => seeThroughButton.classList.toggle("active", settings.seeThrough);
+onSettingsChange(syncSeeThrough);
+syncSeeThrough();
 $("axes").addEventListener("click", () => reference.setVisible(!reference.visible));
 viewport.onFrame = () => {
   reference.tick();
@@ -69,8 +74,8 @@ interface RelatedRule {
 }
 let related: RelatedRule[] = [];
 // What a tool applies to is decided per tool: a saved choice for the tool, else a saved choice for all tools,
-// else the tool's own default, else the base default. A hole moves alone unless the user adds its twins.
-const BASE_RULES: Record<string, boolean> = { coplanar: true, equal_radius: false, coaxial: false };
+// else the tool's own default, else the base default. Until a rule is defined for a tool, its chip is shown but off.
+const BASE_RULES: Record<string, boolean> = { coplanar: false, parallel: false, equal_radius: false, coaxial: false, symmetric: false };
 const TOOL_RULES: Record<string, Record<string, boolean>> = { resize_hole: { equal_radius: true } };
 const RULES_KEY = "pliable.rules";
 let ruleChoices: Record<string, boolean> = {};
@@ -108,14 +113,28 @@ function renderChips() {
   const shown = related.filter((r) => r.faces.length);
   const ctx = chipTool();
   const ruleOn = (id: string) => ruleFor(ctx, id);
+  const all = (label: string, on: boolean) => {
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.className = "all";
+    b.title = on ? "Include every related face shown here in the selection" : "Include none of the related faces; tools change only the selected face";
+    b.addEventListener("click", () => {
+      for (const rule of shown) setRule(ctx, rule.id, on);
+      renderChips();
+      renderToolbar();
+      toolPanel.renderList();
+    });
+    return b;
+  };
   chips.replaceChildren(
+    ...(shown.length > 1 ? [all("All", true), all("None", false)] : []),
     ...shown.map((rule) => {
       const b = document.createElement("button");
       const n = rule.faces.length;
       const what = `${rule.label.toLowerCase()} face${n === 1 ? "" : "s"}`;
       b.textContent = `${ruleOn(rule.id) ? "✔ With" : "+ Add"} ${n} ${what}`;
       b.className = ruleOn(rule.id) ? "on" : "";
-      b.title = ruleOn(rule.id) ? `Tools change the selected face and the ${n} ${what} together; click to change only the selected face` : `Tools change only the selected face; click to include the ${n} ${what} too`;
+      b.title = ruleOn(rule.id) ? `The ${n} ${what} are included with the selected face; click to exclude them` : `The ${n} ${what} are not included yet; click to include them with the selected face`;
       b.addEventListener("click", () => {
         setRule(ctx, rule.id, !ruleOn(rule.id));
         renderChips();
@@ -207,7 +226,7 @@ function selectionHelpers(): HTMLButtonElement[] {
   if (one?.kind === "face") {
     return [
       make("All edges", "Select every edge of the selected face, outline and holes", { mode: "face_edges", face: one.id }),
-      make("Edge loops", "Select the closed edge loops that bound the selected face (outline and holes)", { mode: "face_loops", face: one.id }),
+      make("Edge loops", "Select only the perimeter (outer) loop of the selected face, leaving out any holes", { mode: "face_outline", face: one.id }),
     ];
   }
   if (one?.kind === "edge") {
@@ -429,29 +448,13 @@ viewport.onCentreDrag = async (face, offset, phase) => {
 viewport.onEyedropCancel = () => cancelEyedrop();
 viewport.onEdgeLoop = async (edgeId, additive) => {
   try {
-    // Another edge is already selected: take the loop of the face the two share.
-    const other = currentSels.find((s) => s.kind === "edge" && s.id !== edgeId);
-    if (other) {
-      try {
-        const { edges } = await core.request<{ edges: number[] }>("edge_selection", { mode: "shared_loop", first: other.id, second: edgeId });
-        const picked: Sel[] = edges.map((id) => ({ kind: "edge" as const, id }));
-        viewport.selectItems(picked);
-        setSelection(picked);
-        status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} in the loop the two edges share`;
-        return;
-      } catch {
-        // no common face: fall back to the smooth chain below
-      }
-    }
-    // Otherwise the outline of the faces beside the edge (shared faces decide, not the angle); an edge with no
-    // outline beyond itself falls back to the smooth chain.
-    let { edges } = await core.request<{ edges: number[] }>("edge_selection", { mode: "edge_loops", edge: edgeId });
-    if (edges.length <= 1) edges = (await core.request<{ edges: number[] }>("edge_chain", { edge: edgeId })).edges;
+    // The chain follows tangent continuity only (a rim, a smooth outline); Ctrl adds it to the selection.
+    const { edges } = await core.request<{ edges: number[] }>("edge_chain", { edge: edgeId });
     const picked: Sel[] = edges.map((id) => ({ kind: "edge" as const, id }));
     const sels = additive ? [...currentSels.filter((s) => s.kind === "edge" && !edges.includes(s.id)), ...picked] : picked;
     viewport.selectItems(sels);
     setSelection(sels);
-    status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} selected by double-click (the outline of the faces beside the edge)`;
+    status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} selected by double-click (edges that continue smoothly from this one; Ctrl+double-click adds them to the selection)`;
   } catch (e) {
     status.textContent = (e as Error).message;
   }

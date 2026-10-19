@@ -3,6 +3,7 @@
 import math
 
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_VERTEX, TopAbs_WIRE
+from OCP.BRepTools import BRepTools
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS
 
@@ -28,6 +29,12 @@ def face_loops(topology: Topology, face_id: int) -> list[list[int]]:
         loops.append(_edge_ids(topology, explorer.Current()))
         explorer.Next()
     return loops
+
+
+def outer_loop(topology: Topology, face_id: int) -> list[int]:
+    """The edge ids of the perimeter (outer) loop of a face, without any hole loops."""
+    wire = BRepTools.OuterWire_s(topology.face(face_id))
+    return _edge_ids(topology, wire)
 
 
 def face_edges(topology: Topology, face_id: int) -> list[int]:

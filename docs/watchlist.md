@@ -83,3 +83,8 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Variable fillet interim radius (S47) works on one edge at a time and only as one extra point; the radius curve is interpolated by OCCT, so it can overshoot between points.
 - Push/pull on a full cylinder wall now resizes it as a hole or boss (S60); a free-standing cylinder is read as a boss. Dragging such a wall in the viewport still needs the viewport to find the wall normal (viewport.ts is not in the kernel area).
 - Save dialog for exports uses showSaveFilePicker where the browser has it and falls back to a download; the Import STEP replace warning is a plain browser confirm shown only when there are undo steps.
+
+- Symmetric chip mirrors across the three mid-planes of the model bounding box only; parallel chip finds same-direction planar faces only. No tool declares the symmetric chip yet, so it highlights but does not feed a tool.
+- Circular edge centre is recovered by matching hole centres (full holes and bosses only). Hole centre snaps appear only for hovered or selected holes.
+
+- Pick ranges shrink on small faces (edge range = a quarter of the face's on-screen size, min 2 px; point range a third, min 3 px); the face size is computed from all its triangles on every pointer move, which may be slow on very large curved faces.

@@ -29,8 +29,8 @@ Next: review the uncommitted work in kernel and sketch (run its tests; commit if
 | S47 | Gizmos | Fillet/chamfer manipulators: reverse ends or another way to say which end gets which value, interim radii at chosen points along the edge, chamfer distances that differ per side, all within the kernel. After S28 | Core done (variable fillet: `reverse` and an interim radius `middle` at `middle_at`; two-distance chamfer: `swap`); on-screen handles remain with the app |
 | S48 | Holes | Define what a hole is and how users interact with one (`docs/research/holes-scope.md`, questions 1-4). Owner prefers a hole axis line with end points over a centre point; picking a circular hole edge must expose the circle's centre. Interim: show hole centre dots only on hover or selection, or behind a setting | Planned |
 | S49 | Arrays | Every array tool arrays a chosen feature or body instead of the whole solid | Planned |
-| S50 | Intent | Relationship chips redesign: all or none plus per-chip include/exclude; until defined, chips are shown but not included in the selection; add chips such as parallel faces and symmetry | Planned |
-| S51 | Selection | See-through makes faces transparent (not the whole solid) with edges clearly visible, and is discoverable in the interface | Planned |
+| S50 | Intent | Relationship chips redesign: all or none plus per-chip include/exclude; until defined, chips are shown but not included in the selection; add chips such as parallel faces and symmetry | Done |
+| S51 | Selection | See-through makes faces transparent (not the whole solid) with edges clearly visible, and is discoverable in the interface | Done |
 | S52 | Tools | Center between faces is unreachable in the interface; make it usable | Planned |
 | S53 | Keys | Any combination of Ctrl, Alt and Shift may be a modifier. Other key topics are discussed with the owner one at a time (questions.md) | Planned |
 | S54 | Measure | True dimensions (extension lines, dimension line, arrowheads) for lengths and distances, and leaders (text with a line pointing at a feature) for radii and holes. Today they are plain labels | Planned |

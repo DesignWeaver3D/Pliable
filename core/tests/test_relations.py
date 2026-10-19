@@ -53,3 +53,22 @@ def test_tangent_chain_follows_smooth_outlines_only():
     assert len(tangent_chain(bracket, line)) > 1
     block = Topology(load_demo("block"))
     assert tangent_chain(block, 0) == [0]  # box edges meet at right angles
+
+
+def test_parallel_and_symmetric_faces():
+    block = Topology(load_demo("block"))
+    from pliable.measure import measure
+
+    def normal(i):
+        from pliable.measure import measure as m
+        from pliable.tools import Selection
+        return m(block, Selection(faces=[i]))["items"][0]["rows"][3]["value"]
+
+    top = next(i for i in range(6) if normal(i) == [0.0, 0.0, 1.0])
+    related = rules(block, top)
+    assert "parallel" not in related  # the opposite face faces away, so it is not parallel in direction
+    assert len(related["symmetric"]) == 1 and normal(related["symmetric"][0]) == [0.0, 0.0, -1.0]
+    bracket = Topology(load_demo("bracket"))
+    assert any(rules(bracket, i).get("parallel") for i in range(bracket.face_count))
+    holes = faces_where(bracket, "Cylinder", Radius=4)
+    assert any(rules(bracket, h).get("symmetric") for h in holes)

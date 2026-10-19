@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { MeshData } from "./client";
+import type { CentreInfo, FaceRange, MeshData } from "./client";
 import { onSettingsChange, settings, updateSettings } from "./settings";
 
 export type Kind = "face" | "edge" | "vertex";
@@ -104,6 +104,9 @@ export class Viewport {
   private surfaceMaterial: THREE.MeshStandardMaterial | null = null;
   private edgeMaterial: THREE.LineBasicMaterial | null = null;
   private hovered: Sel | null = null;
+  /** Hole centres currently shown: those of the hovered or selected hole faces and the centres of circular edges. */
+  private centresShown: CentreInfo[] = [];
+  private centreDots: THREE.Points | null = null;
   private selected: Sel[] = [];
   private markSource: THREE.BufferGeometry | null = null;
   private selectedMarks: Mark[] = [];
@@ -383,7 +386,7 @@ export class Viewport {
       this.box = null;
       const direction = hit && this.dragDirection(hit);
       // Dragging the selected face or edge starts its tool instead of orbiting.
-      const additive = e.ctrlKey || e.metaKey;
+      const additive = e.ctrlKey || e.metaKey || e.shiftKey;
       if (hit && direction && !additive) {
         // Pressing on an item selects it and starts its tool drag in one motion.
         if (!this.isSelected(hit)) {
@@ -471,7 +474,7 @@ export class Viewport {
           this.onCentreDrag(c.face, this.centreOffset(e, c), "end");
           down = null;
         } else {
-          this.clickSelect({ kind: "face", id: c.face }, e.ctrlKey || e.metaKey);
+          this.clickSelect({ kind: "face", id: c.face }, e.ctrlKey || e.metaKey || e.shiftKey);
           down = null;
         }
         return;
@@ -510,7 +513,7 @@ export class Viewport {
       }
       // A click, not the end of an orbit/pan drag.
       if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4 && e.button === 0) {
-        this.clickSelect(this.pickCycling(e), e.ctrlKey || e.metaKey);
+        this.clickSelect(this.pickCycling(e), e.ctrlKey || e.metaKey || e.shiftKey);
       }
       down = null;
     });
@@ -718,6 +721,7 @@ export class Viewport {
     }
     this.hovered = null;
     this.selected = [];
+    this.centresShown = [];
     this.selectedMarks = [];
     this.relatedMarks = [];
     this.data = mesh;
@@ -744,11 +748,11 @@ export class Viewport {
     edges.setAttribute("position", new THREE.BufferAttribute(mesh.edgePositions, 3));
     this.edgeMaterial = new THREE.LineBasicMaterial({ color: 0x111418 });
     this.model.add(new THREE.LineSegments(edges, this.edgeMaterial));
-    if (mesh.centres.length) {
-      const dots = new THREE.BufferGeometry();
-      dots.setAttribute("position", new THREE.BufferAttribute(new Float32Array(mesh.centres.flatMap((c) => c.position)), 3));
-      this.model.add(new THREE.Points(dots, new THREE.PointsMaterial({ color: 0x4fc3f7, size: 6, sizeAttenuation: false })));
-    }
+    // Hole centre dots are drawn only for the hovered or selected hole (see refreshCentres).
+    this.centreDots = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: 0x4fc3f7, size: 7, sizeAttenuation: false, depthTest: false }));
+    this.centreDots.renderOrder = 3;
+    this.model.add(this.centreDots);
+    this.refreshCentres();
     this.applySeeThrough();
 
     if (frame) this.frame(mesh.bounds);
@@ -833,11 +837,14 @@ export class Viewport {
     const on = settings.seeThrough;
     if (this.surfaceMaterial) {
       this.surfaceMaterial.transparent = on;
-      this.surfaceMaterial.opacity = on ? 0.3 : 1;
+      this.surfaceMaterial.opacity = on ? 0.12 : 1; // faces nearly clear; the edges carry the shape
       this.surfaceMaterial.depthWrite = !on;
       this.surfaceMaterial.needsUpdate = true;
     }
-    if (this.edgeMaterial) this.edgeMaterial.depthTest = !on;
+    if (this.edgeMaterial) {
+      this.edgeMaterial.depthTest = !on;
+      this.edgeMaterial.color.set(on ? 0xdce6f2 : 0x111418); // light edges stand out on the dark background through clear faces
+    }
     this.hoverLine.depthTest = this.selectedLine.depthTest = !on;
   }
 
@@ -1025,22 +1032,30 @@ export class Viewport {
     const pixelSize = this.pixelSizeAtDistance(faceHit?.distance ?? 0, rect.height);
     const depthLimit = faceHit && !settings.seeThrough ? faceHit.distance * 1.01 + pixelSize * 12 : Infinity;
 
-    const vertex = this.nearestVertex(px, py, rect, depthLimit);
+    // Face under the pointer; a small face shrinks the edge and point ranges so its borders do not swallow it.
+    let lo = 0;
+    if (faceHit && faceHit.faceIndex != null) {
+      // Face ranges are sorted by start; find the last range starting at or before this triangle.
+      let hi = this.faceStarts.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (this.faceStarts[mid] <= faceHit.faceIndex) lo = mid;
+        else hi = mid - 1;
+      }
+    }
+    const under = faceHit && faceHit.faceIndex != null ? this.data.faces[lo] : null;
+    const size = under ? this.faceScreenSize(under, rect) : Infinity;
+    const edgeRange = Math.min(settings.edgePickPx, Math.max(2, size / 4));
+    const pointRange = Math.min(settings.vertexPickPx, Math.max(3, size / 3));
+
+    const vertex = this.nearestVertex(px, py, rect, depthLimit, pointRange);
     if (vertex) return vertex;
     const centre = this.nearestCentre(px, py, rect);
     if (centre) return centre;
-    const edge = this.nearestEdge(px, py, rect, depthLimit);
+    const edge = this.nearestEdge(px, py, rect, depthLimit, edgeRange);
     if (edge) return edge;
 
     if (!faceHit || faceHit.faceIndex == null) return null;
-    // Face ranges are sorted by start; find the last range starting at or before this triangle.
-    let lo = 0;
-    let hi = this.faceStarts.length - 1;
-    while (lo < hi) {
-      const mid = (lo + hi + 1) >> 1;
-      if (this.faceStarts[mid] <= faceHit.faceIndex) lo = mid;
-      else hi = mid - 1;
-    }
     const face = this.data.faces[lo];
     return face && face.count > 0 ? { kind: "face", id: face.id, point: faceHit.point } : null;
   }
@@ -1053,11 +1068,11 @@ export class Viewport {
 
   /** Pressing on a hole centre dot (not just near the hole) begins moving that hole; returns whether it did. */
   private startCentreDrag(e: PointerEvent): boolean {
-    if (!this.data?.centres.length || e.ctrlKey || e.metaKey) return false;
+    if (!this.centresShown.length || e.ctrlKey || e.metaKey) return false;
     const rect = this.renderer.domElement.getBoundingClientRect();
     const px = e.clientX - rect.left;
     const py = e.clientY - rect.top;
-    for (const c of this.data.centres) {
+    for (const c of this.centresShown) {
       const p = new THREE.Vector3(...c.position);
       const n = p.clone().project(this.camera);
       if (n.z > 1 || Math.hypot(((n.x + 1) / 2) * rect.width - px, ((1 - n.y) / 2) * rect.height - py) > CENTRE_HANDLE_PX || this.occluded(p)) continue;
@@ -1125,7 +1140,7 @@ export class Viewport {
   private nearestCentre(px: number, py: number, rect: DOMRect): Hit | null {
     let best: Hit | null = null;
     let bestDistance = settings.vertexPickPx;
-    for (const c of this.data!.centres) {
+    for (const c of this.centresShown) {
       const p = new THREE.Vector3(...c.position);
       const n = p.clone().project(this.camera);
       if (n.z > 1) continue;
@@ -1138,9 +1153,29 @@ export class Viewport {
     return best;
   }
 
-  private nearestVertex(px: number, py: number, rect: DOMRect, depthLimit: number): Hit | null {
+  /** The larger side of a face's bounding box on screen, in pixels (the face's visible size for pick ranges). */
+  private faceScreenSize(face: FaceRange, rect: DOMRect): number {
+    const data = this.data!;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    const p = new THREE.Vector3();
+    for (let i = face.start; i < face.start + face.count; i++) {
+      p.fromArray(data.positions, data.indices[i] * 3).project(this.camera);
+      const x = ((p.x + 1) / 2) * rect.width;
+      const y = ((1 - p.y) / 2) * rect.height;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    return Math.max(maxX - minX, maxY - minY);
+  }
+
+  private nearestVertex(px: number, py: number, rect: DOMRect, depthLimit: number, range = settings.vertexPickPx): Hit | null {
     let best: Hit | null = null;
-    let bestDistance = settings.vertexPickPx;
+    let bestDistance = range;
     const p = new THREE.Vector3();
     for (const v of this.data!.vertices) {
       p.set(v.position[0], v.position[1], v.position[2]);
@@ -1156,13 +1191,13 @@ export class Viewport {
     return best;
   }
 
-  private nearestEdge(px: number, py: number, rect: DOMRect, depthLimit: number): Hit | null {
+  private nearestEdge(px: number, py: number, rect: DOMRect, depthLimit: number, range = settings.edgePickPx): Hit | null {
     const data = this.data!;
     const a = new THREE.Vector3();
     const b = new THREE.Vector3();
     this.camera.updateMatrixWorld();
     let best: Hit | null = null;
-    const edgePx = settings.edgePickPx;
+    const edgePx = range;
     let bestDistance = edgePx;
     let bestDepth = Infinity;
     const toPx = (v: THREE.Vector3) => {
@@ -1196,9 +1231,65 @@ export class Viewport {
     return best;
   }
 
+  /** The centre of a circular edge, found from the hole centres: every point of the edge is one radius from it. */
+  private circleCentre(edgeId: number): CentreInfo | null {
+    const data = this.data;
+    const edge = data?.edges.find((e) => e.id === edgeId);
+    if (!data || !edge || edge.count < 4) return null;
+    const pts: THREE.Vector3[] = [];
+    for (let i = edge.start; i < edge.start + edge.count; i++) pts.push(new THREE.Vector3().fromArray(data.edgePositions, i * 3));
+    const tol = 1e-3;
+    for (const c of data.centres) {
+      const centre = new THREE.Vector3(...c.position);
+      const axis = new THREE.Vector3(...c.axis).normalize();
+      let axial: number | null = null;
+      let radius: number | null = null;
+      let ok = true;
+      for (const p of pts) {
+        const d = p.clone().sub(centre);
+        const along = d.dot(axis);
+        const r = d.addScaledVector(axis, -along).length();
+        axial ??= along;
+        radius ??= r;
+        if (Math.abs(along - axial) > tol || Math.abs(r - radius) > tol || r < tol) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok && axial !== null) return { face: c.face, position: centre.addScaledVector(axis, axial).toArray() as [number, number, number], axis: c.axis };
+    }
+    return null;
+  }
+
+  /** Show centre dots only for the hovered or selected holes and circular edges. */
+  private refreshCentres() {
+    const shown: CentreInfo[] = [];
+    for (const sel of [this.hovered, ...this.selected]) {
+      if (!sel || !this.data) continue;
+      if (sel.kind === "face") shown.push(...this.data.centres.filter((c) => c.face === sel.id));
+      else if (sel.kind === "edge") {
+        const c = this.circleCentre(sel.id);
+        if (c) shown.push(c);
+      }
+    }
+    this.centresShown = shown;
+    if (this.centreDots) {
+      this.centreDots.geometry.dispose();
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(shown.flatMap((c) => c.position)), 3));
+      this.centreDots.geometry = g;
+    }
+  }
+
+  /** World points of the hole and circle centres currently shown, for use as snap targets. */
+  get shownCentres(): THREE.Vector3[] {
+    return this.centresShown.map((c) => new THREE.Vector3(...c.position));
+  }
+
   private setHover(sel: Sel | null) {
     if (sel?.kind === this.hovered?.kind && sel?.id === this.hovered?.id) return;
     this.hovered = sel;
+    this.refreshCentres();
     this.show(this.hoverMark, sel);
     this.renderer.domElement.style.cursor = sel ? "pointer" : "";
   }
@@ -1218,6 +1309,7 @@ export class Viewport {
   /** Select programmatically (no onSelect callback). */
   selectItems(sels: Sel[]) {
     this.selected = sels;
+    this.refreshCentres();
     while (this.selectedMarks.length < sels.length && this.markSource) {
       this.selectedMarks.push(new Mark(this.model, this.markSource, 0xff8a1f, 0.85, this.selectedLine));
     }
