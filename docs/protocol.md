@@ -89,12 +89,12 @@ Previews may use a faster, slightly less exact algorithm than commits. The front
 A tool can declare on-screen manipulators (gizmos), one per parameter, by overriding `Tool.handles(topology, selection, values)` to return `Handle` objects (`core/src/pliable/tools.py`). Typed entry stays available for every parameter. Tool descriptions carry `hasHandles` and `startsFrom`: `"selection"` (select something, then the tool acts on it) or `"tool"` (the tool is chosen first and places something new, like a primitive, so its handles show from the start without a selection).
 
 ```json
-{"param": "height", "label": "Height", "kind": "slide", "anchor": [x, y, z], "direction": [x, y, z],
- "scale": 1.0, "min": 0.001, "radius": 0, "value": 10}
+{"param": "height", "label": "Height", "anchor": [x, y, z], "direction": [x, y, z],
+ "scale": 1.0, "min": 0.001, "unit": "mm", "value": 10}
 ```
 
-- `slide`: the handle sits at `anchor` (a model point, where the parameter's current value puts it) and moves along the unit `direction`. Dragging it by t model units sets the parameter to `value + scale * t` (a diameter handle on a radius uses scale 2), never below `min` (null = unbounded).
-- `turn`: rotates about the axis through `anchor` along `direction`; the view draws a ring of `radius` around it; dragging by t degrees sets `value + scale * t`.
+- The handle sits at `anchor` (a model point, where the parameter's current value puts it) and slides along the straight unit `direction`. Dragging it by t model units sets the parameter to `value + scale * t` (a diameter handle on a radius uses scale 2), never below `min` (null = unbounded). `unit` follows the value in the live label.
+- A rotation is declared the same way: the anchor sits on the ring, `direction` is the tangent there and `scale` is degrees per unit of travel (`unit` "°"); after each preview the handle is placed on the ring again at the new angle.
 - The values the handles are computed for come from the request `params` (defaults fill the gaps), so every preview reply returns handles at the previewed values; the view moves a handle locally while dragging and snaps it to the reply.
 - Handles never fail a request: an unusable selection or an error gives an empty list.
 

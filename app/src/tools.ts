@@ -24,13 +24,12 @@ export interface ToolInfo {
 export interface HandleInfo {
   param: string;
   label: string;
-  kind: "slide" | "turn";
   anchor: [number, number, number];
   direction: [number, number, number];
-  /** Parameter change per model unit (slide) or per degree (turn) of handle travel. */
+  /** Parameter change per model unit of handle travel. */
   scale: number;
   min: number | null;
-  radius: number;
+  unit: string;
   /** The parameter's value when the handle was computed. */
   value: number;
 }

@@ -1,5 +1,7 @@
 """Manipulator handles: a tool declares one per parameter and the core sends them with the preview (docs/protocol.md)."""
 
+import math
+
 import pytest
 
 from pliable.protocol import decode_binary
@@ -47,7 +49,7 @@ def test_tool_handles_request_returns_normalised_handles_with_the_current_value(
     assert reply["startsFrom"] == "tool"
     (h,) = reply["handles"]  # the handle for an unknown parameter is dropped
     assert h["param"] == "length" and h["value"] == 7 and h["anchor"] == [7.0, 0.0, 0.0]
-    assert h["direction"] == [1.0, 0.0, 0.0] and h["min"] == 1 and h["kind"] == "slide" and h["scale"] == 1.0
+    assert h["direction"] == [1.0, 0.0, 0.0] and h["min"] == 1 and h["unit"] == "mm" and h["scale"] == 1.0
 
 
 def test_defaults_fill_missing_values(session):
@@ -67,9 +69,6 @@ def test_tools_without_handles_send_an_empty_list(session):
     assert reply["handles"] == []
 
 
-def test_bad_handle_kind_is_rejected():
-    with pytest.raises(ValueError):
-        Handle("a", "A", (0, 0, 0), (1, 0, 0), kind="spin")
 
 
 # ---- Primitive handles (box, cylinder, sphere, cone, torus) -------------------------------------------------------
@@ -158,3 +157,56 @@ def test_size_handles_sit_on_the_solid_and_resizing_moves_its_extent(tool_id):
         # Pulling the handle outward grows the solid along its axis (so its volume increases).
         grown, grown_volume = solid({**params, h["param"]: h["value"] + 2 * h["scale"]})
         assert grown_volume > base_volume * 1.001, (tool_id, h["param"])
+
+
+# ---- Whole-body tools ---------------------------------------------------------------------------------------------
+
+
+def _body_handles(tool_id, params):
+    session = Session()
+    session.handle({"type": "open_demo", "name": "bracket"})
+    return {h["param"]: h for h in session.handle({"type": "tool_handles", "tool": tool_id, "params": params})["handles"]}
+
+
+def test_move_body_has_a_handle_per_axis_that_follows_its_distance():
+    before = _body_handles("move_body", {})
+    assert set(before) == {"dx", "dy", "dz"}
+    after = _body_handles("move_body", {"dx": 4, "dy": -3})
+    assert after["dx"]["anchor"][0] == pytest.approx(before["dx"]["anchor"][0] + 4)
+    assert after["dy"]["anchor"][1] == pytest.approx(before["dy"]["anchor"][1] - 3)
+    assert after["dz"]["anchor"] == pytest.approx([before["dz"]["anchor"][0] + 4, before["dz"]["anchor"][1] - 3, before["dz"]["anchor"][2]])  # the arrows travel with the body
+    assert before["dz"]["direction"] == [0.0, 0.0, 1.0] and before["dz"]["scale"] == 1.0
+
+
+def test_rotate_body_handle_sits_on_a_ring_at_the_current_angle():
+    for angle in (0, 35, -120):
+        h = _body_handles("rotate_body", {"axis": 2, "angle": angle})["angle"]
+        x, y, z = h["anchor"]
+        assert z == 0 and math.degrees(math.atan2(y, x)) == pytest.approx(angle)
+        # the tangent is square to the radius, and travel along it turns by scale degrees per unit
+        assert h["direction"][0] * x + h["direction"][1] * y == pytest.approx(0, abs=1e-9)
+        assert h["unit"] == "°" and h["scale"] == pytest.approx(math.degrees(1 / math.hypot(x, y)))
+    about_x = _body_handles("rotate_body", {"axis": 0, "angle": 0})["angle"]
+    assert about_x["anchor"][0] == 0 and about_x["direction"][0] == 0
+
+
+def test_rotate_body_handle_needs_a_valid_axis():
+    assert _body_handles("rotate_body", {"axis": 5}) == {}
+
+
+def test_scale_body_handle_stays_on_the_line_through_the_corner_and_follows_the_factor():
+    h1 = _body_handles("scale_body", {"factor": 1})["factor"]
+    h2 = _body_handles("scale_body", {"factor": 2})["factor"]
+    assert h2["anchor"] == pytest.approx([2 * c for c in h1["anchor"]])
+    t = 7.0  # travel along the line changes the factor by scale * t and moves the anchor by t
+    h3 = _body_handles("scale_body", {"factor": 1 + h1["scale"] * t})["factor"]
+    assert h3["anchor"] == pytest.approx([a + d * t for a, d in zip(h1["anchor"], h1["direction"])])
+    assert h1["min"] == 1e-3
+
+
+def test_body_handles_respect_the_selected_solid():
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    whole = session.handle({"type": "tool_handles", "tool": "move_body", "params": {}})["handles"]
+    one_face = session.handle({"type": "tool_handles", "tool": "move_body", "selection": {"faces": [0]}, "params": {}})["handles"]
+    assert whole and one_face

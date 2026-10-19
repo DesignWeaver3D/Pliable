@@ -107,17 +107,15 @@ class Param:
         return {"name": self.name, "kind": self.kind, "default": self.default, "drag": self.drag}
 
 
-HANDLE_KINDS = ("slide", "turn")
-
-
 @dataclass(frozen=True)
 class Handle:
     """An on-screen manipulator for one parameter, drawn and dragged by the view.
 
-    `slide` handles sit at `anchor` (a model point) and move along `direction`; dragging by t model units sets
-    the parameter to value + scale * t, so a diameter handle on a radius uses scale 2. `turn` handles rotate about
-    the axis through `anchor` along `direction`; the view draws a ring of radius `radius` around it and dragging by an
-    angle of t degrees sets value + scale * t. `min` bounds the parameter (None = unbounded)."""
+    The handle sits at `anchor` (a model point) and slides along the straight line `direction`; dragging it by t model
+    units sets the parameter to value + scale * t, so a diameter handle on a radius uses scale 2. A rotation is declared
+    the same way: the anchor on the ring, `direction` the tangent there and `scale` the degrees per unit of travel, so
+    the view needs no separate kind of handle. `min` bounds the parameter (None = unbounded); `unit` is the text
+    shown after the value in the live label."""
 
     param: str
     label: str
@@ -125,24 +123,18 @@ class Handle:
     direction: tuple[float, float, float]
     scale: float = 1.0
     min: float | None = None
-    kind: str = "slide"
-    radius: float = 0.0
-
-    def __post_init__(self):
-        if self.kind not in HANDLE_KINDS:
-            raise ValueError(f"Unknown handle kind {self.kind!r}")
+    unit: str = "mm"
 
     def to_json(self, value: float) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
         return {
             "param": self.param,
             "label": self.label,
-            "kind": self.kind,
             "anchor": [float(c) for c in self.anchor],
             "direction": [c / length for c in self.direction],
             "scale": self.scale,
             "min": self.min,
-            "radius": self.radius,
+            "unit": self.unit,
             "value": value,
         }
 

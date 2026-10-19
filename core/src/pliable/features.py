@@ -759,6 +759,24 @@ class Mirror(_PlanarFace):
         return finish(_combine(topology.shape, mirrored, fuse=True))
 
 
+def _body_bounds(topology, selection):
+    """Corner points (min, max) of the solids a whole-body tool acts on (the whole model with nothing selected)."""
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+
+    box = Bnd_Box()
+
+    def note(shape):
+        BRepBndLib.AddOptimal_s(shape, box, False, False)
+        return shape
+
+    _on_bodies(topology, selection, note)
+    if box.IsVoid():
+        return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)
+    lo, hi = box.CornerMin(), box.CornerMax()
+    return (lo.X(), lo.Y(), lo.Z()), (hi.X(), hi.Y(), hi.Z())
+
+
 def _faces_of(shape):
     from OCP.TopAbs import TopAbs_FACE
 
@@ -981,6 +999,21 @@ class MoveBody(Tool):
     accepts = Accepts(faces=(0, None))
     params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length")]
 
+    starts_from = "selection"
+
+    def handles(self, topology, selection, values):
+        lo, hi = _body_bounds(topology, selection)
+        centre = [(a + b) / 2 for a, b in zip(lo, hi)]
+        size = max(b - a for a, b in zip(lo, hi))
+        margin = max(size * 0.1, 3.0)
+        now = (values["dx"], values["dy"], values["dz"])
+        axes = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
+        reach = [(hi[k] - lo[k]) / 2 + margin for k in range(3)]  # each arrow sticks out past its face of the body
+        return [
+            Handle(name, f"Move {label}", tuple(centre[k] + now[k] + axes[i][k] * reach[i] for k in range(3)), axes[i])
+            for i, (name, label) in enumerate((("dx", "X"), ("dy", "Y"), ("dz", "Z")))
+        ]
+
     def run(self, topology, selection, values, preview):
         offset = gp_Vec(values["dx"], values["dy"], values["dz"])
         if offset.Magnitude() < MIN_DISTANCE:
@@ -997,6 +1030,22 @@ class RotateBody(Tool):
     description = "Rotates a whole solid about the X, Y or Z axis through the origin (0 = X, 1 = Y, 2 = Z). Select any face of the solid, or nothing for the whole model."
     accepts = Accepts(faces=(0, None))
     params = [Param("axis", "number", 2), Param("angle", "angle", 90)]
+
+    starts_from = "selection"
+
+    def handles(self, topology, selection, values):
+        lo, hi = _body_bounds(topology, selection)
+        axis = int(round(values["axis"]))
+        if axis not in (0, 1, 2):
+            return []
+        # The ring's radius reaches past the body; the handle sits on it at the current angle, its direction the tangent.
+        radius = max(max(math.hypot(c[(axis + 1) % 3], c[(axis + 2) % 3]) for c in (lo, hi)) * 1.25, 10.0)
+        u, v = (axis + 1) % 3, (axis + 2) % 3
+        angle = math.radians(values["angle"])
+        anchor, tangent = [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]
+        anchor[u], anchor[v] = radius * math.cos(angle), radius * math.sin(angle)
+        tangent[u], tangent[v] = -math.sin(angle), math.cos(angle)
+        return [Handle("angle", "Angle", tuple(anchor), tuple(tangent), scale=math.degrees(1 / radius), unit="°")]
 
     def run(self, topology, selection, values, preview):
         axis = int(round(values["axis"]))
@@ -1017,6 +1066,17 @@ class ScaleBody(Tool):
     description = "Scales a whole solid evenly about the origin. Select any face of the solid, or nothing for the whole model; 2 doubles the size."
     accepts = Accepts(faces=(0, None))
     params = [Param("factor", "number", 1)]
+
+    starts_from = "selection"
+
+    def handles(self, topology, selection, values):
+        lo, hi = _body_bounds(topology, selection)
+        corner = max((lo, hi), key=lambda c: math.sqrt(sum(x * x for x in c)))  # the corner farthest from the pivot
+        reach = math.sqrt(sum(x * x for x in corner))
+        if reach < 1e-6:
+            return []
+        # Moving the handle outward along the line from the origin through that corner scales the body about the origin.
+        return [Handle("factor", "Scale", tuple(x * values["factor"] for x in corner), tuple(corner), scale=1 / reach, min=1e-3, unit="x")]
 
     def run(self, topology, selection, values, preview):
         factor = values["factor"]

@@ -10,7 +10,7 @@ export const GRAB_PX = 9;
 const COLOR = 0xffb347;
 const COLOR_HOT = 0xffffff;
 
-/** The parameter value a handle shows after travelling `travel` (model units for slide, degrees for turn). */
+/** The parameter value a handle shows after travelling `travel` (model units along the handle line). */
 export function handleValue(h: Pick<HandleInfo, "value" | "scale" | "min">, travel: number): number {
   const v = h.value + h.scale * travel;
   return h.min !== null && v < h.min ? h.min : v;
@@ -99,7 +99,6 @@ export class Manipulator {
     if (this.active) return;
     this.clear();
     for (const info of handles) {
-      if (info.kind !== "slide") continue; // turn handles are drawn by the rotate tools (stage d)
       this.items.push(this.build(info));
     }
   }
@@ -144,10 +143,6 @@ export class Manipulator {
     return { info, group, tip, arm, label, travel: 0 };
   }
 
-  private unit(info: HandleInfo): string {
-    return info.kind === "turn" ? "°" : " mm";
-  }
-
   /** Per frame: keep handles a constant size on screen and put the value labels beside them. */
   update() {
     const rect = this.dom.getBoundingClientRect();
@@ -166,7 +161,7 @@ export class Manipulator {
       item.label.style.display = behind || !hot ? "none" : "block"; // only the handle under the pointer or being dragged names itself
       item.label.style.left = `${((p.x + 1) / 2) * rect.width}px`;
       item.label.style.top = `${((1 - p.y) / 2) * rect.height}px`;
-      item.label.textContent = `${info.label} ${formatValue(value)}${this.unit(info)}`;
+      item.label.textContent = `${info.label} ${formatValue(value)}${info.unit === "°" || !info.unit ? info.unit : " " + info.unit}`;
       item.label.style.fontWeight = hot ? "bold" : "normal";
     }
   }
