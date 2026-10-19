@@ -2112,3 +2112,6 @@ class DivideFace(_PlanarFace):
         if not whole.IsDone() or whole.Shape().IsNull():
             raise OperationError("Could not divide the face")
         return OpResult(whole.Shape(), [], unified=True)  # the split is the point: skip the same-surface merge
+
+
+from . import hole_tools  # noqa: E402,F401  (registers the hole tools; it needs `finish` defined above)

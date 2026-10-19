@@ -237,9 +237,10 @@ def _pass_length(shape, entry: gp_Pnt, direction: gp_Dir, reach: float) -> float
     return beyond[0] if beyond else reach
 
 
-def find_hole(topology, face_id: int | None = None, edge_id: int | None = None) -> HoleInfo:
+def find_hole(topology, face_id: int | None = None, edge_id: int | None = None, reach: bool = True) -> HoleInfo:
     """The round hole that a face (wall, bottom, shoulder, countersink) or a circular rim edge belongs to.
-    Raises OperationError with a plain message when the selection is not part of a round hole."""
+    Raises OperationError with a plain message when the selection is not part of a round hole. `reach=False` skips the
+    search for the far side of the body (`pass_length`), which is the only slow part."""
     seed = _seed(topology, face_id, edge_id)
     if seed is None:
         raise OperationError(NOT_ROUND)
@@ -321,7 +322,7 @@ def find_hole(topology, face_id: int | None = None, edge_id: int | None = None) 
                     rims.append(eid)
             explorer.Next()
     info = HoleInfo(sorted(members), entry, direction, 2 * main.r0, depth, through, bottom, tip_angle, stages, sorted(rims))
-    info.pass_length = depth if through else max(depth, _pass_length(topology.shape, entry, direction, max(s.s1 for s in ordered)))
+    info.pass_length = depth if through or not reach else max(depth, _pass_length(topology.shape, entry, direction, max(s.s1 for s in ordered)))
     return info
 
 

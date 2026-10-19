@@ -11,6 +11,8 @@ export const GRAB_PX = 9;
 const COLOR = 0xffb347;
 const COLOR_HOT = 0xffffff;
 const COLOR_TOGGLE = 0x6fd3ff;
+/** The line a hole's axis handle draws from its opening to its far grip. */
+const AXIS_LINE = 0xffb347;
 /** Resize grips are neutral squares (orange on hover) so they never read as the coloured move arrows. */
 const COLOR_RESIZE = 0xc8ccd4;
 const COLOR_RESIZE_HOT = 0xffb347;
@@ -90,6 +92,8 @@ interface Item {
   group: THREE.Group;
   tip: THREE.Mesh;
   arm: THREE.Line;
+  /** An axis handle's line from its far end back to `info.axisFrom`, with a dot at that end (not grabbable). */
+  axis?: THREE.Group;
   label: HTMLElement;
   /** Travel from the declared anchor while this handle is being dragged. */
   travel: number;
@@ -109,6 +113,12 @@ interface Active {
   /** Typed entry: the text so far (null while the mouse sets the value) and its sign. */
   typed: string | null;
   negative: boolean;
+}
+
+function dispose(o: THREE.Object3D) {
+  const m = o as THREE.Mesh;
+  m.geometry?.dispose();
+  (m.material as THREE.Material | undefined)?.dispose();
 }
 
 export class Manipulator {
@@ -162,6 +172,8 @@ export class Manipulator {
     this.hot = null;
     for (const item of this.items) {
       this.root.remove(item.group);
+      if (item.axis) this.root.remove(item.axis);
+      item.axis?.traverse(dispose);
       item.group.traverse((o) => {
         const m = o as THREE.Mesh;
         m.geometry?.dispose();
@@ -198,10 +210,21 @@ export class Manipulator {
     arm.renderOrder = 10;
     group.add(tip, arm);
     this.root.add(group);
+    let axis: THREE.Group | undefined;
+    if (info.axisFrom) {
+      axis = new THREE.Group();
+      axis.renderOrder = 9;
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: AXIS_LINE, depthTest: false, transparent: true, opacity: 0.9 }));
+      line.renderOrder = 9;
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshBasicMaterial({ color: AXIS_LINE, depthTest: false, transparent: true }));
+      dot.renderOrder = 9;
+      axis.add(line, dot);
+      this.root.add(axis);
+    }
     const label = document.createElement("div");
     label.style.cssText = "position:absolute;padding:1px 5px;border-radius:3px;background:rgba(20,20,24,.85);color:#ffd9a0;font:11px sans-serif;white-space:nowrap;transform:translate(10px,-50%)";
     this.layer.append(label);
-    return { info, group, tip, arm, label, travel: 0 };
+    return { info, group, tip, arm, axis, label, travel: 0 };
   }
 
   /** Per frame: keep handles a constant size on screen and put the value labels beside them. */
@@ -211,6 +234,13 @@ export class Manipulator {
       const { info, group } = item;
       const pos = new THREE.Vector3(...info.anchor).addScaledVector(new THREE.Vector3(...info.direction), item.travel);
       group.position.copy(pos);
+      if (item.axis && info.axisFrom) {
+        const from = new THREE.Vector3(...info.axisFrom);
+        const line = item.axis.children[0] as THREE.Line;
+        line.geometry.setFromPoints([from, pos]);
+        item.axis.children[1].position.copy(from);
+        item.axis.children[1].scale.setScalar(this.pixelSizeAt(from) * 4);
+      }
       const size = this.pixelSizeAt(pos) * ARM_PX;
       group.scale.setScalar(size);
       const hot = item === this.hot || item === this.active?.item;

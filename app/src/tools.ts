@@ -37,6 +37,8 @@ export interface HandleInfo {
   /** How it is drawn: a plain arrow, a move arrow in its axis colour, a square resize grip, or a click marker. */
   kind?: "arrow" | "move" | "resize" | "toggle";
   unit: string;
+  /** An axis handle: the other end of the line drawn from here (a hole's opening), or null. */
+  axisFrom?: [number, number, number] | null;
   /** The parameter's value when the handle was computed. */
   value: number;
   /** Other parameters that move with this one: each changes by `scale` per model unit of travel (a low box face also moves the origin). */

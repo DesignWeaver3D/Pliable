@@ -6,6 +6,7 @@ from pliable.demos import load_demo
 from pliable.holes import find_hole
 from pliable.ops import OperationError
 from pliable.topology import Topology
+from pliable.tools import Selection, get_tool
 from test_features import faces_where, run, volume
 
 
@@ -112,3 +113,72 @@ def test_measure_reports_the_hole(block):
     assert measure(part, Selection(edges=[rim]))["items"][0]["hole"]["faces"] == item["hole"]["faces"]
     top = measure(part, Selection(faces=[top_face(part)]))["items"][0]
     assert "hole" not in top
+
+
+def hole_wall(topology):
+    return only_hole(topology).faces[0]
+
+
+def test_edit_hole_diameter_depth_and_move(block):
+    part = drilled(block, "add_hole", diameter=6, depth=8)
+    wall = hole_wall(part)
+    base = volume(part.shape)
+    wider = run("edit_hole", part, faces=[wall], diameter=10)
+    assert volume(wider.shape) == pytest.approx(base - math.pi * (25 - 9) * 8, rel=1e-3)
+    deeper = Topology(run("edit_hole", part, faces=[wall], depth=12).shape)
+    assert volume(deeper.shape) == pytest.approx(base - math.pi * 9 * 4, rel=1e-3)
+    assert only_hole(deeper).depth == pytest.approx(12) and not only_hole(deeper).through
+    through = Topology(run("edit_hole", part, faces=[wall], depth=50).shape)  # past the body: through
+    assert only_hole(through).through and only_hole(through).diameter == pytest.approx(6)
+    shallow = Topology(run("edit_hole", through, faces=[hole_wall(through)], depth=5).shape)
+    assert not only_hole(shallow).through and only_hole(shallow).depth == pytest.approx(5)
+    moved = Topology(run("edit_hole", part, edges=only_hole(part).rim_edges, dx=7, dy=-3).shape)
+    h = only_hole(moved)
+    assert h.entry.X() == pytest.approx(7) and h.entry.Y() == pytest.approx(-3) and h.depth == pytest.approx(8)
+    assert volume(moved.shape) == pytest.approx(base, rel=1e-4)
+
+
+def test_edit_counterbore_keeps_its_steps(block):
+    part = drilled(block, "add_counterbore", diameter=6, depth=0, bore_diameter=12, bore_depth=4)
+    wall = faces_where(part, "Cylinder", Radius=3)[0]
+    edited = Topology(run("edit_hole", part, faces=[wall], diameter=8).shape)
+    hole = only_hole(edited)
+    assert hole.kind == "counterbore" and hole.diameter == pytest.approx(8) and hole.through
+    with pytest.raises(OperationError, match="narrower"):
+        run("edit_hole", part, faces=[wall], diameter=13)
+    with pytest.raises(OperationError, match="past the counterbore"):
+        run("edit_hole", part, faces=[wall], depth=3)
+
+
+def test_edit_hole_handles(block):
+    part = drilled(block, "add_hole", diameter=6, depth=8)
+    wall = hole_wall(part)
+    tool = get_tool("edit_hole")
+    handles = {h["param"]: h for h in tool.handle_list(part, Selection(faces=[wall]), {})}
+    assert set(handles) == {"depth", "diameter", "dx", "dy"}
+    depth = handles["depth"]
+    assert depth["value"] == pytest.approx(8) and depth["max"] == pytest.approx(20) and depth["axisFrom"][2] == pytest.approx(10)
+    assert depth["anchor"][2] == pytest.approx(2) and depth["direction"] == pytest.approx([0, 0, -1])
+    assert handles["diameter"]["value"] == pytest.approx(6) and handles["diameter"]["scale"] == 2
+    moved = {h["param"]: h for h in tool.handle_list(part, Selection(faces=[wall]), {"dx": 5, "depth": 12})}
+    assert moved["depth"]["anchor"][0] == pytest.approx(5) and moved["depth"]["value"] == pytest.approx(12)
+    # not a hole: no tool, no handles
+    assert not tool.available(block, Selection(faces=[top_face(block)]))
+    assert tool.available(part, Selection(faces=[wall]))
+
+
+def test_convert_to_countersink(block):
+    part = drilled(block, "add_hole", diameter=6, depth=0)
+    wall = hole_wall(part)
+    result = Topology(run("convert_to_countersink", part, faces=[wall], sink_diameter=12, sink_angle=90).shape)
+    hole = only_hole(result)
+    assert hole.kind == "countersink" and hole.through
+    (stage,) = hole.stages
+    assert stage["diameter"] == pytest.approx(12) and stage["angle"] == pytest.approx(90)
+    expected = math.pi * 3 / 3 * (6**2 + 6 * 3 + 3**2)  # cone frustum, height 3, radii 6 and 3
+    assert volume(part.shape) - volume(result.shape) == pytest.approx(expected - math.pi * 9 * 3, rel=1e-3)
+    with pytest.raises(OperationError, match="wider than the hole"):
+        run("convert_to_countersink", part, faces=[wall], sink_diameter=5)
+    # converting again replaces the cone
+    again = Topology(run("convert_to_countersink", result, faces=[hole.faces[0]], sink_diameter=10, sink_angle=82).shape)
+    assert only_hole(again).stages[0]["diameter"] == pytest.approx(10)
