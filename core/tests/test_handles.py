@@ -493,3 +493,13 @@ def test_a_picked_base_point_goes_to_the_destination_even_off_the_shape(tool_id)
     before, after = bounds(params), bounds({**params, "x": placed[0], "y": placed[1], "z": placed[2]})
     for i in range(6):
         assert after[i] - before[i] == pytest.approx(destination[i % 3] - base[i % 3], abs=1e-3)
+
+
+def test_preview_mesh_skips_edge_drag_directions():
+    session = Session(None)
+    session.handle({"type": "open_demo", "name": "bracket"})
+    params = {"width": 5, "depth": 5, "height": 5, "x": 0, "y": 0, "z": 0, "new_body": 1}
+    preview, _ = decode_binary(session.handle({"type": "tool_preview", "tool": "add_box", "selection": {}, "params": params}))
+    commit, _ = decode_binary(session.handle({"type": "tool_commit", "tool": "add_box", "selection": {}, "params": params}))
+    assert all(e["normal"] is None for e in preview["edges"])
+    assert any(e["normal"] is not None for e in commit["edges"])

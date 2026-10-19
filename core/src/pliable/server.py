@@ -74,7 +74,7 @@ class Session:
 
     def _mesh_reply(self, topology: Topology, timings: dict, **extra) -> bytes:
         start = time.perf_counter()
-        mesh = tessellate(topology)
+        mesh = tessellate(topology, preview=bool(extra.get("preview")))
         timings["meshMs"] = _ms(start)
         header = {"kind": "mesh", "timings": timings, **extra}
         if self.document is not None:
