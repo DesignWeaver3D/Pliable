@@ -10,6 +10,7 @@ import type { CoreClient, MeshData } from "./client";
 import type { Dimension, DimensionOverlay } from "./dimensions";
 import * as E from "./sketchedit";
 import * as M from "./sketchmodel";
+import * as Sh from "./sketchshapes";
 import { usage } from "./usage";
 import type { Viewport } from "./viewport";
 
@@ -21,7 +22,7 @@ const POINT_SIZE_PX = 8;
 const PREVIEW_DELAY_MS = 150;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
-type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "arc" | "ellipse" | "spline" | "trim" | "extend" | "triangle" | "pentagon" | "hexagon" | "octagon";
+type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "ellipse" | "spline" | "trim" | "extend" | "triangle" | "pentagon" | "hexagon" | "octagon";
 /** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
 const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5, hexagon: 6, octagon: 8 };
 const TOOLS: { id: Tool; label: string; hint: string }[] = [
@@ -30,7 +31,11 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "rectangle", label: "Rectangle", hint: "Click two opposite corners" },
   { id: "rectcentre", label: "Centre rectangle", hint: "Click the centre, then a corner" },
   { id: "circle", label: "Circle", hint: "Click the centre, then a point on the circle" },
+  { id: "circle3", label: "Circle by 3 points", hint: "Click three points the circle passes through" },
   { id: "arc", label: "Arc", hint: "Click the centre, the start, then the end (counterclockwise)" },
+  { id: "arc3", label: "Arc by 3 points", hint: "Click the start, a point the arc passes through, then the end" },
+  { id: "slot", label: "Slot", hint: "Click the centre of one end, the centre of the other end, then a point for the width" },
+  { id: "point", label: "Point", hint: "Click to place a point; it can be snapped to and constrained" },
   { id: "ellipse", label: "Ellipse", hint: "Click the centre, the end of the long axis, then a point for the short radius" },
   { id: "spline", label: "Spline", hint: "Click points the curve passes through; Enter or right-click ends it, clicking the first point closes it" },
   { id: "trim", label: "Trim", hint: "Click the part of a line to remove, up to the nearest crossing curves" },
@@ -417,6 +422,20 @@ export class SketchMode {
     } else if (this.tool === "arc" && this.chain.length === 3) {
       this.addArc(this.chain[0], this.chain[1], this.chain[2]);
       this.chain = [];
+    } else if (this.tool === "arc3" && this.chain.length === 3) {
+      this.addArcThrough(this.chain[0], this.chain[1], this.chain[2]);
+      this.chain = [];
+    } else if (this.tool === "circle3" && this.chain.length === 3) {
+      this.addCircleThrough(this.chain[0], this.chain[1], this.chain[2]);
+      this.chain = [];
+    } else if (this.tool === "slot" && this.chain.length === 3) {
+      this.addSlot(this.chain[0], this.chain[1], this.chain[2]);
+      this.chain = [];
+    } else if (this.tool === "point") {
+      this.pushUndo();
+      this.pointFor(snap);
+      this.chain = [];
+      this.resolve();
     }
     this.cursor = null;
     this.render();
@@ -619,6 +638,49 @@ export class SketchMode {
     if (ids.length < 2) return;
     this.s.entities.push({ id: M.nextId(this.s), type: "spline", points: ids, ...(closed && ids.length > 2 ? { closed: true } : {}) });
     this.chain = [];
+    this.resolve();
+  }
+
+  private addArcThrough(start: Snap, through: Snap, end: Snap) {
+    const arc = Sh.arcThrough(start, through, end);
+    if (!arc) return this.host.status("Those three points are in a line, so no arc passes through them", true);
+    this.pushUndo();
+    const [first, last] = arc.from === "start" ? [start, end] : [end, start];
+    const centre = this.pointFor({ u: arc.centre.u, v: arc.centre.v } as Snap);
+    const a = this.pointFor(first);
+    const b = this.pointFor(last);
+    this.s.entities.push({ id: M.nextId(this.s), type: "arc", center: centre, start: a, end: b });
+    this.resolve();
+  }
+
+  private addCircleThrough(a: Snap, b: Snap, c: Snap) {
+    const circle = Sh.circumcircle(a, b, c);
+    if (!circle) return this.host.status("Those three points are in a line, so no circle passes through them", true);
+    this.pushUndo();
+    const centre = this.pointFor({ u: circle.u, v: circle.v } as Snap);
+    const id = M.nextId(this.s);
+    this.s.entities.push({ id, type: "circle", center: centre, radius: circle.radius });
+    for (const snap of [a, b, c]) if (snap.id !== undefined) this.addConstraintRaw({ type: "point_on", point: snap.id, entity: id }); // existing points stay on it
+    this.resolve();
+  }
+
+  /** Two end centres and a width: two straight edges and two half-circle ends that stay tangent and equal. */
+  private addSlot(a: Snap, b: Snap, side: Snap) {
+    const corners = Sh.slotCorners(a, b, Sh.distanceToAxis(a, b, side));
+    if (!corners) return;
+    this.pushUndo();
+    const [ca, cb] = [this.pointFor(a), this.pointFor(b)];
+    const at = (p: Sh.UV) => this.pointFor({ u: p.u, v: p.v } as Snap);
+    const [aLeft, aRight, bLeft, bRight] = [corners.aLeft, corners.aRight, corners.bLeft, corners.bRight].map(at);
+    const top = this.addLineBetween(aLeft, bLeft);
+    const bottom = this.addLineBetween(bRight, aRight);
+    // Both ends run counterclockwise: the far end from its right corner to its left, the near end back round.
+    const endB = M.nextId(this.s);
+    this.s.entities.push({ id: endB, type: "arc", center: cb, start: bRight, end: bLeft });
+    const endA = M.nextId(this.s);
+    this.s.entities.push({ id: endA, type: "arc", center: ca, start: aLeft, end: aRight });
+    for (const [arc, line] of [[endB, top], [endB, bottom], [endA, top], [endA, bottom]]) this.addConstraintRaw({ type: "tangent", entities: [arc, line] });
+    this.addConstraintRaw({ type: "equal", entities: [endA, endB] });
     this.resolve();
   }
 
@@ -1157,6 +1219,30 @@ export class SketchMode {
       if (!this.chain[1] || a < 1e-9) return [[[first.u, first.v], [c.u, c.v]]];
       const minor = Math.abs(((c.u - first.u) * (probe.points[1].v - first.v) - (c.v - first.v) * (probe.points[1].u - first.u)) / a);
       return [M.polyline(probe, { id: 0, type: "ellipse", center: -1, major: -2, minor: Math.max(minor, 1e-6) }, 48)];
+    }
+    const second = this.chain[1];
+    if (this.tool === "slot") {
+      if (!second) return [[[first.u, first.v], [c.u, c.v]]];
+      const corners = Sh.slotCorners(first, second, Sh.distanceToAxis(first, second, c));
+      if (!corners) return [[[first.u, first.v], [second.u, second.v]]];
+      const ring = (centre: Sh.UV, from: Sh.UV, to: Sh.UV): [number, number][] => {
+        const [a0, a1] = [Math.atan2(from.v - centre.v, from.u - centre.u), Math.atan2(to.v - centre.v, to.u - centre.u)];
+        const sweep = (a1 - a0 + 4 * Math.PI) % (2 * Math.PI);
+        const radius = Math.hypot(from.u - centre.u, from.v - centre.v);
+        return Array.from({ length: 25 }, (_, i) => [centre.u + radius * Math.cos(a0 + (sweep * i) / 24), centre.v + radius * Math.sin(a0 + (sweep * i) / 24)]);
+      };
+      return [[[corners.aLeft.u, corners.aLeft.v], [corners.bLeft.u, corners.bLeft.v]], [[corners.bRight.u, corners.bRight.v], [corners.aRight.u, corners.aRight.v]], ring(second, corners.bRight, corners.bLeft), ring(first, corners.aLeft, corners.aRight)];
+    }
+    if (this.tool === "circle3" || this.tool === "arc3") {
+      if (!second) return [[[first.u, first.v], [c.u, c.v]]];
+      const probe = Sh.circumcircle(first, second, c);
+      if (!probe) return [[[first.u, first.v], [second.u, second.v], [c.u, c.v]]];
+      if (this.tool === "circle3") return [Array.from({ length: 49 }, (_, i) => [probe.u + probe.radius * Math.cos((2 * Math.PI * i) / 48), probe.v + probe.radius * Math.sin((2 * Math.PI * i) / 48)] as [number, number])];
+      const arc = Sh.arcThrough(first, second, c)!;
+      const [from, to] = arc.from === "start" ? [first, c] : [c, first];
+      const a0 = Math.atan2(from.v - probe.v, from.u - probe.u);
+      const sweep = (Math.atan2(to.v - probe.v, to.u - probe.u) - a0 + 4 * Math.PI) % (2 * Math.PI);
+      return [Array.from({ length: 49 }, (_, i) => [probe.u + probe.radius * Math.cos(a0 + (sweep * i) / 48), probe.v + probe.radius * Math.sin(a0 + (sweep * i) / 48)] as [number, number])];
     }
     const r = Math.hypot(c.u - first.u, c.v - first.v);
     if (this.tool === "circle") return [Array.from({ length: 49 }, (_, i) => [first.u + r * Math.cos((2 * Math.PI * i) / 48), first.v + r * Math.sin((2 * Math.PI * i) / 48)] as [number, number])];

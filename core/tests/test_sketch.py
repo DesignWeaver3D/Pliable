@@ -686,3 +686,21 @@ def test_reference_dimension_is_not_solved():
     result = sketch.solve(sketch_of(points, lines, constraints), detail=True)
     assert result["status"] == "ok" and result["dof"] == 6  # 8 coordinates, minus the 2 of the fixed corner
     assert result["freedom"][2] == 2
+
+
+def test_slot_made_of_two_lines_and_two_tangent_arcs_solves_and_extrudes():
+    # end centres 1 and 2 at (0,0) and (10,0), half-width 2: corners 3-6, drawn as the slot tool builds it
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 0, "v": 2}, {"id": 4, "u": 0, "v": -2}, {"id": 5, "u": 10, "v": 2}, {"id": 6, "u": 10, "v": -2}]
+    entities = [
+        {"id": 20, "type": "line", "a": 3, "b": 5},
+        {"id": 21, "type": "line", "a": 6, "b": 4},
+        {"id": 22, "type": "arc", "center": 2, "start": 6, "end": 5},
+        {"id": 23, "type": "arc", "center": 1, "start": 3, "end": 4},
+    ]
+    constraints = [{"type": "tangent", "entities": [a, b]} for a, b in ((22, 20), (22, 21), (23, 20), (23, 21))] + [{"type": "equal", "entities": [22, 23]}]
+    sk = sketch_of(points, entities, constraints)
+    result = sketch.solve(sk)
+    assert result["status"] == "ok"
+    solved = sketch.apply_solution(sk, result)
+    face = sketch.profile_face(solved)
+    assert face.area == pytest.approx(10 * 4 + math.pi * 4, rel=1e-6)
