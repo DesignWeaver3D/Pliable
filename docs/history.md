@@ -55,3 +55,5 @@ Four STEP files (39 to 8,219 faces, 69 KB to 27 MB) all imported, meshed, export
 ## Alpha decisions (2026-10-17)
 
 Chrome only; everything may change without notice; autosave by the core as BREP snapshots (capped at about 50 steps, doubling as persisted undo); busy indicator with elapsed seconds and no cancel (OpenCASCADE cannot be interrupted); diagnostics shown before copying, with paths reduced to base names; stated size guideline of about 500 faces or 10 MB for single solids. Every feature built before the release ships, whatever its polish.
+
+- S60 Bugs: hole and boss walls drag with push/pull in the view (radius changes), and the measure key is the rebindable action "measure" (default M) in `keys.ts`, shown in hints.

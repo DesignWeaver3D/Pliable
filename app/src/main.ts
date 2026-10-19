@@ -682,6 +682,7 @@ const keys = new KeyRouter({
     "view.lookAtFace": () => {
       if (currentSels.length === 1 && currentSels[0].kind === "face" && !viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: could not find a view direction for this face";
     },
+    measure: () => viewport.toggleMeasureKey(),
     "display.hide": () => setVisibility("hide"),
     "display.isolate": () => setVisibility("isolate"),
     "display.showAll": () => setVisibility("show"),
@@ -795,9 +796,9 @@ function commands(): Command[] {
     { label: "Show all bodies", hint: keys.keymap.hint("display.showAll"), enabled: hiddenSolids.size > 0, run: () => setVisibility("show") },
     { label: "See-through selection (pick edges and faces behind the model)", hint: keys.keymap.hint("display.seeThrough"), enabled: true, run: () => viewport.toggleSeeThrough() },
     {
-      label: "Measure pick (hidden mode: press M while dragging a tool)",
-      hint: "M while dragging",
-      title: "Start dragging a tool, then press M to measure distances to other geometry. It cannot start from this list.",
+      label: `Measure pick (hidden mode: press ${keys.keymap.hint("measure") || "its key"} while dragging a tool)`,
+      hint: `${keys.keymap.hint("measure")} while dragging`,
+      title: "Start dragging a tool, then press the measure key to measure distances to other geometry. It cannot start from this list.",
       enabled: true,
       run: () => (status.textContent = "Measure pick: start dragging a tool, then press M to pick geometry to measure against"),
     },

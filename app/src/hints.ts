@@ -35,7 +35,7 @@ export function hintItems(ctx: HintContext, mods: Modifiers, keyText: (id: strin
     ];
   } else if (ctx.dragging) {
     items = [
-      { keys: "M", text: "measure pick (while dragging)" },
+      { keys: k("measure", "M"), text: "measure pick (while dragging)" },
       { keys: "0-9", text: "type an exact value" },
       { keys: "Esc", text: "cancel" },
     ];

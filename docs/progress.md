@@ -19,7 +19,6 @@ Wave 2 (2026-10-18) is merged into `dev` (243 core tests, 37 node tests, typeche
 | S47 | Gizmos | Fillet/chamfer manipulators: reverse ends or another way to say which end gets which value, interim radii at chosen points along the edge, chamfer distances that differ per side, all within the kernel. After S28 | Core done (reverse, interim radius, chamfer swap); on-screen handles remain, after S28 |
 | S48 | Holes | Define what a hole is and how users interact with one (`docs/research/holes-scope.md`, questions 1-4). Owner prefers a hole axis line with end points over a centre point; picking a circular hole edge must expose the circle's centre. Interim: show hole centre dots only on hover or selection, or behind a setting | Interim done (centre dots only for the hovered or selected hole; a selected circular edge shows its centre). Full hole scope waits on questions 1-4 |
 | S56 | Measure | Edit displayed dimensions in place (hole diameter, fillet radius, edge length, face-to-face distance, face angle; one undo step; red reason when impossible). Research done; discuss with the owner, then scope a build | Planned, needs owner |
-| S60 | Bugs | Core done (hole-wall push/pull changes the radius, Defeature, draft reasons, align_face tooltip). Remaining: the viewport cannot drag a hole wall yet (`viewport.ts` should call the core push/pull); the M measure key is hard-coded in `viewport.ts` and should route through `keys.ts` as action "measure" with default key m | Planned |
 
 ## Done, awaiting owner review
 
