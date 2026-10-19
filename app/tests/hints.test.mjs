@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MAX_HINTS, hintItems, loadPrefs, nextTip, savePrefs } from "../src/hints.ts";
+import { hintItems, loadPrefs, nextTip, savePrefs } from "../src/hints.ts";
 
 const none = { ctrl: false, alt: false, shift: false };
 const key = (id) => ({ "display.seeThrough": "X", "display.hide": "H", "view.lookAtFace": "V" })[id] ?? "";
@@ -11,10 +11,9 @@ test("a drag shows the measure pick key", () => {
   assert.ok(items.some((i) => i.keys === "M" && /measure/.test(i.text)));
 });
 
-test("idle hints name see-through with the user's key and stay within the limit", () => {
-  const items = hintItems({ ...idle, hasSelection: true }, none, (id) => (id === "display.seeThrough" ? "Ctrl+Alt+S" : key(id)));
-  assert.equal(items[0].keys, "Ctrl+Alt+S");
-  assert.ok(items.length <= MAX_HINTS);
+test("idle shows no static legend", () => {
+  assert.deepEqual(hintItems({ ...idle, hasSelection: true }, none, key), []);
+  assert.deepEqual(hintItems(idle, none, key), []);
 });
 
 test("held modifiers change the line", () => {
