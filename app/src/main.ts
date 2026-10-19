@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { moveHandlesAt } from "./placepick";
+import { bodyCentres, movedBodies } from "./slide";
 import { PointPicker, ReferenceView } from "./reference";
 import { installAlphaUi, showDiagnostics, showImportNotice, showLaunchNotice } from "./alpha";
 import { CoreClient, type MeshData } from "./client";
@@ -1086,6 +1087,63 @@ async function updateDivideFrame() {
 viewport.onDivideDrag = (across, offset) => toolPanel.setValues({ across, offset });
 
 let formPreviewSeq = 0;
+let previewBusy = false;
+let previewWaiting: { tool: ToolInfo; values: Record<string, ParamValue>; editBody?: number } | null = null;
+async function drainPreviews() {
+  previewBusy = true;
+  try {
+    while (previewWaiting) {
+      const next = previewWaiting;
+      previewWaiting = null;
+      if (!toolPanel.isOpen) break; // the form closed while this waited
+      await runPreview(next.tool, next.values, next.editBody);
+    }
+  } finally {
+    previewBusy = false;
+  }
+}
+
+/** A drag of a move arrow in an open form: the arrow's value now, and what the last shown preview was for. */
+let slideLive: { info: HandleInfo; value: number } | null = null;
+let slideTrack: { centres: Map<number, [number, number, number]>; value: number; moving: Set<number> | null } | null = null;
+
+/** Show the shift the pointer has made since the shown preview was asked for, on the bodies that move (client side, at once). */
+function slideNow() {
+  if (!slideLive || !slideTrack?.moving) return;
+  const { info, value } = slideLive;
+  const d = (value - slideTrack.value) / (info.scale || 1);
+  (window as any).__slid = ((window as any).__slid ?? 0) + 1;
+  viewport.slideBodies(slideTrack.moving, [info.direction[0] * d, info.direction[1] * d, info.direction[2] * d]);
+}
+
+async function runPreview(tool: ToolInfo, values: Record<string, ParamValue>, editBody?: number) {
+  const seq = ++formPreviewSeq;
+  const t0 = performance.now();
+  const sentValue = slideLive?.value;
+  try {
+    const mesh = await core.request<MeshData>("tool_preview", { tool: tool.id, selection: selectionPayload(editBody === undefined ? expand(tool, currentSels) : []), params: values, ...(editBody === undefined ? {} : { edit_body: editBody }) });
+    const t1 = performance.now();
+    if (!toolPanel.isOpen || seq !== formPreviewSeq) return; // closed or a newer preview was asked for
+    show(mesh);
+    if (slideLive && sentValue !== undefined) {
+      // Which bodies a move arrow moves is read off two previews of the same drag (their centres shift along the arrow).
+      const centres = bodyCentres(mesh.vertices);
+      const before = slideTrack;
+      const moving = before && before.value !== sentValue ? movedBodies(before.centres, centres, slideLive.info.direction) : before?.moving ?? null;
+      slideTrack = { centres, value: sentValue, moving };
+      slideNow();
+    }
+    ((window as any).__perf ??= []).push({ sinceEvent: t0 - lastDragEvent, roundTrip: t1 - t0, show: performance.now() - t1, timings: mesh.header.timings, tris: mesh.indices.length / 3 });
+    viewport.manipulator.setHandles(moveHandlesAt(mesh.header.handles ?? [], toolPanel.basePosition()));
+    status.classList.remove("error");
+    status.textContent = `${tool.label}: preview`;
+  } catch (e) {
+    if (seq !== formPreviewSeq) return;
+    status.textContent = (e as Error).message;
+    status.classList.add("error");
+  }
+}
+
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   selectedEdges: () => currentSels.filter((s) => s.kind === "edge").map((s) => s.id),
   pickPoint: (options) => pointPicker.pick(options),
@@ -1099,20 +1157,12 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   },
   tools: () => tools,
   usable: (tool) => acceptsSelection(tool, expand(tool, currentSels)) && (refined === null || refined.includes(tool.id)),
-  async preview(tool, values, editBody) {
-    const seq = ++formPreviewSeq;
-    try {
-      const mesh = await core.request<MeshData>("tool_preview", { tool: tool.id, selection: selectionPayload(editBody === undefined ? expand(tool, currentSels) : []), params: values, ...(editBody === undefined ? {} : { edit_body: editBody }) });
-      if (!toolPanel.isOpen || seq !== formPreviewSeq) return; // a newer preview was asked for: replies can arrive out of order
-      show(mesh);
-      viewport.manipulator.setHandles(moveHandlesAt(mesh.header.handles ?? [], toolPanel.basePosition()));
-      status.classList.remove("error");
-      status.textContent = `${tool.label}: preview`;
-    } catch (e) {
-      if (seq !== formPreviewSeq) return;
-      status.textContent = (e as Error).message;
-      status.classList.add("error");
-    }
+  preview(tool, values, editBody) {
+    // One preview in flight at a time, the newest request waiting behind it (latest wins): the core answers in order, so
+    // sending every pointer move would show nothing until the pointer rests while the replies queue up.
+    previewWaiting = { tool, values, editBody };
+    if (!previewBusy) void drainPreviews();
+    return Promise.resolve();
   },
   async commit(tool, values, editBody) {
     const sels = currentSels;
@@ -1170,7 +1220,17 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
 toolPanel.renderList();
 // A handle dragged in the view sets its parameter through the open form, so typed entry and the preview stay in step.
 // With no form open (a selection waiting for its drag tool) the handle runs that tool's normal drag instead.
+let lastDragEvent = 0;
 viewport.manipulator.onDrag = (param, value, phase, x, y, linked) => {
+  lastDragEvent = performance.now();
+  const info = viewport.manipulator.dragInfo;
+  if (toolPanel.isOpen && phase === "move" && info?.kind === "move") {
+    slideLive = { info, value };
+    slideNow();
+  } else if (phase !== "move") {
+    slideLive = null;
+    slideTrack = null;
+  }
   if (toolPanel.isOpen) toolPanel.setValues({ ...linked, [param]: value });
   else void viewport.onItemDrag(currentSels, phase === "cancel" ? 0 : value, phase, x, y);
 };
