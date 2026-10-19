@@ -29,7 +29,9 @@ export function fitStripCount(w: StripWidths, available: number): number {
   return count;
 }
 
-/** Width the strip may use: the window width less what the left and right sides keep (the strip is centred, so the larger side counts twice). */
-export function stripAvailable(viewWidth: number, leftReserve: number, rightReserve: number): number {
-  return Math.max(120, viewWidth - 2 * Math.max(leftReserve, rightReserve));
+/** The room for the strip: the window width less what the left side (body list, open drawer) and the right side (nav cube,
+ *  view controls) keep. The strip is centred in the room that is left, so `centre` is its middle in window pixels. */
+export function stripRoom(viewWidth: number, leftReserve: number, rightReserve: number): { width: number; centre: number } {
+  const width = Math.max(120, viewWidth - leftReserve - rightReserve);
+  return { width, centre: leftReserve + width / 2 };
 }

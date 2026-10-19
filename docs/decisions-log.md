@@ -16,7 +16,7 @@ Decisions made without the owner or by the owner, grouped by topic. Each says wh
 - Alpha notice is acknowledged once per user; no portable-mode marker for now.
 - Resize hole also resizes same-size holes by default (owner chose to keep); other tools affect only the selected feature.
 
-- Body list (S65): stable body ids and auto names; a plain list on the left in the drawer (not a card); rows with name, eye and isolate, rename and later actions by right-click; clicking a row selects the whole body and tools use bodies directly with a body-centre pivot; hover highlight both ways.
+- Body list (S65): stable body ids and auto names; a persistent plain list on the left of the 3D view, outside the drawer (not a card; the drawer opens to its right, the tool form and measurement card sit beside the list or drawer, the context strip is centred in the room between the left side and the nav cube); rows with name, eye and isolate, rename and later actions by right-click; clicking a row selects the whole body and tools use bodies directly with a body-centre pivot; hover highlight both ways.
 
 - First alpha release (S17) is deferred by the owner (2026-10-19) until more of the current work has been tested; the build and CI stay as they are, no tag.
 

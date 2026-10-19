@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fitStripCount, stripAvailable } from "../src/stripfit.ts";
+import { fitStripCount, stripRoom } from "../src/stripfit.ts";
 
 const w = (tools, over = {}) => ({ tools, helpers: 0, more: 80, gap: 6, chrome: 14, ...over });
 
@@ -21,8 +21,8 @@ test("one tool stays even in a narrow strip, and none gives zero", () => {
   assert.equal(fitStripCount(w([]), 500), 0);
 });
 
-test("the available width leaves the larger side free on both sides", () => {
-  assert.equal(stripAvailable(1400, 240, 200), 920);
-  assert.equal(stripAvailable(1400, 100, 300), 800);
-  assert.equal(stripAvailable(300, 240, 240), 120);
+test("the strip is centred in the room between the left and right sides", () => {
+  assert.deepEqual(stripRoom(1400, 240, 200), { width: 960, centre: 720 });
+  assert.deepEqual(stripRoom(1400, 540, 160), { width: 700, centre: 890 });
+  assert.equal(stripRoom(300, 240, 240).width, 120);
 });

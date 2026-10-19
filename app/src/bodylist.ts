@@ -1,4 +1,4 @@
-// The body list: a plain list of the model's bodies in the left drawer. Each row has the body's name, an eye (hide / show)
+// The body list: a plain list of the model's bodies, always shown on the left of the 3D view. Each row has the body's name, an eye (hide / show)
 // and an isolate toggle; a right-click opens a small menu (Rename, and room for later actions). Clicking selects.
 
 import { clickRows, isIsolated } from "./bodylogic";
@@ -73,7 +73,14 @@ export class BodyList {
   private render() {
     this.closeMenu();
     this.count.textContent = String(this.bodies.length);
-    this.list.replaceChildren(...this.bodies.map((body) => this.row(body)));
+    if (this.bodies.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "nobodies";
+      empty.textContent = "No bodies";
+      this.list.replaceChildren(empty);
+    } else {
+      this.list.replaceChildren(...this.bodies.map((body) => this.row(body)));
+    }
     this.paint();
   }
 
