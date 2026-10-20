@@ -12,6 +12,8 @@ import * as Chk from "./sketchcheck";
 import * as E from "./sketchedit";
 import * as M from "./sketchmodel";
 import * as Sh from "./sketchshapes";
+import { uiIcon } from "./icons";
+import { LENGTH_UNIT } from "./units";
 import { usage } from "./usage";
 import type { Viewport } from "./viewport";
 
@@ -23,10 +25,10 @@ const POINT_SIZE_PX = 8;
 const PREVIEW_DELAY_MS = 150;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
-type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "ellipse" | "spline" | "trim" | "extend" | "split" | "triangle" | "pentagon" | "hexagon" | "octagon";
+export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "ellipse" | "spline" | "trim" | "extend" | "split" | "triangle" | "pentagon" | "hexagon" | "octagon";
 /** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
 const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5, hexagon: 6, octagon: 8 };
-const TOOLS: { id: Tool; label: string; hint: string }[] = [
+export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "select", label: "Select", hint: "Click to select, drag points, Delete removes" },
   { id: "line", label: "Line", hint: "Click points; Enter or right-click ends the chain" },
   { id: "rectangle", label: "Rectangle", hint: "Click two opposite corners" },
@@ -48,23 +50,26 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
 /** Sketch preferences kept on this computer: the grid and which constraints the drawing tools add on their own. */
 export interface SketchOptions {
   grid: boolean;
-  /** Spacing of the bold grid lines, in model units. */
+  /** Pointer positions snap to the grid while drawing. */
+  snapGrid: boolean;
+  /** Spacing of the bold grid lines, in the length unit (mm). */
   major: number;
-  /** Each major cell is split into this many (1 draws no minor lines). */
+  /** Spacing of the light lines between them, in the length unit; 0 draws none. The pointer snaps to this when it is set, else to the major spacing. */
   minor: number;
   /** none: tools add no constraints; snaps: only those a snap implies (horizontal, vertical, on a curve, tangent); shape: also the ones that keep a rectangle, polygon or slot its shape. */
   auto: "none" | "snaps" | "shape";
 }
-const OPTIONS_KEY = "pliable.sketchOptions";
+const OPTIONS_KEY = "pliable.sketchOptions2";
 
 export function loadSketchOptions(): SketchOptions {
-  const options: SketchOptions = { grid: false, major: 10, minor: 1, auto: "none" };
+  const options: SketchOptions = { grid: false, snapGrid: false, major: 10, minor: 2, auto: "none" };
   try {
     const saved = JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? "null");
     if (saved) {
       options.grid = saved.grid === true;
+      options.snapGrid = saved.snapGrid === true;
       if (Number.isFinite(saved.major) && saved.major > 0) options.major = saved.major;
-      if (Number.isInteger(saved.minor) && saved.minor >= 1 && saved.minor <= 10) options.minor = saved.minor;
+      if (Number.isFinite(saved.minor) && saved.minor >= 0) options.minor = saved.minor;
       if (["none", "snaps", "shape"].includes(saved.auto)) options.auto = saved.auto;
     }
   } catch {
@@ -135,7 +140,18 @@ export class SketchMode {
   private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false }));
   private grid: THREE.Group | null = null;
   private options = loadSketchOptions();
-  private showOptions = false;
+  private settingsDialog: HTMLDialogElement | null = null;
+  /** Called when the active drawing tool, or whether a sketch is open, changes (the top strip redraws). */
+  onToolChange: (() => void) | null = null;
+
+  get activeTool(): Tool {
+    return this.tool;
+  }
+
+  /** Choose a drawing tool (from the top strip). */
+  selectTool(tool: Tool) {
+    if (this.active) this.setTool(tool);
+  }
   private solving = false;
   private queued: { drag?: Drag } | null = null;
   private previewTimer = 0;
@@ -187,12 +203,14 @@ export class SketchMode {
     this.extrude = { distance: 10, mode: "join", symmetric: false, revolve: false, angle: 360, open: false };
     this.active = true;
     this.viewport.selectItems([]); // the model's selection highlight would cover the sketch
+    this.viewport.manipulator.clear(); // so would the selected face's push/pull arrow
     this.buildGrid(f);
     this.viewport.scene.add(this.group);
     this.viewport.interceptor = { down: (e) => this.onDown(e), move: (e) => this.onMove(e), up: (e) => this.onUp(e) };
     this.viewport.onFrame2 = () => this.onFrame();
     this.render();
-    this.host.status(distortion ? distortion.note : "Sketch: choose a drawing tool (Line, Rectangle, Circle, Arc)", !!distortion);
+    this.onToolChange?.();
+    this.host.status(distortion ? distortion.note : "Sketch: choose a drawing tool in the top bar (Line, Rectangle, Circle, Arc)", !!distortion);
   }
 
   exit() {
@@ -211,6 +229,7 @@ export class SketchMode {
     this.panel.hidden = true;
     this.panel.replaceChildren();
     this.host.restore();
+    this.onToolChange?.();
     this.host.status("Sketch closed");
   }
 
@@ -227,6 +246,20 @@ export class SketchMode {
     } catch (e) {
       this.exit();
       this.host.status((e as Error).message);
+    }
+  }
+
+  /** The distance the pointer snaps to when snap to grid is on: the light lines when there are any, else the bold ones. */
+  private gridStep(): number {
+    const { major, minor } = this.options;
+    return minor > 0 && minor < major ? minor : major;
+  }
+
+  private saveOptions() {
+    try {
+      localStorage.setItem(OPTIONS_KEY, JSON.stringify(this.options));
+    } catch {
+      // storage blocked: the choice lasts for this session only
     }
   }
 
@@ -257,7 +290,7 @@ export class SketchMode {
       return lines;
     };
     const grid = new THREE.Group();
-    if (minor > 1) grid.add(layer(20 * minor, COLORS.grid, 0.25));
+    if (minor > 0 && minor < major && size / minor <= 800) grid.add(layer(Math.round(size / minor), COLORS.grid, 0.25));
     grid.add(layer(20, COLORS.grid, 0.6));
     const basis = new THREE.Matrix4().makeBasis(new THREE.Vector3(...f.x), new THREE.Vector3(...f.n), new THREE.Vector3(...f.y));
     grid.applyMatrix4(basis);
@@ -303,6 +336,10 @@ export class SketchMode {
     const uv = this.planeUV(e);
     if (!uv) return null;
     let [u, v] = uv;
+    if (this.options.snapGrid) {
+      const step = this.gridStep();
+      [u, v] = [Math.round(u / step) * step, Math.round(v / step) * step];
+    }
     let axis: Snap["axis"];
     const last = this.chain[this.chain.length - 1];
     if (this.tool === "line" && last) {
@@ -582,7 +619,7 @@ export class SketchMode {
   }
 
   onKey(e: KeyboardEvent) {
-    if (!this.active) return;
+    if (!this.active || this.settingsDialog?.open) return;
     const target = e.target as HTMLElement;
     if (target.closest("input, select, textarea")) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
@@ -849,7 +886,8 @@ export class SketchMode {
     this.chainStart = undefined;
     this.cursor = null;
     this.hover = null;
-    this.host.status(`Sketch ${TOOLS.find((t) => t.id === tool)!.label}: ${TOOLS.find((t) => t.id === tool)!.hint}`);
+    this.onToolChange?.();
+    this.host.status(`Sketch ${SKETCH_TOOLS.find((t) => t.id === tool)!.label}: ${SKETCH_TOOLS.find((t) => t.id === tool)!.hint}`);
     this.render();
   }
 
@@ -877,67 +915,68 @@ export class SketchMode {
     this.render();
   }
 
-  /** The sketch settings (opened by the gear in the sketch card); changes apply at once and are remembered on this computer. */
-  private optionsSection(el: (tag: string, cls?: string, text?: string) => HTMLElement, button: (label: string, on: () => void, cls?: string) => HTMLButtonElement): HTMLElement {
-    const box = el("div", "section");
-    const save = () => {
-      try {
-        localStorage.setItem(OPTIONS_KEY, JSON.stringify(this.options));
-      } catch {
-        // storage blocked: the choice lasts for this session only
-      }
+  /** The sketch settings window (the gear in the sketch card): grid spacing and automatic constraints. Changes apply at once and are remembered on this computer. */
+  private openSettings() {
+    if (this.settingsDialog?.open) return;
+    const dialog = document.createElement("dialog");
+    dialog.className = "sketchsettings";
+    dialog.addEventListener("keydown", (e) => e.stopPropagation()); // typing here is not a sketch shortcut
+    const row = (label: string, input: HTMLElement, unit = "") => {
+      const r = document.createElement("label");
+      const text = document.createElement("span");
+      text.textContent = label;
+      const tail = document.createElement("span");
+      tail.className = "unit";
+      tail.textContent = unit;
+      r.append(text, input, tail);
+      return r;
     };
-    const field = (label: string, input: HTMLElement) => {
-      const row = el("label", "", `${label} `);
-      row.append(input);
-      return row;
-    };
-    const number = (value: number, min: number, step: string, on: (n: number) => void) => {
+    const spacing = (value: number, min: number, on: (n: number) => void) => {
       const input = document.createElement("input");
       input.type = "number";
       input.min = String(min);
-      input.step = step;
+      input.step = "any";
       input.value = String(value);
-      input.style.width = "60px";
-      input.addEventListener("keydown", (e) => e.stopPropagation());
       input.addEventListener("change", () => {
         const n = Number(input.value);
         if (Number.isFinite(n) && n >= min) on(n);
-        save();
+        input.value = String(n >= min ? n : value);
+        this.saveOptions();
         this.buildGrid();
-        this.renderPanel();
       });
       return input;
     };
-    const showGrid = document.createElement("input");
-    showGrid.type = "checkbox";
-    showGrid.checked = this.options.grid;
-    showGrid.addEventListener("change", () => {
-      this.options.grid = showGrid.checked;
-      save();
-      this.buildGrid();
-      this.renderPanel();
-    });
     const auto = document.createElement("select");
     for (const [value, label] of [["none", "Off: geometry stays free"], ["snaps", "From snaps only"], ["shape", "Snaps and shapes"]]) auto.append(new Option(label, value, false, value === this.options.auto));
     auto.title = "Off: drawing tools never add constraints, so everything moves freely until you constrain it. From snaps: a line snapped to horizontal or vertical, or a point snapped onto a curve, keeps that. Snaps and shapes: also keeps rectangles, polygons and slots in shape";
     auto.addEventListener("change", () => {
       this.options.auto = auto.value as SketchOptions["auto"];
-      save();
+      this.saveOptions();
     });
-    box.append(
-      el("div", "group", "Sketch settings"),
-      field("Show grid", showGrid),
-      ...(this.options.grid
-        ? [
-            field("Major spacing", number(this.options.major, 0.01, "any", (n) => (this.options.major = n))),
-            field("Minor divisions", number(this.options.minor, 1, "1", (n) => (this.options.minor = Math.min(10, Math.round(n))))),
-          ]
-        : []),
-      field("Automatic constraints", auto),
+    const title = document.createElement("h3");
+    title.textContent = "Sketch settings";
+    const grid = document.createElement("div");
+    grid.className = "group";
+    grid.textContent = "Grid (shown with the grid button in the sketch card)";
+    const done = document.createElement("button");
+    done.textContent = "Done";
+    done.addEventListener("click", () => dialog.close());
+    dialog.append(
+      title,
+      grid,
+      row("Major spacing", spacing(this.options.major, 0.001, (n) => (this.options.major = n)), LENGTH_UNIT),
+      row("Minor spacing", spacing(this.options.minor, 0, (n) => (this.options.minor = n)), `${LENGTH_UNIT} (0 for none)`),
+      Object.assign(document.createElement("div"), { className: "group", textContent: "Drawing" }),
+      row("Automatic constraints", auto),
+      done,
     );
-    void button;
-    return box;
+    dialog.addEventListener("close", () => {
+      dialog.remove();
+      this.settingsDialog = null;
+    });
+    document.body.append(dialog);
+    this.settingsDialog = dialog;
+    dialog.showModal();
   }
 
   /** Change the value of an existing dimension; a value the other constraints refuse is undone. */
@@ -1518,26 +1557,34 @@ export class SketchMode {
       return b;
     };
 
-    const header = el("div", "title", "Sketch ");
-    const gear = button("⚙", () => {
-      this.showOptions = !this.showOptions;
+    const iconButton = (icon: string, title: string, on: () => void, pressed = false) => {
+      const b = document.createElement("button");
+      b.className = "iconbtn" + (pressed ? " active" : "");
+      b.title = title;
+      b.append(uiIcon(icon));
+      b.addEventListener("click", on);
+      return b;
+    };
+    const header = el("div", "head");
+    const grid = iconButton("grid", this.options.grid ? "Hide the grid" : "Show the grid (set its spacing in the sketch settings)", () => {
+      this.options.grid = !this.options.grid;
+      this.saveOptions();
+      this.buildGrid();
       this.renderPanel();
-    });
-    gear.title = "Sketch settings: grid and automatic constraints";
-    gear.classList.toggle("active", this.showOptions);
-    const look = button("Look at plane", () => this.viewport.lookFrom(new THREE.Vector3(...M.frame(this.s.plane).n)));
-    look.title = "Turn the view square to the sketch plane (entering a sketch does not move the view)";
-    header.append(gear, look);
-    const optionsBox = this.showOptions ? this.optionsSection(el, button) : null;
+    }, this.options.grid);
+    const snap = iconButton("gridSnap", this.options.snapGrid ? "Snap to grid is on: click to turn it off" : "Snap to grid: drawn points land on the grid spacing", () => {
+      this.options.snapGrid = !this.options.snapGrid;
+      this.saveOptions();
+      this.renderPanel();
+    }, this.options.snapGrid);
+    const look = iconButton("lookAt", "Turn the view square to the sketch plane (entering a sketch does not move the view)", () => this.viewport.lookFrom(new THREE.Vector3(...M.frame(this.s.plane).n)));
+    const gear = iconButton("gear", "Sketch settings", () => this.openSettings());
+    gear.style.marginLeft = "auto";
+    header.append(el("span", "title", "Sketch"), look, grid, snap, gear);
     const status = el("div", "dof", this.failed.size ? `Conflict: ${this.s.constraints.filter((c) => this.failed.has(c.id)).map((c) => M.describeConstraint(this.s, c)).join("; ") || [...this.failed].join(", ")}. Remove one (red rows below)` : this.dof === null ? "" : this.dof === 0 ? "Fully constrained" : `${this.dof} degrees of freedom left`);
     if (this.failed.size) status.classList.add("bad");
 
-    const tools = el("div", "row-buttons");
-    for (const t of TOOLS) {
-      const b = button(t.label, () => this.setTool(t.id), t.id === this.tool ? "active" : "");
-      b.title = t.hint;
-      tools.append(b);
-    }
+    const tools = el("div", "row-buttons"); // options of the drawing tool chosen in the top bar
 
     if (this.tool === "rectangle" || this.tool === "rectcentre") {
       const corner = document.createElement("select");
@@ -1735,6 +1782,6 @@ export class SketchMode {
     finish.title = "Leave the sketch and keep its closed regions as faces you can push/pull or extrude";
     const exit = button("Discard sketch", () => this.exit());
     exit.title = "Leave the sketch and throw it away without changing the model";
-    this.panel.replaceChildren(header, ...(optionsBox ? [optionsBox] : []), status, tools, constraintsBox, ...(transformRow ? [transformBox] : []), ask, list, ...(flat ? [extrude] : []), finish, exit);
+    this.panel.replaceChildren(header, status, tools, constraintsBox, ...(transformRow ? [transformBox] : []), ask, list, ...(flat ? [extrude] : []), finish, exit);
   }
 }

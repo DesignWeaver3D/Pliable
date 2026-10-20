@@ -4,7 +4,8 @@ import { bodyCentres, movedBodies } from "./slide";
 import { PointPicker, ReferenceView } from "./reference";
 import { installAlphaUi, showDiagnostics, showImportNotice, showLaunchNotice } from "./alpha";
 import { CoreClient, type MeshData } from "./client";
-import { SketchMode } from "./sketch";
+import { SKETCH_TOOLS, SketchMode } from "./sketch";
+import type { Tool as SketchTool } from "./sketch";
 import { SketchBar } from "./sketchbar";
 import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
@@ -12,13 +13,14 @@ import { fitStripCount, stripRoom } from "./stripfit";
 import { DimensionOverlay } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
 import { LatestWins } from "./latestwins";
+import { LENGTH_UNIT } from "./units";
 import { SETTING_ENTRIES, createSettingsWindow, onSettingsChange, openSettings, setHintsBinding, setKeysOpener, settingValue, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
 import { HintLine } from "./hints";
 import { Palette, type Command } from "./palette";
 import { toolKeywords } from "./search";
-import { TOOLS_HANDLE_ICON, toolIcon, uiIcon } from "./icons";
+import { TOOLS_HANDLE_ICON, sketchIcon, toolIcon, uiIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
 import type { AnchorInfo } from "./placepick";
 import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type HandleInfo, type ToolInfo } from "./tools";
@@ -205,6 +207,10 @@ let selectionHandleTool: ToolInfo | null = null; // the tool the handles now sho
 /** With a selection and no form open, the tool a drag would run shows its handles (push/pull's arrow on the face). */
 async function refreshSelectionHandles() {
   const sels = currentSels;
+  if (viewport.interceptor) {
+    viewport.manipulator.clear(); // a sketch is open: model handles would sit over it
+    return;
+  }
   const tool = sels.length && !toolPanel.isOpen ? (holeHandleTool(sels) ?? dragToolFor(sels)) : null;
   selectionHandleTool = tool;
   if (!tool?.hasHandles || tool.startsFrom === "tool") {
@@ -277,7 +283,42 @@ const LEFT_RESERVE_PX = 240;
 
 let toolbarKey = "";
 
+/** While a sketch is open the top strip holds the drawing tools instead of the model's tools. The sketch itself is made below. */
+let currentSketchTool: () => SketchTool = () => "select";
+let chooseSketchTool: (tool: SketchTool) => void = () => {};
+
+function renderSketchStrip() {
+  const room = stripWidthAvailable();
+  const available = Math.round(room.width);
+  const centre = Math.round(room.centre);
+  const tool = currentSketchTool();
+  const key = `sketch|${tool}|${available}|${centre}`;
+  if (key === toolbarKey) return;
+  toolbarKey = key;
+  toolbar.classList.add("sketching");
+  toolbar.style.maxWidth = `${available}px`;
+  toolbar.style.left = `${centre}px`;
+  toolbar.replaceChildren(
+    ...SKETCH_TOOLS.map((t) => {
+      const button = document.createElement("button");
+      const label = document.createElement("span");
+      label.className = "label";
+      label.textContent = t.label;
+      button.append(sketchIcon(t.id), label);
+      button.title = `${t.label}: ${t.hint}`;
+      button.className = t.id === tool ? "active" : "";
+      button.addEventListener("click", () => chooseSketchTool(t.id));
+      return button;
+    }),
+  );
+}
+
 function renderToolbar() {
+  if (viewport.interceptor) {
+    renderSketchStrip(); // a sketch is open
+    return;
+  }
+  toolbar.classList.remove("sketching");
   renderChips();
   const usable = usableTools();
   const active = dragToolFor(currentSels)?.id;
@@ -666,8 +707,6 @@ viewport.onEdgeLoop = async (edgeId, additive) => {
 // Dimension label: follows the pointer during a drag; typing digits turns it into the value entry.
 const dimLabel = $("dim");
 const DIM_OFFSET_PX = 16; // label offset from the pointer
-// The core has no unit system: STEP import converts to millimetres, so lengths are mm. A unit setting replaces this later.
-const LENGTH_UNIT = "mm";
 const len = (n: number) => `${n.toFixed(2)} ${LENGTH_UNIT}`;
 let typed: string | null = null; // text typed so far, null while the mouse sets the value
 let dragValue = 0; // value from the mouse (model units)
@@ -1119,6 +1158,9 @@ const sketch = new SketchMode(
   },
   $("sketchpanel"),
 );
+currentSketchTool = () => sketch.activeTool;
+chooseSketchTool = (tool) => sketch.selectTool(tool);
+sketch.onToolChange = () => renderToolbar();
 const sketchBar = new SketchBar({
   core,
   sketch,

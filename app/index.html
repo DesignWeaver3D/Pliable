@@ -41,6 +41,12 @@
       #tools button.active { border-color: #ff8a1f; color: #ffb878; }
       #tools button.active::after { content: "drag"; margin-left: 6px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a1f; }
       #tools button.more { color: #aaa; }
+      #tools.sketching { flex-wrap: wrap; max-width: 560px; }
+      #tools.sketching button { padding: 4px 6px; }
+      #tools.sketching button .icon { margin-right: 0; }
+      #tools.sketching button .label { display: none; margin-left: 5px; }
+      #tools.sketching button.active .label { display: inline; }
+      #tools.sketching button.active::after { content: none; }
       #tools .none { color: #888; padding: 4px 2px; }
       #busy { position: fixed; top: 44px; left: calc(var(--leftw) + 8px); z-index: 3; display: flex; gap: 8px; align-items: center; background: #23262d; color: #ffb878; border: 1px solid #ff8a1f; border-radius: 4px; padding: 4px 10px; font-variant-numeric: tabular-nums; pointer-events: none; }
       #busy[hidden] { display: none; }
@@ -118,6 +124,18 @@
       #sketchbar button:disabled { color: #666; }
       #sketchpanel { position: fixed; top: 270px; right: 12px; width: 250px; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; font-size: 13px; }
       #sketchpanel[hidden] { display: none; }
+      #sketchpanel .head { display: flex; align-items: center; gap: 4px; }
+      #sketchpanel .head .iconbtn { padding: 3px 5px; line-height: 0; }
+      #sketchpanel .head .iconbtn.active { border-color: #ff8a1f; color: #ffb878; }
+      dialog.sketchsettings { background: #23262d; color: #ddd; border: 1px solid #555; border-radius: 8px; padding: 14px 18px; min-width: 320px; font-size: 13px; }
+      dialog.sketchsettings::backdrop { background: rgba(0, 0, 0, 0.45); }
+      dialog.sketchsettings h3 { margin: 0 0 8px; color: #ffb878; font-size: 15px; }
+      dialog.sketchsettings .group { color: #ffb878; font-size: 11px; margin: 10px 0 4px; }
+      dialog.sketchsettings label { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+      dialog.sketchsettings label > span:first-child { flex: 1; }
+      dialog.sketchsettings input[type=number] { width: 80px; }
+      dialog.sketchsettings .unit { color: #999; min-width: 70px; }
+      dialog.sketchsettings button { margin-top: 12px; background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 14px; float: right; }
       #sketchpanel .title { color: #ffb878; font-weight: 600; }
       #sketchpanel .dof { color: #9ad; margin: 2px 0 6px; }
       #sketchpanel .bad { color: #ff6b6b; }

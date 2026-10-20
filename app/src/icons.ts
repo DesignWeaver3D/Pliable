@@ -115,6 +115,29 @@ export const TOOL_ICONS: Record<string, Spec> = {
   scale_body: spec("body", "scale"),
 };
 
+/** Icons for the sketch drawing tools shown in the top strip while a sketch is open. */
+export const SKETCH_ICONS: Record<string, string> = {
+  select: '<path d="M6 4l12 7-5.2 1.6L10 18z" fill="currentColor" fill-opacity=".16"/>',
+  line: '<path d="M5 19L19 5"/><circle cx="5" cy="19" r="1.6" fill="currentColor"/><circle cx="19" cy="5" r="1.6" fill="currentColor"/>',
+  rectangle: '<rect x="4" y="6" width="16" height="12" rx="1" fill="currentColor" fill-opacity=".12"/><circle cx="4" cy="6" r="1.4" fill="currentColor"/><circle cx="20" cy="18" r="1.4" fill="currentColor"/>',
+  rectcentre: '<rect x="4" y="6" width="16" height="12" rx="1" fill="currentColor" fill-opacity=".12"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><path d="M12 12l8 6" stroke-dasharray="2 2"/>',
+  circle: '<circle cx="12" cy="12" r="8" fill="currentColor" fill-opacity=".12"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/>',
+  circle3: '<circle cx="12" cy="12" r="8" fill="currentColor" fill-opacity=".12"/><circle cx="12" cy="4" r="1.4" fill="currentColor"/><circle cx="5.5" cy="16" r="1.4" fill="currentColor"/><circle cx="18.5" cy="16" r="1.4" fill="currentColor"/>',
+  arc: '<path d="M4.5 17a9 9 0 0 1 15 0"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/><circle cx="4.5" cy="17" r="1.4" fill="currentColor"/><circle cx="19.5" cy="17" r="1.4" fill="currentColor"/>',
+  arc3: '<path d="M4.5 18a9 9 0 0 1 15 0"/><circle cx="4.5" cy="18" r="1.4" fill="currentColor"/><circle cx="12" cy="9.5" r="1.4" fill="currentColor"/><circle cx="19.5" cy="18" r="1.4" fill="currentColor"/>',
+  slot: '<rect x="3.5" y="8" width="17" height="8" rx="4" fill="currentColor" fill-opacity=".12"/>',
+  point: '<circle cx="12" cy="12" r="2.4" fill="currentColor"/><path d="M12 4v4M12 16v4M4 12h4M16 12h4"/>',
+  ellipse: '<ellipse cx="12" cy="12" rx="9" ry="5.5" fill="currentColor" fill-opacity=".12"/>',
+  spline: '<path d="M4 17C7 5 12 21 20 7"/><circle cx="4" cy="17" r="1.4" fill="currentColor"/><circle cx="20" cy="7" r="1.4" fill="currentColor"/>',
+  trim: '<path d="M4 8h16M12 4v16"/><path d="M12 8v12" stroke-width="3" opacity=".35"/>',
+  split: '<path d="M4 12h6M14 12h6"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><path d="M12 5v4M12 15v4" stroke-dasharray="1.5 2"/>',
+  extend: '<path d="M4 12h9" /><path d="M13 12h5" stroke-dasharray="2 2"/><path d="M20 6v12"/><path d="M16 9l3 3-3 3"/>',
+  triangle: '<path d="M12 4l8.5 15h-17z" fill="currentColor" fill-opacity=".12"/>',
+  pentagon: '<path d="M12 3.5l8 6-3 9.5H7l-3-9.5z" fill="currentColor" fill-opacity=".12"/>',
+  hexagon: '<path d="M7.5 4.5h9l4.5 7.5-4.5 7.5h-9L3 12z" fill="currentColor" fill-opacity=".12"/>',
+  octagon: '<path d="M8.5 3.5h7l5 5v7l-5 5h-7l-5-5v-7z" fill="currentColor" fill-opacity=".12"/>',
+};
+
 /** Interface icons for the top bar and other universal controls. */
 export const UI_ICONS: Record<string, string> = {
   undo: '<path d="M9 7L4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12" transform="translate(0 -4)"/>',
@@ -139,6 +162,9 @@ export const UI_ICONS: Record<string, string> = {
   home: '<path d="M4 12l8-7 8 7M6.5 10.5V20h11v-9.5"/>',
   measure: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>',
   toolsBox: '<g stroke-width="2"><rect x="3" y="9" width="18" height="11" rx="2" fill="currentColor" fill-opacity=".22"/><path d="M9 9V6.5A1.5 1.5 0 0 1 10.5 5h3A1.5 1.5 0 0 1 15 6.5V9M3 13.5h18"/><rect x="10.5" y="12" width="3" height="3.5" rx=".7" fill="currentColor"/></g>',
+  grid: '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 9.3h16M4 14.7h16M9.3 4v16M14.7 4v16"/>',
+  gridSnap: '<path d="M4 8h16M4 16h16M8 4v16M16 4v16" opacity=".5"/><circle cx="16" cy="16" r="2.6" fill="currentColor"/><path d="M5 5l7.5 7.5" />',
+  lookAt: '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 9h16" opacity=".4"/><path d="M12 9v11" opacity=".4"/><circle cx="12" cy="12" r="2"/>',
   keys: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 11h.01M11 11h.01M15 11h.01M8 14h8"/>',
 };
 
@@ -170,6 +196,7 @@ function element(inner: string, size: number, className: string): HTMLSpanElemen
 /** Icon on the Tools handle (left edge). The owner chose the toolbox; change this one name to swap it. */
 export const TOOLS_HANDLE_ICON = "toolsBox";
 
+export const sketchIcon = (id: string, size = 16) => element(SKETCH_ICONS[id] ?? initialsIcon(id), size, "icon");
 export const toolIcon = (id: string, label = id, size = 16) => element(toolIconInner(id, label), size, "icon");
 export const uiIcon = (name: string, size = 16) => element(UI_ICONS[name] ?? "", size, "icon");
 
