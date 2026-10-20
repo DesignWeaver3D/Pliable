@@ -36,18 +36,18 @@
       #bar button:disabled { opacity: 0.4; }
       #bar button.active { border-color: #ff8a1f; color: #ffb878; }
       #bar select, #bar span { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; }
-      #tools { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 340px); display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; align-items: center; z-index: 2; background: rgba(35, 38, 45, 0.92); border: 1px solid #3a3e47; border-radius: 8px; padding: 5px 6px; }
-      #tools button { white-space: nowrap; background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 10px; }
+      #tools { position: fixed; top: 52px; left: 50%; max-width: calc(100vw - 340px); display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 6px; align-items: center; z-index: 2; pointer-events: none; }
+      #tools button { pointer-events: auto; white-space: nowrap; background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 10px; }
       #tools button.active { border-color: #ff8a1f; color: #ffb878; }
       #tools button.active::after { content: "drag"; margin-left: 6px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a1f; }
       #tools button.more { color: #aaa; }
-      #tools.sketching { flex-wrap: wrap; max-width: 560px; }
+      #tools.sketching { flex-wrap: wrap; max-width: 560px; transform: translateX(-50%); justify-content: center; }
       #tools.sketching button { padding: 4px 6px; }
       #tools.sketching button .icon { margin-right: 0; }
       #tools.sketching button .label { display: none; margin-left: 5px; }
       #tools.sketching button.active .label { display: inline; }
       #tools.sketching button.active::after { content: none; }
-      #tools .none { color: #888; padding: 4px 2px; }
+      #tools .none { color: #888; padding: 4px 2px; pointer-events: auto; }
       #busy { position: fixed; top: 44px; left: calc(var(--leftw) + 8px); z-index: 3; display: flex; gap: 8px; align-items: center; background: #23262d; color: #ffb878; border: 1px solid #ff8a1f; border-radius: 4px; padding: 4px 10px; font-variant-numeric: tabular-nums; pointer-events: none; }
       #busy[hidden] { display: none; }
       #busy i { width: 12px; height: 12px; border: 2px solid #ff8a1f; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
@@ -78,7 +78,7 @@
       #drawer .drawerhead button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; }
       #drawer.usableonly #toollist > div:not(:has(button:enabled)) { display: none; }
       #drawer.usableonly #toollist button:disabled { display: none; }
-      #bodypanel { position: fixed; top: 100px; left: calc(var(--drawerw) + var(--handlew)); width: calc(var(--listw) - 8px); bottom: 10px; z-index: 3; display: flex; flex-direction: column; pointer-events: none; }
+      #bodypanel { position: fixed; top: 52px; left: calc(var(--drawerw) + var(--handlew)); width: calc(var(--listw) - 8px); bottom: 10px; z-index: 3; display: flex; flex-direction: column; pointer-events: none; }
       #bodypanel > * { pointer-events: auto; }
       #bodyhead { align-self: flex-start; background: none; border: none; color: #9aa0ab; font-size: 11px; text-align: left; padding: 4px 8px; cursor: pointer; display: flex; gap: 6px; align-items: center; text-shadow: 0 0 4px #1b1d22; }
       #bodyhead:hover { color: #ffb878; }

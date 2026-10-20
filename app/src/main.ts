@@ -271,11 +271,11 @@ $("drawerusable").addEventListener("change", (e) => drawer.classList.toggle("usa
 /** Strip order: the tool a drag runs first, then the tool groups' order. */
 const GROUP_ORDER = TOOL_GROUPS.flatMap((g) => g.tools);
 
-/** Room for the context strip: from the edge of the Tools handle (which rides on the drawer's edge when it is open) to the nav cube group. */
+/** Room for the context strip: from the edge of the bodies list to the nav cube group. */
 function stripWidthAvailable(): { width: number; centre: number } {
   const vw = document.documentElement.clientWidth;
-  const handle = $("drawerbtn").getBoundingClientRect();
-  const left = handle.width > 0 ? handle.right + STRIP_MARGIN_PX : drawer.hidden ? LEFT_RESERVE_PX : DRAWER_RESERVE_PX;
+  const list = $("bodypanel").getBoundingClientRect();
+  const left = list.width > 0 ? list.right + STRIP_MARGIN_PX : drawer.hidden ? LEFT_RESERVE_PX : DRAWER_RESERVE_PX;
   const cube = $("navcube").getBoundingClientRect();
   const right = cube.width > 0 ? vw - cube.left + STRIP_MARGIN_PX : 160;
   return stripRoom(vw, left, right);
@@ -300,6 +300,7 @@ function renderSketchStrip() {
   toolbarKey = key;
   toolbar.classList.add("sketching");
   toolbar.style.maxWidth = `${available}px`;
+  toolbar.style.width = "";
   toolbar.style.left = `${centre}px`;
   toolbar.replaceChildren(
     ...SKETCH_TOOLS.map((t) => {
@@ -333,7 +334,8 @@ function renderToolbar() {
   if (key === toolbarKey) return; // unchanged: keep the buttons (avoids flicker as the core's replies arrive)
   toolbarKey = key;
   toolbar.style.maxWidth = `${available}px`;
-  toolbar.style.left = `${centre}px`;
+  toolbar.style.width = `${available}px`; // the whole room, so a row fills before the next one starts
+  toolbar.style.left = `${centre - Math.round(available / 2)}px`;
   const helpers = selectionHelpers();
   if (usable.length === 0 && helpers.length === 0) {
     const hint = document.createElement("span");
