@@ -12,10 +12,12 @@ export interface Settings {
   sharpAngle: number;
   /** What a box selection picks: "auto" follows the current selection (edges when empty). */
   boxKind: "auto" | "edge" | "face" | "vertex";
+  /** Give every body its own muted colour in the 3D view and the body list. */
+  randomBodyColors: boolean;
 }
 
 const KEY = "pliable.settings";
-const DEFAULTS: Settings = { edgePickPx: 5, vertexPickPx: 8, seeThrough: false, seeThroughOpacity: 12, sharpAngle: 30, boxKind: "auto" };
+const DEFAULTS: Settings = { edgePickPx: 5, vertexPickPx: 8, seeThrough: false, seeThroughOpacity: 12, sharpAngle: 30, boxKind: "auto", randomBodyColors: true };
 
 export const settings: Settings = { ...DEFAULTS };
 const listeners: Array<() => void> = [];
@@ -63,6 +65,7 @@ export const SETTING_ENTRIES: { id: string; label: string; keywords: string[] }[
   { id: "boxKind", label: "Box selects", keywords: ["marquee", "rubber band", "drag box", "edges", "faces", "vertices"] },
   { id: "seeThrough", label: "See-through", keywords: ["transparent", "x ray", "hidden edges"] },
   { id: "seeThroughOpacity", label: "See-through opacity", keywords: ["transparency", "alpha", "faces"] },
+  { id: "randomBodyColors", label: "Random body colours", keywords: ["colour", "color", "muted", "bodies", "solids", "names", "tint"] },
   { id: "hints", label: "Hints", keywords: ["tips", "help line", "learning", "turn off"] },
   { id: "keys", label: "Keyboard shortcuts", keywords: ["hotkeys", "bindings", "rebind"] },
 ];
@@ -79,6 +82,8 @@ export function settingValue(id: string): string {
       return `${settings.seeThroughOpacity} %`;
     case "seeThrough":
       return settings.seeThrough ? "on" : "off";
+    case "randomBodyColors":
+      return settings.randomBodyColors ? "on" : "off";
     case "boxKind":
       return settings.boxKind;
     case "hints":
@@ -149,6 +154,15 @@ export function createSettingsWindow(host: HTMLElement) {
   boxSelect.value = settings.boxKind;
   boxSelect.onchange = () => updateSettings({ boxKind: boxSelect.value as Settings["boxKind"] });
   boxRow.append(boxText, boxSelect);
+  const colorsRow = document.createElement("label");
+  colorsRow.title = "Give every body its own muted colour in the 3D view, with its name in the body list in the same colour";
+  const colorsCheck = document.createElement("input");
+  colorsCheck.type = "checkbox";
+  colorsCheck.checked = settings.randomBodyColors;
+  colorsCheck.title = colorsRow.title;
+  colorsCheck.onchange = () => updateSettings({ randomBodyColors: colorsCheck.checked });
+  colorsRow.append(colorsCheck, " Random body colours");
+  onSettingsChange(() => (colorsCheck.checked = settings.randomBodyColors));
   const hintsRow = document.createElement("label");
   hintsRow.title = "Show the key hint line and first-use tips at the bottom of the view";
   const hintsCheck = document.createElement("input");
@@ -177,6 +191,7 @@ export function createSettingsWindow(host: HTMLElement) {
     seeThrough.dataset.setting = "seeThrough";
     boxRow.dataset.setting = "boxKind";
     hintsRow.dataset.setting = "hints";
+    colorsRow.dataset.setting = "randomBodyColors";
     keysButton.dataset.setting = "keys";
     check.checked = settings.seeThrough;
     boxSelect.value = settings.boxKind;
@@ -191,6 +206,7 @@ export function createSettingsWindow(host: HTMLElement) {
     boxRow,
     seeThrough,
     slider("See-through opacity", "seeThroughOpacity", 0, 60, "How visible the faces stay while see-through is on. 0 is fully clear; higher shows the surface more."),
+    colorsRow,
     hintsRow,
     reset,
     keysButton,
