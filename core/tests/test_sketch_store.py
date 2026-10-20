@@ -183,3 +183,39 @@ def test_the_wire_correlation_id_is_not_mistaken_for_a_sketch_id():
     assert h["sketches"] == [{"id": 1, "name": "Sketch 1", "rev": 1}]
     got = session.handle({"id": 100, "type": "sketch_get", "sketch_id": 1})
     assert got["sketch_id"] == 1 and "id" not in got
+
+
+def test_profiles_are_view_only_meshes_and_keeping_makes_no_model_faces():
+    session = open_session()
+    sk = make(session, 10)
+    before = faces(session)
+    keep = session.handle({"type": "sketch_keep", "sketch": sk, "regions": False})
+    assert header(keep)["sketches"][0]["id"] == 1 and faces(session) == before  # nothing is added to the model
+    for request in ({"type": "sketch_profiles", "sketch_id": 1}, {"type": "sketch_profiles", "sketch": sk}):
+        profiles = session.handle(request)["profiles"]
+        assert len(profiles) == 1
+        p, tri = profiles[0]["positions"], profiles[0]["indices"]
+        area = 0.0
+        for k in range(0, len(tri), 3):
+            a, b, c = ([p[3 * i + j] for j in range(3)] for i in tri[k : k + 3])
+            u = [b[j] - a[j] for j in range(3)]
+            v = [c[j] - a[j] for j in range(3)]
+            cross = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
+            area += 0.5 * sum(x * x for x in cross) ** 0.5
+        assert area == pytest.approx(100, rel=1e-6)
+    assert faces(session) == before
+
+
+def test_extrude_a_stored_sketch_by_id_and_keep_in_the_same_step():
+    session = open_session()
+    sk = make(session, 10)
+    session.handle({"type": "sketch_keep", "sketch": sk})
+    reply = session.handle({"type": "sketch_extrude", "sketch_id": 1, "distance": 5, "mode": "new", "commit": True})
+    assert header(reply)["sketches"] == [{"id": 1, "name": "Sketch 1", "rev": 1}]
+    assert session.document.can_undo
+    session.handle({"type": "undo"})
+    second = make(session, 20)
+    header_after = header(session.handle({"type": "sketch_extrude", "sketch": second, "distance": 5, "mode": "new", "commit": True, "keep": True}))
+    assert [s["id"] for s in header_after["sketches"]] == [1, 2] and header_after["sketchId"] == 2
+    undone = header(session.handle({"type": "undo"}))
+    assert [s["id"] for s in undone["sketches"]] == [1]  # the extrusion and the kept sketch went together

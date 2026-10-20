@@ -1198,6 +1198,23 @@ const keptSketches = new KeptSketches({
   },
   remove: (id) => keptRequest("sketch_delete", { sketch_id: id }),
   rename: (id, name) => keptRequest("sketch_rename", { sketch_id: id, name }),
+  extrude(id, params, commit) {
+    core
+      .request<MeshData>("sketch_extrude", { sketch_id: id, ...params, commit })
+      .then((mesh) => {
+        if (commit) setCommitted(mesh, false, currentSels);
+        else {
+          show(mesh);
+          status.textContent = "Extrude preview";
+          status.classList.remove("error");
+        }
+      })
+      .catch((e) => {
+        status.textContent = (e as Error).message;
+        status.classList.add("error");
+        if (!commit && committed) show(committed);
+      });
+  },
 });
 onSketches = (list) => keptSketches.setList(list);
 sketch.onEditing = (id) => keptSketches.setEditing(id);

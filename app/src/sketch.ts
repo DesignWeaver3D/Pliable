@@ -186,8 +186,6 @@ export class SketchMode {
 
   /** A kept sketch being edited: its id and name in the document; null for a new sketch. */
   private kept: { id: number; name: string } | null = null;
-  /** Whether Finish also turns the closed regions into faces of the model (on for a new sketch, off when reopening one). */
-  private makeFaces = true;
   /** Called with the id of the kept sketch being edited, or null when none is, so the sketch list can hide its copy of it. */
   onEditing: ((id: number | null) => void) | null = null;
 
@@ -198,7 +196,6 @@ export class SketchMode {
       ? { plane: kept.sketch.plane, points: kept.sketch.points ?? [], entities: kept.sketch.entities ?? [], constraints: kept.sketch.constraints ?? [] }
       : { plane, points: reference?.points ?? [], entities: reference?.entities ?? [], constraints: [] };
     this.kept = kept ? { id: kept.id, name: kept.name } : null;
-    this.makeFaces = !kept;
     this.onEditing?.(this.kept?.id ?? null);
     // The model origin and the places where the principal axes meet the plane are fixed points too.
     this.unwrapFace = kept ? (kept.sketch.unwrap ?? null) : unwrapFace;
@@ -252,32 +249,22 @@ export class SketchMode {
   }
 
   /** Leave the sketch keeping its closed regions as faces of the model; with no closed outline just leave. */
+  /** Leave the sketch, keeping it in the document as a separate object. Its closed regions show as view-only profile faces; nothing is added to the model. */
   async finish() {
     if (!this.active) return;
     clearTimeout(this.previewTimer);
     const drawn = this.s.entities.some((e) => !e.reference);
     if (!drawn && !this.kept) return this.exit(); // nothing was drawn: nothing to keep
-    const keepRequest = (regions: boolean) => ({
-      sketch: { ...this.s, ...(this.unwrapFace ? { unwrap: this.unwrapFace } : {}) },
-      ...(this.kept ? { sketch_id: this.kept.id } : {}),
-      regions,
-      ...(this.unwrapFace ? { unwrap: this.unwrapFace } : {}),
-    });
-    let note = "";
     try {
-      let mesh: MeshData;
-      try {
-        mesh = await this.core.request<MeshData>("sketch_keep", keepRequest(this.makeFaces));
-        if (this.makeFaces) note = " Its closed regions are faces now.";
-      } catch (e) {
-        if (!this.makeFaces) throw e;
-        mesh = await this.core.request<MeshData>("sketch_keep", keepRequest(false)); // no closed outline: keep the curves alone
-        note = ` It was kept without faces (${(e as Error).message}).`;
-      }
+      const mesh = await this.core.request<MeshData>("sketch_keep", {
+        sketch: { ...this.s, ...(this.unwrapFace ? { unwrap: this.unwrapFace } : {}) },
+        ...(this.kept ? { sketch_id: this.kept.id } : {}),
+        regions: false,
+      });
       this.exit();
       this.host.committed(mesh);
       usage.record("sketch_finish", "commit");
-      this.host.status(`Sketch kept.${note}`);
+      this.host.status("Sketch kept. It stays separate from the model; its closed regions show as profile faces you can extrude from the Sketches list");
     } catch (e) {
       this.exit();
       this.host.status((e as Error).message);
@@ -1274,7 +1261,7 @@ export class SketchMode {
     if (!this.extrude.open) return;
     try {
       const e = this.extrude;
-      const request: Record<string, unknown> = { sketch: this.s, mode: e.mode, commit };
+      const request: Record<string, unknown> = { sketch: this.s, mode: e.mode, commit, keep: true, ...(this.kept ? { sketch_id: this.kept.id } : {}) };
       if (e.revolve) {
         const axis = this.selectedLine();
         if (axis === null) throw new Error("Select one line in the sketch as the axis to revolve about");
@@ -1815,16 +1802,9 @@ export class SketchMode {
     if (flat) constraintsBox.append(project);
 
     const finish = button("Finish sketch", () => this.finish());
-    finish.title = "Leave the sketch and keep it in the list of sketches; with Make faces ticked its closed regions also become faces you can push/pull or extrude";
+    finish.title = "Leave the sketch and keep it in the list of sketches. It stays separate from the model; its closed regions show as profile faces you can extrude";
     const exit = button(this.kept ? "Discard changes" : "Discard sketch", () => this.exit());
     exit.title = this.kept ? "Leave the sketch without saving what you changed" : "Leave the sketch and throw it away without changing the model";
-    const faces = el("label", "", "Make faces ");
-    const facesBox = document.createElement("input");
-    facesBox.type = "checkbox";
-    facesBox.checked = this.makeFaces;
-    facesBox.title = "On Finish, turn the sketch's closed regions into faces of the model (a reopened sketch leaves this off so earlier faces are not doubled)";
-    facesBox.addEventListener("change", () => (this.makeFaces = facesBox.checked));
-    faces.append(facesBox);
-    this.panel.replaceChildren(header, status, tools, constraintsBox, ...(transformRow ? [transformBox] : []), ask, list, ...(flat ? [extrude] : []), faces, finish, exit);
+    this.panel.replaceChildren(header, status, tools, constraintsBox, ...(transformRow ? [transformBox] : []), ask, list, ...(flat ? [extrude] : []), finish, exit);
   }
 }

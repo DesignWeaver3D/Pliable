@@ -19,15 +19,20 @@ export interface KeptHost {
   open(id: number): void;
   remove(id: number): void;
   rename(id: number, name: string): void;
+  /** Extrude the sketch's closed regions; with commit false only a preview is shown. */
+  extrude(id: number, params: { distance: number; mode: string; symmetric: boolean }, commit: boolean): void;
 }
 
 const CURVE_COLOR = 0x9bb7d4;
+/** Closed regions are drawn as tinted faces that belong to no model: this colour is used for nothing else. */
+const PROFILE_COLOR = 0x2fd4c0;
 
 export class KeptSketches {
   private list: KeptInfo[] = [];
   private readonly hidden = new Set<number>();
   private readonly cache = new Map<number, { rev: number; data: M.SketchData }>();
-  private readonly curves = new Map<number, { rev: number; lines: THREE.LineSegments }>();
+  private readonly curves = new Map<number, { rev: number; lines: THREE.LineSegments; fills: THREE.Mesh[] }>();
+  private readonly profiles = new Map<number, { rev: number; meshes: { positions: number[]; indices: number[] }[] }>();
   private editing: number | null = null;
   private readonly group = new THREE.Group();
   private syncing = false;
@@ -83,12 +88,17 @@ export class KeptSketches {
       edit.title = "Edit this sketch";
       edit.append(uiIcon("edit", 14));
       edit.addEventListener("click", () => this.host.open(k.id));
+      const extrude = document.createElement("button");
+      extrude.className = "rowbtn";
+      extrude.title = "Extrude the closed regions of this sketch (adds, cuts or makes a new body)";
+      extrude.append(uiIcon("extrude", 14));
+      extrude.addEventListener("click", () => this.extrudeDialog(k));
       const del = document.createElement("button");
       del.className = "rowbtn";
       del.title = "Delete this sketch (Undo brings it back)";
       del.append(uiIcon("close", 14));
       del.addEventListener("click", () => this.host.remove(k.id));
-      row.append(eye, name, edit, del);
+      row.append(eye, name, extrude, edit, del);
       list.append(row);
     }
     if (!this.list.length) {
@@ -97,6 +107,58 @@ export class KeptSketches {
       none.textContent = "No sketches yet";
       list.append(none);
     }
+  }
+
+  /** Distance, mode and direction for extruding a kept sketch's regions; Preview shows it, Extrude commits. */
+  private extrudeDialog(k: KeptInfo) {
+    const dialog = document.createElement("dialog");
+    dialog.className = "sketchsettings";
+    dialog.addEventListener("keydown", (e) => e.stopPropagation());
+    const field = (label: string, input: HTMLElement, unit = "") => {
+      const row = document.createElement("label");
+      const text = document.createElement("span");
+      text.textContent = label;
+      const tail = document.createElement("span");
+      tail.className = "unit";
+      tail.textContent = unit;
+      row.append(text, input, tail);
+      return row;
+    };
+    const distance = document.createElement("input");
+    distance.type = "number";
+    distance.step = "any";
+    distance.value = "10";
+    const mode = document.createElement("select");
+    for (const [value, label] of [["join", "Join (add material)"], ["cut", "Cut (remove material)"], ["new", "New body"]]) mode.append(new Option(label, value));
+    const both = document.createElement("input");
+    both.type = "checkbox";
+    const title = document.createElement("h3");
+    title.textContent = `Extrude ${k.name}`;
+    const values = () => ({ distance: Number(distance.value), mode: mode.value, symmetric: both.checked });
+    const usable = () => Number.isFinite(values().distance) && values().distance !== 0;
+    const button = (label: string, on: () => void) => {
+      const b = document.createElement("button");
+      b.textContent = label;
+      b.addEventListener("click", on);
+      return b;
+    };
+    const buttons = document.createElement("div");
+    buttons.append(
+      button("Cancel", () => dialog.close()),
+      button("Extrude", () => {
+        if (usable()) this.host.extrude(k.id, values(), true);
+        dialog.close();
+      }),
+      button("Preview", () => {
+        if (usable()) this.host.extrude(k.id, values(), false);
+      }),
+    );
+    dialog.append(title, field("Distance", distance, "mm"), field("Mode", mode), field("Both directions", both), buttons);
+    dialog.addEventListener("close", () => dialog.remove());
+    document.body.append(dialog);
+    dialog.showModal();
+    distance.focus();
+    distance.select();
   }
 
   private rename(k: KeptInfo, label: HTMLElement) {
@@ -142,10 +204,21 @@ export class KeptSketches {
             // a sketch that cannot be read is simply not drawn
           }
         }
+        for (const k of wanted) {
+          if (this.profiles.get(k.id)?.rev === k.rev) continue;
+          try {
+            const reply = await this.host.core.request<{ profiles: { positions: number[]; indices: number[] }[] }>("sketch_profiles", { sketch_id: k.id });
+            this.profiles.set(k.id, { rev: k.rev, meshes: reply.profiles });
+          } catch {
+            this.profiles.set(k.id, { rev: k.rev, meshes: [] });
+          }
+        }
         for (const [id, c] of [...this.curves]) {
           if (!wanted.some((k) => k.id === id) || c.rev !== this.cache.get(id)?.rev) {
-            this.group.remove(c.lines);
-            c.lines.geometry.dispose();
+            for (const o of [c.lines, ...c.fills]) {
+              this.group.remove(o);
+              o.geometry.dispose();
+            }
             this.curves.delete(id);
           }
         }
@@ -153,14 +226,28 @@ export class KeptSketches {
           const cached = this.cache.get(k.id);
           if (!cached || this.curves.has(k.id)) continue;
           const lines = this.build(cached.data);
-          this.group.add(lines);
-          this.curves.set(k.id, { rev: cached.rev, lines });
+          const fills = (this.profiles.get(k.id)?.meshes ?? []).map((m) => this.fill(m));
+          this.group.add(lines, ...fills);
+          this.curves.set(k.id, { rev: cached.rev, lines, fills });
         }
         for (const id of [...this.cache.keys()]) if (!this.list.some((k) => k.id === id)) this.cache.delete(id);
+        for (const id of [...this.profiles.keys()]) if (!this.list.some((k) => k.id === id)) this.profiles.delete(id);
       } while (this.again);
     } finally {
       this.syncing = false;
     }
+  }
+
+  /** One closed region as a tinted view-only face (it is not part of the model and cannot be picked as one). */
+  private fill(mesh: { positions: number[]; indices: number[] }): THREE.Mesh {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(mesh.positions, 3));
+    geometry.setIndex(mesh.indices);
+    const material = new THREE.MeshBasicMaterial({ color: PROFILE_COLOR, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const fill = new THREE.Mesh(geometry, material);
+    fill.renderOrder = 3;
+    fill.frustumCulled = false;
+    return fill;
   }
 
   private build(data: M.SketchData): THREE.LineSegments {

@@ -244,6 +244,12 @@ class Session:
             return self._sketch_project(request)
         if kind == "sketch_regions":
             return self._sketch_regions(request)
+        if kind == "sketch_profiles":
+            content = self._sketch_content(request)
+            try:
+                return {"profiles": sketch.profile_meshes(content)}
+            except (KeyError, TypeError, ValueError, sketch.SketchError) as e:
+                raise RequestError(f"Malformed sketch request: {e!r}") from e
         if kind == "sketch_keep":
             return self._sketch_keep(request)
         if kind == "sketch_get":
@@ -403,6 +409,34 @@ class Session:
         except (KeyError, TypeError, ValueError) as e:
             raise RequestError("Missing sketch id") from e
 
+    def _sketch_content(self, request: dict) -> dict:
+        """The sketch a request means: the one it carries, else the stored one named by sketch_id."""
+        if isinstance(request.get("sketch"), dict):
+            return request["sketch"]
+        found = self._require_document().get_sketch(self._sketch_id(request))
+        if found is None:
+            raise RequestError("No such sketch")
+        return found["sketch"]
+
+    def _keep_entries(self, content: dict, request: dict) -> tuple[list, int]:
+        """The document's sketch list with `content` stored in it (new, or replacing sketch_id), and its id."""
+        document = self._require_document()
+        entries = document.sketches
+        if request.get("sketch_id") is None:
+            sketch_id = document.new_sketch_id()
+            name = str(request["name"]) if request.get("name") else f"Sketch {sketch_id}"
+            entries.append({"id": sketch_id, "name": name, "rev": 1, "sketch": copy.deepcopy(content)})
+        else:
+            sketch_id = self._sketch_id(request)
+            entry = next((e for e in entries if e["id"] == sketch_id), None)
+            if entry is None:
+                raise RequestError("No such sketch")
+            entry["sketch"] = copy.deepcopy(content)
+            entry["rev"] += 1
+            if request.get("name"):
+                entry["name"] = str(request["name"])
+        return entries, sketch_id
+
     def _sketch_keep(self, request: dict) -> bytes:
         """Store a sketch in the document (new, or replacing `id`), optionally also making its faces, as one undo step."""
         document = self._require_document()
@@ -423,20 +457,7 @@ class Session:
             else:
                 make_faces = False
         timings = {"opMs": _ms(start)}
-        entries = document.sketches
-        if request.get("sketch_id") is None:
-            sketch_id = document.new_sketch_id()
-            name = str(request["name"]) if request.get("name") else f"Sketch {sketch_id}"
-            entries.append({"id": sketch_id, "name": name, "rev": 1, "sketch": copy.deepcopy(content)})
-        else:
-            sketch_id = self._sketch_id(request)
-            entry = next((e for e in entries if e["id"] == sketch_id), None)
-            if entry is None:
-                raise RequestError("No such sketch")
-            entry["sketch"] = copy.deepcopy(content)
-            entry["rev"] += 1
-            if request.get("name"):
-                entry["name"] = str(request["name"])
+        entries, sketch_id = self._keep_entries(content, request)
         if make_faces:
             target = document.commit(shape, sketches=entries)
         else:
@@ -472,19 +493,26 @@ class Session:
         document = self._require_document()
         commit = bool(request.get("commit"))
         start = time.perf_counter()
+        content = self._sketch_content(request)
         try:
             if "axis" in request:  # revolve about a sketch line instead of extruding
-                result = sketch.revolve(document.current.shape, request["sketch"], int(request["axis"]), float(request["distance"]), str(request.get("mode", "new")))
+                result = sketch.revolve(document.current.shape, content, int(request["axis"]), float(request["distance"]), str(request.get("mode", "new")))
             else:
-                result = sketch.extrude(document.current.shape, request["sketch"], float(request["distance"]), str(request.get("mode", "new")), bool(request.get("symmetric")))
+                result = sketch.extrude(document.current.shape, content, float(request["distance"]), str(request.get("mode", "new")), bool(request.get("symmetric")))
         except (KeyError, TypeError, ValueError) as e:
             raise RequestError(f"Malformed sketch request: {e!r}") from e
         timings = {"opMs": _ms(start)}
         body_kind = "Revolution" if "axis" in request else "Extrusion"
-        target = document.commit(result.shape, body_kind) if commit else document.preview(result.shape, body_kind)
+        extra = {}
+        if commit and request.get("keep") and isinstance(request.get("sketch"), dict):  # keep the sketch in the same undo step
+            entries, sketch_id = self._keep_entries(content, request)
+            target = document.commit(result.shape, body_kind, sketches=entries)
+            extra["sketchId"] = sketch_id
+        else:
+            target = document.commit(result.shape, body_kind) if commit else document.preview(result.shape, body_kind)
         if commit:
             self._autosave()
-        return self._mesh_reply(target, timings, preview=not commit, selection=Selection().to_json())
+        return self._mesh_reply(target, timings, preview=not commit, selection=Selection().to_json(), **extra)
 
     @staticmethod
     def _recipe_change(tool, topology, selection, raw_params: dict, result) -> dict:

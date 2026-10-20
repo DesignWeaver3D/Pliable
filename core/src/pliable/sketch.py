@@ -719,6 +719,32 @@ def regions(sketch: dict) -> list[Face]:
     return zones
 
 
+def profile_meshes(sketch: dict) -> list[dict]:
+    """The closed regions of a sketch as triangle meshes in world coordinates, for drawing them as view-only faces:
+    [{"positions": [x, y, z, ...], "indices": [a, b, c, ...]}]. They are not part of any model."""
+    from OCP.BRepMesh import BRepMesh_IncrementalMesh
+    from OCP.BRep import BRep_Tool
+    from OCP.TopLoc import TopLoc_Location
+
+    out = []
+    for zone in regions(sketch):
+        BRepMesh_IncrementalMesh(zone.wrapped, 0.05, False, 0.3, True)
+        triangulation = BRep_Tool.Triangulation_s(zone.wrapped, TopLoc_Location())
+        if triangulation is None:
+            continue
+        reverse = zone.wrapped.Orientation().name == "TopAbs_REVERSED"
+        positions = []
+        for i in range(1, triangulation.NbNodes() + 1):
+            p = triangulation.Node(i)
+            positions += [p.X(), p.Y(), p.Z()]
+        indices = []
+        for i in range(1, triangulation.NbTriangles() + 1):
+            a, b, c = triangulation.Triangle(i).Get()
+            indices += [a - 1, c - 1, b - 1] if reverse else [a - 1, b - 1, c - 1]
+        out.append({"positions": positions, "indices": indices})
+    return out
+
+
 def _host_face(shape, zone: Face):
     """A planar face of `shape` that contains the zone (same plane, zone inside it), or None."""
     from OCP.BRepAdaptor import BRepAdaptor_Surface
