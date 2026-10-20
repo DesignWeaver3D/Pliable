@@ -156,3 +156,9 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Densities are typical values (each entry has a range note); photopolymer resins vary about 1050-1250 by product. Density is stored but not used: there is no mass calculation yet.
 - Plastics and resins are tinted by the per-body colour (Random body colours); metals show their own colour and ignore it (the body list keeps its colours). Glossy plastic look off gives the old flat look for every material.
 - Lustre is judged by eye against the RoomEnvironment studio; steel, stainless and titanium look similar apart from brightness and warmth.
+
+## Display data cache (tessellate.py)
+- Per-face and per-edge display arrays, edge drag directions, planar normals and hole centres are cached in `tessellate.display_cache`, keyed by the shape (TShape, location, orientation) plus the mesh deflection (and the triangulation's own deflection for faces; neighbouring faces for edge directions). Bounded to about 400,000 triangles and edge segments, least recently used first; the arrays in it are shared, never modify a Mesh's arrays in place.
+- A cached face is only reused while the triangulation deflection is the same as when it was stored; a model that grows enough to change the power-of-two deflection re-extracts everything once.
+- Still per-body cost on every commit (N=150, about 300 ms): body numbering `_solid_indices` ~65 ms, the OCCT mesh pass ~60 ms, building ids, ranges and dicts ~100 ms, bounds, encoding ~15 ms. The reply no longer waits for the autosave: the snapshot is queued after the reply is built; the background write of the whole model still takes ~260 ms at N=150 and delays an immediately following request.
+- `Topology.edge_faces` is very slow when called for every edge of a many-body model (iterating the ancestor lists, about 13 ms per 100 edges); tessellate uses its own one-pass lookup.

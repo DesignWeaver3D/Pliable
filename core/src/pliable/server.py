@@ -63,10 +63,23 @@ class Session:
         self.last_tool: dict | None = None  # name and outcome of the newest tool run, for diagnostics
         self.import_warnings: list[str] = []
         self.unclean = autosaver.available(unclean_only=True) if autosaver else None  # a dead instance's session, offered until restored
+        self._autosave_due = 0  # 1: snapshot wanted, 2: snapshot of a newly opened document
 
     def _autosave(self, fresh: bool = False):
+        """Ask for a snapshot; it is queued once the reply is built, so the writer thread does not compete with meshing."""
         if self.autosaver and self.document:
-            self.autosaver.save(self.document, fresh)
+            self._autosave_due = max(self._autosave_due or 0, 2 if fresh else 1)
+
+    def _run_autosave(self):
+        due, self._autosave_due = self._autosave_due, 0
+        if due and self.autosaver and self.document:
+            self.autosaver.save(self.document, due == 2)
+
+    def handle(self, request: dict) -> dict | bytes:
+        try:
+            return self._handle(request)
+        finally:
+            self._run_autosave()
 
     def _require_document(self) -> Document:
         if self.document is None:
@@ -89,7 +102,7 @@ class Session:
         self._autosave(fresh=True)
         return self._mesh_reply(self.document.current, {}, name=name)
 
-    def handle(self, request: dict) -> dict | bytes:
+    def _handle(self, request: dict) -> dict | bytes:
         kind = request.get("type")
         if kind == "hello":
             reply = {"version": __version__}
