@@ -153,6 +153,8 @@ export const UI_ICONS: Record<string, string> = {
   eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   eyeOff: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" opacity=".45"/><path d="M4 20L20 4"/>',
   isolate: '<circle cx="12" cy="12" r="3.2" fill="currentColor" fill-opacity=".4"/><path d="M4 9V5h4M16 5h4v4M20 15v4h-4M8 19H4v-4"/>',
+  xray: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" stroke-dasharray="2.6 2.2"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9" stroke-dasharray="2.6 2.2" opacity=".6"/>',
+  focus: '<rect x="3.5" y="3.5" width="8" height="8" rx="1" stroke-dasharray="2.2 2" opacity=".7"/><rect x="12.5" y="3.5" width="8" height="8" rx="1" stroke-dasharray="2.2 2" opacity=".7"/><rect x="3.5" y="12.5" width="8" height="8" rx="1" stroke-dasharray="2.2 2" opacity=".7"/><rect x="12.5" y="12.5" width="8" height="8" rx="1" fill="currentColor" fill-opacity=".55"/>',
   axes: '<path d="M6 18V4M3.5 6.5L6 4l2.5 2.5"/><path d="M6 18h14M17.5 15.5L20 18l-2.5 2.5"/><path d="M6 18l-3.5 3.5M2.5 18.5v3h3"/>',
   iso: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9"/>',
   perspective: '<path d="M3 7l5-2h8l5 2v10l-5 2H8l-5-2z"/><path d="M8 5v14M16 5v14"/>',

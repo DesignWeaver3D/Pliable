@@ -42,3 +42,52 @@ export function doubleClickBody(hit: { kind: string; id: number } | null, bodyOf
   if (!hit || hit.kind !== "face") return null;
   return bodyOfFace(hit.id) ?? null;
 }
+
+/** See-through ids after the X of `id` is toggled. */
+export function toggleGhost(ghost: ReadonlySet<number>, id: number): Set<number> {
+  const next = new Set(ghost);
+  if (!next.delete(id)) next.add(id);
+  return next;
+}
+
+/** What the Focus toggle remembers: the bodies it made see-through (so turning it off leaves hand-ghosted ones alone). */
+export interface FocusState {
+  /** The focused body. */
+  body: number;
+  /** The bodies Focus ghosted (they were solid before). */
+  added: ReadonlySet<number>;
+}
+
+/** The see-through set and focus memory after Focus is pressed on `id`: pressing it on the focused body restores,
+ *  pressing it on another body moves the focus there (hand-ghosted bodies stay ghosted throughout). */
+export function toggleFocus(
+  ghost: ReadonlySet<number>,
+  focus: FocusState | null,
+  all: readonly number[],
+  id: number,
+): { ghost: Set<number>; focus: FocusState | null } {
+  const next = new Set(ghost);
+  if (focus) for (const b of focus.added) next.delete(b);
+  if (focus && focus.body === id) return { ghost: next, focus: null };
+  const added = new Set<number>();
+  for (const b of all) {
+    if (b !== id && !next.has(b)) {
+      next.add(b);
+      added.add(b);
+    }
+  }
+  next.delete(id); // the focused body stays solid even if it was ghosted by hand
+  return { ghost: next, focus: { body: id, added } };
+}
+
+/** Drop ids of bodies that no longer exist; the focus ends when its body is gone. */
+export function pruneGhost(
+  ghost: ReadonlySet<number>,
+  focus: FocusState | null,
+  all: readonly number[],
+): { ghost: Set<number>; focus: FocusState | null } {
+  const present = new Set(all);
+  const kept = new Set([...ghost].filter((id) => present.has(id)));
+  if (!focus || !present.has(focus.body)) return { ghost: kept, focus: null };
+  return { ghost: kept, focus: { body: focus.body, added: new Set([...focus.added].filter((id) => present.has(id))) } };
+}

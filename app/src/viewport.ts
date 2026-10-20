@@ -9,6 +9,7 @@ import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { CentreInfo, FaceRange, MeshData } from "./client";
 import { splitDrawLists } from "./slide";
+import { ghostRuns } from "./visibility";
 import { Manipulator } from "./manipulator";
 import { onSettingsChange, settings, updateSettings } from "./settings";
 import { bodyColorArray } from "./bodycolorarray";
@@ -117,6 +118,9 @@ export class Viewport {
   private data: MeshData | null = null;
   private faceStarts: number[] = [];
   private surfaceMaterial: THREE.MeshPhysicalMaterial | null = null;
+  /** Look of the see-through bodies (the surface material, translucent); they are drawn as separate index ranges of the same geometry. */
+  private ghostMaterial: THREE.MeshPhysicalMaterial | null = null;
+  private ghosted: ReadonlySet<number> = new Set();
   private readonly hemiLight = new THREE.HemisphereLight(0xffffff, 0x445566, 1.4);
   /** Soft studio environment for the glossy look, built once on first use. */
   private studioEnv: THREE.Texture | null = null;
@@ -203,7 +207,7 @@ export class Viewport {
     if (!this.mesh || !this.data) return null;
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), this.camera);
-    const hit = this.raycaster.intersectObject(this.mesh)[0];
+    const hit = this.pickFace(this.raycaster.intersectObject(this.mesh));
     if (!hit || hit.faceIndex == null) return null;
     let lo = 0;
     let hi = this.faceStarts.length - 1;
@@ -796,7 +800,9 @@ export class Viewport {
     this.mesh = new THREE.Mesh(geometry, material);
     this.model.add(this.mesh);
     this.surfaceMaterial = material;
+    this.ghostMaterial = new THREE.MeshPhysicalMaterial();
     this.applyBodyColors();
+    this.applyGhost();
     this.hoverMark = new Mark(this.model, geometry, 0xffd36b, 0.55, this.hoverLine);
     this.markSource = geometry;
 
@@ -830,6 +836,8 @@ export class Viewport {
       const parts = splitDrawLists(data, bodies);
       if (!parts) return;
       const rest = this.mesh.geometry;
+      rest.clearGroups();
+      this.mesh.material = this.surfaceMaterial!; // the draw ranges change while sliding, so ghosting waits until it ends
       rest.setIndex(new THREE.BufferAttribute(parts.restIndices, 1));
       const surfaceGeometry = new THREE.BufferGeometry();
       surfaceGeometry.setAttribute("position", rest.getAttribute("position"));
@@ -858,6 +866,7 @@ export class Viewport {
     this.mesh.geometry.setIndex(new THREE.BufferAttribute(m.data.indices, 1));
     this.edgeLines.geometry.setAttribute("position", new THREE.BufferAttribute(m.data.edgePositions, 3));
     this.moving = null;
+    this.applyGhost();
   }
 
   private show(mark: Mark | null, sel: Sel | null) {
@@ -932,11 +941,11 @@ export class Viewport {
     );
     const ids: number[] = [];
     // The ray test skips back-facing triangles unless the material is double sided, which would hide every face behind the first.
-    const material = this.mesh.material as THREE.Material;
-    const side = material.side;
-    material.side = THREE.DoubleSide;
+    const materials = [this.surfaceMaterial, this.ghostMaterial].filter((m): m is THREE.MeshPhysicalMaterial => !!m);
+    const sides = materials.map((m) => m.side);
+    for (const m of materials) m.side = THREE.DoubleSide;
     const hits = this.raycaster.intersectObject(this.mesh);
-    material.side = side;
+    materials.forEach((m, i) => (m.side = sides[i]));
     for (const hit of hits) {
       if (hit.faceIndex == null) continue;
       const id = this.faceIdAt(hit.faceIndex);
@@ -998,6 +1007,7 @@ export class Viewport {
     m.color.set(settings.glossyLook ? (tinted ? 0xffffff : look.render.color) : tinted ? 0xffffff : 0x9db4cc);
     this.applyLook();
     m.needsUpdate = true;
+    this.syncGhostMaterial();
   }
 
   /** See-through: the surface is drawn translucent and edges ignore depth so hidden ones can be seen and picked. */
@@ -1008,12 +1018,64 @@ export class Viewport {
       this.surfaceMaterial.opacity = on ? settings.seeThroughOpacity / 100 : 1; // faces nearly clear by default; the edges carry the shape
       this.surfaceMaterial.depthWrite = !on;
       this.surfaceMaterial.needsUpdate = true;
+      this.syncGhostMaterial();
     }
     if (this.edgeMaterial) {
       this.edgeMaterial.depthTest = !on;
       this.edgeMaterial.color.set(on ? 0xdce6f2 : 0x111418); // light edges stand out on the dark background through clear faces
     }
     this.hoverLine.depthTest = this.selectedLine.depthTest = !on;
+  }
+
+  private syncGhostMaterial() {
+    const g = this.ghostMaterial;
+    const m = this.surfaceMaterial;
+    if (!g || !m) return;
+    g.copy(m);
+    g.transparent = true;
+    g.opacity = settings.seeThroughOpacity / 100;
+    g.depthWrite = false;
+    g.needsUpdate = true;
+  }
+
+  /** The bodies drawn see-through (view only). Solid bodies inside them stay visible; their faces never hide picks behind them. */
+  setGhosted(ids: ReadonlySet<number>) {
+    this.ghosted = ids;
+    this.applyGhost();
+  }
+
+  /** Split the draw ranges of the surface into solid and see-through runs (two materials, one geometry, no rebuild). */
+  private applyGhost() {
+    const mesh = this.mesh;
+    const data = this.data;
+    if (!mesh || !data || this.moving) return;
+    mesh.geometry.clearGroups();
+    if (this.ghosted.size === 0 || !this.ghostMaterial || !this.surfaceMaterial) {
+      mesh.material = this.surfaceMaterial!;
+      return;
+    }
+    this.syncGhostMaterial();
+    mesh.material = [this.surfaceMaterial, this.ghostMaterial];
+    for (const run of ghostRuns(data.faces, this.ghosted, data.indices.length)) mesh.geometry.addGroup(run.start, run.count, run.ghost ? 1 : 0);
+  }
+
+  /** Whether the triangle belongs to a see-through body. */
+  private isGhostTriangle(triangle: number | null | undefined): boolean {
+    if (this.ghosted.size === 0 || triangle == null || !this.data) return false;
+    let lo = 0;
+    let hi = this.faceStarts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (this.faceStarts[mid] <= triangle) lo = mid;
+      else hi = mid - 1;
+    }
+    const face = this.data.faces[lo];
+    return !!face && face.body != null && this.ghosted.has(face.body);
+  }
+
+  /** The face a pick lands on: the nearest solid one, else the nearest see-through one. */
+  private pickFace(hits: THREE.Intersection[]): THREE.Intersection | undefined {
+    return hits.find((h) => !this.isGhostTriangle(h.faceIndex)) ?? hits[0];
   }
 
   toggleSeeThrough() {
@@ -1079,7 +1141,7 @@ export class Viewport {
     const dir = p.clone().sub(this.camera.position);
     const distance = dir.length();
     this.raycaster.set(this.camera.position, dir.normalize());
-    const hit = this.raycaster.intersectObject(this.mesh)[0];
+    const hit = this.raycaster.intersectObject(this.mesh).find((h) => !this.isGhostTriangle(h.faceIndex));
     return !!hit && hit.distance < distance * 0.995;
   }
 
@@ -1198,11 +1260,13 @@ export class Viewport {
     const px = e.clientX - rect.left;
     const py = e.clientY - rect.top;
     this.raycaster.setFromCamera(new THREE.Vector2((px / rect.width) * 2 - 1, -(py / rect.height) * 2 + 1), this.camera);
-    const faceHit = this.raycaster.intersectObject(this.mesh)[0];
+    const hits = this.raycaster.intersectObject(this.mesh);
+    const solidHit = hits.find((h) => !this.isGhostTriangle(h.faceIndex)); // see-through bodies never hide what is behind them
+    const faceHit = solidHit ?? hits[0];
     // An edge or vertex counts as visible if it is not meaningfully behind the face under the
     // pointer; allow slack for the pick radius (it grows at grazing angles).
     const pixelSize = this.pixelSizeAtDistance(faceHit?.distance ?? 0, rect.height);
-    const depthLimit = faceHit && !settings.seeThrough ? faceHit.distance * 1.01 + pixelSize * 12 : Infinity;
+    const depthLimit = solidHit && !settings.seeThrough ? solidHit.distance * 1.01 + pixelSize * 12 : Infinity;
 
     // Face under the pointer; a small face shrinks the edge and point ranges so its borders do not swallow it.
     let lo = 0;

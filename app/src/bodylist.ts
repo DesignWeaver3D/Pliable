@@ -20,6 +20,8 @@ export interface BodyInfo {
 export interface BodyListHost {
   toggleHide(id: number): void;
   toggleIsolate(id: number): void;
+  toggleGhost(id: number): void;
+  toggleFocus(id: number): void;
   rename(id: number, name: string): void;
   /** The rows the user selected (empty when cleared). */
   select(ids: number[]): void;
@@ -31,6 +33,8 @@ export interface BodyListHost {
 export class BodyList {
   private bodies: BodyInfo[] = [];
   private hidden: ReadonlySet<number> = new Set();
+  private ghost: ReadonlySet<number> = new Set();
+  private focus: number | null = null;
   private selected: number[] = [];
   private hovered: number | null = null;
   private anchor: number | null = null;
@@ -55,9 +59,11 @@ export class BodyList {
     return this.bodies.map((b) => b.id);
   }
 
-  setBodies(bodies: BodyInfo[], hidden: ReadonlySet<number>) {
+  setBodies(bodies: BodyInfo[], hidden: ReadonlySet<number>, ghost: ReadonlySet<number> = new Set(), focus: number | null = null) {
     this.bodies = bodies;
     this.hidden = hidden;
+    this.ghost = ghost;
+    this.focus = focus;
     this.selected = this.selected.filter((id) => bodies.some((b) => b.id === id));
     this.render();
   }
@@ -115,8 +121,24 @@ export class BodyList {
     }
     const eye = this.toggle(hidden ? "eyeOff" : "eye", hidden ? "Show this body" : "Hide this body", () => this.host.toggleHide(body.id), false);
     const iso = this.toggle("isolate", isolated ? "Show all bodies again" : "Show only this body", () => this.host.toggleIsolate(body.id), isolated);
+    const seeThrough = this.ghost.has(body.id);
+    const xray = this.toggle(
+      "xray",
+      seeThrough ? "Make this body solid again" : "See-through: draw this body transparent so you can see and snap to what is behind it",
+      () => this.host.toggleGhost(body.id),
+      seeThrough,
+    );
+    const focused = this.focus === body.id;
+    const focus = this.toggle(
+      "focus",
+      focused
+        ? "Stop focusing: make the other bodies solid again"
+        : "Focus on this body: make all other bodies see-through so you can still snap to their edges and faces; click again to restore",
+      () => this.host.toggleFocus(body.id),
+      focused,
+    );
     if (tinted) row.append(dot);
-    row.append(name, eye, iso);
+    row.append(name, eye, iso, xray, focus);
     row.addEventListener("click", (e) => {
       if ((e.target as HTMLElement).closest("button, input")) return;
       const result = clickRows(all, this.selected, this.anchor, body.id, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey });

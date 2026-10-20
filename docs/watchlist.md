@@ -156,3 +156,11 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Densities are typical values (each entry has a range note); photopolymer resins vary about 1050-1250 by product. Density is stored but not used: there is no mass calculation yet.
 - Plastics and resins are tinted by the per-body colour (Random body colours); metals show their own colour and ignore it (the body list keeps its colours). Glossy plastic look off gives the old flat look for every material.
 - Lustre is judged by eye against the RoomEnvironment studio; steel, stainless and titanium look similar apart from brightness and warmth.
+
+## See-through bodies and Focus
+
+- Each body row has a See-through (X) toggle and a Focus toggle (all other bodies see-through, with a memory so a body ghosted by hand stays ghosted when Focus ends). View only and per session, like hiding; ids are stable across edits and removed bodies are pruned.
+- Ghost bodies use the surface material at the See-through opacity setting, drawn as separate index ranges of the same geometry (no mesh rebuild). Their edges are drawn like any other body's edges (not dimmed).
+- Picking: a see-through face never hides anything behind it. A click lands on the nearest solid face, else on the nearest see-through face, so a ghost face with a solid body behind it cannot be clicked directly (use Alt+click to cycle or pick its edges). Edges and vertices of ghost bodies stay snappable but are still hidden by solid faces in front of them.
+- While bodies slide (move tool preview) ghosting is paused until the slide ends.
+- Sketch curves still snap to model geometry only through Project model edges.

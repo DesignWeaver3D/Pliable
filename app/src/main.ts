@@ -28,7 +28,7 @@ import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type HandleInf
 import { Viewport, type Sel } from "./viewport";
 import { usage, type Surface } from "./usage";
 import { BodyList } from "./bodylist";
-import { pruneHidden, toggleHidden, toggleIsolated } from "./bodylogic";
+import { pruneGhost, pruneHidden, toggleFocus, toggleGhost, toggleHidden, toggleIsolated, type FocusState } from "./bodylogic";
 import { bodiesOf, filterHidden } from "./visibility";
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -541,6 +541,9 @@ let lastOp: { tool: ToolInfo; sels: Sel[]; values: Record<string, ParamValue> } 
 
 /** Ids of the hidden bodies (view only). Ids are stable, so a hidden body stays hidden through operations. */
 let hiddenBodies: ReadonlySet<number> = new Set();
+/** Ids of the see-through bodies and the Focus toggle's memory (view only, like hiding). */
+let ghostBodies: ReadonlySet<number> = new Set();
+let focusState: FocusState | null = null;
 
 /** Tells the list of kept sketches what the document holds; set once that list exists. */
 let onSketches: (list: { id: number; name: string; rev: number }[]) => void = () => {};
@@ -560,9 +563,13 @@ function show(mesh: MeshData, frame = false) {
     previewDimsShown = false;
   }
   hiddenBodies = pruneHidden(hiddenBodies, bodiesOf(mesh).map((b) => b.id));
+  const pruned = pruneGhost(ghostBodies, focusState, bodiesOf(mesh).map((b) => b.id));
+  ghostBodies = pruned.ghost;
+  focusState = pruned.focus;
   viewport.setMesh(filterHidden(mesh, hiddenBodies), frame);
+  viewport.setGhosted(ghostBodies);
   if (!mesh.header.preview) {
-    bodyList.setBodies(bodiesOf(mesh), hiddenBodies);
+    bodyList.setBodies(bodiesOf(mesh), hiddenBodies, ghostBodies, focusState?.body ?? null);
     onSketches(mesh.header.sketches ?? []);
   }
   undoButton.disabled = !mesh.header.canUndo;
@@ -963,6 +970,18 @@ const bodyList = new BodyList($("bodylist"), {
     hiddenBodies = toggleIsolated(hiddenBodies, bodiesOf(committed).map((b) => b.id), id);
     applyVisibility();
   },
+  toggleGhost(id) {
+    ghostBodies = toggleGhost(ghostBodies, id);
+    if (focusState) focusState = { ...focusState, added: new Set([...focusState.added].filter((b) => ghostBodies.has(b))) };
+    applyVisibility();
+  },
+  toggleFocus(id) {
+    if (!committed) return;
+    const next = toggleFocus(ghostBodies, focusState, bodiesOf(committed).map((b) => b.id), id);
+    ghostBodies = next.ghost;
+    focusState = next.focus;
+    applyVisibility();
+  },
   rename(id, name) {
     core
       .request<MeshData>("rename_body", { body: id, name })
@@ -970,7 +989,7 @@ const bodyList = new BodyList($("bodylist"), {
       .catch((e) => {
         status.textContent = (e as Error).message;
         status.classList.add("error");
-        if (committed) bodyList.setBodies(bodiesOf(committed), hiddenBodies);
+        if (committed) bodyList.setBodies(bodiesOf(committed), hiddenBodies, ghostBodies, focusState?.body ?? null);
       });
   },
   select(ids) {

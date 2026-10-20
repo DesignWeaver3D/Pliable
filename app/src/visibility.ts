@@ -35,3 +35,23 @@ export function filterHidden(mesh: MeshData, hidden: ReadonlySet<number>): MeshD
     vertices: mesh.vertices.filter((v) => !isHidden(hidden, v.body)),
   };
 }
+
+/** The index ranges of the surface in draw order, merged into runs of solid and see-through faces. */
+export function ghostRuns(faces: readonly { start: number; count: number; body?: number | null }[], ghost: ReadonlySet<number>, total: number): { start: number; count: number; ghost: boolean }[] {
+  const runs: { start: number; count: number; ghost: boolean }[] = [];
+  const add = (start: number, count: number, g: boolean) => {
+    if (count <= 0) return;
+    const last = runs[runs.length - 1];
+    if (last && last.ghost === g && last.start + last.count === start) last.count += count;
+    else runs.push({ start, count, ghost: g });
+  };
+  let pos = 0;
+  for (const f of [...faces].sort((a, b) => a.start - b.start)) {
+    if (f.count === 0) continue;
+    add(pos, f.start - pos, false); // a gap no face claims stays solid
+    add(f.start, f.count, f.body != null && ghost.has(f.body));
+    pos = f.start + f.count;
+  }
+  add(pos, total - pos, false);
+  return runs;
+}
