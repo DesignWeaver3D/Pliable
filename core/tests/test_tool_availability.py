@@ -22,7 +22,7 @@ def test_nothing_selected_offers_only_tools_that_need_no_selection():
         # new primitives
         "add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus",
         # whole-model tools (the demo has a single body, so "the whole model" is unambiguous)
-        "unify", "cut_plane", "split_plane", "offset_body", "linear_array", "circular_array",
+        "cut_plane", "split_plane", "offset_body", "linear_array", "circular_array",
         "move_body", "rotate_body", "scale_body",
     }  # fmt: skip
     for hole_tool in ("edit_hole", "convert_to_countersink", "resize_hole", "move_hole", "fill_hole"):
@@ -34,7 +34,8 @@ def test_whole_model_tools_need_a_selected_body_when_there_are_several():
     s.handle({"type": "tool_commit", "tool": "add_box", "params": {"width": 5, "depth": 5, "height": 5, "x": 100, "new_body": 1}})
     got = _available(s, {})
     assert {"move_body", "offset_body", "linear_array", "circular_array"}.isdisjoint(got)
-    assert {"add_box", "unify", "cut_plane"} <= got
+    assert {"add_box", "cut_plane"} <= got
+    assert "unify" not in got
 
 
 def test_a_hole_face_offers_the_hole_tools():

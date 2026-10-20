@@ -380,7 +380,7 @@ def test_path_array_along_a_straight_edge(block):
 
 def test_unify_merges_split_coplanar_faces(block):
     # Cutting at a plane and rejoining leaves the model valid; unify must not add faces.
-    result = run("unify", block)
+    result = run("unify", block, faces=[0])
     assert result.shape is not None
     assert Topology(result.shape).face_count == block.face_count
 

@@ -23,6 +23,8 @@ export interface BodyListHost {
   toggleGhost(id: number): void;
   toggleFocus(id: number): void;
   rename(id: number, name: string): void;
+  duplicate(id: number): void;
+  remove(id: number): void;
   /** The rows the user selected (empty when cleared). */
   select(ids: number[]): void;
   hover(id: number | null): void;
@@ -206,8 +208,8 @@ export class BodyList {
       body.editable ? () => this.host.edit(body.id) : null,
       body.editable ? "Reopen the form and handles this body was made with" : (body.why ?? "This body is not a primitive"),
     );
-    item("Duplicate", null); // later actions: the places are here so the menu does not move when they arrive
-    item("Delete", null);
+    item("Duplicate", () => this.host.duplicate(body.id), "Add a copy of this body in the same place");
+    item("Delete", () => this.host.remove(body.id), "Delete this body (undo brings it back)");
     menu.style.left = `${Math.min(x, window.innerWidth - 150)}px`;
     menu.style.top = `${Math.min(y, window.innerHeight - 140)}px`;
     document.body.append(menu);

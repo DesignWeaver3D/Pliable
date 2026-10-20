@@ -298,6 +298,18 @@ class Session:
                 raise RequestError("Unknown body") from e
             self._autosave()
             return self._mesh_reply(target, {})
+        if kind in ("delete_body", "duplicate_body"):
+            document = self._require_document()
+            extra: dict = {}
+            try:
+                if kind == "delete_body":
+                    target = document.delete_body(int(request["body"]))
+                else:
+                    target, extra["created"] = document.duplicate_body(int(request["body"]))
+            except (KeyError, ValueError, TypeError) as e:
+                raise RequestError("Unknown body") from e
+            self._autosave()
+            return self._mesh_reply(target, {}, **extra)
         if kind == "export_step":
             document = self._require_document()
             data = write_step(document.current.shape)

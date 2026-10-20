@@ -125,6 +125,8 @@ def test_handles_follow_their_parameter(tool_id):
     """Dragging a handle by t along its direction sets value + scale * t, and the handle then sits t further along."""
     params = PRIMITIVES[tool_id]
     for h in _handles(tool_id, params):
+        if h["param"] in ("rx", "ry", "rz"):
+            continue  # a rotation grip runs round its ring, not along a line
         t = 1.5
         new = max(h["value"] + h["scale"] * t, h["min"] if h["min"] is not None else -1e9)
         travel = (new - h["value"]) / h["scale"]
@@ -150,7 +152,7 @@ def test_size_handles_sit_on_the_solid_and_resizing_moves_its_extent(tool_id):
 
     base, base_volume = solid(params)
     for h in _handles(tool_id, params):
-        if h["param"] in ("x", "y", "z"):
+        if h["param"] in ("x", "y", "z", "rx", "ry", "rz"):
             continue
         axis = max(range(3), key=lambda i: abs(h["direction"][i]))
         # The anchor lies on the solid's outer extent along its axis (the tip of the top diameter sits just outside).
@@ -402,7 +404,7 @@ def test_primitive_move_arrows_point_the_positive_way_and_resize_grips_are_marke
         for param, i in (("x", 0), ("y", 1), ("z", 2)):
             h = moves[param]
             assert h["direction"][i] == 1.0 and h["scale"] == 1.0 and h["value"] == (5, 6, 7)[i]
-        assert all(h["kind"] == "resize" for h in handles if h["kind"] != "move")
+    assert all(h["kind"] == "resize" for h in handles if h["kind"] != "move" and h["param"] not in ("rx", "ry", "rz"))
 
 
 def test_primitives_offer_anchor_points_with_the_default_at_the_placement_point(session):

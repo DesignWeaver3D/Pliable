@@ -960,6 +960,16 @@ function setVisibility(action: "hide" | "isolate" | "show") {
   applyVisibility();
 }
 
+function runBodyRequest(kind: "duplicate_body" | "delete_body", body: number) {
+  core
+    .request<MeshData>(kind, { body })
+    .then((mesh) => setCommitted(mesh, false, []))
+    .catch((e) => {
+      status.textContent = (e as Error).message;
+      status.classList.add("error");
+    });
+}
+
 const bodyList = new BodyList($("bodylist"), {
   toggleHide(id) {
     hiddenBodies = toggleHidden(hiddenBodies, id);
@@ -981,6 +991,12 @@ const bodyList = new BodyList($("bodylist"), {
     ghostBodies = next.ghost;
     focusState = next.focus;
     applyVisibility();
+  },
+  duplicate(id) {
+    runBodyRequest("duplicate_body", id);
+  },
+  remove(id) {
+    runBodyRequest("delete_body", id);
   },
   rename(id, name) {
     core

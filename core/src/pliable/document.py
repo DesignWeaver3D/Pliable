@@ -2,14 +2,26 @@
 
 import copy
 
-from OCP.TopoDS import TopoDS_Shape
+from OCP.BRep import BRep_Builder
+from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
+from OCP.TopoDS import TopoDS_Compound, TopoDS_Shape
 
 from . import bodies as body_ids
 from . import recipes
 from .bodies import BodyState
+from .ops import solids_of
 from .topology import Topology
 
 MAX_HISTORY = 50  # states kept for undo; also the number of autosave snapshots
+
+
+def _compound(shapes: list[TopoDS_Shape]) -> TopoDS_Shape:
+    compound = TopoDS_Compound()
+    builder = BRep_Builder()
+    builder.MakeCompound(compound)
+    for shape in shapes:
+        builder.Add(compound, shape)
+    return compound
 
 
 class Document:
@@ -110,6 +122,29 @@ class Document:
     def rename_body(self, body_id: int, name: str) -> Topology:
         """Rename a body as an undoable step (the shape is unchanged)."""
         return self._push(self.current.shape, body_ids.renamed(self.current.bodies, body_id, name))
+
+    def delete_body(self, body_id: int) -> Topology:
+        """Remove one body as an undoable step."""
+        state = self.current.bodies
+        index = state.find(body_id)
+        solids = solids_of(self.current.shape)
+        if index is None or len(solids) != len(state.bodies):
+            raise KeyError(body_id)
+        del solids[index]
+        bodies = BodyState(state.bodies[:index] + state.bodies[index + 1 :], state.next_id, state.counts)
+        return self._push(_compound(solids), bodies)
+
+    def duplicate_body(self, body_id: int) -> tuple[Topology, int]:
+        """Add a copy of one body, in the same place, named after it; returns the new state and the copy's id."""
+        state = self.current.bodies
+        index = state.find(body_id)
+        solids = solids_of(self.current.shape)
+        if index is None or len(solids) != len(state.bodies):
+            raise KeyError(body_id)
+        twin = BRepBuilderAPI_Copy(solids[index], True).Shape()
+        name = f"{state.bodies[index].name} copy"[:80]
+        bodies = BodyState(state.bodies + (body_ids.Body(state.next_id, name),), state.next_id + 1, state.counts)
+        return self._push(_compound(solids + [twin]), bodies), state.next_id
 
     def _push(self, shape: TopoDS_Shape, bodies: BodyState, sketches: list[dict] | None = None) -> Topology:
         kept = self._sketches[self._index] if sketches is None else copy.deepcopy(sketches)

@@ -652,6 +652,60 @@ def _position_handles(values, size: float) -> list[Handle]:
     ]
 
 
+ROTATION = [Param("rx", "angle"), Param("ry", "angle"), Param("rz", "angle")]
+
+
+def _primitive_turn(values) -> gp_Trsf | None:
+    """The turn a primitive gets about its base point (x, y, z): rx about X, then ry about Y, then rz about Z. None when it is not turned."""
+    angles = [values.get(n, 0.0) for n in ("rx", "ry", "rz")]
+    if all(abs(a) < 1e-9 for a in angles):
+        return None
+    c = gp_Pnt(values["x"], values["y"], values["z"])
+    total = gp_Trsf()
+    for k in (2, 1, 0):  # Multiply puts the later factor first, so this applies X, then Y, then Z
+        if abs(angles[k]) < 1e-9:
+            continue
+        turn = gp_Trsf()
+        turn.SetRotation(gp_Ax1(c, gp_Dir(*(1.0 if i == k else 0.0 for i in range(3)))), math.radians(angles[k]))
+        total.Multiply(turn)
+    return total
+
+
+def _turned(shape, values):
+    turn = _primitive_turn(values)
+    return shape if turn is None else BRepBuilderAPI_Transform(shape, turn, True).Shape()
+
+
+def _with_rotation(handles: list[Handle], values, size: float) -> list[Handle]:
+    """A primitive's handles turned with the primitive, plus one rotation ring per axis about its base point. A grip that
+    also moves the base point (a low face) is left out while the primitive is turned, since its own axes are no longer X, Y and Z."""
+    from dataclasses import replace
+
+    turn = _primitive_turn(values)
+    out = []
+    for h in handles:
+        if turn is not None and h.kind != "move":
+            if h.links:
+                continue
+            h = replace(
+                h,
+                anchor=tuple(gp_Pnt(*h.anchor).Transformed(turn).Coord()),
+                direction=tuple(gp_Vec(*h.direction).Transformed(turn).Coord()),
+            )
+        out.append(h)
+    centre = (values["x"], values["y"], values["z"])
+    radius = max(size * 0.9, 8.0)
+    axes = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
+    for i, name in enumerate(("rx", "ry", "rz")):
+        u, v = (i + 1) % 3, (i + 2) % 3
+        theta = math.radians(45 + values.get(name, 0.0))
+        anchor, tangent = list(centre), [0.0, 0.0, 0.0]
+        anchor[u], anchor[v] = centre[u] + radius * math.cos(theta), centre[v] + radius * math.sin(theta)
+        tangent[u], tangent[v] = -math.sin(theta), math.cos(theta)
+        out.append(Handle(name, f"Rotate about {'XYZ'[i]}", tuple(anchor), tuple(tangent), scale=math.degrees(1 / radius), unit="°", axis=axes[i], ring=(*centre, radius)))
+    return out
+
+
 # Solids ----------------------------------------------------------------------------------------------
 
 
@@ -672,7 +726,7 @@ class AddBox(Tool):
         Param("x", "length"),
         Param("y", "length"),
         Param("z", "length"),
-        NEW_BODY,
+        *ROTATION, NEW_BODY,
     ]
 
     starts_from = "tool"
@@ -710,15 +764,15 @@ class AddBox(Tool):
             ("height", "Resize height (top face)", (cx, cy, z + h), (0, 0, 1), ()),
             ("height", "Resize height (bottom face, moves the origin)", (cx, cy, z), (0, 0, -1), (("z", -1.0),)),
         ]
-        return [
+        return _with_rotation([
             *(Handle(param, label, anchor, direction, min=MIN_DISTANCE, kind="resize", links=links) for param, label, anchor, direction, links in faces),
             *_position_handles(values, max(w, d, h)),
-        ]
+        ], values, max(w, d, h))
 
     def make(self, values):
         if min(values["width"], values["depth"], values["height"]) < MIN_DISTANCE:
             raise OperationError("The box sizes must be positive")
-        return BRepPrimAPI_MakeBox(gp_Pnt(values["x"], values["y"], values["z"]), values["width"], values["depth"], values["height"]).Shape()
+        return _turned(BRepPrimAPI_MakeBox(gp_Pnt(values["x"], values["y"], values["z"]), values["width"], values["depth"], values["height"]).Shape(), values)
 
     def combines(self, topology, selection, values):
         return None if _new_body(values) else "all"
@@ -737,7 +791,7 @@ class AddCylinder(Tool):
     description = "Adds a cylinder standing on the XY plane at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
     accepts = Accepts()
-    params = [Param("diameter", "length", 10), Param("height", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length"), NEW_BODY]
+    params = [Param("diameter", "length", 10), Param("height", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length"), *ROTATION, NEW_BODY]
 
     starts_from = "tool"
 
@@ -747,17 +801,17 @@ class AddCylinder(Tool):
 
     def handles(self, topology, selection, values):
         x, y, z, d, h = (values[k] for k in ("x", "y", "z", "diameter", "height"))
-        return [
+        return _with_rotation([
             *round_handles("diameter", "Cylinder", (x, y, z + h / 2), (1, 0, 0), (0, 1, 0), d, min=MIN_DISTANCE),
             Handle("height", "Resize height (top end)", (x, y, z + h), (0, 0, 1), min=MIN_DISTANCE, kind="resize"),
             Handle("height", "Resize height (bottom end, moves the origin)", (x, y, z), (0, 0, -1), min=MIN_DISTANCE, kind="resize", links=(("z", -1.0),)),
             *_position_handles(values, max(d, h)),
-        ]
+        ], values, max(d, h))
 
     def make(self, values):
         if min(values["diameter"], values["height"]) < MIN_DISTANCE:
             raise OperationError("The cylinder sizes must be positive")
-        return _cylinder(gp_Pnt(values["x"], values["y"], values["z"]), gp_Dir(0, 0, 1), values["diameter"] / 2, values["height"])
+        return _turned(_cylinder(gp_Pnt(values["x"], values["y"], values["z"]), gp_Dir(0, 0, 1), values["diameter"] / 2, values["height"]), values)
 
     def combines(self, topology, selection, values):
         return None if _new_body(values) else "all"
@@ -947,8 +1001,8 @@ class Unify(Tool):
 
     id = "unify"
     label = "Unify faces"
-    description = "Merges neighbouring faces that lie on the same surface, for example after opening a file made of many small faces. Nothing needs to be selected."
-    accepts = Accepts()
+    description = "Merges neighbouring faces that lie on the same surface, for example after opening a file made of many small faces. Select a face first; it is applied to the whole model."
+    accepts = Accepts(faces=(1, None))
     params = []
 
     def run(self, topology, selection, values, preview):
@@ -1261,7 +1315,7 @@ class AddSphere(Tool):
     description = "Adds a sphere at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
     accepts = Accepts()
-    params = [Param("diameter", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length"), NEW_BODY]
+    params = [Param("diameter", "length", 10), Param("x", "length"), Param("y", "length"), Param("z", "length"), *ROTATION, NEW_BODY]
 
     starts_from = "tool"
 
@@ -1271,15 +1325,15 @@ class AddSphere(Tool):
 
     def handles(self, topology, selection, values):
         x, y, z, d = (values[k] for k in ("x", "y", "z", "diameter"))
-        return [
+        return _with_rotation([
             *round_handles("diameter", "Sphere", (x, y, z), (1, 0, 0), (0, 1, 0), d, min=MIN_DISTANCE),
             *_position_handles(values, d),
-        ]
+        ], values, d)
 
     def make(self, values):
         if values["diameter"] < MIN_DISTANCE:
             raise OperationError("The diameter must be positive")
-        return BRepPrimAPI_MakeSphere(gp_Pnt(values["x"], values["y"], values["z"]), values["diameter"] / 2).Shape()
+        return _turned(BRepPrimAPI_MakeSphere(gp_Pnt(values["x"], values["y"], values["z"]), values["diameter"] / 2).Shape(), values)
 
     def combines(self, topology, selection, values):
         return None if _new_body(values) else "all"
@@ -1305,7 +1359,7 @@ class AddCone(Tool):
         Param("x", "length"),
         Param("y", "length"),
         Param("z", "length"),
-        NEW_BODY,
+        *ROTATION, NEW_BODY,
     ]
 
     starts_from = "tool"
@@ -1317,19 +1371,19 @@ class AddCone(Tool):
     def handles(self, topology, selection, values):
         x, y, z, bd, td, h = (values[k] for k in ("x", "y", "z", "bottom_diameter", "top_diameter", "height"))
         nudge = max(bd, h) * 0.06  # keeps the top-diameter handles off the height handle when the top is a point
-        return [
+        return _with_rotation([
             *round_handles("bottom_diameter", "Bottom", (x, y, z), (1, 0, 0), (0, 1, 0), bd, min=0.0),
             *round_handles("top_diameter", "Top", (x, y, z + h), (0, 1, 0), (1, 0, 0), td, offset=nudge, min=0.0),
             Handle("height", "Resize height (top end)", (x, y, z + h), (0, 0, 1), min=MIN_DISTANCE, kind="resize"),
             Handle("height", "Resize height (bottom end, moves the origin)", (x, y, z), (0, 0, -1), min=MIN_DISTANCE, kind="resize", links=(("z", -1.0),)),
             *_position_handles(values, max(bd, h)),
-        ]
+        ], values, max(bd, h))
 
     def make(self, values):
         if values["bottom_diameter"] < 0 or values["top_diameter"] < 0 or values["bottom_diameter"] + values["top_diameter"] < MIN_DISTANCE or values["height"] < MIN_DISTANCE:
             raise OperationError("Give a positive height and at least one positive diameter")
         axes = gp_Ax2(gp_Pnt(values["x"], values["y"], values["z"]), gp_Dir(0, 0, 1))
-        return BRepPrimAPI_MakeCone(axes, values["bottom_diameter"] / 2, values["top_diameter"] / 2, values["height"]).Shape()
+        return _turned(BRepPrimAPI_MakeCone(axes, values["bottom_diameter"] / 2, values["top_diameter"] / 2, values["height"]).Shape(), values)
 
     def combines(self, topology, selection, values):
         return None if _new_body(values) else "all"
@@ -1348,7 +1402,7 @@ class AddTorus(Tool):
     description = "Adds a ring shape (donut) at the given position, from the ring radius and the tube radius. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model."
     placement = ("x", "y", "z")
     accepts = Accepts()
-    params = [Param("major", "length", 20), Param("minor", "length", 5), Param("x", "length"), Param("y", "length"), Param("z", "length"), NEW_BODY]
+    params = [Param("major", "length", 20), Param("minor", "length", 5), Param("x", "length"), Param("y", "length"), Param("z", "length"), *ROTATION, NEW_BODY]
 
     starts_from = "tool"
 
@@ -1358,17 +1412,17 @@ class AddTorus(Tool):
 
     def handles(self, topology, selection, values):
         x, y, z, major, minor = (values[k] for k in ("x", "y", "z", "major", "minor"))
-        return [
+        return _with_rotation([
             *round_handles("major", "Ring", (x, y, z), (1, 0, 0), (0, 1, 0), major, min=MIN_DISTANCE),
             *round_handles("minor", "Tube", (x - major / 2, y, z), (0, 0, 1), (1, 0, 0), minor, min=MIN_DISTANCE),
             *_position_handles(values, major),
-        ]
+        ], values, major)
 
     def make(self, values):
         if values["minor"] < MIN_DISTANCE or values["major"] <= values["minor"]:
             raise OperationError("The ring diameter must be larger than the tube diameter, and both positive")
         axes = gp_Ax2(gp_Pnt(values["x"], values["y"], values["z"]), gp_Dir(0, 0, 1))
-        return BRepPrimAPI_MakeTorus(axes, values["major"] / 2, values["minor"] / 2).Shape()
+        return _turned(BRepPrimAPI_MakeTorus(axes, values["major"] / 2, values["minor"] / 2).Shape(), values)
 
     def combines(self, topology, selection, values):
         return None if _new_body(values) else "all"
