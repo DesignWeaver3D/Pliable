@@ -568,9 +568,9 @@ def test_project_reports_skipped_edges_and_keeps_every_vertex():
     flat = session.handle({"type": "sketch_project", "plane": STANDARD_PLANES["XY"]})
     assert flat["skipped"]["square"] > 0  # the vertical edges are seen end-on
     assert any(e["type"] == "circle" for e in flat["entities"])
-    # seen from the side the round holes in the top face are tilted: they are skipped and counted, their ends still project
+    # seen from the side the round holes in the top face are edge-on: drawn as segments
     side = session.handle({"type": "sketch_project", "plane": STANDARD_PLANES["XZ"]})
-    assert side["skipped"]["tilted_circles"] > 0
+    assert not any(e["type"] == "circle" for e in side["entities"])
     assert len(side["points"]) >= 8 and all(p["fixed"] for p in side["points"])
 
 
@@ -622,6 +622,61 @@ def test_projecting_onto_a_tilted_plane_gives_an_ellipse_for_a_circle():
     assert ellipses and ellipses[0]["minor"] == pytest.approx(5 * math.cos(math.radians(60)), rel=1e-6)
     major = {p["id"]: p for p in ref["points"]}
     assert math.dist((major[ellipses[0]["major"]]["u"], major[ellipses[0]["major"]]["v"]), (major[ellipses[0]["center"]]["u"], major[ellipses[0]["center"]]["v"])) == pytest.approx(5, rel=1e-6)
+
+
+def _tilted_plane(degrees):
+    a = math.radians(degrees)
+    return {"origin": [0, 0, 0], "normal": [0, math.sin(a), math.cos(a)], "xdir": [1, 0, 0]}
+
+
+def _as_sketch(ref, plane):
+    return {"plane": plane, "points": ref["points"], "entities": ref["entities"], "constraints": []}
+
+
+def test_projected_tilted_cylinder_gives_ellipses_matching_the_analytic_axes():
+    from build123d import Cylinder
+
+    plane = _tilted_plane(30)
+    ref = sketch.face_reference(Cylinder(5, 10).wrapped, plane, project=True)
+    pts = {p["id"]: p for p in ref["points"]}
+    assert ref["drawn"]["ellipses"] >= 2
+    for e in (e for e in ref["entities"] if e["type"] == "ellipse"):
+        c, m = pts[e["center"]], pts[e["major"]]
+        assert math.dist((c["u"], c["v"]), (m["u"], m["v"])) == pytest.approx(5, rel=1e-6)
+        assert e["minor"] == pytest.approx(5 * math.cos(math.radians(30)), rel=1e-6)
+        assert abs(c["u"]) < 1e-6 and abs(abs(c["v"]) - 5 * math.sin(math.radians(30))) < 1e-6
+    sk = _as_sketch(ref, plane)
+    assert sketch.solve(sk)["status"] != "failed"
+    with pytest.raises(sketch.SketchError, match="no geometry"):
+        sketch.profile_face(sk)  # reference geometry is construction: nothing crashes, there is just no profile
+
+
+def test_projected_tilted_arc_becomes_a_spline_through_its_ends():
+    from build123d import Circle, Plane, extrude
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+
+    arc = Circle(5).edges()[0]
+    from build123d import Edge
+    part = Edge.make_circle(5, start_angle=0, end_angle=90).rotate(__import__("build123d").Axis.X, 30)
+    plane = sketch.STANDARD_PLANES["XY"]
+    ref = sketch.face_reference(part.wrapped, plane, project=True)
+    splines = [e for e in ref["entities"] if e["type"] == "spline"]
+    assert len(splines) == 1 and ref["drawn"]["splines"] == 1 and len(splines[0]["points"]) >= 8
+    pts = {p["id"]: p for p in ref["points"]}
+    start, end = pts[splines[0]["points"][0]], pts[splines[0]["points"][-1]]
+    ends = sorted([(round(start["u"], 6), round(start["v"], 6)), (round(end["u"], 6), round(end["v"], 6))])
+    a = math.cos(math.radians(30))
+    assert ends == sorted([(5.0, 0.0), (0.0, round(5 * a, 6))])
+    sk = _as_sketch(ref, plane)
+    assert sketch.solve(sk)["status"] != "failed"
+
+
+def test_projected_square_circle_stays_a_circle_and_end_on_edges_stay_points():
+    from build123d import Cylinder
+
+    ref = sketch.face_reference(Cylinder(5, 10).wrapped, sketch.STANDARD_PLANES["XY"], project=True)
+    assert sum(e["type"] == "circle" for e in ref["entities"]) >= 2 and ref["drawn"]["ellipses"] == 0
+    assert ref["skipped"]["square"] >= 1  # the seam line is seen end-on
 
 
 def test_detail_blames_every_conflicting_constraint():

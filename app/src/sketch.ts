@@ -1312,7 +1312,7 @@ export class SketchMode {
   /** Flatten the model's edges onto the sketch plane as fixed reference geometry the sketch can snap to. */
   private async projectModel() {
     try {
-      const ref = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[]; skipped?: { square: number; tilted_circles: number; other: number } }>("sketch_project", { plane: this.s.plane });
+      const ref = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[]; skipped?: { square: number; tilted_circles: number; other: number }; drawn?: { ellipses: number; splines: number } }>("sketch_project", { plane: this.s.plane });
       const near = (a: M.SketchPoint, b: M.SketchPoint) => Math.hypot(a.u - b.u, a.v - b.v) < 1e-5;
       const known = this.s.points.filter((p) => p.fixed);
       const entityKey = (e: M.SketchEntity) => JSON.stringify([e.type, ...M.entityPoints(e).map((id) => this.s.points.find((p) => p.id === id)).map((p) => p && [Math.round(p.u * 1e4), Math.round(p.v * 1e4)])]);
@@ -1344,7 +1344,9 @@ export class SketchMode {
       this.render();
       const sk = ref.skipped;
       const notes = [
-        sk?.tilted_circles ? `${sk.tilted_circles} tilted circle${sk.tilted_circles === 1 ? "" : "s"} (would be ellipses) not drawn, their end points are snappable` : "",
+        ref.drawn?.ellipses ? `${ref.drawn.ellipses} tilted circle${ref.drawn.ellipses === 1 ? "" : "s"} drawn as ellipses` : "",
+        ref.drawn?.splines ? `${ref.drawn.splines} tilted arc or curved edge${ref.drawn.splines === 1 ? "" : "s"} drawn as splines` : "",
+        sk?.tilted_circles ? `${sk.tilted_circles} arc${sk.tilted_circles === 1 ? "" : "s"} seen edge-on not drawn, their end points are snappable` : "",
         sk?.other ? `${sk.other} curved edge${sk.other === 1 ? "" : "s"} of another kind skipped, their end points are snappable` : "",
         sk?.square ? `${sk.square} edge${sk.square === 1 ? "" : "s"} seen end-on shown as points` : "",
       ].filter(Boolean);
