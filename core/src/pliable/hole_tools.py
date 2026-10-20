@@ -130,7 +130,7 @@ class ConvertToCountersink(_HoleTool):
     """Cut a cone-shaped opening into an existing hole, given by its diameter at the surface and its included angle."""
 
     id = "convert_to_countersink"
-    label = "Convert hole to countersink"
+    label = "Add countersink to hole"
     description = (
         "Adds a countersink to an existing round hole: turns its opening into a cone for a flat-head screw, set by the cone's diameter at the surface and its included angle. "
         "Select a face of the hole or the circle at its opening. This is not the same as an edge chamfer, which is a plain edge break."

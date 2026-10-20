@@ -59,3 +59,4 @@ def test_hole_tools_declare_that_they_need_a_selection():
         assert TOOLS[tool_id].accepts.any_of
         assert TOOLS[tool_id].describe()["accepts"]["anyOf"] is True
         assert not TOOLS[tool_id].accepts.matches(Selection())
+    assert TOOLS["convert_to_countersink"].label == "Add countersink to hole"
