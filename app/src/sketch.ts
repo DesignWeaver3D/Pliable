@@ -190,6 +190,16 @@ export class SketchMode {
   onEditing: ((id: number | null) => void) | null = null;
 
   start(plane: M.PlaneData, reference?: { points: M.SketchPoint[]; entities: M.SketchEntity[] }, unwrapFace: number[] | null = null, distortion?: { max: number; note: string }, kept?: { id: number; name: string; sketch: any }) {
+    if (this.active && this.needsConfirm()) {
+      // Starting another sketch would throw this one away: ask first.
+      void this.confirmLeave().then(async (choice) => {
+        if (choice === "keep") return this.host.status("Kept editing this sketch; finish or discard it before starting another");
+        if (choice === "finish") await this.finish();
+        else this.exit();
+        if (!this.active) this.start(plane, reference, unwrapFace, distortion, kept);
+      });
+      return;
+    }
     if (this.active) this.exit();
     // Reference geometry (the face outline) is fixed construction geometry that sketch points can snap to.
     this.s = kept
@@ -227,9 +237,63 @@ export class SketchMode {
     this.host.status(distortion ? distortion.note : "Sketch: choose a drawing tool in the top bar (Line, Rectangle, Circle, Arc)", !!distortion);
   }
 
+  /** Whether leaving the sketch would lose work: drawn geometry in a new sketch, or changes to a kept one. */
+  private needsConfirm(): boolean {
+    return this.kept ? this.undoStack.length > 0 : this.s.entities.some((e) => !e.reference);
+  }
+
+  private leaveDialog: HTMLDialogElement | null = null;
+
+  /** An in-page question before a sketch with work in it is thrown away. Closing it any other way keeps editing. */
+  private confirmLeave(): Promise<"keep" | "finish" | "discard"> {
+    if (this.leaveDialog?.open) return Promise.resolve("keep");
+    return new Promise((resolve) => {
+      const dialog = document.createElement("dialog");
+      dialog.className = "sketchsettings";
+      dialog.addEventListener("keydown", (e) => e.stopPropagation()); // Escape closes the question (keep editing), not the sketch
+      const title = document.createElement("h3");
+      title.textContent = this.kept ? "Discard your changes to this sketch?" : "Discard this sketch?";
+      const text = document.createElement("div");
+      text.textContent = "It has geometry that has not been kept.";
+      let choice: "keep" | "finish" | "discard" = "keep";
+      const choose = (c: typeof choice, label: string, autofocus = false) => {
+        const b = document.createElement("button");
+        b.textContent = label;
+        b.addEventListener("click", () => {
+          choice = c;
+          dialog.close();
+        });
+        if (autofocus) b.autofocus = true;
+        return b;
+      };
+      const keep = choose("keep", "Keep editing", true);
+      dialog.append(title, text, keep, choose("finish", this.kept ? "Finish and save" : "Finish and keep"), choose("discard", "Discard"));
+      dialog.addEventListener("close", () => {
+        dialog.remove();
+        this.leaveDialog = null;
+        resolve(choice);
+      });
+      document.body.append(dialog);
+      this.leaveDialog = dialog;
+      dialog.showModal();
+      keep.focus();
+    });
+  }
+
+  /** Leave the sketch, asking first when it holds work (Escape and the Discard button). */
+  private async leave() {
+    if (this.needsConfirm()) {
+      const choice = await this.confirmLeave();
+      if (choice === "keep" || !this.active) return;
+      if (choice === "finish") return this.finish();
+    }
+    this.exit();
+  }
+
   exit() {
     if (!this.active) return;
     this.active = false;
+    this.cancelBox();
     clearTimeout(this.previewTimer);
     this.viewport.interceptor = null;
     this.viewport.onFrame2 = null;
@@ -434,7 +498,63 @@ export class SketchMode {
     return best;
   }
 
+  /** The box being dragged on empty space (client pixels); window = left to right, crossing = right to left, as in the 3D view. */
+  private box: { x0: number; y0: number; x1: number; y1: number; active: boolean; additive: boolean } | null = null;
+  private boxEl: HTMLDivElement | null = null;
+
+  private updateBox(e: PointerEvent) {
+    const b = this.box!;
+    b.x1 = e.clientX;
+    b.y1 = e.clientY;
+    if (!b.active && Math.hypot(b.x1 - b.x0, b.y1 - b.y0) < DRAG_START_PX) return;
+    b.active = true;
+    if (!this.boxEl) {
+      this.boxEl = document.createElement("div");
+      this.boxEl.style.cssText = "position:fixed;pointer-events:none;z-index:2;border:1px solid #4fc3f7;background:rgba(79,195,247,0.12)";
+      document.body.appendChild(this.boxEl);
+    }
+    const crossing = b.x1 < b.x0;
+    Object.assign(this.boxEl.style, {
+      left: Math.min(b.x0, b.x1) + "px",
+      top: Math.min(b.y0, b.y1) + "px",
+      width: Math.abs(b.x1 - b.x0) + "px",
+      height: Math.abs(b.y1 - b.y0) + "px",
+      borderStyle: crossing ? "dashed" : "solid", // dashed = crossing, solid = window
+      borderColor: crossing ? "#8bc34a" : "#4fc3f7",
+    });
+  }
+
+  private cancelBox() {
+    this.box = null;
+    this.boxEl?.remove();
+    this.boxEl = null;
+  }
+
+  /** Select the sketch's own points and curves in the box (never the model's faces or edges). */
+  private finishBox() {
+    const b = this.box!;
+    this.cancelBox();
+    if (!b.active) {
+      if (!b.additive) this.selection = []; // a click on empty space
+      return;
+    }
+    const rect = this.viewport.renderer.domElement.getBoundingClientRect();
+    const r = { x0: Math.min(b.x0, b.x1) - rect.left, x1: Math.max(b.x0, b.x1) - rect.left, y0: Math.min(b.y0, b.y1) - rect.top, y1: Math.max(b.y0, b.y1) - rect.top };
+    const found = M.itemsInBox(this.s, (u, v) => this.screenOf(u, v), r, b.x1 < b.x0);
+    this.selection = b.additive ? [...this.selection, ...found.filter((f) => !this.selection.some((s) => s.kind === f.kind && s.id === f.id))] : found;
+  }
+
   private onMove(e: PointerEvent) {
+    // A release the page never saw (focus lost, a dialog) must not leave a drag or box stuck to the pointer.
+    if (e.buttons === 0 && (this.box || this.drag)) {
+      this.cancelBox();
+      this.drag = null;
+      this.clickToggle = null;
+    }
+    if (this.box) {
+      this.updateBox(e);
+      return;
+    }
     if (this.drag) {
       const dx = e.clientX - this.drag.startX;
       const dy = e.clientY - this.drag.startY;
@@ -452,38 +572,73 @@ export class SketchMode {
     this.render();
   }
 
+  /** A press on an item that was already selected: a click without movement removes it from the selection. */
+  private clickToggle: { sel: M.SketchSel; x: number; y: number } | null = null;
+
   private onDown(e: PointerEvent) {
     if (this.tool !== "select") return;
     const hit = this.pick(e);
     const additive = e.ctrlKey || e.metaKey || e.shiftKey;
+    const same = (s: M.SketchSel) => !!hit && s.kind === hit.kind && s.id === hit.id;
+    const wasSelected = this.selection.some(same);
+    this.clickToggle = null;
     if (!hit) {
-      if (!additive) this.selection = [];
-    } else if (additive) {
-      const same = (s: M.SketchSel) => s.kind === hit.kind && s.id === hit.id;
-      this.selection = this.selection.some(same) ? this.selection.filter((s) => !same(s)) : [...this.selection, hit];
-    } else {
-      this.selection = [hit];
-    }
-    const fixed = hit?.kind === "point" && this.s.points.find((p) => p.id === hit.id)?.fixed;
-    if (hit?.kind === "point" && !additive && !fixed) {
-      this.drag = { id: hit.id, startX: e.clientX, startY: e.clientY, moved: false };
+      // Empty space: a click clears the selection, a drag draws a selection box (see finishBox).
+      this.box = { x0: e.clientX, y0: e.clientY, x1: e.clientX, y1: e.clientY, active: false, additive };
       this.viewport.renderer.domElement.setPointerCapture(e.pointerId);
+    } else if (additive) {
+      this.selection = wasSelected ? this.selection.filter((s) => !same(s)) : [...this.selection, hit];
+    } else if (wasSelected) {
+      this.clickToggle = { sel: hit, x: e.clientX, y: e.clientY }; // decided on release: a drag moves the whole selection instead
+    } else {
+      this.selection = [...this.selection, hit]; // clicking adds: no modifier key needed
     }
-    // Dragging a line, circle or arc by its body moves its points together; the rest follows the constraints.
-    const entity = hit?.kind === "entity" ? this.s.entities.find((x) => x.id === hit.id) : undefined;
-    const uv = this.planeUV(e);
-    if (entity && uv && !additive && !entity.reference) {
-      const ids = M.entityPoints(entity);
-      const held = ids.map((id) => this.s.points.find((p) => p.id === id)!);
-      if (held.every((p) => p && !p.fixed)) {
-        this.drag = { id: 0, startX: e.clientX, startY: e.clientY, moved: false, body: { u: uv[0], v: uv[1], points: held.map((p) => ({ id: p.id, u: p.u, v: p.v })) } };
-        this.viewport.renderer.domElement.setPointerCapture(e.pointerId);
-      }
-    }
+    if (hit && !additive) this.startDrag(e, wasSelected ? this.selection : [hit]);
     this.render();
   }
 
+  /** Begin dragging the given items: one point follows the pointer; curves and several items move as a whole, the rest follows the constraints. */
+  private startDrag(e: PointerEvent, items: M.SketchSel[]) {
+    const uv = this.planeUV(e);
+    if (!uv) return;
+    const point = (id: number) => this.s.points.find((p) => p.id === id);
+    if (items.length === 1 && items[0].kind === "point") {
+      if (point(items[0].id)?.fixed) return;
+      this.drag = { id: items[0].id, startX: e.clientX, startY: e.clientY, moved: false };
+      this.viewport.renderer.domElement.setPointerCapture(e.pointerId);
+      return;
+    }
+    const ids = new Set<number>();
+    for (const it of items) {
+      if (it.kind === "point") {
+        if (!point(it.id)?.fixed) ids.add(it.id);
+        continue;
+      }
+      const entity = this.s.entities.find((x) => x.id === it.id);
+      if (!entity || entity.reference) continue;
+      const held = M.entityPoints(entity).map(point);
+      if (held.every((p) => p && !p.fixed)) for (const p of held) ids.add(p!.id);
+    }
+    if (!ids.size) return;
+    const held = [...ids].map((id) => point(id)!);
+    this.drag = { id: 0, startX: e.clientX, startY: e.clientY, moved: false, body: { u: uv[0], v: uv[1], points: held.map((p) => ({ id: p.id, u: p.u, v: p.v })) } };
+    this.viewport.renderer.domElement.setPointerCapture(e.pointerId);
+  }
+
   private async onUp(e: PointerEvent) {
+    if (this.box) {
+      this.finishBox();
+      this.render();
+      return;
+    }
+    const toggle = this.clickToggle;
+    this.clickToggle = null;
+    if (toggle && Math.hypot(e.clientX - toggle.x, e.clientY - toggle.y) < DRAG_START_PX) {
+      this.selection = this.selection.filter((s) => !(s.kind === toggle.sel.kind && s.id === toggle.sel.id));
+      this.drag = null;
+      this.render();
+      return;
+    }
     if (this.drag) {
       const moved = this.drag.moved;
       this.drag = null;
@@ -642,7 +797,7 @@ export class SketchMode {
   }
 
   onKey(e: KeyboardEvent) {
-    if (!this.active || this.settingsDialog?.open) return;
+    if (!this.active || this.settingsDialog?.open || this.leaveDialog?.open) return;
     const target = e.target as HTMLElement;
     if (target.closest("input, select, textarea")) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
@@ -653,7 +808,7 @@ export class SketchMode {
       if (this.chain.length) this.endChain();
       else if (this.tool !== "select") this.setTool("select");
       else if (this.selection.length) this.selection = [], this.render();
-      else this.exit(); // nothing left to cancel: leave the sketch so face picking works again
+      else void this.leave(); // nothing left to cancel: leave the sketch (asking first if it holds work)
     } else if (e.key === "Enter" && this.chain.length) {
       this.endChain();
     } else if ((e.key === "Delete" || e.key === "Backspace") && this.selection.length) {
@@ -1216,10 +1371,9 @@ export class SketchMode {
     try {
       while (this.queued) {
         const job = this.queued;
-        this.queued = null;
-        let reply: SolveReply;
+          let reply: SolveReply;
         try {
-          reply = await this.core.request<SolveReply>("sketch_solve", { sketch: this.s, drag: job.drag, detail: !job.drag });
+          reply = await this.core.request<SolveReply>("sketch_solve", { sketch: M.forSolver(this.s), drag: job.drag, detail: !job.drag });
         } catch (e) {
           this.host.status((e as Error).message, true);
           ok = false;
@@ -1242,11 +1396,11 @@ export class SketchMode {
         } else if (!job.drag) {
           this.failed = new Set([...reply.failed, ...(reply.conflicts ?? [])].filter((x): x is number => x !== null));
           ok = false;
+          if (!this.failed.size) this.host.status("The sketch could not be solved, so geometry will not follow its constraints. Undo the last change", true);
         }
         this.render();
       }
     } finally {
-      this.solving = false;
     }
     return ok;
   }
@@ -1314,6 +1468,7 @@ export class SketchMode {
   private async projectModel() {
     try {
       const ref = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[]; skipped?: { square: number; tilted_circles: number; other: number } }>("sketch_project", { plane: this.s.plane });
+      if (!this.active) return; // the sketch was left while the model was being projected
       const near = (a: M.SketchPoint, b: M.SketchPoint) => Math.hypot(a.u - b.u, a.v - b.v) < 1e-5;
       const known = this.s.points.filter((p) => p.fixed);
       const entityKey = (e: M.SketchEntity) => JSON.stringify([e.type, ...M.entityPoints(e).map((id) => this.s.points.find((p) => p.id === id)).map((p) => p && [Math.round(p.u * 1e4), Math.round(p.v * 1e4)])]);
@@ -1352,6 +1507,12 @@ export class SketchMode {
       this.host.status(`${added ? `Projected ${added} model edge${added === 1 ? "" : "s"}` : "No new model edges to project"}${notes.length ? `. ${notes.join("; ")}` : ""}`, !!(sk?.tilted_circles || sk?.other));
     } catch (e) {
       this.host.status((e as Error).message, true);
+    } finally {
+      // Whatever happened above, the sketch must stay usable.
+      this.drag = null;
+      this.clickToggle = null;
+      this.cancelBox();
+      if (this.active) this.render();
     }
   }
 
@@ -1804,7 +1965,7 @@ export class SketchMode {
 
     const finish = button("Finish sketch", () => this.finish());
     finish.title = "Leave the sketch and keep it in the list of sketches. It stays separate from the model; its closed regions show as profile faces you can extrude";
-    const exit = button(this.kept ? "Discard changes" : "Discard sketch", () => this.exit());
+    const exit = button(this.kept ? "Discard changes" : "Discard sketch", () => void this.leave());
     exit.title = this.kept ? "Leave the sketch without saving what you changed" : "Leave the sketch and throw it away without changing the model";
     this.panel.replaceChildren(header, status, tools, constraintsBox, ...(transformRow ? [transformBox] : []), ask, list, ...(flat ? [extrude] : []), finish, exit);
   }

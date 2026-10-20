@@ -72,3 +72,12 @@ export function trianglesInBox(points: P2[], r: Rect, crossing: boolean): boolea
   for (let i = 0; i + 2 < points.length; i += 3) if (triangleHitsRect(points[i], points[i + 1], points[i + 2], r)) return true;
   return false;
 }
+
+/** A curve as a screen polyline. Window: every vertex inside. Crossing: any piece of it touches the rectangle. */
+export function polylineInBox(points: P2[], r: Rect, crossing: boolean): boolean {
+  if (points.length === 0) return false;
+  if (!crossing) return points.every((p) => pointInRect(p, r));
+  if (points.length === 1) return pointInRect(points[0], r);
+  for (let i = 0; i + 1 < points.length; i++) if (segmentHitsRect(points[i], points[i + 1], r)) return true;
+  return false;
+}

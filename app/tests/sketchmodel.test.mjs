@@ -88,3 +88,17 @@ test("the sketch's own axes pass through its origin and take the colour of the n
   assert.deepEqual(axes.map((a) => [a.u, a.v, a.du, a.dv]), [[0, 0, 1, 0], [0, 0, 0, 1]]);
   assert.deepEqual(axes.map((a) => a.axis), [1, 2]);
 });
+
+import { forSolver } from "../src/sketchmodel.ts";
+
+test("forSolver leaves out reference curves and fixed points nothing uses", () => {
+  const s = {
+    plane: {},
+    points: [{ id: 1, u: 0, v: 0, fixed: true }, { id: 2, u: 5, v: 0 }, { id: 3, u: 5, v: 5 }, { id: 4, u: 9, v: 9, fixed: true }, { id: 5, u: 9, v: 0, fixed: true }, { id: 6, u: 1, v: 1, fixed: true }],
+    entities: [{ id: 10, type: "line", a: 2, b: 3 }, { id: 11, type: "line", a: 4, b: 5, reference: true }, { id: 12, type: "line", a: 5, b: 6, reference: true }],
+    constraints: [{ id: 20, type: "coincident", points: [3, 1] }, { id: 21, type: "parallel", entities: [10, 12] }],
+  };
+  const out = forSolver(s);
+  assert.deepEqual(out.points.map((p) => p.id), [1, 2, 3, 5, 6]);
+  assert.deepEqual(out.entities.map((e) => e.id), [10, 12]);
+});
