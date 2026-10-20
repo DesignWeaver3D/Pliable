@@ -122,7 +122,7 @@ Anything not tied to one tool (crashes, lag on large parts, confusing messages) 
 - [ ] Box select, window (left to right): only items fully inside; crossing (right to left): everything touched; Box selects kind switch in settings
 - [ ] Alt+click cycles through the faces under the pointer, with see-through off and on
 - [ ] Edge ring, Edge loops and Sharp edges with one edge selected: result highlighted, tooltip explains each; sharp-edge angle slider
-- [ ] Inset face outline: outer loop and loop 1 on a face with holes (face count goes up)
+- [ ] Inset face edges: outer loop and loop 1 on a face with holes (face count goes up)
 - [ ] Divide face: typed form, and placing the divide edge by dragging in the view
 - [ ] Fillet per edge on all top-face edges: 0 open edges after applying
 - [ ] Add box creates its own body; Move body, Rotate body, Scale body and Offset body act on the selected body only; a group of faces from two bodies moves both; nothing selected moves everything

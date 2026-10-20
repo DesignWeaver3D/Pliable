@@ -185,3 +185,37 @@ def test_outer_loop_leaves_out_holes():
     outer = outer_loop(t, i)
     assert outer and len(outer) < len(face_edges(t, i))
     assert all(e in face_edges(t, i) for e in outer)
+
+
+def test_inset_every_edge_splits_the_outline_and_the_hole_ring():
+    from pliable.tools import Selection, get_tool
+
+    t = Topology(load_demo("bracket"))
+    face = _face_with_hole(t)
+    tool = get_tool("inset_face")
+    one = tool.execute(t, Selection(faces=[face]), {"distance": 1.0}, False)
+    every = tool.execute(t, Selection(faces=[face]), {"distance": 1.0, "all_loops": 1}, False)
+    assert Topology(every.shape).face_count > Topology(one.shape).face_count
+
+
+def test_inset_and_draft_offer_handles_that_follow_their_values():
+    from pliable.tools import Selection, get_tool
+    from pliable.ops import planar_normal
+
+    t = Topology(load_demo("bracket"))
+    face = _face_with_hole(t)
+    inset = get_tool("inset_face")
+    a = inset.handles(t, Selection(faces=[face]), {"distance": 1.0, "loop": 0, "all_loops": 0})
+    b = inset.handles(t, Selection(faces=[face]), {"distance": 3.0, "loop": 0, "all_loops": 0})
+    assert [h.param for h in a] == ["distance", "all_loops"]
+    moved = sum((q - p) * d for p, q, d in zip(a[0].anchor, b[0].anchor, a[0].direction))
+    assert moved == pytest.approx(2.0)
+
+    block = Topology(load_demo("block"))
+    wall = next(i for i in range(block.face_count) if (n := planar_normal(block.face(i))) is not None and abs(n.Z()) < 1e-6)
+    draft = get_tool("draft")
+    values = {"angle": 0.0, "pull_x": 0.0, "pull_y": 0.0, "pull_z": 1.0}
+    (h0,) = draft.handles(block, Selection(faces=[wall]), values)
+    (h1,) = draft.handles(block, Selection(faces=[wall]), {**values, "angle": 10.0})
+    assert h0.param == "angle" and h0.ring is not None
+    assert h0.anchor != h1.anchor

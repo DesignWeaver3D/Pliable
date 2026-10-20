@@ -1019,16 +1019,47 @@ class Draft(_PlanarFace):
     accepts = Accepts(faces=(1, None))
     params = [Param("angle", "angle", 3), Param("pull_x", "number"), Param("pull_y", "number"), Param("pull_z", "number", 1)]
 
+    @staticmethod
+    def _neutral_base(topology, direction) -> gp_Pnt:
+        box = Bnd_Box()
+        BRepBndLib.Add_s(topology.shape, box)
+        lo, hi = box.CornerMin(), box.CornerMax()
+        corners = [gp_Pnt(x, y, z) for x in (lo.X(), hi.X()) for y in (lo.Y(), hi.Y()) for z in (lo.Z(), hi.Z())]
+        return min(corners, key=lambda p: gp_Vec(p.XYZ()).Dot(gp_Vec(direction)))
+
+    def handles(self, topology, selection, values):
+        """One ring about the line where the first face meets the neutral plane; its grip rides on the face and turns with the angle
+        (a positive angle tilts the top of a wall toward its inside)."""
+        pull = gp_Vec(values["pull_x"], values["pull_y"], values["pull_z"])
+        face = topology.face(selection.faces[0])
+        normal = planar_normal(face)
+        if pull.Magnitude() < TOL or normal is None:
+            return []
+        direction = gp_Dir(pull)
+        base = self._neutral_base(topology, direction)
+        centre = face_handle_point(face)
+        height = gp_Vec(base, centre).Dot(gp_Vec(direction))
+        hinge = gp_Pnt(centre.X() - direction.X() * height, centre.Y() - direction.Y() * height, centre.Z() - direction.Z() * height)
+        radius = gp_Vec(hinge, centre).Magnitude()
+        axis = gp_Vec(normal).Crossed(gp_Vec(direction))
+        if radius < 1e-6 or axis.Magnitude() < 1e-9:
+            return []
+        axis.Normalize()
+        turn = gp_Trsf()
+        turn.SetRotation(gp_Ax1(hinge, gp_Dir(axis)), math.radians(values["angle"]))
+        anchor = centre.Transformed(turn)
+        tangent = axis.Crossed(gp_Vec(hinge, anchor))
+        tangent.Normalize()
+        return [
+            Handle("angle", "Draft angle", (anchor.X(), anchor.Y(), anchor.Z()), (tangent.X(), tangent.Y(), tangent.Z()), scale=math.degrees(1 / radius), unit="°", axis=(axis.X(), axis.Y(), axis.Z()), ring=(hinge.X(), hinge.Y(), hinge.Z(), radius))
+        ]
+
     def run(self, topology, selection, values, preview):
         pull = gp_Vec(values["pull_x"], values["pull_y"], values["pull_z"])
         if pull.Magnitude() < TOL:
             raise OperationError("Give a pull direction")
         direction = gp_Dir(pull)
-        box = Bnd_Box()
-        BRepBndLib.Add_s(topology.shape, box)
-        lo, hi = box.CornerMin(), box.CornerMax()
-        corners = [gp_Pnt(x, y, z) for x in (lo.X(), hi.X()) for y in (lo.Y(), hi.Y()) for z in (lo.Z(), hi.Z())]
-        base = min(corners, key=lambda p: gp_Vec(p.XYZ()).Dot(gp_Vec(direction)))
+        base = self._neutral_base(topology, direction)
         neutral = gp_Pln(base, direction)
         maker = BRepOffsetAPI_DraftAngle(topology.shape)
         for i in selection.faces:
@@ -2197,14 +2228,45 @@ def combine(shape: TopoDS_Shape, other: TopoDS_Shape, mode: str, offset: gp_Vec 
 
 @register
 class InsetFace(_PlanarFace):
-    """Offset the outline of a flat face inward and split the face along it, so the inner region can be
-    pushed, pulled or cut on its own. A negative distance is not accepted: the loop stays on the face."""
+    """Offset the edges of a flat face and split the face along them, so the inner region can be pushed, pulled or cut
+    on its own. The outer outline moves inward and an inner profile (a hole) grows outward, so the loop stays on the face.
+    By default one loop is inset; with `all_loops` set every edge of the face is."""
 
     id = "inset_face"
-    label = "Inset face outline"
-    description = "Draws an inner outline on a flat face, a set distance in from its edge, so that inner area can be pushed, pulled or cut on its own. Select one flat face."
+    label = "Inset face edges"
+    description = "Draws an inner outline on a flat face, a set distance in from its edges, so that inner area can be pushed, pulled or cut on its own. Select one flat face. Set all_loops to 1 to inset the outer perimeter and every inner profile together; otherwise loop picks one (0 is the outer perimeter)."
     accepts = Accepts(faces=(1, 1))
-    params = [Param("distance", "length", 2), Param("loop", "number", 0)]
+    params = [Param("distance", "length", 2), Param("loop", "number", 0), Param("all_loops", "number", 0)]
+
+    def handles(self, topology, selection, values):
+        from build123d import Face
+
+        shape = topology.face(selection.faces[0])
+        normal = planar_normal(shape)
+        if normal is None:
+            return []
+        face = Face(shape)
+        n = (normal.X(), normal.Y(), normal.Z())
+        holes = face.inner_wires()
+        loop = int(round(values.get("loop", 0)))
+        outer = loop == 0 or values.get("all_loops", 0) >= 0.5
+        if not outer and not 0 < loop <= len(holes):
+            return []
+        wire = face.outer_wire() if outer else holes[loop - 1]
+        p, t = wire.position_at(0.0), wire.tangent_at(0.0)
+        side = (n[1] * t.Z - n[2] * t.Y, n[2] * t.X - n[0] * t.Z, n[0] * t.Y - n[1] * t.X)
+        length = math.sqrt(sum(c * c for c in side)) or 1.0
+        side = tuple(c / length for c in side)
+        aim = face.center() if outer else Face(wire).center()  # inward for the outline, away from the hole for a hole
+        toward = (aim.X - p.X) * side[0] + (aim.Y - p.Y) * side[1] + (aim.Z - p.Z) * side[2]
+        if (toward < 0) == outer:
+            side = tuple(-c for c in side)
+        d = values["distance"]
+        centre = face_handle_point(shape)
+        return [
+            Handle("distance", "Inset distance", (p.X + side[0] * d, p.Y + side[1] * d, p.Z + side[2] * d), side, min=MIN_DISTANCE),
+            Handle("all_loops", "Inset every edge, outer and inner (click)", (centre.X(), centre.Y(), centre.Z()), n, toggle=True),
+        ]
 
     def run(self, topology, selection, values, preview):
         from build123d import Face, Kind
@@ -2215,24 +2277,37 @@ class InsetFace(_PlanarFace):
             raise OperationError("The inset distance must be positive")
         face = Face(topology.face(selection.faces[0]))
         loop = int(round(values.get("loop", 0)))
+        every = values.get("all_loops", 0) >= 0.5
         holes = face.inner_wires()
-        if not 0 <= loop <= len(holes):
+        if not every and not 0 <= loop <= len(holes):
             raise OperationError(f"The face has {len(holes)} inner loop(s); loop must be 0 (outline) to {len(holes)}")
+
+        def region_of(wire, grow: bool) -> Face:
+            inner = wire.offset_2d(distance if grow else -distance, kind=Kind.INTERSECTION)
+            return Face(inner[0] if isinstance(inner, list) else inner)
+
+        regions = []
         try:
-            if loop == 0:
-                inner = face.outer_wire().offset_2d(-distance, kind=Kind.INTERSECTION)
-            else:  # grow a hole's loop outward, so the ring around the hole becomes its own region
-                inner = holes[loop - 1].offset_2d(distance, kind=Kind.INTERSECTION)
-            inner = inner[0] if isinstance(inner, list) else inner
-            region = Face(inner)
+            if every or loop == 0:
+                outline = region_of(face.outer_wire(), False)
+                if outline.area >= face.area:
+                    raise OperationError("The inset is larger than the face")
+                regions.append(outline)
+            if every:
+                regions += [region_of(h, True) for h in holes]  # a hole's loop grows outward, so the ring around it becomes its own region
+            elif loop > 0:
+                regions.append(region_of(holes[loop - 1], True))
+        except OperationError:
+            raise
         except Exception:
             raise OperationError("The inset is larger than the face") from None
-        if (loop == 0 and region.area >= face.area) or region.area < MIN_DISTANCE:
+        if any(r.area < MIN_DISTANCE for r in regions):
             raise OperationError("The inset is larger than the face")
         splitter = BRepAlgoAPI_Splitter()
         arguments, tools = List_TopoDS_Shape(), List_TopoDS_Shape()
         arguments.Append(topology.shape)
-        tools.Append(region.wrapped)
+        for r in regions:
+            tools.Append(r.wrapped)
         splitter.SetArguments(arguments)
         splitter.SetTools(tools)
         splitter.SetNonDestructive(True)
