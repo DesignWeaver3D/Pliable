@@ -784,10 +784,19 @@ def add_regions(shape, sketch: dict):
 
 
 def face_plane(face_shape) -> dict:
-    """A sketch plane on a flat TopoDS face: its centre, outward normal and a direction in the plane."""
+    """A sketch plane on a flat TopoDS face: the middle of the face's extent along the plane's own axes (the sketch
+    origin sits at the centre of the face you see, not at its area centroid, which drifts toward the heavy side of
+    an L shape or a face with holes), its outward normal and a direction in the plane."""
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.BRepTools import BRepTools
+
     from .features import _plane_axes
 
     centre, normal, u, _ = _plane_axes(face_shape)
+    u0, u1, v0, v1 = BRepTools.UVBounds_s(face_shape)
+    middle = BRepAdaptor_Surface(face_shape).Value((u0 + u1) / 2, (v0 + v1) / 2)
+    if middle.Distance(centre) < 1e6:  # a finite, sane extent (an unbounded surface keeps the centroid)
+        centre = middle
     return {"origin": [centre.X(), centre.Y(), centre.Z()], "normal": [normal.X(), normal.Y(), normal.Z()], "xdir": [u.X(), u.Y(), u.Z()]}
 
 

@@ -769,3 +769,17 @@ def test_imprinted_region_pushed_past_the_bottom_cuts_through(preview, distance)
     small = next(i for i, f in topology.faces() if _face_area(f) == pytest.approx(12.57, abs=0.05))
     cut = TOOLS["push_pull"].execute(topology, Selection(faces=[small]), {"distance": distance}, preview)
     assert _solid_volume(cut.shape) == pytest.approx(volume(shape) - 12.566 * 20, rel=1e-3)
+
+
+def test_sketch_origin_is_the_middle_of_the_face_not_its_centroid():
+    from build123d import Box, Pos
+
+    # an L-shaped top face: the area centroid is pulled toward the thick leg, the extent's middle is not
+    shape = Box(40, 20, 10) + Pos(-15, 20, 0) * Box(10, 20, 10)
+    top = next(f for f in shape.faces() if f.normal_at().Z > 0.9)
+    plane = sketch.face_plane(top.wrapped)
+    xs = [v.X for v in top.vertices()]
+    ys = [v.Y for v in top.vertices()]
+    assert plane["origin"][0] == pytest.approx((min(xs) + max(xs)) / 2, abs=1e-6)
+    assert plane["origin"][1] == pytest.approx((min(ys) + max(ys)) / 2, abs=1e-6)
+    assert plane["origin"][2] == pytest.approx(5)

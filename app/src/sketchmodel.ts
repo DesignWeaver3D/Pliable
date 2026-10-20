@@ -663,6 +663,22 @@ export function axisLines(plane: PlaneData): { u: number; v: number; du: number;
   return lines;
 }
 
+/**
+ * The sketch's own axes: through the plane origin (the centre of the face the sketch is made on) along its u and v
+ * directions. `axis` is the model axis (0 x, 1 y, 2 z) each runs closest to, which gives its colour.
+ */
+export function sketchAxes(plane: PlaneData): { u: number; v: number; du: number; dv: number; axis: number }[] {
+  const f = frame(plane);
+  const nearest = (d: number[]) => {
+    const a = d.map(Math.abs);
+    return a.indexOf(Math.max(...a));
+  };
+  return [
+    { u: 0, v: 0, du: 1, dv: 0, axis: nearest(f.x) },
+    { u: 0, v: 0, du: 0, dv: 1, axis: nearest(f.y) },
+  ];
+}
+
 // Trim ------------------------------------------------------------------------------------------------
 
 /** Parameters t along line `e` (0 at its start, 1 at its end, unbounded) where it meets other lines and circles. */

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { axisLines, polyline, distanceTo, entityPoints, measure, optionsFor, describeConstraint, dimensionsOf, constraintMarks } from "../src/sketchmodel.ts";
+import { axisLines, polyline, distanceTo, entityPoints, measure, optionsFor, describeConstraint, dimensionsOf, constraintMarks, sketchAxes } from "../src/sketchmodel.ts";
 
 const plane = (origin, normal, xdir) => ({ origin, normal, xdir });
 
@@ -80,4 +80,11 @@ test("an ellipse offers a short radius dimension that reads its minor axis", () 
   assert.equal(measure(s, { id: 1, type: "minor_radius", entity: 10 }), 3);
   const [tag] = dimensionsOf({ ...s, constraints: [{ id: 1, type: "minor_radius", entity: 10, value: 3 }] });
   assert.deepEqual(tag.points[0].map((x) => Math.round(x * 1e6) / 1e6), [0, 3, 0]);
+});
+
+test("the sketch's own axes pass through its origin and take the colour of the nearest model axis", () => {
+  // a plane on a face of a part standing on its side: u runs along model y, v along model z
+  const axes = sketchAxes(plane([30, 5, 8], [1, 0, 0], [0, 1, 0]));
+  assert.deepEqual(axes.map((a) => [a.u, a.v, a.du, a.dv]), [[0, 0, 1, 0], [0, 0, 0, 1]]);
+  assert.deepEqual(axes.map((a) => a.axis), [1, 2]);
 });

@@ -190,7 +190,11 @@ export class SketchMode {
     this.s = { plane, points: reference?.points ?? [], entities: reference?.entities ?? [], constraints: [] };
     // The model origin and the places where the principal axes meet the plane are fixed points too.
     this.unwrapFace = unwrapFace;
-    if (unwrapFace === null) for (const o of M.originPoints(plane, this.s.points)) this.s.points.push({ id: M.nextId(this.s), u: o.u, v: o.v, fixed: true });
+    if (unwrapFace === null) {
+      // The sketch origin is the centre of the face (or the plane's origin): a fixed point to snap to and constrain against.
+      if (!this.s.points.some((p) => Math.hypot(p.u, p.v) < 1e-6)) this.s.points.push({ id: M.nextId(this.s), u: 0, v: 0, fixed: true });
+      for (const o of M.originPoints(plane, this.s.points)) this.s.points.push({ id: M.nextId(this.s), u: o.u, v: o.v, fixed: true });
+    }
     const f = M.frame(plane);
     this.plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(...f.n), new THREE.Vector3(...f.origin));
     this.tool = "select";
@@ -372,8 +376,8 @@ export class SketchMode {
         if (on) return { u: on[0], v: on[1], on: { entity: en.id } };
       }
     }
-    // The principal axes that lie in this sketch plane.
-    for (const a of M.axisLines(this.s.plane)) {
+    // The sketch's own axes, through the centre of the face (its origin).
+    for (const a of M.sketchAxes(this.s.plane)) {
       const t = (u - a.u) * a.du + (v - a.v) * a.dv;
       const on: [number, number] = [a.u + t * a.du, a.v + t * a.dv];
       if (Math.hypot(u - on[0], v - on[1]) < reach) return { u: on[0], v: on[1] };
@@ -1430,7 +1434,7 @@ export class SketchMode {
     const reach = 400;
     const positions: number[] = [];
     const colors: number[] = [];
-    for (const a of M.axisLines(this.s.plane)) {
+    for (const a of M.sketchAxes(this.s.plane)) {
       positions.push(...this.world(a.u - a.du * reach, a.v - a.dv * reach).toArray(), ...this.world(a.u + a.du * reach, a.v + a.dv * reach).toArray());
       const c = new THREE.Color([0xd9534f, 0x5cb85c, 0x4a90e2][a.axis]);
       colors.push(c.r, c.g, c.b, c.r, c.g, c.b);
