@@ -216,6 +216,7 @@ export class SketchMode {
     this.extrude = { distance: 10, mode: "join", symmetric: false, revolve: false, angle: 360, open: false };
     this.active = true;
     this.viewport.selectItems([]); // the model's selection highlight would cover the sketch
+    this.viewport.onSelect([]); // and the selection itself ends: no face, edge or body stays selected behind the sketch
     this.viewport.manipulator.clear(); // so would the selected face's push/pull arrow
     this.buildGrid(f);
     this.viewport.scene.add(this.group);
