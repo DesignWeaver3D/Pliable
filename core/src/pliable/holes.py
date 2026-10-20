@@ -330,13 +330,15 @@ def find_hole(topology, face_id: int | None = None, edge_id: int | None = None, 
 
 
 def hole_profile(info: HoleInfo, margin: float = 0.0, diameter: float | None = None, depth: float | None = None,
-                 through: bool | None = None, stages: list[dict] | None = None) -> list[tuple[float, float]]:
+                 through: bool | None = None, stages: list[dict] | None = None, start: float = 0.0) -> list[tuple[float, float]]:
     """The cross-section of a hole as (s, r) points from the axis at the opening round to the axis at the far end,
     `margin` longer than the opening (and, for a through hole, than the far end) so booleans cut cleanly."""
     radius = (info.diameter if diameter is None else diameter) / 2
     is_through = info.through if through is None else through
     length = info.depth if depth is None else depth
     steps = info.stages if stages is None else stages
+    if start > 0:
+        steps = []  # a skin of material over the bore covers the opening, so no step is cut there
     points: list[tuple[float, float]] = []
 
     def add(s: float, r: float):
@@ -358,8 +360,9 @@ def hole_profile(info: HoleInfo, margin: float = 0.0, diameter: float | None = N
             top = ("bore", st["diameter"] / 2, st["depth"], 0.0)
             break
     if top is None:
-        add(-margin, 0.0)
-        add(-margin, radius)
+        top_s = start if start > 0 else -margin
+        add(top_s, 0.0)
+        add(top_s, radius)
     elif top[0] == "cone":
         _, r_top, height, half = top
         add(-margin, 0.0)
@@ -399,7 +402,7 @@ def hole_solid(info: HoleInfo, offset: gp_Vec | None = None, **changes):
 
 
 def rebuild_hole(shape, info: HoleInfo, offset: gp_Vec | None = None, **changes):
-    """The model with this hole filled and cut again with changes (`diameter`, `depth`, `through`, `stages`) and moved
+    """The model with this hole filled and cut again with changes (`diameter`, `depth`, `through`, `stages`, `start`) and moved
     by `offset`. Returns the new shape (not yet unified)."""
     from .features import _combine
 

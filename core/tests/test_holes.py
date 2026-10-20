@@ -155,7 +155,7 @@ def test_edit_hole_handles(block):
     wall = hole_wall(part)
     tool = get_tool("edit_hole")
     handles = {h["param"]: h for h in tool.handle_list(part, Selection(faces=[wall]), {})}
-    assert set(handles) == {"depth", "diameter", "dx", "dy"}
+    assert set(handles) == {"depth", "start", "diameter", "dx", "dy"}
     depth = handles["depth"]
     assert depth["value"] == pytest.approx(8) and depth["max"] == pytest.approx(20) and depth["axisFrom"][2] == pytest.approx(10)
     assert depth["anchor"][2] == pytest.approx(2) and depth["direction"] == pytest.approx([0, 0, -1])
@@ -167,6 +167,21 @@ def test_edit_hole_handles(block):
     # not a hole: no tool, no handles
     assert not tool.available(block, Selection(faces=[top_face(block)]))
     assert tool.available(part, Selection(faces=[wall]))
+
+
+def test_edit_hole_start_leaves_a_skin(block):
+    part = drilled(block, "add_hole", diameter=6, depth=8)
+    wall = hole_wall(part)
+    tool = get_tool("edit_hole")
+    start = {h["param"]: h for h in tool.handle_list(part, Selection(faces=[wall]), {})}["start"]
+    assert start["value"] == pytest.approx(0) and start["anchor"][2] == pytest.approx(10) and start["max"] < 8
+    result = run("edit_hole", part, faces=[wall], start=3)
+    # the bore now spans 3..8 (5 long) instead of 0..8
+    assert volume(part.shape) - volume(result.shape) == pytest.approx(-math.pi * 9 * 3)
+    with pytest.raises(OperationError):
+        run("edit_hole", part, faces=[wall], start=9)
+    shifted = {h["param"]: h for h in tool.handle_list(part, Selection(faces=[wall]), {"start": 3})}
+    assert shifted["start"]["anchor"][2] == pytest.approx(7) and shifted["depth"]["min"] > 3
 
 
 def test_convert_to_countersink(block):
