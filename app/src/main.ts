@@ -1217,7 +1217,8 @@ const sketch = new SketchMode(
       status.textContent = text;
       status.classList.toggle("error", error);
     },
-    showPreview: (mesh) => show(mesh),
+    pickPoint: () => pointPicker.pick(),
+    showBase: (point) => pointPicker.showBase(point),
     restore() {
       if (committed) show(committed);
       renderSketchBar();

@@ -23,7 +23,6 @@ const PICK_PX = 8; // pick radius for points and curves in the select tool
 const AUTO_AXIS_DEG = 3; // a line drawn within this angle of horizontal/vertical becomes exactly so
 const DRAG_START_PX = 3;
 const POINT_SIZE_PX = 8;
-const PREVIEW_DELAY_MS = 150;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
 export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "polygon" | "ellipse" | "spline" | "trim" | "extend" | "split" | "triangle" | "pentagon" | "hexagon" | "octagon";
@@ -87,7 +86,9 @@ export function loadSketchOptions(): SketchOptions {
 
 export interface SketchHost {
   status(text: string, error?: boolean): void;
-  showPreview(mesh: MeshData): void;
+  /** Pick a point in the 3D view (null when cancelled), and keep a marker at a chosen base point (null removes it). */
+  pickPoint(): Promise<number[] | null>;
+  showBase(point: number[] | null): void;
   restore(): void;
   committed(mesh: MeshData): void;
 }
@@ -162,9 +163,7 @@ export class SketchMode {
   }
   private solving = false;
   private queued: { drag?: Drag } | null = null;
-  private previewTimer = 0;
   private panel: HTMLElement;
-  private extrude = { distance: 10, mode: "join" as "join" | "cut" | "new", symmetric: false, revolve: false, angle: 360, open: false };
 
   constructor(
     private readonly viewport: Viewport,
@@ -183,8 +182,17 @@ export class SketchMode {
     }
     this.axes.renderOrder = 4; // the sketch axes are drawn over the grid (order 1) and under the sketch shapes (5)
     // Keys reach onKey through the key router (keyrouter.ts), which applies the shortcut policy first.
-    viewport.renderer.domElement.addEventListener("contextmenu", () => {
-      if (this.active && this.chain.length) this.endChain();
+    // A right-click (not a right-drag, which orbits) ends the line being drawn and leaves the drawing tool, back to Select.
+    let rightDown: { x: number; y: number } | null = null;
+    viewport.renderer.domElement.addEventListener("pointerdown", (e) => {
+      if (e.button === 2) rightDown = { x: e.clientX, y: e.clientY };
+    });
+    viewport.renderer.domElement.addEventListener("contextmenu", (e) => {
+      if (!this.active) return;
+      const still = rightDown === null || Math.hypot(e.clientX - rightDown.x, e.clientY - rightDown.y) < 4;
+      rightDown = null;
+      if (this.chain.length) this.endChain();
+      if (still && this.tool !== "select") this.setTool("select");
     });
   }
 
@@ -232,7 +240,6 @@ export class SketchMode {
     this.failed.clear();
     this.freedom.clear();
     this.undoStack = [];
-    this.extrude = { distance: 10, mode: "join", symmetric: false, revolve: false, angle: 360, open: false };
     this.active = true;
     this.viewport.selectItems([]); // the model's selection highlight would cover the sketch
     this.viewport.onSelect([]); // and the selection itself ends: no face, edge or body stays selected behind the sketch
@@ -291,6 +298,16 @@ export class SketchMode {
     });
   }
 
+  /** Run a card button's action so that a failure shows in the status line (and the console) instead of the click seeming to do nothing. */
+  private async guard(action: () => unknown) {
+    try {
+      await action();
+    } catch (e) {
+      console.error(e);
+      this.host.status(`That did not work: ${(e as Error).message}`, true);
+    }
+  }
+
   /** Leave the sketch, asking first when it holds work (Escape and the Discard button). */
   private async leave() {
     if (this.needsConfirm()) {
@@ -305,7 +322,6 @@ export class SketchMode {
     if (!this.active) return;
     this.active = false;
     this.cancelBox();
-    clearTimeout(this.previewTimer);
     this.viewport.interceptor = null;
     this.viewport.onFrame2 = null;
     this.viewport.manipulator.clear();
@@ -329,7 +345,6 @@ export class SketchMode {
   /** Leave the sketch, keeping it in the document as a separate object. Its closed regions show as view-only profile faces; nothing is added to the model. */
   async finish() {
     if (!this.active) return;
-    clearTimeout(this.previewTimer);
     const drawn = this.s.entities.some((e) => !e.reference);
     if (!drawn && !this.kept) return this.exit(); // nothing was drawn: nothing to keep
     try {
@@ -352,11 +367,15 @@ export class SketchMode {
 
   /** The plane as it was when the handle being dragged was grabbed; every drag value is measured from it. */
   private planeBase: M.PlaneData | null = null;
+  /** Whether the plane's move and turn gizmos are drawn (the header's gizmo button). */
+  private gizmosShown = true;
+  /** The base point picked for moving the plane (null until picked). */
+  private moveFrom: number[] | null = null;
 
   /** Gizmos on the sketch plane, like any other object's: an arrow along its normal and a turning ring about each of its axes. */
   private showPlaneHandles() {
     const manipulator = this.viewport.manipulator;
-    if (!this.active || this.unwrapFace) return manipulator.clear();
+    if (!this.active || this.unwrapFace || !this.gizmosShown) return manipulator.clear();
     const f = M.frame(this.s.plane);
     const radius = 30;
     const v = (a: number[]) => new THREE.Vector3(...a);
@@ -402,6 +421,51 @@ export class SketchMode {
       this.showPlaneHandles();
     }
     return true;
+  }
+
+  /** Pick a point in the view while the sketch is open: the point picker takes over the pointer and hands it back. */
+  private async pickInView(): Promise<number[] | null> {
+    const keep = this.viewport.interceptor;
+    this.viewport.manipulator.clear();
+    try {
+      return await this.host.pickPoint();
+    } finally {
+      this.viewport.interceptor = keep;
+      this.showPlaneHandles();
+    }
+  }
+
+  /** Move the sketch plane by the vector from the picked base point to a picked destination (from the plane's own origin when no base was picked). */
+  private async moveToPicked(destination: number[], from: number[]) {
+    const origin = this.s.plane.origin;
+    this.s.plane = { ...this.s.plane, origin: origin.map((c, k) => c + destination[k] - from[k]) };
+    const f = M.frame(this.s.plane);
+    this.plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(...f.n), new THREE.Vector3(...f.origin));
+    this.buildGrid(f);
+    this.showPlaneHandles();
+    this.render();
+  }
+
+  /** The header's pick-base-point button: remember where the move starts from. */
+  private async pickMoveFrom() {
+    const point = await this.pickInView();
+    if (!point || !this.active) return;
+    this.moveFrom = point;
+    this.host.showBase(point);
+    this.host.status("Base point set. Now pick the location to move the sketch plane to");
+    this.renderPanel();
+  }
+
+  /** The header's pick-move-to-location button: put the plane there, by the base point's offset (or its own origin). */
+  private async pickMoveTo() {
+    const point = await this.pickInView();
+    if (!point || !this.active) return;
+    const from = this.moveFrom ?? [...this.s.plane.origin];
+    this.moveFrom = null;
+    this.host.showBase(null);
+    await this.moveToPicked(point, from);
+    this.host.status("Moved the sketch plane");
+    this.renderPanel();
   }
 
   /** The distance the pointer snaps to when snap to grid is on: the light lines when there are any, else the bold ones. */
@@ -1554,47 +1618,6 @@ export class SketchMode {
     return ok;
   }
 
-  // Extrusion ---------------------------------------------------------------------------------------
-
-  private schedulePreview() {
-    clearTimeout(this.previewTimer);
-    this.previewTimer = window.setTimeout(() => this.sendExtrude(false), PREVIEW_DELAY_MS);
-  }
-
-  private async sendExtrude(commit: boolean) {
-    if (!this.extrude.open) return;
-    try {
-      const e = this.extrude;
-      const request: Record<string, unknown> = { sketch: this.s, mode: e.mode, commit, keep: true, ...(this.kept ? { sketch_id: this.kept.id } : {}) };
-      if (e.revolve) {
-        const axis = this.selectedLine();
-        if (axis === null) throw new Error("Select one line in the sketch as the axis to revolve about");
-        Object.assign(request, { axis, distance: e.angle });
-      } else {
-        Object.assign(request, { distance: e.distance, symmetric: e.symmetric });
-      }
-      const mesh = await this.core.request<MeshData>("sketch_extrude", request);
-      if (commit) {
-        this.extrude.open = false;
-        usage.record(this.extrude.revolve ? "sketch_revolve" : "sketch_extrude", "commit");
-        this.exitAfterCommit(mesh);
-      } else {
-        this.host.showPreview(mesh);
-        this.host.status(this.extrude.revolve ? "Revolve preview" : "Extrude preview");
-      }
-    } catch (e) {
-      this.host.status((e as Error).message, true);
-      if (!commit) this.host.restore();
-    }
-  }
-
-  /** The id of the single selected line, or null. */
-  private selectedLine(): number | null {
-    const picked = this.selection.filter((x) => x.kind === "entity");
-    const line = picked.length === 1 ? this.s.entities.find((en) => en.id === picked[0].id) : undefined;
-    return line && line.type === "line" ? line.id : null;
-  }
-
   /** Add parallel copies of the selected curves, `offset.distance` away (positive grows a closed outline). */
   private async offsetSelection() {
     const ids = this.selection.filter((x) => x.kind === "entity").map((x) => x.id);
@@ -1687,11 +1710,6 @@ export class SketchMode {
     this.pushUndo();
     for (const en of this.s.entities) if (ids.has(en.id)) en.construction = !en.construction;
     this.render();
-  }
-
-  private exitAfterCommit(mesh: MeshData) {
-    this.exit();
-    this.host.committed(mesh);
   }
 
   // Drawing -----------------------------------------------------------------------------------------
@@ -1914,9 +1932,16 @@ export class SketchMode {
       this.renderPanel();
     }, this.options.snapGrid);
     const look = iconButton("lookAt", "Turn the view square to the sketch plane (entering a sketch does not move the view)", () => this.viewport.lookFrom(new THREE.Vector3(...M.frame(this.s.plane).n)));
+    const gizmos = iconButton("gizmos", this.gizmosShown ? "Hide the sketch plane's move and turn gizmos" : "Show the sketch plane's move and turn gizmos", () => {
+      this.gizmosShown = !this.gizmosShown;
+      this.showPlaneHandles();
+      this.renderPanel();
+    }, this.gizmosShown);
+    const base = iconButton("pickBase", "Pick base point: click the point the sketch plane moves from (a vertex, edge, face centre, axis or the origin); then use Pick move to location", () => void this.pickMoveFrom(), this.moveFrom !== null);
+    const target = iconButton("pickTarget", "Pick move to location: click where the sketch plane goes (it moves by the offset from the base point, or from its own origin when none was picked)", () => void this.pickMoveTo());
     const gear = iconButton("gear", "Sketch settings", () => this.openSettings());
     gear.style.marginLeft = "auto";
-    header.append(el("span", "title", this.kept ? this.kept.name : "Sketch"), look, grid, snap, gear);
+    header.append(el("span", "title", this.kept ? this.kept.name : "Sketch"), look, gizmos, base, target, grid, snap, gear);
     const status = el("div", "dof", this.failed.size ? `Conflict: ${this.s.constraints.filter((c) => this.failed.has(c.id)).map((c) => M.describeConstraint(this.s, c)).join("; ") || [...this.failed].join(", ")}. Remove one (red rows below)` : this.dof === null ? "" : this.dof === 0 ? "Fully constrained" : `${this.dof} degrees of freedom left`);
     if (this.failed.size) status.classList.add("bad");
 
@@ -2033,71 +2058,6 @@ export class SketchMode {
       list.append(clear);
     }
 
-    const extrude = el("div", "section");
-    const preview = (change: () => void) => {
-      change();
-      this.extrude.open = true;
-      this.schedulePreview();
-    };
-    const tip = (b: HTMLElement, text: string) => ((b.title = text), b);
-    const number = (value: number, on: (n: number) => void, tip = "") => {
-      const input = document.createElement("input");
-      input.title = tip;
-      input.type = "number";
-      input.step = "any";
-      input.value = String(value);
-      input.addEventListener("keydown", (e) => e.stopPropagation());
-      input.addEventListener("input", () => preview(() => on(Number(input.value))));
-      return input;
-    };
-    const mode = document.createElement("select");
-    for (const m of ["join", "new", "cut"]) mode.append(new Option(m === "join" ? "Join (add material)" : m === "new" ? "New body" : "Cut (remove material)", m, false, m === this.extrude.mode));
-    mode.title = "Add the new shape to the model, keep it as a separate body, or cut it out of the model";
-    mode.addEventListener("change", () => preview(() => (this.extrude.mode = mode.value as "join" | "cut" | "new")));
-    const symmetric = document.createElement("input");
-    symmetric.type = "checkbox";
-    symmetric.checked = this.extrude.symmetric;
-    symmetric.title = "Extrude the same distance both ways from the sketch plane";
-    symmetric.addEventListener("change", () => preview(() => (this.extrude.symmetric = symmetric.checked)));
-    const symmetricLabel = el("label", "crow");
-    symmetricLabel.append(el("span", "", "Both directions"), symmetric);
-
-    extrude.append(el("div", "group", "Extrude profile"));
-    const row = el("div", "crow");
-    row.append(number(this.extrude.distance, (n) => ((this.extrude.distance = n), (this.extrude.revolve = false)), "Extrude distance"), mode);
-    const go = el("div", "row-buttons");
-    go.append(
-      tip(button("Preview", () => {
-        this.extrude.revolve = false;
-        this.extrude.open = true;
-        this.sendExtrude(false);
-      }), "Show the result without changing the model"),
-      tip(button("Extrude", () => {
-        this.extrude.revolve = false;
-        this.extrude.open = true;
-        this.sendExtrude(true);
-      }, "active"), "Extrude the sketch regions into the model"),
-    );
-    extrude.append(row, symmetricLabel, go);
-
-    extrude.append(el("div", "group", "Revolve about the selected line"));
-    const spin = el("div", "crow");
-    spin.append(number(this.extrude.angle, (n) => ((this.extrude.angle = n), (this.extrude.revolve = true)), "Revolve angle in degrees"), el("span", "", "degrees"));
-    const spinGo = el("div", "row-buttons");
-    spinGo.append(
-      tip(button("Preview", () => {
-        this.extrude.revolve = true;
-        this.extrude.open = true;
-        this.sendExtrude(false);
-      }), "Show the result without changing the model"),
-      tip(button("Revolve", () => {
-        this.extrude.revolve = true;
-        this.extrude.open = true;
-        this.sendExtrude(true);
-      }, "active"), "Spin the sketch regions around the selected line into the model"),
-    );
-    extrude.append(spin, spinGo);
-
     if (this.selection.some((x) => x.kind === "point")) {
       const size = document.createElement("input");
       size.type = "number";
@@ -2124,7 +2084,7 @@ export class SketchMode {
       offsetRow.append(button("Offset", () => this.offsetSelection()), distance);
       constraintsBox.append(offsetRow);
       const construction = button("Toggle construction", () => this.toggleConstruction());
-      construction.title = "Construction geometry guides the sketch but is not part of the profile (use it as a revolve axis)";
+      construction.title = "Construction geometry guides the sketch but is not part of the profile";
       constraintsBox.append(construction);
     }
 
@@ -2133,10 +2093,12 @@ export class SketchMode {
     project.title = "Flatten the model's edges onto this plane as fixed geometry to snap and constrain to";
     if (flat) constraintsBox.append(project);
 
-    const finish = button("Finish sketch", () => this.finish());
+    const finish = button("Finish sketch", () => void this.guard(() => this.finish()));
     finish.title = "Leave the sketch and keep it in the list of sketches. It stays separate from the model; its closed regions show as profile faces you can extrude";
-    const exit = button(this.kept ? "Discard changes" : "Discard sketch", () => void this.leave());
+    const exit = button(this.kept ? "Discard changes" : "Discard sketch", () => void this.guard(() => this.leave()));
     exit.title = this.kept ? "Leave the sketch without saving what you changed" : "Leave the sketch and throw it away without changing the model";
-    this.panel.replaceChildren(header, status, tools, constraintsBox, ...(transformRow ? [transformBox] : []), ask, list, ...(flat ? [extrude] : []), finish, exit);
+    const leaving = el("div", "row-buttons");
+    leaving.append(finish, exit);
+    this.panel.replaceChildren(header, leaving, status, tools, constraintsBox, ...(transformRow ? [transformBox] : []), ask, list);
   }
 }
