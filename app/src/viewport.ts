@@ -12,6 +12,7 @@ import { splitDrawLists } from "./slide";
 import { ghostRuns } from "./visibility";
 import { Manipulator } from "./manipulator";
 import { onSettingsChange, settings, updateSettings } from "./settings";
+import { similarTo, type SimilarKind } from "./selfilter";
 import { bodyColorArray } from "./bodycolorarray";
 
 /** A "body" selection is a whole solid (every face of the body), chosen from the body list. */
@@ -140,6 +141,11 @@ export class Viewport {
   /** Box selection in progress (screen coordinates); active once the pointer moved past the click threshold. */
   private box: { x0: number; y0: number; x1: number; y1: number; active: boolean; additive: boolean } | null = null;
   private boxEl: HTMLDivElement | null = null;
+  /** Kind of item a box drag selects while F (faces), E (edges) or V (vertices) is held; null when no key is held. */
+  private heldKind: Kind | null = null;
+  private filterBadge: HTMLDivElement | null = null;
+  private rightDown: { x: number; y: number } | null = null;
+  private similarMenu: HTMLDivElement | null = null;
   /** Last see-through click, so clicking the same spot again picks the next face behind. */
   private lastClick = { x: -99, y: -99, n: 0 };
   private drag: { sels: Sel[]; normal: THREE.Vector3; point: THREE.Vector3; x: number; y: number; moved: boolean } | null = null;
@@ -489,7 +495,40 @@ export class Viewport {
         }
       } else if (e.buttons === 0) this.setHover(this.pick(e));
     });
-    dom.addEventListener("contextmenu", (e) => e.preventDefault());
+    dom.addEventListener("pointerdown", (e) => {
+      if (e.button === 2) this.rightDown = { x: e.clientX, y: e.clientY };
+    });
+    dom.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      // A right click that did not orbit or pan, with one face or edge selected, offers to select its likes.
+      const down = this.rightDown;
+      this.rightDown = null;
+      if (!this.interceptor && down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4) this.openSimilarMenu(e.clientX, e.clientY);
+    });
+    const heldKey = (e: KeyboardEvent) => ({ f: "face", e: "edge", v: "vertex" } as Record<string, Kind>)[e.key.toLowerCase()];
+    window.addEventListener(
+      "keydown",
+      (e) => {
+        const kind = heldKey(e);
+        if (!kind || !this.box || e.ctrlKey || e.metaKey || e.altKey) return;
+        e.stopImmediatePropagation(); // while a box is being dragged these keys choose what it selects, not a tool shortcut
+        this.heldKind = kind;
+        this.updateFilterBadge();
+      },
+      true,
+    );
+    window.addEventListener(
+      "keyup",
+      (e) => {
+        if (!heldKey(e) || !this.heldKind) return;
+        this.heldKind = null;
+        this.updateFilterBadge();
+      },
+      true,
+    );
+    window.addEventListener("pointerdown", (e) => {
+      if (this.similarMenu && !this.similarMenu.contains(e.target as Node)) this.closeSimilarMenu();
+    });
     for (const line of [this.measureAll, this.measureHot]) {
       line.visible = false;
       line.renderOrder = 3;
@@ -576,6 +615,7 @@ export class Viewport {
       down = null;
     });
     window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && this.similarMenu) this.closeSimilarMenu();
       if (e.key === "Escape" && this.box) this.cancelBox();
       if (e.key === "Escape" && this.divideDrag) this.divideDrag = null;
       if (e.key === "Escape" && this.centreDrag) {
@@ -596,7 +636,9 @@ export class Viewport {
     onSettingsChange(() => {
       this.applySeeThrough();
       this.applyBodyColors();
+      this.updateFilterBadge();
     });
+    this.updateFilterBadge();
     this.resize();
     this.renderer.setAnimationLoop(() => {
       this.controls.update();
@@ -1109,6 +1151,68 @@ export class Viewport {
     this.box = null;
     this.boxEl?.remove();
     this.boxEl = null;
+    this.heldKind = null;
+    this.updateFilterBadge();
+  }
+
+  /** A small badge says what a box drag will select whenever a key is held or the setting fixes the kind; its button clears the setting. */
+  private updateFilterBadge() {
+    const fixed = settings.boxKind !== "auto" ? settings.boxKind : null;
+    const shown = this.heldKind ?? fixed;
+    if (!shown || shown === "body") {
+      this.filterBadge?.remove();
+      this.filterBadge = null;
+      return;
+    }
+    if (!this.filterBadge) {
+      const badge = document.createElement("div");
+      badge.style.cssText = "position:fixed;left:50%;bottom:60px;transform:translateX(-50%);z-index:5;display:flex;gap:8px;align-items:center;padding:4px 10px;border-radius:12px;background:#2b2b2b;color:#eee;font:12px sans-serif;border:1px solid #4fc3f7";
+      document.body.appendChild(badge);
+      this.filterBadge = badge;
+    }
+    const badge = this.filterBadge;
+    badge.replaceChildren();
+    const label = document.createElement("span");
+    label.textContent = `Box selects ${shown}s only${this.heldKind ? " (key held)" : " (set in Settings)"}`;
+    badge.append(label);
+    if (!this.heldKind && fixed) {
+      const reset = document.createElement("button");
+      reset.textContent = "Reset";
+      reset.title = "Go back to choosing the kind from what is selected";
+      reset.onclick = () => updateSettings({ boxKind: "auto" });
+      badge.append(reset);
+    }
+  }
+
+  private closeSimilarMenu() {
+    this.similarMenu?.remove();
+    this.similarMenu = null;
+  }
+
+  /** Right click with one face or edge selected: a small menu of "select similar" choices. */
+  private openSimilarMenu(x: number, y: number) {
+    this.closeSimilarMenu();
+    const data = this.data;
+    const only = this.selected.length === 1 ? this.selected[0] : null;
+    if (!data || !only || (only.kind !== "face" && only.kind !== "edge")) return;
+    const choices: [string, SimilarKind][] = only.kind === "face" ? [["Select faces facing the same way", "faceDirection"], ["Select faces of the same area", "faceArea"]] : [["Select edges of the same length", "edgeLength"]];
+    const menu = document.createElement("div");
+    menu.style.cssText = `position:fixed;left:${x}px;top:${y}px;z-index:20;display:flex;flex-direction:column;background:#2b2b2b;color:#eee;font:13px sans-serif;border:1px solid #555;border-radius:6px;padding:4px`;
+    for (const [label, kind] of choices) {
+      const button = document.createElement("button");
+      button.textContent = label;
+      button.style.cssText = "text-align:left;background:none;color:inherit;border:0;padding:5px 10px;cursor:pointer";
+      button.onclick = () => {
+        const ids = similarTo(data, kind, only.id);
+        this.closeSimilarMenu();
+        const next: Sel[] = ids.map((id) => ({ kind: only.kind, id }));
+        this.selectItems(next);
+        this.onSelect(next);
+      };
+      menu.append(button);
+    }
+    document.body.appendChild(menu);
+    this.similarMenu = menu;
   }
 
   private finishBox(e: PointerEvent) {
@@ -1127,7 +1231,7 @@ export class Viewport {
       y1: Math.max(b.y0, b.y1) - rect.top,
     };
     const crossing = b.x1 < b.x0; // right-to-left touches; left-to-right must enclose
-    const kind: Kind = settings.boxKind === "auto" ? (this.selected[0]?.kind ?? "edge") : settings.boxKind;
+    const kind: Kind = this.heldKind ?? (settings.boxKind === "auto" ? (this.selected[0]?.kind ?? "edge") : settings.boxKind);
     const found = this.itemsInBox(kind, r, crossing, rect);
     let next = found;
     if (b.additive) {
