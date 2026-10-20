@@ -38,7 +38,6 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 | `sketch_delete` | `id` | undoable; mesh reply |
 | `sketch_rename` | `id`, `name` | undoable (bumps `rev`); mesh reply |
 
-Every mesh reply header carries `sketches: [{id, name, rev}]`, the kept sketches of the current state (empty when none). They follow undo/redo and are saved with the autosave; opening a file or demo starts with none.
 | `sketch_offset` | `sketch`, `entities` (ids), `distance` | `{points, entities}`: parallel copies of the chosen lines, arcs and circles with fresh ids and no constraints (positive grows a closed outline) |
 | `sketch_project` | `plane` | `{points, entities}`: every model edge flattened onto the plane as fixed reference geometry (lines square to the plane and tilted circles are left out) |
 | `tool_preview` / `tool_commit` with `edit_body` (id) | the usual fields for a primitive tool (`add_box` ...) | replaces that primitive body by the same primitive with the new values, keeping its id, name and place in the list (one undo step); an error when the body is not an editable primitive of that tool |
@@ -127,3 +126,5 @@ A tool can declare on-screen manipulators (gizmos), one per parameter, by overri
 See `core/src/pliable/tools.py` (the module docstring and `PushPull`). Declare `id`, `label`, `description`, `accepts`, `params`, optionally `applies`, and implement `run(topology, selection, values, preview)` returning an `OpResult` (new shape plus the faces the selection should follow). Decorate with `@register`; the protocol, validation and applicability checks need nothing else.
 
 Each entry of a mesh's `bodies` also carries `editable` (bool), `why` (the reason it is not editable, such as "Changed by Fillet/Chamfer", else null) and, while editable, `recipe` (`tool`, `params`, `rotated`): the primitive that made the body, with the values that reopen its form.
+
+Every mesh reply header carries `sketches: [{id, name, rev}]`, the kept sketches of the current state (empty when none). They follow undo/redo and are saved with the autosave; opening a file or demo starts with none.
