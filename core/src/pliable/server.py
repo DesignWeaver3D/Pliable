@@ -106,7 +106,10 @@ class Session:
         kind = request.get("type")
         if kind == "hello":
             reply = {"version": __version__}
-            if self.unclean:
+            parked = _parked["document"]
+            if parked is not None:  # a tab closed or refreshed on this core: its model comes back before any crash restore is offered
+                reply["resume"] = {"name": parked.name}
+            elif self.unclean:
                 reply["restore"] = self.unclean
             return reply
         if kind == "resume_session":

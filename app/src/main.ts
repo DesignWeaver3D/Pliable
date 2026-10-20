@@ -1516,8 +1516,8 @@ async function syncWithCore(hadModel: boolean) {
   tools = (await core.request<{ tools: ToolInfo[] }>("list_tools")).tools.filter((t) => !t.hidden);
   renderToolbar();
   toolPanel.renderList();
-  const { restore } = await core.request<{ restore?: { name: string; steps: number } }>("hello");
-  if (hadModel) {
+  const { restore, resume } = await core.request<{ restore?: { name: string; steps: number; saved?: number }; resume?: { name: string } }>("hello");
+  if (hadModel || resume) {
     try {
       setCommitted(await core.request<MeshData>("resume_session"), true);
       return;
@@ -1567,7 +1567,7 @@ async function connectToCore() {
 
 /** In-page prompt (not a browser dialog, which would block the page) offered when the core was killed last time. */
 let dismissRestorePrompt: (() => void) | null = null;
-function askRestore(info: { name: string; steps: number }): Promise<boolean> {
+function askRestore(info: { name: string; steps: number; saved?: number }): Promise<boolean> {
   return new Promise((resolve) => {
     const box = document.createElement("div");
     // A dropped connection closes the prompt, so the reconnect is not left waiting on an answer nobody can use.
@@ -1580,7 +1580,8 @@ function askRestore(info: { name: string; steps: number }): Promise<boolean> {
     const card = document.createElement("div");
     card.style.cssText = "background:#2b2b2b;color:#eee;padding:20px 24px;border-radius:8px;max-width:360px;font:14px sans-serif";
     const text = document.createElement("p");
-    text.textContent = `Pliable did not close cleanly last time. Restore your last session? "${info.name}", with ${info.steps - 1} undo steps.`;
+    const when = info.saved ? `, saved ${new Date(info.saved * 1000).toLocaleString()}` : "";
+    text.textContent = `Pliable did not close cleanly last time. Restore your last session? "${info.name}", with ${info.steps - 1} undo steps${when}.`;
     const row = document.createElement("div");
     row.style.cssText = "display:flex;gap:8px;justify-content:flex-end";
     for (const [label, answer] of [["Start fresh", false], ["Restore", true]] as const) {

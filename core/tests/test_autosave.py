@@ -48,6 +48,7 @@ def test_save_restore_round_trip(tmp_path):
     assert Autosaver(tmp_path).available() is None  # the writer is still alive
     die(saver)
     info = Autosaver(tmp_path).available()
+    assert info.pop("saved") > 0
     assert info == {"name": "part", "steps": 4, "clean": False}
     restored = Autosaver(tmp_path).restore()
     assert restored.name == "part"

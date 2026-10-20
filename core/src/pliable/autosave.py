@@ -263,12 +263,12 @@ class Autosaver:
 
         With `unclean_only`, sessions closed normally are skipped. The one returned is the one `restore` brings back."""
         self._prune()
-        for _, folder, meta in self._dead_sessions():
+        for saved, folder, meta in self._dead_sessions():
             clean = bool(meta.get("clean"))
             if unclean_only and clean:
                 continue
             self._offered = folder
-            return {"name": meta["name"], "steps": len(meta["ids"]), "clean": clean}
+            return {"name": meta["name"], "steps": len(meta["ids"]), "clean": clean, "saved": saved}
         self._offered = None
         return None
 

@@ -26,6 +26,17 @@ Start here (a new session). Run the tests first (`uv run pytest` in `core/`, `np
 - Long term: design-intent behavior tied to the auto-chip selections, such as which face moves when a face-to-face distance is edited in place (owner, 2026-10-20: deferred).
 - Long term: named values and expressions in sketch dimensions (owner, 2026-10-20: numbers only for now).
 
+## Unattended run (2026-10-20, started 02:30, local commits on dev only)
+
+Groups by shared files, worked in this order (S17, S30, S34 are owner-dependent and not in the queue):
+- A autosave and restore (core): S93
+- B sketch interaction bugs (app sketch and viewport files): S94, S95
+- C plane creation (core and app plane code): S92, S90
+- D selection and holes (viewport picking, hole tools): S87, S88, S86
+- E UI panels and hints: S91, S89
+
+Group status: none started.
+
 ## Open sessions
 
 | # | Area | Goal | Status |
