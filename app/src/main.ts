@@ -483,6 +483,16 @@ function setSelection(sels: Sel[]) {
     renderToolbar();
     toolPanel.renderList();
     renderSketchBar();
+    // The core knows which tools make sense with nothing selected (whole-model tools need a single body).
+    core
+      .request<{ tools: string[] }>("available_tools", { selection: selectionPayload(sels) })
+      .then((reply) => {
+        if (currentSels !== sels) return;
+        refined = reply.tools;
+        renderToolbar();
+        toolPanel.renderList();
+      })
+      .catch((e) => logOnce("available tools", e));
     return;
   }
   // Wait for the core's answers and render once: rendering the count-only guess first, then the refined set,

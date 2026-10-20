@@ -75,8 +75,11 @@ class Accepts:
     edges: tuple[int, int | None] = (0, 0)
     vertices: tuple[int, int | None] = (0, 0)
     bodies: tuple[int, int | None] = (0, 0)
+    any_of: bool = False  # the selection must hold something (the ranges then say how many of each kind are allowed)
 
     def matches(self, selection: Selection) -> bool:
+        if self.any_of and not (selection.faces or selection.edges or selection.vertices or selection.bodies):
+            return False
         return all(
             lo <= len(items) and (hi is None or len(items) <= hi)
             for (lo, hi), items in (
@@ -88,7 +91,10 @@ class Accepts:
         )
 
     def to_json(self) -> dict:
-        return {"faces": list(self.faces), "edges": list(self.edges), "vertices": list(self.vertices), "bodies": list(self.bodies)}
+        out = {"faces": list(self.faces), "edges": list(self.edges), "vertices": list(self.vertices), "bodies": list(self.bodies)}
+        if self.any_of:
+            out["anyOf"] = True
+        return out
 
 
 @dataclass(frozen=True)
@@ -218,6 +224,7 @@ class Tool:
     # Where the tool starts: "selection" (the user selects something, then the tool acts on it) or "tool" (the tool is
     # chosen first and places something new, like a primitive); the view shows `handles` accordingly.
     starts_from: str = "selection"
+    whole_model_needs_one_body: bool = False  # with nothing selected the tool acts on every body; offer it only when there is one
     # Name for bodies this tool creates ("Box" gives "Box 1", "Box 2"), and whether it keeps the solids in their order
     # (whole-body transforms), which lets the bodies be matched by position (see bodies.py).
     body_kind: str = "Body"
@@ -262,6 +269,12 @@ class Tool:
             return self.accepts.matches(selection) and self.applies(topology, selection)
         except KeyError:  # a selected id that does not exist
             return False
+
+    def offered(self, topology: Topology, selection: Selection) -> bool:
+        """Whether the tool strip should offer the tool: `available`, and not a whole-model tool picking several bodies at once."""
+        if self.whole_model_needs_one_body and not (selection.faces or selection.edges or selection.vertices or selection.bodies) and len(topology.bodies.bodies) > 1:
+            return False  # nothing selected means "the whole model", which is only unambiguous with a single body
+        return self.available(topology, selection)
 
     def bind(self, raw: dict) -> dict[str, float]:
         """Validate raw request values against the declared parameters."""

@@ -28,7 +28,7 @@ def _target(selection) -> dict:
 class _HoleTool(Tool):
     """Shared selection handling: one face of a hole, or one circular edge at its opening."""
 
-    accepts = Accepts(faces=(0, 1), edges=(0, 1))
+    accepts = Accepts(faces=(0, 1), edges=(0, 1), any_of=True)
 
     def applies(self, topology, selection):
         if len(selection.faces) + len(selection.edges) != 1:
@@ -132,7 +132,7 @@ class ConvertToCountersink(_HoleTool):
     id = "convert_to_countersink"
     label = "Convert hole to countersink"
     description = (
-        "Turns the opening of a round hole into a cone for a flat-head screw, set by the cone's diameter at the surface and its included angle. "
+        "Adds a countersink to an existing round hole: turns its opening into a cone for a flat-head screw, set by the cone's diameter at the surface and its included angle. "
         "Select a face of the hole or the circle at its opening. This is not the same as an edge chamfer, which is a plain edge break."
     )
     params = [Param("sink_diameter", "length", 12), Param("sink_angle", "angle", 90)]

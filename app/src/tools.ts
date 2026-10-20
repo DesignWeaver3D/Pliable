@@ -9,7 +9,7 @@ export interface ToolInfo {
   label: string;
   /** Plain-language sentence(s) on what the tool does and what to select; shown in tooltips. */
   description?: string;
-  accepts: { faces: Range; edges: Range; vertices?: Range; bodies?: Range };
+  accepts: { faces: Range; edges: Range; vertices?: Range; bodies?: Range; anyOf?: boolean };
   params: { name: string; kind: string; default: number; drag: boolean }[];
   /** Relationship rules whose matching faces join the selection when switched on. */
   related?: string[];
@@ -53,6 +53,7 @@ const inRange = (n: number, [min, max]: Range) => n >= min && (max === null || n
 /** Whether the selection has the counts a tool accepts. The core can still refuse it (e.g. curved faces). */
 export function acceptsSelection(tool: ToolInfo, sels: Sel[]): boolean {
   const count = (kind: Sel["kind"]) => sels.filter((s) => s.kind === kind).length;
+  if (tool.accepts.anyOf && sels.length === 0) return false; // "one of" tools need something selected
   return (
     inRange(count("face"), tool.accepts.faces) &&
     inRange(count("edge"), tool.accepts.edges) &&
@@ -70,9 +71,11 @@ function needs(range: Range, noun: string): string | null {
 
 /** A short description of the selection a tool needs, e.g. "1 face" or "1+ edges". */
 export function describeNeeds(tool: ToolInfo): string {
-  return [needs(tool.accepts.faces, "face"), needs(tool.accepts.edges, "edge"), needs(tool.accepts.vertices ?? [0, 0], "vertex"), needs(tool.accepts.bodies ?? [0, 0], "body")]
+  const anyOf = tool.accepts.anyOf;
+  const fix = (r: Range): Range => (anyOf ? [Math.max(r[0], 1), r[1]] : r);
+  return [needs(fix(tool.accepts.faces), "face"), needs(fix(tool.accepts.edges), "edge"), needs(fix(tool.accepts.vertices ?? [0, 0]), "vertex"), needs(fix(tool.accepts.bodies ?? [0, 0]), "body")]
     .filter(Boolean)
-    .join(" + ");
+    .join(anyOf ? " or " : " + ");
 }
 
 /** Tooltip for a tool button or search row: "<label>: <description> (<shortcut>)", then what the selection must hold. */

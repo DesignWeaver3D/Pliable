@@ -1086,6 +1086,7 @@ class MoveBody(Tool):
     """Move the solids containing the selected faces (the whole model when nothing is selected) by a vector."""
 
     id = "move_body"
+    whole_model_needs_one_body = True
     keeps_body_order = True
     label = "Move body"
     description = "Moves a whole solid by the given distances along X, Y and Z. Select bodies from the list, any face of the solid, or nothing to move the whole model."
@@ -1128,6 +1129,7 @@ class RotateBody(Tool):
     """Rotate the selected solids (the whole model when nothing is selected) about an axis through the origin (axis: 0 = X, 1 = Y, 2 = Z), or through each selected body's centre when bodies are selected."""
 
     id = "rotate_body"
+    whole_model_needs_one_body = True
     keeps_body_order = True
     label = "Rotate body"
     description = "Rotates a whole solid about the X, Y or Z axis (0 = X, 1 = Y, 2 = Z): through the origin, or through the body's centre when you select bodies from the list. Select bodies, any face of a solid, or nothing for the whole model."
@@ -1176,6 +1178,7 @@ class ScaleBody(Tool):
     """Scale the selected solids (the whole model when nothing is selected) uniformly about the origin."""
 
     id = "scale_body"
+    whole_model_needs_one_body = True
     keeps_body_order = True
     label = "Scale body"
     description = "Scales a whole solid evenly, about the origin or about the body's centre when you select bodies from the list. Select bodies, any face of a solid, or nothing for the whole model; 2 doubles the size."
@@ -1376,6 +1379,7 @@ class LinearArray(Tool):
     """Copies of the chosen body (the whole model when no face is selected) at equal steps (dx, dy, dz), fused with it. `count` includes the original."""
 
     id = "linear_array"
+    whole_model_needs_one_body = True
     label = "Linear array"
     description = "Makes copies of a body in a straight line and fuses them. Select any face of the body, or nothing for the whole model; the count includes the original."
     accepts = Accepts(faces=(0, None))
@@ -1401,6 +1405,7 @@ class CircularArray(Tool):
     `angle` is the total sweep; 360 spreads the copies evenly all the way round."""
 
     id = "circular_array"
+    whole_model_needs_one_body = True
     label = "Circular array"
     description = "Makes copies of a body (select any of its faces, or nothing for the whole model) around the X, Y or Z axis through the origin (0 = X, 1 = Y, 2 = Z) and fuses them. The count includes the original; 360 spreads them round a full circle."
     accepts = Accepts(faces=(0, None))
@@ -1996,6 +2001,7 @@ class OffsetBody(Tool):
     """Grow (positive) or shrink (negative) the selected solids (all when nothing is selected) by a uniform distance."""
 
     id = "offset_body"
+    whole_model_needs_one_body = True
     keeps_body_order = True
     label = "Offset body"
     description = "Grows (positive) or shrinks (negative) a solid evenly in all directions. Select bodies, any face of the solid, or nothing for the whole model."
