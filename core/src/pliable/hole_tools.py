@@ -12,7 +12,7 @@ import math
 from OCP.gp import gp_Vec
 
 from .features import finish
-from .holes import NOT_ROUND, HoleInfo, find_hole, rebuild_hole
+from .holes import NOT_ROUND, HoleInfo, find_hole, follow_cylinder, rebuild_hole
 from .ops import MIN_DISTANCE, OperationError, OpResult
 from .tools import Accepts, Handle, Param, Tool, register, round_handles
 
@@ -99,7 +99,12 @@ class EditHole(_HoleTool):
             changes["start"] = start
         if offset.Magnitude() < MIN_DISTANCE and not changes:
             return OpResult(topology.shape, [topology.face(i) for i in info.faces])
-        return finish(rebuild_hole(topology.shape, info, offset if offset.Magnitude() >= MIN_DISTANCE else None, **changes))
+        move = offset if offset.Magnitude() >= MIN_DISTANCE else None
+        result = finish(rebuild_hole(topology.shape, info, move, **changes))
+        # Keep the bore selected: the page measures the moved hole from it.
+        for i in info.faces:
+            result.tracked_faces += follow_cylinder(result.shape, topology.face(i), move, changes.get("diameter"), only_radius=info.diameter / 2)
+        return result
 
     def handles(self, topology, selection, values):
         info = self.hole(topology, selection)

@@ -411,3 +411,31 @@ def rebuild_hole(shape, info: HoleInfo, offset: gp_Vec | None = None, **changes)
     filled = _combine(shape, _revolved(info, hole_profile(info, 0.0)), fuse=True)
     new = _revolved(info, hole_profile(info, margin, **changes), offset)
     return _combine(filled, new, fuse=False)
+
+
+def follow_cylinder(shape, face, offset: gp_Vec | None, radius: float | None = None, only_radius: float | None = None) -> list:
+    """The face(s) of `shape` that a round wall `face` of the model before an edit became: a cylinder with the same
+    axis direction, moved by `offset`, of `radius` (the old one when None). Used to keep a hole or boss selected.
+    With `only_radius`, a wall of any other radius is ignored."""
+    from .topology import Topology
+
+    surface = BRepAdaptor_Surface(face)
+    if surface.GetType() != GeomAbs_Cylinder:
+        return []
+    old = surface.Cylinder()
+    if only_radius is not None and abs(old.Radius() - only_radius) > 1e-6:
+        return []
+    axis = old.Axis()
+    origin = axis.Location().Translated(offset) if offset is not None else axis.Location()
+    want = old.Radius() if radius is None else radius
+    found = []
+    for _, candidate in Topology(shape).faces():
+        s = BRepAdaptor_Surface(candidate)
+        if s.GetType() != GeomAbs_Cylinder:
+            continue
+        cylinder = s.Cylinder()
+        if abs(cylinder.Radius() - want) > 1e-6 or not cylinder.Axis().Direction().IsParallel(axis.Direction(), 1e-6):
+            continue
+        if gp_Lin(cylinder.Axis()).Distance(origin) < 1e-5:
+            found.append(candidate)
+    return found

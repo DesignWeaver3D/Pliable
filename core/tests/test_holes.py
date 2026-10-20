@@ -218,3 +218,25 @@ def test_hole_tools_explain_when_given_a_pocket(block):
     for tool in ("resize_hole", "edit_hole", "convert_to_countersink", "fill_hole"):
         with pytest.raises(OperationError, match="pocket or slot"):
             run(tool, plate, faces=[wall])
+
+
+def test_preview_dimensions_follow_the_moved_hole():
+    from pliable.protocol import decode_binary
+    from pliable.server import Session
+
+    session = Session(None)
+    session.handle({"type": "open_demo", "name": "bracket"})
+    wall = faces_where(session.document.current, "Cylinder", Radius=4)[0]
+
+    def dims(dx):
+        request = {"type": "tool_preview", "tool": "edit_hole", "selection": {"faces": [wall]}, "params": {"dx": dx}}
+        header, _ = decode_binary(session.handle(request))
+        return header["dimensions"]
+
+    base, moved = dims(0), dims(2)
+    assert base and len(base) == len(moved)
+    assert base != moved
+    assert [d["text"] for d in base] != [d["text"] for d in moved] or base[0]["points"] != moved[0]["points"]
+    # a commit carries none: the page asks for the measurement of the committed model
+    header, _ = decode_binary(session.handle({"type": "tool_commit", "tool": "edit_hole", "selection": {"faces": [wall]}, "params": {"dx": 2}}))
+    assert "dimensions" not in header

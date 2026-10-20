@@ -264,8 +264,13 @@ class MoveHole(_CylinderFaces):
         shape = topology.shape
         if offset.Magnitude() < MIN_DISTANCE:
             return OpResult(shape, [topology.face(i) for i in selection.faces])
+        from .holes import follow_cylinder
+
         holes = _holes(topology, selection)
-        return finish(apply_holes(shape, holes, [(None, offset)] * len(holes)))
+        result = finish(apply_holes(shape, holes, [(None, offset)] * len(holes)))
+        for i in selection.faces:
+            result.tracked_faces += follow_cylinder(result.shape, topology.face(i), offset)
+        return result
 
 
 @register

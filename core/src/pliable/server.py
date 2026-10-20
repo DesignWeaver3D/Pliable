@@ -603,7 +603,23 @@ class Session:
         kept = {b.id for b in target.bodies.bodies}
         selection = Selection(faces=faces, edges=edges, vertices=vertices, bodies=[b for b in request_selection.bodies if b in kept])
         handles = [] if commit else tool.handle_list(topology, request_selection, request.get("params") or {})
-        return self._mesh_reply(target, timings, preview=not commit, selection=selection.to_json(), handles=handles)
+        extra = {}
+        if not commit:
+            dimensions = self._preview_dimensions(request_selection, selection, target)
+            if dimensions is not None:
+                extra["dimensions"] = dimensions
+        return self._mesh_reply(target, timings, preview=not commit, selection=selection.to_json(), handles=handles, **extra)
+
+    @staticmethod
+    def _preview_dimensions(asked: Selection, mapped: Selection, target: Topology) -> list | None:
+        """The measurement dimensions of the one face or edge a preview keeps selected (a hole being moved), measured on
+        the previewed model so they follow the change. None when the selection is not a single face or edge."""
+        if len(asked.faces) + len(asked.edges) != 1 or asked.vertices or len(mapped.faces) + len(mapped.edges) != 1:
+            return None
+        try:
+            return measure(target, Selection(faces=mapped.faces, edges=mapped.edges))["dimensions"]
+        except Exception:  # a failed measurement only leaves the old dimensions in place
+            return None
 
 
 # The document of the connection that dropped last, kept so the page can pick it up again after reconnecting.
