@@ -41,6 +41,10 @@ Name the worktree and branch, then require, in this order:
 - **Orchestrator:** no re-tests for a single clean agent merge (only when several concurrent branches are merged or a code conflict was resolved); no re-reading of agent transcripts; reports stay under 150 words.
 - **Model:** agents run on the cheaper model (sonnet); research agents use the researcher definition.
 
+## While the owner is testing (2026-10-19)
+
+The owner's page on 5180 is served from the main checkout, so any edit there reloads it mid-test. Do all edits in worktrees and merge into `dev` only on request; run worktree checks on spare ports; a `scripts/worktree.ps1 new <name> -Base <branch>` starts from another branch (used to stack agents on an integration branch). To test several agents' work together, merge their branches into a scratch integration worktree first (resolve the usual `docs/decisions-log.md` and `docs/watchlist.md` append conflicts by keeping both sides), run all checks there, and merge that one branch into `dev`. Run `scripts/worktree.ps1` through Bash (`powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/worktree.ps1 ...`): the PowerShell tool aborts it on git's stderr output.
+
 ## Spot-checking
 
 Never merge on a report alone. In the agent's worktree run the core tests, `npm test` and `npx tsc --noEmit`, and read the commit list. For a UI change, check one claim in Chrome yourself. A report that says the Chrome check was skipped goes back to the agent.

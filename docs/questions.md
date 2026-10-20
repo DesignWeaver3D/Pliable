@@ -34,11 +34,13 @@ All current research is in; questions follow below.
 
 11. **After a face, the principal planes and the view plane, which ways of placing a sketch matter most to you?** Each is a plane built from a different input. Options, in my suggested order: plane through three points; plane from an edge and a point; offset or angled plane from a face; plane normal to a curve; plane tangent to a surface at a picked point. Default if unanswered: that order.
 
-13. **Should a finished sketch be kept as an object you can reopen, or stay a one-way step that only leaves faces?** The model has no history, so a kept sketch would need its own place in undo, autosave and saved files, and a rule for what happens to the faces it made when you edit it. Options: (a) keep sketches as they are, one-way; (b) keep each sketch as a named item that can be reopened and re-finished, replacing the faces it made; (c) keep only a copy you can reuse as a starting point for a new sketch. Default if unanswered: (a).
-
 14. **Do ellipses and splines need full shape constraints (axes, control points, tangent and equal links to other shapes), or is the current limit enough?** Today you can place their points and dimension an ellipse's short radius, but not tie their shape to other geometry. Full constraints need a different solver, and the one candidate has no macOS build, so the cost is real. Options: (a) accept the limit; (b) switch solvers and carry the packaging cost. Default if unanswered: (a).
 
 15. **Should sketch dimensions accept named values and formulas?** Typing a name or a formula such as width / 2 in a dimension would let one value drive several, but it is a history-style feature that sits oddly with direct modeling. Options: (a) numbers only; (b) named values and formulas in sketch dimensions only. Default if unanswered: (a).
+
+### Tools (2026-10-19)
+
+16. **Should Cut with plane and Split with plane become one tool?** Cut keeps one side of the model and removes the other; Split keeps both halves as separate bodies; both cut square to an X, Y or Z axis and, with nothing selected, act on the whole model. One tool could take a "keep" choice (both sides, or remove above or below) and later a plane from a selected face. Options: (a) merge them into one Cut with plane with a keep choice; (b) keep two tools and sharpen their descriptions. Default if unanswered: (a).
 
 ## Topics you asked to discuss one at a time
 
