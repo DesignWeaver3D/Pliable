@@ -997,16 +997,26 @@ class Bridge(Tool):
 
 @register
 class Unify(Tool):
-    """Merge coplanar and co-cylindrical faces (and the edges between them) across the whole model, e.g. after importing a split-up STEP file."""
+    """Refine bodies: merge coplanar and co-cylindrical faces (and the edges between them), e.g. after importing a split-up STEP file.
+    Only the selected bodies (or the bodies of the selected faces) are refined; with nothing selected every body is."""
 
     id = "unify"
-    label = "Unify faces"
-    description = "Merges neighbouring faces that lie on the same surface, for example after opening a file made of many small faces. Select a face first; it is applied to the whole model."
-    accepts = Accepts(faces=(1, None))
+    label = "Refine bodies"
+    description = "Merges neighbouring faces that lie on the same surface, for example after opening a file made of many small faces. Select bodies (or any face of them) to refine only those, which is much faster on a model with many bodies; with nothing selected every body is refined."
+    accepts = Accepts(faces=(0, None), bodies=(0, None))
     params = []
 
     def run(self, topology, selection, values, preview):
-        return finish(topology.shape)
+        chosen = _chosen_solids(topology, selection) if (selection.bodies or selection.faces) else []
+        if not chosen:
+            return finish(topology.shape)
+        out = []
+        for solid in solids_of(topology.shape):
+            if any(solid.IsSame(c) for c in chosen):
+                out.extend(solids_of(finish(_compound([solid])).shape))
+            else:
+                out.append(solid)
+        return OpResult(_compound(out), [], unified=True)
 
 
 @register
@@ -2130,15 +2140,22 @@ def _cutting_plane(shape, values) -> tuple[tuple[float, float, float], float]:
     return normal, sum(normal[k] * pivot[k] for k in range(3))
 
 
-def _plane_handles(topology, values) -> list[Handle]:
+def _cut_target(topology, selection):
+    """The solids a plane cuts: the selected bodies (or the bodies of the selected faces), else every body. Returns (chosen solids or [], their shape)."""
+    chosen = _chosen_solids(topology, selection) if (selection.bodies or selection.faces) else []
+    return chosen, (_compound(chosen) if chosen else topology.shape)
+
+
+def _plane_handles(topology, selection, values) -> list[Handle]:
     """An arrow that slides the plane along its untilted normal and a ring for each of the two tilts, centred where the plane
     is nearest the model's middle. A tilt grip sits where the plane's normal points after that turn alone."""
     base = _plane_normal(values)
-    mid = _model_middle(topology.shape)
+    target = _cut_target(topology, selection)[1]
+    mid = _model_middle(target)
     shift = values["position"] - sum(base[i] * mid[i] for i in range(3))
     centre = tuple(mid[k] + base[k] * shift for k in range(3))
     u, v = _plane_frame(base)
-    radius = max(_bounds_diagonal(topology.shape) * 0.6, 8.0)
+    radius = max(_bounds_diagonal(target) * 0.6, 8.0)
     out = [Handle("position", "Move the cutting plane", centre, base, kind="move")]
     for name, label, axis in (("tilt_u", "Tilt the plane about its first axis", u), ("tilt_v", "Tilt the plane about its second axis", v)):
         spot = _tilted(base, axis, 45 + values.get(name, 0.0))
@@ -2149,13 +2166,43 @@ def _plane_handles(topology, values) -> list[Handle]:
     return out
 
 
-def _cut_halves(topology, values):
-    """The model with the part on each side of the plane removed: (below, above) as shapes."""
-    normal, position = _cutting_plane(topology.shape, values)
-    result = []
-    for above in (False, True):  # removing the block above leaves the lower half
-        result.append(_combine(topology.shape, _half_space(topology.shape, normal, position, above=not above), fuse=False))
-    return result
+def _cut_bodies(topology, selection, values) -> TopoDS_Shape:
+    """Cut the chosen bodies (every body when none is chosen) with the plane. `remove_side` +1 drops the part on the normal's side,
+    -1 the other part, 0 keeps both parts as separate bodies. Bodies the plane misses stay as they are."""
+    side = values["remove_side"]
+    if side not in (1.0, -1.0, 0.0):
+        raise OperationError("remove_side must be +1, -1 or 0 (keep both)")
+    chosen, target = _cut_target(topology, selection)
+    normal, position = _cutting_plane(target, values)
+    out, cut = [], False
+    for solid in solids_of(topology.shape):
+        if chosen and not any(solid.IsSame(c) for c in chosen):
+            out.append(solid)
+            continue
+        piece = _compound([solid])
+        below = _combine(piece, _half_space(target, normal, position, above=True), fuse=False)  # removing the block above leaves the lower part
+        above = _combine(piece, _half_space(target, normal, position, above=False), fuse=False)
+        vb, va, total = _volume(below), _volume(above), _volume(solid)
+        tiny = 1e-9 * max(total, 1)
+        if abs(vb + va - total) > 1e-6 * total:  # a cut that leaves nothing reports the whole body: the plane misses it
+            middle = _model_middle(solid)
+            lower = sum(normal[k] * middle[k] for k in range(3)) < position
+            vb, va = (total, 0.0) if lower else (0.0, total)
+        if min(vb, va) < tiny:  # the plane misses this body: it is all on one side
+            kept = vb if side > 0 else va
+            if side != 0 and kept < tiny:
+                cut = True  # the whole body is on the removed side
+            else:
+                out.append(solid)
+            continue
+        cut = True
+        for half in ((below, above) if side == 0 else ((below,) if side > 0 else (above,))):
+            out.extend(solids_of(half))
+    if side == 0 and not cut:
+        raise OperationError("The plane does not pass through the model")
+    if not out:
+        raise OperationError("The plane would remove the whole model")
+    return _compound(out)
 
 
 @register
@@ -2166,32 +2213,15 @@ class CutPlane(Tool):
 
     id = "cut_plane"
     label = "Cut with plane"
-    description = "Cuts the model with a plane and keeps one side or both. Drag the arrow to slide the plane and the two rings to tilt it (tilt_u, tilt_v). Axis 0, 1, 2 is X, Y, Z; axis 3 uses the direction nx, ny, nz. Position is the plane's distance from the origin along its direction. Remove side +1 removes the part on the direction's side, -1 the other part, 0 keeps both as two separate bodies. Nothing needs to be selected."
-    accepts = Accepts()
+    description = "Cuts the model with a plane and keeps one side or both. Drag the arrow to slide the plane and the two rings to tilt it (tilt_u, tilt_v). Axis 0, 1, 2 is X, Y, Z; axis 3 uses the direction nx, ny, nz. Position is the plane's distance from the origin along its direction. Remove side +1 removes the part on the direction's side, -1 the other part, 0 keeps both as two separate bodies. Select bodies to cut only those; with nothing selected every body is cut."
+    accepts = Accepts(faces=(0, None), bodies=(0, None))
     params = [Param("axis", "number", 2), Param("position", "length"), Param("remove_side", "number", 1), Param("nx", "number", 0), Param("ny", "number", 0), Param("nz", "number", 1), *TILT]
 
     def handles(self, topology, selection, values):
-        return _plane_handles(topology, values)
+        return _plane_handles(topology, selection, values)
 
     def run(self, topology, selection, values, preview):
-        side = values["remove_side"]
-        if side not in (1.0, -1.0, 0.0):
-            raise OperationError("remove_side must be +1, -1 or 0 (keep both)")
-        below, above = _cut_halves(topology, values)
-        if side != 0:
-            kept = below if side > 0 else above
-            if _volume(kept) < 1e-9:
-                raise OperationError("The plane would remove the whole model")
-            return finish(kept)
-        total = _volume(topology.shape)
-        if min(_volume(below), _volume(above)) < 1e-9 * max(total, 1) or abs(_volume(below) + _volume(above) - total) > 1e-6 * total:
-            raise OperationError("The plane does not pass through the model")
-        compound, builder = TopoDS_Compound(), BRep_Builder()
-        builder.MakeCompound(compound)
-        for half in (below, above):
-            for solid in solids_of(half):
-                builder.Add(compound, solid)
-        return OpResult(compound, [])
+        return OpResult(_cut_bodies(topology, selection, values), [])
 
 
 @register
@@ -2200,13 +2230,13 @@ class SplitPlane(Tool):
 
     id = "split_plane"
     label = "Split with plane"
-    description = "Splits the model into two solids along a plane (axis 0, 1, 2 = X, Y, Z or 3 for the direction nx, ny, nz). Cut with plane does the same with its keep-both choice. Nothing needs to be selected."
-    accepts = Accepts()
+    description = "Splits the model into two solids along a plane (axis 0, 1, 2 = X, Y, Z or 3 for the direction nx, ny, nz). Cut with plane does the same with its keep-both choice. Select bodies to cut only those; with nothing selected every body is cut."
+    accepts = Accepts(faces=(0, None), bodies=(0, None))
     params = [Param("axis", "number", 2), Param("position", "length"), Param("nx", "number", 0), Param("ny", "number", 0), Param("nz", "number", 1), *TILT]
     hidden = True
 
     def handles(self, topology, selection, values):
-        return _plane_handles(topology, values)
+        return _plane_handles(topology, selection, values)
 
     def run(self, topology, selection, values, preview):
         return get_tool("cut_plane").run(topology, selection, {**values, "remove_side": 0.0}, preview)

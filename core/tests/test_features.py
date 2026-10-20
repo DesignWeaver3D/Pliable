@@ -380,7 +380,7 @@ def test_path_array_along_a_straight_edge(block):
 
 def test_unify_merges_split_coplanar_faces(block):
     # Cutting at a plane and rejoining leaves the model valid; unify must not add faces.
-    result = run("unify", block, faces=[0])
+    result = run("unify", block)
     assert result.shape is not None
     assert Topology(result.shape).face_count == block.face_count
 
@@ -627,3 +627,40 @@ def test_cut_plane_tilts_and_offers_move_and_tilt_handles(block):
     # A tilted plane through the middle leaves a different shape than the level one.
     assert box_of(tilted.shape) != box_of(flat.shape)
     assert volume(tilted.shape) == pytest.approx(volume(flat.shape), rel=0.2)
+
+
+def test_cut_plane_affects_only_the_selected_body():
+    from pliable.server import Session
+
+    s = Session()
+    s.handle({"type": "open_demo", "name": "block"})
+    s.handle({"type": "tool_commit", "tool": "add_box", "params": {"width": 10, "depth": 10, "height": 10, "x": 100, "new_body": 1}})
+    topology = s._require_document().current
+    ids = [b.id for b in topology.bodies.bodies]
+    assert len(ids) == 2
+    tool = get_tool("cut_plane")
+    values = {"axis": 2, "position": 5.0, "remove_side": 1.0}
+    one = tool.execute(topology, Selection(bodies=[ids[1]]), values, preview=False)
+    both = tool.execute(topology, Selection(), values, preview=False)
+    first = volume(__import__("pliable.ops", fromlist=["solids_of"]).solids_of(topology.shape)[0])
+    from pliable.ops import solids_of
+
+    assert len(solids_of(one.shape)) == 2 and len(solids_of(both.shape)) == 2
+    assert volume(solids_of(one.shape)[0]) == pytest.approx(first)  # the unselected block is untouched
+    assert volume(both.shape) < volume(one.shape)
+
+
+def test_refine_bodies_touches_only_the_selected_body():
+    from pliable.ops import solids_of
+    from pliable.server import Session
+
+    s = Session()
+    s.handle({"type": "open_demo", "name": "block"})
+    s.handle({"type": "tool_commit", "tool": "add_box", "params": {"width": 10, "depth": 10, "height": 10, "x": 100, "new_body": 1}})
+    topology = s._require_document().current
+    ids = [b.id for b in topology.bodies.bodies]
+    tool = get_tool("unify")
+    one = tool.execute(topology, Selection(bodies=[ids[1]]), {}, preview=False)
+    assert len(solids_of(one.shape)) == 2
+    assert volume(one.shape) == pytest.approx(volume(topology.shape))
+    assert tool.execute(topology, Selection(), {}, preview=False).shape is not None
