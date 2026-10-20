@@ -1262,6 +1262,8 @@ const keptSketches = new KeptSketches({
   },
 });
 onSketches = (list) => keptSketches.setList(list);
+viewport.profileTargets = () => (sketch.active ? [] : keptSketches.fillTargets());
+viewport.onProfileClick = (id) => keptSketches.startExtrude(id);
 sketch.onEditing = (id) => keptSketches.setEditing(id);
 $("keptsketchhead").addEventListener("click", () => {
   const head = $("keptsketchhead");

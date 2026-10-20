@@ -145,6 +145,9 @@ export class Viewport {
   private drag: { sels: Sel[]; normal: THREE.Vector3; point: THREE.Vector3; x: number; y: number; moved: boolean } | null = null;
   /** Called when the user changes the selection by clicking. */
   onSelect: (selection: Sel[]) => void = () => {};
+  /** The tinted profile regions of kept sketches that a click can pick as if they were faces (they belong to no model). */
+  profileTargets: () => { id: number; object: THREE.Object3D }[] = () => [];
+  onProfileClick: (sketchId: number) => void = () => {};
   /** Double-click on an edge: the host selects the whole smooth chain it belongs to (Ctrl adds to the selection). */
   onEdgeLoop: (edgeId: number, additive: boolean) => void = () => {};
   /** Double-click on a face: select its whole body (same as clicking its row in the body list). */
@@ -568,7 +571,7 @@ export class Viewport {
       }
       // A click, not the end of an orbit/pan drag.
       if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4 && e.button === 0) {
-        this.clickSelect(this.pickCycling(e), e.ctrlKey || e.metaKey || e.shiftKey);
+        this.clickOrProfile(e, e.ctrlKey || e.metaKey || e.shiftKey);
       }
       down = null;
     });
@@ -1113,7 +1116,7 @@ export class Viewport {
     this.cancelBox();
     if (!b.active) {
       // Plain click on empty space or a ctrl-click: ordinary pick.
-      this.clickSelect(this.pickCycling(e), b.additive);
+      this.clickOrProfile(e, b.additive);
       return;
     }
     const rect = this.renderer.domElement.getBoundingClientRect();
@@ -1216,6 +1219,26 @@ export class Viewport {
       }
     }
     return out;
+  }
+
+  /** A click: a profile region of a kept sketch that is not behind the model counts as a face; otherwise the usual pick. */
+  private clickOrProfile(e: PointerEvent, additive: boolean) {
+    const picked = this.pickCycling(e);
+    const profile = !picked || picked.kind === "face" ? this.profileUnder(e) : null;
+    if (profile !== null) this.onProfileClick(profile);
+    else this.clickSelect(picked, additive);
+  }
+
+  private profileUnder(e: PointerEvent): number | null {
+    const targets = this.profileTargets();
+    if (!targets.length) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), this.camera);
+    const hit = this.raycaster.intersectObjects(targets.map((t) => t.object), false)[0];
+    if (!hit) return null;
+    const model = this.mesh ? this.raycaster.intersectObject(this.mesh)[0] : undefined;
+    if (model && !settings.seeThrough && hit.distance > model.distance * 1.001 + 1e-3) return null; // behind the model
+    return targets.find((t) => t.object === hit.object)?.id ?? null;
   }
 
   private pick(e: PointerEvent): Sel | null {

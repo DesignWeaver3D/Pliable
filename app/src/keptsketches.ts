@@ -109,6 +109,17 @@ export class KeptSketches {
     }
   }
 
+  /** The drawn profile regions, so a click in the view can pick them like faces. */
+  fillTargets(): { id: number; object: THREE.Object3D }[] {
+    return [...this.curves].flatMap(([id, c]) => c.fills.map((object) => ({ id, object })));
+  }
+
+  /** Begin extruding a sketch's regions, as picked in the view. */
+  startExtrude(id: number) {
+    const k = this.list.find((x) => x.id === id);
+    if (k) this.extrudeDialog(k);
+  }
+
   /** Distance, mode and direction for extruding a kept sketch's regions; Preview shows it, Extrude commits. */
   private extrudeDialog(k: KeptInfo) {
     const dialog = document.createElement("dialog");
@@ -238,7 +249,7 @@ export class KeptSketches {
     }
   }
 
-  /** One closed region as a tinted view-only face (it is not part of the model and cannot be picked as one). */
+  /** One closed region as a tinted face that belongs to no model; a click on it starts an extrude of its sketch. */
   private fill(mesh: { positions: number[]; indices: number[] }): THREE.Mesh {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(mesh.positions, 3));
