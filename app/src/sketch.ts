@@ -173,6 +173,7 @@ export class SketchMode {
       o.frustumCulled = false;
       this.group.add(o);
     }
+    this.axes.renderOrder = 4; // the sketch axes are drawn over the grid (order 1) and under the sketch shapes (5)
     // Keys reach onKey through the key router (keyrouter.ts), which applies the shortcut policy first.
     viewport.renderer.domElement.addEventListener("contextmenu", () => {
       if (this.active && this.chain.length) this.endChain();
