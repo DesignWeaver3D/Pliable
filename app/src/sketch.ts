@@ -174,6 +174,7 @@ export class SketchMode {
   ) {
     this.panel = panel;
     window.addEventListener("keydown", this.onTyping, true);
+    window.addEventListener("resize", () => { if (this.active) this.placePanel(); });
     for (const o of [this.normal, this.placed, this.construction, this.points]) o.userData.extent = true; // counted by the origin axes' length
     for (const o of [this.axes, this.normal, this.placed, this.construction, this.marked, this.pending, this.points]) {
       o.renderOrder = 5;
@@ -1893,7 +1894,16 @@ export class SketchMode {
 
   // Panel -------------------------------------------------------------------------------------------
 
+  /** The card starts just under the nav cube group, so it has all the room below for a long constraint list. */
+  private placePanel() {
+    const cube = document.getElementById("navcube")?.getBoundingClientRect();
+    const top = cube && cube.height > 0 ? Math.round(cube.bottom) + 8 : 270;
+    this.panel.style.top = `${top}px`;
+    this.panel.style.maxHeight = `${Math.max(160, window.innerHeight - top - 12)}px`;
+  }
+
   private renderPanel() {
+    this.placePanel();
     const keepAsk = this.panel.querySelector<HTMLElement>(".ask");
     const asking = keepAsk && !keepAsk.hidden;
     if (asking) return; // do not rebuild while a value is being typed
@@ -1941,7 +1951,9 @@ export class SketchMode {
     const target = iconButton("pickTarget", "Pick move to location: click where the sketch plane goes (it moves by the offset from the base point, or from its own origin when none was picked)", () => void this.pickMoveTo());
     const gear = iconButton("gear", "Sketch settings", () => this.openSettings());
     gear.style.marginLeft = "auto";
-    header.append(el("span", "title", this.kept ? this.kept.name : "Sketch"), look, gizmos, base, target, grid, snap, gear);
+    header.append(el("span", "title", this.kept ? this.kept.name : "Sketch"), gear);
+    const icons = el("div", "head");
+    icons.append(look, gizmos, base, target, grid, snap);
     const status = el("div", "dof", this.failed.size ? `Conflict: ${this.s.constraints.filter((c) => this.failed.has(c.id)).map((c) => M.describeConstraint(this.s, c)).join("; ") || [...this.failed].join(", ")}. Remove one (red rows below)` : this.dof === null ? "" : this.dof === 0 ? "Fully constrained" : `${this.dof} degrees of freedom left`);
     if (this.failed.size) status.classList.add("bad");
 
@@ -2099,6 +2111,6 @@ export class SketchMode {
     exit.title = this.kept ? "Leave the sketch without saving what you changed" : "Leave the sketch and throw it away without changing the model";
     const leaving = el("div", "row-buttons");
     leaving.append(finish, exit);
-    this.panel.replaceChildren(header, leaving, status, tools, constraintsBox, ...(transformRow ? [transformBox] : []), ask, list);
+    this.panel.replaceChildren(header, icons, leaving, status, tools, constraintsBox, ...(transformRow ? [transformBox] : []), ask, list);
   }
 }
