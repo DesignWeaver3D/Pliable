@@ -1593,7 +1593,8 @@ export class SketchMode {
     try {
       while (this.queued) {
         const job = this.queued;
-          let reply: SolveReply;
+        this.queued = null;
+        let reply: SolveReply;
         try {
           reply = await this.core.request<SolveReply>("sketch_solve", { sketch: M.forSolver(this.s), drag: job.drag, detail: !job.drag });
         } catch (e) {
@@ -1623,6 +1624,7 @@ export class SketchMode {
         this.render();
       }
     } finally {
+      this.solving = false;
     }
     return ok;
   }
