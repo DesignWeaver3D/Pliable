@@ -172,7 +172,7 @@ def _body_handles(tool_id, params):
 
 def test_move_body_has_a_handle_per_axis_that_follows_its_distance():
     before = _body_handles("move_body", {})
-    assert set(before) == {"dx", "dy", "dz"}
+    assert set(before) == {"dx", "dy", "dz", "rx", "ry", "rz"}  # three move arrows and three rotation rings
     after = _body_handles("move_body", {"dx": 4, "dy": -3})
     assert after["dx"]["anchor"][0] == pytest.approx(before["dx"]["anchor"][0] + 4)
     assert after["dy"]["anchor"][1] == pytest.approx(before["dy"]["anchor"][1] - 3)

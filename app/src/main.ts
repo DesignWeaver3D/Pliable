@@ -483,6 +483,16 @@ function setSelection(sels: Sel[]) {
     renderToolbar();
     toolPanel.renderList();
     renderSketchBar();
+    // The core knows which tools make sense with nothing selected (whole-model tools need a single body).
+    core
+      .request<{ tools: string[] }>("available_tools", { selection: selectionPayload(sels) })
+      .then((reply) => {
+        if (currentSels !== sels) return;
+        refined = reply.tools;
+        renderToolbar();
+        toolPanel.renderList();
+      })
+      .catch((e) => logOnce("available tools", e));
     return;
   }
   // Wait for the core's answers and render once: rendering the count-only guess first, then the refined set,
@@ -1483,7 +1493,7 @@ function waitRetry(ms: number): Promise<void> {
 /** Everything the page needs from the core after (re)connecting: tools, then the model (kept across a reconnect when the core still holds it). */
 async function syncWithCore(hadModel: boolean) {
   void showLaunchNotice(core);
-  tools = (await core.request<{ tools: ToolInfo[] }>("list_tools")).tools;
+  tools = (await core.request<{ tools: ToolInfo[] }>("list_tools")).tools.filter((t) => !t.hidden);
   renderToolbar();
   toolPanel.renderList();
   const { restore } = await core.request<{ restore?: { name: string; steps: number } }>("hello");

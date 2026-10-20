@@ -170,3 +170,12 @@ test("typing on a handle pushed to a negative value keeps the negative sign", ()
   m.key({ key: "-" });
   assert.equal(m.active.negative, true);
 });
+
+test("a rotation ring handle wears its axis colour and a typed number is the angle in degrees", () => {
+  const ring = { kind: "arrow", toggle: false, direction: [0, 1, 0], axis: [1, 0, 0] };
+  assert.equal(handleColors(ring).rest, axisColorOf([1, 0, 0]));
+  assert.notEqual(handleColors(ring).rest, handleColors({ ...ring, axis: null }).rest);
+  const h = { kind: "arrow", value: 30, scale: 4, min: null, max: null };
+  assert.equal(handleValue(h, typedTravel(h, "90", false)), 90);
+  assert.equal(handleValue(h, typedTravel(h, "45", true)), -45);
+});
