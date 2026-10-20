@@ -106,4 +106,4 @@ Decisions made without the owner or by the owner, grouped by topic. Each says wh
 - 2026-10-20: which face moves when a face-to-face distance is edited in place is design-intent behavior tied to the auto-chip selections and is deferred to the long-term roadmap.
 
 - 2026-10-20 (unattended, S93): after a tab refresh the core's own parked model is resumed before any crash restore is offered; the crash-restore prompt now shows when the session was saved. Reason: the prompt was offering dead sessions of other (killed) test servers from the shared autosave folder while ignoring the model the live core still held.
-- Context strip: shows every tool usable for the selection, wrapped onto extra rows, with no "N more" button and no fixed or width-fitted count (owner said not to limit it; replaces the S34 count limit). The drawer stays on the left handle and the T key.
+- Context strip (owner): it spans from the Tools handle's edge to the nav cube group, wraps to at most two rows, and shows "... More" (opens the drawer filtered to usable tools) only when the usable tools would need a third row. The nav cube group sits at the top right, level with the strip.

@@ -9,7 +9,7 @@ import type { Tool as SketchTool } from "./sketch";
 import { SketchBar } from "./sketchbar";
 import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
-import { stripRoom } from "./stripfit";
+import { fitStripCount, stripRoom } from "./stripfit";
 import { DimensionOverlay, type Dimension } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
@@ -271,14 +271,16 @@ $("drawerusable").addEventListener("change", (e) => drawer.classList.toggle("usa
 /** Strip order: the tool a drag runs first, then the tool groups' order. */
 const GROUP_ORDER = TOOL_GROUPS.flatMap((g) => g.tools);
 
-/** Room for the context strip: between the left side (body list, open drawer with its handle) and the right side (nav cube and view controls). */
+/** Room for the context strip: from the edge of the Tools handle (which rides on the drawer's edge when it is open) to the nav cube group. */
 function stripWidthAvailable(): { width: number; centre: number } {
   const vw = document.documentElement.clientWidth;
-  const left = drawer.hidden ? LEFT_RESERVE_PX : DRAWER_RESERVE_PX;
+  const handle = $("drawerbtn").getBoundingClientRect();
+  const left = handle.width > 0 ? handle.right + STRIP_MARGIN_PX : drawer.hidden ? LEFT_RESERVE_PX : DRAWER_RESERVE_PX;
   const cube = $("navcube").getBoundingClientRect();
-  const right = cube.width > 0 ? vw - cube.left + 12 : 160;
+  const right = cube.width > 0 ? vw - cube.left + STRIP_MARGIN_PX : 160;
   return stripRoom(vw, left, right);
 }
+const STRIP_MARGIN_PX = 8;
 const DRAWER_RESERVE_PX = 532; // list, drawer and its handle
 const LEFT_RESERVE_PX = 240;
 
@@ -347,7 +349,10 @@ function renderToolbar() {
   }
   const rank = (t: ToolInfo) => (t.id === active ? -1 : GROUP_ORDER.includes(t.id) ? GROUP_ORDER.indexOf(t.id) : GROUP_ORDER.length);
   const ordered = [...usable].sort((a, b) => rank(a) - rank(b));
-  // Every usable tool gets a button; the strip wraps onto more rows instead of hiding any.
+  const more = document.createElement("button");
+  more.className = "more";
+  more.title = "Open the tool drawer, showing the tools that work now (T)";
+  more.addEventListener("click", () => toggleDrawer(true, true));
   const buttons = ordered.map((tool) => {
     const button = document.createElement("button");
     button.append(toolIcon(tool.id, tool.label), tool.label);
@@ -356,7 +361,16 @@ function renderToolbar() {
     button.addEventListener("click", () => armTool(tool, "strip"));
     return button;
   });
-  toolbar.replaceChildren(...buttons, ...helpers);
+  // Measure pass: lay everything out, read the widths, then keep what fits in two rows. "... More" shows only when some tools do not.
+  more.replaceChildren(uiIcon("more"), "... More");
+  toolbar.replaceChildren(...buttons, ...helpers, more);
+  const style = getComputedStyle(toolbar);
+  const gap = parseFloat(style.columnGap) || 6;
+  const chrome = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2;
+  const width = (b: HTMLElement) => b.getBoundingClientRect().width;
+  const count = fitStripCount({ tools: buttons.map(width), helpers: helpers.map(width), more: width(more), gap, chrome }, available);
+  for (const b of buttons.slice(count)) b.remove();
+  if (count >= ordered.length) more.remove();
 }
 
 window.addEventListener("resize", () => renderToolbar());
