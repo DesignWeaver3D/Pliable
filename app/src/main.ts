@@ -473,7 +473,35 @@ function armTool(tool: ToolInfo, surface: Surface) {
   if (!status.classList.contains("error")) status.textContent = `${tool.label}: drag the selection`;
 }
 
+/** The model state made by picking a sketch region, while its face is still the only selection and nothing was done with it. */
+let pendingProfile: { mesh: MeshData; face: number } | null = null;
+
+/** A sketch region picked in the view becomes a temporary face of the model, selected so the usual tools work on it. */
+async function pickProfile(sketchId: number, region: number) {
+  await dropPendingProfile();
+  try {
+    const mesh = await core.request<MeshData>("sketch_regions", { sketch_id: sketchId, region });
+    const face = mesh.header.selection?.faces?.[0];
+    setCommitted(mesh, false, face === undefined ? [] : [{ kind: "face", id: face }]);
+    if (face !== undefined) pendingProfile = { mesh, face };
+  } catch (e) {
+    status.textContent = (e as Error).message;
+    status.classList.add("error");
+  }
+}
+
+/** Take the temporary face of a picked region out of the model again (an undo of the pick). */
+async function dropPendingProfile() {
+  const pending = pendingProfile;
+  pendingProfile = null;
+  if (pending && committed === pending.mesh) await history("undo");
+}
+
 function setSelection(sels: Sel[]) {
+  if (pendingProfile && (committed !== pendingProfile.mesh || sels.length !== 1 || sels[0].kind !== "face" || sels[0].id !== pendingProfile.face)) {
+    if (committed === pendingProfile.mesh && !toolPanel.isOpen) void dropPendingProfile(); // clicked away from the picked region: it was only a pick
+    else pendingProfile = null; // a tool used it, or the history moved on
+  }
   if (toolPanel.isOpen) toolPanel.close(false); // the selection changed under an open tool form
   viewport.manipulator.clear();
   currentSels = sels;
@@ -1267,27 +1295,10 @@ const keptSketches = new KeptSketches({
   },
   remove: (id) => keptRequest("sketch_delete", { sketch_id: id }),
   rename: (id, name) => keptRequest("sketch_rename", { sketch_id: id, name }),
-  extrude(id, params, commit) {
-    core
-      .request<MeshData>("sketch_extrude", { sketch_id: id, ...params, commit })
-      .then((mesh) => {
-        if (commit) setCommitted(mesh, false, currentSels);
-        else {
-          show(mesh);
-          status.textContent = "Extrude preview";
-          status.classList.remove("error");
-        }
-      })
-      .catch((e) => {
-        status.textContent = (e as Error).message;
-        status.classList.add("error");
-        if (!commit && committed) show(committed);
-      });
-  },
 });
 onSketches = (list) => keptSketches.setList(list);
 viewport.profileTargets = () => (sketch.active ? [] : keptSketches.fillTargets());
-viewport.onProfileClick = (id) => keptSketches.startExtrude(id);
+viewport.onProfileClick = (id, region) => void pickProfile(id, region);
 sketch.onEditing = (id) => keptSketches.setEditing(id);
 $("keptsketchhead").addEventListener("click", () => {
   const head = $("keptsketchhead");

@@ -219,3 +219,19 @@ def test_extrude_a_stored_sketch_by_id_and_keep_in_the_same_step():
     assert [s["id"] for s in header_after["sketches"]] == [1, 2] and header_after["sketchId"] == 2
     undone = header(session.handle({"type": "undo"}))
     assert [s["id"] for s in undone["sketches"]] == [1]  # the extrusion and the kept sketch went together
+
+
+def test_picking_one_region_adds_its_face_and_selects_it():
+    session = open_session()
+    sk = make(session, 10)
+    session.handle({"type": "sketch_keep", "sketch": sk, "regions": False})
+    before = faces(session)
+    h = header(session.handle({"type": "sketch_regions", "sketch_id": 1, "region": 0}))
+    assert faces(session) == before + 1
+    selected = h["selection"]["faces"]
+    assert len(selected) == 1
+    assert sketch.Face(session.document.current.face(selected[0])).area == pytest.approx(100, rel=1e-6)
+    session.handle({"type": "undo"})
+    assert faces(session) == before
+    with pytest.raises(RequestError):
+        session.handle({"type": "sketch_regions", "sketch_id": 1, "region": 5})

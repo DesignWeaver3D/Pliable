@@ -152,8 +152,8 @@ export class Viewport {
   /** Called when the user changes the selection by clicking. */
   onSelect: (selection: Sel[]) => void = () => {};
   /** The tinted profile regions of kept sketches that a click can pick as if they were faces (they belong to no model). */
-  profileTargets: () => { id: number; object: THREE.Object3D }[] = () => [];
-  onProfileClick: (sketchId: number) => void = () => {};
+  profileTargets: () => { id: number; region: number; object: THREE.Object3D }[] = () => [];
+  onProfileClick: (sketchId: number, region: number) => void = () => {};
   /** Double-click on an edge: the host selects the whole smooth chain it belongs to (Ctrl adds to the selection). */
   onEdgeLoop: (edgeId: number, additive: boolean) => void = () => {};
   /** Double-click on a face: select its whole body (same as clicking its row in the body list). */
@@ -1335,11 +1335,11 @@ export class Viewport {
   private clickOrProfile(e: PointerEvent, additive: boolean) {
     const picked = this.pickCycling(e);
     const profile = !picked || picked.kind === "face" ? this.profileUnder(e) : null;
-    if (profile !== null) this.onProfileClick(profile);
+    if (profile) this.onProfileClick(profile.id, profile.region);
     else this.clickSelect(picked, additive);
   }
 
-  private profileUnder(e: PointerEvent): number | null {
+  private profileUnder(e: PointerEvent): { id: number; region: number } | null {
     const targets = this.profileTargets();
     if (!targets.length) return null;
     const rect = this.renderer.domElement.getBoundingClientRect();
@@ -1348,7 +1348,8 @@ export class Viewport {
     if (!hit) return null;
     const model = this.mesh ? this.raycaster.intersectObject(this.mesh)[0] : undefined;
     if (model && !settings.seeThrough && hit.distance > model.distance * 1.001 + 1e-3) return null; // behind the model
-    return targets.find((t) => t.object === hit.object)?.id ?? null;
+    const target = targets.find((t) => t.object === hit.object);
+    return target ? { id: target.id, region: target.region } : null;
   }
 
   private pick(e: PointerEvent): Sel | null {

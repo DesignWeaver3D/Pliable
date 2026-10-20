@@ -235,7 +235,7 @@ class Session:
                 topology = self._require_document().current
                 unrolling = unwrap.build_unrolling(topology, [int(i) for i in ids])
                 return {"plane": unwrap.unwrap_plane(topology.shape, unrolling.reference), "reference": unrolling.reference}
-            except unwrap.UnwrapError as e:
+            except (unwrap.UnwrapError, sketch.SketchError) as e:
                 raise RequestError(str(e)) from e
         if kind == "sketch_plane":
             plane = self._sketch_plane(request)
@@ -339,7 +339,7 @@ class Session:
             return {"plane": plane, "reference": sketch.face_reference(faces[0], plane), "unwrapped": False}
         try:
             unrolling = unwrap.build_unrolling(topology, ids)
-        except unwrap.UnwrapError as e:
+        except (unwrap.UnwrapError, sketch.SketchError) as e:
             message = f"{e} ({unwrap.describe_faces(faces)})"
             self.last_tool = {"tool": "sketch_on_face", "commit": False, "ok": False, "error": diagnostics.scrub(message)}
             raise RequestError(message) from e
@@ -437,8 +437,8 @@ class Session:
             if "unwrap" in request:
                 shape, count = unwrap.wrap_regions(document.current.shape, document.current, [int(i) for i in (request["unwrap"] if isinstance(request["unwrap"], list) else [request["unwrap"]])], request["sketch"])
             else:
-                shape, count = sketch.add_regions(document.current.shape, request["sketch"])
-        except unwrap.UnwrapError as e:
+                shape, count = sketch.add_regions(document.current.shape, request["sketch"], request.get("region"))
+        except (unwrap.UnwrapError, sketch.SketchError) as e:
             raise RequestError(str(e)) from e
         except (KeyError, TypeError, ValueError) as e:
             raise RequestError(f"Malformed sketch request: {e!r}") from e
@@ -448,11 +448,22 @@ class Session:
         """Leave a sketch: its closed regions become faces of the model (imprinted or loose) and stay selected."""
         document = self._require_document()
         start = time.perf_counter()
+        if "sketch" not in request and request.get("sketch_id") is not None:  # a kept sketch, by id
+            request = {**request, "sketch": self._sketch_content(request)}
         shape, _ = self._region_shape(request)
         timings = {"opMs": _ms(start)}
         target = document.commit(shape)
         self._autosave()
-        return self._mesh_reply(target, timings, preview=False, selection=Selection().to_json())
+        selection = Selection()
+        if request.get("region") is not None:  # one region picked in the view: leave its new face selected
+            try:
+                face = sketch.region_face(target.shape, request["sketch"], int(request["region"]))
+            except (KeyError, TypeError, ValueError, sketch.SketchError):
+                face = None
+            index = target.face_id(face) if face is not None else None
+            if index is not None:
+                selection = Selection(faces=[index])
+        return self._mesh_reply(target, timings, preview=False, selection=selection.to_json())
 
     @staticmethod
     def _sketch_id(request: dict) -> int:

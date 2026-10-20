@@ -769,10 +769,11 @@ def _host_face(shape, zone: Face):
     return None
 
 
-def add_regions(shape, sketch: dict):
+def add_regions(shape, sketch: dict, only: int | None = None):
     """Put the sketch's regions into the model so they can be picked: zones lying on a flat face of the model
-    are imprinted on it (the face is split along their outline), the others are added as free faces. Returns
-    the new shape and how many regions became faces."""
+    are imprinted on it (the face is split along their outline), the others are added as free faces. `only` picks
+    one region by its index in `regions` (the order `profile_meshes` draws them in). Returns the new shape and how
+    many regions became faces."""
     from OCP.BRep import BRep_Builder
     from OCP.BRepAlgoAPI import BRepAlgoAPI_Splitter
     from OCP.collections import List_TopoDS_Shape
@@ -781,6 +782,10 @@ def add_regions(shape, sketch: dict):
     zones = regions(sketch)
     if not zones:
         raise SketchError("The sketch has no closed outline to make a face from")
+    if only is not None:
+        if not 0 <= only < len(zones):
+            raise SketchError("That region of the sketch no longer exists")
+        zones = [zones[only]]
     imprint, loose = [], []
     for zone in zones:
         (imprint if _host_face(shape, zone) is not None else loose).append(zone)
@@ -807,6 +812,24 @@ def add_regions(shape, sketch: dict):
             builder.Add(compound, zone.wrapped)
         result = compound
     return result, len(zones)
+
+
+def region_face(shape, sketch: dict, index: int):
+    """The face of `shape` (the result of `add_regions` with `only=index`) that is the sketch's region `index`: the
+    flat face in the region's plane with its area and centre, or None."""
+    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopExp import TopExp_Explorer
+
+    zone = regions(sketch)[index]
+    explorer = TopExp_Explorer(shape, TopAbs_FACE)
+    while explorer.More():
+        candidate = Face(explorer.Current())
+        explorer.Next()
+        if abs(candidate.area - zone.area) > 1e-6 * max(1.0, zone.area):
+            continue
+        if (candidate.center() - zone.center()).length < 1e-5 and abs(candidate.normal_at().dot(zone.normal_at())) > 1 - 1e-6:
+            return candidate.wrapped
+    return None
 
 
 def face_plane(face_shape) -> dict:

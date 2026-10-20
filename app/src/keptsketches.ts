@@ -19,8 +19,6 @@ export interface KeptHost {
   open(id: number): void;
   remove(id: number): void;
   rename(id: number, name: string): void;
-  /** Extrude the sketch's closed regions; with commit false only a preview is shown. */
-  extrude(id: number, params: { distance: number; mode: string; symmetric: boolean }, commit: boolean): void;
 }
 
 const CURVE_COLOR = 0x9bb7d4;
@@ -88,17 +86,12 @@ export class KeptSketches {
       edit.title = "Edit this sketch";
       edit.append(uiIcon("edit", 14));
       edit.addEventListener("click", () => this.host.open(k.id));
-      const extrude = document.createElement("button");
-      extrude.className = "rowbtn";
-      extrude.title = "Extrude the closed regions of this sketch (adds, cuts or makes a new body)";
-      extrude.append(uiIcon("extrude", 14));
-      extrude.addEventListener("click", () => this.extrudeDialog(k));
       const del = document.createElement("button");
       del.className = "rowbtn";
       del.title = "Delete this sketch (Undo brings it back)";
       del.append(uiIcon("close", 14));
       del.addEventListener("click", () => this.host.remove(k.id));
-      row.append(eye, name, extrude, edit, del);
+      row.append(eye, name, edit, del);
       list.append(row);
     }
     if (!this.list.length) {
@@ -110,66 +103,8 @@ export class KeptSketches {
   }
 
   /** The drawn profile regions, so a click in the view can pick them like faces. */
-  fillTargets(): { id: number; object: THREE.Object3D }[] {
-    return [...this.curves].flatMap(([id, c]) => c.fills.map((object) => ({ id, object })));
-  }
-
-  /** Begin extruding a sketch's regions, as picked in the view. */
-  startExtrude(id: number) {
-    const k = this.list.find((x) => x.id === id);
-    if (k) this.extrudeDialog(k);
-  }
-
-  /** Distance, mode and direction for extruding a kept sketch's regions; Preview shows it, Extrude commits. */
-  private extrudeDialog(k: KeptInfo) {
-    const dialog = document.createElement("dialog");
-    dialog.className = "sketchsettings";
-    dialog.addEventListener("keydown", (e) => e.stopPropagation());
-    const field = (label: string, input: HTMLElement, unit = "") => {
-      const row = document.createElement("label");
-      const text = document.createElement("span");
-      text.textContent = label;
-      const tail = document.createElement("span");
-      tail.className = "unit";
-      tail.textContent = unit;
-      row.append(text, input, tail);
-      return row;
-    };
-    const distance = document.createElement("input");
-    distance.type = "number";
-    distance.step = "any";
-    distance.value = "10";
-    const mode = document.createElement("select");
-    for (const [value, label] of [["join", "Join (add material)"], ["cut", "Cut (remove material)"], ["new", "New body"]]) mode.append(new Option(label, value));
-    const both = document.createElement("input");
-    both.type = "checkbox";
-    const title = document.createElement("h3");
-    title.textContent = `Extrude ${k.name}`;
-    const values = () => ({ distance: Number(distance.value), mode: mode.value, symmetric: both.checked });
-    const usable = () => Number.isFinite(values().distance) && values().distance !== 0;
-    const button = (label: string, on: () => void) => {
-      const b = document.createElement("button");
-      b.textContent = label;
-      b.addEventListener("click", on);
-      return b;
-    };
-    const buttons = document.createElement("div");
-    buttons.append(
-      button("Cancel", () => dialog.close()),
-      button("Extrude", () => {
-        if (usable()) this.host.extrude(k.id, values(), true);
-        dialog.close();
-      }),
-      button("Preview", () => {
-        if (usable()) this.host.extrude(k.id, values(), false);
-      }),
-    );
-    dialog.append(title, field("Distance", distance, "mm"), field("Mode", mode), field("Both directions", both), buttons);
-    dialog.addEventListener("close", () => dialog.remove());
-    document.body.append(dialog);
-    dialog.showModal();
-    distance.focus();
-    distance.select();
+  fillTargets(): { id: number; region: number; object: THREE.Object3D }[] {
+    return [...this.curves].flatMap(([id, c]) => c.fills.map((object, region) => ({ id, region, object })));
   }
 
   private rename(k: KeptInfo, label: HTMLElement) {
@@ -249,7 +184,7 @@ export class KeptSketches {
     }
   }
 
-  /** One closed region as a tinted face that belongs to no model; a click on it starts an extrude of its sketch. */
+  /** One closed region as a tinted face that belongs to no model; a click on it makes it a temporary face of the model (see pickProfile in main.ts). */
   private fill(mesh: { positions: number[]; indices: number[] }): THREE.Mesh {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(mesh.positions, 3));
