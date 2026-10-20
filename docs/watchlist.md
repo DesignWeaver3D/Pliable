@@ -134,3 +134,10 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Sketch box selection: dragging on empty space with the Select tool draws the same box as the 3D view (solid left to right = window, dashed right to left = crossing) and selects only sketch points and curves; it replaces the selection unless Ctrl/Shift is held. Curves are tested as 48-segment polylines.
 - Leaving a sketch (Escape, Discard button, starting another sketch) asks first when a new sketch has drawn geometry or a kept sketch has changes; the page-unload warning is unchanged.
 - Project model edges: a tilted arc or other curved edge becomes a spline through about 24 samples per turn (33 for other curves), so it is an approximation of the true ellipse arc; a curve seen edge-on is left as its end points.
+
+## Random body colours
+
+- Each body's colour depends only on its stable id: hue = id * 137.508 degrees (+20), saturation 32-42 %, lightness 62 % upward, raised per hue (up to 80 %) until contrast against #1b1d22 is at least 7:1. Blue hues therefore end up lighter than others. Tested for ids 1..500.
+- After about a dozen bodies, hues of non-consecutive ids can sit close together; colours are distinct, not unique.
+- The surface uses per-vertex colours on a white base, so lighting still applies; loose faces and sheets with no body keep the steel-blue. Colours are not saved in the document and there is no per-body override yet.
+- In the body list the name colour overrides the grey of hidden bodies only when visible (hidden rows stay grey, no dot).
