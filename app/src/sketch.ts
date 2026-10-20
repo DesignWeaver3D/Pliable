@@ -16,7 +16,7 @@ import { uiIcon } from "./icons";
 import { LENGTH_UNIT } from "./units";
 import { usage } from "./usage";
 import type { HandleInfo } from "./tools";
-import type { Viewport } from "./viewport";
+import type { Sel, Viewport } from "./viewport";
 
 const SNAP_PX = 10; // pointer snaps to an existing sketch point this close
 const PICK_PX = 8; // pick radius for points and curves in the select tool
@@ -85,7 +85,8 @@ export function loadSketchOptions(): SketchOptions {
 }
 
 export interface SketchHost {
-  status(text: string, error?: boolean): void;
+  /** Show a message: `error` true is red (a real failure), "warn" is orange (something worth knowing), otherwise plain. */
+  status(text: string, error?: boolean | "warn"): void;
   /** Pick a point in the 3D view (null when cancelled), and keep a marker at a chosen base point (null removes it). */
   pickPoint(): Promise<number[] | null>;
   showBase(point: number[] | null): void;
@@ -326,6 +327,7 @@ export class SketchMode {
     this.viewport.interceptor = null;
     this.viewport.onFrame2 = null;
     this.viewport.manipulator.clear();
+    if (this.projectPick !== null) this.cancelProjectPick(true);
     this.viewport.scene.remove(this.group);
     if (this.grid) {
       this.group.remove(this.grid);
@@ -368,6 +370,8 @@ export class SketchMode {
 
   /** The plane as it was when the handle being dragged was grabbed; every drag value is measured from it. */
   private planeBase: M.PlaneData | null = null;
+  /** While picking what to project: the faces and edges chosen so far (null when not picking). */
+  private projectPick: Sel[] | null = null;
   /** Whether the plane's move and turn gizmos are drawn (the header's gizmo button). */
   private gizmosShown = true;
   /** The base point picked for moving the plane (null until picked). */
@@ -781,6 +785,7 @@ export class SketchMode {
   private clickToggle: { sel: M.SketchSel; x: number; y: number } | null = null;
 
   private onDown(e: PointerEvent) {
+    if (this.projectPick !== null) return this.pickToProject(e);
     if (this.tool !== "select") return;
     const hit = this.pick(e);
     const additive = e.ctrlKey || e.metaKey || e.shiftKey;
@@ -1009,6 +1014,9 @@ export class SketchMode {
       e.preventDefault();
       e.stopImmediatePropagation();
       this.undo();
+    } else if (this.projectPick !== null && (e.key === "Escape" || e.key === "Enter")) {
+      if (e.key === "Enter") void this.guard(() => this.finishProjectPick());
+      else this.cancelProjectPick();
     } else if (e.key === "Escape") {
       if (this.chain.length) this.endChain();
       else if (this.tool !== "select") this.setTool("select");
@@ -1637,10 +1645,51 @@ export class SketchMode {
   }
   private offset = { distance: 5 };
 
-  /** Flatten the model's edges onto the sketch plane as fixed reference geometry the sketch can snap to. */
-  private async projectModel() {
+  /** The Project button: start picking the faces and edges to project, or project what is picked so far. */
+  private async toggleProjectPick() {
+    if (this.projectPick === null) {
+      this.projectPick = [];
+      this.viewport.selectItems([]);
+      this.host.status("Project: click the faces and edges of the model to project (click again to remove one). Click Project again or press Enter to finish, Escape to cancel");
+      this.renderPanel();
+      return;
+    }
+    await this.finishProjectPick();
+  }
+
+  /** A click while picking: toggle the face or edge under the pointer. */
+  private pickToProject(e: PointerEvent) {
+    const hit = this.viewport.pickModelItem(e);
+    if (!hit || this.projectPick === null) return;
+    const has = this.projectPick.some((s) => s.kind === hit.kind && s.id === hit.id);
+    this.projectPick = has ? this.projectPick.filter((s) => !(s.kind === hit.kind && s.id === hit.id)) : [...this.projectPick, hit];
+    this.viewport.selectItems(this.projectPick);
+    this.host.status(`Project: ${this.projectPick.length} picked. Click Project again or press Enter to finish, Escape to cancel`);
+    this.renderPanel();
+  }
+
+  private cancelProjectPick(quiet = false) {
+    this.projectPick = null;
+    this.viewport.selectItems([]);
+    if (!quiet) {
+      this.host.status("Project cancelled");
+      this.renderPanel();
+    }
+  }
+
+  private async finishProjectPick() {
+    const picked = this.projectPick ?? [];
+    if (!picked.length) return this.cancelProjectPick();
+    this.projectPick = null;
+    this.viewport.selectItems([]);
+    this.renderPanel();
+    await this.projectModel(picked);
+  }
+
+  /** Flatten the picked faces and edges onto the sketch plane as fixed reference geometry the sketch can snap to. */
+  private async projectModel(picked: Sel[]) {
     try {
-      const ref = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[]; skipped?: { square: number; tilted_circles: number; other: number }; drawn?: { ellipses: number; splines: number } }>("sketch_project", { plane: this.s.plane });
+      const ref = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[]; skipped?: { square: number; tilted_circles: number; other: number }; drawn?: { ellipses: number; splines: number } }>("sketch_project", { plane: this.s.plane, faces: picked.filter((p) => p.kind === "face").map((p) => p.id), edges: picked.filter((p) => p.kind === "edge").map((p) => p.id) });
       if (!this.active) return; // the sketch was left while the model was being projected
       const near = (a: M.SketchPoint, b: M.SketchPoint) => Math.hypot(a.u - b.u, a.v - b.v) < 1e-5;
       const known = this.s.points.filter((p) => p.fixed);
@@ -1679,7 +1728,7 @@ export class SketchMode {
         sk?.other ? `${sk.other} curved edge${sk.other === 1 ? "" : "s"} of another kind skipped, their end points are snappable` : "",
         sk?.square ? `${sk.square} edge${sk.square === 1 ? "" : "s"} seen end-on shown as points` : "",
       ].filter(Boolean);
-      this.host.status(`${added ? `Projected ${added} model edge${added === 1 ? "" : "s"}` : "No new model edges to project"}${notes.length ? `. ${notes.join("; ")}` : ""}`, !!(sk?.tilted_circles || sk?.other));
+      this.host.status(`${added ? `Projected ${added} model edge${added === 1 ? "" : "s"}` : "No new model edges to project"}${notes.length ? `. ${notes.join("; ")}` : ""}`, sk?.tilted_circles || sk?.other ? "warn" : false);
     } catch (e) {
       this.host.status((e as Error).message, true);
     } finally {
@@ -2101,8 +2150,10 @@ export class SketchMode {
     }
 
     const flat = this.unwrapFace === null;
-    const project = button("Project model edges", () => this.projectModel());
-    project.title = "Flatten the model's edges onto this plane as fixed geometry to snap and constrain to";
+    const picking = this.projectPick !== null;
+    const project = button(picking ? `Project ${this.projectPick!.length} picked: done` : "Project model edges", () => void this.guard(() => this.toggleProjectPick()));
+    project.classList.toggle("active", picking);
+    project.title = picking ? "Project the picked faces and edges now (Enter), or press Escape to cancel" : "Pick faces and edges of the model, then flatten them onto this plane as fixed geometry to snap and constrain to";
     if (flat) constraintsBox.append(project);
 
     const finish = button("Finish sketch", () => void this.guard(() => this.finish()));

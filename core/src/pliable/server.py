@@ -413,7 +413,22 @@ class Session:
 
     def _sketch_project(self, request: dict) -> dict:
         topology = self._require_document().current
-        return sketch.face_reference(topology.shape, request["plane"], project=True)
+        faces, edges = request.get("faces"), request.get("edges")
+        shape = topology.shape
+        if faces or edges:  # only what was picked: the picked edges and the edges of the picked faces
+            from OCP.BRep import BRep_Builder
+            from OCP.TopoDS import TopoDS_Compound
+
+            try:
+                chosen = [topology.face(int(i)) for i in faces or []] + [topology.edge(int(i)) for i in edges or []]
+            except (KeyError, ValueError, TypeError, IndexError) as e:
+                raise RequestError("Unknown face or edge") from e
+            shape = TopoDS_Compound()
+            builder = BRep_Builder()
+            builder.MakeCompound(shape)
+            for item in chosen:
+                builder.Add(shape, item)
+        return sketch.face_reference(shape, request["plane"], project=True)
 
     def _region_shape(self, request: dict):
         """The model shape with the sketch's closed regions added as faces (imprinted or loose)."""

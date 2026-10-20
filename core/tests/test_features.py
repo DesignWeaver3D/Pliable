@@ -664,3 +664,20 @@ def test_refine_bodies_touches_only_the_selected_body():
     assert len(solids_of(one.shape)) == 2
     assert volume(one.shape) == pytest.approx(volume(topology.shape))
     assert tool.execute(topology, Selection(), {}, preview=False).shape is not None
+
+
+def test_sketch_project_takes_only_the_picked_faces_and_edges():
+    from pliable.server import Session
+
+    s = Session()
+    s.handle({"type": "open_demo", "name": "block"})
+    plane = {"origin": [0, 0, 0], "normal": [0, 0, 1], "xdir": [1, 0, 0]}
+    everything = s.handle({"type": "sketch_project", "plane": plane})
+    one_face = s.handle({"type": "sketch_project", "plane": plane, "faces": [0]})
+    one_edge = s.handle({"type": "sketch_project", "plane": plane, "edges": [0]})
+    assert len(everything["entities"]) > len(one_face["entities"]) >= 1
+    assert 1 <= len(one_edge["entities"]) + len(one_edge["points"]) < len(everything["entities"]) + len(everything["points"])
+    from pliable.server import RequestError
+
+    with pytest.raises(RequestError):
+        s.handle({"type": "sketch_project", "plane": plane, "faces": [9999]})

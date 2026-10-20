@@ -39,7 +39,7 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 | `sketch_rename` | `sketch_id`, `name` | undoable (bumps `rev`); mesh reply |
 
 | `sketch_offset` | `sketch`, `entities` (ids), `distance` | `{points, entities}`: parallel copies of the chosen lines, arcs and circles with fresh ids and no constraints (positive grows a closed outline) |
-| `sketch_project` | `plane` | `{points, entities}`: every model edge flattened onto the plane as fixed reference geometry (lines square to the plane and tilted circles are left out) |
+| `sketch_project` | `plane`, optional `faces` and `edges` (ids) | `{points, entities}`: the picked faces and edges (every model edge when none are given) flattened onto the plane as fixed reference geometry (lines square to the plane and tilted circles are left out) |
 | `tool_preview` / `tool_commit` with `edit_body` (id) | the usual fields for a primitive tool (`add_box` ...) | replaces that primitive body by the same primitive with the new values, keeping its id, name and place in the list (one undo step); an error when the body is not an editable primitive of that tool |
 | `rename_body` | `body` (id), `name` | a mesh reply with the new name (an undo step); an empty name or unknown id is an error |
 | `combine_step` | `data` (base64 STEP), `mode` "union"/"cut"/"intersect", optional `dx`, `dy`, `dz` | a mesh reply: the model combined with the imported solid (committed) |

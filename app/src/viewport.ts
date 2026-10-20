@@ -1387,6 +1387,12 @@ export class Viewport {
   }
 
   /** What is under the pointer: a vertex, else an edge, else a face (vertices and edges only if not hidden behind a face). */
+  /** The face or edge of the model under the pointer (for the sketch's project picking), or null. */
+  pickModelItem(e: PointerEvent): Sel | null {
+    const hit = this.pickHit(e);
+    return hit && (hit.kind === "face" || hit.kind === "edge") ? { kind: hit.kind, id: hit.id } : null;
+  }
+
   private pickHit(e: PointerEvent): Hit | null {
     if (!this.mesh || !this.data) return null;
     const rect = this.renderer.domElement.getBoundingClientRect();

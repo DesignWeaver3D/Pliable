@@ -33,6 +33,11 @@ import { bodiesOf, filterHidden } from "./visibility";
 
 const $ = (id: string) => document.getElementById(id)!;
 const status = $("status");
+// A warning (orange) stays only while its own text is showing; any other message replaces it.
+let warnedText: string | null = null;
+new MutationObserver(() => {
+  if (status.classList.contains("warn") && status.textContent !== warnedText) status.classList.remove("warn");
+}).observe(status, { childList: true, characterData: true, subtree: true });
 const selected = $("selected");
 const DEV = new URLSearchParams(location.search).has("dev"); // ?dev=1 shows triangle counts and timings
 const latency = $("latency");
@@ -1215,7 +1220,9 @@ const sketch = new SketchMode(
   {
     status(text, error = false) {
       status.textContent = text;
-      status.classList.toggle("error", error);
+      status.classList.toggle("error", error === true);
+      status.classList.toggle("warn", error === "warn");
+      warnedText = error === "warn" ? text : null;
     },
     pickPoint: () => pointPicker.pick(),
     showBase: (point) => pointPicker.showBase(point),
