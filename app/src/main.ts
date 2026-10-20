@@ -9,7 +9,7 @@ import type { Tool as SketchTool } from "./sketch";
 import { SketchBar } from "./sketchbar";
 import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
-import { fitStripCount, stripRoom } from "./stripfit";
+import { stripRoom } from "./stripfit";
 import { DimensionOverlay, type Dimension } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
@@ -347,10 +347,7 @@ function renderToolbar() {
   }
   const rank = (t: ToolInfo) => (t.id === active ? -1 : GROUP_ORDER.includes(t.id) ? GROUP_ORDER.indexOf(t.id) : GROUP_ORDER.length);
   const ordered = [...usable].sort((a, b) => rank(a) - rank(b));
-  const more = document.createElement("button");
-  more.className = "more";
-  more.title = "Open the tool drawer, showing the tools that work now (T)";
-  more.addEventListener("click", () => toggleDrawer(true, true));
+  // Every usable tool gets a button; the strip wraps onto more rows instead of hiding any.
   const buttons = ordered.map((tool) => {
     const button = document.createElement("button");
     button.append(toolIcon(tool.id, tool.label), tool.label);
@@ -359,20 +356,7 @@ function renderToolbar() {
     button.addEventListener("click", () => armTool(tool, "strip"));
     return button;
   });
-  const setMore = (hidden: number) => {
-    more.replaceChildren(uiIcon("more"), hidden > 0 ? `${hidden} more` : "All tools");
-  };
-  // Measure pass: lay everything out, read the widths, then keep only the tools that fit in the available width.
-  setMore(ordered.length);
-  toolbar.replaceChildren(...buttons, ...helpers, more);
-  const gap = parseFloat(getComputedStyle(toolbar).columnGap) || 6;
-  const style = getComputedStyle(toolbar);
-  const chrome = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2;
-  const widths = buttons.map((b) => b.getBoundingClientRect().width);
-  const helperWidth = helpers.reduce((sum, h, i) => sum + h.getBoundingClientRect().width + (i ? gap : 0), 0);
-  const count = fitStripCount({ tools: widths, helpers: helperWidth, more: more.getBoundingClientRect().width, gap, chrome }, available);
-  for (const b of buttons.slice(count)) b.remove();
-  setMore(ordered.length - count);
+  toolbar.replaceChildren(...buttons, ...helpers);
 }
 
 window.addEventListener("resize", () => renderToolbar());

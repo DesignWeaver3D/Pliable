@@ -36,7 +36,7 @@
       #bar button:disabled { opacity: 0.4; }
       #bar button.active { border-color: #ff8a1f; color: #ffb878; }
       #bar select, #bar span { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; }
-      #tools { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 340px); display: flex; flex-wrap: nowrap; justify-content: center; gap: 6px; align-items: center; z-index: 2; background: rgba(35, 38, 45, 0.92); border: 1px solid #3a3e47; border-radius: 8px; padding: 5px 6px; }
+      #tools { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 340px); display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; align-items: center; z-index: 2; max-height: calc(100vh - 150px); overflow-y: auto; background: rgba(35, 38, 45, 0.92); border: 1px solid #3a3e47; border-radius: 8px; padding: 5px 6px; }
       #tools button { white-space: nowrap; background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 10px; }
       #tools button.active { border-color: #ff8a1f; color: #ffb878; }
       #tools button.active::after { content: "drag"; margin-left: 6px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a1f; }
