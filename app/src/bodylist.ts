@@ -3,6 +3,8 @@
 
 import { clickRows, isIsolated } from "./bodylogic";
 import { uiIcon } from "./icons";
+import { bodyColor } from "./bodycolors";
+import { onSettingsChange, settings } from "./settings";
 
 export interface BodyInfo {
   id: number;
@@ -36,6 +38,7 @@ export class BodyList {
 
   constructor(private readonly list: HTMLElement, private readonly host: BodyListHost, private readonly count: HTMLElement) {
     list.addEventListener("pointerleave", () => host.hover(null));
+    onSettingsChange(() => this.render());
     document.addEventListener(
       "pointerdown",
       (e) => {
@@ -103,8 +106,16 @@ export class BodyList {
     const name = document.createElement("span");
     name.className = "bodyname";
     name.textContent = body.name;
+    const dot = document.createElement("span");
+    dot.className = "bodydot";
+    const tinted = settings.randomBodyColors && !hidden;
+    if (tinted) {
+      name.style.color = bodyColor(body.id);
+      dot.style.background = bodyColor(body.id);
+    }
     const eye = this.toggle(hidden ? "eyeOff" : "eye", hidden ? "Show this body" : "Hide this body", () => this.host.toggleHide(body.id), false);
     const iso = this.toggle("isolate", isolated ? "Show all bodies again" : "Show only this body", () => this.host.toggleIsolate(body.id), isolated);
+    if (tinted) row.append(dot);
     row.append(name, eye, iso);
     row.addEventListener("click", (e) => {
       if ((e.target as HTMLElement).closest("button, input")) return;

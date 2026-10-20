@@ -9,6 +9,7 @@ import type { CentreInfo, FaceRange, MeshData } from "./client";
 import { splitDrawLists } from "./slide";
 import { Manipulator } from "./manipulator";
 import { onSettingsChange, settings, updateSettings } from "./settings";
+import { bodyColorArray } from "./bodycolorarray";
 
 /** A "body" selection is a whole solid (every face of the body), chosen from the body list. */
 export type Kind = "face" | "edge" | "vertex" | "body";
@@ -577,7 +578,10 @@ export class Viewport {
       }
     });
     window.addEventListener("resize", () => this.resize());
-    onSettingsChange(() => this.applySeeThrough());
+    onSettingsChange(() => {
+      this.applySeeThrough();
+      this.applyBodyColors();
+    });
     this.resize();
     this.renderer.setAnimationLoop(() => {
       this.controls.update();
@@ -772,6 +776,7 @@ export class Viewport {
     geometry.setAttribute("position", new THREE.BufferAttribute(mesh.positions, 3));
     geometry.setAttribute("normal", new THREE.BufferAttribute(mesh.normals, 3));
     geometry.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
+    geometry.setAttribute("color", new THREE.BufferAttribute(bodyColorArray(mesh), 3));
     const material = new THREE.MeshStandardMaterial({
       color: 0x9db4cc,
       metalness: 0.1,
@@ -783,6 +788,7 @@ export class Viewport {
     this.mesh = new THREE.Mesh(geometry, material);
     this.model.add(this.mesh);
     this.surfaceMaterial = material;
+    this.applyBodyColors();
     this.hoverMark = new Mark(this.model, geometry, 0xffd36b, 0.55, this.hoverLine);
     this.markSource = geometry;
 
@@ -820,6 +826,7 @@ export class Viewport {
       const surfaceGeometry = new THREE.BufferGeometry();
       surfaceGeometry.setAttribute("position", rest.getAttribute("position"));
       surfaceGeometry.setAttribute("normal", rest.getAttribute("normal"));
+      surfaceGeometry.setAttribute("color", rest.getAttribute("color"));
       surfaceGeometry.setIndex(new THREE.BufferAttribute(parts.movingIndices, 1));
       const surface = new THREE.Mesh(surfaceGeometry, this.surfaceMaterial!);
       this.edgeLines.geometry.setAttribute("position", new THREE.BufferAttribute(parts.restEdges, 3));
@@ -940,6 +947,16 @@ export class Viewport {
     }
     const face = this.data!.faces[lo];
     return face && face.count > 0 ? face.id : null;
+  }
+
+  /** Random body colours: the per-vertex body tint multiplies a white base; off gives the plain steel-blue surface. */
+  private applyBodyColors() {
+    const m = this.surfaceMaterial;
+    if (!m) return;
+    const on = settings.randomBodyColors;
+    m.vertexColors = on;
+    m.color.set(on ? 0xffffff : 0x9db4cc);
+    m.needsUpdate = true;
   }
 
   /** See-through: the surface is drawn translucent and edges ignore depth so hidden ones can be seen and picked. */

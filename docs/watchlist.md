@@ -138,3 +138,10 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Edit hole `start` (entry-end depth handle): the cut spans [start, end] along the axis and a skin of material is left above it; any counterbore or countersink at the opening is filled and not recut while start is above 0. The start is a parameter of the edit session only: a hole with a skin reads back as a closed internal void (no opening), so it is not found by the hole tools on the next selection, and the form's start returns to 0 for any hole that is read back. Alternative not built: measuring depth from the entry for a through hole.
 
 - Move/Rotate (`move_body`): the rotation rings are drawn in world axes and their grips move along a straight tangent, so a large drag drifts off the circle; rotations apply about each body's own centre in the order X, Y, Z, then the move. The old `rotate_body` stays registered (hidden) for old documents and rotates about the origin. With nothing selected, tools that act on every body (move/rotate/scale/offset/arrays) are offered only when the model has a single body; the core still runs them on a multi-body model if asked.
+
+## Random body colours
+
+- Each body's colour depends only on its stable id: hue = id * 137.508 degrees (+20), saturation 32-42 %, lightness 62 % upward, raised per hue (up to 80 %) until contrast against #1b1d22 is at least 7:1. Blue hues therefore end up lighter than others. Tested for ids 1..500.
+- After about a dozen bodies, hues of non-consecutive ids can sit close together; colours are distinct, not unique.
+- The surface uses per-vertex colours on a white base, so lighting still applies; loose faces and sheets with no body keep the steel-blue. Colours are not saved in the document and there is no per-body override yet.
+- In the body list the name colour overrides the grey of hidden bodies only when visible (hidden rows stay grey, no dot).
