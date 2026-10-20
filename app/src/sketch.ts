@@ -383,7 +383,7 @@ export class SketchMode {
     this.gridUniforms = {
       uMajor: { value: major },
       uMinor: { value: minor > 0 && minor < major ? minor : 0 },
-      uColor: { value: new THREE.Color(COLORS.grid).multiplyScalar(1.6) },
+      uColor: { value: new THREE.Color(COLORS.grid) },
       uFade: { value: new THREE.Vector2(fadeFrom, fadeTo) },
       uResolution: { value: new THREE.Vector2(1, 1) },
     };
@@ -417,14 +417,15 @@ export class SketchMode {
           return line * (1.0 - smoothstep(0.12, 0.3, density));
         }
         void main() {
-          float strength = lines(uMajor) * 0.55;
-          if (uMinor > 0.0) strength = max(strength, lines(uMinor) * 0.22);
+          float strength = lines(uMajor) * 0.6;
+          if (uMinor > 0.0) strength = max(strength, lines(uMinor) * 0.25);
           vec2 centred = (gl_FragCoord.xy / uResolution - 0.5) * 2.0;
           float away = length(centred * vec2(uResolution.x / uResolution.y, 1.0)) / 1.0;
           float fadeOut = 1.0 - smoothstep(uFade.x, uFade.y, away);
           float alpha = strength * fadeOut;
           if (alpha < 0.003) discard;
           gl_FragColor = vec4(uColor, alpha);
+          #include <colorspace_fragment> // the colour is given as on screen, as the old line grid was; without this it came out far darker
         }`,
     });
     const size = 2e5; // far larger than any sketch: the grid has no visible edge
