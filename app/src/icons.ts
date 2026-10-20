@@ -132,6 +132,7 @@ export const SKETCH_ICONS: Record<string, string> = {
   trim: '<path d="M4 8h16M12 4v16"/><path d="M12 8v12" stroke-width="3" opacity=".35"/>',
   split: '<path d="M4 12h6M14 12h6"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><path d="M12 5v4M12 15v4" stroke-dasharray="1.5 2"/>',
   extend: '<path d="M4 12h9" /><path d="M13 12h5" stroke-dasharray="2 2"/><path d="M20 6v12"/><path d="M16 9l3 3-3 3"/>',
+  polygon: '<path d="M12 3.5l7.5 5.5-2.9 8.8H7.4L4.5 9z" fill="currentColor" fill-opacity=".12"/><text x="12" y="15" text-anchor="middle" font-size="8" font-family="system-ui, sans-serif" font-weight="700" fill="currentColor" stroke="none">n</text>',
   triangle: '<path d="M12 4l8.5 15h-17z" fill="currentColor" fill-opacity=".12"/>',
   pentagon: '<path d="M12 3.5l8 6-3 9.5H7l-3-9.5z" fill="currentColor" fill-opacity=".12"/>',
   hexagon: '<path d="M7.5 4.5h9l4.5 7.5-4.5 7.5h-9L3 12z" fill="currentColor" fill-opacity=".12"/>',
