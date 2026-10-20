@@ -753,3 +753,19 @@ def test_plane_through_three_vertices_and_through_an_edge_and_a_vertex():
         sketch.plane_through((0, 0, 0), (1, 0, 0), (2, 0, 0))
     edge_plane = session.handle({"type": "sketch_plane", "edge": 0, "vertex": bottom[2]})["plane"]
     assert math.sqrt(sum(c * c for c in edge_plane["normal"])) == pytest.approx(1)
+
+
+@pytest.mark.parametrize("preview", [True, False])
+@pytest.mark.parametrize("distance", [-20, -20.1, -50, -1000])
+def test_imprinted_region_pushed_past_the_bottom_cuts_through(preview, distance):
+    """The block is 20 thick: a region pushed down by that much or more makes the same clean through-pocket."""
+    from pliable.tools import TOOLS, Selection
+    from pliable.topology import Topology
+
+    shape = load_demo("block")
+    top = {"origin": [0, 0, 10], "normal": [0, 0, 1], "xdir": [1, 0, 0]}
+    result, _ = sketch.add_regions(shape, _overlapping_sketch(top))
+    topology = Topology(result)
+    small = next(i for i, f in topology.faces() if _face_area(f) == pytest.approx(12.57, abs=0.05))
+    cut = TOOLS["push_pull"].execute(topology, Selection(faces=[small]), {"distance": distance}, preview)
+    assert _solid_volume(cut.shape) == pytest.approx(volume(shape) - 12.566 * 20, rel=1e-3)

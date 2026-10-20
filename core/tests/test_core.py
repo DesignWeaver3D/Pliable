@@ -338,3 +338,57 @@ def test_resume_session_returns_the_dropped_connections_model():
     assert isinstance(reply, bytes) and second.document is first.document
     with pytest.raises(server.RequestError):
         Session().handle({"type": "resume_session"})
+
+
+@pytest.mark.parametrize("kind", ["tool_preview", "tool_commit"])
+@pytest.mark.parametrize("distance", [-20, -35, -1000])
+def test_pushing_the_whole_top_through_a_block_is_refused_cleanly(kind, distance):
+    from pliable.ops import OperationError
+
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    face = top_face(session.document.current)
+    with pytest.raises(OperationError, match="whole solid"):
+        session.handle({"type": kind, "tool": "push_pull", "selection": {"faces": [face]}, "params": {"distance": distance}})
+
+
+@pytest.mark.parametrize("preview", [True, False])
+@pytest.mark.parametrize("distance", [-19, -20, -20.5, -35, -1000])
+def test_pushing_a_smaller_face_past_the_bottom_cuts_all_the_way_through(preview, distance):
+    """A cut that reaches or passes the far side stays a through-pocket of the same size, however far it is pushed."""
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Fuse
+    from OCP.BRepCheck import BRepCheck_Analyzer
+    from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
+    from OCP.gp import gp_Pnt
+
+    from pliable.tools import TOOLS, Selection
+
+    box = BRepPrimAPI_MakeBox(gp_Pnt(-5, -5, 10), 10, 10, 5).Shape()  # a boss on the block's top face (z=10)
+    fused = BRepAlgoAPI_Fuse(load_demo("block"), box).Shape()
+    topology = Topology(fused)
+    boss_top = max(((planar_normal(f).Z(), i) for i, f in topology.faces() if planar_normal(f) is not None and Bnd(f)[2] > 14.9))[1]
+    result = TOOLS["push_pull"].execute(topology, Selection(faces=[boss_top]), {"distance": distance}, preview)
+    assert BRepCheck_Analyzer(result.shape).IsValid()
+    assert volume(result.shape) == pytest.approx(volume(fused) - 100 * min(-distance, 25))
+
+
+def Bnd(face):
+    box = Bnd_Box()
+    BRepBndLib.Add_s(face, box)
+    return box.CornerMin().X(), box.CornerMin().Y(), box.CornerMin().Z()
+
+
+def test_through_cut_commits_through_the_session():
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Fuse
+    from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
+    from OCP.gp import gp_Pnt
+
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    box = BRepPrimAPI_MakeBox(gp_Pnt(-5, -5, 10), 10, 10, 5).Shape()
+    topology = session.document.commit(BRepAlgoAPI_Fuse(session.document.current.shape, box).Shape())
+    boss_top = max(((planar_normal(f).Z(), i) for i, f in topology.faces() if planar_normal(f) is not None and Bnd(f)[2] > 14.9))[1]
+    before = volume(topology.shape)
+    session.handle({"type": "tool_preview", "tool": "push_pull", "selection": {"faces": [boss_top]}, "params": {"distance": -500}})
+    session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": [boss_top]}, "params": {"distance": -500}})
+    assert volume(session.document.current.shape) == pytest.approx(before - 100 * 25)

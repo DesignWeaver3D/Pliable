@@ -367,10 +367,15 @@ def _push_pull(
         boolean = _boolean(shape, tool, distance > 0, glue=True)
         if boolean is not None and not BRepCheck_Analyzer(boolean.Shape()).IsValid():
             boolean = None
+        # Glue mode can return the solid unchanged when a cut reaches past the far side; the exact boolean cuts through.
+        if boolean is not None and distance < 0 and _volume_of(boolean.Shape()) > _volume_of(shape) - 1e-6:
+            boolean = None
     if boolean is None:
         boolean = _boolean(shape, tool, distance > 0, glue=False)
     if boolean is None:
         raise OperationError("Boolean operation failed")
+    if distance < 0 and not solids_of(boolean.Shape()):
+        raise OperationError("That would cut away the whole solid; use a smaller distance")
     tracked = _follow(boolean, moved_faces)
     edges = _follow(boolean, list(follow_edges or []))
     vertices = _follow(boolean, list(follow_vertices or []))
