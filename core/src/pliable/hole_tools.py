@@ -1,5 +1,5 @@
 """Tools that edit a round hole as a whole: size, depth and position together (`edit_hole`), and turning a hole's
-opening into a countersink (`convert_to_countersink`). Both work from any face of the hole or its rim edge, using the
+opening, or the far end of a through hole, into a countersink or counterbore (`convert_to_countersink`, `convert_to_counterbore`). All work from any face of the hole or its rim edge, using the
 hole description in holes.py.
 
 The hole's on-screen gizmo is its axis: a line from the opening to the end of the bore, with a grip at each end of the bore (the far one sets the depth, the end of its range is "through"; the entry one sets where
@@ -76,7 +76,7 @@ class EditHole(_HoleTool):
         offset = gp_Vec(values["dx"], values["dy"], values["dz"])
         changes: dict = {}
         if diameter >= MIN_DISTANCE and abs(diameter - info.diameter) > MIN_DISTANCE:
-            widest = min((s["diameter"] for s in info.stages), default=math.inf)
+            widest = min((s["diameter"] for s in info.stages + info.end_stages), default=math.inf)
             if diameter >= widest - CLEARANCE:
                 raise OperationError("The hole must stay narrower than its counterbore or countersink; change that first")
             changes["diameter"] = diameter
@@ -130,7 +130,7 @@ class EditHole(_HoleTool):
             unit = tuple(1.0 if k == across[0] else 0.0 for k in range(3))
             rim = info.point(0.0)
             centre = (rim.X() + shift[0], rim.Y() + shift[1], rim.Z() + shift[2])
-            widest = min((s["diameter"] for s in info.stages), default=math.inf)
+            widest = min((s["diameter"] for s in info.stages + info.end_stages), default=math.inf)
             out.extend(round_handles("diameter", "Hole", centre, unit, _perpendicular(axis, unit), diameter, min=MIN_DISTANCE, max=None if math.isinf(widest) else widest - CLEARANCE, shown=diameter))
         middle = at(end / 2)
         names = ("dx", "dy", "dz")
@@ -138,6 +138,22 @@ class EditHole(_HoleTool):
             direction = tuple(1.0 if k == i else 0.0 for k in range(3))
             out.append(Handle(names[i], f"Move along {'XYZ'[i]}", middle, direction, kind="move"))
         return out
+
+
+def _end_changes(info: HoleInfo, stage: dict, far: bool) -> dict:
+    """The rebuild changes that put `stage` at the opening or, with `far`, at the far end of a through hole."""
+    if not far:
+        return {"stages": [stage]}
+    if not info.through:
+        raise OperationError("Only a hole that goes through has a far end; the other end of this one is its bottom")
+    return {"end_stages": [stage]}
+
+
+def _check_room(info: HoleInfo, depth: float, far: bool) -> None:
+    """The new stage must leave some bore between it and the stage at the other end."""
+    other = max((s["depth"] for s in (info.end_stages if not far else info.stages)), default=0.0)
+    if depth + other >= info.depth - CLEARANCE:
+        raise OperationError("The countersink or counterbore is deeper than the hole allows; use a smaller depth" if not other else "The two ends would meet; use a smaller depth at one of them")
 
 
 @register
@@ -148,9 +164,9 @@ class ConvertToCountersink(_HoleTool):
     label = "Add countersink to hole"
     description = (
         "Adds a countersink to an existing round hole: turns its opening into a cone for a flat-head screw, set by the cone's diameter at the surface and its included angle. "
-        "Select a face of the hole or the circle at its opening. This is not the same as an edge chamfer, which is a plain edge break."
+        "Select a face of the hole or the circle at its opening. End 0 is the opening, end 1 the far end of a through hole. This is not the same as an edge chamfer, which is a plain edge break."
     )
-    params = [Param("sink_diameter", "length", 12), Param("sink_angle", "angle", 90)]
+    params = [Param("sink_diameter", "length", 12), Param("sink_angle", "angle", 90), Param("end", "number", 0)]
 
     def run(self, topology, selection, values, preview):
         info = self.hole(topology, selection)
@@ -158,12 +174,12 @@ class ConvertToCountersink(_HoleTool):
         if sink <= info.diameter + MIN_DISTANCE or not 10 <= angle <= 170:
             raise OperationError("The countersink must be wider than the hole, with an angle between 10 and 170 degrees")
         height = (sink - info.diameter) / 2 / math.tan(math.radians(angle) / 2)
-        if height >= info.depth - CLEARANCE:
-            raise OperationError("The countersink is deeper than the hole; use a smaller diameter or a wider angle")
-        if any(s["type"] == "counterbore" for s in info.stages):
-            raise OperationError("This hole has a counterbore; a countersink can't be added to it")
+        far = values["end"] >= 0.5
+        _check_room(info, height, far)
+        if any(s["type"] == "counterbore" for s in (info.end_stages if far else info.stages)):
+            raise OperationError("This end of the hole has a counterbore; a countersink can't be added to it")
         stage = {"type": "countersink", "diameter": sink, "angle": angle, "depth": height}
-        return finish(rebuild_hole(topology.shape, info, None, stages=[stage]))
+        return finish(rebuild_hole(topology.shape, info, None, **_end_changes(info, stage, far)))
 
     def handles(self, topology, selection, values):
         info = self.hole(topology, selection)
@@ -172,8 +188,43 @@ class ConvertToCountersink(_HoleTool):
         if not across:
             return []
         unit = tuple(1.0 if k == across[0] else 0.0 for k in range(3))
-        rim = info.point(0.0)
+        rim = info.point(info.depth if values["end"] >= 0.5 and info.through else 0.0)
         return round_handles("sink_diameter", "Countersink", (rim.X(), rim.Y(), rim.Z()), unit, _perpendicular(axis, unit), values["sink_diameter"], min=info.diameter + 10 * CLEARANCE)
 
 
-__all__ = ["EditHole", "ConvertToCountersink", "NOT_ROUND"]
+@register
+class ConvertToCounterbore(_HoleTool):
+    """Widen the top of an existing hole into a flat-bottomed step for a bolt head, at either end of a through hole."""
+
+    id = "convert_to_counterbore"
+    label = "Add counterbore to hole"
+    description = (
+        "Adds a counterbore to an existing round hole: widens its opening into a flat-bottomed step for a bolt head, set by the step's diameter and depth. "
+        "Select a face of the hole or the circle at its opening. End 0 is the opening, end 1 the far end of a through hole."
+    )
+    params = [Param("bore_diameter", "length", 12), Param("bore_depth", "length", 4), Param("end", "number", 0)]
+
+    def run(self, topology, selection, values, preview):
+        info = self.hole(topology, selection)
+        wide, depth = values["bore_diameter"], values["bore_depth"]
+        if wide <= info.diameter + MIN_DISTANCE or depth < MIN_DISTANCE:
+            raise OperationError("The counterbore must be wider than the hole and have a depth")
+        far = values["end"] >= 0.5
+        _check_room(info, depth, far)
+        if any(s["type"] == "countersink" for s in (info.end_stages if far else info.stages)):
+            raise OperationError("This end of the hole has a countersink; a counterbore can't be added to it")
+        stage = {"type": "counterbore", "diameter": wide, "depth": depth}
+        return finish(rebuild_hole(topology.shape, info, None, **_end_changes(info, stage, far)))
+
+    def handles(self, topology, selection, values):
+        info = self.hole(topology, selection)
+        axis = (info.direction.X(), info.direction.Y(), info.direction.Z())
+        across = [i for i in range(3) if abs(axis[i]) < 0.5]
+        if not across:
+            return []
+        unit = tuple(1.0 if k == across[0] else 0.0 for k in range(3))
+        rim = info.point(info.depth if values["end"] >= 0.5 and info.through else 0.0)
+        return round_handles("bore_diameter", "Counterbore", (rim.X(), rim.Y(), rim.Z()), unit, _perpendicular(axis, unit), values["bore_diameter"], min=info.diameter + 10 * CLEARANCE)
+
+
+__all__ = ["EditHole", "ConvertToCountersink", "ConvertToCounterbore", "NOT_ROUND"]

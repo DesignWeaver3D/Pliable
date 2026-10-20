@@ -201,6 +201,35 @@ def test_convert_to_countersink(block):
     assert only_hole(again).stages[0]["diameter"] == pytest.approx(10)
 
 
+def test_counterbore_and_countersink_at_either_or_both_ends(block):
+    part = drilled(block, "add_hole", diameter=6, depth=0)  # through the 20 thick block
+    wall = hole_wall(part)
+    base = volume(part.shape)
+    near = Topology(run("convert_to_counterbore", part, faces=[wall], bore_diameter=12, bore_depth=5).shape)
+    hole = only_hole(near)
+    assert hole.kind == "counterbore" and hole.through and not hole.end_stages
+    assert hole.stages[0]["diameter"] == pytest.approx(12) and hole.stages[0]["depth"] == pytest.approx(5)
+    assert base - volume(near.shape) == pytest.approx(math.pi * (36 - 9) * 5, rel=1e-6)
+    # the other end: a countersink there, on the same hole
+    both = Topology(run("convert_to_countersink", near, faces=[hole.faces[0]], sink_diameter=10, sink_angle=90, end=1).shape)
+    hole = only_hole(both)
+    assert hole.through and hole.diameter == pytest.approx(6) and hole.depth == pytest.approx(20)
+    assert [s["type"] for s in hole.stages] == ["counterbore"] and [s["type"] for s in hole.end_stages] == ["countersink"]
+    assert hole.end_stages[0]["depth"] == pytest.approx(2) and hole.end_stages[0]["diameter"] == pytest.approx(10)
+    cone = math.pi * 2 / 3 * (25 + 15 + 9) - math.pi * 9 * 2  # frustum of height 2 (radii 5 and 3) minus the bore it replaces
+    assert volume(near.shape) - volume(both.shape) == pytest.approx(cone, rel=1e-6)
+    # a cone is replaced by another cone, not by a counterbore; a counterbore can still go at the far end of the plain side
+    with pytest.raises(OperationError, match="countersink"):
+        run("convert_to_counterbore", both, faces=[hole.faces[0]], bore_diameter=9, bore_depth=3, end=1)
+    twin = Topology(run("convert_to_counterbore", near, faces=[only_hole(near).faces[0]], bore_diameter=9, bore_depth=3, end=1).shape)
+    assert [s["type"] for s in only_hole(twin).end_stages] == ["counterbore"] and only_hole(twin).end_stages[0]["depth"] == pytest.approx(3)
+    with pytest.raises(OperationError, match="meet|deeper"):
+        run("convert_to_counterbore", near, faces=[only_hole(near).faces[0]], bore_diameter=9, bore_depth=16, end=1)
+    with pytest.raises(OperationError, match="far end"):
+        blind = drilled(block, "add_hole", diameter=6, depth=8)
+        run("convert_to_countersink", blind, faces=[hole_wall(blind)], end=1)
+
+
 def test_mesh_centres_carry_the_axis_length():
     from pliable.tessellate import tessellate
 
