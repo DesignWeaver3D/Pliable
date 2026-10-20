@@ -800,6 +800,14 @@ def face_plane(face_shape) -> dict:
     return {"origin": [centre.X(), centre.Y(), centre.Z()], "normal": [normal.X(), normal.Y(), normal.Z()], "xdir": [u.X(), u.Y(), u.Z()]}
 
 
+def plane_normal_to(point, tangent) -> dict:
+    """The sketch plane through `point` square to a direction (a line or curve's tangent there): its normal runs
+    along the direction and its x axis is any direction square to it, chosen from the world axes so it is stable."""
+    normal = _unit(tangent)
+    reference = (0, 0, 1) if abs(normal[2]) < 0.9 else (1, 0, 0)
+    return {"origin": list(point), "normal": list(normal), "xdir": list(_unit(_cross(reference, normal)))}
+
+
 def plane_through(p1, p2, p3) -> dict:
     """The sketch plane through three points: origin at the first, x along the first to the second, normal by
     the right-hand rule from the first-to-second and first-to-third directions."""

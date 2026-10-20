@@ -1189,15 +1189,15 @@ const keptSketches = new KeptSketches({
       return;
     }
     try {
-      const kept = await core.request<{ id: number; name: string; sketch: any }>("sketch_get", { id });
-      sketch.start(kept.sketch.plane, undefined, null, undefined, kept);
+      const reply = await core.request<{ sketch_id: number; name: string; sketch: any }>("sketch_get", { sketch_id: id });
+      sketch.start(reply.sketch.plane, undefined, null, undefined, { id: reply.sketch_id, name: reply.name, sketch: reply.sketch });
     } catch (e) {
       status.textContent = (e as Error).message;
       status.classList.add("error");
     }
   },
-  remove: (id) => keptRequest("sketch_delete", { id }),
-  rename: (id, name) => keptRequest("sketch_rename", { id, name }),
+  remove: (id) => keptRequest("sketch_delete", { sketch_id: id }),
+  rename: (id, name) => keptRequest("sketch_rename", { sketch_id: id, name }),
 });
 onSketches = (list) => keptSketches.setList(list);
 sketch.onEditing = (id) => keptSketches.setEditing(id);

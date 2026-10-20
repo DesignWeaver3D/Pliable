@@ -783,3 +783,26 @@ def test_sketch_origin_is_the_middle_of_the_face_not_its_centroid():
     assert plane["origin"][0] == pytest.approx((min(xs) + max(xs)) / 2, abs=1e-6)
     assert plane["origin"][1] == pytest.approx((min(ys) + max(ys)) / 2, abs=1e-6)
     assert plane["origin"][2] == pytest.approx(5)
+
+
+def test_plane_square_to_an_edge_at_a_fraction_along_it():
+    from OCP.BRep import BRep_Tool
+    from OCP.TopExp import TopExp
+    from OCP.TopoDS import TopoDS_Vertex
+
+    from pliable.server import Session
+
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})  # a 40 x 30 x 20 box centred on the origin
+    topology = session.document.current
+    v1, v2 = TopoDS_Vertex(), TopoDS_Vertex()
+    TopExp.Vertices_s(topology.edge(0), v1, v2)
+    a, b = BRep_Tool.Pnt_s(v1), BRep_Tool.Pnt_s(v2)
+    for at in (0.5, 0.25):
+        plane = session.handle({"type": "sketch_plane", "normal_to": 0, "at": at})["plane"]
+        expected = [a.X() + at * (b.X() - a.X()), a.Y() + at * (b.Y() - a.Y()), a.Z() + at * (b.Z() - a.Z())]
+        assert plane["origin"] == pytest.approx(expected, abs=1e-6)
+        direction = [b.X() - a.X(), b.Y() - a.Y(), b.Z() - a.Z()]
+        length = math.sqrt(sum(c * c for c in direction))
+        assert abs(sum(n * d / length for n, d in zip(plane["normal"], direction))) == pytest.approx(1, abs=1e-9)
+        assert sum(x * n for x, n in zip(plane["xdir"], plane["normal"])) == pytest.approx(0, abs=1e-9)

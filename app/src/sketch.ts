@@ -259,7 +259,7 @@ export class SketchMode {
     if (!drawn && !this.kept) return this.exit(); // nothing was drawn: nothing to keep
     const keepRequest = (regions: boolean) => ({
       sketch: { ...this.s, ...(this.unwrapFace ? { unwrap: this.unwrapFace } : {}) },
-      ...(this.kept ? { id: this.kept.id } : {}),
+      ...(this.kept ? { sketch_id: this.kept.id } : {}),
       regions,
       ...(this.unwrapFace ? { unwrap: this.unwrapFace } : {}),
     });

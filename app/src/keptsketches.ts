@@ -136,7 +136,7 @@ export class KeptSketches {
         for (const k of wanted) {
           if (this.cache.get(k.id)?.rev === k.rev) continue;
           try {
-            const reply = await this.host.core.request<{ sketch: M.SketchData }>("sketch_get", { id: k.id });
+            const reply = await this.host.core.request<{ sketch: M.SketchData }>("sketch_get", { sketch_id: k.id });
             this.cache.set(k.id, { rev: k.rev, data: reply.sketch });
           } catch {
             // a sketch that cannot be read is simply not drawn

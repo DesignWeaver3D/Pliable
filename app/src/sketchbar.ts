@@ -1,5 +1,5 @@
 /**
- * The bar at the bottom of the view that starts a sketch: one "Sketch On Face" button (the face may be selected
+ * The bar at the bottom of the view that starts a sketch: one "Sketch On Geometry" button (the face may be selected
  * before or after pressing it; curved and multi-face selections are unrolled automatically) and the three
  * world planes. A face that cannot be sketched on says why and offers the diagnostic report.
  */
@@ -81,7 +81,7 @@ export class SketchBar {
     if (faces.length) return void this.begin(faces.map((f) => f.id));
     this.armed = !this.armed;
     this.problem = null;
-    this.d.status(this.armed ? "Sketch On Face: click a face to sketch on (press the button again to cancel)" : "Sketch On Face cancelled");
+    this.d.status(this.armed ? "Sketch On Geometry: click a face to sketch on (press the button again to cancel). Other ways to place a sketch appear when you select vertices or an edge" : "Sketch On Geometry cancelled");
     this.key = "";
     this.render();
   }
@@ -92,23 +92,30 @@ export class SketchBar {
     const selected = this.d.selection();
     const vertices = selected.filter((s) => s.kind === "vertex").map((s) => s.id);
     const edges = selected.filter((s) => s.kind === "edge").map((s) => s.id);
-    const through = vertices.length === 3 && !edges.length && !faces ? { vertices } : vertices.length === 1 && edges.length === 1 && !faces ? { edge: edges[0], vertex: vertices[0] } : null;
-    const key = `${faces}|${sketch.active}|${this.armed}|${this.problem}|${JSON.stringify(through)}`;
+    // The other ways to place a sketch plane, from what is selected: [label, tooltip, request].
+    const ways: [string, string, Record<string, unknown>][] = [];
+    if (!faces && vertices.length === 3 && !edges.length) ways.push(["Through 3 Points", "Sketch on the plane through the three selected vertices", { vertices }]);
+    if (!faces && vertices.length === 1 && edges.length === 1) ways.push(["Through Edge And Point", "Sketch on the plane through the selected straight edge and vertex", { edge: edges[0], vertex: vertices[0] }]);
+    if (!faces && edges.length === 1 && !vertices.length) ways.push(["Normal To Edge", "Sketch on the plane square to the selected edge, at its middle (for a path or rail profile)", { normal_to: edges[0], at: 0.5 }]);
+    if (!faces && edges.length === 1 && vertices.length === 1) ways.push(["Normal To Edge", "Sketch on the plane square to the selected edge, at its middle", { normal_to: edges[0], at: 0.5 }]);
+    const key = `${faces}|${sketch.active}|${this.armed}|${this.problem}|${JSON.stringify(ways)}`;
     if (key === this.key) return; // keep the buttons (and the offset box focus) when nothing relevant changed
     this.key = key;
     const onFace = document.createElement("button");
-    onFace.textContent = this.armed ? "Sketch On Face: pick a face" : "Sketch On Face";
+    onFace.textContent = this.armed ? "Sketch On Geometry: pick a face" : "Sketch On Geometry";
     onFace.disabled = sketch.active;
     onFace.classList.toggle("active", this.armed);
-    onFace.title = "Start a 2D sketch on a face. Select the face first, or press this and then click the face. Curved faces and chains of faces are unrolled flat automatically";
+    onFace.title = "Start a 2D sketch on geometry of the model: a face (select it first, or press this and then click the face. curved faces and chains of faces are unrolled flat automatically), or select three vertices, an edge, or an edge and a vertex to get the other ways of placing a sketch";
     onFace.addEventListener("click", () => this.press());
     const parts: HTMLElement[] = [onFace];
-    if (through && !sketch.active) {
-      const here = document.createElement("button");
-      here.textContent = "vertices" in through ? "Sketch Through 3 Points" : "Sketch Through Edge And Point";
-      here.title = "Start a sketch on the plane through the three selected vertices, or through the selected straight edge and vertex";
-      here.addEventListener("click", () => void this.beginThrough(through));
-      parts.push(here);
+    if (!sketch.active) {
+      for (const [label, tip, request] of ways) {
+        const here = document.createElement("button");
+        here.textContent = `Sketch ${label}`;
+        here.title = tip;
+        here.addEventListener("click", () => void this.beginThrough(request));
+        parts.push(here);
+      }
     }
     if (this.problem) {
       const why = document.createElement("span");

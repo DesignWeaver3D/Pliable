@@ -33,10 +33,10 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 | `sketch_solve` | `sketch`, optional `drag` {point, u, v} | `{status: "ok"/"failed", dof, failed: [constraint ids], points: [{id, u, v}], radii}`; sketch format and constraint types in `core/src/pliable/sketch.py` |
 | `sketch_extrude` | `sketch`, `distance` (an angle in degrees when `axis` is given), `mode` "join"/"cut", optional `symmetric` (extrude both ways about the plane), optional `axis` (id of a sketch line: revolve about it instead), `commit` | a mesh reply (preview unless `commit`): the sketch's profile extruded along the plane normal and joined or cut |
 | `sketch_regions` | `sketch` | a committed mesh reply: every closed zone of the sketch becomes a face; zones lying on a flat model face are imprinted on it, the others are added as loose faces that push/pull extrudes into solids |
-| `sketch_keep` | `sketch`, `id?`, `name?`, `regions?`, `unwrap?` | stores the sketch in the document as one undoable step. No `id`: a new sketch with the next id (never reused) and name "Sketch N". With `id`: replaces the content, keeps the name unless `name` is given, and bumps `rev`. With `regions` true it also does what `sketch_regions` does (same undo step); a sketch with no closed region (an open path or spline) is kept and makes no faces. Mesh reply with `sketchId` and, when `regions` was set, `facesMade` |
-| `sketch_get` | `id` | `{id, name, rev, sketch}`; unknown id is an error |
-| `sketch_delete` | `id` | undoable; mesh reply |
-| `sketch_rename` | `id`, `name` | undoable (bumps `rev`); mesh reply |
+| `sketch_keep` | `sketch`, `sketch_id?`, `name?`, `regions?`, `unwrap?` | stores the sketch in the document as one undoable step. No `id`: a new sketch with the next id (never reused) and name "Sketch N". With `sketch_id`: replaces the content, keeps the name unless `name` is given, and bumps `rev`. With `regions` true it also does what `sketch_regions` does (same undo step); a sketch with no closed region (an open path or spline) is kept and makes no faces. Mesh reply with `sketchId` and, when `regions` was set, `facesMade` |
+| `sketch_get` | `sketch_id` | `{sketch_id, name, rev, sketch}`; unknown id is an error |
+| `sketch_delete` | `sketch_id` | undoable; mesh reply |
+| `sketch_rename` | `sketch_id`, `name` | undoable (bumps `rev`); mesh reply |
 
 | `sketch_offset` | `sketch`, `entities` (ids), `distance` | `{points, entities}`: parallel copies of the chosen lines, arcs and circles with fresh ids and no constraints (positive grows a closed outline) |
 | `sketch_project` | `plane` | `{points, entities}`: every model edge flattened onto the plane as fixed reference geometry (lines square to the plane and tilted circles are left out) |

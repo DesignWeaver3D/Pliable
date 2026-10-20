@@ -36,20 +36,20 @@ def test_keep_then_get_and_replace():
     sk = make(session)
     h = header(session.handle({"type": "sketch_keep", "sketch": sk}))
     assert h["sketches"] == [{"id": 1, "name": "Sketch 1", "rev": 1}] and h["sketchId"] == 1
-    got = session.handle({"type": "sketch_get", "id": 1})
+    got = session.handle({"type": "sketch_get", "sketch_id": 1})
     assert got["sketch"] == sk and got["name"] == "Sketch 1" and got["rev"] == 1
     got["sketch"]["points"].clear()  # callers cannot mutate stored state
-    assert session.handle({"type": "sketch_get", "id": 1})["sketch"] == sk
-    h = header(session.handle({"type": "sketch_keep", "id": 1, "sketch": make(session, 20)}))
+    assert session.handle({"type": "sketch_get", "sketch_id": 1})["sketch"] == sk
+    h = header(session.handle({"type": "sketch_keep", "sketch_id": 1, "sketch": make(session, 20)}))
     assert h["sketches"] == [{"id": 1, "name": "Sketch 1", "rev": 2}] and h["sketchId"] == 1
-    h = header(session.handle({"type": "sketch_keep", "id": 1, "name": "Base", "sketch": sk}))
+    h = header(session.handle({"type": "sketch_keep", "sketch_id": 1, "name": "Base", "sketch": sk}))
     assert h["sketches"][0] == {"id": 1, "name": "Base", "rev": 3}
     h = header(session.handle({"type": "sketch_keep", "sketch": sk}))
     assert [s["id"] for s in h["sketches"]] == [1, 2] and h["sketches"][1]["name"] == "Sketch 2"
     with pytest.raises(RequestError):
-        session.handle({"type": "sketch_get", "id": 9})
+        session.handle({"type": "sketch_get", "sketch_id": 9})
     with pytest.raises(RequestError):
-        session.handle({"type": "sketch_keep", "id": 9, "sketch": sk})
+        session.handle({"type": "sketch_keep", "sketch_id": 9, "sketch": sk})
 
 
 def test_keep_with_regions_is_one_undo_step():
@@ -79,19 +79,19 @@ def test_keep_without_regions_keeps_shape_and_is_undoable():
 def test_delete_and_rename_undo_redo():
     session = open_session()
     session.handle({"type": "sketch_keep", "sketch": make(session)})
-    h = header(session.handle({"type": "sketch_rename", "id": 1, "name": "Outline"}))
+    h = header(session.handle({"type": "sketch_rename", "sketch_id": 1, "name": "Outline"}))
     assert h["sketches"] == [{"id": 1, "name": "Outline", "rev": 2}]
     assert header(session.handle({"type": "undo"}))["sketches"] == [{"id": 1, "name": "Sketch 1", "rev": 1}]
     assert header(session.handle({"type": "redo"}))["sketches"][0]["name"] == "Outline"
-    assert header(session.handle({"type": "sketch_delete", "id": 1}))["sketches"] == []
+    assert header(session.handle({"type": "sketch_delete", "sketch_id": 1}))["sketches"] == []
     assert header(session.handle({"type": "undo"}))["sketches"][0]["id"] == 1
     assert header(session.handle({"type": "redo"}))["sketches"] == []
     # ids are never reused
     assert header(session.handle({"type": "sketch_keep", "sketch": make(session)}))["sketchId"] == 2
     with pytest.raises(RequestError):
-        session.handle({"type": "sketch_delete", "id": 1})
+        session.handle({"type": "sketch_delete", "sketch_id": 1})
     with pytest.raises(RequestError):
-        session.handle({"type": "sketch_rename", "id": 2, "name": " "})
+        session.handle({"type": "sketch_rename", "sketch_id": 2, "name": " "})
 
 
 def test_other_edits_carry_sketches_forward():
@@ -109,14 +109,14 @@ def test_sketches_survive_autosave_and_restore(tmp_path):
     sk = make(first)
     first.handle({"type": "sketch_keep", "sketch": sk})
     first.handle({"type": "sketch_keep", "sketch": sk})
-    first.handle({"type": "sketch_delete", "id": 2})  # sketch-only change is saved too
+    first.handle({"type": "sketch_delete", "sketch_id": 2})  # sketch-only change is saved too
     die(first.autosaver)
     second = Session(Autosaver(tmp_path))
     second.handle({"type": "restore_session"})
     h = header(second.handle({"type": "undo"}))
     assert [s["id"] for s in h["sketches"]] == [1, 2]
     assert header(second.handle({"type": "redo"}))["sketches"] == [{"id": 1, "name": "Sketch 1", "rev": 1}]
-    assert second.handle({"type": "sketch_get", "id": 1})["sketch"] == sk
+    assert second.handle({"type": "sketch_get", "sketch_id": 1})["sketch"] == sk
     assert header(second.handle({"type": "sketch_keep", "sketch": sk}))["sketchId"] == 3
 
 
@@ -157,14 +157,14 @@ def test_open_path_sketches_are_kept_unchanged(regions, tmp_path):
         assert h["sketchId"] == n and len(h["sketches"]) == n
         assert h.get("facesMade") == (0 if regions else None)
         assert faces(session) == before
-        assert session.handle({"type": "sketch_get", "id": n})["sketch"] == sk
+        assert session.handle({"type": "sketch_get", "sketch_id": n})["sketch"] == sk
     header(session.handle({"type": "undo"}))
-    assert session.handle({"type": "sketch_get", "id": 1})["sketch"] == open_paths(plane)[0]
+    assert session.handle({"type": "sketch_get", "sketch_id": 1})["sketch"] == open_paths(plane)[0]
     header(session.handle({"type": "redo"}))
     die(session.autosaver)
     second = Session(Autosaver(tmp_path))
     second.handle({"type": "restore_session"})
-    assert second.handle({"type": "sketch_get", "id": 2})["sketch"] == open_paths(plane)[1]
+    assert second.handle({"type": "sketch_get", "sketch_id": 2})["sketch"] == open_paths(plane)[1]
 
 
 def test_closed_sketch_reports_faces_made():
@@ -172,3 +172,14 @@ def test_closed_sketch_reports_faces_made():
     top = session.handle({"type": "sketch_plane", "plane": "XY"})["plane"]
     sk = make(session, 5, plane={**top, "origin": [0, 0, 100]})
     assert header(session.handle({"type": "sketch_keep", "sketch": sk, "regions": True}))["facesMade"] == 1
+
+
+def test_the_wire_correlation_id_is_not_mistaken_for_a_sketch_id():
+    # over the socket every request carries its own "id"; the sketch's id travels as "sketch_id"
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    sk = make(session)
+    h = header(session.handle({"id": 99, "type": "sketch_keep", "sketch": sk}))
+    assert h["sketches"] == [{"id": 1, "name": "Sketch 1", "rev": 1}]
+    got = session.handle({"id": 100, "type": "sketch_get", "sketch_id": 1})
+    assert got["sketch_id"] == 1 and "id" not in got

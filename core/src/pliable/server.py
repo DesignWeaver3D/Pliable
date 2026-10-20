@@ -250,7 +250,8 @@ class Session:
             found = self._require_document().get_sketch(self._sketch_id(request))
             if found is None:
                 raise RequestError("No such sketch")
-            return found
+            # the reply's own "id" is the request's correlation id, so the sketch's id travels as sketch_id
+            return {"sketch_id": found["id"], "name": found["name"], "rev": found["rev"], "sketch": found["sketch"]}
         if kind in ("sketch_delete", "sketch_rename"):
             return self._sketch_edit(request, kind)
         if kind == "dimension_edit":
@@ -323,7 +324,7 @@ class Session:
             except (TypeError, ValueError) as e:
                 raise RequestError(f"Malformed plane request: {e!r}") from e
         topology = self._require_document().current
-        if "vertices" in request or "edge" in request:
+        if "vertices" in request or "edge" in request or "normal_to" in request:
             return self._sketch_plane_through(topology, request)
         try:
             return sketch.face_plane(topology.face(int(request["face"])))
@@ -341,6 +342,18 @@ class Session:
             return (p.X(), p.Y(), p.Z())
 
         try:
+            if "normal_to" in request:  # square to an edge, at a fraction along it (0.5 = the middle)
+                from OCP.BRepAdaptor import BRepAdaptor_Curve
+                from OCP.gp import gp_Pnt, gp_Vec
+
+                curve = BRepAdaptor_Curve(topology.edge(int(request["normal_to"])))
+                first, last = curve.FirstParameter(), curve.LastParameter()
+                at = min(1.0, max(0.0, float(request.get("at", 0.5))))
+                p, tangent = gp_Pnt(), gp_Vec()
+                curve.D1(first + at * (last - first), p, tangent)
+                if tangent.Magnitude() < 1e-12:
+                    raise RequestError("That edge has no direction at that point")
+                return sketch.plane_normal_to((p.X(), p.Y(), p.Z()), (tangent.X(), tangent.Y(), tangent.Z()))
             if "edge" in request:
                 v1, v2 = TopoDS_Vertex(), TopoDS_Vertex()
                 TopExp.Vertices_s(topology.edge(int(request["edge"])), v1, v2)
@@ -386,7 +399,7 @@ class Session:
     @staticmethod
     def _sketch_id(request: dict) -> int:
         try:
-            return int(request["id"])
+            return int(request["sketch_id"])
         except (KeyError, TypeError, ValueError) as e:
             raise RequestError("Missing sketch id") from e
 
@@ -411,7 +424,7 @@ class Session:
                 make_faces = False
         timings = {"opMs": _ms(start)}
         entries = document.sketches
-        if request.get("id") is None:
+        if request.get("sketch_id") is None:
             sketch_id = document.new_sketch_id()
             name = str(request["name"]) if request.get("name") else f"Sketch {sketch_id}"
             entries.append({"id": sketch_id, "name": name, "rev": 1, "sketch": copy.deepcopy(content)})
