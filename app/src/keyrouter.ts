@@ -1,6 +1,7 @@
 /** Wires the shortcut policy (keys.ts) to the page: one keydown entry point, viewport engagement with a focus ring,
  *  cancel on window blur, saved keymap and the Keys settings dialog. */
 import { Engagement, Keymap, chordOfEvent, decideKey, formatChord, validateBinding, type KeyContext } from "./keys";
+import { shortcutSheetHtml } from "./shortcutsheet";
 
 const STORAGE_KEY = "pliable.keymap";
 
@@ -212,11 +213,26 @@ export class KeyRouter {
       all.textContent = "Restore defaults";
       all.title = "Put every shortcut back to its default key";
       all.onclick = () => { this.keymap.resetAll(); this.keymap.data = { ...this.keymap.data, singleKeys: true }; save(this.keymap); message = ""; this.refreshRing(); render(); };
+      const print = document.createElement("button");
+      print.textContent = "Print";
+      print.title = "Open a printable page of the shortcuts as they are set now";
+      print.onclick = () => {
+        const sheet = window.open("", "_blank");
+        if (!sheet) {
+          message = "The browser blocked the print page; allow pop-ups for this site";
+          render();
+          return;
+        }
+        sheet.document.write(shortcutSheetHtml(this.keymap.list().map((c) => ({ label: c.label, keys: this.keymap.hint(c.id) }))));
+        sheet.document.close();
+        sheet.focus();
+        sheet.print();
+      };
       const done = document.createElement("button");
       done.textContent = "Close";
       done.title = "Close the shortcut list";
       done.onclick = close;
-      buttons.append(all, done);
+      buttons.append(all, print, done);
       card.replaceChildren(title, rules, single, hintsRow, note, table, buttons);
     };
     render();
