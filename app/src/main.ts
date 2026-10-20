@@ -472,6 +472,7 @@ function setSelection(sels: Sel[]) {
   if (toolPanel.isOpen) toolPanel.close(false); // the selection changed under an open tool form
   viewport.manipulator.clear();
   currentSels = sels;
+  navCube.fitSelectedButton.disabled = sels.length === 0;
   bodyList.setSelected(sels.filter((s) => s.kind === "body").map((s) => s.id));
   refined = null;
   related = [];

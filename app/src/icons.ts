@@ -164,6 +164,8 @@ export const UI_ICONS: Record<string, string> = {
   measure: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>',
   toolsBox: '<g stroke-width="2"><rect x="3" y="9" width="18" height="11" rx="2" fill="currentColor" fill-opacity=".22"/><path d="M9 9V6.5A1.5 1.5 0 0 1 10.5 5h3A1.5 1.5 0 0 1 15 6.5V9M3 13.5h18"/><rect x="10.5" y="12" width="3" height="3.5" rx=".7" fill="currentColor"/></g>',
   extrude: '<path d="M12 15V4M7.5 8.5L12 4l4.5 4.5"/><rect x="4" y="15" width="16" height="5" rx="1" fill="currentColor" fill-opacity=".16"/>',
+  fitAll: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><rect x="8" y="8" width="8" height="8" rx="1" fill="currentColor" fill-opacity=".16"/>',
+  fitSelected: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><rect x="8" y="8" width="8" height="8" rx="1" fill="currentColor" fill-opacity=".7"/>',
   grid: '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 9.3h16M4 14.7h16M9.3 4v16M14.7 4v16"/>',
   gridSnap: '<path d="M4 8h16M4 16h16M8 4v16M16 4v16" opacity=".5"/><circle cx="16" cy="16" r="2.6" fill="currentColor"/><path d="M5 5l7.5 7.5" />',
   lookAt: '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 9h16" opacity=".4"/><path d="M12 9v11" opacity=".4"/><circle cx="12" cy="12" r="2"/>',

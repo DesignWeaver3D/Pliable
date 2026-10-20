@@ -18,8 +18,11 @@ export const VIEW_KEYS: Record<string, string> = { "0": "iso", "1": "front", "2"
 
 export class NavCube {
   private readonly cube = document.createElement("div");
-  /** The row of view buttons under the cube; other controls (axes, see-through) are moved into it. */
+  /** The row of view buttons above the cube (projection, and the axes and see-through buttons moved into it). */
   readonly group = document.createElement("div");
+  /** The row under the cube: zoom to fit everything, the isometric view, zoom to fit the selection. */
+  private readonly lower = document.createElement("div");
+  readonly fitSelectedButton = document.createElement("button");
   readonly projectionButton = document.createElement("button");
 
   constructor(
@@ -50,9 +53,21 @@ export class NavCube {
     home.title = "Isometric view (0)";
     home.addEventListener("click", () => viewport.setView("iso"));
     this.projectionButton.addEventListener("click", () => this.toggleProjection());
+    const fitAll = document.createElement("button");
+    fitAll.id = "fitall";
+    fitAll.append(uiIcon("fitAll"));
+    fitAll.title = "Zoom to fit everything";
+    fitAll.addEventListener("click", () => viewport.fitAll());
+    this.fitSelectedButton.id = "fitselected";
+    this.fitSelectedButton.append(uiIcon("fitSelected"));
+    this.fitSelectedButton.title = "Zoom to fit the selected body, face or edge";
+    this.fitSelectedButton.disabled = true;
+    this.fitSelectedButton.addEventListener("click", () => viewport.fitSelected());
     this.group.className = "viewctl";
-    this.group.append(home, this.projectionButton);
-    host.append(scene, this.group);
+    this.group.append(this.projectionButton);
+    this.lower.className = "viewctl";
+    this.lower.append(fitAll, home, this.fitSelectedButton);
+    host.append(this.group, scene, this.lower);
     this.updateProjectionLabel();
   }
 

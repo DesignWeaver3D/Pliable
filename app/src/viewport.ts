@@ -1518,14 +1518,65 @@ export class Viewport {
     this.onSelect(next);
   }
 
-  private frame([x0, y0, z0, x1, y1, z1]: number[]) {
+  /** Zoom so the whole visible model fills the view, without turning it. */
+  fitAll() {
+    if (!this.mesh) return;
+    this.mesh.geometry.computeBoundingBox();
+    const box = this.mesh.geometry.boundingBox;
+    if (box && !box.isEmpty()) this.frame([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], true);
+  }
+
+  /** Zoom to the selected body, face, edge or vertex (the selection together, if several), without turning the view. Returns false when nothing is selected. */
+  fitSelected(): boolean {
+    const data = this.data;
+    const box = new THREE.Box3();
+    if (!data || !this.mesh || !this.selected.length) return false;
+    const position = this.mesh.geometry.getAttribute("position");
+    const index = this.mesh.geometry.getIndex()!.array;
+    const point = new THREE.Vector3();
+    const addFace = (f: { start: number; count: number }) => {
+      for (let i = f.start; i < f.start + f.count; i++) box.expandByPoint(point.fromBufferAttribute(position, index[i]));
+    };
+    const addEdge = (e: { start: number; count: number }) => {
+      for (let i = e.start; i < e.start + e.count; i++) box.expandByPoint(point.set(data.edgePositions[i * 3], data.edgePositions[i * 3 + 1], data.edgePositions[i * 3 + 2]));
+    };
+    for (const sel of this.selected) {
+      if (sel.kind === "body") {
+        data.faces.filter((f) => f.body === sel.id && f.count > 0).forEach(addFace);
+        data.edges.filter((e) => e.body === sel.id && e.count > 0).forEach(addEdge);
+      } else if (sel.kind === "face") {
+        const f = data.faces.find((x) => x.id === sel.id);
+        if (f) addFace(f);
+      } else if (sel.kind === "edge") {
+        const e = data.edges.find((x) => x.id === sel.id);
+        if (e) addEdge(e);
+      } else if (sel.kind === "vertex") {
+        const v = data.vertices.find((x) => x.id === sel.id);
+        if (v) box.expandByPoint(point.set(...v.position));
+      }
+    }
+    if (box.isEmpty()) return false;
+    // A lone vertex or a very small selection would zoom in absurdly far: keep a minimum size around it.
+    const size = box.getSize(new THREE.Vector3());
+    const minimum = (this.mesh.geometry.boundingBox ?? new THREE.Box3()).getSize(new THREE.Vector3()).length() * 0.05 || 1;
+    if (size.length() < minimum) box.expandByVector(new THREE.Vector3().setScalar((minimum - size.length()) / 2));
+    this.frame([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], true);
+    return true;
+  }
+
+  private frame([x0, y0, z0, x1, y1, z1]: number[], keepDirection = false) {
     const center = new THREE.Vector3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
     const radius = Math.max(Math.hypot(x1 - x0, y1 - y0, z1 - z0) / 2, 1e-3);
     const distance = radius / Math.sin((PERSPECTIVE_FOV * Math.PI) / 360);
     this.orthoHalf = distance * Math.tan((PERSPECTIVE_FOV * Math.PI) / 360);
     this.orthoCamera.zoom = 1;
     this.syncOrtho();
-    this.camera.position.copy(center).add(new THREE.Vector3(1, -1.4, 0.9).normalize().multiplyScalar(distance));
+    const direction = new THREE.Vector3(1, -1.4, 0.9);
+    if (keepDirection) {
+      const current = this.camera.position.clone().sub(this.controls.target);
+      if (current.lengthSq() > 1e-12) direction.copy(current);
+    }
+    this.camera.position.copy(center).add(direction.normalize().multiplyScalar(distance));
     this.camera.near = distance / 100;
     this.camera.far = distance * 100;
     this.camera.updateProjectionMatrix();
