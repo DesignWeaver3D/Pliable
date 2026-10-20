@@ -1327,7 +1327,7 @@ async function runPreview(tool: ToolInfo, values: Record<string, ParamValue>, ed
       // Which bodies a move arrow moves is read off two previews of the same drag (their centres shift along the arrow).
       const centres = bodyCentres(mesh.vertices);
       const before = slideTrack;
-      const moving = before && before.value !== sentValue ? movedBodies(before.centres, centres, slideLive.info.direction) : before?.moving ?? null;
+      const moving = before && before.value !== sentValue ? movedBodies(before.centres, centres, slideLive.info.direction, 1e-4, (sentValue - before.value) / (slideLive.info.scale || 1)) : before?.moving ?? null;
       slideTrack = { centres, value: sentValue, moving };
       slideNow();
     }

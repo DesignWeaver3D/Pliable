@@ -32,3 +32,12 @@ test("bodies that shifted along the arrow are the moving ones", () => {
   assert.deepEqual([...movedBodies(before, after, [1, 0, 0])], [1]);
   assert.equal(movedBodies(before, after, [0, 1, 0]), null); // shifted along X, not along the Y arrow
 });
+
+test("a body whose hole moves is not slid with the hole", () => {
+  const before = new Map([[1, [0, 0, 0]], [2, [5, 5, 5]]]);
+  // Body 1 only has a hole moved by 10 (its mean shifts 0.5 along X); body 2 really moved by 10.
+  const after = new Map([[1, [0.5, 0, 0]], [2, [15, 5, 5]]]);
+  assert.deepEqual([...movedBodies(before, after, [1, 0, 0])].sort(), [1, 2]); // without the travel, both look moved
+  assert.deepEqual([...movedBodies(before, after, [1, 0, 0], 1e-4, 10)], [2]);
+  assert.equal(movedBodies(new Map([[1, [0, 0, 0]]]), new Map([[1, [0.5, 0, 0]]]), [1, 0, 0], 1e-4, 10), null);
+});
