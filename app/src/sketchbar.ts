@@ -79,6 +79,9 @@ export class SketchBar {
   private press() {
     const faces = this.d.selection().filter((s) => s.kind === "face");
     if (faces.length) return void this.begin(faces.map((f) => f.id));
+    const edges = this.d.selection().filter((s) => s.kind === "edge");
+    // One edge selected: the sketch plane is square to it, with its origin at the middle of the edge.
+    if (edges.length === 1) return void this.beginThrough({ normal_to: edges[0].id, at: 0.5 });
     this.armed = !this.armed;
     this.problem = null;
     this.d.status(this.armed ? "Sketch On Geometry: click a face to sketch on (press the button again to cancel). Other ways to place a sketch appear when you select vertices or an edge" : "Sketch On Geometry cancelled");
@@ -96,8 +99,6 @@ export class SketchBar {
     const ways: [string, string, Record<string, unknown>][] = [];
     if (!faces && vertices.length === 3 && !edges.length) ways.push(["Through 3 Points", "Sketch on the plane through the three selected vertices", { vertices }]);
     if (!faces && vertices.length === 1 && edges.length === 1) ways.push(["Through Edge And Point", "Sketch on the plane through the selected straight edge and vertex", { edge: edges[0], vertex: vertices[0] }]);
-    if (!faces && edges.length === 1 && !vertices.length) ways.push(["Normal To Edge", "Sketch on the plane square to the selected edge, at its middle (for a path or rail profile)", { normal_to: edges[0], at: 0.5 }]);
-    if (!faces && edges.length === 1 && vertices.length === 1) ways.push(["Normal To Edge", "Sketch on the plane square to the selected edge, at its middle", { normal_to: edges[0], at: 0.5 }]);
     const key = `${faces}|${sketch.active}|${this.armed}|${this.problem}|${JSON.stringify(ways)}`;
     if (key === this.key) return; // keep the buttons (and the offset box focus) when nothing relevant changed
     this.key = key;
@@ -105,7 +106,7 @@ export class SketchBar {
     onFace.textContent = this.armed ? "Sketch On Geometry: pick a face" : "Sketch On Geometry";
     onFace.disabled = sketch.active;
     onFace.classList.toggle("active", this.armed);
-    onFace.title = "Start a 2D sketch on geometry of the model: a face (select it first, or press this and then click the face. curved faces and chains of faces are unrolled flat automatically), or select three vertices, an edge, or an edge and a vertex to get the other ways of placing a sketch";
+    onFace.title = "Start a 2D sketch on geometry of the model: a face (select it first, or press this and then click the face. curved faces and chains of faces are unrolled flat automatically), or select an edge (the sketch plane is square to it with its origin at the middle of the edge, for rail and path profiles), or three vertices, or an edge and a vertex for the other ways of placing a sketch";
     onFace.addEventListener("click", () => this.press());
     const parts: HTMLElement[] = [onFace];
     if (!sketch.active) {
