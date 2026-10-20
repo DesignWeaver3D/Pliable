@@ -155,3 +155,18 @@ test("a radius handle on a diameter parameter types a radius, a diameter handle 
   assert.equal(handleValue(radius, typedTravel(radius, "7", false)), 14);
   assert.equal(handleValue(diameter, typedTravel(diameter, "7", false)), 7);
 });
+
+test("typing on a handle pushed to a negative value keeps the negative sign", () => {
+  const info = { param: "distance", value: 0, scale: 1, min: null, kind: "arrow", direction: [0, 0, 1], anchor: [0, 0, 0] };
+  const m = Object.create(Manipulator.prototype);
+  m.onDrag = () => {};
+  m.dom = { style: {} };
+  m.active = { item: { info, travel: -4 }, travel0: 0, moved: false, typed: null, negative: false, x: 0, y: 0 };
+  m.key({ key: "7" });
+  assert.deepEqual([m.active.typed, m.active.negative], ["7", true]);
+  assert.equal(typedTravel(info, m.active.typed, m.active.negative), -7);
+  // pulled outward: positive; the first "-" then flips the drag's direction
+  m.active = { item: { info, travel: 4 }, travel0: 0, moved: false, typed: null, negative: false, x: 0, y: 0 };
+  m.key({ key: "-" });
+  assert.equal(m.active.negative, true);
+});

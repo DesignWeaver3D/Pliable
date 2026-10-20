@@ -217,12 +217,12 @@ export class Manipulator {
       tip.position.copy(dir).multiplyScalar(-0.15); // the grip sits on the anchor, with a thin stem back to the model
     } else if (!info.toggle) {
       tip.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-      // The anchor is the grab point at the end of the arm; the arm runs back toward the model. A move arrow is the
-      // opposite: it starts at its anchor (the point being moved) and points away along its axis, like an axis gizmo.
-      tip.position.copy(dir).multiplyScalar(info.kind === "move" ? 0.79 : -0.21);
+      // Both kinds start at their anchor (the point being moved, on the face) and point away along their axis, so the
+      // whole arrow stands outside the surface it moves, like an axis gizmo.
+      tip.position.copy(dir).multiplyScalar(0.79);
     }
     const arm = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), info.toggle ? new THREE.Vector3() : dir.clone().multiplyScalar(info.kind === "move" ? 1 : -1)]),
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), info.toggle ? new THREE.Vector3() : dir.clone()]),
       new THREE.LineBasicMaterial({ color: handleColors(info).rest, depthTest: false, transparent: true }),
     );
     arm.renderOrder = 10;
@@ -311,7 +311,7 @@ export class Manipulator {
       const dir = new THREE.Vector3(...item.info.direction);
       const move = item.info.kind === "move";
       const ratio = move ? MOVE_ARM_PX / ARM_PX : 1;
-      const reach = (move ? 1 : -1) * this.pixelSizeAt(tip) * ARM_PX * ratio;
+      const reach = this.pixelSizeAt(tip) * ARM_PX * ratio;
       const end = item.info.toggle ? this.screen(tip) : this.screen(tip.clone().addScaledVector(dir, reach));
       // a is the tail (a move arrow's start, a pull handle's grab point) and b the head (a move arrow's tip, a pull handle's arm end).
       const a = this.screen(tip);
@@ -412,6 +412,11 @@ export class Manipulator {
       }
       this.cancel();
       return true;
+    }
+    // Typing starts from the direction the drag already chose: a face pushed in (negative) stays negative.
+    if (a.typed === null && typedStep(null, false, e.key)) {
+      const now = a.item.info.kind === "move" ? a.item.travel : handleValue(a.item.info, a.item.travel);
+      a.negative = now < 0;
     }
     const step = typedStep(a.typed, a.negative, e.key);
     if (!step) return false;
