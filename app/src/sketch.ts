@@ -56,13 +56,15 @@ export interface SketchOptions {
   major: number;
   /** Spacing of the light lines between them, in the length unit; 0 draws none. The pointer snaps to this when it is set, else to the major spacing. */
   minor: number;
+  /** How much the grid fades toward the edges of the view (always measured from the middle of the view, so panning never hides the grid where you look). */
+  fade: "off" | "subtle" | "strong";
   /** none: tools add no constraints; snaps: only those a snap implies (horizontal, vertical, on a curve, tangent); shape: also the ones that keep a rectangle, polygon or slot its shape. */
   auto: "none" | "snaps" | "shape";
 }
 const OPTIONS_KEY = "pliable.sketchOptions2";
 
 export function loadSketchOptions(): SketchOptions {
-  const options: SketchOptions = { grid: false, snapGrid: false, major: 10, minor: 2, auto: "none" };
+  const options: SketchOptions = { grid: false, snapGrid: false, major: 10, minor: 2, fade: "subtle", auto: "none" };
   try {
     const saved = JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? "null");
     if (saved) {
@@ -71,6 +73,7 @@ export function loadSketchOptions(): SketchOptions {
       if (Number.isFinite(saved.major) && saved.major > 0) options.major = saved.major;
       if (Number.isFinite(saved.minor) && saved.minor >= 0) options.minor = saved.minor;
       if (["none", "snaps", "shape"].includes(saved.auto)) options.auto = saved.auto;
+      if (["off", "subtle", "strong"].includes(saved.fade)) options.fade = saved.fade;
     }
   } catch {
     // no saved options (or storage is blocked): the defaults stand
@@ -139,6 +142,7 @@ export class SketchMode {
   private pending = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.pending, linewidth: 2, depthTest: false }));
   private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false }));
   private grid: THREE.Group | null = null;
+  private gridUniforms: Record<string, THREE.IUniform> | null = null;
   private options = loadSketchOptions();
   private settingsDialog: HTMLDialogElement | null = null;
   /** Called when the active drawing tool, or whether a sketch is open, changes (the top strip redraws). */
@@ -359,7 +363,14 @@ export class SketchMode {
     }
   }
 
-  /** The grid on the sketch plane: bold lines every `major` units and, if asked, lighter ones between them. */
+  /** Fade start and end as a distance from the middle of the view (0 = the middle, 1 = the middle of each side), per setting. */
+  private static readonly FADE: Record<SketchOptions["fade"], [number, number]> = { off: [10, 11], subtle: [0.75, 1.5], strong: [0.3, 1.15] };
+
+  /**
+   * The grid on the sketch plane, drawn by a shader so it has no edge: bold lines every `major` units and, if asked,
+   * lighter ones between them. Lines too close together on screen fade out (zoomed far out), and the whole grid
+   * fades toward the edges of the view, measured from the middle of the view so panning never moves the fade.
+   */
   private buildGrid(f: ReturnType<typeof M.frame> = M.frame(this.s.plane)) {
     if (this.grid) {
       this.group.remove(this.grid);
@@ -367,21 +378,62 @@ export class SketchMode {
       this.grid = null;
     }
     if (!this.options.grid) return;
-    const { major, minor } = this.options;
-    const size = major * 20;
-    const layer = (divisions: number, color: number, opacity: number) => {
-      const lines = new THREE.GridHelper(size, divisions, color, color);
-      const material = lines.material as THREE.Material;
-      material.depthTest = false;
-      material.transparent = true;
-      material.opacity = opacity;
-      return lines;
+    const { major, minor, fade } = this.options;
+    const [fadeFrom, fadeTo] = SketchMode.FADE[fade];
+    this.gridUniforms = {
+      uMajor: { value: major },
+      uMinor: { value: minor > 0 && minor < major ? minor : 0 },
+      uColor: { value: new THREE.Color(COLORS.grid).multiplyScalar(1.6) },
+      uFade: { value: new THREE.Vector2(fadeFrom, fadeTo) },
+      uResolution: { value: new THREE.Vector2(1, 1) },
     };
+    const material = new THREE.ShaderMaterial({
+      uniforms: this.gridUniforms,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      vertexShader: `
+        varying vec2 vPlane;
+        void main() {
+          vPlane = position.xy; // the plane's own coordinates: sketch u and v
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }`,
+      fragmentShader: `
+        uniform float uMajor;
+        uniform float uMinor;
+        uniform vec3 uColor;
+        uniform vec2 uFade;
+        uniform vec2 uResolution;
+        varying vec2 vPlane;
+        // Line strength (0..1) for lines every \`spacing\` units, about one pixel wide, faded out once the lines are
+        // closer than a few pixels.
+        float lines(float spacing) {
+          vec2 coord = vPlane / spacing;
+          vec2 width = fwidth(coord);
+          vec2 g = abs(fract(coord - 0.5) - 0.5) / max(width, vec2(1e-6));
+          float line = 1.0 - min(min(g.x, g.y), 1.0);
+          float density = max(width.x, width.y); // cell fraction per pixel: above 0.25 the lines are under 4 px apart
+          return line * (1.0 - smoothstep(0.12, 0.3, density));
+        }
+        void main() {
+          float strength = lines(uMajor) * 0.55;
+          if (uMinor > 0.0) strength = max(strength, lines(uMinor) * 0.22);
+          vec2 centred = (gl_FragCoord.xy / uResolution - 0.5) * 2.0;
+          float away = length(centred * vec2(uResolution.x / uResolution.y, 1.0)) / 1.0;
+          float fadeOut = 1.0 - smoothstep(uFade.x, uFade.y, away);
+          float alpha = strength * fadeOut;
+          if (alpha < 0.003) discard;
+          gl_FragColor = vec4(uColor, alpha);
+        }`,
+    });
+    const size = 2e5; // far larger than any sketch: the grid has no visible edge
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), material);
+    mesh.frustumCulled = false;
+    mesh.renderOrder = 1;
     const grid = new THREE.Group();
-    if (minor > 0 && minor < major && size / minor <= 800) grid.add(layer(Math.round(size / minor), COLORS.grid, 0.25));
-    grid.add(layer(20, COLORS.grid, 0.6));
-    const basis = new THREE.Matrix4().makeBasis(new THREE.Vector3(...f.x), new THREE.Vector3(...f.n), new THREE.Vector3(...f.y));
-    grid.applyMatrix4(basis);
+    grid.add(mesh);
+    grid.applyMatrix4(new THREE.Matrix4().makeBasis(new THREE.Vector3(...f.x), new THREE.Vector3(...f.y), new THREE.Vector3(...f.n)));
     grid.position.set(...f.origin);
     grid.renderOrder = 1;
     this.grid = grid;
@@ -1132,6 +1184,14 @@ export class SketchMode {
       this.options.auto = auto.value as SketchOptions["auto"];
       this.saveOptions();
     });
+    const fade = document.createElement("select");
+    for (const [value, label] of [["off", "Off"], ["subtle", "Subtle"], ["strong", "Strong"]]) fade.append(new Option(label, value, false, value === this.options.fade));
+    fade.title = "Fades the grid toward the edges of the view. It is always measured from the middle of the view, so panning never hides the grid where you are looking";
+    fade.addEventListener("change", () => {
+      this.options.fade = fade.value as SketchOptions["fade"];
+      this.saveOptions();
+      this.buildGrid();
+    });
     const title = document.createElement("h3");
     title.textContent = "Sketch settings";
     const grid = document.createElement("div");
@@ -1145,6 +1205,7 @@ export class SketchMode {
       grid,
       row("Major spacing", spacing(this.options.major, 0.001, (n) => (this.options.major = n)), LENGTH_UNIT),
       row("Minor spacing", spacing(this.options.minor, 0, (n) => (this.options.minor = n)), `${LENGTH_UNIT} (0 for none)`),
+      row("Fade at the edges", fade),
       Object.assign(document.createElement("div"), { className: "group", textContent: "Drawing" }),
       row("Automatic constraints", auto),
       done,
@@ -1551,6 +1612,7 @@ export class SketchMode {
   private onFrame() {
     const size = this.viewport.renderer.getSize(new THREE.Vector2());
     for (const l of [this.axes, this.normal, this.placed, this.construction, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
+    if (this.gridUniforms) (this.gridUniforms.uResolution.value as THREE.Vector2).copy(this.viewport.renderer.getDrawingBufferSize(new THREE.Vector2()));
   }
 
   private world(u: number, v: number): THREE.Vector3 {
