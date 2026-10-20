@@ -3,7 +3,7 @@ import { doubleClickBody } from "./bodylogic";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { defaultMaterial } from "./materials";
+import { materialOrDefault, usesBodyColors } from "./materials";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
@@ -967,7 +967,7 @@ export class Viewport {
         this.studioEnv = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
         pmrem.dispose();
       }
-      const r = defaultMaterial().render;
+      const r = materialOrDefault(settings.material).render;
       m.roughness = r.roughness;
       m.metalness = r.metalness;
       m.clearcoat = r.clearcoat;
@@ -992,8 +992,10 @@ export class Viewport {
     const m = this.surfaceMaterial;
     if (!m) return;
     const on = settings.randomBodyColors;
-    m.vertexColors = on;
-    m.color.set(on ? 0xffffff : 0x9db4cc);
+    const look = materialOrDefault(settings.material);
+    const tinted = on && (!settings.glossyLook || usesBodyColors(look));
+    m.vertexColors = tinted;
+    m.color.set(settings.glossyLook ? (tinted ? 0xffffff : look.render.color) : tinted ? 0xffffff : 0x9db4cc);
     this.applyLook();
     m.needsUpdate = true;
   }
