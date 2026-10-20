@@ -1976,60 +1976,92 @@ class ResizeChamfer(Tool):
         return _rebuild_round(topology, face, neighbours, values["size"], chamfer=True)
 
 
+def _plane_normal(values) -> tuple[float, float, float]:
+    """The unit normal of a cutting plane: world axis 0, 1 or 2, or axis 3 for the direction (nx, ny, nz)."""
+    axis = int(round(values["axis"]))
+    if axis in (0, 1, 2):
+        return tuple(1.0 if k == axis else 0.0 for k in range(3))
+    if axis != 3:
+        raise OperationError("axis must be 0, 1 or 2 (a world axis) or 3 (the direction nx, ny, nz)")
+    n = [values.get("nx", 0.0), values.get("ny", 0.0), values.get("nz", 0.0)]
+    length = math.sqrt(sum(c * c for c in n))
+    if length < 1e-9:
+        raise OperationError("Give a plane direction (nx, ny, nz) that is not zero")
+    return tuple(c / length for c in n)
+
+
+def _half_space(shape, normal, position: float, above: bool):
+    """A block covering everything past the plane `normal . x = position` (on the normal's side when `above`)."""
+    from OCP.gp import gp_Ax2, gp_Dir
+
+    size = 4 * _bounds_diagonal(shape) + 1
+    box = Bnd_Box()
+    BRepBndLib.Add_s(shape, box)
+    centre = gp_Pnt(*[(box.CornerMin().Coord(k + 1) + box.CornerMax().Coord(k + 1)) / 2 for k in range(3)])
+    ax = gp_Ax2(centre, gp_Dir(*normal))
+    along = sum(normal[k] * centre.Coord(k + 1) for k in range(3))  # how far the model's middle sits along the normal
+    start = (position - along) if above else (position - along - size)  # the block's low face, measured from the middle
+    corner = gp_Pnt(centre.X() + normal[0] * start - (ax.XDirection().X() + ax.YDirection().X()) * size / 2,
+                    centre.Y() + normal[1] * start - (ax.XDirection().Y() + ax.YDirection().Y()) * size / 2,
+                    centre.Z() + normal[2] * start - (ax.XDirection().Z() + ax.YDirection().Z()) * size / 2)
+    return BRepPrimAPI_MakeBox(gp_Ax2(corner, gp_Dir(*normal), ax.XDirection()), size, size, size).Shape()
+
+
+def _cut_halves(topology, values):
+    """The model with the part on each side of the plane removed: (below, above) as shapes."""
+    normal = _plane_normal(values)
+    result = []
+    for above in (False, True):  # removing the block above leaves the lower half
+        result.append(_combine(topology.shape, _half_space(topology.shape, normal, values["position"], above=not above), fuse=False))
+    return result
+
+
 @register
 class CutPlane(Tool):
-    """Cut the model with a plane square to an axis (0 = X, 1 = Y, 2 = Z) at `position`, removing the side given by
-    `remove_side` (+1 removes the part above the plane, -1 the part below)."""
+    """Cut the model with a plane (square to world axis 0 = X, 1 = Y, 2 = Z, or to the direction nx, ny, nz with
+    axis 3) at `position` along its normal. `remove_side` +1 removes the part on the normal's side, -1 the other
+    part, 0 keeps both as separate bodies (a split)."""
 
     id = "cut_plane"
     label = "Cut with plane"
-    description = "Cuts the model with a plane square to an axis (0 = X, 1 = Y, 2 = Z) at a position and removes one side: +1 removes the part above, -1 the part below. Nothing needs to be selected."
+    description = "Cuts the model with a plane and keeps one side or both. Axis 0, 1, 2 is X, Y, Z; axis 3 uses the direction nx, ny, nz. Position is the plane's distance from the origin along its direction. Remove side +1 removes the part on the direction's side, -1 the other part, 0 keeps both as two separate bodies. Nothing needs to be selected."
     accepts = Accepts()
-    params = [Param("axis", "number", 2), Param("position", "length"), Param("remove_side", "number", 1)]
+    params = [Param("axis", "number", 2), Param("position", "length"), Param("remove_side", "number", 1), Param("nx", "number", 0), Param("ny", "number", 0), Param("nz", "number", 1)]
 
     def run(self, topology, selection, values, preview):
-        axis = int(round(values["axis"]))
-        if axis not in (0, 1, 2) or values["remove_side"] not in (1.0, -1.0):
-            raise OperationError("axis must be 0, 1 or 2 and remove_side +1 or -1")
-        size = 4 * _bounds_diagonal(topology.shape) + 1
-        box = Bnd_Box()
-        BRepBndLib.Add_s(topology.shape, box)
-        centre = [(box.CornerMin().Coord(k + 1) + box.CornerMax().Coord(k + 1)) / 2 for k in range(3)]
-        corner = [c - size / 2 for c in centre]
-        dims = [size, size, size]
         side = values["remove_side"]
-        corner[axis] = values["position"] if side > 0 else values["position"] - size
-        slab = BRepPrimAPI_MakeBox(gp_Pnt(*corner), *dims).Shape()
-        result = _combine(topology.shape, slab, fuse=False)
-        if _volume(result) < 1e-9:
-            raise OperationError("The plane would remove the whole model")
-        return finish(result)
+        if side not in (1.0, -1.0, 0.0):
+            raise OperationError("remove_side must be +1, -1 or 0 (keep both)")
+        below, above = _cut_halves(topology, values)
+        if side != 0:
+            kept = below if side > 0 else above
+            if _volume(kept) < 1e-9:
+                raise OperationError("The plane would remove the whole model")
+            return finish(kept)
+        total = _volume(topology.shape)
+        if min(_volume(below), _volume(above)) < 1e-9 * max(total, 1) or abs(_volume(below) + _volume(above) - total) > 1e-6 * total:
+            raise OperationError("The plane does not pass through the model")
+        compound, builder = TopoDS_Compound(), BRep_Builder()
+        builder.MakeCompound(compound)
+        for half in (below, above):
+            for solid in solids_of(half):
+                builder.Add(compound, solid)
+        return OpResult(compound, [])
 
 
 @register
 class SplitPlane(Tool):
-    """Split the model into two solids along a plane square to an axis (0 = X, 1 = Y, 2 = Z) at `position`."""
+    """Split the model into two solids along a plane; the same as Cut with plane keeping both sides."""
 
     id = "split_plane"
     label = "Split with plane"
-    description = "Splits the model into two solids along a plane square to an axis (0 = X, 1 = Y, 2 = Z) at a position. Nothing needs to be selected."
+    description = "Splits the model into two solids along a plane (axis 0, 1, 2 = X, Y, Z or 3 for the direction nx, ny, nz). Cut with plane does the same with its keep-both choice. Nothing needs to be selected."
     accepts = Accepts()
-    params = [Param("axis", "number", 2), Param("position", "length")]
+    params = [Param("axis", "number", 2), Param("position", "length"), Param("nx", "number", 0), Param("ny", "number", 0), Param("nz", "number", 1)]
+    hidden = True
 
     def run(self, topology, selection, values, preview):
-        halves = []
-        for side in (1, -1):
-            cut = get_tool("cut_plane").run(topology, selection, {"axis": values["axis"], "position": values["position"], "remove_side": side}, preview)
-            halves.append(cut.shape)
-        total = _volume(topology.shape)
-        if min(_volume(h) for h in halves) < 1e-9 * max(total, 1) or abs(sum(_volume(h) for h in halves) - total) > 1e-6 * total:
-            raise OperationError("The plane does not pass through the model")
-        compound, builder = TopoDS_Compound(), BRep_Builder()
-        builder.MakeCompound(compound)
-        for half in halves:
-            for solid in solids_of(half):
-                builder.Add(compound, solid)
-        return OpResult(compound, [])
+        return get_tool("cut_plane").run(topology, selection, {**values, "remove_side": 0.0}, preview)
 
 
 @register
