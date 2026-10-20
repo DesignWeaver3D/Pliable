@@ -2,8 +2,8 @@
 opening into a countersink (`convert_to_countersink`). Both work from any face of the hole or its rim edge, using the
 hole description in holes.py.
 
-The hole's on-screen gizmo is its axis: a line from the opening to the end of the bore, with a grip at the far end that
-sets the depth (the end of its range is "through"), a grip on the rim that sets the diameter, and move arrows at the
+The hole's on-screen gizmo is its axis: a line from the opening to the end of the bore, with a grip at each end of the bore (the far one sets the depth, the end of its range is "through"; the entry one sets where
+the bore starts below the face), a grip on the rim that sets the diameter, and move arrows at the
 middle that move the hole across the face.
 """
 
@@ -12,7 +12,7 @@ import math
 from OCP.gp import gp_Vec
 
 from .features import finish
-from .holes import NOT_ROUND, HoleInfo, find_hole, rebuild_hole
+from .holes import NOT_ROUND, HoleInfo, find_hole, follow_cylinder, rebuild_hole
 from .ops import MIN_DISTANCE, OperationError, OpResult
 from .tools import Accepts, Handle, Param, Tool, register, round_handles
 
@@ -65,7 +65,7 @@ class EditHole(_HoleTool):
         "Changes a round hole's diameter or depth and moves it, keeping counterbore or countersink steps. "
         "Select a face of the hole or the circle at its opening; 0 leaves a size unchanged, and a depth as long as the body is through."
     )
-    params = [Param("diameter", "length", 0.0), Param("depth", "length", 0.0), Param("dx", "length"), Param("dy", "length"), Param("dz", "length")]
+    params = [Param("diameter", "length", 0.0), Param("depth", "length", 0.0), Param("start", "length", 0.0), Param("dx", "length"), Param("dy", "length"), Param("dz", "length")]
     move_vector = ("dx", "dy", "dz")
 
     def run(self, topology, selection, values, preview):
@@ -89,9 +89,22 @@ class EditHole(_HoleTool):
                 if depth <= deepest + CLEARANCE:
                     raise OperationError("The depth must go past the counterbore or countersink")
                 changes.update(through=False, depth=depth)
+        start = values["start"]
+        if start < 0:
+            raise OperationError("The start of the bore can't be negative")
+        if start >= MIN_DISTANCE:
+            end = changes.get("depth", info.pass_length if info.through else info.depth)
+            if start > end - 10 * CLEARANCE:
+                raise OperationError("The bore must start before its end")
+            changes["start"] = start
         if offset.Magnitude() < MIN_DISTANCE and not changes:
             return OpResult(topology.shape, [topology.face(i) for i in info.faces])
-        return finish(rebuild_hole(topology.shape, info, offset if offset.Magnitude() >= MIN_DISTANCE else None, **changes))
+        move = offset if offset.Magnitude() >= MIN_DISTANCE else None
+        result = finish(rebuild_hole(topology.shape, info, move, **changes))
+        # Keep the bore selected: the page measures the moved hole from it.
+        for i in info.faces:
+            result.tracked_faces += follow_cylinder(result.shape, topology.face(i), move, changes.get("diameter"), only_radius=info.diameter / 2)
+        return result
 
     def handles(self, topology, selection, values):
         info = self.hole(topology, selection)
@@ -108,8 +121,10 @@ class EditHole(_HoleTool):
         across = [i for i in range(3) if abs(axis[i]) < 0.5]
         deepest = max((s["depth"] for s in info.stages), default=0.0)
         end = min(depth, info.pass_length)
+        start = min(max(values["start"], 0.0), end - 10 * CLEARANCE)
         out = [
-            Handle("depth", "Hole depth (end = through)", at(end), axis, min=deepest + 10 * CLEARANCE, max=info.pass_length, kind="resize", shown=end, axis_from=at(0.0)),
+            Handle("depth", "Hole depth (end = through)", at(end), axis, min=max(deepest, start) + 10 * CLEARANCE, max=info.pass_length, kind="resize", shown=end, axis_from=at(0.0)),
+            Handle("start", "Hole start (entry end)", at(start), axis, min=0.0, max=end - 10 * CLEARANCE, kind="resize", shown=start),
         ]
         if across:
             unit = tuple(1.0 if k == across[0] else 0.0 for k in range(3))

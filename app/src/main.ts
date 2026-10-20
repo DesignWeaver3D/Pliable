@@ -10,7 +10,7 @@ import { SketchBar } from "./sketchbar";
 import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
 import { fitStripCount, stripRoom } from "./stripfit";
-import { DimensionOverlay } from "./dimensions";
+import { DimensionOverlay, type Dimension } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
 import { LatestWins } from "./latestwins";
@@ -478,7 +478,7 @@ function setSelection(sels: Sel[]) {
   selected.textContent = describe(sels);
   if (sels.length === 0) {
     measurePanel.hide();
-    dimensionOverlay.set([]);
+    measuredDims = []; previewDimsShown = false; dimensionOverlay.set([]);
     renderChips();
     renderToolbar();
     toolPanel.renderList();
@@ -505,14 +505,16 @@ function setSelection(sels: Sel[]) {
       // Not while a drag is live (the panel is hidden then); never on a stale dragSels left by a drag that failed to end.
       if (currentSels === sels && !viewport.dragging) {
         measurePanel.show(reply);
-        dimensionOverlay.set(reply.dimensions ?? []);
+        measuredDims = reply.dimensions ?? [];
+        previewDimsShown = false;
+        dimensionOverlay.set(measuredDims);
       }
     })
     .catch((e) => {
       logOnce("measurement", e);
       if (currentSels === sels) {
         measurePanel.hide();
-        dimensionOverlay.set([]);
+        measuredDims = []; previewDimsShown = false; dimensionOverlay.set([]);
       }
     });
 }
@@ -532,7 +534,20 @@ let hiddenBodies: ReadonlySet<number> = new Set();
 /** Tells the list of kept sketches what the document holds; set once that list exists. */
 let onSketches: (list: { id: number; name: string; rev: number }[]) => void = () => {};
 
+/** The dimensions of the committed model's measurement, and whether a preview's own are on screen instead. */
+let measuredDims: Dimension[] = [];
+let previewDimsShown = false;
+
 function show(mesh: MeshData, frame = false) {
+  // A preview that keeps one face or edge selected (a hole being moved) brings the dimensions of its own model.
+  const previewDims: Dimension[] | undefined = mesh.header.preview ? mesh.header.dimensions : undefined;
+  if (previewDims) {
+    dimensionOverlay.set(previewDims);
+    previewDimsShown = true;
+  } else if (previewDimsShown && !mesh.header.preview) {
+    dimensionOverlay.set(measuredDims); // the preview ended without a commit: the committed model's dimensions again
+    previewDimsShown = false;
+  }
   hiddenBodies = pruneHidden(hiddenBodies, bodiesOf(mesh).map((b) => b.id));
   viewport.setMesh(filterHidden(mesh, hiddenBodies), frame);
   if (!mesh.header.preview) {
@@ -805,7 +820,7 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
     dragValue = distance;
     dimLabel.hidden = false;
     measurePanel.hide();
-    dimensionOverlay.set([]);
+    measuredDims = []; previewDimsShown = false; dimensionOverlay.set([]);
     dimLabel.style.left = `${x + DIM_OFFSET_PX}px`;
     dimLabel.style.top = `${y + DIM_OFFSET_PX}px`;
     renderDim();
@@ -1327,7 +1342,7 @@ async function runPreview(tool: ToolInfo, values: Record<string, ParamValue>, ed
       // Which bodies a move arrow moves is read off two previews of the same drag (their centres shift along the arrow).
       const centres = bodyCentres(mesh.vertices);
       const before = slideTrack;
-      const moving = before && before.value !== sentValue ? movedBodies(before.centres, centres, slideLive.info.direction) : before?.moving ?? null;
+      const moving = before && before.value !== sentValue ? movedBodies(before.centres, centres, slideLive.info.direction, 1e-4, (sentValue - before.value) / (slideLive.info.scale || 1)) : before?.moving ?? null;
       slideTrack = { centres, value: sentValue, moving };
       slideNow();
     }

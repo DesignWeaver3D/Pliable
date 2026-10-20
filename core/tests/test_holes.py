@@ -155,7 +155,7 @@ def test_edit_hole_handles(block):
     wall = hole_wall(part)
     tool = get_tool("edit_hole")
     handles = {h["param"]: h for h in tool.handle_list(part, Selection(faces=[wall]), {})}
-    assert set(handles) == {"depth", "diameter", "dx", "dy"}
+    assert set(handles) == {"depth", "start", "diameter", "dx", "dy"}
     depth = handles["depth"]
     assert depth["value"] == pytest.approx(8) and depth["max"] == pytest.approx(20) and depth["axisFrom"][2] == pytest.approx(10)
     assert depth["anchor"][2] == pytest.approx(2) and depth["direction"] == pytest.approx([0, 0, -1])
@@ -167,6 +167,21 @@ def test_edit_hole_handles(block):
     # not a hole: no tool, no handles
     assert not tool.available(block, Selection(faces=[top_face(block)]))
     assert tool.available(part, Selection(faces=[wall]))
+
+
+def test_edit_hole_start_leaves_a_skin(block):
+    part = drilled(block, "add_hole", diameter=6, depth=8)
+    wall = hole_wall(part)
+    tool = get_tool("edit_hole")
+    start = {h["param"]: h for h in tool.handle_list(part, Selection(faces=[wall]), {})}["start"]
+    assert start["value"] == pytest.approx(0) and start["anchor"][2] == pytest.approx(10) and start["max"] < 8
+    result = run("edit_hole", part, faces=[wall], start=3)
+    # the bore now spans 3..8 (5 long) instead of 0..8
+    assert volume(part.shape) - volume(result.shape) == pytest.approx(-math.pi * 9 * 3)
+    with pytest.raises(OperationError):
+        run("edit_hole", part, faces=[wall], start=9)
+    shifted = {h["param"]: h for h in tool.handle_list(part, Selection(faces=[wall]), {"start": 3})}
+    assert shifted["start"]["anchor"][2] == pytest.approx(7) and shifted["depth"]["min"] > 3
 
 
 def test_convert_to_countersink(block):
@@ -203,3 +218,25 @@ def test_hole_tools_explain_when_given_a_pocket(block):
     for tool in ("resize_hole", "edit_hole", "convert_to_countersink", "fill_hole"):
         with pytest.raises(OperationError, match="pocket or slot"):
             run(tool, plate, faces=[wall])
+
+
+def test_preview_dimensions_follow_the_moved_hole():
+    from pliable.protocol import decode_binary
+    from pliable.server import Session
+
+    session = Session(None)
+    session.handle({"type": "open_demo", "name": "bracket"})
+    wall = faces_where(session.document.current, "Cylinder", Radius=4)[0]
+
+    def dims(dx):
+        request = {"type": "tool_preview", "tool": "edit_hole", "selection": {"faces": [wall]}, "params": {"dx": dx}}
+        header, _ = decode_binary(session.handle(request))
+        return header["dimensions"]
+
+    base, moved = dims(0), dims(2)
+    assert base and len(base) == len(moved)
+    assert base != moved
+    assert [d["text"] for d in base] != [d["text"] for d in moved] or base[0]["points"] != moved[0]["points"]
+    # a commit carries none: the page asks for the measurement of the committed model
+    header, _ = decode_binary(session.handle({"type": "tool_commit", "tool": "edit_hole", "selection": {"faces": [wall]}, "params": {"dx": 2}}))
+    assert "dimensions" not in header

@@ -330,13 +330,15 @@ def find_hole(topology, face_id: int | None = None, edge_id: int | None = None, 
 
 
 def hole_profile(info: HoleInfo, margin: float = 0.0, diameter: float | None = None, depth: float | None = None,
-                 through: bool | None = None, stages: list[dict] | None = None) -> list[tuple[float, float]]:
+                 through: bool | None = None, stages: list[dict] | None = None, start: float = 0.0) -> list[tuple[float, float]]:
     """The cross-section of a hole as (s, r) points from the axis at the opening round to the axis at the far end,
     `margin` longer than the opening (and, for a through hole, than the far end) so booleans cut cleanly."""
     radius = (info.diameter if diameter is None else diameter) / 2
     is_through = info.through if through is None else through
     length = info.depth if depth is None else depth
     steps = info.stages if stages is None else stages
+    if start > 0:
+        steps = []  # a skin of material over the bore covers the opening, so no step is cut there
     points: list[tuple[float, float]] = []
 
     def add(s: float, r: float):
@@ -358,8 +360,9 @@ def hole_profile(info: HoleInfo, margin: float = 0.0, diameter: float | None = N
             top = ("bore", st["diameter"] / 2, st["depth"], 0.0)
             break
     if top is None:
-        add(-margin, 0.0)
-        add(-margin, radius)
+        top_s = start if start > 0 else -margin
+        add(top_s, 0.0)
+        add(top_s, radius)
     elif top[0] == "cone":
         _, r_top, height, half = top
         add(-margin, 0.0)
@@ -399,7 +402,7 @@ def hole_solid(info: HoleInfo, offset: gp_Vec | None = None, **changes):
 
 
 def rebuild_hole(shape, info: HoleInfo, offset: gp_Vec | None = None, **changes):
-    """The model with this hole filled and cut again with changes (`diameter`, `depth`, `through`, `stages`) and moved
+    """The model with this hole filled and cut again with changes (`diameter`, `depth`, `through`, `stages`, `start`) and moved
     by `offset`. Returns the new shape (not yet unified)."""
     from .features import _combine
 
@@ -408,3 +411,31 @@ def rebuild_hole(shape, info: HoleInfo, offset: gp_Vec | None = None, **changes)
     filled = _combine(shape, _revolved(info, hole_profile(info, 0.0)), fuse=True)
     new = _revolved(info, hole_profile(info, margin, **changes), offset)
     return _combine(filled, new, fuse=False)
+
+
+def follow_cylinder(shape, face, offset: gp_Vec | None, radius: float | None = None, only_radius: float | None = None) -> list:
+    """The face(s) of `shape` that a round wall `face` of the model before an edit became: a cylinder with the same
+    axis direction, moved by `offset`, of `radius` (the old one when None). Used to keep a hole or boss selected.
+    With `only_radius`, a wall of any other radius is ignored."""
+    from .topology import Topology
+
+    surface = BRepAdaptor_Surface(face)
+    if surface.GetType() != GeomAbs_Cylinder:
+        return []
+    old = surface.Cylinder()
+    if only_radius is not None and abs(old.Radius() - only_radius) > 1e-6:
+        return []
+    axis = old.Axis()
+    origin = axis.Location().Translated(offset) if offset is not None else axis.Location()
+    want = old.Radius() if radius is None else radius
+    found = []
+    for _, candidate in Topology(shape).faces():
+        s = BRepAdaptor_Surface(candidate)
+        if s.GetType() != GeomAbs_Cylinder:
+            continue
+        cylinder = s.Cylinder()
+        if abs(cylinder.Radius() - want) > 1e-6 or not cylinder.Axis().Direction().IsParallel(axis.Direction(), 1e-6):
+            continue
+        if gp_Lin(cylinder.Axis()).Distance(origin) < 1e-5:
+            found.append(candidate)
+    return found
