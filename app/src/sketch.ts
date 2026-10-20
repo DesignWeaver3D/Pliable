@@ -45,6 +45,34 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
   ...(Object.keys(POLYGON_SIDES) as Tool[]).map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1), hint: "Click the centre, then a corner" })),
 ];
 
+/** Sketch preferences kept on this computer: the grid and which constraints the drawing tools add on their own. */
+export interface SketchOptions {
+  grid: boolean;
+  /** Spacing of the bold grid lines, in model units. */
+  major: number;
+  /** Each major cell is split into this many (1 draws no minor lines). */
+  minor: number;
+  /** none: tools add no constraints; snaps: only those a snap implies (horizontal, vertical, on a curve, tangent); shape: also the ones that keep a rectangle, polygon or slot its shape. */
+  auto: "none" | "snaps" | "shape";
+}
+const OPTIONS_KEY = "pliable.sketchOptions";
+
+export function loadSketchOptions(): SketchOptions {
+  const options: SketchOptions = { grid: false, major: 10, minor: 1, auto: "none" };
+  try {
+    const saved = JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? "null");
+    if (saved) {
+      options.grid = saved.grid === true;
+      if (Number.isFinite(saved.major) && saved.major > 0) options.major = saved.major;
+      if (Number.isInteger(saved.minor) && saved.minor >= 1 && saved.minor <= 10) options.minor = saved.minor;
+      if (["none", "snaps", "shape"].includes(saved.auto)) options.auto = saved.auto;
+    }
+  } catch {
+    // no saved options (or storage is blocked): the defaults stand
+  }
+  return options;
+}
+
 export interface SketchHost {
   status(text: string, error?: boolean): void;
   showPreview(mesh: MeshData): void;
@@ -105,7 +133,9 @@ export class SketchMode {
   private axes = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ linewidth: 1, vertexColors: true, depthTest: false, transparent: true, opacity: 0.7 }));
   private pending = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.pending, linewidth: 2, depthTest: false }));
   private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false }));
-  private grid: THREE.GridHelper | null = null;
+  private grid: THREE.Group | null = null;
+  private options = loadSketchOptions();
+  private showOptions = false;
   private solving = false;
   private queued: { drag?: Drag } | null = null;
   private previewTimer = 0;
@@ -160,7 +190,6 @@ export class SketchMode {
     this.buildGrid(f);
     this.viewport.scene.add(this.group);
     this.viewport.interceptor = { down: (e) => this.onDown(e), move: (e) => this.onMove(e), up: (e) => this.onUp(e) };
-    this.viewport.lookFrom(new THREE.Vector3(...f.n));
     this.viewport.onFrame2 = () => this.onFrame();
     this.render();
     this.host.status(distortion ? distortion.note : "Sketch: choose a drawing tool (Line, Rectangle, Circle, Arc)", !!distortion);
@@ -175,7 +204,7 @@ export class SketchMode {
     this.viewport.scene.remove(this.group);
     if (this.grid) {
       this.group.remove(this.grid);
-      this.grid.geometry.dispose();
+      this.disposeGrid(this.grid);
       this.grid = null;
     }
     this.overlay.set([]);
@@ -201,13 +230,35 @@ export class SketchMode {
     }
   }
 
-  private buildGrid(f: ReturnType<typeof M.frame>) {
-    if (this.grid) this.group.remove(this.grid);
-    const size = 200;
-    const grid = new THREE.GridHelper(size, 20, COLORS.grid, COLORS.grid);
-    (grid.material as THREE.Material).depthTest = false;
-    (grid.material as THREE.Material).transparent = true;
-    (grid.material as THREE.Material).opacity = 0.5;
+  private disposeGrid(grid: THREE.Group) {
+    for (const child of grid.children) {
+      const lines = child as THREE.LineSegments;
+      lines.geometry.dispose();
+      (lines.material as THREE.Material).dispose();
+    }
+  }
+
+  /** The grid on the sketch plane: bold lines every `major` units and, if asked, lighter ones between them. */
+  private buildGrid(f: ReturnType<typeof M.frame> = M.frame(this.s.plane)) {
+    if (this.grid) {
+      this.group.remove(this.grid);
+      this.disposeGrid(this.grid);
+      this.grid = null;
+    }
+    if (!this.options.grid) return;
+    const { major, minor } = this.options;
+    const size = major * 20;
+    const layer = (divisions: number, color: number, opacity: number) => {
+      const lines = new THREE.GridHelper(size, divisions, color, color);
+      const material = lines.material as THREE.Material;
+      material.depthTest = false;
+      material.transparent = true;
+      material.opacity = opacity;
+      return lines;
+    };
+    const grid = new THREE.Group();
+    if (minor > 1) grid.add(layer(20 * minor, COLORS.grid, 0.25));
+    grid.add(layer(20, COLORS.grid, 0.6));
     const basis = new THREE.Matrix4().makeBasis(new THREE.Vector3(...f.x), new THREE.Vector3(...f.n), new THREE.Vector3(...f.y));
     grid.applyMatrix4(basis);
     grid.position.set(...f.origin);
@@ -580,11 +631,13 @@ export class SketchMode {
     const id = M.nextId(this.s);
     this.s.points.push({ id, u: snap.u, v: snap.v });
     snap.id = id;
-    if (snap.on) this.addConstraintRaw(snap.on.midpoint ? { type: "midpoint", point: id, entity: snap.on.entity } : { type: "point_on", point: id, entity: snap.on.entity });
+    if (snap.on) this.addConstraintRaw(snap.on.midpoint ? { type: "midpoint", point: id, entity: snap.on.entity } : { type: "point_on", point: id, entity: snap.on.entity }, "snap");
     return id;
   }
 
-  private addConstraintRaw(c: Omit<M.SketchConstraint, "id">) {
+  /** A constraint a drawing tool adds on its own: "snap" ones follow from where you clicked, "shape" ones keep a rectangle, polygon or slot its shape. Whether either is added is the sketch option `auto`. */
+  private addConstraintRaw(c: Omit<M.SketchConstraint, "id">, kind: "snap" | "shape" = "shape") {
+    if (this.options.auto === "none" || (this.options.auto === "snaps" && kind === "shape")) return;
     this.s.constraints.push({ id: M.nextId(this.s), ...c, auto: true }); // every caller is a drawing tool, not the user
   }
 
@@ -598,9 +651,9 @@ export class SketchMode {
     if (ia === ib) return false;
     const id = M.nextId(this.s);
     this.s.entities.push({ id, type: "line", a: ia, b: ib });
-    if (b.tangent !== undefined) this.addConstraintRaw({ type: "tangent", entities: [id, b.tangent] });
-    if (b.axis === "h") this.addConstraintRaw({ type: "horizontal", entity: id });
-    if (b.axis === "v") this.addConstraintRaw({ type: "vertical", entity: id });
+    if (b.tangent !== undefined) this.addConstraintRaw({ type: "tangent", entities: [id, b.tangent] }, "snap");
+    if (b.axis === "h") this.addConstraintRaw({ type: "horizontal", entity: id }, "snap");
+    if (b.axis === "v") this.addConstraintRaw({ type: "vertical", entity: id }, "snap");
     this.resolve();
     const closed = first !== undefined && first.id === ib && first !== a;
     if (closed) this.chainStart = undefined;
@@ -691,7 +744,7 @@ export class SketchMode {
     const c = this.pointFor(center);
     const id = M.nextId(this.s);
     this.s.entities.push({ id, type: "circle", center: c, radius });
-    if (edge.tangent !== undefined) this.addConstraintRaw({ type: "tangent", entities: [id, edge.tangent] });
+    if (edge.tangent !== undefined) this.addConstraintRaw({ type: "tangent", entities: [id, edge.tangent] }, "snap");
     this.resolve();
   }
 
@@ -741,7 +794,7 @@ export class SketchMode {
     const centre = this.pointFor({ u: circle.u, v: circle.v } as Snap);
     const id = M.nextId(this.s);
     this.s.entities.push({ id, type: "circle", center: centre, radius: circle.radius });
-    for (const snap of [a, b, c]) if (snap.id !== undefined) this.addConstraintRaw({ type: "point_on", point: snap.id, entity: id }); // existing points stay on it
+    for (const snap of [a, b, c]) if (snap.id !== undefined) this.addConstraintRaw({ type: "point_on", point: snap.id, entity: id }, "snap"); // existing points stay on it
     this.resolve();
   }
 
@@ -783,7 +836,7 @@ export class SketchMode {
       const [lu, lv] = [at.u - other.u, at.v - other.v];
       const [cu, cv] = [center.u - at.u, center.v - at.v];
       const cosine = Math.abs(lu * cu + lv * cv) / (Math.hypot(lu, lv) * Math.hypot(cu, cv) || 1);
-      if (cosine < Math.sin((AUTO_AXIS_DEG * 2 * Math.PI) / 180)) this.addConstraintRaw({ type: "tangent", entities: [arcId, meets.id] });
+      if (cosine < Math.sin((AUTO_AXIS_DEG * 2 * Math.PI) / 180)) this.addConstraintRaw({ type: "tangent", entities: [arcId, meets.id] }, "snap");
     }
     this.resolve();
   }
@@ -822,6 +875,69 @@ export class SketchMode {
       this.host.status(`That constraint conflicts with ${clash.length ? clash.join("; ") : "the existing ones"} (or is redundant), so it was not added`, true);
     }
     this.render();
+  }
+
+  /** The sketch settings (opened by the gear in the sketch card); changes apply at once and are remembered on this computer. */
+  private optionsSection(el: (tag: string, cls?: string, text?: string) => HTMLElement, button: (label: string, on: () => void, cls?: string) => HTMLButtonElement): HTMLElement {
+    const box = el("div", "section");
+    const save = () => {
+      try {
+        localStorage.setItem(OPTIONS_KEY, JSON.stringify(this.options));
+      } catch {
+        // storage blocked: the choice lasts for this session only
+      }
+    };
+    const field = (label: string, input: HTMLElement) => {
+      const row = el("label", "", `${label} `);
+      row.append(input);
+      return row;
+    };
+    const number = (value: number, min: number, step: string, on: (n: number) => void) => {
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = String(min);
+      input.step = step;
+      input.value = String(value);
+      input.style.width = "60px";
+      input.addEventListener("keydown", (e) => e.stopPropagation());
+      input.addEventListener("change", () => {
+        const n = Number(input.value);
+        if (Number.isFinite(n) && n >= min) on(n);
+        save();
+        this.buildGrid();
+        this.renderPanel();
+      });
+      return input;
+    };
+    const showGrid = document.createElement("input");
+    showGrid.type = "checkbox";
+    showGrid.checked = this.options.grid;
+    showGrid.addEventListener("change", () => {
+      this.options.grid = showGrid.checked;
+      save();
+      this.buildGrid();
+      this.renderPanel();
+    });
+    const auto = document.createElement("select");
+    for (const [value, label] of [["none", "Off: geometry stays free"], ["snaps", "From snaps only"], ["shape", "Snaps and shapes"]]) auto.append(new Option(label, value, false, value === this.options.auto));
+    auto.title = "Off: drawing tools never add constraints, so everything moves freely until you constrain it. From snaps: a line snapped to horizontal or vertical, or a point snapped onto a curve, keeps that. Snaps and shapes: also keeps rectangles, polygons and slots in shape";
+    auto.addEventListener("change", () => {
+      this.options.auto = auto.value as SketchOptions["auto"];
+      save();
+    });
+    box.append(
+      el("div", "group", "Sketch settings"),
+      field("Show grid", showGrid),
+      ...(this.options.grid
+        ? [
+            field("Major spacing", number(this.options.major, 0.01, "any", (n) => (this.options.major = n))),
+            field("Minor divisions", number(this.options.minor, 1, "1", (n) => (this.options.minor = Math.min(10, Math.round(n))))),
+          ]
+        : []),
+      field("Automatic constraints", auto),
+    );
+    void button;
+    return box;
   }
 
   /** Change the value of an existing dimension; a value the other constraints refuse is undone. */
@@ -1402,7 +1518,17 @@ export class SketchMode {
       return b;
     };
 
-    const header = el("div", "title", "Sketch");
+    const header = el("div", "title", "Sketch ");
+    const gear = button("⚙", () => {
+      this.showOptions = !this.showOptions;
+      this.renderPanel();
+    });
+    gear.title = "Sketch settings: grid and automatic constraints";
+    gear.classList.toggle("active", this.showOptions);
+    const look = button("Look at plane", () => this.viewport.lookFrom(new THREE.Vector3(...M.frame(this.s.plane).n)));
+    look.title = "Turn the view square to the sketch plane (entering a sketch does not move the view)";
+    header.append(gear, look);
+    const optionsBox = this.showOptions ? this.optionsSection(el, button) : null;
     const status = el("div", "dof", this.failed.size ? `Conflict: ${this.s.constraints.filter((c) => this.failed.has(c.id)).map((c) => M.describeConstraint(this.s, c)).join("; ") || [...this.failed].join(", ")}. Remove one (red rows below)` : this.dof === null ? "" : this.dof === 0 ? "Fully constrained" : `${this.dof} degrees of freedom left`);
     if (this.failed.size) status.classList.add("bad");
 
@@ -1609,6 +1735,6 @@ export class SketchMode {
     finish.title = "Leave the sketch and keep its closed regions as faces you can push/pull or extrude";
     const exit = button("Discard sketch", () => this.exit());
     exit.title = "Leave the sketch and throw it away without changing the model";
-    this.panel.replaceChildren(header, status, tools, constraintsBox, ...(transformRow ? [transformBox] : []), ask, list, ...(flat ? [extrude] : []), finish, exit);
+    this.panel.replaceChildren(header, ...(optionsBox ? [optionsBox] : []), status, tools, constraintsBox, ...(transformRow ? [transformBox] : []), ask, list, ...(flat ? [extrude] : []), finish, exit);
   }
 }
