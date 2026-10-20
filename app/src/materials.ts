@@ -1,14 +1,22 @@
 /**
- * Materials for model bodies. A material has a name, a density and the numbers the 3D view uses to draw
- * it. `render` feeds the viewport directly, so a new material only needs new numbers.
- * `density` (kg per cubic metre) is for a later mass calculation and is not used anywhere yet.
+ * Materials for model bodies. A material has a name, a group, a density and the numbers the 3D view uses
+ * to draw it. `render` feeds the viewport directly, so a new material only needs new numbers.
+ * `density` (kg per cubic metre) is for a later mass calculation and is NOT used anywhere yet.
+ * One material is chosen globally in the settings; there are no per-body materials yet.
  */
+export type MaterialGroup = "Plastic" | "Resin" | "Metal";
+
 export interface Material {
   id: string;
   name: string;
+  group: MaterialGroup;
   /** Kilograms per cubic metre; not used yet (reserved for mass). */
   density: number;
+  /** Where the density comes from and how much it varies. */
+  note?: string;
   render: {
+    /** Surface colour as sRGB hex. For metals it is the metal's own colour; plastics and resins are tinted per body (or use this colour when body colours are off). */
+    color: number;
     roughness: number;
     metalness: number;
     clearcoat: number;
@@ -18,16 +26,53 @@ export interface Material {
   };
 }
 
+const BLUE = 0x9db4cc; // the steel-blue of the plain (uncoloured) surface
+
+const plastic = (id: string, name: string, density: number, note: string, roughness: number, clearcoat: number, clearcoatRoughness: number): Material => ({
+  id,
+  name,
+  group: "Plastic",
+  density,
+  note,
+  render: { color: BLUE, roughness, metalness: 0, clearcoat, clearcoatRoughness, envMapIntensity: 0.8 },
+});
+
+const resin = (id: string, name: string, density: number): Material => ({
+  id,
+  name,
+  group: "Resin",
+  density,
+  note: "Typical value; photopolymer resins vary roughly 1050-1250 kg/m3 by product",
+  render: { color: BLUE, roughness: 0.25, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.2, envMapIntensity: 0.9 },
+});
+
+const metal = (id: string, name: string, density: number, note: string, color: number, roughness: number, envMapIntensity = 1): Material => ({
+  id,
+  name,
+  group: "Metal",
+  density,
+  note,
+  render: { color, roughness, metalness: 1, clearcoat: 0, clearcoatRoughness: 0, envMapIntensity },
+});
+
 export const MATERIALS: Material[] = [
-  {
-    id: "plastic",
-    name: "Plastic, semi-gloss",
-    density: 1050, // as for ABS
-    render: { roughness: 0.4, metalness: 0, clearcoat: 0.35, clearcoatRoughness: 0.3, envMapIntensity: 0.8 },
-  },
+  plastic("pla", "PLA", 1240, "Typical 1210-1430", 0.38, 0.4, 0.3),
+  plastic("petg", "PETG", 1270, "Typical 1230-1290", 0.3, 0.5, 0.25),
+  plastic("abs", "ABS", 1050, "Typical 1040-1070", 0.4, 0.35, 0.3),
+  plastic("asa", "ASA", 1070, "Typical 1050-1100", 0.45, 0.25, 0.4),
+  resin("resin-standard", "Resin, standard", 1100),
+  resin("resin-tough", "Resin, tough", 1150),
+  metal("steel", "Steel, mild", 7850, "Carbon steel, 7800-7870", 0xb9bcc2, 0.4),
+  metal("stainless", "Steel, stainless", 8000, "Austenitic grades, 7900-8000", 0xc4c8cf, 0.3),
+  metal("aluminium", "Aluminium 6061", 2700, "6061 alloy, 2700", 0xd4d6d9, 0.35),
+  metal("copper", "Copper", 8960, "Pure copper, 8940-8960", 0xe0906f, 0.25),
+  metal("gold", "Gold", 19320, "Pure gold, 19300", 0xe8b445, 0.15),
+  metal("silver", "Silver", 10490, "Pure silver, 10490", 0xf0eee8, 0.12),
+  metal("titanium", "Titanium Ti-6Al-4V", 4430, "Grade 5 alloy, 4420-4430", 0xa39d98, 0.48, 0.85),
+  metal("cobalt", "Cobalt", 8900, "Pure cobalt, 8900", 0x8e9aa6, 0.3),
 ];
 
-export const DEFAULT_MATERIAL_ID = "plastic";
+export const DEFAULT_MATERIAL_ID = "abs";
 
 export function getMaterial(id: string): Material | undefined {
   return MATERIALS.find((m) => m.id === id);
@@ -35,4 +80,14 @@ export function getMaterial(id: string): Material | undefined {
 
 export function defaultMaterial(): Material {
   return getMaterial(DEFAULT_MATERIAL_ID)!;
+}
+
+/** The material for a setting value; unknown ids give the default. */
+export function materialOrDefault(id: string): Material {
+  return getMaterial(id) ?? defaultMaterial();
+}
+
+/** Metals show their own colour; plastics and resins take the per-body tint. */
+export function usesBodyColors(m: Material): boolean {
+  return m.group !== "Metal";
 }

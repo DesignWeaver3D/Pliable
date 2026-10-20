@@ -1,4 +1,5 @@
 import { uiIcon } from "./icons.ts";
+import { MATERIALS, DEFAULT_MATERIAL_ID, getMaterial } from "./materials.ts";
 /** User settings kept in the browser. Read the values through `settings`; they change live. */
 export interface Settings {
   /** Pick radius in pixels for edges. */
@@ -17,10 +18,12 @@ export interface Settings {
   randomBodyColors: boolean;
   /** Draw bodies as semi-gloss plastic with studio reflections; off gives the previous flat look. */
   glossyLook: boolean;
+  /** Id of the material all bodies are drawn with (see materials.ts); only the look is used for now. */
+  material: string;
 }
 
 const KEY = "pliable.settings";
-const DEFAULTS: Settings = { edgePickPx: 5, vertexPickPx: 8, seeThrough: false, seeThroughOpacity: 12, sharpAngle: 30, boxKind: "auto", randomBodyColors: true, glossyLook: true };
+const DEFAULTS: Settings = { edgePickPx: 5, vertexPickPx: 8, seeThrough: false, seeThroughOpacity: 12, sharpAngle: 30, boxKind: "auto", randomBodyColors: true, glossyLook: true, material: DEFAULT_MATERIAL_ID };
 
 export const settings: Settings = { ...DEFAULTS };
 const listeners: Array<() => void> = [];
@@ -70,6 +73,7 @@ export const SETTING_ENTRIES: { id: string; label: string; keywords: string[] }[
   { id: "seeThroughOpacity", label: "See-through opacity", keywords: ["transparency", "alpha", "faces"] },
   { id: "randomBodyColors", label: "Random body colours", keywords: ["colour", "color", "muted", "bodies", "solids", "names", "tint"] },
   { id: "glossyLook", label: "Glossy plastic look", keywords: ["material", "shiny", "gloss", "realistic", "reflection", "flat", "graphics", "slow"] },
+  { id: "material", label: "Material", keywords: ["plastic", "pla", "petg", "abs", "asa", "resin", "metal", "steel", "aluminium", "copper", "gold", "silver", "titanium", "cobalt", "look", "density"] },
   { id: "hints", label: "Hints", keywords: ["tips", "help line", "learning", "turn off"] },
   { id: "keys", label: "Keyboard shortcuts", keywords: ["hotkeys", "bindings", "rebind"] },
 ];
@@ -86,6 +90,8 @@ export function settingValue(id: string): string {
       return `${settings.seeThroughOpacity} %`;
     case "seeThrough":
       return settings.seeThrough ? "on" : "off";
+    case "material":
+      return getMaterial(settings.material)?.name ?? "";
     case "glossyLook":
       return settings.glossyLook ? "on" : "off";
     case "randomBodyColors":
@@ -178,6 +184,27 @@ export function createSettingsWindow(host: HTMLElement) {
   glossCheck.onchange = () => updateSettings({ glossyLook: glossCheck.checked });
   glossRow.append(glossCheck, " Glossy plastic look");
   onSettingsChange(() => (glossCheck.checked = settings.glossyLook));
+  const matRow = document.createElement("label");
+  matRow.title = "What the bodies look like. Plastics and resins keep the random body colours; metals show their own colour and ignore them. Needs the glossy plastic look (off gives the flat look for every material)";
+  const matText = document.createElement("span");
+  matText.textContent = "Material ";
+  const matSelect = document.createElement("select");
+  for (const group of ["Plastic", "Resin", "Metal"]) {
+    const og = document.createElement("optgroup");
+    og.label = group;
+    for (const m of MATERIALS.filter((x) => x.group === group)) {
+      const o = document.createElement("option");
+      o.value = m.id;
+      o.textContent = m.name;
+      og.append(o);
+    }
+    matSelect.append(og);
+  }
+  matSelect.title = matRow.title;
+  matSelect.value = settings.material;
+  matSelect.onchange = () => updateSettings({ material: matSelect.value });
+  matRow.append(matText, matSelect);
+  onSettingsChange(() => (matSelect.value = settings.material));
   const hintsRow = document.createElement("label");
   hintsRow.title = "Show the key hint line and first-use tips at the bottom of the view";
   const hintsCheck = document.createElement("input");
@@ -208,6 +235,7 @@ export function createSettingsWindow(host: HTMLElement) {
     hintsRow.dataset.setting = "hints";
     colorsRow.dataset.setting = "randomBodyColors";
     glossRow.dataset.setting = "glossyLook";
+    matRow.dataset.setting = "material";
     keysButton.dataset.setting = "keys";
     check.checked = settings.seeThrough;
     boxSelect.value = settings.boxKind;
@@ -224,6 +252,7 @@ export function createSettingsWindow(host: HTMLElement) {
     slider("See-through opacity", "seeThroughOpacity", 0, 60, "How visible the faces stay while see-through is on. 0 is fully clear; higher shows the surface more."),
     colorsRow,
     glossRow,
+    matRow,
     hintsRow,
     reset,
     keysButton,
