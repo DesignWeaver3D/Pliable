@@ -15,10 +15,12 @@ export interface Settings {
   boxKind: "auto" | "edge" | "face" | "vertex";
   /** Give every body its own muted colour in the 3D view and the body list. */
   randomBodyColors: boolean;
+  /** Draw bodies as semi-gloss plastic with studio reflections; off gives the previous flat look. */
+  glossyLook: boolean;
 }
 
 const KEY = "pliable.settings";
-const DEFAULTS: Settings = { edgePickPx: 5, vertexPickPx: 8, seeThrough: false, seeThroughOpacity: 12, sharpAngle: 30, boxKind: "auto", randomBodyColors: true };
+const DEFAULTS: Settings = { edgePickPx: 5, vertexPickPx: 8, seeThrough: false, seeThroughOpacity: 12, sharpAngle: 30, boxKind: "auto", randomBodyColors: true, glossyLook: true };
 
 export const settings: Settings = { ...DEFAULTS };
 const listeners: Array<() => void> = [];
@@ -67,6 +69,7 @@ export const SETTING_ENTRIES: { id: string; label: string; keywords: string[] }[
   { id: "seeThrough", label: "See-through", keywords: ["transparent", "x ray", "hidden edges"] },
   { id: "seeThroughOpacity", label: "See-through opacity", keywords: ["transparency", "alpha", "faces"] },
   { id: "randomBodyColors", label: "Random body colours", keywords: ["colour", "color", "muted", "bodies", "solids", "names", "tint"] },
+  { id: "glossyLook", label: "Glossy plastic look", keywords: ["material", "shiny", "gloss", "realistic", "reflection", "flat", "graphics", "slow"] },
   { id: "hints", label: "Hints", keywords: ["tips", "help line", "learning", "turn off"] },
   { id: "keys", label: "Keyboard shortcuts", keywords: ["hotkeys", "bindings", "rebind"] },
 ];
@@ -83,6 +86,8 @@ export function settingValue(id: string): string {
       return `${settings.seeThroughOpacity} %`;
     case "seeThrough":
       return settings.seeThrough ? "on" : "off";
+    case "glossyLook":
+      return settings.glossyLook ? "on" : "off";
     case "randomBodyColors":
       return settings.randomBodyColors ? "on" : "off";
     case "boxKind":
@@ -164,6 +169,15 @@ export function createSettingsWindow(host: HTMLElement) {
   colorsCheck.onchange = () => updateSettings({ randomBodyColors: colorsCheck.checked });
   colorsRow.append(colorsCheck, " Random body colours");
   onSettingsChange(() => (colorsCheck.checked = settings.randomBodyColors));
+  const glossRow = document.createElement("label");
+  glossRow.title = "Draw bodies as semi-gloss plastic with soft reflections. Turn off for the flat look, which is lighter on slow graphics";
+  const glossCheck = document.createElement("input");
+  glossCheck.type = "checkbox";
+  glossCheck.checked = settings.glossyLook;
+  glossCheck.title = glossRow.title;
+  glossCheck.onchange = () => updateSettings({ glossyLook: glossCheck.checked });
+  glossRow.append(glossCheck, " Glossy plastic look");
+  onSettingsChange(() => (glossCheck.checked = settings.glossyLook));
   const hintsRow = document.createElement("label");
   hintsRow.title = "Show the key hint line and first-use tips at the bottom of the view";
   const hintsCheck = document.createElement("input");
@@ -193,6 +207,7 @@ export function createSettingsWindow(host: HTMLElement) {
     boxRow.dataset.setting = "boxKind";
     hintsRow.dataset.setting = "hints";
     colorsRow.dataset.setting = "randomBodyColors";
+    glossRow.dataset.setting = "glossyLook";
     keysButton.dataset.setting = "keys";
     check.checked = settings.seeThrough;
     boxSelect.value = settings.boxKind;
@@ -208,6 +223,7 @@ export function createSettingsWindow(host: HTMLElement) {
     seeThrough,
     slider("See-through opacity", "seeThroughOpacity", 0, 60, "How visible the faces stay while see-through is on. 0 is fully clear; higher shows the surface more."),
     colorsRow,
+    glossRow,
     hintsRow,
     reset,
     keysButton,

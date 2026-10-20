@@ -2,6 +2,8 @@ import { pointInRect, segmentHitsRect, segmentsInBox, triangleHitsRect, triangle
 import { doubleClickBody } from "./bodylogic";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { defaultMaterial } from "./materials";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
@@ -91,6 +93,9 @@ export const STANDARD_VIEWS: Record<string, THREE.Vector3> = {
   left: new THREE.Vector3(-1, 0, 0),
 };
 
+const GLOSS_HEMI = 0.5;
+const GLOSS_KEY = 1.0;
+
 export class Viewport {
   readonly scene = new THREE.Scene();
   private readonly perspectiveCamera = new THREE.PerspectiveCamera(PERSPECTIVE_FOV, 1, 0.1, 10000);
@@ -111,7 +116,10 @@ export class Viewport {
   private moving: { bodies: Set<number>; surface: THREE.Mesh; edges: THREE.LineSegments; data: MeshData } | null = null;
   private data: MeshData | null = null;
   private faceStarts: number[] = [];
-  private surfaceMaterial: THREE.MeshStandardMaterial | null = null;
+  private surfaceMaterial: THREE.MeshPhysicalMaterial | null = null;
+  private readonly hemiLight = new THREE.HemisphereLight(0xffffff, 0x445566, 1.4);
+  /** Soft studio environment for the glossy look, built once on first use. */
+  private studioEnv: THREE.Texture | null = null;
   private edgeMaterial: THREE.LineBasicMaterial | null = null;
   private hovered: Sel | null = null;
   /** Hole centres currently shown: those of the hovered or selected hole faces and the centres of circular edges. */
@@ -383,7 +391,7 @@ export class Viewport {
     container.appendChild(this.renderer.domElement);
     this.scene.background = new THREE.Color(0x1b1d22);
     this.scene.add(this.model);
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.4));
+    this.scene.add(this.hemiLight);
     this.keyLight.position.set(1, 2, 3);
     for (const c of [this.perspectiveCamera, this.orthoCamera]) c.up.set(0, 0, 1);
     this.camera.add(this.keyLight);
@@ -777,7 +785,7 @@ export class Viewport {
     geometry.setAttribute("normal", new THREE.BufferAttribute(mesh.normals, 3));
     geometry.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
     geometry.setAttribute("color", new THREE.BufferAttribute(bodyColorArray(mesh), 3));
-    const material = new THREE.MeshStandardMaterial({
+    const material = new THREE.MeshPhysicalMaterial({
       color: 0x9db4cc,
       metalness: 0.1,
       roughness: 0.6,
@@ -949,6 +957,36 @@ export class Viewport {
     return face && face.count > 0 ? face.id : null;
   }
 
+  /** Surface look: semi-gloss plastic (numbers from the default material, studio reflections) or the previous flat look. */
+  private applyLook() {
+    const m = this.surfaceMaterial;
+    if (!m) return;
+    if (settings.glossyLook) {
+      if (!this.studioEnv) {
+        const pmrem = new THREE.PMREMGenerator(this.renderer);
+        this.studioEnv = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+        pmrem.dispose();
+      }
+      const r = defaultMaterial().render;
+      m.roughness = r.roughness;
+      m.metalness = r.metalness;
+      m.clearcoat = r.clearcoat;
+      m.clearcoatRoughness = r.clearcoatRoughness;
+      m.envMap = this.studioEnv;
+      m.envMapIntensity = r.envMapIntensity;
+      this.hemiLight.intensity = GLOSS_HEMI;
+      this.keyLight.intensity = GLOSS_KEY;
+    } else {
+      m.roughness = 0.6;
+      m.metalness = 0.1;
+      m.clearcoat = 0;
+      m.envMap = null;
+      this.hemiLight.intensity = 1.4;
+      this.keyLight.intensity = 1.6;
+    }
+    m.needsUpdate = true;
+  }
+
   /** Random body colours: the per-vertex body tint multiplies a white base; off gives the plain steel-blue surface. */
   private applyBodyColors() {
     const m = this.surfaceMaterial;
@@ -956,6 +994,7 @@ export class Viewport {
     const on = settings.randomBodyColors;
     m.vertexColors = on;
     m.color.set(on ? 0xffffff : 0x9db4cc);
+    this.applyLook();
     m.needsUpdate = true;
   }
 

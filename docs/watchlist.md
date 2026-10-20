@@ -145,3 +145,8 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - After about a dozen bodies, hues of non-consecutive ids can sit close together; colours are distinct, not unique.
 - The surface uses per-vertex colours on a white base, so lighting still applies; loose faces and sheets with no body keep the steel-blue. Colours are not saved in the document and there is no per-body override yet.
 - In the body list the name colour overrides the grey of hidden bodies only when visible (hidden rows stay grey, no dot).
+
+## Glossy plastic look (semi-gloss body material)
+- Bodies are drawn with a physically based material from `app/src/materials.ts`: the default 'plastic' (Plastic, semi-gloss): roughness 0.4, metalness 0, clearcoat 0.35, clearcoat roughness 0.3, reflection strength 0.8, density 1050 kg/m3 (as for ABS). Reflections come from a soft studio environment generated in code (built once, first use). Lights are lowered while it is on (hemisphere 0.5, key 1.0).
+- Setting 'Glossy plastic look' (default on) switches back to the previous flat look when off, for slow graphics.
+- Limits: density is stored but unused (no mass yet); there is one material and no way to choose or assign it per body; the look uses no tone mapping, so highlights can brighten flat top faces; the colour vertex tint is multiplied into the reflection too, so very light body colours look paler than flat; sketch overlay not re-checked visually after the change (it uses separate materials).
