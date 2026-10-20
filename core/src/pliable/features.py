@@ -2092,12 +2092,69 @@ def _half_space(shape, normal, position: float, above: bool):
     return BRepPrimAPI_MakeBox(gp_Ax2(corner, gp_Dir(*normal), ax.XDirection()), size, size, size).Shape()
 
 
+TILT = [Param("tilt_u", "angle"), Param("tilt_v", "angle")]
+
+
+def _plane_frame(normal) -> tuple[tuple, tuple]:
+    """Two unit axes square to `normal` that the plane is tilted about (the same two every time for the same normal)."""
+    ref = (1.0, 0.0, 0.0) if abs(normal[2]) > 0.9 else (0.0, 0.0, 1.0)
+    u = gp_Vec(*normal).Crossed(gp_Vec(*ref))
+    u.Normalize()
+    v = gp_Vec(*normal).Crossed(u)
+    return (u.X(), u.Y(), u.Z()), (v.X(), v.Y(), v.Z())
+
+
+def _tilted(vec, axis, degrees: float):
+    v = gp_Vec(*vec)
+    v.Rotate(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(*axis)), math.radians(degrees))
+    return (v.X(), v.Y(), v.Z())
+
+
+def _model_middle(shape) -> tuple[float, float, float]:
+    box = Bnd_Box()
+    BRepBndLib.Add_s(shape, box)
+    return tuple((box.CornerMin().Coord(k + 1) + box.CornerMax().Coord(k + 1)) / 2 for k in range(3))
+
+
+def _cutting_plane(shape, values) -> tuple[tuple[float, float, float], float]:
+    """The plane's unit normal and its distance from the origin along it. `position` is measured along the untilted
+    normal; tilt_u and tilt_v turn the plane about two axes through the point of it nearest the model's middle."""
+    base = _plane_normal(values)
+    tu, tv = values.get("tilt_u", 0.0), values.get("tilt_v", 0.0)
+    if abs(tu) < 1e-9 and abs(tv) < 1e-9:
+        return base, values["position"]
+    u, v = _plane_frame(base)
+    normal = _tilted(_tilted(base, u, tu), v, tv)
+    mid = _model_middle(shape)
+    pivot = [mid[k] + base[k] * (values["position"] - sum(base[i] * mid[i] for i in range(3))) for k in range(3)]
+    return normal, sum(normal[k] * pivot[k] for k in range(3))
+
+
+def _plane_handles(topology, values) -> list[Handle]:
+    """An arrow that slides the plane along its untilted normal and a ring for each of the two tilts, centred where the plane
+    is nearest the model's middle. A tilt grip sits where the plane's normal points after that turn alone."""
+    base = _plane_normal(values)
+    mid = _model_middle(topology.shape)
+    shift = values["position"] - sum(base[i] * mid[i] for i in range(3))
+    centre = tuple(mid[k] + base[k] * shift for k in range(3))
+    u, v = _plane_frame(base)
+    radius = max(_bounds_diagonal(topology.shape) * 0.6, 8.0)
+    out = [Handle("position", "Move the cutting plane", centre, base, kind="move")]
+    for name, label, axis in (("tilt_u", "Tilt the plane about its first axis", u), ("tilt_v", "Tilt the plane about its second axis", v)):
+        spot = _tilted(base, axis, 45 + values.get(name, 0.0))
+        anchor = tuple(centre[k] + spot[k] * radius for k in range(3))
+        tangent = gp_Vec(*axis).Crossed(gp_Vec(*spot))
+        tangent.Normalize()
+        out.append(Handle(name, label, anchor, (tangent.X(), tangent.Y(), tangent.Z()), scale=math.degrees(1 / radius), unit="°", axis=axis, ring=(*centre, radius)))
+    return out
+
+
 def _cut_halves(topology, values):
     """The model with the part on each side of the plane removed: (below, above) as shapes."""
-    normal = _plane_normal(values)
+    normal, position = _cutting_plane(topology.shape, values)
     result = []
     for above in (False, True):  # removing the block above leaves the lower half
-        result.append(_combine(topology.shape, _half_space(topology.shape, normal, values["position"], above=not above), fuse=False))
+        result.append(_combine(topology.shape, _half_space(topology.shape, normal, position, above=not above), fuse=False))
     return result
 
 
@@ -2109,9 +2166,12 @@ class CutPlane(Tool):
 
     id = "cut_plane"
     label = "Cut with plane"
-    description = "Cuts the model with a plane and keeps one side or both. Axis 0, 1, 2 is X, Y, Z; axis 3 uses the direction nx, ny, nz. Position is the plane's distance from the origin along its direction. Remove side +1 removes the part on the direction's side, -1 the other part, 0 keeps both as two separate bodies. Nothing needs to be selected."
+    description = "Cuts the model with a plane and keeps one side or both. Drag the arrow to slide the plane and the two rings to tilt it (tilt_u, tilt_v). Axis 0, 1, 2 is X, Y, Z; axis 3 uses the direction nx, ny, nz. Position is the plane's distance from the origin along its direction. Remove side +1 removes the part on the direction's side, -1 the other part, 0 keeps both as two separate bodies. Nothing needs to be selected."
     accepts = Accepts()
-    params = [Param("axis", "number", 2), Param("position", "length"), Param("remove_side", "number", 1), Param("nx", "number", 0), Param("ny", "number", 0), Param("nz", "number", 1)]
+    params = [Param("axis", "number", 2), Param("position", "length"), Param("remove_side", "number", 1), Param("nx", "number", 0), Param("ny", "number", 0), Param("nz", "number", 1), *TILT]
+
+    def handles(self, topology, selection, values):
+        return _plane_handles(topology, values)
 
     def run(self, topology, selection, values, preview):
         side = values["remove_side"]
@@ -2142,8 +2202,11 @@ class SplitPlane(Tool):
     label = "Split with plane"
     description = "Splits the model into two solids along a plane (axis 0, 1, 2 = X, Y, Z or 3 for the direction nx, ny, nz). Cut with plane does the same with its keep-both choice. Nothing needs to be selected."
     accepts = Accepts()
-    params = [Param("axis", "number", 2), Param("position", "length"), Param("nx", "number", 0), Param("ny", "number", 0), Param("nz", "number", 1)]
+    params = [Param("axis", "number", 2), Param("position", "length"), Param("nx", "number", 0), Param("ny", "number", 0), Param("nz", "number", 1), *TILT]
     hidden = True
+
+    def handles(self, topology, selection, values):
+        return _plane_handles(topology, values)
 
     def run(self, topology, selection, values, preview):
         return get_tool("cut_plane").run(topology, selection, {**values, "remove_side": 0.0}, preview)

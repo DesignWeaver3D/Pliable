@@ -610,3 +610,20 @@ def test_align_face_flush_and_draft_messages(bracket):
         run("draft", bracket, faces=[7], angle=3)  # a top face cannot be drafted about Z
     with pytest.raises(OperationError, match="smaller angle"):
         run("draft", bracket, faces=[12], angle=3)
+
+
+def test_cut_plane_tilts_and_offers_move_and_tilt_handles(block):
+    from pliable.bodies import box_of
+    from pliable.tools import Selection
+
+    for tool_id in ("cut_plane", "split_plane"):
+        tool = get_tool(tool_id)
+        values = {"axis": 2, "position": 0.0, "remove_side": 0.0}
+        handles = tool.handles(block, Selection(), {**values, "tilt_u": 0.0, "tilt_v": 0.0, "nx": 0, "ny": 0, "nz": 1})
+        assert [h.param for h in handles] == ["position", "tilt_u", "tilt_v"]
+        assert handles[0].kind == "move" and handles[1].ring is not None
+    flat = run("cut_plane", block, axis=2, position=0.0, remove_side=1.0)
+    tilted = run("cut_plane", block, axis=2, position=0.0, remove_side=1.0, tilt_u=20.0)
+    # A tilted plane through the middle leaves a different shape than the level one.
+    assert box_of(tilted.shape) != box_of(flat.shape)
+    assert volume(tilted.shape) == pytest.approx(volume(flat.shape), rel=0.2)
