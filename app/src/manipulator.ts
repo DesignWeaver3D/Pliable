@@ -36,8 +36,9 @@ export function axisColorOf(d: readonly number[]): number {
 }
 
 /** The look of a handle: its resting and hover colour. */
-export function handleColors(info: Pick<HandleInfo, "kind" | "toggle" | "direction">): { rest: number; hot: number } {
+export function handleColors(info: Pick<HandleInfo, "kind" | "toggle" | "direction"> & { axis?: readonly number[] | null }): { rest: number; hot: number } {
   if (info.toggle || info.kind === "toggle") return { rest: COLOR_TOGGLE, hot: COLOR_HOT };
+  if (info.axis) return { rest: axisColorOf(info.axis), hot: COLOR_HOT }; // a rotation handle wears the colour of its axis
   if (info.kind === "move") return { rest: axisColorOf(info.direction), hot: COLOR_HOT };
   if (info.kind === "resize") return { rest: COLOR_RESIZE, hot: COLOR_RESIZE_HOT };
   return { rest: COLOR, hot: COLOR_HOT };
@@ -229,7 +230,20 @@ export class Manipulator {
     group.add(tip, arm);
     this.root.add(group);
     let axis: THREE.Group | undefined;
-    if (info.axisFrom) {
+    if (info.ring && info.axis) {
+      // The ring a rotation handle runs on, around the thing it turns: a thin circle in the axis colour.
+      axis = new THREE.Group();
+      axis.renderOrder = 9;
+      const [cx, cy, cz, radius] = info.ring;
+      const normal = new THREE.Vector3(...info.axis);
+      const points = Array.from({ length: 65 }, (_, i) => new THREE.Vector3(Math.cos((i / 64) * Math.PI * 2), Math.sin((i / 64) * Math.PI * 2), 0).multiplyScalar(radius));
+      const circle = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: handleColors(info).rest, depthTest: false, transparent: true, opacity: 0.55 }));
+      circle.renderOrder = 9;
+      circle.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+      axis.position.set(cx, cy, cz);
+      axis.add(circle);
+      this.root.add(axis);
+    } else if (info.axisFrom) {
       axis = new THREE.Group();
       axis.renderOrder = 9;
       const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: AXIS_LINE, depthTest: false, transparent: true, opacity: 0.9 }));

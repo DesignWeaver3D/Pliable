@@ -108,6 +108,7 @@ const TOOL_WORDS: [RegExp, string[]][] = [
   [/convert_to_countersink/, ["convert", "existing", "change"]],
   [/hole|boss|counter|countersink|slot/, ["hole", "drill", "bore", "boss", "pin", "peg"]],
   [/^move_|move_body|move_hole/, ["move", "translate", "shift", "position"]],
+  [/move_body/, ["rotate", "turn", "spin", "orient", "angle"]],
   [/rotate/, ["rotate", "turn", "spin", "angle"]],
   [/scale/, ["scale", "resize", "size", "grow", "shrink"]],
   [/push_pull|offset|stretch/, ["extrude", "push", "pull", "offset", "thicken"]],

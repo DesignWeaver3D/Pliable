@@ -20,6 +20,8 @@ export interface ToolInfo {
   /** "tool": the tool is chosen first and places something new; "selection": it acts on a selection. */
   startsFrom?: "selection" | "tool";
   hasHandles?: boolean;
+  /** Kept only so old documents and requests work: not offered in the strip or the tool list. */
+  hidden?: boolean;
 }
 
 /** An on-screen manipulator for one parameter (docs/protocol.md, Handles). */
@@ -39,6 +41,9 @@ export interface HandleInfo {
   unit: string;
   /** An axis handle: the other end of the line drawn from here (a hole's opening), or null. */
   axisFrom?: [number, number, number] | null;
+  /** A rotation handle: the axis it turns about (it is drawn in that axis's colour) and the ring it runs on: centre and radius. */
+  axis?: [number, number, number] | null;
+  ring?: [number, number, number, number] | null;
   /** The number shown and typed is the parameter times `factor` (0.5: a diameter parameter shown as a radius), after `symbol`. */
   factor?: number;
   symbol?: string;

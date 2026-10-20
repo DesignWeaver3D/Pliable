@@ -151,12 +151,17 @@ class Handle:
     # a radius), led by `symbol` ("R" or the diameter sign) so the typed value's meaning is clear.
     factor: float = 1.0
     symbol: str = ""
+    # A rotation handle: the axis it turns about (the view colours it by that axis) and the ring it runs on, (cx, cy, cz, radius).
+    axis: tuple[float, float, float] | None = None
+    ring: tuple[float, float, float, float] | None = None
 
     def to_json(self, value: float, values: dict | None = None) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
         if self.shown is not None:
             value = self.shown
         return {
+            "axis": [float(c) for c in self.axis] if self.axis else None,
+            "ring": [float(c) for c in self.ring] if self.ring else None,
             "axisFrom": [float(c) for c in self.axis_from] if self.axis_from else None,
             "param": self.param,
             "label": self.label,
@@ -224,6 +229,7 @@ class Tool:
     # Where the tool starts: "selection" (the user selects something, then the tool acts on it) or "tool" (the tool is
     # chosen first and places something new, like a primitive); the view shows `handles` accordingly.
     starts_from: str = "selection"
+    hidden: bool = False  # kept so old requests work, but not offered in the strip or the tool list
     whole_model_needs_one_body: bool = False  # with nothing selected the tool acts on every body; offer it only when there is one
     # Name for bodies this tool creates ("Box" gives "Box 1", "Box 2"), and whether it keeps the solids in their order
     # (whole-body transforms), which lets the bodies be matched by position (see bodies.py).
@@ -335,6 +341,7 @@ class Tool:
             "placement": list(self.placement) if self.placement else None,
             "moveVector": list(self.move_vector) if self.move_vector else None,
             "startsFrom": self.starts_from,
+            "hidden": self.hidden,
             "hasHandles": type(self).handles is not Tool.handles,
         }
 
