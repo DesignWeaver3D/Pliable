@@ -338,7 +338,7 @@ function renderToolbar() {
     hint.className = "none";
     hint.textContent = currentSels.length ? "No tools for this selection" : "Select a face or edge (Ctrl+K for commands)";
     const browse = document.createElement("button");
-    browse.append(uiIcon("more"), "All tools");
+    browse.append(uiIcon("more"), "... More");
     browse.className = "more";
     browse.title = "Open the tool drawer (T)";
     browse.addEventListener("click", () => toggleDrawer(true));
