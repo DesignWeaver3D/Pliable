@@ -21,6 +21,8 @@ export interface EdgeRange {
   normal: [number, number, number] | null;
   solid?: number;
   body?: number | null;
+  /** Centre of a circular or elliptical edge (an arc too): a snap and measure anchor. */
+  centre?: [number, number, number] | null;
 }
 
 export interface VertexInfo {

@@ -35,13 +35,33 @@ class Mesh:
     edge_positions: np.ndarray  # float32, (k, 3), consecutive pairs form segments
     # Per face: id, first index into `indices`, index count, planar normal or None, centroid
     faces: list[dict] = field(default_factory=list)
-    # Per edge: id, first vertex into `edge_positions`, vertex count
+    # Per edge: id, first vertex into `edge_positions`, vertex count, and `centre` for a circle or ellipse (arcs too)
     edges: list[dict] = field(default_factory=list)
     # Per vertex: id and position
     vertices: list[dict] = field(default_factory=list)
     centres: list[dict] = field(default_factory=list)  # hole and boss centres: {"face": id, "position": [x, y, z], "axis": [x, y, z], "length": axis length}
     bodies: list[dict] = field(default_factory=list)  # per solid: id, name, solid number, bounds
     bounds: list[float] = field(default_factory=list)  # xmin, ymin, zmin, xmax, ymax, zmax
+
+
+def _edge_centre(edge) -> list[float] | None:
+    """The centre of a circular or elliptical edge (a full curve or an arc), else None. A hole cut at an angle has an
+    elliptical mouth whose centre is where the hole's axis meets the face."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Ellipse
+
+    try:
+        curve = BRepAdaptor_Curve(edge)
+        kind = curve.GetType()
+        if kind == GeomAbs_Circle:
+            p = curve.Circle().Location()
+        elif kind == GeomAbs_Ellipse:
+            p = curve.Ellipse().Location()
+        else:
+            return None
+    except Exception:  # a degenerate edge has no curve
+        return None
+    return [p.X(), p.Y(), p.Z()]
 
 
 def bounds(shape: TopoDS_Shape) -> list[float]:
@@ -321,6 +341,7 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
                 "normal": None if preview else _edge_normal(edge, adjacent.get(edge_id, ())),
                 "solid": edge_solid.get(edge_id, 0),
                 "body": body_of(edge_solid, edge_id),
+                "centre": _edge_centre(edge),
             }
         )
 

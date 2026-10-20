@@ -240,3 +240,21 @@ def test_preview_dimensions_follow_the_moved_hole():
     # a commit carries none: the page asks for the measurement of the committed model
     header, _ = decode_binary(session.handle({"type": "tool_commit", "tool": "edit_hole", "selection": {"faces": [wall]}, "params": {"dx": 2}}))
     assert "dimensions" not in header
+
+
+def test_circular_and_elliptical_edges_report_their_centres():
+    from build123d import Box, Cylinder, Pos, Rot
+
+    from pliable.tessellate import tessellate
+
+    plate = Box(40, 40, 10)
+    straight = plate - Pos(10, 0, 0) * Cylinder(3, 20)
+    slanted = straight - Pos(-10, 0, 0) * Rot(30, 0, 0) * Cylinder(2, 30)
+    mesh = tessellate(Topology(slanted.wrapped))
+    centres = [e["centre"] for e in mesh.edges if e["centre"] is not None]
+    assert len(centres) == 4  # two mouths of each hole
+    flat = [c for c in centres if abs(c[0] - 10) < 1e-6]
+    assert len(flat) == 2 and sorted(round(c[2], 6) for c in flat) == [-5, 5]
+    angled = [c for c in centres if abs(c[0] + 10) < 1e-6]  # the elliptical mouths: centre where the axis meets the face
+    assert sorted(round(c[2], 6) for c in angled) == [-5, 5] and all(abs(c[1]) < 6 for c in angled)
+    assert all(e["centre"] is None for e in mesh.edges if e["count"] == 2)  # straight edges have none
