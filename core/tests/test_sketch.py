@@ -761,6 +761,21 @@ def test_slot_made_of_two_lines_and_two_tangent_arcs_solves_and_extrudes():
     assert face.area == pytest.approx(10 * 4 + math.pi * 4, rel=1e-6)
 
 
+def test_slot_can_be_fully_constrained_with_ordinary_dimensions():
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 0, "v": 2}, {"id": 4, "u": 0, "v": -2}, {"id": 5, "u": 10, "v": 2}, {"id": 6, "u": 10, "v": -2}]
+    entities = [
+        {"id": 20, "type": "line", "a": 3, "b": 5},
+        {"id": 21, "type": "line", "a": 6, "b": 4},
+        {"id": 22, "type": "arc", "center": 2, "start": 6, "end": 5},
+        {"id": 23, "type": "arc", "center": 1, "start": 3, "end": 4},
+    ]
+    shape = [{"type": "tangent", "entities": [a, b]} for a, b in ((22, 20), (22, 21), (23, 20), (23, 21))] + [{"type": "equal", "entities": [22, 23]}]
+    dimensions = [{"type": "fixed", "point": 1}, {"type": "horizontal", "points": [1, 2]}, {"type": "distance", "points": [1, 2], "value": 12}, {"type": "radius", "entity": 22, "value": 3}]
+    result = sketch.solve(sketch_of(points, entities, shape + dimensions), detail=True)
+    assert result["status"] == "ok" and result["dof"] == 0
+    assert math.dist(coords(result)[1], coords(result)[2]) == pytest.approx(12, abs=1e-6)
+
+
 def test_long_drag_is_solved_in_steps_and_matches_a_short_one():
     points, lines = rectangle(40, 30)
     constraints = [{"type": "horizontal", "entity": 101}, {"type": "vertical", "entity": 102}, {"type": "horizontal", "entity": 103}, {"type": "vertical", "entity": 104}, {"type": "fixed", "point": 1}]

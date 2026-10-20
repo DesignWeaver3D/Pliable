@@ -35,7 +35,7 @@ Groups by shared files, worked in this order (S17, S30, S34 are owner-dependent 
 - D selection and holes (viewport picking, hole tools): S87, S88, S86
 - E UI panels and hints: S91, S89
 
-Group status: A done (S93, 9ec3ba5); B in progress.
+Group status: A done (S93); B done (S94, S95, with notes on each row); C in progress.
 
 ## Open sessions
 
@@ -55,8 +55,8 @@ Group status: A done (S93, 9ec3ba5); B in progress.
 | S91 | UI | Bodies list: move it right so the Tools handle no longer covers it; when a body is picked in the 3D view, scroll its row into view | Planned |
 | S92 | Sketch | Audit where the sketch plan stands after the redo: ellipse and spline endpoint constraints only (decided; shape constraints stay unsupported), snapshot projections (decided), and which plane builders from question 11 exist. Then build the missing ones in this order: plane from an edge and a point (check), offset or angled plane from a face, plane tangent to a surface at a picked point. Shares plane creation code with S90 | Planned |
 | S93 | Bug | Refreshing the tab offers a restore from a different session (probably the owner's other test server, which shares the per-user autosave folder). Offer only a session that is dead, never one another running core owns, and say which session and when it was saved. Reproduce with two cores running | Done: the core now reports a dropped tab's model and the page resumes it before any crash prompt; the prompt shows the save time. Not hand-checked with two cores |
-| S94 | Bug | After an orbit the sketch grid jiggles until the camera glide ends (suspect the grid redraws against a still-moving camera). Turning the grid off while it jiggles locks sketch mode so that only Esc leaves it. Find both causes; the lock-up is the more serious | Planned |
-| S95 | Bug | Slot-tool sketch ends up unconstrainable, and after leaving it the face cannot be picked in the 3D view for extrude (only the sketch list's extrude button works). Reproduce and fix, then let a closed sketch profile be picked and extruded directly in the 3D view as if it were a face, without making a 3D face body | Planned |
+| S94 | Bug | After an orbit the sketch grid jiggles until the camera glide ends (suspect the grid redraws against a still-moving camera). Turning the grid off while it jiggles locks sketch mode so that only Esc leaves it. Find both causes; the lock-up is the more serious | Jiggle: fixed in theory (grid now drawn per pixel from the camera that draws it, `buildGrid` in `sketch.ts`), not hand-checked during a glide. Lock-up when the grid is turned off mid-wobble: NOT reproduced (toggling off after a static view works, no console errors); still open, needs the owner's exact steps. Done, awaiting owner |
+| S95 | Bug | Slot-tool sketch ends up unconstrainable, and after leaving it the face cannot be picked in the 3D view for extrude (only the sketch list's extrude button works). Reproduce and fix, then let a closed sketch profile be picked and extruded directly in the 3D view as if it were a face, without making a 3D face body | Unconstrainable slot: not reproduced; the solver fully constrains a slot with fixed, horizontal, distance and radius (regression test added), so it was probably the stuck state of the S94 lock-up. Clicking a kept sketch's tinted region in the 3D view (not behind the model) now opens its extrude dialog (`profileUnder` in `viewport.ts`); it is not yet a push/pull arrow drag. Done, awaiting owner |
 | S96 | Release | Alpha readiness: list the tools that have no test and no hand check, then decide per tool whether to keep it, mark it experimental, or hide it behind a setting (recommended over deleting). Needed before the next alpha is announced | Planned |
 
 
