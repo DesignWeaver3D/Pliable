@@ -451,38 +451,67 @@ export class SketchMode {
     this.render();
   }
 
+  /** A press on an item that was already selected: a click without movement removes it from the selection. */
+  private clickToggle: { sel: M.SketchSel; x: number; y: number } | null = null;
+
   private onDown(e: PointerEvent) {
     if (this.tool !== "select") return;
     const hit = this.pick(e);
     const additive = e.ctrlKey || e.metaKey || e.shiftKey;
+    const same = (s: M.SketchSel) => !!hit && s.kind === hit.kind && s.id === hit.id;
+    const wasSelected = this.selection.some(same);
+    this.clickToggle = null;
     if (!hit) {
+      // Empty space clears the selection (a plain click, or Ctrl/Shift held keeps it).
       if (!additive) this.selection = [];
     } else if (additive) {
-      const same = (s: M.SketchSel) => s.kind === hit.kind && s.id === hit.id;
-      this.selection = this.selection.some(same) ? this.selection.filter((s) => !same(s)) : [...this.selection, hit];
+      this.selection = wasSelected ? this.selection.filter((s) => !same(s)) : [...this.selection, hit];
+    } else if (wasSelected) {
+      this.clickToggle = { sel: hit, x: e.clientX, y: e.clientY }; // decided on release: a drag moves the whole selection instead
     } else {
-      this.selection = [hit];
+      this.selection = [...this.selection, hit]; // clicking adds: no modifier key needed
     }
-    const fixed = hit?.kind === "point" && this.s.points.find((p) => p.id === hit.id)?.fixed;
-    if (hit?.kind === "point" && !additive && !fixed) {
-      this.drag = { id: hit.id, startX: e.clientX, startY: e.clientY, moved: false };
-      this.viewport.renderer.domElement.setPointerCapture(e.pointerId);
-    }
-    // Dragging a line, circle or arc by its body moves its points together; the rest follows the constraints.
-    const entity = hit?.kind === "entity" ? this.s.entities.find((x) => x.id === hit.id) : undefined;
-    const uv = this.planeUV(e);
-    if (entity && uv && !additive && !entity.reference) {
-      const ids = M.entityPoints(entity);
-      const held = ids.map((id) => this.s.points.find((p) => p.id === id)!);
-      if (held.every((p) => p && !p.fixed)) {
-        this.drag = { id: 0, startX: e.clientX, startY: e.clientY, moved: false, body: { u: uv[0], v: uv[1], points: held.map((p) => ({ id: p.id, u: p.u, v: p.v })) } };
-        this.viewport.renderer.domElement.setPointerCapture(e.pointerId);
-      }
-    }
+    if (hit && !additive) this.startDrag(e, wasSelected ? this.selection : [hit]);
     this.render();
   }
 
+  /** Begin dragging the given items: one point follows the pointer; curves and several items move as a whole, the rest follows the constraints. */
+  private startDrag(e: PointerEvent, items: M.SketchSel[]) {
+    const uv = this.planeUV(e);
+    if (!uv) return;
+    const point = (id: number) => this.s.points.find((p) => p.id === id);
+    if (items.length === 1 && items[0].kind === "point") {
+      if (point(items[0].id)?.fixed) return;
+      this.drag = { id: items[0].id, startX: e.clientX, startY: e.clientY, moved: false };
+      this.viewport.renderer.domElement.setPointerCapture(e.pointerId);
+      return;
+    }
+    const ids = new Set<number>();
+    for (const it of items) {
+      if (it.kind === "point") {
+        if (!point(it.id)?.fixed) ids.add(it.id);
+        continue;
+      }
+      const entity = this.s.entities.find((x) => x.id === it.id);
+      if (!entity || entity.reference) continue;
+      const held = M.entityPoints(entity).map(point);
+      if (held.every((p) => p && !p.fixed)) for (const p of held) ids.add(p!.id);
+    }
+    if (!ids.size) return;
+    const held = [...ids].map((id) => point(id)!);
+    this.drag = { id: 0, startX: e.clientX, startY: e.clientY, moved: false, body: { u: uv[0], v: uv[1], points: held.map((p) => ({ id: p.id, u: p.u, v: p.v })) } };
+    this.viewport.renderer.domElement.setPointerCapture(e.pointerId);
+  }
+
   private async onUp(e: PointerEvent) {
+    const toggle = this.clickToggle;
+    this.clickToggle = null;
+    if (toggle && Math.hypot(e.clientX - toggle.x, e.clientY - toggle.y) < DRAG_START_PX) {
+      this.selection = this.selection.filter((s) => !(s.kind === toggle.sel.kind && s.id === toggle.sel.id));
+      this.drag = null;
+      this.render();
+      return;
+    }
     if (this.drag) {
       const moved = this.drag.moved;
       this.drag = null;
@@ -1218,7 +1247,7 @@ export class SketchMode {
         this.queued = null;
         let reply: SolveReply;
         try {
-          reply = await this.core.request<SolveReply>("sketch_solve", { sketch: this.s, drag: job.drag, detail: !job.drag });
+          reply = await this.core.request<SolveReply>("sketch_solve", { sketch: M.forSolver(this.s), drag: job.drag, detail: !job.drag });
         } catch (e) {
           this.host.status((e as Error).message, true);
           ok = false;
@@ -1241,6 +1270,7 @@ export class SketchMode {
         } else if (!job.drag) {
           this.failed = new Set([...reply.failed, ...(reply.conflicts ?? [])].filter((x): x is number => x !== null));
           ok = false;
+          if (!this.failed.size) this.host.status("The sketch could not be solved, so geometry will not follow its constraints. Undo the last change", true);
         }
         this.render();
       }

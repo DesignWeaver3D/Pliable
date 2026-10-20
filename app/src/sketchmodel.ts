@@ -1,5 +1,6 @@
 /** Sketch data and the rules that need no DOM or WebGL: types, plane math, which constraints fit a selection. */
 import type { Dimension } from "./dimensions";
+import { pointInRect, polylineInBox, type Rect } from "./boxselect.ts";
 
 export interface PlaneData {
   origin: number[];
@@ -837,4 +838,35 @@ export function roundCorner(s: SketchData, pointId: number, kind: "fillet" | "ch
     constraints.push({ id: id++, type: "tangent", entities: [arc, lines[0].id], auto: true }, { id: id++, type: "tangent", entities: [arc, lines[1].id], auto: true });
   }
   return { ...s, points: [...s.points.filter((p) => p.id !== pointId), ...added], entities, constraints };
+}
+
+/** The sketch's points and curves a screen box selects. Window (left to right): wholly inside. Crossing (right to left): inside or touched. */
+export function itemsInBox(s: SketchData, toScreen: (u: number, v: number) => { x: number; y: number }, r: Rect, crossing: boolean): SketchSel[] {
+  const found: SketchSel[] = [];
+  for (const p of s.points) if (pointInRect(toScreen(p.u, p.v), r)) found.push({ kind: "point", id: p.id });
+  for (const e of s.entities) {
+    const pts = polyline(s, e).map(([u, v]) => toScreen(u, v));
+    if (polylineInBox(pts, r, crossing)) found.push({ kind: "entity", id: e.id });
+  }
+  return found;
+}
+
+/**
+ * The part of the sketch the constraint solver needs. Projected model edges are fixed reference geometry that
+ * nothing is tied to; sending them all can exceed the solver's limit on unknowns, which made every solve fail
+ * (nothing could be dragged or constrained). Reference curves and fixed points no constraint or kept curve uses are left out.
+ */
+export function forSolver(s: SketchData): SketchData {
+  const usedPoints = new Set<number>();
+  const usedEntities = new Set<number>();
+  for (const c of s.constraints) {
+    for (const id of c.points ?? []) usedPoints.add(id);
+    if (c.point !== undefined) usedPoints.add(c.point);
+    if (c.entity !== undefined) usedEntities.add(c.entity);
+    for (const id of c.entities ?? []) usedEntities.add(id);
+  }
+  const entities = s.entities.filter((e) => !e.reference || usedEntities.has(e.id));
+  for (const e of entities) for (const id of entityPoints(e)) usedPoints.add(id);
+  const points = s.points.filter((p) => !p.fixed || usedPoints.has(p.id));
+  return entities.length === s.entities.length && points.length === s.points.length ? s : { ...s, points, entities };
 }

@@ -45,3 +45,30 @@ test("window takes a face only when all its triangles are inside", () => {
   assert.equal(trianglesInBox(face, r, false), true);
   assert.equal(trianglesInBox([...face, p(30, 30), p(31, 30), p(30, 31)], r, false), false);
 });
+
+import { polylineInBox } from "../src/boxselect.ts";
+import { itemsInBox } from "../src/sketchmodel.ts";
+
+test("a polyline is selected by a window only when wholly inside, by a crossing box when touched", () => {
+  const inside = [p(11, 11), p(15, 18), p(19, 12)];
+  const through = [p(0, 15), p(30, 15)];
+  const outside = [p(0, 0), p(5, 30)];
+  assert.equal(polylineInBox(inside, r, false), true);
+  assert.equal(polylineInBox(through, r, false), false);
+  assert.equal(polylineInBox(through, r, true), true);
+  assert.equal(polylineInBox(outside, r, true), false);
+  assert.equal(polylineInBox([], r, true), false);
+});
+
+test("sketch items in a box: points by position, curves by the window and crossing rules", () => {
+  const s = {
+    plane: {},
+    points: [{ id: 1, u: 12, v: 12 }, { id: 2, u: 18, v: 18 }, { id: 3, u: 40, v: 15 }, { id: 4, u: 0, v: 15 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 4, b: 3 }],
+    constraints: [],
+  };
+  const flat = (u, v) => ({ x: u, y: v });
+  const ids = (found) => found.map((f) => `${f.kind}${f.id}`).join(",");
+  assert.equal(ids(itemsInBox(s, flat, r, false)), "point1,point2,entity10");
+  assert.equal(ids(itemsInBox(s, flat, r, true)), "point1,point2,entity10,entity11");
+});
