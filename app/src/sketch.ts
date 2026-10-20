@@ -15,6 +15,7 @@ import * as Sh from "./sketchshapes";
 import { uiIcon } from "./icons";
 import { LENGTH_UNIT } from "./units";
 import { usage } from "./usage";
+import type { HandleInfo } from "./tools";
 import type { Viewport } from "./viewport";
 
 const SNAP_PX = 10; // pointer snaps to an existing sketch point this close
@@ -236,6 +237,8 @@ export class SketchMode {
     this.viewport.selectItems([]); // the model's selection highlight would cover the sketch
     this.viewport.onSelect([]); // and the selection itself ends: no face, edge or body stays selected behind the sketch
     this.viewport.manipulator.clear(); // so would the selected face's push/pull arrow
+    this.planeBase = null;
+    this.showPlaneHandles();
     this.buildGrid(f);
     this.viewport.scene.add(this.group);
     this.viewport.interceptor = { down: (e) => this.onDown(e), move: (e) => this.onMove(e), up: (e) => this.onUp(e) };
@@ -305,6 +308,7 @@ export class SketchMode {
     clearTimeout(this.previewTimer);
     this.viewport.interceptor = null;
     this.viewport.onFrame2 = null;
+    this.viewport.manipulator.clear();
     this.viewport.scene.remove(this.group);
     if (this.grid) {
       this.group.remove(this.grid);
@@ -342,6 +346,62 @@ export class SketchMode {
       this.exit();
       this.host.status((e as Error).message);
     }
+  }
+
+  // Moving the sketch plane ---------------------------------------------------------------------------
+
+  /** The plane as it was when the handle being dragged was grabbed; every drag value is measured from it. */
+  private planeBase: M.PlaneData | null = null;
+
+  /** Gizmos on the sketch plane, like any other object's: an arrow along its normal and a turning ring about each of its axes. */
+  private showPlaneHandles() {
+    const manipulator = this.viewport.manipulator;
+    if (!this.active || this.unwrapFace) return manipulator.clear();
+    const f = M.frame(this.s.plane);
+    const radius = 30;
+    const v = (a: number[]) => new THREE.Vector3(...a);
+    const ring = (param: string, label: string, about: M.Vec3, from: M.Vec3, toward: M.Vec3): HandleInfo => {
+      const around = v(from).multiplyScalar(Math.SQRT1_2).addScaledVector(v(toward), Math.SQRT1_2);
+      const tangent = v(toward).multiplyScalar(Math.SQRT1_2).addScaledVector(v(from), -Math.SQRT1_2);
+      const anchor = v(f.origin).addScaledVector(around, radius);
+      return { param, label, anchor: anchor.toArray(), direction: tangent.toArray(), scale: (180 / Math.PI) / radius, min: null, max: null, toggle: false, unit: "°", axis: about, ring: [...f.origin, radius], value: 0 };
+    };
+    manipulator.setHandles([
+      { param: "plane_offset", label: "Move sketch plane", anchor: [...f.origin], direction: [...f.n], scale: 1, min: null, max: null, toggle: false, kind: "move", unit: LENGTH_UNIT, value: 0 },
+      ring("plane_rx", "Turn sketch plane about its x axis", f.x, f.y, f.n),
+      ring("plane_ry", "Turn sketch plane about its y axis", f.y, f.n, f.x),
+    ]);
+  }
+
+  /** A plane handle was dragged: place the plane from where it was grabbed, offset along its normal or turned about one of its axes. */
+  onPlaneDrag(param: string, value: number, phase: "move" | "end" | "cancel"): boolean {
+    if (!this.active || !param.startsWith("plane_")) return false;
+    this.planeBase ??= { origin: [...this.s.plane.origin], normal: [...this.s.plane.normal], xdir: [...this.s.plane.xdir] };
+    const base = this.planeBase;
+    const f = M.frame(base);
+    const v = (a: number[]) => new THREE.Vector3(...a);
+    const n = v(f.n);
+    const x = v(f.x);
+    const origin = v(f.origin);
+    if (phase !== "cancel") {
+      if (param === "plane_offset") origin.addScaledVector(n, value);
+      else {
+        const about = param === "plane_rx" ? x : v(f.y);
+        const q = new THREE.Quaternion().setFromAxisAngle(about, (value * Math.PI) / 180);
+        n.applyQuaternion(q);
+        x.applyQuaternion(q);
+      }
+    }
+    this.s.plane = { origin: origin.toArray(), normal: n.toArray(), xdir: x.toArray() };
+    const g = M.frame(this.s.plane);
+    this.plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(...g.n), new THREE.Vector3(...g.origin));
+    this.buildGrid(g);
+    this.render();
+    if (phase !== "move") {
+      this.planeBase = null;
+      this.showPlaneHandles();
+    }
+    return true;
   }
 
   /** The distance the pointer snaps to when snap to grid is on: the light lines when there are any, else the bold ones. */
@@ -435,7 +495,9 @@ export class SketchMode {
           vec3 a = near.xyz / near.w;
           vec3 b = far.xyz / far.w;
           if (abs(a.z - b.z) < 1e-9) discard; // the ray runs along the plane
-          vPlane = (a + (b - a) * (a.z / (a.z - b.z))).xy;
+          float t = a.z / (a.z - b.z);
+          if (t < 0.0) discard; // the plane is behind the camera along this ray: without this a mirror grid sweeps through the real one at grazing angles
+          vPlane = (a + (b - a) * t).xy;
           float strength = lines(uMajor) * 0.6;
           if (uMinor > 0.0) strength = max(strength, lines(uMinor) * 0.25);
           vec2 centred = (gl_FragCoord.xy / uResolution - 0.5) * 2.0;

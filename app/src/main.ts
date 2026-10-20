@@ -1468,6 +1468,7 @@ toolPanel.renderList();
 let lastDragEvent = 0;
 viewport.manipulator.onDrag = (param, value, phase, x, y, linked) => {
   lastDragEvent = performance.now();
+  if (sketch.onPlaneDrag(param, value, phase)) return; // a sketch's plane gizmo
   const info = viewport.manipulator.dragInfo;
   if (toolPanel.isOpen && phase === "move" && info?.kind === "move") {
     slideLive = { info, value };

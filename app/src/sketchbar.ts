@@ -28,8 +28,6 @@ export interface SketchBarDeps {
 export class SketchBar {
   /** True after the button was pressed with no face selected: the next face selected starts the sketch. */
   armed = false;
-  private offset = 0; // distance of the next standard-plane sketch from the plane, along its normal
-  private angle = 0; // degrees an angled sketch plane is turned from a selected face, about the face's own x axis
   private problem: string | null = null;
   private key = "";
 
@@ -101,13 +99,9 @@ export class SketchBar {
     const faceIds = selected.filter((s) => s.kind === "face").map((s) => s.id);
     if (!faces && vertices.length === 3 && !edges.length) ways.push(["Through 3 Points", "Sketch on the plane through the three selected vertices", () => ({ vertices })]);
     if (!faces && vertices.length === 1 && edges.length === 1) ways.push(["Through Edge And Point", "Sketch on the plane through the selected straight edge and vertex", () => ({ edge: edges[0], vertex: vertices[0] })]);
-    if (faceIds.length === 1 && !vertices.length && !edges.length) {
-      ways.push(["Offset From Face", "Sketch on a plane parallel to the selected flat face, moved along its normal by the number in the offset box (to the right)", () => ({ face: faceIds[0], offset: this.offset })]);
-      ways.push(["Angled From Face", "Sketch on the selected flat face's plane turned by the angle in the degrees box (to the right) about the face's own x axis, after the offset", () => ({ face: faceIds[0], offset: this.offset, angle: this.angle })]);
-    }
     if (faceIds.length === 1 && vertices.length === 1 && !edges.length) ways.push(["Tangent At Point", "Sketch on the plane touching the selected face at the selected vertex (a vertex on the face)", () => ({ tangent_face: faceIds[0], vertex: vertices[0] })]);
     const key = `${faces}|${sketch.active}|${this.armed}|${this.problem}|${ways.map((w) => w[0]).join()}|${faceIds}|${vertices}`;
-    if (key === this.key) return; // keep the buttons (and the offset box focus) when nothing relevant changed
+    if (key === this.key) return; // keep the buttons when nothing relevant changed
     this.key = key;
     const onFace = document.createElement("button");
     onFace.textContent = this.armed ? "Sketch On Geometry: pick a face" : "Sketch On Geometry";
@@ -127,42 +121,23 @@ export class SketchBar {
     }
     const label = document.createElement("span");
     label.textContent = "or on";
-    const offset = document.createElement("input");
-    offset.type = "number";
-    offset.step = "any";
-    offset.value = String(this.offset);
-    offset.title = "Offset of the sketch plane from XY, XZ or YZ along its normal";
-    offset.style.width = "56px";
-    offset.addEventListener("keydown", (e) => e.stopPropagation());
-    offset.addEventListener("input", () => (this.offset = Number(offset.value) || 0));
-    const angle = document.createElement("input");
-    angle.type = "number";
-    angle.step = "any";
-    angle.value = String(this.angle);
-    angle.title = "Degrees an angled sketch plane is turned from the selected face";
-    angle.style.width = "48px";
-    angle.addEventListener("keydown", (e) => e.stopPropagation());
-    angle.addEventListener("input", () => (this.angle = Number(angle.value) || 0));
-    const angled = ways.some((w) => w[0] === "Angled From Face");
     bar.replaceChildren(
       ...parts,
       label,
       ...SKETCH_PLANES.map((name) => {
         const b = document.createElement("button");
         b.textContent = name;
-        b.title = `Start a 2D sketch on the ${name} plane through the origin (the offset box moves the plane)`;
+        b.title = `Start a 2D sketch on the ${name} plane through the origin (move or turn it afterwards with the plane handles)`;
         b.disabled = sketch.active;
         b.addEventListener("click", async () => {
           this.armed = false;
-          const reply = await this.d.core.request<{ plane: any }>("sketch_plane", { plane: name, offset: this.offset });
+          const reply = await this.d.core.request<{ plane: any }>("sketch_plane", { plane: name });
           sketch.start(reply.plane);
           this.key = "";
           this.render();
         });
         return b;
       }),
-      offset,
-      ...(angled && !sketch.active ? [angle] : []),
     );
   }
 }

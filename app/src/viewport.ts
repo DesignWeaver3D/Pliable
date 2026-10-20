@@ -420,6 +420,11 @@ export class Viewport {
     let down: { x: number; y: number } | null = null;
     dom.addEventListener("pointerdown", (e) => {
       if (this.interceptor && e.button === 0) {
+        // A sketch's plane handles are grabbed before the sketch tools see the press.
+        if (this.manipulator.count && this.manipulator.down(e)) {
+          dom.setPointerCapture(e.pointerId);
+          return;
+        }
         this.interceptor.down(e);
         return;
       }
@@ -472,12 +477,13 @@ export class Viewport {
         this.updateBox(e);
         return;
       }
-      if (this.interceptor) {
-        this.interceptor.move(e);
-        return;
-      }
       if (this.manipulator.dragging) {
         this.manipulator.move(e);
+        return;
+      }
+      if (this.interceptor) {
+        this.interceptor.move(e);
+        if (e.buttons === 0 && this.manipulator.count) this.manipulator.hover(e);
         return;
       }
       if (e.buttons === 0 && !this.drag) this.manipulator.hover(e);
@@ -543,12 +549,12 @@ export class Viewport {
       if (body !== null) this.onFaceBody(body);
     });
     dom.addEventListener("pointerup", (e) => {
-      if (this.interceptor && e.button === 0) {
-        this.interceptor.up(e);
-        return;
-      }
       if (this.manipulator.dragging && e.button === 0) {
         this.manipulator.up(e);
+        return;
+      }
+      if (this.interceptor && e.button === 0) {
+        this.interceptor.up(e);
         return;
       }
       if (this.drag && e.button !== 0) return; // right/middle release ends an orbit or pan, not the tool drag
