@@ -253,7 +253,7 @@ document.addEventListener("pointerdown", (e) => {
 const drawer = $("drawer");
 function toggleDrawer(open = drawer.hidden, usableOnly?: boolean) {
   drawer.hidden = !open;
-  document.documentElement.style.setProperty("--leftw", open ? "492px" : "212px");
+  document.documentElement.style.setProperty("--leftw", open ? "calc(492px + var(--handlew))" : "calc(212px + var(--handlew))");
   document.documentElement.style.setProperty("--drawerw", open ? "280px" : "0px"); // the drawer sits at the edge and pushes the body list over; the tool form and the measurement card sit beside both
   renderToolbar(); // the strip's room depends on the drawer
   $("drawerbtn").setAttribute("aria-expanded", String(open));

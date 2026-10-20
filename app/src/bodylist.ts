@@ -72,6 +72,11 @@ export class BodyList {
     this.selected = ids;
     if (ids.length === 1) this.anchor = ids[0];
     this.paint();
+    // A body picked in the 3D view may be below the list's fold: bring the newest picked row into sight.
+    if (ids.length) {
+      const row = [...this.list.children].find((el) => Number((el as HTMLElement).dataset.id) === ids[ids.length - 1]);
+      row?.scrollIntoView({ block: "nearest" });
+    }
   }
 
   setHovered(id: number | null) {
