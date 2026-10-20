@@ -18,9 +18,10 @@ from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID, 
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopLoc import TopLoc_Location
 from OCP.TopoDS import TopoDS_Shape
+from OCP.gp import gp_Vec
 
 from . import recipes
-from .ops import edge_outward_normal, planar_normal, solids_of
+from .ops import face_normal_at_edge, planar_normal, solids_of
 from .topology import Topology
 
 ANGULAR_DEFLECTION = 0.5  # radians
@@ -64,6 +65,146 @@ def _join(parts: list[np.ndarray], dtype, shape) -> np.ndarray:
     if not parts:
         return np.empty(shape if len(shape) == 1 else (0, shape[1]), dtype=dtype)
     return np.concatenate(parts).astype(dtype, copy=False)
+
+
+# Display data of unchanged faces and edges is reused across tessellations.
+# Keys wrap the OCCT shape: equality and hash take the underlying TShape, the
+# location and the orientation into account, so a face that an
+# edit left alone (or that was only moved, which changes its location) hits,
+# and anything rebuilt misses. Entries hold the shape, which keeps its TShape
+# alive so a key can never be reused by a different face. Offsets, ids and
+# ranges are never stored: they are rebuilt on every call.
+CACHE_LIMIT = 400_000  # approximate triangle + edge segment count kept
+
+
+_MISSING = object()
+
+
+class _Key:
+    """Dictionary key for shapes: same TShape, location and orientation (the Python wrappers compare by identity)."""
+
+    __slots__ = ("shapes", "extra", "_hash")
+
+    def __init__(self, shapes, *extra):
+        self.shapes = shapes if isinstance(shapes, tuple) else (shapes,)
+        self.extra = extra
+        self._hash = hash((tuple(hash(x) for x in self.shapes), extra))
+
+    def __hash__(self):
+        return self._hash
+
+    def __eq__(self, other):
+        return self.extra == other.extra and len(self.shapes) == len(other.shapes) and all(a.IsEqual(b) for a, b in zip(self.shapes, other.shapes))
+
+
+class _Cache:
+    def __init__(self):
+        self.entries: dict = {}
+        self.weight = 0
+        self.hits = 0
+        self.misses = 0
+
+    def get(self, key, allow_none=False):
+        entry = self.entries.get(key)
+        if entry is None:
+            self.misses += 1
+            return _MISSING if allow_none else None
+        self.hits += 1
+        self.entries[key] = self.entries.pop(key)  # most recently used goes last
+        return entry[0]
+
+    def put(self, key, value, weight: int):
+        self.entries[key] = (value, weight)
+        self.weight += weight
+        while self.weight > CACHE_LIMIT and len(self.entries) > 1:
+            self.weight -= self.entries.pop(next(iter(self.entries)))[1]
+
+    def clear(self):
+        self.entries.clear()
+        self.weight = 0
+        self.hits = self.misses = 0
+
+
+display_cache = _Cache()
+
+
+def _face_display(face, deflection: float):
+    """Everything the mesh needs from one face except offsets: arrays, centroid, planar normal and hole centre."""
+    triangulation = BRep_Tool.Triangulation_s(face, TopLoc_Location())
+    state = None if triangulation is None else triangulation.Deflection()
+    key = _Key(face, "f", deflection, state)
+    cached = display_cache.get(key)
+    if cached is not None:
+        return cached
+    from .measure import hole_centre
+
+    data = _face_arrays(face)
+    normal = planar_normal(face)
+    centre = None
+    point = hole_centre(face)
+    if point is not None:
+        from OCP.BRepAdaptor import BRepAdaptor_Surface
+        from OCP.BRepTools import BRepTools
+
+        axis = BRepAdaptor_Surface(face).Cylinder().Axis().Direction()
+        _, _, v0, v1 = BRepTools.UVBounds_s(face)
+        centre = ([point.X(), point.Y(), point.Z()], [axis.X(), axis.Y(), axis.Z()], v1 - v0)
+    value = (data, [normal.X(), normal.Y(), normal.Z()] if normal is not None else None, centre)
+    display_cache.put(key, value, 1 + (data[2].size // 3 if data is not None else 0))
+    return value
+
+
+def _edge_faces(topology) -> dict[int, list]:
+    """Faces next to each edge id, from one pass over the faces (iterating the ancestor map's lists is far slower)."""
+    table: dict[int, list] = {}
+    for face_id, face in topology.faces():
+        explorer = TopExp_Explorer(face, TopAbs_EDGE)
+        while explorer.More():
+            edge_id = topology.edge_id(explorer.Current())
+            if edge_id is not None:
+                faces = table.setdefault(edge_id, [])
+                if not faces or faces[-1] is not face:  # a seam edge shows twice in its face
+                    faces.append(face)
+            explorer.Next()
+    return table
+
+
+def _edge_normal(edge, faces):
+    """Drag direction of an edge (see ops.edge_outward_normal); depends on the edge and the faces next to it, so those form the key."""
+    key = _Key((edge,) + tuple(faces), "n")
+    cached = display_cache.get(key, True)
+    if cached is not _MISSING:
+        return None if cached is None else list(cached)
+    total = gp_Vec(0, 0, 0)
+    for face in faces:
+        normal = face_normal_at_edge(face, edge)
+        if normal is not None:
+            total.Add(gp_Vec(normal))
+    value = None
+    if total.Magnitude() >= 1e-6:
+        total.Normalize()
+        value = [total.X(), total.Y(), total.Z()]
+    display_cache.put(key, value, 1)
+    return None if value is None else list(value)
+
+
+def _edge_points(edge, deflection: float) -> np.ndarray:
+    """Segment endpoints (consecutive pairs) of one edge."""
+    key = _Key(edge, "e", deflection)
+    cached = display_cache.get(key)
+    if cached is not None:
+        return cached
+    out: list[tuple[float, float, float]] = []
+    if not BRep_Tool.Degenerated_s(edge):
+        curve = BRepAdaptor_Curve(edge)
+        sampler = GCPnts_TangentialDeflection(curve, ANGULAR_DEFLECTION, deflection)
+        points = [sampler.Value(i) for i in range(1, sampler.NbPoints() + 1)]
+        for p0, p1 in zip(points, points[1:]):
+            out.append((p0.X(), p0.Y(), p0.Z()))
+            out.append((p1.X(), p1.Y(), p1.Z()))
+    array = np.asarray(out, dtype=np.float32).reshape(-1, 3)
+    display_cache.put(key, array, 1 + len(array) // 2)
+    return array
 
 
 def _face_arrays(face):
@@ -134,11 +275,12 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
     normals: list[np.ndarray] = []
     indices: list[np.ndarray] = []
     faces = []
+    centres = []
     base = 0
     index_count = 0
 
     for face_id, face in topology.faces():
-        data = _face_arrays(face)
+        data, normal, centre = _face_display(face, deflection)
         start = index_count
         centroid = None
         if data is not None:
@@ -148,36 +290,35 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
             indices.append(idx + np.uint32(base))
             base += len(pos)
             index_count += idx.size
-        normal = planar_normal(face)
+        if centre is not None:
+            centres.append({"face": face_id, "position": list(centre[0]), "axis": list(centre[1]), "length": centre[2]})
         faces.append(
             {
                 "id": face_id,
                 "start": start,
                 "count": index_count - start,
-                "normal": [normal.X(), normal.Y(), normal.Z()] if normal is not None else None,
+                "normal": None if normal is None else list(normal),
                 "centroid": centroid,
                 "solid": face_solid.get(face_id, 0),
                 "body": body_of(face_solid, face_id),
             }
         )
 
-    edge_positions: list[tuple[float, float, float]] = []
+    adjacent = {} if preview else _edge_faces(topology)
+    edge_parts: list[np.ndarray] = []
+    edge_total = 0
     edges = []
     for edge_id, edge in topology.edges():
-        start = len(edge_positions)
-        if not BRep_Tool.Degenerated_s(edge):
-            curve = BRepAdaptor_Curve(edge)
-            sampler = GCPnts_TangentialDeflection(curve, ANGULAR_DEFLECTION, deflection)
-            points = [sampler.Value(i) for i in range(1, sampler.NbPoints() + 1)]
-            for p0, p1 in zip(points, points[1:]):
-                edge_positions.append((p0.X(), p0.Y(), p0.Z()))
-                edge_positions.append((p1.X(), p1.Y(), p1.Z()))
+        start = edge_total
+        points = _edge_points(edge, deflection)
+        edge_parts.append(points)
+        edge_total += len(points)
         edges.append(
             {
                 "id": edge_id,
                 "start": start,
-                "count": len(edge_positions) - start,
-                "normal": None if preview else edge_outward_normal(topology, edge),
+                "count": edge_total - start,
+                "normal": None if preview else _edge_normal(edge, adjacent.get(edge_id, ())),
                 "solid": edge_solid.get(edge_id, 0),
                 "body": body_of(edge_solid, edge_id),
             }
@@ -188,25 +329,11 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
         p = BRep_Tool.Pnt_s(vertex)
         vertices.append({"id": vertex_id, "position": [p.X(), p.Y(), p.Z()], "solid": vertex_solid.get(vertex_id, 0), "body": body_of(vertex_solid, vertex_id)})
 
-    from .measure import hole_centre
-
-    centres = []
-    for face_id, face in topology.faces():
-        centre = hole_centre(face)
-        if centre is not None:
-            from OCP.BRepAdaptor import BRepAdaptor_Surface
-
-            from OCP.BRepTools import BRepTools
-
-            axis = BRepAdaptor_Surface(face).Cylinder().Axis().Direction()
-            _, _, v0, v1 = BRepTools.UVBounds_s(face)
-            centres.append({"face": face_id, "position": [centre.X(), centre.Y(), centre.Z()], "axis": [axis.X(), axis.Y(), axis.Z()], "length": v1 - v0})
-
     return Mesh(
         positions=_join(positions, np.float32, (-1, 3)),
         normals=_join(normals, np.float32, (-1, 3)),
         indices=_join(indices, np.uint32, (-1,)),
-        edge_positions=np.asarray(edge_positions, dtype=np.float32).reshape(-1, 3),
+        edge_positions=_join(edge_parts, np.float32, (-1, 3)),
         faces=faces,
         edges=edges,
         vertices=vertices,
