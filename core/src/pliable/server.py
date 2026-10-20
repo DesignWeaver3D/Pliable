@@ -9,6 +9,7 @@ reply carrying the same id. Replies that include a mesh are binary frames
 import argparse
 import asyncio
 import base64
+import copy
 import json
 import logging
 import time
@@ -80,6 +81,7 @@ class Session:
         if self.document is not None:
             header["canUndo"] = self.document.can_undo
             header["canRedo"] = self.document.can_redo
+            header["sketches"] = self.document.sketch_list()
         return encode_mesh(header, mesh)
 
     def _open(self, shape, name: str) -> bytes:
@@ -242,6 +244,15 @@ class Session:
             return self._sketch_project(request)
         if kind == "sketch_regions":
             return self._sketch_regions(request)
+        if kind == "sketch_keep":
+            return self._sketch_keep(request)
+        if kind == "sketch_get":
+            found = self._require_document().get_sketch(self._sketch_id(request))
+            if found is None:
+                raise RequestError("No such sketch")
+            return found
+        if kind in ("sketch_delete", "sketch_rename"):
+            return self._sketch_edit(request, kind)
         if kind == "dimension_edit":
             return self._dimension_edit(request)
         if kind in ("tool_preview", "tool_commit"):
@@ -348,10 +359,9 @@ class Session:
         topology = self._require_document().current
         return sketch.face_reference(topology.shape, request["plane"], project=True)
 
-    def _sketch_regions(self, request: dict) -> bytes:
-        """Leave a sketch: its closed regions become faces of the model (imprinted or loose) and stay selected."""
+    def _region_shape(self, request: dict):
+        """The model shape with the sketch's closed regions added as faces (imprinted or loose)."""
         document = self._require_document()
-        start = time.perf_counter()
         try:
             if "unwrap" in request:
                 shape, count = unwrap.wrap_regions(document.current.shape, document.current, [int(i) for i in (request["unwrap"] if isinstance(request["unwrap"], list) else [request["unwrap"]])], request["sketch"])
@@ -361,10 +371,89 @@ class Session:
             raise RequestError(str(e)) from e
         except (KeyError, TypeError, ValueError) as e:
             raise RequestError(f"Malformed sketch request: {e!r}") from e
+        return shape, count
+
+    def _sketch_regions(self, request: dict) -> bytes:
+        """Leave a sketch: its closed regions become faces of the model (imprinted or loose) and stay selected."""
+        document = self._require_document()
+        start = time.perf_counter()
+        shape, _ = self._region_shape(request)
         timings = {"opMs": _ms(start)}
         target = document.commit(shape)
         self._autosave()
         return self._mesh_reply(target, timings, preview=False, selection=Selection().to_json())
+
+    @staticmethod
+    def _sketch_id(request: dict) -> int:
+        try:
+            return int(request["id"])
+        except (KeyError, TypeError, ValueError) as e:
+            raise RequestError("Missing sketch id") from e
+
+    def _sketch_keep(self, request: dict) -> bytes:
+        """Store a sketch in the document (new, or replacing `id`), optionally also making its faces, as one undo step."""
+        document = self._require_document()
+        content = request.get("sketch")
+        if not isinstance(content, dict):
+            raise RequestError("Missing sketch")
+        start = time.perf_counter()
+        make_faces = bool(request.get("regions"))
+        made = 0
+        shape = None
+        if make_faces:
+            try:
+                closed = bool(sketch.regions(content))
+            except (KeyError, TypeError, ValueError, sketch.SketchError) as e:
+                raise RequestError(f"Malformed sketch request: {e!r}") from e
+            if closed:  # an open path (a rail, a curve) is kept as it is and makes no faces
+                shape, made = self._region_shape(request)
+            else:
+                make_faces = False
+        timings = {"opMs": _ms(start)}
+        entries = document.sketches
+        if request.get("id") is None:
+            sketch_id = document.new_sketch_id()
+            name = str(request["name"]) if request.get("name") else f"Sketch {sketch_id}"
+            entries.append({"id": sketch_id, "name": name, "rev": 1, "sketch": copy.deepcopy(content)})
+        else:
+            sketch_id = self._sketch_id(request)
+            entry = next((e for e in entries if e["id"] == sketch_id), None)
+            if entry is None:
+                raise RequestError("No such sketch")
+            entry["sketch"] = copy.deepcopy(content)
+            entry["rev"] += 1
+            if request.get("name"):
+                entry["name"] = str(request["name"])
+        if make_faces:
+            target = document.commit(shape, sketches=entries)
+        else:
+            target = document.set_sketches(entries)
+        self._autosave()
+        extra = {"preview": False, "sketchId": sketch_id}
+        if bool(request.get("regions")):
+            extra["facesMade"] = made
+        if make_faces:
+            extra["selection"] = Selection().to_json()
+        return self._mesh_reply(target, timings, **extra)
+
+    def _sketch_edit(self, request: dict, kind: str) -> bytes:
+        document = self._require_document()
+        sketch_id = self._sketch_id(request)
+        entries = document.sketches
+        entry = next((e for e in entries if e["id"] == sketch_id), None)
+        if entry is None:
+            raise RequestError("No such sketch")
+        if kind == "sketch_delete":
+            entries.remove(entry)
+        else:
+            name = str(request.get("name", "")).strip()
+            if not name:
+                raise RequestError("A sketch needs a name")
+            entry["name"] = name
+            entry["rev"] += 1
+        target = document.set_sketches(entries)
+        self._autosave()
+        return self._mesh_reply(target, {}, preview=False)
 
     def _sketch_extrude(self, request: dict) -> bytes:
         document = self._require_document()

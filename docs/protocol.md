@@ -33,6 +33,11 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 | `sketch_solve` | `sketch`, optional `drag` {point, u, v} | `{status: "ok"/"failed", dof, failed: [constraint ids], points: [{id, u, v}], radii}`; sketch format and constraint types in `core/src/pliable/sketch.py` |
 | `sketch_extrude` | `sketch`, `distance` (an angle in degrees when `axis` is given), `mode` "join"/"cut", optional `symmetric` (extrude both ways about the plane), optional `axis` (id of a sketch line: revolve about it instead), `commit` | a mesh reply (preview unless `commit`): the sketch's profile extruded along the plane normal and joined or cut |
 | `sketch_regions` | `sketch` | a committed mesh reply: every closed zone of the sketch becomes a face; zones lying on a flat model face are imprinted on it, the others are added as loose faces that push/pull extrudes into solids |
+| `sketch_keep` | `sketch`, `id?`, `name?`, `regions?`, `unwrap?` | stores the sketch in the document as one undoable step. No `id`: a new sketch with the next id (never reused) and name "Sketch N". With `id`: replaces the content, keeps the name unless `name` is given, and bumps `rev`. With `regions` true it also does what `sketch_regions` does (same undo step); a sketch with no closed region (an open path or spline) is kept and makes no faces. Mesh reply with `sketchId` and, when `regions` was set, `facesMade` |
+| `sketch_get` | `id` | `{id, name, rev, sketch}`; unknown id is an error |
+| `sketch_delete` | `id` | undoable; mesh reply |
+| `sketch_rename` | `id`, `name` | undoable (bumps `rev`); mesh reply |
+
 | `sketch_offset` | `sketch`, `entities` (ids), `distance` | `{points, entities}`: parallel copies of the chosen lines, arcs and circles with fresh ids and no constraints (positive grows a closed outline) |
 | `sketch_project` | `plane` | `{points, entities}`: every model edge flattened onto the plane as fixed reference geometry (lines square to the plane and tilted circles are left out) |
 | `tool_preview` / `tool_commit` with `edit_body` (id) | the usual fields for a primitive tool (`add_box` ...) | replaces that primitive body by the same primitive with the new values, keeping its id, name and place in the list (one undo step); an error when the body is not an editable primitive of that tool |
@@ -121,3 +126,5 @@ A tool can declare on-screen manipulators (gizmos), one per parameter, by overri
 See `core/src/pliable/tools.py` (the module docstring and `PushPull`). Declare `id`, `label`, `description`, `accepts`, `params`, optionally `applies`, and implement `run(topology, selection, values, preview)` returning an `OpResult` (new shape plus the faces the selection should follow). Decorate with `@register`; the protocol, validation and applicability checks need nothing else.
 
 Each entry of a mesh's `bodies` also carries `editable` (bool), `why` (the reason it is not editable, such as "Changed by Fillet/Chamfer", else null) and, while editable, `recipe` (`tool`, `params`, `rotated`): the primitive that made the body, with the values that reopen its form.
+
+Every mesh reply header carries `sketches: [{id, name, rev}]`, the kept sketches of the current state (empty when none). They follow undo/redo and are saved with the autosave; opening a file or demo starts with none.
