@@ -105,7 +105,7 @@ function safeStorage(): Storage | null {
 const TOOL_WORDS: [RegExp, string[]][] = [
   [/fillet|round/, ["fillet", "round", "blend", "radius", "smooth edge"]],
   [/chamfer/, ["chamfer", "bevel", "break edge"]],
-  [/countersink to hole/, ["convert", "existing", "change"]],
+  [/convert_to_countersink/, ["convert", "existing", "change"]],
   [/hole|boss|counter|countersink|slot/, ["hole", "drill", "bore", "boss", "pin", "peg"]],
   [/^move_|move_body|move_hole/, ["move", "translate", "shift", "position"]],
   [/rotate/, ["rotate", "turn", "spin", "angle"]],
