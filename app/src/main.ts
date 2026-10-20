@@ -12,6 +12,7 @@ import { NavCube, VIEW_KEYS } from "./navcube";
 import { fitStripCount, stripRoom } from "./stripfit";
 import { DimensionOverlay } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
+import { KeptSketches } from "./keptsketches";
 import { LatestWins } from "./latestwins";
 import { LENGTH_UNIT } from "./units";
 import { SETTING_ENTRIES, createSettingsWindow, onSettingsChange, openSettings, setHintsBinding, setKeysOpener, settingValue, settings } from "./settings";
@@ -528,10 +529,16 @@ let lastOp: { tool: ToolInfo; sels: Sel[]; values: Record<string, ParamValue> } 
 /** Ids of the hidden bodies (view only). Ids are stable, so a hidden body stays hidden through operations. */
 let hiddenBodies: ReadonlySet<number> = new Set();
 
+/** Tells the list of kept sketches what the document holds; set once that list exists. */
+let onSketches: (list: { id: number; name: string; rev: number }[]) => void = () => {};
+
 function show(mesh: MeshData, frame = false) {
   hiddenBodies = pruneHidden(hiddenBodies, bodiesOf(mesh).map((b) => b.id));
   viewport.setMesh(filterHidden(mesh, hiddenBodies), frame);
-  if (!mesh.header.preview) bodyList.setBodies(bodiesOf(mesh), hiddenBodies);
+  if (!mesh.header.preview) {
+    bodyList.setBodies(bodiesOf(mesh), hiddenBodies);
+    onSketches(mesh.header.sketches ?? []);
+  }
   undoButton.disabled = !mesh.header.canUndo;
   redoButton.disabled = !mesh.header.canRedo;
 }
@@ -1161,6 +1168,43 @@ const sketch = new SketchMode(
 currentSketchTool = () => sketch.activeTool;
 chooseSketchTool = (tool) => sketch.selectTool(tool);
 sketch.onToolChange = () => renderToolbar();
+/** Run a request that changes the kept sketches and takes the document state it answers with. */
+function keptRequest(kind: string, args: Record<string, unknown>) {
+  core
+    .request<MeshData>(kind, args)
+    .then((mesh) => setCommitted(mesh, false, currentSels))
+    .catch((e) => {
+      status.textContent = (e as Error).message;
+      status.classList.add("error");
+    });
+}
+const keptSketches = new KeptSketches({
+  core,
+  scene: viewport.scene,
+  list: $("keptsketches"),
+  count: $("keptsketchcount"),
+  async open(id) {
+    if (sketch.active) {
+      status.textContent = "Finish or discard the open sketch first";
+      return;
+    }
+    try {
+      const kept = await core.request<{ id: number; name: string; sketch: any }>("sketch_get", { id });
+      sketch.start(kept.sketch.plane, undefined, null, undefined, kept);
+    } catch (e) {
+      status.textContent = (e as Error).message;
+      status.classList.add("error");
+    }
+  },
+  remove: (id) => keptRequest("sketch_delete", { id }),
+  rename: (id, name) => keptRequest("sketch_rename", { id, name }),
+});
+onSketches = (list) => keptSketches.setList(list);
+sketch.onEditing = (id) => keptSketches.setEditing(id);
+$("keptsketchhead").addEventListener("click", () => {
+  const head = $("keptsketchhead");
+  head.setAttribute("aria-expanded", String(head.getAttribute("aria-expanded") !== "true"));
+});
 const sketchBar = new SketchBar({
   core,
   sketch,

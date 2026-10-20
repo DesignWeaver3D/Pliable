@@ -184,18 +184,30 @@ export class SketchMode {
   /** Set while sketching on an unrolled cylinder face: the face the regions are wrapped back onto when finishing. */
   private unwrapFace: number[] | null = null;
 
-  start(plane: M.PlaneData, reference?: { points: M.SketchPoint[]; entities: M.SketchEntity[] }, unwrapFace: number[] | null = null, distortion?: { max: number; note: string }) {
+  /** A kept sketch being edited: its id and name in the document; null for a new sketch. */
+  private kept: { id: number; name: string } | null = null;
+  /** Whether Finish also turns the closed regions into faces of the model (on for a new sketch, off when reopening one). */
+  private makeFaces = true;
+  /** Called with the id of the kept sketch being edited, or null when none is, so the sketch list can hide its copy of it. */
+  onEditing: ((id: number | null) => void) | null = null;
+
+  start(plane: M.PlaneData, reference?: { points: M.SketchPoint[]; entities: M.SketchEntity[] }, unwrapFace: number[] | null = null, distortion?: { max: number; note: string }, kept?: { id: number; name: string; sketch: any }) {
     if (this.active) this.exit();
     // Reference geometry (the face outline) is fixed construction geometry that sketch points can snap to.
-    this.s = { plane, points: reference?.points ?? [], entities: reference?.entities ?? [], constraints: [] };
+    this.s = kept
+      ? { plane: kept.sketch.plane, points: kept.sketch.points ?? [], entities: kept.sketch.entities ?? [], constraints: kept.sketch.constraints ?? [] }
+      : { plane, points: reference?.points ?? [], entities: reference?.entities ?? [], constraints: [] };
+    this.kept = kept ? { id: kept.id, name: kept.name } : null;
+    this.makeFaces = !kept;
+    this.onEditing?.(this.kept?.id ?? null);
     // The model origin and the places where the principal axes meet the plane are fixed points too.
-    this.unwrapFace = unwrapFace;
-    if (unwrapFace === null) {
+    this.unwrapFace = kept ? (kept.sketch.unwrap ?? null) : unwrapFace;
+    if (!kept && unwrapFace === null) {
       // The sketch origin is the centre of the face (or the plane's origin): a fixed point to snap to and constrain against.
       if (!this.s.points.some((p) => Math.hypot(p.u, p.v) < 1e-6)) this.s.points.push({ id: M.nextId(this.s), u: 0, v: 0, fixed: true });
       for (const o of M.originPoints(plane, this.s.points)) this.s.points.push({ id: M.nextId(this.s), u: o.u, v: o.v, fixed: true });
     }
-    const f = M.frame(plane);
+    const f = M.frame(this.s.plane);
     this.plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(...f.n), new THREE.Vector3(...f.origin));
     this.tool = "select";
     this.selection = [];
@@ -234,6 +246,8 @@ export class SketchMode {
     this.panel.replaceChildren();
     this.host.restore();
     this.onToolChange?.();
+    this.kept = null;
+    this.onEditing?.(null);
     this.host.status("Sketch closed");
   }
 
@@ -241,12 +255,29 @@ export class SketchMode {
   async finish() {
     if (!this.active) return;
     clearTimeout(this.previewTimer);
+    const drawn = this.s.entities.some((e) => !e.reference);
+    if (!drawn && !this.kept) return this.exit(); // nothing was drawn: nothing to keep
+    const keepRequest = (regions: boolean) => ({
+      sketch: { ...this.s, ...(this.unwrapFace ? { unwrap: this.unwrapFace } : {}) },
+      ...(this.kept ? { id: this.kept.id } : {}),
+      regions,
+      ...(this.unwrapFace ? { unwrap: this.unwrapFace } : {}),
+    });
+    let note = "";
     try {
-      const mesh = await this.core.request<MeshData>("sketch_regions", this.unwrapFace === null ? { sketch: this.s } : { sketch: this.s, unwrap: this.unwrapFace });
+      let mesh: MeshData;
+      try {
+        mesh = await this.core.request<MeshData>("sketch_keep", keepRequest(this.makeFaces));
+        if (this.makeFaces) note = " Its closed regions are faces now.";
+      } catch (e) {
+        if (!this.makeFaces) throw e;
+        mesh = await this.core.request<MeshData>("sketch_keep", keepRequest(false)); // no closed outline: keep the curves alone
+        note = ` It was kept without faces (${(e as Error).message}).`;
+      }
       this.exit();
       this.host.committed(mesh);
       usage.record("sketch_finish", "commit");
-      this.host.status("Sketch closed: its regions are faces now");
+      this.host.status(`Sketch kept.${note}`);
     } catch (e) {
       this.exit();
       this.host.status((e as Error).message);
@@ -1570,6 +1601,7 @@ export class SketchMode {
       return b;
     };
     const header = el("div", "head");
+    if (this.kept) header.title = `Editing ${this.kept.name}`;
     const grid = iconButton("grid", this.options.grid ? "Hide the grid" : "Show the grid (set its spacing in the sketch settings)", () => {
       this.options.grid = !this.options.grid;
       this.saveOptions();
@@ -1584,7 +1616,7 @@ export class SketchMode {
     const look = iconButton("lookAt", "Turn the view square to the sketch plane (entering a sketch does not move the view)", () => this.viewport.lookFrom(new THREE.Vector3(...M.frame(this.s.plane).n)));
     const gear = iconButton("gear", "Sketch settings", () => this.openSettings());
     gear.style.marginLeft = "auto";
-    header.append(el("span", "title", "Sketch"), look, grid, snap, gear);
+    header.append(el("span", "title", this.kept ? this.kept.name : "Sketch"), look, grid, snap, gear);
     const status = el("div", "dof", this.failed.size ? `Conflict: ${this.s.constraints.filter((c) => this.failed.has(c.id)).map((c) => M.describeConstraint(this.s, c)).join("; ") || [...this.failed].join(", ")}. Remove one (red rows below)` : this.dof === null ? "" : this.dof === 0 ? "Fully constrained" : `${this.dof} degrees of freedom left`);
     if (this.failed.size) status.classList.add("bad");
 
@@ -1783,9 +1815,16 @@ export class SketchMode {
     if (flat) constraintsBox.append(project);
 
     const finish = button("Finish sketch", () => this.finish());
-    finish.title = "Leave the sketch and keep its closed regions as faces you can push/pull or extrude";
-    const exit = button("Discard sketch", () => this.exit());
-    exit.title = "Leave the sketch and throw it away without changing the model";
-    this.panel.replaceChildren(header, status, tools, constraintsBox, ...(transformRow ? [transformBox] : []), ask, list, ...(flat ? [extrude] : []), finish, exit);
+    finish.title = "Leave the sketch and keep it in the list of sketches; with Make faces ticked its closed regions also become faces you can push/pull or extrude";
+    const exit = button(this.kept ? "Discard changes" : "Discard sketch", () => this.exit());
+    exit.title = this.kept ? "Leave the sketch without saving what you changed" : "Leave the sketch and throw it away without changing the model";
+    const faces = el("label", "", "Make faces ");
+    const facesBox = document.createElement("input");
+    facesBox.type = "checkbox";
+    facesBox.checked = this.makeFaces;
+    facesBox.title = "On Finish, turn the sketch's closed regions into faces of the model (a reopened sketch leaves this off so earlier faces are not doubled)";
+    facesBox.addEventListener("change", () => (this.makeFaces = facesBox.checked));
+    faces.append(facesBox);
+    this.panel.replaceChildren(header, status, tools, constraintsBox, ...(transformRow ? [transformBox] : []), ask, list, ...(flat ? [extrude] : []), faces, finish, exit);
   }
 }
