@@ -1,3 +1,4 @@
+import { uiIcon } from "./icons.ts";
 /** User settings kept in the browser. Read the values through `settings`; they change live. */
 export interface Settings {
   /** Pick radius in pixels for edges. */
@@ -98,7 +99,7 @@ export function openSettings(id?: string) {
 export function createSettingsWindow(host: HTMLElement) {
   const button = document.createElement("button");
   button.id = "gear";
-  button.textContent = "⚙";
+  button.append(uiIcon("gear", 20)); // the drawn gear, the same one the sketch card uses (the text glyph drew dark on some systems)
   button.title = "Settings: how close the pointer must be to pick edges and vertices, and display options";
   const panel = document.createElement("div");
   panel.id = "settingspanel";

@@ -145,7 +145,7 @@ export const UI_ICONS: Record<string, string> = {
   search: '<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l6 6"/>',
   sidebar: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M10 4.5v15"/><path d="M5.5 4.5H10v15H5.5a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2z" fill="currentColor" fill-opacity=".35" stroke="none"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
-  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>',
+  gear: '<path d="M9.84 4.92 L10.50 2.52 L13.50 2.52 L14.16 4.92 L15.47 5.47 L17.64 4.23 L19.77 6.36 L18.53 8.53 L19.08 9.84 L21.48 10.50 L21.48 13.50 L19.08 14.16 L18.53 15.47 L19.77 17.64 L17.64 19.77 L15.47 18.53 L14.16 19.08 L13.50 21.48 L10.50 21.48 L9.84 19.08 L8.53 18.53 L6.36 19.77 L4.23 17.64 L5.47 15.47 L4.92 14.16 L2.52 13.50 L2.52 10.50 L4.92 9.84 L5.47 8.53 L4.23 6.36 L6.36 4.23 L8.53 5.47 Z" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2"/>',
   more: '<circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
   edit: '<path d="M4 20l1-5L16 4l4 4L9 19z"/>',
