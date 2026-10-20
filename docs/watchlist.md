@@ -131,3 +131,4 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 
 - Sketch Select tool: a click adds to the selection and a click on a selected item removes it (no Ctrl/Shift needed); empty space clears it. Dragging an unselected item moves only that item; dragging a selected one moves the whole selection.
 - Sketch solver requests leave out projected reference curves and fixed points no constraint uses (`forSolver`), because the solver has a limit on unknowns. A constraint to a reference curve keeps that curve in the request.
+- Sketch box selection: dragging on empty space with the Select tool draws the same box as the 3D view (solid left to right = window, dashed right to left = crossing) and selects only sketch points and curves; it replaces the selection unless Ctrl/Shift is held. Curves are tested as 48-segment polylines.

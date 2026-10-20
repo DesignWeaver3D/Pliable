@@ -229,6 +229,7 @@ export class SketchMode {
   exit() {
     if (!this.active) return;
     this.active = false;
+    this.cancelBox();
     clearTimeout(this.previewTimer);
     this.viewport.interceptor = null;
     this.viewport.onFrame2 = null;
@@ -433,7 +434,57 @@ export class SketchMode {
     return best;
   }
 
+  /** The box being dragged on empty space (client pixels); window = left to right, crossing = right to left, as in the 3D view. */
+  private box: { x0: number; y0: number; x1: number; y1: number; active: boolean; additive: boolean } | null = null;
+  private boxEl: HTMLDivElement | null = null;
+
+  private updateBox(e: PointerEvent) {
+    const b = this.box!;
+    b.x1 = e.clientX;
+    b.y1 = e.clientY;
+    if (!b.active && Math.hypot(b.x1 - b.x0, b.y1 - b.y0) < DRAG_START_PX) return;
+    b.active = true;
+    if (!this.boxEl) {
+      this.boxEl = document.createElement("div");
+      this.boxEl.style.cssText = "position:fixed;pointer-events:none;z-index:2;border:1px solid #4fc3f7;background:rgba(79,195,247,0.12)";
+      document.body.appendChild(this.boxEl);
+    }
+    const crossing = b.x1 < b.x0;
+    Object.assign(this.boxEl.style, {
+      left: Math.min(b.x0, b.x1) + "px",
+      top: Math.min(b.y0, b.y1) + "px",
+      width: Math.abs(b.x1 - b.x0) + "px",
+      height: Math.abs(b.y1 - b.y0) + "px",
+      borderStyle: crossing ? "dashed" : "solid", // dashed = crossing, solid = window
+      borderColor: crossing ? "#8bc34a" : "#4fc3f7",
+    });
+  }
+
+  private cancelBox() {
+    this.box = null;
+    this.boxEl?.remove();
+    this.boxEl = null;
+  }
+
+  /** Select the sketch's own points and curves in the box (never the model's faces or edges). */
+  private finishBox() {
+    const b = this.box!;
+    this.cancelBox();
+    if (!b.active) {
+      if (!b.additive) this.selection = []; // a click on empty space
+      return;
+    }
+    const rect = this.viewport.renderer.domElement.getBoundingClientRect();
+    const r = { x0: Math.min(b.x0, b.x1) - rect.left, x1: Math.max(b.x0, b.x1) - rect.left, y0: Math.min(b.y0, b.y1) - rect.top, y1: Math.max(b.y0, b.y1) - rect.top };
+    const found = M.itemsInBox(this.s, (u, v) => this.screenOf(u, v), r, b.x1 < b.x0);
+    this.selection = b.additive ? [...this.selection, ...found.filter((f) => !this.selection.some((s) => s.kind === f.kind && s.id === f.id))] : found;
+  }
+
   private onMove(e: PointerEvent) {
+    if (this.box) {
+      this.updateBox(e);
+      return;
+    }
     if (this.drag) {
       const dx = e.clientX - this.drag.startX;
       const dy = e.clientY - this.drag.startY;
@@ -462,8 +513,9 @@ export class SketchMode {
     const wasSelected = this.selection.some(same);
     this.clickToggle = null;
     if (!hit) {
-      // Empty space clears the selection (a plain click, or Ctrl/Shift held keeps it).
-      if (!additive) this.selection = [];
+      // Empty space: a click clears the selection, a drag draws a selection box (see finishBox).
+      this.box = { x0: e.clientX, y0: e.clientY, x1: e.clientX, y1: e.clientY, active: false, additive };
+      this.viewport.renderer.domElement.setPointerCapture(e.pointerId);
     } else if (additive) {
       this.selection = wasSelected ? this.selection.filter((s) => !same(s)) : [...this.selection, hit];
     } else if (wasSelected) {
@@ -504,6 +556,11 @@ export class SketchMode {
   }
 
   private async onUp(e: PointerEvent) {
+    if (this.box) {
+      this.finishBox();
+      this.render();
+      return;
+    }
     const toggle = this.clickToggle;
     this.clickToggle = null;
     if (toggle && Math.hypot(e.clientX - toggle.x, e.clientY - toggle.y) < DRAG_START_PX) {
