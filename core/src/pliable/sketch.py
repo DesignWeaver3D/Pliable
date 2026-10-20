@@ -929,7 +929,8 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
     """The outline of a flat face as fixed construction geometry in sketch coordinates, so a sketch drawn on the
     face can snap to its corners and hole centres: {"points": [...], "entities": [...]} with ids from 1.
     With `project`, the edges of a whole shape are flattened onto the plane instead; lines square to the plane
-    and circles or arcs seen at an angle (they would project to ellipses) are left out."""
+    and edge-on circles become points or segments; a circle seen at an angle becomes an ellipse and other
+    curves (tilted arcs, B-splines) become splines through sample points."""
     from OCP.BRepAdaptor import BRepAdaptor_Curve
     from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Line
     from OCP.BRep import BRep_Tool
@@ -959,6 +960,30 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
         entities.append({"id": len(points) + len(entities) + 1000, "construction": True, "reference": True, **entity})
 
     skipped = {"square": 0, "tilted_circles": 0, "other": 0}
+    drawn = {"ellipses": 0, "splines": 0}
+
+    def spline(curve, first: float, last: float, count: int) -> bool:
+        """Add a fixed spline through `count` samples of the curve; False if it projects to (almost) a point or a
+        back-and-forth segment, which a spline cannot describe."""
+        samples = [curve.Value(first + (last - first) * i / (count - 1)) for i in range(count)]
+        flat = [uv(p) for p in samples]
+        span = max(math.dist(flat[0], q) for q in flat)
+        if span < 1e-6:
+            return False
+        du, dv = flat[-1][0] - flat[0][0], flat[-1][1] - flat[0][1]
+        if math.hypot(du, dv) > 1e-6 and max(abs(du * (q[1] - flat[0][1]) - dv * (q[0] - flat[0][0])) / math.hypot(du, dv) for q in flat) < 1e-6:
+            return False  # collinear samples: the curve is seen edge-on
+        ids = [point(p) for p in samples]
+        closed = ids[0] == ids[-1]
+        ids = [i for k, i in enumerate(ids) if k == 0 or i != ids[k - 1]]
+        if closed:
+            ids = ids[:-1]
+        if len(ids) < 3 and closed:
+            return False
+        add({"type": "spline", "points": ids, **({"closed": True} if closed else {})})
+        drawn["splines"] += 1
+        return True
+
     explorer = TopExp_Explorer(face_shape, TopAbs_EDGE)
     while explorer.More():
         curve = BRepAdaptor_Curve(TopoDS.Edge(explorer.Current()))
@@ -973,20 +998,31 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
         elif curve.GetType() == GeomAbs_Circle:
             circle = curve.Circle()
             axis = circle.Axis().Direction()
-            if project and abs(abs(axis.X() * normal[0] + axis.Y() * normal[1] + axis.Z() * normal[2]) - 1) > 1e-6:
-                if abs((last - first) - 2 * math.pi) < 1e-6 and abs(axis.X() * normal[0] + axis.Y() * normal[1] + axis.Z() * normal[2]) > 1e-3:  # a whole circle seen at an angle is an ellipse
-                    cosine = abs(axis.X() * normal[0] + axis.Y() * normal[1] + axis.Z() * normal[2])
+            cosine = abs(axis.X() * normal[0] + axis.Y() * normal[1] + axis.Z() * normal[2])
+            if project and abs(cosine - 1) > 1e-6:
+                whole = abs((last - first) - 2 * math.pi) < 1e-6
+                if cosine < 1e-3:  # the circle's plane is square to the sketch: it is seen edge-on
+                    if whole:  # as the segment its diameter projects to
+                        along = (axis.Y() * normal[2] - axis.Z() * normal[1], axis.Z() * normal[0] - axis.X() * normal[2], axis.X() * normal[1] - axis.Y() * normal[0])
+                        length = math.sqrt(sum(c * c for c in along))
+                        c0 = circle.Location()
+                        ends = [gp_Pnt(*(c + sign * circle.Radius() * a / length for c, a in zip((c0.X(), c0.Y(), c0.Z()), along))) for sign in (1, -1)]
+                        add({"type": "line", "a": point(ends[0]), "b": point(ends[1])})
+                        skipped["square"] += 1
+                    else:
+                        skipped["tilted_circles"] += 1
+                        for t in (first, last):
+                            point(curve.Value(t))
+                elif whole:  # a whole circle seen at an angle is an ellipse
                     # the major axis is the circle's diameter that lies in the plane: axis x normal
                     along = (axis.Y() * normal[2] - axis.Z() * normal[1], axis.Z() * normal[0] - axis.X() * normal[2], axis.X() * normal[1] - axis.Y() * normal[0])
                     length = math.sqrt(sum(c * c for c in along))
                     centre = circle.Location()
                     tip = gp_Pnt(*(c + circle.Radius() * a / length for c, a in zip((centre.X(), centre.Y(), centre.Z()), along)))
                     add({"type": "ellipse", "center": point(centre), "major": point(tip), "minor": circle.Radius() * cosine})
-                    explorer.Next()
-                    continue
-                skipped["tilted_circles"] += 1  # a tilted arc would be part of an ellipse; its end points still project
-                for t in (first, last):
-                    point(curve.Value(t))
+                    drawn["ellipses"] += 1
+                else:  # a tilted arc is part of an ellipse: drawn as a spline through sample points
+                    spline(curve, first, last, max(8, math.ceil(24 * (last - first) / (2 * math.pi)) + 1))
                 explorer.Next()
                 continue
             centre = point(circle.Location())
@@ -1001,6 +1037,8 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
                 if turn < 0:  # the edge runs clockwise in the sketch: swap so the arc is counterclockwise
                     start, end = end, start
                 add({"type": "arc", "center": centre, "start": point(start), "end": point(end)})
+        elif project and spline(curve, first, last, 33):  # any other curve is sampled into a spline
+            pass
         else:
             skipped["other"] += 1
             if project:
@@ -1020,4 +1058,4 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
         BRepGProp.SurfaceProperties_s(face_shape, props)
         if props.Mass() > 0:
             point(props.CentreOfMass())
-    return {"points": points, "entities": entities, **({"skipped": skipped} if project else {})}
+    return {"points": points, "entities": entities, **({"skipped": skipped, "drawn": drawn} if project else {})}
