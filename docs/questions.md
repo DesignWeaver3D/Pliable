@@ -4,9 +4,7 @@ Only real questions that need your answer. Each one ends with a question mark an
 
 ## Open questions
 
-### Dimensions (S55)
-
-1. **When you edit the distance between two faces by typing a new value, which face should move?** For example, two parallel faces are 10 mm apart and you type 15: one face stays put and the other moves 5 mm. Options: (a) the face you clicked last moves, with a small flip control beside the field to swap; (b) the face of the larger body stays fixed; (c) ask each time. Default if unanswered: (a).
+No open questions. In-place face-to-face distance editing (which face moves) is deferred with the design-intent features on the long-term roadmap.
 
 ## Topics you asked to discuss one at a time
 
