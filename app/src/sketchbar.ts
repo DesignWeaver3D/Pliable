@@ -1,7 +1,7 @@
 /**
  * The bar at the bottom of the view that starts a sketch: one "Sketch On Geometry" button (the face may be selected
  * before or after pressing it; curved and multi-face selections are unrolled automatically) and the three
- * world planes. A face that cannot be sketched on says why and offers the diagnostic report.
+ * world planes. A face that cannot be sketched on says why in the message bar at the top.
  */
 import type { CoreClient } from "./client";
 import { SKETCH_PLANES } from "./layout";
@@ -55,7 +55,7 @@ export class SketchBar {
       sketch.start(reply.plane, reply.reference, reply.unwrapped ? ids : null, reply.distortion);
     } catch (e) {
       this.problem = (e as Error).message;
-      this.d.status(`Cannot sketch on this selection: ${this.problem}`, true);
+      this.d.status(`Cannot sketch on this selection: ${this.problem} (Copy diagnostics at the top has a report)`, true);
     }
     this.key = "";
     this.render();
@@ -117,16 +117,6 @@ export class SketchBar {
         here.addEventListener("click", () => void this.beginThrough(request));
         parts.push(here);
       }
-    }
-    if (this.problem) {
-      const why = document.createElement("span");
-      why.textContent = `Cannot sketch on this: ${this.problem}`;
-      why.style.color = "#ff6b6b";
-      const report = document.createElement("button");
-      report.textContent = "Copy diagnostic report";
-      report.title = "Open the diagnostic report (it includes this failure) to copy into a bug report";
-      report.addEventListener("click", () => this.d.diagnostics());
-      parts.push(why, report);
     }
     const label = document.createElement("span");
     label.textContent = "or on";
