@@ -845,6 +845,47 @@ def plane_through(p1, p2, p3) -> dict:
     return {"origin": list(p1), "normal": list(_unit(normal)), "xdir": list(_unit(a))}
 
 
+def rotate_plane(plane: dict, point, axis, degrees: float) -> dict:
+    """The plane turned `degrees` about the line through `point` along `axis` (right-hand rule)."""
+    k = _unit(axis)
+    c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
+
+    def turn(v):
+        cross = _cross(k, v)
+        dot = sum(a * b for a, b in zip(k, v))
+        return [v[i] * c + cross[i] * s + k[i] * dot * (1 - c) for i in range(3)]
+
+    moved = turn([o - p for o, p in zip(plane["origin"], point)])
+    return {**plane, "origin": [m + p for m, p in zip(moved, point)], "normal": list(_unit(turn(plane["normal"]))), "xdir": list(_unit(turn(plane["xdir"])))}
+
+
+def shifted_plane(plane: dict, offset: float = 0.0, angle: float = 0.0, about=None) -> dict:
+    """A plane parallel to `plane` moved `offset` along its normal, then turned `angle` degrees about `about`
+    (a point and a direction; by default the plane's own x axis through its origin)."""
+    moved = offset_plane(plane, offset) if offset else plane
+    if not angle:
+        return moved
+    point, axis = about if about is not None else (moved["origin"], moved["xdir"])
+    return rotate_plane(moved, point, axis, angle)
+
+
+def tangent_plane(face_shape, point) -> dict:
+    """The sketch plane touching a face at the spot nearest `point`: origin there, normal the face's outward normal."""
+    from OCP.BRep import BRep_Tool
+    from OCP.BRepGProp import BRepGProp_Face
+    from OCP.GeomAPI import GeomAPI_ProjectPointOnSurf
+
+    projection = GeomAPI_ProjectPointOnSurf(gp_Pnt(*point), BRep_Tool.Surface_s(face_shape))
+    if projection.NbPoints() == 0:
+        raise SketchError("That point is not on the face")
+    u, v = projection.LowerDistanceParameters()
+    at, normal = gp_Pnt(), gp_Vec()
+    BRepGProp_Face(face_shape).Normal(u, v, at, normal)
+    if normal.Magnitude() < 1e-12:
+        raise SketchError("The face has no direction at that point")
+    return plane_normal_to((at.X(), at.Y(), at.Z()), (normal.X(), normal.Y(), normal.Z()))
+
+
 STANDARD_PLANES = {
     "XY": {"origin": [0, 0, 0], "normal": [0, 0, 1], "xdir": [1, 0, 0]},
     "XZ": {"origin": [0, 0, 0], "normal": [0, -1, 0], "xdir": [1, 0, 0]},

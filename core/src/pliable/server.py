@@ -240,7 +240,7 @@ class Session:
         if kind == "sketch_plane":
             plane = self._sketch_plane(request)
             reply = {"plane": plane}
-            if "face" in request:  # outline of the face as fixed reference geometry
+            if "face" in request and not (request.get("offset") or request.get("angle")):  # outline of the face as fixed reference geometry
                 reply["reference"] = sketch.face_reference(self._require_document().current.face(int(request["face"])), plane)
             return reply
         if kind == "sketch_solve":
@@ -349,9 +349,18 @@ class Session:
         if "vertices" in request or "edge" in request or "normal_to" in request:
             return self._sketch_plane_through(topology, request)
         try:
-            return sketch.face_plane(topology.face(int(request["face"])))
+            if "tangent_face" in request:  # touching a curved or flat face at a picked vertex
+                from OCP.BRep import BRep_Tool
+
+                p = BRep_Tool.Pnt_s(topology.vertex(int(request["vertex"])))
+                return sketch.tangent_plane(topology.face(int(request["tangent_face"])), (p.X(), p.Y(), p.Z()))
+            plane = sketch.face_plane(topology.face(int(request["face"])))
+            offset, angle = float(request.get("offset", 0)), float(request.get("angle", 0))
+            return sketch.shifted_plane(plane, offset, angle) if offset or angle else plane  # moved along the face normal, then turned about the plane's x axis
         except KeyError as e:
             raise RequestError("Unknown face") from e
+        except (TypeError, ValueError, sketch.SketchError) as e:
+            raise RequestError(str(e)) from e
 
     def _sketch_plane_through(self, topology, request: dict) -> dict:
         """A plane through three vertices, or through a straight edge and a vertex."""

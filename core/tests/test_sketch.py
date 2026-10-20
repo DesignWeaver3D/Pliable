@@ -825,6 +825,35 @@ def test_plane_through_three_vertices_and_through_an_edge_and_a_vertex():
     assert math.sqrt(sum(c * c for c in edge_plane["normal"])) == pytest.approx(1)
 
 
+def test_offset_and_angled_planes_from_a_face_and_tangent_plane_at_a_vertex():
+    from OCP.BRep import BRep_Tool
+
+    from pliable.server import RequestError, Session
+
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})  # a box from z = -10 to 10
+    topology = session.document.current
+    top = next(i for i, f in topology.faces() if sketch.face_plane(f)["normal"][2] > 0.99)
+    moved = session.handle({"type": "sketch_plane", "face": top, "offset": 5})
+    assert moved["plane"]["origin"][2] == pytest.approx(15) and "reference" not in moved  # its outline would not lie on the plane
+    tilted = session.handle({"type": "sketch_plane", "face": top, "angle": 90})["plane"]
+    assert abs(tilted["normal"][2]) < 1e-9 and tilted["origin"][2] == pytest.approx(10)
+    assert math.sqrt(sum(c * c for c in tilted["normal"])) == pytest.approx(1)
+    assert "reference" in session.handle({"type": "sketch_plane", "face": top})
+    corner = next(i for i in range(topology.vertex_count) if BRep_Tool.Pnt_s(topology.vertex(i)).Z() > 9)
+    touching = session.handle({"type": "sketch_plane", "tangent_face": top, "vertex": corner})["plane"]
+    assert touching["normal"] == pytest.approx([0, 0, 1], abs=1e-9) and touching["origin"][2] == pytest.approx(10)
+    with pytest.raises(RequestError):
+        session.handle({"type": "sketch_plane", "tangent_face": 9999, "vertex": corner})
+
+
+def test_rotating_a_plane_about_a_line_turns_its_origin_and_axes_together():
+    plane = {"origin": [0, 0, 5], "normal": [0, 0, 1], "xdir": [1, 0, 0]}
+    turned = sketch.rotate_plane(plane, [0, 0, 0], [0, 1, 0], 90)  # a quarter turn about the Y axis
+    assert turned["origin"] == pytest.approx([5, 0, 0], abs=1e-9)
+    assert turned["normal"] == pytest.approx([1, 0, 0], abs=1e-9) and turned["xdir"] == pytest.approx([0, 0, -1], abs=1e-9)
+
+
 @pytest.mark.parametrize("preview", [True, False])
 @pytest.mark.parametrize("distance", [-20, -20.1, -50, -1000])
 def test_imprinted_region_pushed_past_the_bottom_cuts_through(preview, distance):
