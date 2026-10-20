@@ -25,7 +25,7 @@ const POINT_SIZE_PX = 8;
 const PREVIEW_DELAY_MS = 150;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
-export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "ellipse" | "spline" | "trim" | "extend" | "split" | "triangle" | "pentagon" | "hexagon" | "octagon";
+export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "polygon" | "ellipse" | "spline" | "trim" | "extend" | "split" | "triangle" | "pentagon" | "hexagon" | "octagon";
 /** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
 const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5, hexagon: 6, octagon: 8 };
 export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
@@ -44,7 +44,7 @@ export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "trim", label: "Trim", hint: "Click the part of a line to remove, up to the nearest crossing curves" },
   { id: "split", label: "Split", hint: "Click a line where it should be cut in two" },
   { id: "extend", label: "Extend", hint: "Click near the end of a line to stretch it to the next curve" },
-  ...(Object.keys(POLYGON_SIDES) as Tool[]).map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1), hint: "Click the centre, then a corner" })),
+  { id: "polygon", label: "Polygon", hint: "Click the centre, then a corner; the number of sides is set in the sketch card (3 to 64)" },
 ];
 
 /** Sketch preferences kept on this computer: the grid and which constraints the drawing tools add on their own. */
@@ -56,6 +56,8 @@ export interface SketchOptions {
   major: number;
   /** Spacing of the light lines between them, in the length unit; 0 draws none. The pointer snaps to this when it is set, else to the major spacing. */
   minor: number;
+  /** Number of sides the Polygon tool draws. */
+  sides: number;
   /** How much the grid fades toward the edges of the view (always measured from the middle of the view, so panning never hides the grid where you look). */
   fade: "off" | "subtle" | "strong";
   /** none: tools add no constraints; snaps: only those a snap implies (horizontal, vertical, on a curve, tangent); shape: also the ones that keep a rectangle, polygon or slot its shape. */
@@ -64,7 +66,7 @@ export interface SketchOptions {
 const OPTIONS_KEY = "pliable.sketchOptions2";
 
 export function loadSketchOptions(): SketchOptions {
-  const options: SketchOptions = { grid: false, snapGrid: false, major: 10, minor: 2, fade: "subtle", auto: "none" };
+  const options: SketchOptions = { grid: false, snapGrid: false, major: 10, minor: 2, fade: "subtle", sides: 6, auto: "none" };
   try {
     const saved = JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? "null");
     if (saved) {
@@ -74,6 +76,7 @@ export function loadSketchOptions(): SketchOptions {
       if (Number.isFinite(saved.minor) && saved.minor >= 0) options.minor = saved.minor;
       if (["none", "snaps", "shape"].includes(saved.auto)) options.auto = saved.auto;
       if (["off", "subtle", "strong"].includes(saved.fade)) options.fade = saved.fade;
+      if (Number.isInteger(saved.sides) && saved.sides >= 3 && saved.sides <= 64) options.sides = saved.sides;
     }
   } catch {
     // no saved options (or storage is blocked): the defaults stand
@@ -345,6 +348,11 @@ export class SketchMode {
   private gridStep(): number {
     const { major, minor } = this.options;
     return minor > 0 && minor < major ? minor : major;
+  }
+
+  /** Sides of a regular polygon tool: the Polygon tool uses the count in the sketch card, the fixed shapes their own. */
+  private sidesOf(tool: Tool): number | undefined {
+    return tool === "polygon" ? this.options.sides : POLYGON_SIDES[tool];
   }
 
   private saveOptions() {
@@ -755,8 +763,8 @@ export class SketchMode {
     } else if (this.tool === "circle" && this.chain.length === 2) {
       this.addCircle(this.chain[0], this.chain[1]);
       this.chain = [];
-    } else if (POLYGON_SIDES[this.tool] && this.chain.length === 2) {
-      this.addPolygon(this.chain[0], this.chain[1], POLYGON_SIDES[this.tool]!);
+    } else if (this.sidesOf(this.tool) && this.chain.length === 2) {
+      this.addPolygon(this.chain[0], this.chain[1], this.sidesOf(this.tool)!);
       this.chain = [];
     } else if (this.tool === "arc" && this.chain.length === 3) {
       this.addArc(this.chain[0], this.chain[1], this.chain[2]);
@@ -782,7 +790,7 @@ export class SketchMode {
 
   /** Drawing tools whose size can be typed: the digits go to the next point's distance, Enter places it. */
   private typable(): boolean {
-    return this.active && this.chain.length > 0 && (["line", "circle", "rectangle", "rectcentre"].includes(this.tool) || !!POLYGON_SIDES[this.tool]);
+    return this.active && this.chain.length > 0 && (["line", "circle", "rectangle", "rectcentre"].includes(this.tool) || !!this.sidesOf(this.tool));
   }
 
   /** Digits typed while drawing (captured before the key router sees them). Enter applies, Backspace edits, Escape clears. */
@@ -1712,7 +1720,7 @@ export class SketchMode {
     if (this.tool === "line") return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `${n(Math.hypot(du, dv))} at ${n((Math.atan2(dv, du) * 180) / Math.PI)}°`);
     if (this.tool === "rectangle") return tag((a.u + c.u) / 2, c.v, `${n(Math.abs(du))} × ${n(Math.abs(dv))}`);
     if (this.tool === "rectcentre") return tag(a.u, c.v, `${n(Math.abs(du) * 2)} × ${n(Math.abs(dv) * 2)}`);
-    if (this.tool === "circle" || POLYGON_SIDES[this.tool]) return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `R${n(Math.hypot(du, dv))}`);
+    if (this.tool === "circle" || this.sidesOf(this.tool)) return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `R${n(Math.hypot(du, dv))}`);
     return [];
   }
 
@@ -1733,7 +1741,7 @@ export class SketchMode {
       const [x, y] = [2 * first.u - c.u, 2 * first.v - c.v];
       return [[[x, y], [c.u, y], [c.u, c.v], [x, c.v], [x, y]]];
     }
-    const sides = POLYGON_SIDES[this.tool];
+    const sides = this.sidesOf(this.tool);
     if (sides) {
       const corners = this.polygonCorners(first, c, sides).map((q) => [q.u, q.v] as [number, number]);
       return [[...corners, corners[0]]];
@@ -1837,6 +1845,25 @@ export class SketchMode {
 
     const tools = el("div", "row-buttons"); // options of the drawing tool chosen in the top bar
 
+    if (this.tool === "polygon") {
+      const sides = document.createElement("input");
+      sides.type = "number";
+      sides.min = "3";
+      sides.max = "64";
+      sides.step = "1";
+      sides.value = String(this.options.sides);
+      sides.title = "Number of sides (3 to 64)";
+      sides.addEventListener("keydown", (e) => e.stopPropagation());
+      sides.addEventListener("change", () => {
+        const n = Math.round(Number(sides.value));
+        if (Number.isFinite(n)) this.options.sides = Math.min(64, Math.max(3, n));
+        sides.value = String(this.options.sides);
+        this.saveOptions();
+      });
+      const row = el("label", "", "Sides ");
+      row.append(sides);
+      tools.append(row);
+    }
     if (this.tool === "rectangle" || this.tool === "rectcentre") {
       const corner = document.createElement("select");
       for (const [v, label] of [["none", "Square corners"], ["fillet", "Rounded corners"], ["chamfer", "Bevelled corners"]]) corner.append(new Option(label, v, false, v === this.rectOptions.corner));
