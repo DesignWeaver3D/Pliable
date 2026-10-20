@@ -394,6 +394,7 @@ export class SketchMode {
       uColor: { value: new THREE.Color(COLORS.grid) },
       uFade: { value: new THREE.Vector2(fadeFrom, fadeTo) },
       uResolution: { value: new THREE.Vector2(1, 1) },
+      uUnproject: { value: new THREE.Matrix4() },
     };
     const material = new THREE.ShaderMaterial({
       uniforms: this.gridUniforms,
@@ -401,11 +402,13 @@ export class SketchMode {
       depthTest: false,
       depthWrite: false,
       side: THREE.DoubleSide,
+      // A screen-filling quad: each pixel finds where its own view ray meets the sketch plane. Drawing a huge plane
+      // instead left the lines wobbling while the camera moved, because the clipped corners lost precision.
       vertexShader: `
-        varying vec2 vPlane;
+        varying vec2 vNdc;
         void main() {
-          vPlane = position.xy; // the plane's own coordinates: sketch u and v
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          vNdc = position.xy;
+          gl_Position = vec4(position.xy, 0.0, 1.0);
         }`,
       fragmentShader: `
         uniform float uMajor;
@@ -413,7 +416,9 @@ export class SketchMode {
         uniform vec3 uColor;
         uniform vec2 uFade;
         uniform vec2 uResolution;
-        varying vec2 vPlane;
+        uniform mat4 uUnproject;
+        varying vec2 vNdc;
+        vec2 vPlane;
         // Line strength (0..1) for lines every \`spacing\` units, about one pixel wide, faded out once the lines are
         // closer than a few pixels.
         float lines(float spacing) {
@@ -425,6 +430,12 @@ export class SketchMode {
           return line * (1.0 - smoothstep(0.12, 0.3, density));
         }
         void main() {
+          vec4 near = uUnproject * vec4(vNdc, -1.0, 1.0);
+          vec4 far = uUnproject * vec4(vNdc, 1.0, 1.0);
+          vec3 a = near.xyz / near.w;
+          vec3 b = far.xyz / far.w;
+          if (abs(a.z - b.z) < 1e-9) discard; // the ray runs along the plane
+          vPlane = (a + (b - a) * (a.z / (a.z - b.z))).xy;
           float strength = lines(uMajor) * 0.6;
           if (uMinor > 0.0) strength = max(strength, lines(uMinor) * 0.25);
           vec2 centred = (gl_FragCoord.xy / uResolution - 0.5) * 2.0;
@@ -436,10 +447,15 @@ export class SketchMode {
           #include <colorspace_fragment> // the colour is given as on screen, as the old line grid was; without this it came out far darker
         }`,
     });
-    const size = 2e5; // far larger than any sketch: the grid has no visible edge
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), material);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
     mesh.frustumCulled = false;
     mesh.renderOrder = 1;
+    // Set just before the grid is drawn, from the camera that draws it, so the lines never lag a frame behind a moving camera.
+    mesh.onBeforeRender = (renderer, _scene, camera) => {
+      const toClip = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).multiply(grid.matrixWorld);
+      (material.uniforms.uUnproject.value as THREE.Matrix4).copy(toClip).invert();
+      (material.uniforms.uResolution.value as THREE.Vector2).copy(renderer.getDrawingBufferSize(new THREE.Vector2()));
+    };
     const grid = new THREE.Group();
     grid.add(mesh);
     grid.applyMatrix4(new THREE.Matrix4().makeBasis(new THREE.Vector3(...f.x), new THREE.Vector3(...f.y), new THREE.Vector3(...f.n)));
@@ -1621,7 +1637,6 @@ export class SketchMode {
   private onFrame() {
     const size = this.viewport.renderer.getSize(new THREE.Vector2());
     for (const l of [this.axes, this.normal, this.placed, this.construction, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
-    if (this.gridUniforms) (this.gridUniforms.uResolution.value as THREE.Vector2).copy(this.viewport.renderer.getDrawingBufferSize(new THREE.Vector2()));
   }
 
   private world(u: number, v: number): THREE.Vector3 {

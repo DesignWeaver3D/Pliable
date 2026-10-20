@@ -35,7 +35,7 @@ Groups by shared files, worked in this order (S17, S30, S34 are owner-dependent 
 - D selection and holes (viewport picking, hole tools): S87, S88, S86
 - E UI panels and hints: S91, S89
 
-Group status: none started.
+Group status: A done (S93, 9ec3ba5); B in progress.
 
 ## Open sessions
 
@@ -54,7 +54,7 @@ Group status: none started.
 | S90 | Tools | Merge Cut with plane and Split with plane into one tool. Result choice: keep both halves as separate bodies, or keep one and remove the other; the two halves are shown in two special colours and chosen by colour (the way a slicer does it). The plane can be moved anywhere and is created the same ways a sketch plane is (face, three points, edge and point, normal to an edge, offset or angled from a face); keep the axis planes as quick options | Planned |
 | S91 | UI | Bodies list: move it right so the Tools handle no longer covers it; when a body is picked in the 3D view, scroll its row into view | Planned |
 | S92 | Sketch | Audit where the sketch plan stands after the redo: ellipse and spline endpoint constraints only (decided; shape constraints stay unsupported), snapshot projections (decided), and which plane builders from question 11 exist. Then build the missing ones in this order: plane from an edge and a point (check), offset or angled plane from a face, plane tangent to a surface at a picked point. Shares plane creation code with S90 | Planned |
-| S93 | Bug | Refreshing the tab offers a restore from a different session (probably the owner's other test server, which shares the per-user autosave folder). Offer only a session that is dead, never one another running core owns, and say which session and when it was saved. Reproduce with two cores running | Planned |
+| S93 | Bug | Refreshing the tab offers a restore from a different session (probably the owner's other test server, which shares the per-user autosave folder). Offer only a session that is dead, never one another running core owns, and say which session and when it was saved. Reproduce with two cores running | Done: the core now reports a dropped tab's model and the page resumes it before any crash prompt; the prompt shows the save time. Not hand-checked with two cores |
 | S94 | Bug | After an orbit the sketch grid jiggles until the camera glide ends (suspect the grid redraws against a still-moving camera). Turning the grid off while it jiggles locks sketch mode so that only Esc leaves it. Find both causes; the lock-up is the more serious | Planned |
 | S95 | Bug | Slot-tool sketch ends up unconstrainable, and after leaving it the face cannot be picked in the 3D view for extrude (only the sketch list's extrude button works). Reproduce and fix, then let a closed sketch profile be picked and extruded directly in the 3D view as if it were a face, without making a 3D face body | Planned |
 | S96 | Release | Alpha readiness: list the tools that have no test and no hand check, then decide per tool whether to keep it, mark it experimental, or hide it behind a setting (recommended over deleting). Needed before the next alpha is announced | Planned |
