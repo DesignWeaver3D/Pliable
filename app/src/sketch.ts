@@ -190,6 +190,16 @@ export class SketchMode {
   onEditing: ((id: number | null) => void) | null = null;
 
   start(plane: M.PlaneData, reference?: { points: M.SketchPoint[]; entities: M.SketchEntity[] }, unwrapFace: number[] | null = null, distortion?: { max: number; note: string }, kept?: { id: number; name: string; sketch: any }) {
+    if (this.active && this.needsConfirm()) {
+      // Starting another sketch would throw this one away: ask first.
+      void this.confirmLeave().then(async (choice) => {
+        if (choice === "keep") return this.host.status("Kept editing this sketch; finish or discard it before starting another");
+        if (choice === "finish") await this.finish();
+        else this.exit();
+        if (!this.active) this.start(plane, reference, unwrapFace, distortion, kept);
+      });
+      return;
+    }
     if (this.active) this.exit();
     // Reference geometry (the face outline) is fixed construction geometry that sketch points can snap to.
     this.s = kept
@@ -224,6 +234,59 @@ export class SketchMode {
     this.render();
     this.onToolChange?.();
     this.host.status(distortion ? distortion.note : "Sketch: choose a drawing tool in the top bar (Line, Rectangle, Circle, Arc)", !!distortion);
+  }
+
+  /** Whether leaving the sketch would lose work: drawn geometry in a new sketch, or changes to a kept one. */
+  private needsConfirm(): boolean {
+    return this.kept ? this.undoStack.length > 0 : this.s.entities.some((e) => !e.reference);
+  }
+
+  private leaveDialog: HTMLDialogElement | null = null;
+
+  /** An in-page question before a sketch with work in it is thrown away. Closing it any other way keeps editing. */
+  private confirmLeave(): Promise<"keep" | "finish" | "discard"> {
+    if (this.leaveDialog?.open) return Promise.resolve("keep");
+    return new Promise((resolve) => {
+      const dialog = document.createElement("dialog");
+      dialog.className = "sketchsettings";
+      dialog.addEventListener("keydown", (e) => e.stopPropagation()); // Escape closes the question (keep editing), not the sketch
+      const title = document.createElement("h3");
+      title.textContent = this.kept ? "Discard your changes to this sketch?" : "Discard this sketch?";
+      const text = document.createElement("div");
+      text.textContent = "It has geometry that has not been kept.";
+      let choice: "keep" | "finish" | "discard" = "keep";
+      const choose = (c: typeof choice, label: string, autofocus = false) => {
+        const b = document.createElement("button");
+        b.textContent = label;
+        b.addEventListener("click", () => {
+          choice = c;
+          dialog.close();
+        });
+        if (autofocus) b.autofocus = true;
+        return b;
+      };
+      const keep = choose("keep", "Keep editing", true);
+      dialog.append(title, text, keep, choose("finish", this.kept ? "Finish and save" : "Finish and keep"), choose("discard", "Discard"));
+      dialog.addEventListener("close", () => {
+        dialog.remove();
+        this.leaveDialog = null;
+        resolve(choice);
+      });
+      document.body.append(dialog);
+      this.leaveDialog = dialog;
+      dialog.showModal();
+      keep.focus();
+    });
+  }
+
+  /** Leave the sketch, asking first when it holds work (Escape and the Discard button). */
+  private async leave() {
+    if (this.needsConfirm()) {
+      const choice = await this.confirmLeave();
+      if (choice === "keep" || !this.active) return;
+      if (choice === "finish") return this.finish();
+    }
+    this.exit();
   }
 
   exit() {
@@ -481,6 +544,12 @@ export class SketchMode {
   }
 
   private onMove(e: PointerEvent) {
+    // A release the page never saw (focus lost, a dialog) must not leave a drag or box stuck to the pointer.
+    if (e.buttons === 0 && (this.box || this.drag)) {
+      this.cancelBox();
+      this.drag = null;
+      this.clickToggle = null;
+    }
     if (this.box) {
       this.updateBox(e);
       return;
@@ -727,7 +796,7 @@ export class SketchMode {
   }
 
   onKey(e: KeyboardEvent) {
-    if (!this.active || this.settingsDialog?.open) return;
+    if (!this.active || this.settingsDialog?.open || this.leaveDialog?.open) return;
     const target = e.target as HTMLElement;
     if (target.closest("input, select, textarea")) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
@@ -738,7 +807,7 @@ export class SketchMode {
       if (this.chain.length) this.endChain();
       else if (this.tool !== "select") this.setTool("select");
       else if (this.selection.length) this.selection = [], this.render();
-      else this.exit(); // nothing left to cancel: leave the sketch so face picking works again
+      else void this.leave(); // nothing left to cancel: leave the sketch (asking first if it holds work)
     } else if (e.key === "Enter" && this.chain.length) {
       this.endChain();
     } else if ((e.key === "Delete" || e.key === "Backspace") && this.selection.length) {
@@ -1301,8 +1370,7 @@ export class SketchMode {
     try {
       while (this.queued) {
         const job = this.queued;
-        this.queued = null;
-        let reply: SolveReply;
+          let reply: SolveReply;
         try {
           reply = await this.core.request<SolveReply>("sketch_solve", { sketch: M.forSolver(this.s), drag: job.drag, detail: !job.drag });
         } catch (e) {
@@ -1332,7 +1400,6 @@ export class SketchMode {
         this.render();
       }
     } finally {
-      this.solving = false;
     }
     return ok;
   }
@@ -1400,6 +1467,7 @@ export class SketchMode {
   private async projectModel() {
     try {
       const ref = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[]; skipped?: { square: number; tilted_circles: number; other: number } }>("sketch_project", { plane: this.s.plane });
+      if (!this.active) return; // the sketch was left while the model was being projected
       const near = (a: M.SketchPoint, b: M.SketchPoint) => Math.hypot(a.u - b.u, a.v - b.v) < 1e-5;
       const known = this.s.points.filter((p) => p.fixed);
       const entityKey = (e: M.SketchEntity) => JSON.stringify([e.type, ...M.entityPoints(e).map((id) => this.s.points.find((p) => p.id === id)).map((p) => p && [Math.round(p.u * 1e4), Math.round(p.v * 1e4)])]);
@@ -1438,6 +1506,12 @@ export class SketchMode {
       this.host.status(`${added ? `Projected ${added} model edge${added === 1 ? "" : "s"}` : "No new model edges to project"}${notes.length ? `. ${notes.join("; ")}` : ""}`, !!(sk?.tilted_circles || sk?.other));
     } catch (e) {
       this.host.status((e as Error).message, true);
+    } finally {
+      // Whatever happened above, the sketch must stay usable.
+      this.drag = null;
+      this.clickToggle = null;
+      this.cancelBox();
+      if (this.active) this.render();
     }
   }
 
@@ -1890,7 +1964,7 @@ export class SketchMode {
 
     const finish = button("Finish sketch", () => this.finish());
     finish.title = "Leave the sketch and keep it in the list of sketches. It stays separate from the model; its closed regions show as profile faces you can extrude";
-    const exit = button(this.kept ? "Discard changes" : "Discard sketch", () => this.exit());
+    const exit = button(this.kept ? "Discard changes" : "Discard sketch", () => void this.leave());
     exit.title = this.kept ? "Leave the sketch without saving what you changed" : "Leave the sketch and throw it away without changing the model";
     this.panel.replaceChildren(header, status, tools, constraintsBox, ...(transformRow ? [transformBox] : []), ask, list, ...(flat ? [extrude] : []), finish, exit);
   }
