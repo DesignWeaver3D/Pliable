@@ -67,6 +67,8 @@ def _edge_centre(edge) -> list[float] | None:
 def bounds(shape: TopoDS_Shape) -> list[float]:
     box = Bnd_Box()
     BRepBndLib.Add_s(shape, box)
+    if box.IsVoid():  # an empty model (the last body was deleted) has no extent
+        return [0.0] * 6
     low, high = box.CornerMin(), box.CornerMax()
     return [low.X(), low.Y(), low.Z(), high.X(), high.Y(), high.Z()]
 
@@ -83,7 +85,7 @@ def linear_deflection(shape: TopoDS_Shape) -> float:
 
 def _join(parts: list[np.ndarray], dtype, shape) -> np.ndarray:
     if not parts:
-        return np.empty(shape if len(shape) == 1 else (0, shape[1]), dtype=dtype)
+        return np.empty(0 if len(shape) == 1 else (0, shape[1]), dtype=dtype)
     return np.concatenate(parts).astype(dtype, copy=False)
 
 

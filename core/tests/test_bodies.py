@@ -138,3 +138,11 @@ def test_body_selection_availability():
     assert session.handle({"type": "available_tools", "selection": {"bodies": [99]}})["tools"] == []
     handles = session.handle({"type": "tool_handles", "tool": "rotate_body", "selection": {"bodies": [2]}, "params": {}})["handles"]
     assert handles and abs(handles[0]["anchor"][0] - 105) < 30
+
+
+def test_deleting_the_only_body_leaves_an_empty_model_that_can_be_undone():
+    session = make()
+    only = bodies(decode_binary(session._mesh_reply(session.document.current, {}))[0])[0][0]
+    header = decode_binary(session.handle({"type": "delete_body", "body": only}))[0]
+    assert header["bodies"] == [] and header["bounds"] == [0.0] * 6
+    assert len(decode_binary(session.handle({"type": "undo"}))[0]["bodies"]) == 1
