@@ -36,8 +36,8 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - A failed preview keeps the last good size and shows the status in red; release commits the last good size.
 - Each tool with a drag parameter has on-screen handles, one per parameter; with a form open a handle sets the form field.
 - Handles show their name and value only for the one under the pointer. Diameter parameters have a radius handle plus a perpendicular double-ended diameter handle.
-- Move and rotate are one tool (Move/Rotate). Rotate and scale pivot about each body's centre.
-- Primitives are separate bodies by default. Sketch extrude defaults to Join.
+- Move and rotate are one tool (Move/Rotate). Rotate and scale pivot about each the current move base point.
+- Primitives are separate bodies by default. Sketch extrude are Join if intersecting a body or separate bodies if no intersection with any body.
 - Dimensions are edited in place by double-clicking the text; an edit runs the ordinary tool as one undo step. Impossible edits show the reason in red and change nothing.
 - Warnings show in orange; red is for errors.
 
@@ -52,13 +52,14 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Sketches are kept as separate objects. Finishing a sketch adds no faces to the model; closed regions show as tinted view-only profile faces.
 - Automatic constraints are off by default, and unconstrained geometry floats freely. The grid is off by default; grid options live in the gear on the sketch card, not the global settings.
 - Sketch card sits under the nav cube: title and gear on the first row, icon row, then Finish and Discard.
-- Right-click in a sketch ends the current drawing tool.
+- Right-click in a sketch not on sketch geometry ends the current drawing tool.
 - Project model edges is a pick mode: pick faces and edges, Enter or the button projects, Escape cancels. Projected edges are snapshots.
-- Sketch dimensions are numbers only.
+- A sketch dimension's value is a plain number; no expressions or named values yet.
 - Clicking a kept sketch's tinted region adds it as a temporary face; clicking away without using it undoes the pick.
 
 ## Layout
 
-- The tool strip is fixed at top centre, shows at most seven tools, and has an All tools button. The context strip has no box behind it, fills each row from the left, spans from the bodies list to the nav cube group, wraps to two rows, and shows "... More" only when a third row would be needed.
-- The Tools handle sits on the left edge of the 3D view and the drawer opens to the right of the bodies list.
-- The measurement card starts collapsed and sits bottom right. Dark theme only.
+- The tool strip is fixed at top centre. The context strip has no box behind it, fills each row from the left, spans from the bodies list to the nav cube group, wraps to two rows, and shows "... More" only when a third row would be needed.
+- The Tools handle sits on the left edge of the 3D view.
+- The measurement card starts collapsed and sits bottom right. 
+- Dark theme only for now.
