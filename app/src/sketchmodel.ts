@@ -195,6 +195,28 @@ function coincidences(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "
   return es.flatMap((e) => p.filter((q) => !entityPoints(e).includes(q) && !s.constraints.some((c) => c.type === "point_on" && c.point === q && c.entity === e.id)).map((q) => ({ type: "point_on", point: q, entity: e.id })));
 }
 
+/** Tangent or collinear, whichever fits the selection: lines are made collinear with the first; a curve and a line or curve are made tangent
+ * (for more than two items, only those that meet at a point). */
+function tangentOrCollinear(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[] {
+  const es = entities(s, sel);
+  if (es.length < 2 || pts(sel).length || !only(es, "line", "arc", "circle")) return [];
+  const has = (type: string, a: number, b: number) => s.constraints.some((c) => c.type === type && c.entities?.includes(a) && c.entities?.includes(b));
+  if (es.every((e) => e.type === "line")) {
+    return es.slice(1).filter((e) => !e.reference && !has("collinear", es[0].id, e.id)).map((e) => ({ type: "collinear", entities: [es[0].id, e.id] }));
+  }
+  const groups = coincidentGroups(s);
+  const meet = (a: SketchEntity, b: SketchEntity) => entityPoints(a).some((p) => entityPoints(b).some((q) => groups.get(p) === groups.get(q)));
+  const out: Omit<SketchConstraint, "id">[] = [];
+  for (let i = 0; i < es.length; i++) {
+    for (let j = i + 1; j < es.length; j++) {
+      const [a, b] = [es[i], es[j]];
+      if (a.type === "line" && b.type === "line") continue;
+      if ((es.length === 2 || meet(a, b)) && !has("tangent", a.id, b.id)) out.push({ type: "tangent", entities: [a.id, b.id] });
+    }
+  }
+  return out;
+}
+
 /** Whether a line lies nearer the horizontal (true) or the vertical axis of the sketch. */
 function nearHorizontal(s: SketchData, l: Extract<SketchEntity, { type: "line" }>): boolean {
   const [a, b] = [pointOf(s, l.a), pointOf(s, l.b)];
@@ -268,14 +290,9 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     },
   },
   {
-    label: "Tangent",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      if (es.length !== 2 || pts(sel).length) return null;
-      const round = es.filter((e) => e.type === "arc" || e.type === "circle").length;
-      const lines = es.filter((e) => e.type === "line").length;
-      return (round === 1 && lines === 1) || round === 2 ? { type: "tangent", entities: es.map((e) => e.id) } : null;
-    },
+    label: "Tangent / collinear",
+    buildMany: (s, sel) => tangentOrCollinear(s, sel),
+    build: (s, sel) => tangentOrCollinear(s, sel)[0] ?? null,
   },
   {
     label: "Point on",
@@ -289,13 +306,6 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     build: (s, sel) => {
       const es = entities(s, sel);
       return es.length === 1 && only(es, "line") && pts(sel).length === 1 ? { type: "midpoint", point: pts(sel)[0], entity: es[0].id } : null;
-    },
-  },
-  {
-    label: "Collinear",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      return es.length === 2 && only(es, "line") && !pts(sel).length ? { type: "collinear", entities: es.map((e) => e.id) } : null;
     },
   },
   {

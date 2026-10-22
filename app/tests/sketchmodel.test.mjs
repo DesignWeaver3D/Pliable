@@ -47,7 +47,7 @@ test("reference dimensions read the current geometry and the new constraint butt
   assert.equal(measure(s, { id: 1, type: "point_line_distance", point: 3, entity: 10 }), 3);
   assert.equal(measure(s, { id: 2, type: "distance", entity: 10 }), 10);
   const labels = (sel) => optionsFor(s, sel).map((o) => o.label);
-  assert.ok(labels([{ kind: "entity", id: 10 }, { kind: "entity", id: 11 }]).includes("Collinear"));
+  assert.ok(labels([{ kind: "entity", id: 10 }, { kind: "entity", id: 11 }]).includes("Tangent / collinear"));
   assert.ok(labels([{ kind: "point", id: 3 }, { kind: "entity", id: 10 }]).includes("Point to line distance"));
   assert.ok(labels([{ kind: "entity", id: 10 }]).includes("Lock"));
   const reference = { id: 3, type: "distance", points: [1, 3], value: 99, reference: true };
@@ -139,4 +139,24 @@ test("coincident joins several points, and puts points on an edge", () => {
   // points with an edge: each point goes on the edge, except its own end points
   assert.deepEqual(co([...P(1, 3, 4), { kind: "entity", id: 10 }]), [{ type: "point_on", point: 3, entity: 10 }, { type: "point_on", point: 4, entity: 10 }]);
   assert.equal(co(P(3)), undefined);
+});
+
+test("tangent / collinear picks the constraint from the selection", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 20, v: 0 }, { id: 4, u: 30, v: 0 }, { id: 5, u: 10, v: 10 }, { id: 6, u: 20, v: 10 }, { id: 7, u: 10, v: 5 }, { id: 8, u: 0, v: 20 }, { id: 9, u: 5, v: 20 }],
+    entities: [
+      { id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 3, b: 4 }, { id: 12, type: "arc", center: 7, start: 2, end: 5 },
+      { id: 13, type: "line", a: 5, b: 6 }, { id: 14, type: "line", a: 8, b: 9 },
+    ],
+    constraints: [],
+  };
+  const E = (...ids) => ids.map((id) => ({ kind: "entity", id }));
+  const many = (sel) => optionsFor(s, sel).find((o) => o.label === "Tangent / collinear")?.buildMany(s, sel);
+  assert.deepEqual(many(E(10, 11)), [{ type: "collinear", entities: [10, 11] }]);
+  assert.deepEqual(many(E(10, 11, 14)), [{ type: "collinear", entities: [10, 11] }, { type: "collinear", entities: [10, 14] }]);
+  assert.deepEqual(many(E(10, 12)), [{ type: "tangent", entities: [10, 12] }]);
+  // a chain line-arc-line: only the pairs that meet are made tangent
+  assert.deepEqual(many(E(10, 12, 13)), [{ type: "tangent", entities: [10, 12] }, { type: "tangent", entities: [12, 13] }]);
+  assert.equal(many(E(10)), undefined);
 });
