@@ -160,3 +160,25 @@ test("tangent / collinear picks the constraint from the selection", () => {
   assert.deepEqual(many(E(10, 12, 13)), [{ type: "tangent", entities: [10, 12] }, { type: "tangent", entities: [12, 13] }]);
   assert.equal(many(E(10)), undefined);
 });
+
+test("the smart dimension picks the dimension from the selection", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 0, v: 10 }, { id: 4, u: 5, v: 5 }, { id: 5, u: 8, v: 5 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 1, b: 3 }, { id: 12, type: "circle", center: 4, radius: 2 }, { id: 13, type: "arc", center: 4, start: 5, end: 3 }],
+    constraints: [],
+  };
+  const smart = (sel) => optionsFor(s, sel).find((o) => o.label === "Dimension")?.pick(s, sel)?.build(s, sel);
+  const E = (...ids) => ids.map((id) => ({ kind: "entity", id }));
+  assert.deepEqual(smart(E(10)), { type: "distance", entity: 10 });
+  assert.deepEqual(smart([{ kind: "point", id: 1 }, { kind: "point", id: 4 }]), { type: "distance", points: [1, 4] });
+  assert.deepEqual(smart(E(12)), { type: "diameter", entity: 12 });
+  assert.deepEqual(smart(E(13)), { type: "radius", entity: 13 });
+  assert.deepEqual(smart(E(10, 11)), { type: "angle", entities: [10, 11] });
+  assert.deepEqual(smart([{ kind: "point", id: 4 }, ...E(10)]), { type: "point_line_distance", point: 4, entity: 10 });
+  assert.equal(smart(E(12, 13)), undefined);
+  // a line also offers its angle to the horizontal axis, read from the geometry
+  const axis = optionsFor(s, E(11)).find((o) => o.label === "Angle to horizontal axis");
+  assert.equal(axis.initial(s, E(11)), 90);
+  assert.equal(measure(s, { id: 1, type: "axis_angle", entity: 10 }), 0);
+});

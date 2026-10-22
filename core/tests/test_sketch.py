@@ -922,3 +922,12 @@ def test_dimensioned_horizontal_line_drags_by_its_body():
         moved = {p["id"]: (p["u"], p["v"]) for p in result["points"]}
         assert moved[1] == pytest.approx((3, 2)) and moved[2] == pytest.approx((13, 2))
         assert moved[3] == pytest.approx((10, 8)) and moved[4] == pytest.approx((0, 8))
+
+
+def test_line_to_axis_angle_dimension():
+    points = [{"id": 1, "u": 0, "v": 0, "fixed": True}, {"id": 2, "u": 10, "v": 2}]
+    lines = [{"id": 10, "type": "line", "a": 1, "b": 2}]
+    result = sketch.solve(sketch_of(points, lines, [{"id": 1, "type": "axis_angle", "entity": 10, "value": 30}]))
+    assert result["status"] == "ok"
+    p2 = next(p for p in result["points"] if p["id"] == 2)
+    assert math.degrees(math.atan2(p2["v"], p2["u"])) == pytest.approx(30, abs=1e-4)

@@ -190,6 +190,8 @@ class _Solver:
         elif kind == "angle":
             a, b = (self._entity(e, "line") for e in c["entities"])
             h = s.addAngle(value, False, a, b, wp, g)
+        elif kind == "axis_angle":  # the angle between a line and the sketch's horizontal axis
+            h = s.addAngle(value, False, self._entity(c["entity"], "line"), self._axis_line(True), wp, g)
         elif kind == "tangent":
             (ka, ha), (kb, hb) = (self.entities[e] for e in c["entities"])
             ids = c["entities"]

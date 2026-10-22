@@ -111,6 +111,8 @@ export interface ConstraintOption {
   build(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id"> | null;
   /** When the selection takes several constraints at once, all of them (applied as one undo step). Falls back to `build`. */
   buildMany?(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[];
+  /** For the smart dimension: the specific dimension option the selection stands for (the dialog and the constraint come from it). */
+  pick?(s: SketchData, sel: SketchSel[]): ConstraintOption | null;
   /** For dimensions: the value the dialog starts with, from the current geometry. */
   initial?(s: SketchData, sel: SketchSel[]): number;
   dimension?: boolean;
@@ -155,6 +157,11 @@ export function measure(s: SketchData, c: SketchConstraint): number | null {
       return entity ? 2 * radiusOf(s, entity) : null;
     case "point_line_distance":
       return line && c.point !== undefined ? pointLineDistance(s, c.point, line) : null;
+    case "axis_angle": {
+      if (!line) return null;
+      const [a, b] = [pointOf(s, line.a), pointOf(s, line.b)];
+      return (Math.acos((b.u - a.u) / (Math.hypot(b.u - a.u, b.v - a.v) || 1)) * 180) / Math.PI;
+    }
     case "angle": {
       const [a, b] = (c.entities ?? []).map((id) => s.entities.find((e) => e.id === id));
       if (!a || !b || a.type !== "line" || b.type !== "line") return null;
@@ -375,6 +382,15 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     },
   },
   {
+    label: "Angle to horizontal axis",
+    dimension: true,
+    build: (s, sel) => {
+      const es = entities(s, sel);
+      return es.length === 1 && only(es, "line") && !pts(sel).length ? { type: "axis_angle", entity: es[0].id } : null;
+    },
+    initial: (s, sel) => Math.round(measure(s, { id: 0, type: "axis_angle", entity: entities(s, sel)[0].id })! * 1000) / 1000,
+  },
+  {
     label: "Short radius",
     dimension: true,
     build: (s, sel) => {
@@ -418,9 +434,30 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
   },
 ];
 
+/** The smart dimension: one button that dimensions whatever is selected. A line or two points: length; an arc: radius; a circle: diameter;
+ * two lines: the angle between them; a point and a line: the distance from the point to the line; an ellipse: its short radius. */
+const SMART_ORDER = ["Length / distance", "Radius", "Diameter", "Angle", "Point to line distance", "Short radius"];
+const SMART_DIMENSION: ConstraintOption = {
+  label: "Dimension",
+  dimension: true,
+  pick: (s, sel) => {
+    const es = entities(s, sel);
+    const circle = es.length === 1 && es[0].type === "circle";
+    for (const label of SMART_ORDER) {
+      if (label === "Radius" && circle) continue; // a circle is dimensioned by its diameter
+      if (label === "Diameter" && !circle) continue; // an arc by its radius
+      const option = CONSTRAINT_OPTIONS.find((o) => o.label === label)!;
+      if (option.build(s, sel)) return option;
+    }
+    return null;
+  },
+  build: (s, sel) => SMART_DIMENSION.pick!(s, sel)?.build(s, sel) ?? null,
+  initial: (s, sel) => SMART_DIMENSION.pick!(s, sel)!.initial!(s, sel),
+};
+
 /** Constraint options that fit a selection. */
 export function optionsFor(s: SketchData, sel: SketchSel[]): ConstraintOption[] {
-  return sel.length === 0 ? [] : CONSTRAINT_OPTIONS.filter((o) => o.build(s, sel) !== null);
+  return sel.length === 0 ? [] : [...CONSTRAINT_OPTIONS, SMART_DIMENSION].filter((o) => o.build(s, sel) !== null);
 }
 
 export function describeConstraint(s: SketchData, c: SketchConstraint): string {
@@ -446,6 +483,7 @@ export function describeConstraint(s: SketchData, c: SketchConstraint): string {
     radius: "Radius",
     diameter: "Diameter",
     angle: "Angle",
+    axis_angle: "Angle to horizontal axis",
   };
   const refs = [...(c.points ?? []).map((p) => `p${p}`), ...(c.point !== undefined ? [`p${c.point}`] : []), ...(c.entity !== undefined ? [`#${c.entity}`] : []), ...(c.entities ?? []).map((e) => `#${e}`)];
   void s;
@@ -478,6 +516,15 @@ export function dimensionsOf(s: SketchData): Dimension[] {
       // The dimension runs along the projected leg (a to corner) and sits on the side away from the other point.
       const away = horizontal ? (pb.v >= pa.v ? -1 : 1) : pb.u >= pa.u ? -1 : 1;
       out.push({ kind: "linear", text, points: [a, corner], offsetDirection: side.map((x) => x * away) });
+    } else if (c.type === "axis_angle" && entity && entity.type === "line") {
+      const [a, b] = [pointOf(s, entity.a), pointOf(s, entity.b)];
+      out.push({ kind: "tag", text: `∠${text}°`, points: [toWorld(s.plane, (a.u + b.u) / 2, (a.v + b.v) / 2)] });
+    } else if (c.type === "angle" && c.entities?.length === 2) {
+      const lines = c.entities.map((id) => s.entities.find((e) => e.id === id));
+      if (lines.every((l) => l?.type === "line")) {
+        const mids = (lines as Extract<SketchEntity, { type: "line" }>[]).map((l) => [(pointOf(s, l.a).u + pointOf(s, l.b).u) / 2, (pointOf(s, l.a).v + pointOf(s, l.b).v) / 2]);
+        out.push({ kind: "tag", text: `∠${text}°`, points: [toWorld(s.plane, (mids[0][0] + mids[1][0]) / 2, (mids[0][1] + mids[1][1]) / 2)] });
+      }
     } else if (c.type === "minor_radius" && entity && entity.type === "ellipse") {
       const [m, o] = [pointOf(s, entity.center), pointOf(s, entity.major)];
       const length = Math.hypot(o.u - m.u, o.v - m.v) || 1;

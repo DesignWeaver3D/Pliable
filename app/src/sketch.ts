@@ -1282,7 +1282,8 @@ export class SketchMode {
     this.render();
   }
 
-  private async applyConstraint(option: M.ConstraintOption) {
+  private async applyConstraint(chosen: M.ConstraintOption) {
+    const option = chosen.pick?.(this.s, this.selection) ?? chosen; // the smart dimension stands for one of the others
     const built = option.build(this.s, this.selection);
     if (!built) return;
     if (option.dimension) {
