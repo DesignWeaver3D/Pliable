@@ -33,6 +33,8 @@ const LANDING_PX = 14; // the short horizontal landing the text sits at the end 
 const TEXT_PX = 13;
 const CURSOR_CLEAR_PX = 28; // text moves away when the pointer is closer than this
 const COLOR = "#ff8a1f";
+/** Leaders, extension lines, dimension lines and arrowheads use the off-white of the UI buttons (the --ui-offwhite token in index.html). */
+const LINE_COLOR = "var(--ui-offwhite, #ddd)";
 const NS = "http://www.w3.org/2000/svg";
 
 type V = { x: number; y: number };
@@ -323,7 +325,7 @@ function line(a: V, b: V): SVGElement {
   l.setAttribute("y1", String(a.y));
   l.setAttribute("x2", String(b.x));
   l.setAttribute("y2", String(b.y));
-  l.setAttribute("stroke", COLOR);
+  l.setAttribute("style", `stroke: ${LINE_COLOR}`);
   l.setAttribute("stroke-width", "1.5");
   return l;
 }
@@ -335,7 +337,7 @@ function arrow(tip: V, dir: V): SVGElement {
   const p = document.createElementNS(NS, "polygon");
   const pts = [tip, add(back, mul(n, ARROW_PX / 3)), sub(back, mul(n, ARROW_PX / 3))];
   p.setAttribute("points", pts.map((q) => `${q.x},${q.y}`).join(" "));
-  p.setAttribute("fill", COLOR);
+  p.setAttribute("style", `fill: ${LINE_COLOR}`);
   return p;
 }
 
@@ -344,6 +346,6 @@ function dot(at: V): SVGElement {
   c.setAttribute("cx", String(at.x));
   c.setAttribute("cy", String(at.y));
   c.setAttribute("r", "3");
-  c.setAttribute("fill", COLOR);
+  c.setAttribute("style", `fill: ${LINE_COLOR}`);
   return c;
 }
