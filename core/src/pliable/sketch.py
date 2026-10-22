@@ -343,6 +343,13 @@ class _Solver:
         b = s.addPoint2dV(self.workplane, u if axis == 0 else u + 1, v + 1 if axis == 0 else v, 1)
         s.addPointOnLine(self._point(pid), s.addLineSegment(a, b, 1), self.workplane, SOLVE_GROUP)
 
+    def pin(self, pid: int, axis: int, want: float) -> int:
+        """Hold one coordinate (0 = u, 1 = v) of a point at `want`; returns the constraint's handle."""
+        s = self.system
+        a = s.addPoint2dV(self.workplane, want if axis == 0 else 0.0, 0.0 if axis == 0 else want, 1)
+        b = s.addPoint2dV(self.workplane, want if axis == 0 else 1.0, 1.0 if axis == 0 else want, 1)
+        return s.addPointOnLine(self._point(pid), s.addLineSegment(a, b, 1), self.workplane, SOLVE_GROUP)
+
     def sketch_line(self, eid) -> dict:
         for e in self.sketch["entities"]:
             if e["id"] == eid and e["type"] == "line":
@@ -363,19 +370,33 @@ class _Solver:
 
 
 def _solved(sketch: dict, drag: dict | None = None, skip: int | None = None) -> tuple[_Solver, dict]:
-    """A solver loaded with the sketch's constraints (all but `skip`) and the dragged points held, plus its result."""
-    solver = _Solver(sketch)
-    for c in sketch.get("constraints", []):
-        if (skip is None or c.get("id") != skip) and not c.get("reference"):
-            solver.add_constraint(c)
+    """A solver loaded with the sketch's constraints (all but `skip`) and the dragged points held, plus its result.
+
+    Holding every coordinate of a dragged line can contradict its own constraints (a dimensioned or horizontal
+    line moved by its body): then the last held coordinate that the solver blames is let go, and follows the
+    constraints."""
+    pins_wanted = []  # (point id, axis, wanted coordinate)
     if drag:
         # one point, or several held together ({"points": [...]}, e.g. both ends of a line dragged by its body)
-        for held in drag["points"] if "points" in drag else [drag]:
-            entity = solver._point(held["point"])
-            for k, key in enumerate(("u", "v")):
-                solver.system.getParam(solver.system.getEntityParam(entity, k)).val = held[key]
-            solver.add_constraint({"type": "fixed", "point": held["point"]})
-    return solver, solver.solve()
+        for h in drag["points"] if "points" in drag else [drag]:
+            pins_wanted += [(h["point"], 0, h["u"]), (h["point"], 1, h["v"])]
+    while True:
+        solver = _Solver(sketch)
+        for c in sketch.get("constraints", []):
+            if (skip is None or c.get("id") != skip) and not c.get("reference"):
+                solver.add_constraint(c)
+        pins: dict[int, int] = {}  # slvs handle of a pin -> index in `pins_wanted`
+        for k, (pid, axis, want) in enumerate(pins_wanted):
+            entity = solver._point(pid)
+            solver.system.getParam(solver.system.getEntityParam(entity, axis)).val = want
+            if pid in solver.held:
+                continue  # already fixed by a constraint: pinning it again is a redundancy
+            pins[solver.pin(pid, axis, want)] = k
+        result = solver.solve()
+        if result["status"] == "ok" or len(pins_wanted) < 2:
+            return solver, result
+        blamed = [pins[h] for h in solver.system.Failed if h in pins]
+        del pins_wanted[max(blamed, default=len(pins_wanted) - 1)]
 
 
 def conflicting_constraints(sketch: dict) -> list[int]:
