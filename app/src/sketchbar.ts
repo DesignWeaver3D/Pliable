@@ -4,7 +4,7 @@
  * world planes. A face that cannot be sketched on says why in the message bar at the top.
  */
 import type { CoreClient } from "./client";
-import { SKETCH_PLANES } from "./layout";
+import { SKETCH_PLANES, SKETCH_PLANE_AXES } from "./layout";
 import type { SketchMode } from "./sketch";
 import type { Sel } from "./viewport";
 
@@ -127,6 +127,9 @@ export class SketchBar {
       ...SKETCH_PLANES.map((name) => {
         const b = document.createElement("button");
         b.textContent = name;
+        const axes = SKETCH_PLANE_AXES[name];
+        b.style.borderBottom = `3px solid var(--axis-${axes.bottom})`;
+        b.style.borderLeft = `3px solid var(--axis-${axes.left})`;
         b.title = `Start a 2D sketch on the ${name} plane through the origin (move or turn it afterwards with the plane handles)`;
         b.disabled = sketch.active;
         b.addEventListener("click", async () => {

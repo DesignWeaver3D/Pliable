@@ -57,3 +57,8 @@ test("the sketch key hint stays hidden once dismissed, in the sketch only", asyn
   assert.equal(sketchHintDismissed(sketching, { dismissed: [SKETCH_HINT_ID] }), true);
   assert.equal(sketchHintDismissed(idle, { dismissed: [SKETCH_HINT_ID] }), false);
 });
+
+test("each sketch plane button names the axes along its bottom and left edges", async () => {
+  const { SKETCH_PLANES, SKETCH_PLANE_AXES } = await import("../src/layout.ts");
+  assert.deepEqual(SKETCH_PLANES.map((p) => [SKETCH_PLANE_AXES[p].bottom, SKETCH_PLANE_AXES[p].left]), [["x", "y"], ["x", "z"], ["y", "z"]]);
+});
