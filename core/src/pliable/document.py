@@ -32,12 +32,14 @@ class Document:
         self._ids: list[int] = [0]  # stable id per state, names its autosave file
         self._sketches: list[list[dict]] = [[]]  # kept sketches per state: {id, name, rev, sketch}; never mutated in place
         self._sketch_next = 1  # next sketch id; ids are never reused
+        self._datums: list[list[dict]] = [[]]  # datum planes per state: {id, name, plane}; never mutated in place
+        self._datum_next = 1  # next datum id; ids are never reused
         self._next_id = 1
         self._index = 0
         self.other_objects: dict = {}  # object types of a project file this release does not know, kept for saving again
 
     @classmethod
-    def from_states(cls, shapes: list[TopoDS_Shape], ids: list[int], index: int, name: str, bodies: list[BodyState] | None = None, sketches: list[list[dict]] | None = None, sketch_next: int | None = None, other: dict | None = None) -> "Document":
+    def from_states(cls, shapes: list[TopoDS_Shape], ids: list[int], index: int, name: str, bodies: list[BodyState] | None = None, sketches: list[list[dict]] | None = None, sketch_next: int | None = None, other: dict | None = None, datums: list[list[dict]] | None = None, datum_next: int | None = None) -> "Document":
         """Rebuild a document from autosaved states (oldest first)."""
         document = cls(shapes[0], name)
         document.other_objects = copy.deepcopy(other or {})
@@ -53,6 +55,12 @@ class Document:
             document._sketches = [[] for _ in shapes]
         used = max((e["id"] for state in document._sketches for e in state), default=0)
         document._sketch_next = max(int(sketch_next or 1), used + 1)
+        if datums is not None and len(datums) == len(shapes):
+            document._datums = copy.deepcopy(datums)
+        else:
+            document._datums = [[] for _ in shapes]
+        used = max((e["id"] for state in document._datums for e in state), default=0)
+        document._datum_next = max(int(datum_next or 1), used + 1)
         return document
 
     @property
@@ -87,6 +95,23 @@ class Document:
     def sketch_list(self) -> list[dict]:
         return [{"id": e["id"], "name": e["name"], "rev": e["rev"]} for e in self._sketches[self._index]]
 
+    @property
+    def datum_next(self) -> int:
+        return self._datum_next
+
+    def datum_list(self) -> list[dict]:
+        """The datum planes of the current state (copies)."""
+        return copy.deepcopy(self._datums[self._index])
+
+    def new_datum_id(self) -> int:
+        n = self._datum_next
+        self._datum_next += 1
+        return n
+
+    def set_datums(self, datums: list[dict]) -> Topology:
+        """Record a new state with the same shape, bodies and sketches and a changed datum plane list."""
+        return self._push(self.current.shape, self.current.bodies, None, datums)
+
     def get_sketch(self, sketch_id: int) -> dict | None:
         for e in self._sketches[self._index]:
             if e["id"] == sketch_id:
@@ -105,7 +130,7 @@ class Document:
     def project_of(self, state_id: int) -> Project:
         """One state as a project (shape, bodies, sketches); the snapshot is safe to pack on another thread."""
         i = self._ids.index(state_id)
-        return Project(self._history[i].shape, self._history[i].bodies, self.name, copy.deepcopy(self._sketches[i]), self._sketch_next, copy.deepcopy(self.other_objects))
+        return Project(self._history[i].shape, self._history[i].bodies, self.name, copy.deepcopy(self._sketches[i]), self._sketch_next, copy.deepcopy(self._datums[i]), self._datum_next, copy.deepcopy(self.other_objects))
 
     def to_project(self) -> Project:
         return self.project_of(self._ids[self._index])
@@ -118,6 +143,8 @@ class Document:
         used = max((e["id"] for e in project.sketches), default=0)
         document._sketch_next = max(project.sketch_next, used + 1)
         document.other_objects = copy.deepcopy(project.other)
+        document._datums = [copy.deepcopy(project.datums)]
+        document._datum_next = max(project.datum_next, max((e["id"] for e in project.datums), default=0) + 1)
         return document
 
     def _bodies_for(self, shape: TopoDS_Shape, kind: str, ordered: bool, names, change: dict | None) -> BodyState:
@@ -167,8 +194,11 @@ class Document:
         bodies = BodyState(state.bodies + (body_ids.Body(state.next_id, name),), state.next_id + 1, state.counts)
         return self._push(_compound(solids + [twin]), bodies), state.next_id
 
-    def _push(self, shape: TopoDS_Shape, bodies: BodyState, sketches: list[dict] | None = None) -> Topology:
+    def _push(self, shape: TopoDS_Shape, bodies: BodyState, sketches: list[dict] | None = None, datums: list[dict] | None = None) -> Topology:
         kept = self._sketches[self._index] if sketches is None else copy.deepcopy(sketches)
+        kept_datums = self._datums[self._index] if datums is None else copy.deepcopy(datums)
+        del self._datums[self._index + 1 :]
+        self._datums.append(kept_datums)
         del self._sketches[self._index + 1 :]
         self._sketches.append(kept)
         del self._history[self._index + 1 :]
@@ -182,6 +212,7 @@ class Document:
             del self._history[:excess]
             del self._ids[:excess]
             del self._sketches[:excess]
+            del self._datums[:excess]
             self._index -= excess
         return self.current
 

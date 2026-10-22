@@ -189,3 +189,5 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 
 - Project file (.plbl): a saved project holds only the current state, not the undo history, and opening one replaces the model. Autosave writes one such file per undo step, so a crash restore keeps the undo steps. Sessions written by the first autosave format (bare BREP files) are still restored. Opening a file from a newer release is refused.
 - Rotation rings are drawn at half the shortest side of the 3D view in diameter whatever the zoom or the size of the body (trial); a ring no longer hugs a small body.
+
+- Datum planes: each is drawn as a fixed square of 120 model units whatever the size of the model, and they cannot be dragged or picked in the view yet (made from the command search: origin planes, the selected face, or midway between two selected faces; the core also moves one by an offset). Names are not forced to be unique.

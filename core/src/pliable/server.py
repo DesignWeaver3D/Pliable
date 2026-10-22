@@ -95,6 +95,7 @@ class Session:
             header["canUndo"] = self.document.can_undo
             header["canRedo"] = self.document.can_redo
             header["sketches"] = self.document.sketch_list()
+            header["datums"] = self.document.datum_list()
         return encode_mesh(header, mesh)
 
     def _open(self, shape, name: str) -> bytes:
@@ -276,6 +277,8 @@ class Session:
             return {"sketch_id": found["id"], "name": found["name"], "rev": found["rev"], "sketch": found["sketch"]}
         if kind in ("sketch_delete", "sketch_rename"):
             return self._sketch_edit(request, kind)
+        if kind in ("datum_add", "datum_rename", "datum_delete", "datum_move"):
+            return self._datum_edit(request, kind)
         if kind == "dimension_edit":
             return self._dimension_edit(request)
         if kind in ("tool_preview", "tool_commit"):
@@ -543,6 +546,57 @@ class Session:
         if make_faces:
             extra["selection"] = Selection().to_json()
         return self._mesh_reply(target, timings, **extra)
+
+    def _datum_plane(self, request: dict) -> dict:
+        """The plane of a new datum: any plane a sketch can sit on (a standard plane, a face, vertices, an edge, each
+        with an offset), or the mid-plane of two parallel flat faces (`midplane`: [face, face])."""
+        if "midplane" not in request:
+            return self._sketch_plane(request)
+        topology = self._require_document().current
+        try:
+            a, b = [int(i) for i in request["midplane"]]
+            faces = [topology.face(a), topology.face(b)]
+        except (KeyError, ValueError, TypeError) as e:
+            raise RequestError("Pick two parallel flat faces") from e
+        if not all(unwrap.is_flat(f) for f in faces):
+            raise RequestError("Both faces must be flat")
+        first, second = [sketch.face_plane(f) for f in faces]
+        n = first["normal"]
+        if abs(sum(x * y for x, y in zip(n, second["normal"]))) < 1 - 1e-6:
+            raise RequestError("The two faces are not parallel")
+        gap = sum((q - p) * k for p, q, k in zip(first["origin"], second["origin"], n))
+        return sketch.offset_plane(first, gap / 2)
+
+    def _datum_edit(self, request: dict, kind: str) -> bytes:
+        document = self._require_document()
+        entries = document.datum_list()
+        if kind == "datum_add":
+            plane = self._datum_plane(request)
+            number = document.new_datum_id()
+            name = str(request.get("name") or "").strip() or f"Plane {number}"
+            entries.append({"id": number, "name": name, "plane": plane})
+        else:
+            try:
+                entry = next((e for e in entries if e["id"] == int(request["datum_id"])), None)
+            except (KeyError, ValueError, TypeError) as e:
+                raise RequestError("Unknown datum plane") from e
+            if entry is None:
+                raise RequestError("No such datum plane")
+            if kind == "datum_delete":
+                entries.remove(entry)
+            elif kind == "datum_move":
+                try:
+                    entry["plane"] = sketch.offset_plane(entry["plane"], float(request["distance"]))
+                except (KeyError, ValueError, TypeError) as e:
+                    raise RequestError("Malformed datum request") from e
+            else:
+                name = str(request.get("name", "")).strip()
+                if not name:
+                    raise RequestError("A datum plane needs a name")
+                entry["name"] = name
+        target = document.set_datums(entries)
+        self._autosave()
+        return self._mesh_reply(target, {}, preview=False)
 
     def _sketch_edit(self, request: dict, kind: str) -> bytes:
         document = self._require_document()

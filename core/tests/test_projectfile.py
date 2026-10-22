@@ -58,13 +58,13 @@ def test_project_file_is_a_versioned_container():
 def test_unknown_object_types_are_kept_when_saved_again():
     session = built_session()
     project = session.document.to_project()
-    project.other = {"datums": [{"id": 1, "name": "Mid"}]}
+    project.other = {"images": [{"id": 1, "name": "Mid"}]}
     raw = projectfile.pack(project)
     other = Session()
     other.handle({"type": "open_project", "data": base64.b64encode(raw).decode()})
-    assert other.document.other_objects == {"datums": [{"id": 1, "name": "Mid"}]}
+    assert other.document.other_objects == {"images": [{"id": 1, "name": "Mid"}]}
     again = projectfile.unpack(base64.b64decode(other.handle({"type": "save_project"})["data"]))
-    assert again.other == {"datums": [{"id": 1, "name": "Mid"}]}
+    assert again.other == {"images": [{"id": 1, "name": "Mid"}]}
 
 
 def test_bad_or_newer_files_are_refused():

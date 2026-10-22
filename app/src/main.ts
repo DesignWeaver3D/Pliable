@@ -13,6 +13,8 @@ import { fitStripCount, stripRoom } from "./stripfit";
 import { DimensionOverlay, type Dimension } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
+import { DatumPlanes } from "./datumplanes";
+import type { DatumPlane } from "./datumcorners";
 import { LatestWins } from "./latestwins";
 import { LENGTH_UNIT } from "./units";
 import { SETTING_ENTRIES, createSettingsWindow, onSettingsChange, openSettings, setHintsBinding, setKeysOpener, settingValue, settings } from "./settings";
@@ -580,6 +582,7 @@ let focusState: FocusState | null = null;
 
 /** Tells the list of kept sketches what the document holds; set once that list exists. */
 let onSketches: (list: { id: number; name: string; rev: number }[]) => void = () => {};
+let onDatums: (list: DatumPlane[]) => void = () => {};
 
 /** The dimensions of the committed model's measurement, and whether a preview's own are on screen instead. */
 let measuredDims: Dimension[] = [];
@@ -604,6 +607,7 @@ function show(mesh: MeshData, frame = false) {
   if (!mesh.header.preview) {
     bodyList.setBodies(bodiesOf(mesh), hiddenBodies, ghostBodies, focusState?.body ?? null);
     onSketches(mesh.header.sketches ?? []);
+    onDatums(mesh.header.datums ?? []);
   }
   undoButton.disabled = !mesh.header.canUndo;
   redoButton.disabled = !mesh.header.canRedo;
@@ -1245,6 +1249,9 @@ function commands(): Command[] {
     { label: "Getting started (the first things to try)", scope: "view", keywords: ["help", "tutorial", "learn", "tips", "intro", "basics"], enabled: true, run: () => hintLine.showGettingStarted() },
     { label: "Import STEP file (add to model)", scope: "file", enabled: true, run: () => $("open").click() },
     { label: "Open STEP file as new model", scope: "file", enabled: true, run: () => $("openasnew").click() },
+    ...(["XY", "XZ", "YZ"] as const).map((plane) => ({ label: `Add datum plane: ${plane} origin plane`, scope: "file" as const, keywords: ["helper plane", "construction", "mirror"], enabled: true, run: () => addDatum({ plane }) })),
+    { label: "Add datum plane on the selected face", scope: "file", keywords: ["helper plane", "construction", "mirror"], enabled: currentSels.length === 1 && currentSels[0].kind === "face", run: () => addDatum({ face: currentSels[0].id }) },
+    { label: "Add datum plane midway between two selected faces", scope: "file", keywords: ["helper plane", "construction", "mirror", "middle"], enabled: currentSels.length === 2 && currentSels.every((s) => s.kind === "face"), run: () => addDatum({ midplane: currentSels.map((s) => s.id) }) },
     { label: "Export STEP file", scope: "file", enabled: true, run: () => exportAs("export_step", "step") },
     { label: "Save project (.plbl file with bodies, names and sketches)", scope: "file", keywords: ["save", "pliable file"], enabled: true, run: () => exportAs("save_project", "plbl") },
     { label: "Open project (.plbl file)", scope: "file", keywords: ["load", "pliable file"], enabled: true, run: () => $("openproject").click() },
@@ -1316,6 +1323,22 @@ const keptSketches = new KeptSketches({
   rename: (id, name) => keptRequest("sketch_rename", { sketch_id: id, name }),
 });
 onSketches = (list) => keptSketches.setList(list);
+const datumPlanes = new DatumPlanes({
+  scene: viewport.scene,
+  list: $("datumlist"),
+  count: $("datumcount"),
+  remove: (id) => keptRequest("datum_delete", { datum_id: id }),
+  rename: (id, name) => keptRequest("datum_rename", { datum_id: id, name }),
+});
+onDatums = (list) => datumPlanes.setList(list);
+$("datumhead").addEventListener("click", () => {
+  const head = $("datumhead");
+  head.setAttribute("aria-expanded", String(head.getAttribute("aria-expanded") !== "true"));
+});
+/** Add a datum plane from a request the core understands as a sketch plane (or a midplane of two faces). */
+function addDatum(args: Record<string, unknown>) {
+  keptRequest("datum_add", args);
+}
 viewport.profileTargets = () => (sketch.active ? [] : keptSketches.fillTargets());
 viewport.onProfileClick = (id, region) => void pickProfile(id, region);
 sketch.onEditing = (id) => keptSketches.setEditing(id);

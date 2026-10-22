@@ -28,7 +28,7 @@ from .bodies import BodyState
 FORMAT = 1
 KIND = "pliable-project"
 EXTENSION = ".plbl"
-KNOWN_OBJECTS = ("bodies", "sketches", "sketch_next")  # the rest of `objects` is carried through untouched
+KNOWN_OBJECTS = ("bodies", "sketches", "sketch_next", "datums", "datum_next")  # the rest of `objects` is carried through untouched
 
 
 class ProjectFileError(ValueError):
@@ -42,6 +42,8 @@ class Project:
     name: str = "Untitled"
     sketches: list[dict] = field(default_factory=list)
     sketch_next: int = 1
+    datums: list[dict] = field(default_factory=list)  # datum planes: {id, name, plane}
+    datum_next: int = 1
     other: dict = field(default_factory=dict)  # object types this release does not know, kept for saving again
 
 
@@ -76,6 +78,8 @@ def pack(project: Project) -> bytes:
     objects["bodies"] = project.bodies.to_json()
     objects["sketches"] = project.sketches
     objects["sketch_next"] = project.sketch_next
+    objects["datums"] = project.datums
+    objects["datum_next"] = project.datum_next
     manifest = {"kind": KIND, "format": FORMAT, "name": project.name, "model": "model.brep", "objects": objects}
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
@@ -107,5 +111,7 @@ def unpack(data: bytes) -> Project:
         str(manifest.get("name", "Untitled")),
         list(objects.get("sketches") or []),
         int(objects.get("sketch_next") or 1),
+        list(objects.get("datums") or []),
+        int(objects.get("datum_next") or 1),
         {k: v for k, v in objects.items() if k not in KNOWN_OBJECTS},
     )
