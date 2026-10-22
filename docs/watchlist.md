@@ -186,3 +186,5 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Project model edges (sketch card) is a pick mode: click faces and edges, then the button again or Enter projects them, Escape cancels; the core projects only the picked items. The projection notes about edge-on arcs show in orange (warn style) instead of red; any later message replaces the orange. The old whole-model projection is no longer reachable from the card. The owner reported the card going unresponsive after the projection message; I could not reproduce it (Check sketch, Finish and Discard all worked after projecting 70 edges with the same message).
 
 - Picked sketch regions: the pick is a real commit (undone when you click away unused), so it adds one undo step if a tool then uses it; a region whose face merges oddly with an imprint host may not be found again by area and centre, then nothing is selected.
+
+- Live sketch profile faces (S103): after every solve that is not a drag the whole sketch is sent to the core to split into regions (one extra request per solve); a very large sketch may lag, and the tint is not updated during a drag. Not checked in the app.

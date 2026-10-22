@@ -254,6 +254,7 @@ export class SketchMode {
     this.viewport.interceptor = { down: (e) => this.onDown(e), move: (e) => this.onMove(e), up: (e) => this.onUp(e) };
     this.viewport.onFrame2 = () => this.onFrame();
     this.render();
+    if (kept) void this.refreshProfiles();
     this.onToolChange?.();
     this.host.status(distortion ? distortion.note : "Sketch: choose a drawing tool in the top bar (Line, Rectangle, Circle, Arc)", !!distortion);
   }
@@ -325,6 +326,8 @@ export class SketchMode {
     if (!this.active) return;
     this.active = false;
     this.valueField?.remove();
+    this.profileSeq++;
+    this.setProfiles([]);
     this.cancelBox();
     this.viewport.interceptor = null;
     this.viewport.onFrame2 = null;
@@ -1662,6 +1665,40 @@ export class SketchMode {
     return this.runSolve();
   }
 
+  private profileFills: THREE.Mesh[] = [];
+  private profileSeq = 0;
+
+  /** The sketch's closed regions as view-only tinted faces, redrawn after every solve, so a closed profile shows at once. */
+  private async refreshProfiles() {
+    const seq = ++this.profileSeq;
+    let profiles: { positions: number[]; indices: number[] }[] = [];
+    try {
+      profiles = (await this.core.request<{ profiles: typeof profiles }>("sketch_profiles", { sketch: M.forSolver(this.s) })).profiles;
+    } catch {
+      // a sketch the core cannot split into regions simply shows none
+    }
+    if (seq === this.profileSeq && this.active) this.setProfiles(profiles);
+  }
+
+  private setProfiles(profiles: { positions: number[]; indices: number[] }[]) {
+    for (const old of this.profileFills) {
+      this.group.remove(old);
+      old.geometry.dispose();
+      (old.material as THREE.Material).dispose();
+    }
+    this.profileFills = profiles.map((m) => {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(m.positions, 3));
+      geometry.setIndex(m.indices);
+      const material = new THREE.MeshBasicMaterial({ color: 0x2fd4c0, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false, depthTest: false });
+      const fill = new THREE.Mesh(geometry, material);
+      fill.renderOrder = 3; // under the sketch lines (5) and axes (4), over the grid (1)
+      fill.frustumCulled = false;
+      this.group.add(fill);
+      return fill;
+    });
+  }
+
   private async runSolve(): Promise<boolean> {
     this.solving = true;
     let ok = true;
@@ -1691,6 +1728,7 @@ export class SketchMode {
           this.failed.clear();
           if (reply.freedom) this.freedom = new Map(Object.entries(reply.freedom).map(([id, n]) => [Number(id), n]));
           ok = true;
+          if (!job.drag) void this.refreshProfiles();
         } else if (!job.drag) {
           this.failed = new Set([...reply.failed, ...(reply.conflicts ?? [])].filter((x): x is number => x !== null));
           ok = false;
