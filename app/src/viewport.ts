@@ -440,11 +440,12 @@ export class Viewport {
       const direction = hit && this.dragDirection(hit);
       // Dragging the selected face or edge starts its tool instead of orbiting.
       const additive = e.ctrlKey || e.metaKey || e.shiftKey;
-      if (hit && direction && !additive) {
+      const shiftOnly = e.shiftKey && !e.ctrlKey && !e.metaKey; // Shift keeps the selection and drags symmetrically (push/pull)
+      if (hit && direction && (!additive || shiftOnly)) {
         // Pressing on an item selects it and starts its tool drag in one motion.
         if (!this.isSelected(hit)) {
           const sel = { kind: hit.kind, id: hit.id };
-          this.selectItems([sel]);
+          this.selectItems(shiftOnly ? [...this.selected, sel] : [sel]);
           this.onSelect([sel]);
         }
         this.dragReleased = false;

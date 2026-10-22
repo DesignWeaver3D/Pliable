@@ -99,8 +99,29 @@ export function formatValue(v: number): string {
   return String(Math.round(v * 1000) / 1000);
 }
 
+/** A rotation ring's diameter is this fraction of the shortest side of the 3D view, so it never runs off screen. */
+export const RING_VIEW_FRACTION = 0.5;
+
+/** A rotation handle moved onto a ring of another radius about the same centre: its grip keeps its angle round the ring,
+ *  and its degrees per unit of travel follow the new radius. `ring` is [cx, cy, cz, radius]. */
+export function refitRing(
+  ring: readonly number[],
+  anchor: readonly number[],
+  scale: number,
+  radius: number,
+): { ring: number[]; anchor: number[]; scale: number } {
+  const k = radius / ring[3];
+  return {
+    ring: [ring[0], ring[1], ring[2], radius],
+    anchor: [0, 1, 2].map((i) => ring[i] + (anchor[i] - ring[i]) * k),
+    scale: scale / k,
+  };
+}
+
 interface Item {
   info: HandleInfo;
+  /** A rotation handle as the tool declared it, before its ring was fitted to the view. */
+  declared?: HandleInfo;
   group: THREE.Group;
   tip: THREE.Mesh;
   arm: THREE.Line;
@@ -256,15 +277,27 @@ export class Manipulator {
     const label = document.createElement("div");
     label.style.cssText = "position:absolute;padding:1px 5px;border-radius:3px;background:rgba(20,20,24,.85);color:#ffd9a0;font:11px sans-serif;white-space:nowrap;transform:translate(10px,-50%)";
     this.layer.append(label);
-    return { info, group, tip, arm, axis, label, travel: 0 };
+    return { info: { ...info }, declared: info.ring ? info : undefined, group, tip, arm, axis, label, travel: 0 };
   }
 
   /** Per frame: keep handles a constant size on screen and put the value labels beside them. */
   update() {
     const rect = this.dom.getBoundingClientRect();
     for (const item of this.items) {
+      if (item.declared?.ring && item.axis && item !== this.active?.item) {
+        // A rotation ring is a fixed share of the view's short side, whatever the zoom; the grip stays on it.
+        const [cx, cy, cz] = item.declared.ring;
+        const radius = (this.pixelSizeAt(new THREE.Vector3(cx, cy, cz)) * Math.min(rect.width, rect.height) * RING_VIEW_FRACTION) / 2;
+        if (radius > 0) {
+          const fit = refitRing(item.declared.ring, item.declared.anchor, item.declared.scale, radius);
+          item.info.ring = fit.ring as typeof item.info.ring;
+          item.info.anchor = fit.anchor as typeof item.info.anchor;
+          item.info.scale = fit.scale;
+          item.axis.scale.setScalar(radius / item.declared.ring[3]);
+        }
+      }
       const { info, group } = item;
-      const pos = new THREE.Vector3(...info.anchor).addScaledVector(new THREE.Vector3(...info.direction), item.travel);
+      const pos =new THREE.Vector3(...info.anchor).addScaledVector(new THREE.Vector3(...info.direction), item.travel);
       group.position.copy(pos);
       if (item.axis && info.axisFrom) {
         const from = new THREE.Vector3(...info.axisFrom);

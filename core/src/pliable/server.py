@@ -23,7 +23,7 @@ from websockets.http11 import Response
 
 from . import __version__, sketch, unwrap
 from . import bodies as body_ids
-from . import dimedit, recipes
+from . import dimedit, projectfile, recipes
 from OCP.BRep import BRep_Builder
 from OCP.TopoDS import TopoDS_Compound
 from . import notice
@@ -36,6 +36,7 @@ from .features import combine, finish
 from .files import part_names, read_step_parts, read_step_tree, write_mesh, write_step
 from OCP.gp import gp_Vec
 from .measure import measure, model_info
+from .mirrormode import mirror_result
 from .ops import OperationError, solids_of
 from .protocol import encode_mesh
 from .edgesel import edge_loops, edge_ring, outer_loop, face_edges, face_loops, region_boundary, shared_loop, sharp_edges
@@ -95,6 +96,8 @@ class Session:
             header["canUndo"] = self.document.can_undo
             header["canRedo"] = self.document.can_redo
             header["sketches"] = self.document.sketch_list()
+            header["datums"] = self.document.datum_list()
+            header["mirror"] = self.document.mirror
         return encode_mesh(header, mesh)
 
     def _open(self, shape, name: str) -> bytes:
@@ -276,6 +279,10 @@ class Session:
             return {"sketch_id": found["id"], "name": found["name"], "rev": found["rev"], "sketch": found["sketch"]}
         if kind in ("sketch_delete", "sketch_rename"):
             return self._sketch_edit(request, kind)
+        if kind in ("mirror_set", "mirror_clear"):
+            return self._mirror_edit(request, kind)
+        if kind in ("datum_add", "datum_rename", "datum_delete", "datum_move"):
+            return self._datum_edit(request, kind)
         if kind == "dimension_edit":
             return self._dimension_edit(request)
         if kind in ("tool_preview", "tool_commit"):
@@ -314,6 +321,17 @@ class Session:
             document = self._require_document()
             data = write_step(document.current.shape)
             return {"name": document.name, "data": base64.b64encode(data).decode()}
+        if kind == "save_project":
+            document = self._require_document()
+            return {"name": document.name, "data": base64.b64encode(projectfile.pack(document.to_project())).decode()}
+        if kind == "open_project":
+            try:
+                project = projectfile.unpack(base64.b64decode(request["data"]))
+            except projectfile.ProjectFileError as e:
+                raise RequestError(str(e)) from e
+            self.document = Document.from_project(project)
+            self._autosave(fresh=True)
+            return self._mesh_reply(self.document.current, {}, name=self.document.name)
         if kind == "export_mesh":
             document = self._require_document()
             try:
@@ -533,6 +551,75 @@ class Session:
             extra["selection"] = Selection().to_json()
         return self._mesh_reply(target, timings, **extra)
 
+    def _datum_plane(self, request: dict) -> dict:
+        """The plane of a new datum: any plane a sketch can sit on (a standard plane, a face, vertices, an edge, each
+        with an offset), or the mid-plane of two parallel flat faces (`midplane`: [face, face])."""
+        if "midplane" not in request:
+            return self._sketch_plane(request)
+        topology = self._require_document().current
+        try:
+            a, b = [int(i) for i in request["midplane"]]
+            faces = [topology.face(a), topology.face(b)]
+        except (KeyError, ValueError, TypeError) as e:
+            raise RequestError("Pick two parallel flat faces") from e
+        if not all(unwrap.is_flat(f) for f in faces):
+            raise RequestError("Both faces must be flat")
+        first, second = [sketch.face_plane(f) for f in faces]
+        n = first["normal"]
+        if abs(sum(x * y for x, y in zip(n, second["normal"]))) < 1 - 1e-6:
+            raise RequestError("The two faces are not parallel")
+        gap = sum((q - p) * k for p, q, k in zip(first["origin"], second["origin"], n))
+        return sketch.offset_plane(first, gap / 2)
+
+    def _mirror_edit(self, request: dict, kind: str) -> bytes:
+        """Turn mirror mode on for a plane (a datum plane by `datum_id`, else any plane a datum could be made on) or off."""
+        document = self._require_document()
+        if kind == "mirror_clear":
+            mirror = None
+        elif request.get("datum_id") is not None:
+            try:
+                entry = next(e for e in document.datum_list() if e["id"] == int(request["datum_id"]))
+            except (StopIteration, ValueError, TypeError) as e:
+                raise RequestError("No such datum plane") from e
+            mirror = {"name": entry["name"], "plane": entry["plane"]}
+        else:
+            name = str(request.get("name") or "").strip() or (f"{request['plane']} origin plane" if "plane" in request else "Mirror plane")
+            mirror = {"name": name, "plane": self._datum_plane(request)}
+        target = document.set_mirror(mirror)
+        self._autosave()
+        return self._mesh_reply(target, {}, preview=False)
+
+    def _datum_edit(self, request: dict, kind: str) -> bytes:
+        document = self._require_document()
+        entries = document.datum_list()
+        if kind == "datum_add":
+            plane = self._datum_plane(request)
+            number = document.new_datum_id()
+            name = str(request.get("name") or "").strip() or f"Plane {number}"
+            entries.append({"id": number, "name": name, "plane": plane})
+        else:
+            try:
+                entry = next((e for e in entries if e["id"] == int(request["datum_id"])), None)
+            except (KeyError, ValueError, TypeError) as e:
+                raise RequestError("Unknown datum plane") from e
+            if entry is None:
+                raise RequestError("No such datum plane")
+            if kind == "datum_delete":
+                entries.remove(entry)
+            elif kind == "datum_move":
+                try:
+                    entry["plane"] = sketch.offset_plane(entry["plane"], float(request["distance"]))
+                except (KeyError, ValueError, TypeError) as e:
+                    raise RequestError("Malformed datum request") from e
+            else:
+                name = str(request.get("name", "")).strip()
+                if not name:
+                    raise RequestError("A datum plane needs a name")
+                entry["name"] = name
+        target = document.set_datums(entries)
+        self._autosave()
+        return self._mesh_reply(target, {}, preview=False)
+
     def _sketch_edit(self, request: dict, kind: str) -> bytes:
         document = self._require_document()
         sketch_id = self._sketch_id(request)
@@ -564,6 +651,8 @@ class Session:
                 result = sketch.extrude(document.current.shape, content, float(request["distance"]), str(request.get("mode", "new")), bool(request.get("symmetric")))
         except (KeyError, TypeError, ValueError) as e:
             raise RequestError(f"Malformed sketch request: {e!r}") from e
+        if document.mirror:
+            result = mirror_result(document.current.shape, result, document.mirror["plane"])
         timings = {"opMs": _ms(start)}
         body_kind = "Revolution" if "axis" in request else "Extrusion"
         extra = {}
@@ -642,6 +731,7 @@ class Session:
     def _run_tool(self, request: dict, commit: bool) -> bytes:
         document = self._require_document()
         topology = document.current
+        topology.datums = document.datum_list()  # for tools that work about a datum plane (symmetric push/pull)
         tool = get_tool(str(request.get("tool")))
         if request.get("edit_body") is not None:
             return self._edit_primitive(request, tool, commit)
@@ -654,6 +744,8 @@ class Session:
             self.last_tool["error"] = diagnostics.scrub(f"{type(e).__name__}: {e}")
             raise
         self.last_tool["ok"] = True
+        if document.mirror and not result.moved:
+            result = mirror_result(topology.shape, result, document.mirror["plane"])
         timings = {"opMs": _ms(start)}
         body_kind, ordered = tool.body_kind, tool.keeps_body_order
         change = self._recipe_change(tool, topology, selection, request.get("params") or {}, result)

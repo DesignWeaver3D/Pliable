@@ -13,6 +13,8 @@ import { fitStripCount, stripRoom } from "./stripfit";
 import { DimensionOverlay, type Dimension } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
+import { DatumPlanes } from "./datumplanes";
+import type { DatumPlane, MirrorMode } from "./datumcorners";
 import { LatestWins } from "./latestwins";
 import { LENGTH_UNIT } from "./units";
 import { SETTING_ENTRIES, createSettingsWindow, onSettingsChange, openSettings, setHintsBinding, setKeysOpener, settingValue, settings } from "./settings";
@@ -52,7 +54,7 @@ usage.attach(core);
 installAlphaUi($("bar"), core);
 
 const BUSY_LABELS: Record<string, string> = {
-  import_step: "Importing", combine_step: "Combining", export_step: "Exporting", open_demo: "Opening",
+  import_step: "Importing", combine_step: "Combining", export_step: "Exporting", save_project: "Saving", open_project: "Opening", open_demo: "Opening",
   restore_session: "Restoring", tool_commit: "Applying", sketch_extrude: "Building", undo: "Undoing", redo: "Redoing",
 };
 const busyBox = $("busy");
@@ -580,6 +582,7 @@ let focusState: FocusState | null = null;
 
 /** Tells the list of kept sketches what the document holds; set once that list exists. */
 let onSketches: (list: { id: number; name: string; rev: number }[]) => void = () => {};
+let onDatums: (list: DatumPlane[], mirror: MirrorMode | null) => void = () => {};
 
 /** The dimensions of the committed model's measurement, and whether a preview's own are on screen instead. */
 let measuredDims: Dimension[] = [];
@@ -604,6 +607,7 @@ function show(mesh: MeshData, frame = false) {
   if (!mesh.header.preview) {
     bodyList.setBodies(bodiesOf(mesh), hiddenBodies, ghostBodies, focusState?.body ?? null);
     onSketches(mesh.header.sketches ?? []);
+    onDatums(mesh.header.datums ?? [], mesh.header.mirror ?? null);
   }
   undoButton.disabled = !mesh.header.canUndo;
   redoButton.disabled = !mesh.header.canRedo;
@@ -654,9 +658,17 @@ let lastGood: number | null = null; // newest distance whose preview succeeded
 let previewFailed = false; // the newest preview request failed (size past the limit)
 let dragSels: Sel[] | null = null;
 
+// Shift held when a push/pull drag starts makes the whole drag symmetric (about a plane, see the core's symmetric push/pull).
+let shiftHeld = false;
+let dragSymmetric = false;
+for (const type of ["keydown", "keyup"] as const) window.addEventListener(type, (e) => (shiftHeld = e.shiftKey));
+window.addEventListener("blur", () => (shiftHeld = false));
+
 function toolRequest(sels: Sel[], distance: number) {
   const tool = dragToolFor(sels)!;
-  return { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params: { [dragParam(tool)!]: distance } };
+  const params: Record<string, number> = { [dragParam(tool)!]: distance };
+  if (tool.id === "push_pull" && dragSymmetric) params.symmetric = 1;
+  return { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params };
 }
 
 function pump(token: number) {
@@ -878,6 +890,7 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
     if (dragSels === null) {
       lastGood = null;
       previewFailed = false;
+      dragSymmetric = shiftHeld;
       const dragTool = dragToolFor(sels)!;
       if (armedTool !== dragTool.id) usage.record(dragTool.id, "start", "drag"); // an armed tool already counted its start
     }
@@ -929,6 +942,7 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
     status.textContent = (e as Error).message; // after setCommitted, which rewrites the status
     status.classList.add("error");
   }
+  dragSymmetric = false;
 };
 
 const editLastButton = $("editlast") as HTMLButtonElement;
@@ -1150,7 +1164,7 @@ async function exportAs(request: string, extension: string, params: Record<strin
     }
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = name.replace(/\.(step|stp|stl|obj|3mf)$/i, "") + "." + extension;
+    link.download = name.replace(/\.(step|stp|stl|obj|3mf|plbl)$/i, "") + "." + extension;
     link.click();
     URL.revokeObjectURL(link.href);
   } catch (e) {
@@ -1159,6 +1173,23 @@ async function exportAs(request: string, extension: string, params: Record<strin
 }
 
 $("export").addEventListener("click", () => exportAs("export_step", "step"));
+$("saveproject").addEventListener("click", () => exportAs("save_project", "plbl"));
+const projectInput = $("projectfile") as HTMLInputElement;
+$("openproject").addEventListener("click", () => projectInput.click());
+projectInput.addEventListener("change", async () => {
+  const file = projectInput.files?.[0];
+  projectInput.value = "";
+  if (!file) return;
+  if (!undoButton.disabled && !window.confirm("Opening a project replaces the current model and its undo history. Continue?")) return;
+  try {
+    status.textContent = `opening ${file.name}...`;
+    const data = toBase64(new Uint8Array(await file.arrayBuffer()));
+    setCommitted(await core.request<MeshData>("open_project", { data }), true);
+  } catch (e) {
+    status.textContent = (e as Error).message;
+    status.classList.add("error");
+  }
+});
 const exportMesh = $("exportmesh") as HTMLSelectElement;
 exportMesh.addEventListener("change", () => {
   const format = exportMesh.value;
@@ -1228,7 +1259,16 @@ function commands(): Command[] {
     { label: "Getting started (the first things to try)", scope: "view", keywords: ["help", "tutorial", "learn", "tips", "intro", "basics"], enabled: true, run: () => hintLine.showGettingStarted() },
     { label: "Import STEP file (add to model)", scope: "file", enabled: true, run: () => $("open").click() },
     { label: "Open STEP file as new model", scope: "file", enabled: true, run: () => $("openasnew").click() },
+    ...(["XY", "XZ", "YZ"] as const).map((plane) => ({ label: `Add datum plane: ${plane} origin plane`, scope: "file" as const, keywords: ["helper plane", "construction", "mirror"], enabled: true, run: () => addDatum({ plane }) })),
+    ...(["XY", "XZ", "YZ"] as const).map((plane) => ({ label: `Mirror mode on: ${plane} origin plane`, scope: "file" as const, keywords: ["symmetry", "symmetric", "mirror"], enabled: true, run: () => keptRequest("mirror_set", { plane }) })),
+    { label: "Mirror mode on: the selected face", scope: "file", keywords: ["symmetry", "symmetric", "mirror"], enabled: currentSels.length === 1 && currentSels[0].kind === "face", run: () => keptRequest("mirror_set", { face: currentSels[0].id, name: "Selected face" }) },
+    ...datumPlanes.planes.map((d) => ({ label: `Mirror mode on: datum plane ${d.name}`, scope: "file" as const, keywords: ["symmetry", "symmetric", "mirror"], enabled: true, run: () => keptRequest("mirror_set", { datum_id: d.id }) })),
+    { label: "Mirror mode off", scope: "file", keywords: ["symmetry", "symmetric", "mirror"], enabled: true, run: () => keptRequest("mirror_clear", {}) },
+    { label: "Add datum plane on the selected face", scope: "file", keywords: ["helper plane", "construction", "mirror"], enabled: currentSels.length === 1 && currentSels[0].kind === "face", run: () => addDatum({ face: currentSels[0].id }) },
+    { label: "Add datum plane midway between two selected faces", scope: "file", keywords: ["helper plane", "construction", "mirror", "middle"], enabled: currentSels.length === 2 && currentSels.every((s) => s.kind === "face"), run: () => addDatum({ midplane: currentSels.map((s) => s.id) }) },
     { label: "Export STEP file", scope: "file", enabled: true, run: () => exportAs("export_step", "step") },
+    { label: "Save project (.plbl file with bodies, names and sketches)", scope: "file", keywords: ["save", "pliable file"], enabled: true, run: () => exportAs("save_project", "plbl") },
+    { label: "Open project (.plbl file)", scope: "file", keywords: ["load", "pliable file"], enabled: true, run: () => $("openproject").click() },
     ...["stl", "obj", "3mf"].map((format) => ({
       label: `Export ${format.toUpperCase()} mesh (lossy)`,
       scope: "file" as const,
@@ -1297,6 +1337,27 @@ const keptSketches = new KeptSketches({
   rename: (id, name) => keptRequest("sketch_rename", { sketch_id: id, name }),
 });
 onSketches = (list) => keptSketches.setList(list);
+const datumPlanes = new DatumPlanes({
+  scene: viewport.scene,
+  list: $("datumlist"),
+  count: $("datumcount"),
+  mirror: $("mirrorstate"),
+  mirrorOff: () => keptRequest("mirror_clear", {}),
+  remove: (id) => keptRequest("datum_delete", { datum_id: id }),
+  rename: (id, name) => keptRequest("datum_rename", { datum_id: id, name }),
+});
+onDatums = (list, mirror) => {
+  datumPlanes.setList(list);
+  datumPlanes.setMirror(mirror);
+};
+$("datumhead").addEventListener("click", () => {
+  const head = $("datumhead");
+  head.setAttribute("aria-expanded", String(head.getAttribute("aria-expanded") !== "true"));
+});
+/** Add a datum plane from a request the core understands as a sketch plane (or a midplane of two faces). */
+function addDatum(args: Record<string, unknown>) {
+  keptRequest("datum_add", args);
+}
 viewport.profileTargets = () => (sketch.active ? [] : keptSketches.fillTargets());
 viewport.onProfileClick = (id, region) => void pickProfile(id, region);
 sketch.onEditing = (id) => keptSketches.setEditing(id);

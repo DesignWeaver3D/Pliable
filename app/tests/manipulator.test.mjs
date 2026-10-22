@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { Manipulator, linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep, pickScore, MOVE_ARM_PX } from "../src/manipulator.ts";
+import { Manipulator, linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep, pickScore, MOVE_ARM_PX, refitRing } from "../src/manipulator.ts";
 
 const h = { value: 10, scale: 1, min: 1 };
 
@@ -178,4 +178,11 @@ test("a rotation ring handle wears its axis colour and a typed number is the ang
   const h = { kind: "arrow", value: 30, scale: 4, min: null, max: null };
   assert.equal(handleValue(h, typedTravel(h, "90", false)), 90);
   assert.equal(handleValue(h, typedTravel(h, "45", true)), -45);
+});
+
+test("refitRing keeps the grip's angle and turns degrees per unit with the new radius", () => {
+  const fit = refitRing([1, 2, 3, 2], [3, 2, 3], 10, 4);
+  assert.deepEqual(fit.ring, [1, 2, 3, 4]);
+  assert.deepEqual(fit.anchor, [5, 2, 3]);
+  assert.equal(fit.scale, 5);
 });
