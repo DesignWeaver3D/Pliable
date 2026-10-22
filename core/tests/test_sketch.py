@@ -905,3 +905,29 @@ def test_plane_square_to_an_edge_at_a_fraction_along_it():
         length = math.sqrt(sum(c * c for c in direction))
         assert abs(sum(n * d / length for n, d in zip(plane["normal"], direction))) == pytest.approx(1, abs=1e-9)
         assert sum(x * n for x, n in zip(plane["xdir"], plane["normal"])) == pytest.approx(0, abs=1e-9)
+
+
+def test_dimensioned_horizontal_line_drags_by_its_body():
+    """Holding both ends of a horizontal or dimensioned line used to be reported as a conflict, so it could not move."""
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 10, "v": 8}, {"id": 4, "u": 0, "v": 8}]
+    lines = [{"id": 10 + k, "type": "line", "a": a, "b": b} for k, (a, b) in enumerate([(1, 2), (2, 3), (3, 4), (4, 1)])]
+    drag = {"points": [{"point": 1, "u": 3, "v": 2}, {"point": 2, "u": 13, "v": 2}]}
+    for constraints in (
+        [{"id": 1, "type": "horizontal", "entity": 10}],
+        [{"id": 1, "type": "horizontal", "entity": 10}, {"id": 2, "type": "distance", "entity": 10, "value": 10}],
+        [{"id": 1, "type": "horizontal", "entity": 10}, {"id": 2, "type": "horizontal_distance", "entity": 10, "value": 10}],
+    ):
+        result = sketch.solve(sketch_of(points, lines, constraints), drag)
+        assert result["status"] == "ok"
+        moved = {p["id"]: (p["u"], p["v"]) for p in result["points"]}
+        assert moved[1] == pytest.approx((3, 2)) and moved[2] == pytest.approx((13, 2))
+        assert moved[3] == pytest.approx((10, 8)) and moved[4] == pytest.approx((0, 8))
+
+
+def test_line_to_axis_angle_dimension():
+    points = [{"id": 1, "u": 0, "v": 0, "fixed": True}, {"id": 2, "u": 10, "v": 2}]
+    lines = [{"id": 10, "type": "line", "a": 1, "b": 2}]
+    result = sketch.solve(sketch_of(points, lines, [{"id": 1, "type": "axis_angle", "entity": 10, "value": 30}]))
+    assert result["status"] == "ok"
+    p2 = next(p for p in result["points"] if p["id"] == 2)
+    assert math.degrees(math.atan2(p2["v"], p2["u"])) == pytest.approx(30, abs=1e-4)

@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pliable</title>
     <style>
-      html { --listw: 212px; --handlew: 32px; --leftw: calc(212px + var(--handlew)); --drawerw: 0px; }
-      html, body { margin: 0; height: 100%; background: #1b1d22; color: #ddd; font: 13px system-ui, sans-serif; overflow: hidden; }
+      html { --ui-offwhite: #ddd; --axis-x: #d9534f; --axis-y: #5cb85c; --axis-z: #4a90e2; --listw: 212px; --handlew: 32px; --leftw: calc(212px + var(--handlew)); --drawerw: 0px; }
+      html, body { margin: 0; height: 100%; background: #1b1d22; color: var(--ui-offwhite); font: 13px system-ui, sans-serif; overflow: hidden; }
       #viewport { position: fixed; inset: 0; }
       #viewport.engaged::after { content: ""; position: absolute; inset: 0; border: 2px solid rgba(255, 138, 31, 0.45); pointer-events: none; z-index: 1; }
       #bar { position: fixed; top: 0; left: 0; right: 0; box-sizing: border-box; padding: 6px 52px 6px 8px; display: flex; gap: 6px; align-items: center; z-index: 7; flex-wrap: nowrap; background: rgba(27, 29, 34, 0.88); border-bottom: 1px solid #2d3038; white-space: nowrap; }
       .icon { display: inline-flex; vertical-align: middle; margin-right: 5px; }
       #bar button .icon, #tools button .icon { margin-right: 5px; }
-      #bar .searchicon { margin: 0 -26px 0 6px; color: #ddd; pointer-events: none; z-index: 1; }
+      #bar .searchicon { margin: 0 -26px 0 6px; color: var(--ui-offwhite); pointer-events: none; z-index: 1; }
       #palette-input { padding-left: 28px !important; }
       #toollist button { display: flex; align-items: center; }
       #bar #status { flex: 1; min-width: 40px; overflow: hidden; text-overflow: ellipsis; }
@@ -23,22 +23,22 @@
       #bar #menupanel button, #bar #menupanel select { text-align: left; }
       #palette-input { width: 190px; box-sizing: border-box; padding: 4px 8px; background: #1b1d22; color: #eee; border: 1px solid #444; border-radius: 4px; font: inherit; outline: none; }
       #palette-input:focus { width: 300px; border-color: #ff8a1f; }
-      #gear { position: fixed; right: 8px; top: 5px; z-index: 8; background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; font-size: 18px; padding: 2px 8px; }
-      #settingspanel { position: fixed; right: 8px; top: 44px; z-index: 4; background: #23262d; color: #ddd; border: 1px solid #444; border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; width: 230px; font-size: 13px; }
+      #gear { position: fixed; right: 8px; top: 5px; z-index: 8; background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; font-size: 18px; padding: 2px 8px; }
+      #settingspanel { position: fixed; right: 8px; top: 44px; z-index: 4; background: #23262d; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; width: 230px; font-size: 13px; }
       #settingspanel[hidden] { display: none; }
       #settingspanel .found { outline: 2px solid #ff8a1f; outline-offset: 3px; border-radius: 3px; }
       #settingspanel label { display: flex; flex-direction: column; gap: 2px; }
       #settingspanel label:has(input[type=checkbox]) { flex-direction: row; gap: 6px; }
       #toolform .eyedropper { padding: 0 6px; } #toolform .eyedropper.armed { background: #ff8a1f; color: #000; }
       #bar span:empty { display: none; }
-      #bar button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; }
+      #bar button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 4px 8px; }
       #bar span.error { color: #ff8c8c; border-color: #a44; }
       #bar span.warn { color: #ffc766; border-color: #b8862b; }
       #bar button:disabled { opacity: 0.4; }
       #bar button.active { border-color: #ff8a1f; color: #ffb878; }
-      #bar select, #bar span { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; }
+      #bar select, #bar span { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 4px 8px; }
       #tools { position: fixed; top: 52px; left: 50%; max-width: calc(100vw - 340px); display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 6px; align-items: center; z-index: 2; pointer-events: none; }
-      #tools button { pointer-events: auto; white-space: nowrap; background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 10px; }
+      #tools button { pointer-events: auto; white-space: nowrap; background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 4px 10px; }
       #tools button.active { border-color: #ff8a1f; color: #ffb878; }
       #tools button.active::after { content: "drag"; margin-left: 6px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a1f; }
       #tools button.more { color: #aaa; }
@@ -62,21 +62,21 @@
       .navcube-face { position: absolute; text-align: center; font-size: 11px; color: #cfd6e4; background: rgba(60, 68, 84, 0.85); border: 1px solid #7d8aa5; box-sizing: border-box; cursor: pointer; user-select: none; }
       .navcube-face:hover { background: rgba(255, 138, 31, 0.8); color: #fff; }
       .viewctl { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
-      .viewctl button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; font: inherit; cursor: pointer; }
+      .viewctl button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 4px 8px; font: inherit; cursor: pointer; }
       .viewctl button { min-width: 30px; height: 28px; display: inline-flex; align-items: center; justify-content: center; }
       .viewctl button .icon { margin: 0; }
       .viewctl button:hover { border-color: #888; }
       .viewctl button.active { border-color: #ff8a1f; color: #ffb878; }
       #drawer { position: fixed; top: 48px; left: 0; bottom: 0; width: 280px; z-index: 5; background: rgba(35, 38, 45, 0.97); border-right: 1px solid #444; display: flex; flex-direction: column; box-shadow: 4px 0 18px rgba(0, 0, 0, 0.4); }
       #drawer[hidden] { display: none; }
-      #drawerbtn { position: fixed; left: 0; top: calc(50% + 24px); transform: translateY(-50%); width: 28px; height: 48px; box-sizing: border-box; z-index: 4; display: flex; align-items: center; justify-content: center; gap: 1px; padding: 0; background: #2a2d34; color: #ddd; border: 1px solid #444; border-left: none; border-radius: 0 8px 8px 0; cursor: pointer; }
+      #drawerbtn { position: fixed; left: 0; top: calc(50% + 24px); transform: translateY(-50%); width: 28px; height: 48px; box-sizing: border-box; z-index: 4; display: flex; align-items: center; justify-content: center; gap: 1px; padding: 0; background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-left: none; border-radius: 0 8px 8px 0; cursor: pointer; }
       #drawerbtn[aria-expanded="true"] { left: 280px; border-color: #ff8a1f; color: #ffb878; box-shadow: 4px 0 12px rgba(0, 0, 0, 0.3); }
       #drawerbtn:hover { background: #343944; }
       #drawerbtn:focus-visible { outline: 2px solid #ff8a1f; outline-offset: -2px; }
       #drawerbtn .icon { margin: 0; }
       #drawer .drawerhead { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-bottom: 1px solid #3a3e47; }
       #drawer .drawerhead b { color: #ffb878; flex: 1; }
-      #drawer .drawerhead button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; }
+      #drawer .drawerhead button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; }
       #drawer.usableonly #toollist > div:not(:has(button:enabled)) { display: none; }
       #drawer.usableonly #toollist button:disabled { display: none; }
       #bodypanel { position: fixed; top: 52px; left: calc(var(--drawerw) + var(--handlew)); width: calc(var(--listw) - 8px); bottom: 10px; z-index: 3; display: flex; flex-direction: column; pointer-events: none; }
@@ -102,7 +102,7 @@
       .keptrow .rowbtn:hover { color: #ffb878; }
       .keptrow input.renamefield { flex: 1; min-width: 0; }
       #bodylist .nobodies { color: #777; padding: 2px 10px; font-size: 12px; }
-      .bodyrow { background: rgba(27, 29, 34, 0.55); display: flex; align-items: center; gap: 2px; padding: 2px 6px; border-radius: 3px; color: #ddd; cursor: default; user-select: none; }
+      .bodyrow { background: rgba(27, 29, 34, 0.55); display: flex; align-items: center; gap: 2px; padding: 2px 6px; border-radius: 3px; color: var(--ui-offwhite); cursor: default; user-select: none; }
       .bodyrow:hover, .bodyrow.hovered { background: #343944; }
       .bodyrow.selected { background: rgba(255, 138, 31, 0.28); color: #fff; }
       .bodyrow.dim .bodyname { color: #777; font-style: italic; }
@@ -114,12 +114,12 @@
       .bodybtn.on { color: #ffb878; }
       .bodyedit { flex: 1; min-width: 0; background: #1d2026; color: #fff; border: 1px solid #ff8a1f; border-radius: 3px; padding: 1px 4px; font: inherit; }
       .bodymenu { position: fixed; z-index: 20; background: #2a2d34; border: 1px solid #444; border-radius: 4px; padding: 3px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45); display: flex; flex-direction: column; min-width: 130px; }
-      .bodymenu button { background: none; border: none; color: #ddd; text-align: left; padding: 4px 10px; border-radius: 3px; }
+      .bodymenu button { background: none; border: none; color: var(--ui-offwhite); text-align: left; padding: 4px 10px; border-radius: 3px; }
       .bodymenu button:hover:enabled { background: #3b4150; }
       .bodymenu button:disabled { color: #666; }
       #toollist { padding: 4px 10px 16px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1; }
       #toollist .group { color: #ffb878; font-size: 11px; margin-top: 4px; }
-      #toollist button, #toolform button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 3px 8px; text-align: left; display: block; width: 100%; margin-top: 2px; }
+      #toollist button, #toolform button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; text-align: left; display: block; width: 100%; margin-top: 2px; }
       #toollist button:disabled { color: #666; }
       #toolform { position: fixed; top: 104px; left: calc(var(--leftw) + 12px); z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
       #toolform[hidden] { display: none; }
@@ -127,22 +127,23 @@
       #toolform .row { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin: 3px 0; }
       #toolform input { width: 80px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; }
       #toolform .buttons { display: flex; gap: 6px; margin-top: 6px; }
-      #hintline { position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%); z-index: 1; display: flex; gap: 14px; white-space: nowrap; font-size: 11px; color: #8a8f98; pointer-events: none; }
+      #hintline { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); z-index: 1; display: flex; gap: 14px; white-space: nowrap; font-size: 11px; color: #8a8f98; pointer-events: none; }
+      #hintline button { pointer-events: auto; background: none; border: 0; color: #8a8f98; cursor: pointer; font: inherit; padding: 0 4px; }
       #hintline kbd { background: #2a2d34; border: 1px solid #3a3e47; border-radius: 3px; padding: 0 4px; margin-right: 3px; color: #bbb; font: inherit; }
-      #hinttip { position: absolute; left: 50%; bottom: 100px; transform: translateX(-50%); z-index: 2; display: flex; gap: 8px; align-items: center; background: #23262d; border: 1px solid #ffb878; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: #ddd; }
-      #gettingstarted { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); z-index: 3; background: #23262d; border: 1px solid #ffb878; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #ddd; max-width: min(520px, 92vw); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
+      #hinttip { position: absolute; left: 50%; bottom: 68px; transform: translateX(-50%); z-index: 2; display: flex; gap: 8px; align-items: center; background: #23262d; border: 1px solid #ffb878; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: var(--ui-offwhite); }
+      #gettingstarted { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); z-index: 3; background: #23262d; border: 1px solid #ffb878; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--ui-offwhite); max-width: min(520px, 92vw); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
       #gettingstarted ol { margin: 6px 0 8px; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
       #gettingstarted .buttons { display: flex; gap: 8px; justify-content: flex-end; }
       #hinttip[hidden], #hintline[hidden] { display: none; }
       #sketchbar { position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%); z-index: 1; display: flex; gap: 6px; align-items: center; color: #aaa; }
-      #sketchbar button, #sketchpanel button { background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 3px 8px; }
+      #sketchbar button, #sketchpanel button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; }
       #sketchbar button:disabled { color: #666; }
       #sketchpanel { position: fixed; top: 270px; right: 12px; width: 250px; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; font-size: 13px; }
       #sketchpanel[hidden] { display: none; }
       #sketchpanel .head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
       #sketchpanel .head .iconbtn { padding: 3px 5px; line-height: 0; }
       #sketchpanel .head .iconbtn.active { border-color: #ff8a1f; color: #ffb878; }
-      dialog.sketchsettings { background: #23262d; color: #ddd; border: 1px solid #555; border-radius: 8px; padding: 14px 18px; min-width: 320px; font-size: 13px; }
+      dialog.sketchsettings { background: #23262d; color: var(--ui-offwhite); border: 1px solid #555; border-radius: 8px; padding: 14px 18px; min-width: 320px; font-size: 13px; }
       dialog.sketchsettings::backdrop { background: rgba(0, 0, 0, 0.45); }
       dialog.sketchsettings h3 { margin: 0 0 8px; color: #ffb878; font-size: 15px; }
       dialog.sketchsettings .group { color: #ffb878; font-size: 11px; margin: 10px 0 4px; }
@@ -150,7 +151,7 @@
       dialog.sketchsettings label > span:first-child { flex: 1; }
       dialog.sketchsettings input[type=number] { width: 80px; }
       dialog.sketchsettings .unit { color: #999; min-width: 70px; }
-      dialog.sketchsettings button { margin-top: 12px; background: #2a2d34; color: #ddd; border: 1px solid #444; border-radius: 4px; padding: 4px 14px; float: right; }
+      dialog.sketchsettings button { margin-top: 12px; background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 4px 14px; float: right; }
       #sketchpanel .title { color: #ffb878; font-weight: 600; }
       #sketchpanel .dof { color: #9ad; margin: 2px 0 6px; }
       #sketchpanel .bad { color: #ff6b6b; }

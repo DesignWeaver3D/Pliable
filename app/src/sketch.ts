@@ -12,6 +12,7 @@ import * as Chk from "./sketchcheck";
 import * as E from "./sketchedit";
 import * as M from "./sketchmodel";
 import * as Sh from "./sketchshapes";
+import { parseValue } from "./dimedit";
 import { uiIcon } from "./icons";
 import { LENGTH_UNIT } from "./units";
 import { usage } from "./usage";
@@ -139,14 +140,14 @@ export class SketchMode {
   private showMarks = true;
   private undoStack: string[] = [];
   private group = new THREE.Group();
-  private normal = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.line, linewidth: 2, depthTest: false }));
-  private construction = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.construction, linewidth: 2, depthTest: false }));
-  private placed = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.placed, linewidth: 2, depthTest: false }));
-  private marked = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.selected, linewidth: 3, depthTest: false }));
+  private normal = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.line, linewidth: 2, depthTest: false, transparent: true }));
+  private construction = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.construction, linewidth: 2, depthTest: false, transparent: true }));
+  private placed = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.placed, linewidth: 2, depthTest: false, transparent: true }));
+  private marked = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.selected, linewidth: 3, depthTest: false, transparent: true }));
   /** The model's principal axes as they project onto the sketch plane (red x, green y, blue z). */
   private axes = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ linewidth: 1, vertexColors: true, depthTest: false, transparent: true, opacity: 0.7 }));
-  private pending = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.pending, linewidth: 2, depthTest: false }));
-  private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false }));
+  private pending = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.pending, linewidth: 2, depthTest: false, transparent: true }));
+  private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false, transparent: true }));
   private grid: THREE.Group | null = null;
   private gridUniforms: Record<string, THREE.IUniform> | null = null;
   private options = loadSketchOptions();
@@ -253,6 +254,7 @@ export class SketchMode {
     this.viewport.interceptor = { down: (e) => this.onDown(e), move: (e) => this.onMove(e), up: (e) => this.onUp(e) };
     this.viewport.onFrame2 = () => this.onFrame();
     this.render();
+    if (kept) void this.refreshProfiles();
     this.onToolChange?.();
     this.host.status(distortion ? distortion.note : "Sketch: choose a drawing tool in the top bar (Line, Rectangle, Circle, Arc)", !!distortion);
   }
@@ -323,6 +325,9 @@ export class SketchMode {
   exit() {
     if (!this.active) return;
     this.active = false;
+    this.valueField?.remove();
+    this.profileSeq++;
+    this.setProfiles([]);
     this.cancelBox();
     this.viewport.interceptor = null;
     this.viewport.onFrame2 = null;
@@ -1282,22 +1287,31 @@ export class SketchMode {
     this.render();
   }
 
-  private async applyConstraint(option: M.ConstraintOption) {
+  private async applyConstraint(chosen: M.ConstraintOption) {
+    const option = chosen.pick?.(this.s, this.selection) ?? chosen; // the smart dimension stands for one of the others
     const built = option.build(this.s, this.selection);
     if (!built) return;
-    if (option.dimension) {
-      const answer = await this.askNumber(option.label, option.initial!(this.s, this.selection));
-      if (answer === null) return;
-      built.value = answer.value;
-      if (answer.reference) built.reference = true;
-    }
+    // A dimension is created at once with its current value and opened for editing on the sketch (Escape keeps the value).
+    if (option.dimension) built.value = option.initial!(this.s, this.selection);
     this.pushUndo();
     const before = JSON.stringify(this.s);
-    const added = { id: M.nextId(this.s), ...built };
-    this.s.constraints.push(added);
+    const addedIds = new Set<number>();
+    for (const one of option.buildMany?.(this.s, this.selection) ?? [built]) {
+      const added = { id: M.nextId(this.s), ...one, ...(built.value !== undefined ? { value: built.value } : {}) };
+      this.s.constraints.push(added);
+      addedIds.add(added.id);
+    }
     const ok = await this.resolve();
+    if (ok && option.dimension) {
+      this.render();
+      const id = [...addedIds][0];
+      this.afterDraw(() => {
+        const at = this.overlay.labelOfConstraint(id);
+        if (at) this.editInline(id, at, true);
+      });
+    }
     if (!ok) {
-      const clash = this.s.constraints.filter((c) => this.failed.has(c.id) && c.id !== added.id).map((c) => M.describeConstraint(this.s, c));
+      const clash = this.s.constraints.filter((c) => this.failed.has(c.id) && !addedIds.has(c.id)).map((c) => M.describeConstraint(this.s, c));
       this.s = JSON.parse(before);
       this.undoStack.pop();
       await this.resolve();
@@ -1377,6 +1391,70 @@ export class SketchMode {
     document.body.append(dialog);
     this.settingsDialog = dialog;
     dialog.showModal();
+  }
+
+  /** Run `then` once the dimensions have been drawn (the overlay redraws every frame). */
+  private afterDraw(then: () => void) {
+    requestAnimationFrame(() => requestAnimationFrame(then));
+  }
+
+  private valueField: HTMLElement | null = null;
+
+  /** A number field on the sketch at a dimension's text. Enter sets the value (one undo step, or none more when `fresh`: the
+   * constraint was just created and its creation is the step); Escape or clicking away leaves the value as it is. */
+  private editInline(id: number, at: { x: number; y: number }, fresh = false) {
+    this.valueField?.remove();
+    const c = this.s.constraints.find((x) => x.id === id);
+    if (!c || c.value === undefined) return;
+    const box = document.createElement("div");
+    box.style.cssText = `position:absolute;left:${at.x}px;top:${at.y}px;transform:translate(-50%,-50%);z-index:20;font:13px system-ui,sans-serif`;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.inputMode = "decimal";
+    input.setAttribute("aria-label", M.describeConstraint(this.s, c).replace(/ = .*$/, ""));
+    input.style.cssText = "width:78px;padding:2px 5px;font:inherit;color:#ff8a1f;background:#1b1d22;border:1px solid #ff8a1f;border-radius:3px;outline:none;text-align:center";
+    input.value = String(parseFloat(c.value.toFixed(3)));
+    box.append(input);
+    for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "dblclick"]) box.addEventListener(type, (e) => e.stopPropagation());
+    const close = () => {
+      box.remove();
+      if (this.valueField === box) this.valueField = null;
+    };
+    input.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const value = parseValue(input.value);
+        if (value === null) {
+          input.style.borderColor = "#ff4d4d";
+          return;
+        }
+        close();
+        const change = (cs: M.SketchConstraint[]) => cs.map((x) => (x.id === id ? { ...x, value } : x));
+        const failure = "That value conflicts with other constraints, so it was not changed";
+        if (!fresh) void this.changeConstraints(change, failure);
+        else {
+          const before = JSON.stringify(this.s);
+          this.s.constraints = change(this.s.constraints);
+          void this.resolve().then(async (ok) => {
+            if (!ok) {
+              this.s = JSON.parse(before);
+              await this.resolve();
+              this.host.status(failure, true);
+            }
+            this.render();
+          });
+        }
+      }
+    });
+    input.addEventListener("blur", close);
+    this.valueField = box;
+    this.viewport.renderer.domElement.parentElement!.append(box);
+    input.focus();
+    input.select();
   }
 
   /** Change the value of an existing dimension; a value the other constraints refuse is undone. */
@@ -1587,6 +1665,40 @@ export class SketchMode {
     return this.runSolve();
   }
 
+  private profileFills: THREE.Mesh[] = [];
+  private profileSeq = 0;
+
+  /** The sketch's closed regions as view-only tinted faces, redrawn after every solve, so a closed profile shows at once. */
+  private async refreshProfiles() {
+    const seq = ++this.profileSeq;
+    let profiles: { positions: number[]; indices: number[] }[] = [];
+    try {
+      profiles = (await this.core.request<{ profiles: typeof profiles }>("sketch_profiles", { sketch: M.forSolver(this.s) })).profiles;
+    } catch {
+      // a sketch the core cannot split into regions simply shows none
+    }
+    if (seq === this.profileSeq && this.active) this.setProfiles(profiles);
+  }
+
+  private setProfiles(profiles: { positions: number[]; indices: number[] }[]) {
+    for (const old of this.profileFills) {
+      this.group.remove(old);
+      old.geometry.dispose();
+      (old.material as THREE.Material).dispose();
+    }
+    this.profileFills = profiles.map((m) => {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(m.positions, 3));
+      geometry.setIndex(m.indices);
+      const material = new THREE.MeshBasicMaterial({ color: 0x2fd4c0, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false, depthTest: false });
+      const fill = new THREE.Mesh(geometry, material);
+      fill.renderOrder = 3; // under the sketch lines (5) and axes (4), over the grid (1)
+      fill.frustumCulled = false;
+      this.group.add(fill);
+      return fill;
+    });
+  }
+
   private async runSolve(): Promise<boolean> {
     this.solving = true;
     let ok = true;
@@ -1616,6 +1728,7 @@ export class SketchMode {
           this.failed.clear();
           if (reply.freedom) this.freedom = new Map(Object.entries(reply.freedom).map(([id, n]) => [Number(id), n]));
           ok = true;
+          if (!job.drag) void this.refreshProfiles();
         } else if (!job.drag) {
           this.failed = new Set([...reply.failed, ...(reply.conflicts ?? [])].filter((x): x is number => x !== null));
           ok = false;
@@ -1827,7 +1940,11 @@ export class SketchMode {
     this.points.geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
     this.points.geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
     this.points.geometry.computeBoundingSphere();
-    this.overlay.set([...M.dimensionsOf(this.s), ...(this.showMarks ? M.constraintMarks(this.s) : []), ...this.liveDimensions()]);
+    const dimensions = M.dimensionsOf(this.s).map((d) => {
+      const c = this.s.constraints.find((x) => x.id === d.constraint);
+      return c && !c.reference && c.value !== undefined ? { ...d, activate: (at: { x: number; y: number }) => this.editInline(c.id, at) } : d;
+    });
+    this.overlay.set([...dimensions, ...(this.showMarks ? M.constraintMarks(this.s) : []), ...this.liveDimensions()]);
     if (panel) this.renderPanel();
   }
 

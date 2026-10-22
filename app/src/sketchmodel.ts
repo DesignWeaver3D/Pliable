@@ -109,6 +109,10 @@ export interface ConstraintOption {
   label: string;
   /** Builds the constraint from the selection, or null if this option does not fit it. */
   build(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id"> | null;
+  /** When the selection takes several constraints at once, all of them (applied as one undo step). Falls back to `build`. */
+  buildMany?(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[];
+  /** For the smart dimension: the specific dimension option the selection stands for (the dialog and the constraint come from it). */
+  pick?(s: SketchData, sel: SketchSel[]): ConstraintOption | null;
   /** For dimensions: the value the dialog starts with, from the current geometry. */
   initial?(s: SketchData, sel: SketchSel[]): number;
   dimension?: boolean;
@@ -153,6 +157,11 @@ export function measure(s: SketchData, c: SketchConstraint): number | null {
       return entity ? 2 * radiusOf(s, entity) : null;
     case "point_line_distance":
       return line && c.point !== undefined ? pointLineDistance(s, c.point, line) : null;
+    case "axis_angle": {
+      if (!line) return null;
+      const [a, b] = [pointOf(s, line.a), pointOf(s, line.b)];
+      return (Math.acos((b.u - a.u) / (Math.hypot(b.u - a.u, b.v - a.v) || 1)) * 180) / Math.PI;
+    }
     case "angle": {
       const [a, b] = (c.entities ?? []).map((id) => s.entities.find((e) => e.id === id));
       if (!a || !b || a.type !== "line" || b.type !== "line") return null;
@@ -164,11 +173,79 @@ export function measure(s: SketchData, c: SketchConstraint): number | null {
   return null;
 }
 
+/** The selected lines that may still take a horizontal or vertical constraint, when two or more lines are selected. */
+function freeLines(s: SketchData, sel: SketchSel[]): Extract<SketchEntity, { type: "line" }>[] {
+  const es = entities(s, sel);
+  if (es.length < 2 || !only(es, "line") || pts(sel).length) return [];
+  const held = (id: number) => s.constraints.some((c) => c.entity === id && (c.type === "horizontal" || c.type === "vertical"));
+  return (es as Extract<SketchEntity, { type: "line" }>[]).filter((l) => !l.reference && !held(l.id));
+}
+
+/** Which points are already made coincident with each other (their groups), from the existing constraints. */
+function coincidentGroups(s: SketchData): Map<number, number> {
+  const root = new Map<number, number>();
+  const find = (a: number): number => (root.get(a) ?? a) === a ? a : find(root.get(a)!);
+  for (const c of s.constraints) if (c.type === "coincident" && c.points) root.set(find(c.points[0]), find(c.points[1]));
+  return new Map(s.points.map((p) => [p.id, find(p.id)]));
+}
+
+/** Coincident for the selection: several points are joined to the first; points and curves put each point on each curve. */
+function coincidences(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[] {
+  const p = pts(sel);
+  const es = entities(s, sel);
+  if (!es.length) {
+    if (p.length < 2) return [];
+    const groups = coincidentGroups(s);
+    return p.slice(1).filter((q) => groups.get(q) !== groups.get(p[0])).map((q) => ({ type: "coincident", points: [p[0], q] }));
+  }
+  if (!p.length || !only(es, "line", "circle", "arc")) return [];
+  return es.flatMap((e) => p.filter((q) => !entityPoints(e).includes(q) && !s.constraints.some((c) => c.type === "point_on" && c.point === q && c.entity === e.id)).map((q) => ({ type: "point_on", point: q, entity: e.id })));
+}
+
+/** Tangent or collinear, whichever fits the selection: lines are made collinear with the first; a curve and a line or curve are made tangent
+ * (for more than two items, only those that meet at a point). */
+function tangentOrCollinear(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[] {
+  const es = entities(s, sel);
+  if (es.length < 2 || pts(sel).length || !only(es, "line", "arc", "circle")) return [];
+  const has = (type: string, a: number, b: number) => s.constraints.some((c) => c.type === type && c.entities?.includes(a) && c.entities?.includes(b));
+  if (es.every((e) => e.type === "line")) {
+    return es.slice(1).filter((e) => !e.reference && !has("collinear", es[0].id, e.id)).map((e) => ({ type: "collinear", entities: [es[0].id, e.id] }));
+  }
+  const groups = coincidentGroups(s);
+  const meet = (a: SketchEntity, b: SketchEntity) => entityPoints(a).some((p) => entityPoints(b).some((q) => groups.get(p) === groups.get(q)));
+  const out: Omit<SketchConstraint, "id">[] = [];
+  for (let i = 0; i < es.length; i++) {
+    for (let j = i + 1; j < es.length; j++) {
+      const [a, b] = [es[i], es[j]];
+      if (a.type === "line" && b.type === "line") continue;
+      if ((es.length === 2 || meet(a, b)) && !has("tangent", a.id, b.id)) out.push({ type: "tangent", entities: [a.id, b.id] });
+    }
+  }
+  return out;
+}
+
+/** Whether a line lies nearer the horizontal (true) or the vertical axis of the sketch. */
+function nearHorizontal(s: SketchData, l: Extract<SketchEntity, { type: "line" }>): boolean {
+  const [a, b] = [pointOf(s, l.a), pointOf(s, l.b)];
+  return Math.abs(b.u - a.u) >= Math.abs(b.v - a.v);
+}
+
 /** The table that decides which constraint buttons appear for a selection. Edit here to add or reorder. */
 export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
   {
-    label: "Horizontal",
+    label: "Horizontal / vertical",
     build: (s, sel) => {
+      const l = freeLines(s, sel)[0];
+      return l ? { type: nearHorizontal(s, l) ? "horizontal" : "vertical", entity: l.id } : null;
+    },
+    buildMany: (s, sel) => freeLines(s, sel).map((l) => ({ type: nearHorizontal(s, l) ? "horizontal" : "vertical", entity: l.id })),
+  },
+  {
+    label: "Horizontal",
+    buildMany: (s, sel) => freeLines(s, sel).map((l) => ({ type: "horizontal", entity: l.id })),
+    build: (s, sel) => {
+      const many = freeLines(s, sel);
+      if (many.length) return { type: "horizontal", entity: many[0].id };
       const es = entities(s, sel);
       if (es.length === 1 && only(es, "line") && !pts(sel).length) return { type: "horizontal", entity: es[0].id };
       const p = pts(sel);
@@ -177,7 +254,10 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
   },
   {
     label: "Vertical",
+    buildMany: (s, sel) => freeLines(s, sel).map((l) => ({ type: "vertical", entity: l.id })),
     build: (s, sel) => {
+      const many = freeLines(s, sel);
+      if (many.length) return { type: "vertical", entity: many[0].id };
       const es = entities(s, sel);
       if (es.length === 1 && only(es, "line") && !pts(sel).length) return { type: "vertical", entity: es[0].id };
       const p = pts(sel);
@@ -186,7 +266,8 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
   },
   {
     label: "Coincident",
-    build: (s, sel) => (pts(sel).length === 2 && !entities(s, sel).length ? { type: "coincident", points: pts(sel) } : null),
+    buildMany: (s, sel) => coincidences(s, sel),
+    build: (s, sel) => coincidences(s, sel)[0] ?? null,
   },
   {
     label: "Fixed",
@@ -216,14 +297,9 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     },
   },
   {
-    label: "Tangent",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      if (es.length !== 2 || pts(sel).length) return null;
-      const round = es.filter((e) => e.type === "arc" || e.type === "circle").length;
-      const lines = es.filter((e) => e.type === "line").length;
-      return (round === 1 && lines === 1) || round === 2 ? { type: "tangent", entities: es.map((e) => e.id) } : null;
-    },
+    label: "Tangent / collinear",
+    buildMany: (s, sel) => tangentOrCollinear(s, sel),
+    build: (s, sel) => tangentOrCollinear(s, sel)[0] ?? null,
   },
   {
     label: "Point on",
@@ -237,13 +313,6 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     build: (s, sel) => {
       const es = entities(s, sel);
       return es.length === 1 && only(es, "line") && pts(sel).length === 1 ? { type: "midpoint", point: pts(sel)[0], entity: es[0].id } : null;
-    },
-  },
-  {
-    label: "Collinear",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      return es.length === 2 && only(es, "line") && !pts(sel).length ? { type: "collinear", entities: es.map((e) => e.id) } : null;
     },
   },
   {
@@ -313,6 +382,15 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     },
   },
   {
+    label: "Angle to horizontal axis",
+    dimension: true,
+    build: (s, sel) => {
+      const es = entities(s, sel);
+      return es.length === 1 && only(es, "line") && !pts(sel).length ? { type: "axis_angle", entity: es[0].id } : null;
+    },
+    initial: (s, sel) => Math.round(measure(s, { id: 0, type: "axis_angle", entity: entities(s, sel)[0].id })! * 1000) / 1000,
+  },
+  {
     label: "Short radius",
     dimension: true,
     build: (s, sel) => {
@@ -356,9 +434,30 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
   },
 ];
 
+/** The smart dimension: one button that dimensions whatever is selected. A line or two points: length; an arc: radius; a circle: diameter;
+ * two lines: the angle between them; a point and a line: the distance from the point to the line; an ellipse: its short radius. */
+const SMART_ORDER = ["Length / distance", "Radius", "Diameter", "Angle", "Point to line distance", "Short radius"];
+const SMART_DIMENSION: ConstraintOption = {
+  label: "Dimension",
+  dimension: true,
+  pick: (s, sel) => {
+    const es = entities(s, sel);
+    const circle = es.length === 1 && es[0].type === "circle";
+    for (const label of SMART_ORDER) {
+      if (label === "Radius" && circle) continue; // a circle is dimensioned by its diameter
+      if (label === "Diameter" && !circle) continue; // an arc by its radius
+      const option = CONSTRAINT_OPTIONS.find((o) => o.label === label)!;
+      if (option.build(s, sel)) return option;
+    }
+    return null;
+  },
+  build: (s, sel) => SMART_DIMENSION.pick!(s, sel)?.build(s, sel) ?? null,
+  initial: (s, sel) => SMART_DIMENSION.pick!(s, sel)!.initial!(s, sel),
+};
+
 /** Constraint options that fit a selection. */
 export function optionsFor(s: SketchData, sel: SketchSel[]): ConstraintOption[] {
-  return sel.length === 0 ? [] : CONSTRAINT_OPTIONS.filter((o) => o.build(s, sel) !== null);
+  return sel.length === 0 ? [] : [...CONSTRAINT_OPTIONS, SMART_DIMENSION].filter((o) => o.build(s, sel) !== null);
 }
 
 export function describeConstraint(s: SketchData, c: SketchConstraint): string {
@@ -384,6 +483,7 @@ export function describeConstraint(s: SketchData, c: SketchConstraint): string {
     radius: "Radius",
     diameter: "Diameter",
     angle: "Angle",
+    axis_angle: "Angle to horizontal axis",
   };
   const refs = [...(c.points ?? []).map((p) => `p${p}`), ...(c.point !== undefined ? [`p${c.point}`] : []), ...(c.entity !== undefined ? [`#${c.entity}`] : []), ...(c.entities ?? []).map((e) => `#${e}`)];
   void s;
@@ -399,6 +499,7 @@ export function dimensionsOf(s: SketchData): Dimension[] {
   for (const c of s.constraints) {
     const value = c.reference ? measure(s, c) : c.value;
     if (value === undefined || value === null) continue;
+    const first = out.length;
     const text = c.reference ? `(${parseFloat(value.toFixed(3))})` : parseFloat(value.toFixed(3)).toString();
     const entity = s.entities.find((e) => e.id === c.entity);
     if (c.type === "distance") {
@@ -416,6 +517,15 @@ export function dimensionsOf(s: SketchData): Dimension[] {
       // The dimension runs along the projected leg (a to corner) and sits on the side away from the other point.
       const away = horizontal ? (pb.v >= pa.v ? -1 : 1) : pb.u >= pa.u ? -1 : 1;
       out.push({ kind: "linear", text, points: [a, corner], offsetDirection: side.map((x) => x * away) });
+    } else if (c.type === "axis_angle" && entity && entity.type === "line") {
+      const [a, b] = [pointOf(s, entity.a), pointOf(s, entity.b)];
+      out.push({ kind: "tag", text: `∠${text}°`, points: [toWorld(s.plane, (a.u + b.u) / 2, (a.v + b.v) / 2)] });
+    } else if (c.type === "angle" && c.entities?.length === 2) {
+      const lines = c.entities.map((id) => s.entities.find((e) => e.id === id));
+      if (lines.every((l) => l?.type === "line")) {
+        const mids = (lines as Extract<SketchEntity, { type: "line" }>[]).map((l) => [(pointOf(s, l.a).u + pointOf(s, l.b).u) / 2, (pointOf(s, l.a).v + pointOf(s, l.b).v) / 2]);
+        out.push({ kind: "tag", text: `∠${text}°`, points: [toWorld(s.plane, (mids[0][0] + mids[1][0]) / 2, (mids[0][1] + mids[1][1]) / 2)] });
+      }
     } else if (c.type === "minor_radius" && entity && entity.type === "ellipse") {
       const [m, o] = [pointOf(s, entity.center), pointOf(s, entity.major)];
       const length = Math.hypot(o.u - m.u, o.v - m.v) || 1;
@@ -434,6 +544,7 @@ export function dimensionsOf(s: SketchData): Dimension[] {
       if (c.type === "radius") out.push({ kind: "radius", text: `R${text}`, points: [center, rim] });
       else out.push({ kind: "diameter", text: `⌀${text}`, points: [[0, 1, 2].map((k) => 2 * center[k] - rim[k]), rim] });
     }
+    for (const made of out.slice(first)) made.constraint = c.id;
   }
   return out;
 }
