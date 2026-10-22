@@ -296,7 +296,7 @@ class Autosaver:
                 document = Document.from_states(shapes, meta["ids"], int(meta["index"]), meta["name"], saved, meta.get("sketches"), meta.get("sketch_next"))
             else:
                 projects = [unpack((claimed / f"state_{i}.plbl").read_bytes()) for i in meta["ids"]]
-                document = Document.from_states([p.shape for p in projects], meta["ids"], int(meta["index"]), meta["name"], [p.bodies for p in projects], [p.sketches for p in projects], max(p.sketch_next for p in projects), projects[-1].other, [p.datums for p in projects], max(p.datum_next for p in projects))
+                document = Document.from_states([p.shape for p in projects], meta["ids"], int(meta["index"]), meta["name"], [p.bodies for p in projects], [p.sketches for p in projects], max(p.sketch_next for p in projects), projects[-1].other, [p.datums for p in projects], max(p.datum_next for p in projects), [p.mirror for p in projects])
         except (OSError, ValueError, KeyError, IndexError, ProjectFileError):
             log.exception("restore failed")
             return None

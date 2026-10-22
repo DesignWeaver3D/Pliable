@@ -7,6 +7,12 @@ export interface DatumPlane {
   plane: { origin: [number, number, number]; normal: [number, number, number]; xdir: [number, number, number] };
 }
 
+/** Mirror modeling mode while it is on: the plane changes are repeated across. */
+export interface MirrorMode {
+  name: string;
+  plane: DatumPlane["plane"];
+}
+
 /** Half the side of a drawn datum plane, in model units. */
 export const DATUM_HALF = 60;
 

@@ -14,7 +14,7 @@ import { DimensionOverlay, type Dimension } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
 import { DatumPlanes } from "./datumplanes";
-import type { DatumPlane } from "./datumcorners";
+import type { DatumPlane, MirrorMode } from "./datumcorners";
 import { LatestWins } from "./latestwins";
 import { LENGTH_UNIT } from "./units";
 import { SETTING_ENTRIES, createSettingsWindow, onSettingsChange, openSettings, setHintsBinding, setKeysOpener, settingValue, settings } from "./settings";
@@ -582,7 +582,7 @@ let focusState: FocusState | null = null;
 
 /** Tells the list of kept sketches what the document holds; set once that list exists. */
 let onSketches: (list: { id: number; name: string; rev: number }[]) => void = () => {};
-let onDatums: (list: DatumPlane[]) => void = () => {};
+let onDatums: (list: DatumPlane[], mirror: MirrorMode | null) => void = () => {};
 
 /** The dimensions of the committed model's measurement, and whether a preview's own are on screen instead. */
 let measuredDims: Dimension[] = [];
@@ -607,7 +607,7 @@ function show(mesh: MeshData, frame = false) {
   if (!mesh.header.preview) {
     bodyList.setBodies(bodiesOf(mesh), hiddenBodies, ghostBodies, focusState?.body ?? null);
     onSketches(mesh.header.sketches ?? []);
-    onDatums(mesh.header.datums ?? []);
+    onDatums(mesh.header.datums ?? [], mesh.header.mirror ?? null);
   }
   undoButton.disabled = !mesh.header.canUndo;
   redoButton.disabled = !mesh.header.canRedo;
@@ -1260,6 +1260,10 @@ function commands(): Command[] {
     { label: "Import STEP file (add to model)", scope: "file", enabled: true, run: () => $("open").click() },
     { label: "Open STEP file as new model", scope: "file", enabled: true, run: () => $("openasnew").click() },
     ...(["XY", "XZ", "YZ"] as const).map((plane) => ({ label: `Add datum plane: ${plane} origin plane`, scope: "file" as const, keywords: ["helper plane", "construction", "mirror"], enabled: true, run: () => addDatum({ plane }) })),
+    ...(["XY", "XZ", "YZ"] as const).map((plane) => ({ label: `Mirror mode on: ${plane} origin plane`, scope: "file" as const, keywords: ["symmetry", "symmetric", "mirror"], enabled: true, run: () => keptRequest("mirror_set", { plane }) })),
+    { label: "Mirror mode on: the selected face", scope: "file", keywords: ["symmetry", "symmetric", "mirror"], enabled: currentSels.length === 1 && currentSels[0].kind === "face", run: () => keptRequest("mirror_set", { face: currentSels[0].id, name: "Selected face" }) },
+    ...datumPlanes.planes.map((d) => ({ label: `Mirror mode on: datum plane ${d.name}`, scope: "file" as const, keywords: ["symmetry", "symmetric", "mirror"], enabled: true, run: () => keptRequest("mirror_set", { datum_id: d.id }) })),
+    { label: "Mirror mode off", scope: "file", keywords: ["symmetry", "symmetric", "mirror"], enabled: true, run: () => keptRequest("mirror_clear", {}) },
     { label: "Add datum plane on the selected face", scope: "file", keywords: ["helper plane", "construction", "mirror"], enabled: currentSels.length === 1 && currentSels[0].kind === "face", run: () => addDatum({ face: currentSels[0].id }) },
     { label: "Add datum plane midway between two selected faces", scope: "file", keywords: ["helper plane", "construction", "mirror", "middle"], enabled: currentSels.length === 2 && currentSels.every((s) => s.kind === "face"), run: () => addDatum({ midplane: currentSels.map((s) => s.id) }) },
     { label: "Export STEP file", scope: "file", enabled: true, run: () => exportAs("export_step", "step") },
@@ -1337,10 +1341,15 @@ const datumPlanes = new DatumPlanes({
   scene: viewport.scene,
   list: $("datumlist"),
   count: $("datumcount"),
+  mirror: $("mirrorstate"),
+  mirrorOff: () => keptRequest("mirror_clear", {}),
   remove: (id) => keptRequest("datum_delete", { datum_id: id }),
   rename: (id, name) => keptRequest("datum_rename", { datum_id: id, name }),
 });
-onDatums = (list) => datumPlanes.setList(list);
+onDatums = (list, mirror) => {
+  datumPlanes.setList(list);
+  datumPlanes.setMirror(mirror);
+};
 $("datumhead").addEventListener("click", () => {
   const head = $("datumhead");
   head.setAttribute("aria-expanded", String(head.getAttribute("aria-expanded") !== "true"));

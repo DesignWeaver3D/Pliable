@@ -36,6 +36,7 @@ from .features import combine, finish
 from .files import part_names, read_step_parts, read_step_tree, write_mesh, write_step
 from OCP.gp import gp_Vec
 from .measure import measure, model_info
+from .mirrormode import mirror_result
 from .ops import OperationError, solids_of
 from .protocol import encode_mesh
 from .edgesel import edge_loops, edge_ring, outer_loop, face_edges, face_loops, region_boundary, shared_loop, sharp_edges
@@ -96,6 +97,7 @@ class Session:
             header["canRedo"] = self.document.can_redo
             header["sketches"] = self.document.sketch_list()
             header["datums"] = self.document.datum_list()
+            header["mirror"] = self.document.mirror
         return encode_mesh(header, mesh)
 
     def _open(self, shape, name: str) -> bytes:
@@ -277,6 +279,8 @@ class Session:
             return {"sketch_id": found["id"], "name": found["name"], "rev": found["rev"], "sketch": found["sketch"]}
         if kind in ("sketch_delete", "sketch_rename"):
             return self._sketch_edit(request, kind)
+        if kind in ("mirror_set", "mirror_clear"):
+            return self._mirror_edit(request, kind)
         if kind in ("datum_add", "datum_rename", "datum_delete", "datum_move"):
             return self._datum_edit(request, kind)
         if kind == "dimension_edit":
@@ -567,6 +571,24 @@ class Session:
         gap = sum((q - p) * k for p, q, k in zip(first["origin"], second["origin"], n))
         return sketch.offset_plane(first, gap / 2)
 
+    def _mirror_edit(self, request: dict, kind: str) -> bytes:
+        """Turn mirror mode on for a plane (a datum plane by `datum_id`, else any plane a datum could be made on) or off."""
+        document = self._require_document()
+        if kind == "mirror_clear":
+            mirror = None
+        elif request.get("datum_id") is not None:
+            try:
+                entry = next(e for e in document.datum_list() if e["id"] == int(request["datum_id"]))
+            except (StopIteration, ValueError, TypeError) as e:
+                raise RequestError("No such datum plane") from e
+            mirror = {"name": entry["name"], "plane": entry["plane"]}
+        else:
+            name = str(request.get("name") or "").strip() or (f"{request['plane']} origin plane" if "plane" in request else "Mirror plane")
+            mirror = {"name": name, "plane": self._datum_plane(request)}
+        target = document.set_mirror(mirror)
+        self._autosave()
+        return self._mesh_reply(target, {}, preview=False)
+
     def _datum_edit(self, request: dict, kind: str) -> bytes:
         document = self._require_document()
         entries = document.datum_list()
@@ -629,6 +651,8 @@ class Session:
                 result = sketch.extrude(document.current.shape, content, float(request["distance"]), str(request.get("mode", "new")), bool(request.get("symmetric")))
         except (KeyError, TypeError, ValueError) as e:
             raise RequestError(f"Malformed sketch request: {e!r}") from e
+        if document.mirror:
+            result = mirror_result(document.current.shape, result, document.mirror["plane"])
         timings = {"opMs": _ms(start)}
         body_kind = "Revolution" if "axis" in request else "Extrusion"
         extra = {}
@@ -720,6 +744,8 @@ class Session:
             self.last_tool["error"] = diagnostics.scrub(f"{type(e).__name__}: {e}")
             raise
         self.last_tool["ok"] = True
+        if document.mirror and not result.moved:
+            result = mirror_result(topology.shape, result, document.mirror["plane"])
         timings = {"opMs": _ms(start)}
         body_kind, ordered = tool.body_kind, tool.keeps_body_order
         change = self._recipe_change(tool, topology, selection, request.get("params") or {}, result)

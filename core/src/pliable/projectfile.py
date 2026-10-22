@@ -28,7 +28,7 @@ from .bodies import BodyState
 FORMAT = 1
 KIND = "pliable-project"
 EXTENSION = ".plbl"
-KNOWN_OBJECTS = ("bodies", "sketches", "sketch_next", "datums", "datum_next")  # the rest of `objects` is carried through untouched
+KNOWN_OBJECTS = ("bodies", "sketches", "sketch_next", "datums", "datum_next", "mirror")  # the rest of `objects` is carried through untouched
 
 
 class ProjectFileError(ValueError):
@@ -44,6 +44,7 @@ class Project:
     sketch_next: int = 1
     datums: list[dict] = field(default_factory=list)  # datum planes: {id, name, plane}
     datum_next: int = 1
+    mirror: dict | None = None  # mirror modeling mode: {name, plane} while on
     other: dict = field(default_factory=dict)  # object types this release does not know, kept for saving again
 
 
@@ -80,6 +81,7 @@ def pack(project: Project) -> bytes:
     objects["sketch_next"] = project.sketch_next
     objects["datums"] = project.datums
     objects["datum_next"] = project.datum_next
+    objects["mirror"] = project.mirror
     manifest = {"kind": KIND, "format": FORMAT, "name": project.name, "model": "model.brep", "objects": objects}
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
@@ -113,5 +115,6 @@ def unpack(data: bytes) -> Project:
         int(objects.get("sketch_next") or 1),
         list(objects.get("datums") or []),
         int(objects.get("datum_next") or 1),
+        objects.get("mirror") or None,
         {k: v for k, v in objects.items() if k not in KNOWN_OBJECTS},
     )

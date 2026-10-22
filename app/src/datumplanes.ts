@@ -2,21 +2,26 @@
  *  in the view as a thin outlined square. They are helper planes for operations such as symmetric push/pull and mirror. */
 import * as THREE from "three";
 import { uiIcon } from "./icons";
-import { datumCorners, type DatumPlane } from "./datumcorners";
+import { DATUM_HALF, datumCorners, type DatumPlane, type MirrorMode } from "./datumcorners";
 
 export interface DatumHost {
   scene: THREE.Scene;
   list: HTMLElement;
   count: HTMLElement;
+  /** Where the mirror mode line goes (empty while the mode is off). */
+  mirror: HTMLElement;
+  mirrorOff(): void;
   remove(id: number): void;
   rename(id: number, name: string): void;
 }
 
 const DATUM_COLOR = 0xd49bd0;
+const MIRROR_COLOR = 0xffb347;
 export class DatumPlanes {
   private list: DatumPlane[] = [];
   private readonly hidden = new Set<number>();
   private readonly group = new THREE.Group();
+  private mirror: MirrorMode | null = null;
   private readonly host: DatumHost;
 
   constructor(host: DatumHost) {
@@ -24,6 +29,30 @@ export class DatumPlanes {
     this.group.renderOrder = 3;
     host.scene.add(this.group);
     this.render();
+  }
+
+  get planes(): readonly DatumPlane[] {
+    return this.list;
+  }
+
+  /** Mirror mode changed (every committed state): show its plane and a line to turn it off. */
+  setMirror(mirror: MirrorMode | null) {
+    if (JSON.stringify(mirror) === JSON.stringify(this.mirror)) return;
+    this.mirror = mirror;
+    const line = this.host.mirror;
+    line.replaceChildren();
+    if (mirror) {
+      const text = document.createElement("span");
+      text.textContent = `Mirror mode: ${mirror.name}`;
+      const off = document.createElement("button");
+      off.className = "rowbtn";
+      off.title = "Turn mirror mode off";
+      off.append(uiIcon("close", 14));
+      off.addEventListener("click", () => this.host.mirrorOff());
+      line.append(text, off);
+    }
+    line.hidden = !mirror;
+    this.draw();
   }
 
   /** The document's datum planes changed (every committed state, so undo and redo come through here too). */
@@ -53,6 +82,13 @@ export class DatumPlanes {
       outline.renderOrder = 4;
       outline.frustumCulled = false;
       this.group.add(sheet, outline);
+    }
+    if (this.mirror) {
+      const c = datumCorners(this.mirror.plane, DATUM_HALF * 1.15);
+      const outline = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(c.map((p) => new THREE.Vector3(...p))), new THREE.LineBasicMaterial({ color: MIRROR_COLOR, transparent: true, opacity: 0.9, depthTest: false }));
+      outline.renderOrder = 4;
+      outline.frustumCulled = false;
+      this.group.add(outline);
     }
   }
 
