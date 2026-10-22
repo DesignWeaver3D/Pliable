@@ -139,14 +139,14 @@ export class SketchMode {
   private showMarks = true;
   private undoStack: string[] = [];
   private group = new THREE.Group();
-  private normal = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.line, linewidth: 2, depthTest: false }));
-  private construction = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.construction, linewidth: 2, depthTest: false }));
-  private placed = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.placed, linewidth: 2, depthTest: false }));
-  private marked = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.selected, linewidth: 3, depthTest: false }));
+  private normal = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.line, linewidth: 2, depthTest: false, transparent: true }));
+  private construction = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.construction, linewidth: 2, depthTest: false, transparent: true }));
+  private placed = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.placed, linewidth: 2, depthTest: false, transparent: true }));
+  private marked = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.selected, linewidth: 3, depthTest: false, transparent: true }));
   /** The model's principal axes as they project onto the sketch plane (red x, green y, blue z). */
   private axes = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ linewidth: 1, vertexColors: true, depthTest: false, transparent: true, opacity: 0.7 }));
-  private pending = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.pending, linewidth: 2, depthTest: false }));
-  private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false }));
+  private pending = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.pending, linewidth: 2, depthTest: false, transparent: true }));
+  private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false, transparent: true }));
   private grid: THREE.Group | null = null;
   private gridUniforms: Record<string, THREE.IUniform> | null = null;
   private options = loadSketchOptions();
