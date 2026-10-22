@@ -1293,11 +1293,15 @@ export class SketchMode {
     }
     this.pushUndo();
     const before = JSON.stringify(this.s);
-    const added = { id: M.nextId(this.s), ...built };
-    this.s.constraints.push(added);
+    const addedIds = new Set<number>();
+    for (const one of option.buildMany?.(this.s, this.selection) ?? [built]) {
+      const added = { id: M.nextId(this.s), ...one, ...(built.value !== undefined ? { value: built.value } : {}) };
+      this.s.constraints.push(added);
+      addedIds.add(added.id);
+    }
     const ok = await this.resolve();
     if (!ok) {
-      const clash = this.s.constraints.filter((c) => this.failed.has(c.id) && c.id !== added.id).map((c) => M.describeConstraint(this.s, c));
+      const clash = this.s.constraints.filter((c) => this.failed.has(c.id) && !addedIds.has(c.id)).map((c) => M.describeConstraint(this.s, c));
       this.s = JSON.parse(before);
       this.undoStack.pop();
       await this.resolve();

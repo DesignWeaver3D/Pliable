@@ -109,6 +109,8 @@ export interface ConstraintOption {
   label: string;
   /** Builds the constraint from the selection, or null if this option does not fit it. */
   build(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id"> | null;
+  /** When the selection takes several constraints at once, all of them (applied as one undo step). Falls back to `build`. */
+  buildMany?(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[];
   /** For dimensions: the value the dialog starts with, from the current geometry. */
   initial?(s: SketchData, sel: SketchSel[]): number;
   dimension?: boolean;
@@ -164,11 +166,36 @@ export function measure(s: SketchData, c: SketchConstraint): number | null {
   return null;
 }
 
+/** The selected lines that may still take a horizontal or vertical constraint, when two or more lines are selected. */
+function freeLines(s: SketchData, sel: SketchSel[]): Extract<SketchEntity, { type: "line" }>[] {
+  const es = entities(s, sel);
+  if (es.length < 2 || !only(es, "line") || pts(sel).length) return [];
+  const held = (id: number) => s.constraints.some((c) => c.entity === id && (c.type === "horizontal" || c.type === "vertical"));
+  return (es as Extract<SketchEntity, { type: "line" }>[]).filter((l) => !l.reference && !held(l.id));
+}
+
+/** Whether a line lies nearer the horizontal (true) or the vertical axis of the sketch. */
+function nearHorizontal(s: SketchData, l: Extract<SketchEntity, { type: "line" }>): boolean {
+  const [a, b] = [pointOf(s, l.a), pointOf(s, l.b)];
+  return Math.abs(b.u - a.u) >= Math.abs(b.v - a.v);
+}
+
 /** The table that decides which constraint buttons appear for a selection. Edit here to add or reorder. */
 export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
   {
-    label: "Horizontal",
+    label: "Horizontal / vertical",
     build: (s, sel) => {
+      const l = freeLines(s, sel)[0];
+      return l ? { type: nearHorizontal(s, l) ? "horizontal" : "vertical", entity: l.id } : null;
+    },
+    buildMany: (s, sel) => freeLines(s, sel).map((l) => ({ type: nearHorizontal(s, l) ? "horizontal" : "vertical", entity: l.id })),
+  },
+  {
+    label: "Horizontal",
+    buildMany: (s, sel) => freeLines(s, sel).map((l) => ({ type: "horizontal", entity: l.id })),
+    build: (s, sel) => {
+      const many = freeLines(s, sel);
+      if (many.length) return { type: "horizontal", entity: many[0].id };
       const es = entities(s, sel);
       if (es.length === 1 && only(es, "line") && !pts(sel).length) return { type: "horizontal", entity: es[0].id };
       const p = pts(sel);
@@ -177,7 +204,10 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
   },
   {
     label: "Vertical",
+    buildMany: (s, sel) => freeLines(s, sel).map((l) => ({ type: "vertical", entity: l.id })),
     build: (s, sel) => {
+      const many = freeLines(s, sel);
+      if (many.length) return { type: "vertical", entity: many[0].id };
       const es = entities(s, sel);
       if (es.length === 1 && only(es, "line") && !pts(sel).length) return { type: "vertical", entity: es[0].id };
       const p = pts(sel);

@@ -107,3 +107,5 @@ Decisions made without the owner or by the owner, grouped by topic. Each says wh
 
 - 2026-10-20 (unattended, S93): after a tab refresh the core's own parked model is resumed before any crash restore is offered; the crash-restore prompt now shows when the session was saved. Reason: the prompt was offering dead sessions of other (killed) test servers from the shared autosave folder while ignoring the model the live core still held.
 - Context strip (owner): it has no box behind it, fills each row from the left before starting the next, and spans from the bodies list edge to the nav cube group, wraps to at most two rows, and shows "... More" (opens the drawer filtered to usable tools) only when the usable tools would need a third row. The nav cube group sits at the top right, level with the strip.
+
+- 2026-10-22 (S99, provisional, owner away): with two or more lines selected the constraint row shows "Horizontal / vertical" (each line gets the kind nearer its direction, so every line gets one), then "Horizontal" and "Vertical" forcing all lines to that kind. Lines that already have one, and reference lines, are skipped. One line keeps the old single buttons.

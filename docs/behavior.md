@@ -56,6 +56,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Project model edges is a pick mode: pick faces and edges, Enter or the button projects, Escape cancels. Projected edges are snapshots.
 - A sketch dimension's value is a plain number; no expressions or named values yet.
 - Clicking a kept sketch's tinted region adds it as a temporary face; clicking away without using it undoes the pick.
+- Horizontal and vertical constraints apply to several selected lines at once; by default both kinds are applied as detected (nearly horizontal lines get horizontal, nearly vertical get vertical).
 
 ## Layout
 

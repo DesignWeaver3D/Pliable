@@ -102,3 +102,23 @@ test("forSolver leaves out reference curves and fixed points nothing uses", () =
   assert.deepEqual(out.points.map((p) => p.id), [1, 2, 3, 5, 6]);
   assert.deepEqual(out.entities.map((e) => e.id), [10, 12]);
 });
+
+test("horizontal and vertical apply to several selected lines, each as detected", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 1 }, { id: 3, u: 12, v: 0 }, { id: 4, u: 11, v: 9 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 3, b: 4 }],
+    constraints: [],
+  };
+  const sel = [{ kind: "entity", id: 10 }, { kind: "entity", id: 11 }];
+  const labels = optionsFor(s, sel).map((o) => o.label);
+  assert.deepEqual(labels.slice(0, 3), ["Horizontal / vertical", "Horizontal", "Vertical"]);
+  const byLabel = (l) => optionsFor(s, sel).find((o) => o.label === l);
+  assert.deepEqual(byLabel("Horizontal / vertical").buildMany(s, sel), [{ type: "horizontal", entity: 10 }, { type: "vertical", entity: 11 }]);
+  assert.deepEqual(byLabel("Vertical").buildMany(s, sel), [{ type: "vertical", entity: 10 }, { type: "vertical", entity: 11 }]);
+  // one line keeps the old single button and no combined one
+  assert.ok(!optionsFor(s, [sel[0]]).some((o) => o.label === "Horizontal / vertical"));
+  // a line that already has one is left out
+  const held = { ...s, constraints: [{ id: 5, type: "horizontal", entity: 10 }] };
+  assert.deepEqual(optionsFor(held, sel).find((o) => o.label === "Vertical").buildMany(held, sel), [{ type: "vertical", entity: 11 }]);
+});
