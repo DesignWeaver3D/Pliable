@@ -182,3 +182,16 @@ test("the smart dimension picks the dimension from the selection", () => {
   assert.equal(axis.initial(s, E(11)), 90);
   assert.equal(measure(s, { id: 1, type: "axis_angle", entity: 10 }), 0);
 });
+
+test("every dimension drawn on the sketch names its constraint, so it can be edited there", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 5, v: 5 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "circle", center: 3, radius: 2 }],
+    constraints: [
+      { id: 20, type: "distance", entity: 10, value: 10 }, { id: 21, type: "diameter", entity: 11, value: 4 },
+      { id: 22, type: "axis_angle", entity: 10, value: 0 }, { id: 23, type: "horizontal_distance", entity: 10, value: 10 },
+    ],
+  };
+  assert.deepEqual(dimensionsOf(s).map((d) => d.constraint), [20, 21, 22, 23]);
+});

@@ -12,6 +12,7 @@ import * as Chk from "./sketchcheck";
 import * as E from "./sketchedit";
 import * as M from "./sketchmodel";
 import * as Sh from "./sketchshapes";
+import { parseValue } from "./dimedit";
 import { uiIcon } from "./icons";
 import { LENGTH_UNIT } from "./units";
 import { usage } from "./usage";
@@ -323,6 +324,7 @@ export class SketchMode {
   exit() {
     if (!this.active) return;
     this.active = false;
+    this.valueField?.remove();
     this.cancelBox();
     this.viewport.interceptor = null;
     this.viewport.onFrame2 = null;
@@ -1286,12 +1288,8 @@ export class SketchMode {
     const option = chosen.pick?.(this.s, this.selection) ?? chosen; // the smart dimension stands for one of the others
     const built = option.build(this.s, this.selection);
     if (!built) return;
-    if (option.dimension) {
-      const answer = await this.askNumber(option.label, option.initial!(this.s, this.selection));
-      if (answer === null) return;
-      built.value = answer.value;
-      if (answer.reference) built.reference = true;
-    }
+    // A dimension is created at once with its current value and opened for editing on the sketch (Escape keeps the value).
+    if (option.dimension) built.value = option.initial!(this.s, this.selection);
     this.pushUndo();
     const before = JSON.stringify(this.s);
     const addedIds = new Set<number>();
@@ -1301,6 +1299,14 @@ export class SketchMode {
       addedIds.add(added.id);
     }
     const ok = await this.resolve();
+    if (ok && option.dimension) {
+      this.render();
+      const id = [...addedIds][0];
+      this.afterDraw(() => {
+        const at = this.overlay.labelOfConstraint(id);
+        if (at) this.editInline(id, at, true);
+      });
+    }
     if (!ok) {
       const clash = this.s.constraints.filter((c) => this.failed.has(c.id) && !addedIds.has(c.id)).map((c) => M.describeConstraint(this.s, c));
       this.s = JSON.parse(before);
@@ -1382,6 +1388,70 @@ export class SketchMode {
     document.body.append(dialog);
     this.settingsDialog = dialog;
     dialog.showModal();
+  }
+
+  /** Run `then` once the dimensions have been drawn (the overlay redraws every frame). */
+  private afterDraw(then: () => void) {
+    requestAnimationFrame(() => requestAnimationFrame(then));
+  }
+
+  private valueField: HTMLElement | null = null;
+
+  /** A number field on the sketch at a dimension's text. Enter sets the value (one undo step, or none more when `fresh`: the
+   * constraint was just created and its creation is the step); Escape or clicking away leaves the value as it is. */
+  private editInline(id: number, at: { x: number; y: number }, fresh = false) {
+    this.valueField?.remove();
+    const c = this.s.constraints.find((x) => x.id === id);
+    if (!c || c.value === undefined) return;
+    const box = document.createElement("div");
+    box.style.cssText = `position:absolute;left:${at.x}px;top:${at.y}px;transform:translate(-50%,-50%);z-index:20;font:13px system-ui,sans-serif`;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.inputMode = "decimal";
+    input.setAttribute("aria-label", M.describeConstraint(this.s, c).replace(/ = .*$/, ""));
+    input.style.cssText = "width:78px;padding:2px 5px;font:inherit;color:#ff8a1f;background:#1b1d22;border:1px solid #ff8a1f;border-radius:3px;outline:none;text-align:center";
+    input.value = String(parseFloat(c.value.toFixed(3)));
+    box.append(input);
+    for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "dblclick"]) box.addEventListener(type, (e) => e.stopPropagation());
+    const close = () => {
+      box.remove();
+      if (this.valueField === box) this.valueField = null;
+    };
+    input.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const value = parseValue(input.value);
+        if (value === null) {
+          input.style.borderColor = "#ff4d4d";
+          return;
+        }
+        close();
+        const change = (cs: M.SketchConstraint[]) => cs.map((x) => (x.id === id ? { ...x, value } : x));
+        const failure = "That value conflicts with other constraints, so it was not changed";
+        if (!fresh) void this.changeConstraints(change, failure);
+        else {
+          const before = JSON.stringify(this.s);
+          this.s.constraints = change(this.s.constraints);
+          void this.resolve().then(async (ok) => {
+            if (!ok) {
+              this.s = JSON.parse(before);
+              await this.resolve();
+              this.host.status(failure, true);
+            }
+            this.render();
+          });
+        }
+      }
+    });
+    input.addEventListener("blur", close);
+    this.valueField = box;
+    this.viewport.renderer.domElement.parentElement!.append(box);
+    input.focus();
+    input.select();
   }
 
   /** Change the value of an existing dimension; a value the other constraints refuse is undone. */
@@ -1832,7 +1902,11 @@ export class SketchMode {
     this.points.geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
     this.points.geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
     this.points.geometry.computeBoundingSphere();
-    this.overlay.set([...M.dimensionsOf(this.s), ...(this.showMarks ? M.constraintMarks(this.s) : []), ...this.liveDimensions()]);
+    const dimensions = M.dimensionsOf(this.s).map((d) => {
+      const c = this.s.constraints.find((x) => x.id === d.constraint);
+      return c && !c.reference && c.value !== undefined ? { ...d, activate: (at: { x: number; y: number }) => this.editInline(c.id, at) } : d;
+    });
+    this.overlay.set([...dimensions, ...(this.showMarks ? M.constraintMarks(this.s) : []), ...this.liveDimensions()]);
     if (panel) this.renderPanel();
   }
 

@@ -18,6 +18,10 @@ export interface Dimension {
   edit?: DimEdit;
   /** Why the value cannot be edited (the tooltip of a read-only measured dimension). */
   editNote?: string;
+  /** The sketch constraint this dimension shows (sketch dimensions only). */
+  constraint?: number;
+  /** Set when double-clicking the text or the dimension's lines runs this (the sketch's own inline editor), given where the text is. */
+  activate?: (at: { x: number; y: number }) => void;
 }
 
 const DIM_OFFSET_PX = 36; // distance of a linear dimension line from the measured points
@@ -84,7 +88,7 @@ export class DimensionOverlay {
     const cam = this.camera();
     cam.updateMatrixWorld();
     // The pointer only matters to labels that dodge it; the interactive ones (editable or explained) stay put under it.
-    const dodging = this.dims.some((d) => !d.edit && !d.editNote);
+    const dodging = this.dims.some((d) => !d.edit && !d.editNote && !d.activate);
     const state = [...cam.matrixWorld.elements, ...(cam as THREE.PerspectiveCamera).projectionMatrix.elements, rect.width, rect.height, dodging ? this.pointer?.x : 0, dodging ? this.pointer?.y : 0, this.editing].join(",");
     if (state === this.drawn) return; // nothing moved: rebuilding the SVG every frame made it flicker
     this.drawn = state;
@@ -111,6 +115,7 @@ export class DimensionOverlay {
         continue;
       }
       if (this.clash) continue;
+      if (d.activate) mine.push(...this.lineHits(d, mine));
       if (this.drewLabel) this.labelAt.set(index, this.drewLabel);
       parts.push(...mine);
       this.placed.push(...this.pending);
@@ -192,13 +197,19 @@ export class DimensionOverlay {
     r.setAttribute("width", String(half.x * 2));
     r.setAttribute("height", String(half.y * 2));
     r.setAttribute("rx", "3");
-    r.setAttribute("class", dim.edit ? "dimhit edit" : "dimhit");
+    r.setAttribute("class", dim.edit || dim.activate ? "dimhit edit" : "dimhit");
     const tip = document.createElementNS(NS, "title");
-    tip.textContent = dim.edit ? "Double-click to edit" : (dim.editNote ?? "");
+    tip.textContent = dim.edit || dim.activate ? "Double-click to edit" : (dim.editNote ?? "");
     r.append(tip);
     // The pointer gestures on the text belong to the text: they must not reach the viewport (which would clear the selection).
     for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup"]) r.addEventListener(type, (e) => e.stopPropagation());
-    if (dim.edit) {
+    if (dim.activate) {
+      r.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dim.activate!(at);
+      });
+    } else if (dim.edit) {
       r.addEventListener("dblclick", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -214,6 +225,32 @@ export class DimensionOverlay {
     return r;
   }
 
+  /** Wide invisible copies of a dimension's lines, so double-clicking the leader or dimension line edits it like the text does. */
+  private lineHits(d: Dimension, drawn: SVGElement[]): SVGElement[] {
+    const at = this.drewLabel;
+    return drawn
+      .filter((el) => el.tagName === "line")
+      .map((el) => {
+        const hit = el.cloneNode(false) as SVGElement;
+        hit.setAttribute("stroke", "rgba(255,138,31,0)");
+        hit.setAttribute("stroke-width", "12");
+        hit.setAttribute("style", "pointer-events:stroke;cursor:text");
+        for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup"]) hit.addEventListener(type, (e) => e.stopPropagation());
+        hit.addEventListener("dblclick", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (at) d.activate?.(at);
+        });
+        return hit;
+      });
+  }
+
+  /** Where the label of the dimension showing a sketch constraint was drawn last frame. */
+  labelOfConstraint(id: number): { x: number; y: number } | null {
+    for (const [index, p] of this.labelAt) if (this.dims[index]?.constraint === id) return p;
+    return null;
+  }
+
   /** Screen positions of the editable dimensions drawn last frame, in dimension order (for Tab to cycle through). */
   editableLabels(): { index: number; x: number; y: number }[] {
     return [...this.labelAt].filter(([i]) => this.dims[i].edit).map(([index, p]) => ({ index, x: p.x, y: p.y }));
@@ -225,7 +262,7 @@ export class DimensionOverlay {
 
   private label(at: V, text: string, out: SVGElement[], dotted: boolean, angle = 0) {
     const dim = this.dims[this.current];
-    const interactive = !!(dim?.edit || dim?.editNote);
+    const interactive = !!(dim?.edit || dim?.editNote || dim?.activate);
     let p = at;
     if (!interactive && this.pointer && len(sub(p, this.pointer)) < CURSOR_CLEAR_PX) {
       p = add(this.pointer, mul(unit(sub(p, this.pointer)), CURSOR_CLEAR_PX));

@@ -499,6 +499,7 @@ export function dimensionsOf(s: SketchData): Dimension[] {
   for (const c of s.constraints) {
     const value = c.reference ? measure(s, c) : c.value;
     if (value === undefined || value === null) continue;
+    const first = out.length;
     const text = c.reference ? `(${parseFloat(value.toFixed(3))})` : parseFloat(value.toFixed(3)).toString();
     const entity = s.entities.find((e) => e.id === c.entity);
     if (c.type === "distance") {
@@ -543,6 +544,7 @@ export function dimensionsOf(s: SketchData): Dimension[] {
       if (c.type === "radius") out.push({ kind: "radius", text: `R${text}`, points: [center, rim] });
       else out.push({ kind: "diameter", text: `⌀${text}`, points: [[0, 1, 2].map((k) => 2 * center[k] - rim[k]), rim] });
     }
+    for (const made of out.slice(first)) made.constraint = c.id;
   }
   return out;
 }
