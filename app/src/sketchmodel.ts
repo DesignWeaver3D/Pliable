@@ -174,6 +174,27 @@ function freeLines(s: SketchData, sel: SketchSel[]): Extract<SketchEntity, { typ
   return (es as Extract<SketchEntity, { type: "line" }>[]).filter((l) => !l.reference && !held(l.id));
 }
 
+/** Which points are already made coincident with each other (their groups), from the existing constraints. */
+function coincidentGroups(s: SketchData): Map<number, number> {
+  const root = new Map<number, number>();
+  const find = (a: number): number => (root.get(a) ?? a) === a ? a : find(root.get(a)!);
+  for (const c of s.constraints) if (c.type === "coincident" && c.points) root.set(find(c.points[0]), find(c.points[1]));
+  return new Map(s.points.map((p) => [p.id, find(p.id)]));
+}
+
+/** Coincident for the selection: several points are joined to the first; points and curves put each point on each curve. */
+function coincidences(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[] {
+  const p = pts(sel);
+  const es = entities(s, sel);
+  if (!es.length) {
+    if (p.length < 2) return [];
+    const groups = coincidentGroups(s);
+    return p.slice(1).filter((q) => groups.get(q) !== groups.get(p[0])).map((q) => ({ type: "coincident", points: [p[0], q] }));
+  }
+  if (!p.length || !only(es, "line", "circle", "arc")) return [];
+  return es.flatMap((e) => p.filter((q) => !entityPoints(e).includes(q) && !s.constraints.some((c) => c.type === "point_on" && c.point === q && c.entity === e.id)).map((q) => ({ type: "point_on", point: q, entity: e.id })));
+}
+
 /** Whether a line lies nearer the horizontal (true) or the vertical axis of the sketch. */
 function nearHorizontal(s: SketchData, l: Extract<SketchEntity, { type: "line" }>): boolean {
   const [a, b] = [pointOf(s, l.a), pointOf(s, l.b)];
@@ -216,7 +237,8 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
   },
   {
     label: "Coincident",
-    build: (s, sel) => (pts(sel).length === 2 && !entities(s, sel).length ? { type: "coincident", points: pts(sel) } : null),
+    buildMany: (s, sel) => coincidences(s, sel),
+    build: (s, sel) => coincidences(s, sel)[0] ?? null,
   },
   {
     label: "Fixed",

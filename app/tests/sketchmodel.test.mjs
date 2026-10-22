@@ -122,3 +122,21 @@ test("horizontal and vertical apply to several selected lines, each as detected"
   const held = { ...s, constraints: [{ id: 5, type: "horizontal", entity: 10 }] };
   assert.deepEqual(optionsFor(held, sel).find((o) => o.label === "Vertical").buildMany(held, sel), [{ type: "vertical", entity: 11 }]);
 });
+
+test("coincident joins several points, and puts points on an edge", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 1, v: 1 }, { id: 4, u: 2, v: 2 }, { id: 5, u: 5, v: 3 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }],
+    constraints: [],
+  };
+  const co = (sel, state = s) => optionsFor(state, sel).find((o) => o.label === "Coincident")?.buildMany(state, sel);
+  const P = (...ids) => ids.map((id) => ({ kind: "point", id }));
+  assert.deepEqual(co(P(3, 4, 5)), [{ type: "coincident", points: [3, 4] }, { type: "coincident", points: [3, 5] }]);
+  // points already joined are not joined again
+  const joined = { ...s, constraints: [{ id: 9, type: "coincident", points: [3, 4] }] };
+  assert.deepEqual(co(P(3, 4, 5), joined), [{ type: "coincident", points: [3, 5] }]);
+  // points with an edge: each point goes on the edge, except its own end points
+  assert.deepEqual(co([...P(1, 3, 4), { kind: "entity", id: 10 }]), [{ type: "point_on", point: 3, entity: 10 }, { type: "point_on", point: 4, entity: 10 }]);
+  assert.equal(co(P(3)), undefined);
+});
