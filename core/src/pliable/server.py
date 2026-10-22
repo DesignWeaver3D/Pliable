@@ -707,6 +707,7 @@ class Session:
     def _run_tool(self, request: dict, commit: bool) -> bytes:
         document = self._require_document()
         topology = document.current
+        topology.datums = document.datum_list()  # for tools that work about a datum plane (symmetric push/pull)
         tool = get_tool(str(request.get("tool")))
         if request.get("edit_body") is not None:
             return self._edit_primitive(request, tool, commit)

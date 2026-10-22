@@ -658,9 +658,17 @@ let lastGood: number | null = null; // newest distance whose preview succeeded
 let previewFailed = false; // the newest preview request failed (size past the limit)
 let dragSels: Sel[] | null = null;
 
+// Shift held when a push/pull drag starts makes the whole drag symmetric (about a plane, see the core's symmetric push/pull).
+let shiftHeld = false;
+let dragSymmetric = false;
+for (const type of ["keydown", "keyup"] as const) window.addEventListener(type, (e) => (shiftHeld = e.shiftKey));
+window.addEventListener("blur", () => (shiftHeld = false));
+
 function toolRequest(sels: Sel[], distance: number) {
   const tool = dragToolFor(sels)!;
-  return { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params: { [dragParam(tool)!]: distance } };
+  const params: Record<string, number> = { [dragParam(tool)!]: distance };
+  if (tool.id === "push_pull" && dragSymmetric) params.symmetric = 1;
+  return { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params };
 }
 
 function pump(token: number) {
@@ -882,6 +890,7 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
     if (dragSels === null) {
       lastGood = null;
       previewFailed = false;
+      dragSymmetric = shiftHeld;
       const dragTool = dragToolFor(sels)!;
       if (armedTool !== dragTool.id) usage.record(dragTool.id, "start", "drag"); // an armed tool already counted its start
     }
@@ -933,6 +942,7 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
     status.textContent = (e as Error).message; // after setCommitted, which rewrites the status
     status.classList.add("error");
   }
+  dragSymmetric = false;
 };
 
 const editLastButton = $("editlast") as HTMLButtonElement;

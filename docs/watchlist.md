@@ -191,3 +191,5 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Rotation rings are drawn at half the shortest side of the 3D view in diameter whatever the zoom or the size of the body (trial); a ring no longer hugs a small body.
 
 - Datum planes: each is drawn as a fixed square of 120 model units whatever the size of the model, and they cannot be dragged or picked in the view yet (made from the command search: origin planes, the selected face, or midway between two selected faces; the core also moves one by an offset). Names are not forced to be unique.
+
+- Symmetric push/pull (Shift while dragging a face): one face needs a matching face on the other side of the nearest parallel origin or datum plane (matched by area and centre within 0.001), otherwise it says so; Shift+press on a face over a selection now starts the drag instead of an additive box select (Ctrl still adds). Two opposite faces are accepted by the Push/Pull tool only when the drag is symmetric.
