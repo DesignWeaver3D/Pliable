@@ -78,6 +78,8 @@ Group status: A done (S93); B done (S94, S95, with notes on each row); C done (S
 | S109 | Modeling | Datum planes: persistent helper planes for mirror and other operations (saved in the project file) | Planned, after S108 |
 | S110 | Modeling | Symmetric push/pull: hold Shift while left-dragging a face. Sketch face: symmetric about the sketch plane; two parallel faces: about their mid-plane; one face: about the global origin plane or a datum plane | Planned, after S109 |
 | S111 | Modeling | Mirror modeling mode: what is built on one side of a chosen plane (global origin plane, face, sketch or datum plane) is mirrored to the other side | Planned, after S109 |
+| S112 | Sketch | Every dimensional constraint is editable on screen by double-clicking its dimension leader or its number | Planned (sketch agent) |
+| S113 | Sketch | When a constraint that holds a number is created, its dimension appears at once with the as-created value prefilled and ready to edit | Planned (sketch agent) |
 
 
 ## Done, awaiting owner review
