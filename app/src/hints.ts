@@ -65,6 +65,14 @@ export const TIPS: Tip[] = [
   { id: "seethrough", text: "Tip: press X to see through the model and pick edges and faces behind it." },
 ];
 
+/** Id under which the sketch key hint is marked as dismissed. */
+export const SKETCH_HINT_ID = "sketch-keys";
+
+/** Whether the sketch key hint has been closed by the user (it returns when hints are turned off and on again). */
+export function sketchHintDismissed(ctx: HintContext, prefs: { dismissed: string[] }): boolean {
+  return ctx.sketch && prefs.dismissed.includes(SKETCH_HINT_ID);
+}
+
 /** Id under which the Getting started card is marked as seen in the dismissed list. */
 export const GETTING_STARTED_ID = "getting-started";
 
@@ -166,6 +174,21 @@ export class HintLine {
     this.refresh();
   }
 
+  /** The close button of the sketch key hint: it stays away until hints are turned off and on again. */
+  private dismissButton(): HTMLElement {
+    const close = document.createElement("button");
+    close.textContent = "×";
+    close.title = "Hide these sketch keys (turn hints off and on again to bring them back)";
+    close.setAttribute("aria-label", "Hide the sketch key hint");
+    close.onclick = () => {
+      if (!this.prefs.dismissed.includes(SKETCH_HINT_ID)) this.prefs.dismissed.push(SKETCH_HINT_ID);
+      savePrefs(this.prefs);
+      this.shown = "";
+      this.refresh();
+    };
+    return close;
+  }
+
   /** Show the Getting started card (opened from the menu or the search, or once on first use). */
   showGettingStarted() {
     this.card?.remove();
@@ -213,6 +236,7 @@ export class HintLine {
 
   setOn(on: boolean) {
     this.prefs.on = on;
+    if (on) this.prefs.dismissed = this.prefs.dismissed.filter((id) => id !== SKETCH_HINT_ID); // turning hints on brings the sketch keys back
     savePrefs(this.prefs);
     this.shown = "";
     this.refresh();
@@ -220,7 +244,8 @@ export class HintLine {
 
   refresh() {
     const ctx = this.context();
-    const items = this.prefs.on ? hintItems(ctx, this.mods, this.keyText) : [];
+    const sketchDismissed = sketchHintDismissed(ctx, this.prefs);
+    const items = this.prefs.on && !sketchDismissed ? hintItems(ctx, this.mods, this.keyText) : [];
     const tip = nextTip(ctx, this.prefs);
     const sig = JSON.stringify([items, tip?.id]);
     if (sig === this.shown) return;
@@ -234,6 +259,7 @@ export class HintLine {
         span.append(key, ` ${item.text}`);
         return span;
       }),
+      ...(ctx.sketch && items.length ? [this.dismissButton()] : []),
     );
     this.tip.hidden = !tip;
     if (tip) {

@@ -48,3 +48,12 @@ test("getting started lists six items and shows once while hints are on", async 
   assert.equal(shouldAutoShowGettingStarted({ on: true, dismissed: [GETTING_STARTED_ID] }), false);
   assert.equal(shouldAutoShowGettingStarted({ on: false, dismissed: [] }), false);
 });
+
+test("the sketch key hint stays hidden once dismissed, in the sketch only", async () => {
+  const { SKETCH_HINT_ID, sketchHintDismissed } = await import("../src/hints.ts");
+  const sketching = { dragging: false, sketch: true, hasSelection: false };
+  assert.ok(hintItems(sketching, none, key).length > 0);
+  assert.equal(sketchHintDismissed(sketching, { dismissed: [] }), false);
+  assert.equal(sketchHintDismissed(sketching, { dismissed: [SKETCH_HINT_ID] }), true);
+  assert.equal(sketchHintDismissed(idle, { dismissed: [SKETCH_HINT_ID] }), false);
+});
