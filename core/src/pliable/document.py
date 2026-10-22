@@ -10,6 +10,7 @@ from . import bodies as body_ids
 from . import recipes
 from .bodies import BodyState
 from .ops import solids_of
+from .projectfile import Project
 from .topology import Topology
 
 MAX_HISTORY = 50  # states kept for undo; also the number of autosave snapshots
@@ -33,11 +34,13 @@ class Document:
         self._sketch_next = 1  # next sketch id; ids are never reused
         self._next_id = 1
         self._index = 0
+        self.other_objects: dict = {}  # object types of a project file this release does not know, kept for saving again
 
     @classmethod
-    def from_states(cls, shapes: list[TopoDS_Shape], ids: list[int], index: int, name: str, bodies: list[BodyState] | None = None, sketches: list[list[dict]] | None = None, sketch_next: int | None = None) -> "Document":
+    def from_states(cls, shapes: list[TopoDS_Shape], ids: list[int], index: int, name: str, bodies: list[BodyState] | None = None, sketches: list[list[dict]] | None = None, sketch_next: int | None = None, other: dict | None = None) -> "Document":
         """Rebuild a document from autosaved states (oldest first)."""
         document = cls(shapes[0], name)
+        document.other_objects = copy.deepcopy(other or {})
         if bodies is None or len(bodies) != len(shapes):
             bodies = [body_ids.fresh(s) for s in shapes]
         document._history = [Topology(s, b) for s, b in zip(shapes, bodies)]
@@ -98,6 +101,24 @@ class Document:
 
     def shape_of(self, state_id: int) -> TopoDS_Shape:
         return self._history[self._ids.index(state_id)].shape
+
+    def project_of(self, state_id: int) -> Project:
+        """One state as a project (shape, bodies, sketches); the snapshot is safe to pack on another thread."""
+        i = self._ids.index(state_id)
+        return Project(self._history[i].shape, self._history[i].bodies, self.name, copy.deepcopy(self._sketches[i]), self._sketch_next, copy.deepcopy(self.other_objects))
+
+    def to_project(self) -> Project:
+        return self.project_of(self._ids[self._index])
+
+    @classmethod
+    def from_project(cls, project: Project) -> "Document":
+        """A new document (no undo history) holding a saved project."""
+        document = cls(project.shape, project.name, project.bodies)
+        document._sketches = [copy.deepcopy(project.sketches)]
+        used = max((e["id"] for e in project.sketches), default=0)
+        document._sketch_next = max(project.sketch_next, used + 1)
+        document.other_objects = copy.deepcopy(project.other)
+        return document
 
     def _bodies_for(self, shape: TopoDS_Shape, kind: str, ordered: bool, names, change: dict | None) -> BodyState:
         """The bodies after an operation: matched to the new solids, then their primitive recipes brought up to date.

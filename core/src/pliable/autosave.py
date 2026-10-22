@@ -33,10 +33,11 @@ from OCP.TopoDS import TopoDS_Shape
 
 from .bodies import BodyState
 from .document import Document
+from .projectfile import ProjectFileError, pack, unpack
 
 log = logging.getLogger("pliable.autosave")
 
-FORMAT = 1  # version of the session.json layout; bump when an older release could not read it
+FORMAT = 2  # version of the session.json layout; bump when an older release could not read it
 MAX_OLD_SESSIONS = 5  # dead instances' sessions kept for restore
 HEARTBEAT_SECONDS = 5.0
 STALE_AFTER_SECONDS = 30.0
@@ -162,7 +163,8 @@ class Autosaver:
             meta = json.loads((folder / "session.json").read_text())
             if int(meta.get("format", 0)) > FORMAT:
                 return None  # written by a newer release
-            if not all((folder / f"state_{i}.brep").exists() for i in meta["ids"]):
+            suffix = "brep" if int(meta.get("format", 0)) < 2 else "plbl"  # format 1 kept bare BREP files
+            if not all((folder / f"state_{i}.{suffix}").exists() for i in meta["ids"]):
                 return None
             return meta
         except (OSError, ValueError, KeyError, TypeError):
@@ -205,7 +207,7 @@ class Autosaver:
         return self.folder / "session.json"
 
     def _state_path(self, state_id: int) -> Path:
-        return self.folder / f"state_{state_id}.brep"
+        return self.folder / f"state_{state_id}.plbl"
 
     def save(self, document: Document, fresh: bool = False) -> None:
         """Queue a snapshot of the document. Shapes are immutable once committed, so the worker may read them.
@@ -213,18 +215,20 @@ class Autosaver:
         `fresh` marks a newly opened document, whose state ids restart at 0 and must overwrite old files."""
         ids = document.ids
         with self._lock:
-            new = {i: document.shape_of(i) for i in ids if fresh or i not in self._written}
-        meta = {"format": FORMAT, "name": document.name, "ids": ids, "index": document.index, "clean": False, "bodies": [b.to_json() for b in document.body_states], "sketches": document.sketch_states, "sketch_next": document.sketch_next}
+            new = {i: document.project_of(i) for i in ids if fresh or i not in self._written}
+        meta = {"format": FORMAT, "name": document.name, "ids": ids, "index": document.index, "clean": False}
         self._pool.submit(self._write, new, meta)
 
-    def _write(self, new: dict[int, TopoDS_Shape], meta: dict) -> None:
+    def _write(self, new: dict, meta: dict) -> None:
         try:
             self.folder.mkdir(parents=True, exist_ok=True)
-            for state_id, shape in new.items():
-                _write_brep(shape, self._state_path(state_id))
+            for state_id, project in new.items():
+                temp = self._state_path(state_id).with_suffix(".tmp")
+                temp.write_bytes(pack(project))
+                os.replace(temp, self._state_path(state_id))
             self._write_meta(meta)
             keep = set(meta["ids"])
-            for path in self.folder.glob("state_*.brep"):
+            for path in self.folder.glob("state_*.plbl"):
                 if int(path.stem.split("_")[1]) not in keep:
                     path.unlink(missing_ok=True)
             with self._lock:
@@ -286,10 +290,14 @@ class Autosaver:
             return None
         try:
             meta = json.loads((claimed / "session.json").read_text())
-            shapes = [_read_brep(claimed / f"state_{i}.brep") for i in meta["ids"]]
-            saved = [BodyState.from_json(b) for b in meta["bodies"]] if "bodies" in meta else None
-            document = Document.from_states(shapes, meta["ids"], int(meta["index"]), meta["name"], saved, meta.get("sketches"), meta.get("sketch_next"))
-        except (OSError, ValueError, KeyError, IndexError):
+            if int(meta.get("format", 1)) < 2:  # a session of the first format: bare BREP files, bodies and sketches in session.json
+                shapes = [_read_brep(claimed / f"state_{i}.brep") for i in meta["ids"]]
+                saved = [BodyState.from_json(b) for b in meta["bodies"]] if "bodies" in meta else None
+                document = Document.from_states(shapes, meta["ids"], int(meta["index"]), meta["name"], saved, meta.get("sketches"), meta.get("sketch_next"))
+            else:
+                projects = [unpack((claimed / f"state_{i}.plbl").read_bytes()) for i in meta["ids"]]
+                document = Document.from_states([p.shape for p in projects], meta["ids"], int(meta["index"]), meta["name"], [p.bodies for p in projects], [p.sketches for p in projects], max(p.sketch_next for p in projects), projects[-1].other)
+        except (OSError, ValueError, KeyError, IndexError, ProjectFileError):
             log.exception("restore failed")
             return None
         finally:

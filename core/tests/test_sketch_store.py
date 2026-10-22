@@ -1,7 +1,7 @@
 import json
 
 from pliable import sketch
-from pliable.autosave import Autosaver
+from pliable.autosave import Autosaver, _write_brep
 from pliable.protocol import decode_binary
 from pliable.server import RequestError, Session
 
@@ -125,9 +125,15 @@ def test_old_autosave_without_sketch_keys_loads(tmp_path):
     first.handle({"type": "open_demo", "name": "block"})
     first.handle({"type": "sketch_keep", "sketch": make(first)})
     die(first.autosaver)
+    # rewrite the session the way the first autosave format did: bare BREP files, no sketch keys
     meta_path = next(tmp_path.rglob("session.json"))
     meta = json.loads(meta_path.read_text())
-    del meta["sketches"], meta["sketch_next"]
+    document = first.document
+    for state_id in meta["ids"]:
+        _write_brep(document.shape_of(state_id), meta_path.parent / f"state_{state_id}.brep")
+        (meta_path.parent / f"state_{state_id}.plbl").unlink()
+    meta["format"] = 1
+    meta["bodies"] = [b.to_json() for b in document.body_states]
     meta_path.write_text(json.dumps(meta))
     second = Session(Autosaver(tmp_path))
     second.handle({"type": "restore_session"})

@@ -23,7 +23,7 @@ from websockets.http11 import Response
 
 from . import __version__, sketch, unwrap
 from . import bodies as body_ids
-from . import dimedit, recipes
+from . import dimedit, projectfile, recipes
 from OCP.BRep import BRep_Builder
 from OCP.TopoDS import TopoDS_Compound
 from . import notice
@@ -314,6 +314,17 @@ class Session:
             document = self._require_document()
             data = write_step(document.current.shape)
             return {"name": document.name, "data": base64.b64encode(data).decode()}
+        if kind == "save_project":
+            document = self._require_document()
+            return {"name": document.name, "data": base64.b64encode(projectfile.pack(document.to_project())).decode()}
+        if kind == "open_project":
+            try:
+                project = projectfile.unpack(base64.b64decode(request["data"]))
+            except projectfile.ProjectFileError as e:
+                raise RequestError(str(e)) from e
+            self.document = Document.from_project(project)
+            self._autosave(fresh=True)
+            return self._mesh_reply(self.document.current, {}, name=self.document.name)
         if kind == "export_mesh":
             document = self._require_document()
             try:

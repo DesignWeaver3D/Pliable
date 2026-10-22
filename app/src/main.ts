@@ -52,7 +52,7 @@ usage.attach(core);
 installAlphaUi($("bar"), core);
 
 const BUSY_LABELS: Record<string, string> = {
-  import_step: "Importing", combine_step: "Combining", export_step: "Exporting", open_demo: "Opening",
+  import_step: "Importing", combine_step: "Combining", export_step: "Exporting", save_project: "Saving", open_project: "Opening", open_demo: "Opening",
   restore_session: "Restoring", tool_commit: "Applying", sketch_extrude: "Building", undo: "Undoing", redo: "Redoing",
 };
 const busyBox = $("busy");
@@ -1150,7 +1150,7 @@ async function exportAs(request: string, extension: string, params: Record<strin
     }
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = name.replace(/\.(step|stp|stl|obj|3mf)$/i, "") + "." + extension;
+    link.download = name.replace(/\.(step|stp|stl|obj|3mf|plbl)$/i, "") + "." + extension;
     link.click();
     URL.revokeObjectURL(link.href);
   } catch (e) {
@@ -1159,6 +1159,23 @@ async function exportAs(request: string, extension: string, params: Record<strin
 }
 
 $("export").addEventListener("click", () => exportAs("export_step", "step"));
+$("saveproject").addEventListener("click", () => exportAs("save_project", "plbl"));
+const projectInput = $("projectfile") as HTMLInputElement;
+$("openproject").addEventListener("click", () => projectInput.click());
+projectInput.addEventListener("change", async () => {
+  const file = projectInput.files?.[0];
+  projectInput.value = "";
+  if (!file) return;
+  if (!undoButton.disabled && !window.confirm("Opening a project replaces the current model and its undo history. Continue?")) return;
+  try {
+    status.textContent = `opening ${file.name}...`;
+    const data = toBase64(new Uint8Array(await file.arrayBuffer()));
+    setCommitted(await core.request<MeshData>("open_project", { data }), true);
+  } catch (e) {
+    status.textContent = (e as Error).message;
+    status.classList.add("error");
+  }
+});
 const exportMesh = $("exportmesh") as HTMLSelectElement;
 exportMesh.addEventListener("change", () => {
   const format = exportMesh.value;
@@ -1229,6 +1246,8 @@ function commands(): Command[] {
     { label: "Import STEP file (add to model)", scope: "file", enabled: true, run: () => $("open").click() },
     { label: "Open STEP file as new model", scope: "file", enabled: true, run: () => $("openasnew").click() },
     { label: "Export STEP file", scope: "file", enabled: true, run: () => exportAs("export_step", "step") },
+    { label: "Save project (.plbl file with bodies, names and sketches)", scope: "file", keywords: ["save", "pliable file"], enabled: true, run: () => exportAs("save_project", "plbl") },
+    { label: "Open project (.plbl file)", scope: "file", keywords: ["load", "pliable file"], enabled: true, run: () => $("openproject").click() },
     ...["stl", "obj", "3mf"].map((format) => ({
       label: `Export ${format.toUpperCase()} mesh (lossy)`,
       scope: "file" as const,
