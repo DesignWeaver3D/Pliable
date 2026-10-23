@@ -23,6 +23,8 @@ import { KeyRouter } from "./keyrouter";
 import { HintLine } from "./hints";
 import { exportAs as saveModel, installFileOpening } from "./filesave";
 import { askRestore, dismissRestorePrompt } from "./restoreprompt";
+import { bodyView } from "./appstate";
+import { installBodyActions } from "./bodyactions";
 import { Palette, type Command } from "./palette";
 import { toolKeywords } from "./search";
 import { TOOLS_HANDLE_ICON, sketchIcon, toolIcon, uiIcon } from "./icons";
@@ -31,8 +33,7 @@ import type { AnchorInfo } from "./placepick";
 import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type HandleInfo, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
 import { usage, type Surface } from "./usage";
-import { BodyList } from "./bodylist";
-import { pruneGhost, pruneHidden, toggleFocus, toggleGhost, toggleHidden, toggleIsolated, type FocusState } from "./bodylogic";
+import { pruneGhost, pruneHidden } from "./bodylogic";
 import { bodiesOf, filterHidden } from "./visibility";
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -603,11 +604,6 @@ let committed: MeshData | null = null; // last committed (non-preview) mesh
 /** The newest committed tool run, kept while nothing else has changed the model: "Edit last" undoes it and reopens its form. */
 let lastOp: { tool: ToolInfo; sels: Sel[]; values: Record<string, ParamValue> } | null = null;
 
-/** Ids of the hidden bodies (view only). Ids are stable, so a hidden body stays hidden through operations. */
-let hiddenBodies: ReadonlySet<number> = new Set();
-/** Ids of the see-through bodies and the Focus toggle's memory (view only, like hiding). */
-let ghostBodies: ReadonlySet<number> = new Set();
-let focusState: FocusState | null = null;
 
 /** Tells the list of kept sketches what the document holds; set once that list exists. */
 let onSketches: (list: { id: number; name: string; rev: number }[]) => void = () => {};
@@ -627,14 +623,14 @@ function show(mesh: MeshData, frame = false) {
     dimensionOverlay.set(measuredDims); // the preview ended without a commit: the committed model's dimensions again
     previewDimsShown = false;
   }
-  hiddenBodies = pruneHidden(hiddenBodies, bodiesOf(mesh).map((b) => b.id));
-  const pruned = pruneGhost(ghostBodies, focusState, bodiesOf(mesh).map((b) => b.id));
-  ghostBodies = pruned.ghost;
-  focusState = pruned.focus;
-  viewport.setMesh(filterHidden(mesh, hiddenBodies), frame);
-  viewport.setGhosted(ghostBodies);
+  bodyView.hidden = pruneHidden(bodyView.hidden, bodiesOf(mesh).map((b) => b.id));
+  const pruned = pruneGhost(bodyView.ghost, bodyView.focus, bodiesOf(mesh).map((b) => b.id));
+  bodyView.ghost = pruned.ghost;
+  bodyView.focus = pruned.focus;
+  viewport.setMesh(filterHidden(mesh, bodyView.hidden), frame);
+  viewport.setGhosted(bodyView.ghost);
   if (!mesh.header.preview) {
-    bodyList.setBodies(bodiesOf(mesh), hiddenBodies, ghostBodies, focusState?.body ?? null);
+    bodyList.setBodies(bodiesOf(mesh), bodyView.hidden, bodyView.ghost, bodyView.focus?.body ?? null);
     onSketches(mesh.header.sketches ?? []);
     onDatums(mesh.header.datums ?? [], mesh.header.mirror ?? null);
   }
@@ -1020,95 +1016,22 @@ $("info").addEventListener("click", async () => {
 });
 undoButton.addEventListener("click", () => history("undo"));
 redoButton.addEventListener("click", () => history("redo"));
-/** Redraw after the hidden set changed, dropping selected items that are no longer visible. */
-function applyVisibility() {
-  if (!committed) return;
-  const keep = currentSels;
-  show(committed);
-  viewport.selectItems(keep.filter((s) => !hiddenBodies.has(ownerBody(s) ?? -1)));
-  setSelection(currentSels.filter((s) => !hiddenBodies.has(ownerBody(s) ?? -1)));
-}
-
-/** The id of the body a selected item belongs to. */
-function ownerBody(s: Sel): number | null {
-  if (!committed) return null;
-  if (s.kind === "body") return s.id;
-  return (s.kind === "face" ? committed.faces : s.kind === "edge" ? committed.edges : committed.vertices).find((x) => x.id === s.id)?.body ?? null;
-}
-
-/** H hides the body of the selection, Shift+H isolates it, Alt+H shows everything. */
-function setVisibility(action: "hide" | "isolate" | "show") {
-  if (!committed) return;
-  const all = bodiesOf(committed).map((b) => b.id);
-  const picked = new Set(currentSels.map(ownerBody).filter((id): id is number => id !== null));
-  if (action === "show") hiddenBodies = new Set();
-  else if (picked.size) {
-    hiddenBodies = action === "isolate" ? new Set(all.filter((id) => !picked.has(id))) : new Set([...hiddenBodies, ...picked]);
-  }
-  applyVisibility();
-}
-
-function runBodyRequest(kind: "duplicate_body" | "delete_body", body: number) {
-  core
-    .request<MeshData>(kind, { body })
-    .then((mesh) => setCommitted(mesh, false, []))
-    .catch((e) => {
-      status.textContent = (e as Error).message;
-      status.classList.add("error");
-    });
-}
-
-const bodyList = new BodyList($("bodylist"), {
-  toggleHide(id) {
-    hiddenBodies = toggleHidden(hiddenBodies, id);
-    applyVisibility();
+const { bodyList, setVisibility } = installBodyActions({
+  core,
+  status,
+  list: $("bodylist"),
+  count: $("bodycount"),
+  committed: () => committed,
+  selection: () => currentSels,
+  show: (mesh) => show(mesh),
+  setCommitted: (mesh, frame, sels) => setCommitted(mesh, frame, sels),
+  select: (sels) => {
+    viewport.selectItems(sels);
+    setSelection(sels);
   },
-  toggleIsolate(id) {
-    if (!committed) return;
-    hiddenBodies = toggleIsolated(hiddenBodies, bodiesOf(committed).map((b) => b.id), id);
-    applyVisibility();
-  },
-  toggleGhost(id) {
-    ghostBodies = toggleGhost(ghostBodies, id);
-    if (focusState) focusState = { ...focusState, added: new Set([...focusState.added].filter((b) => ghostBodies.has(b))) };
-    applyVisibility();
-  },
-  toggleFocus(id) {
-    if (!committed) return;
-    const next = toggleFocus(ghostBodies, focusState, bodiesOf(committed).map((b) => b.id), id);
-    ghostBodies = next.ghost;
-    focusState = next.focus;
-    applyVisibility();
-  },
-  duplicate(id) {
-    runBodyRequest("duplicate_body", id);
-  },
-  remove(id) {
-    runBodyRequest("delete_body", id);
-  },
-  rename(id, name) {
-    core
-      .request<MeshData>("rename_body", { body: id, name })
-      .then((mesh) => setCommitted(mesh, false, currentSels))
-      .catch((e) => {
-        status.textContent = (e as Error).message;
-        status.classList.add("error");
-        if (committed) bodyList.setBodies(bodiesOf(committed), hiddenBodies, ghostBodies, focusState?.body ?? null);
-      });
-  },
-  select(ids) {
-    const picked: Sel[] = ids.map((id) => ({ kind: "body" as const, id }));
-    viewport.selectItems(picked);
-    setSelection(picked);
-  },
-  hover(id) {
-    viewport.hoverItem(id === null ? null : { kind: "body", id });
-  },
-  edit(id) {
-    editPrimitive(id);
-  },
-}, $("bodycount"));
-bodyList.setBodies([], new Set()); // the list is always shown; before a model exists it says so
+  hover: (sel) => viewport.hoverItem(sel),
+  editPrimitive: (id) => editPrimitive(id),
+});
 
 // Keyboard shortcuts: one router applies the policy in keys.ts (engagement, blur, repeat, entry, sketch) and runs these.
 const keys = new KeyRouter({
@@ -1211,7 +1134,7 @@ function commands(): Command[] {
     { label: "Redo", scope: "view", hint: keys.keymap.hint("history.redo"), enabled: !redoButton.disabled, run: () => history("redo") },
     { label: "Hide body", scope: "body", hint: keys.keymap.hint("display.hide"), enabled: currentSels.length > 0, run: () => setVisibility("hide") },
     { label: "Isolate body", scope: "body", hint: keys.keymap.hint("display.isolate"), enabled: currentSels.length > 0, run: () => setVisibility("isolate") },
-    { label: "Show all bodies", scope: "body", hint: keys.keymap.hint("display.showAll"), enabled: hiddenBodies.size > 0, run: () => setVisibility("show") },
+    { label: "Show all bodies", scope: "body", hint: keys.keymap.hint("display.showAll"), enabled: bodyView.hidden.size > 0, run: () => setVisibility("show") },
     { label: "See-through selection (pick edges and faces behind the model)", scope: "view", keywords: ["x ray", "transparent", "xray"], hint: keys.keymap.hint("display.seeThrough"), enabled: true, run: () => viewport.toggleSeeThrough() },
     {
       label: `Measure pick (hidden mode: press ${keys.keymap.hint("measure") || "its key"} while dragging a tool)`,
