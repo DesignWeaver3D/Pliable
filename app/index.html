@@ -9,7 +9,7 @@
       html, body { margin: 0; height: 100%; background: #1b1d22; color: var(--ui-offwhite); font: 13px system-ui, sans-serif; overflow: hidden; }
       #viewport { position: fixed; inset: 0; }
       #viewport.engaged::after { content: ""; position: absolute; inset: 0; border: 2px solid rgba(255, 138, 31, 0.45); pointer-events: none; z-index: 1; }
-      #bar { position: fixed; top: 0; left: 0; right: 0; box-sizing: border-box; padding: 6px 52px 6px 8px; display: flex; gap: 6px; align-items: center; z-index: 7; flex-wrap: nowrap; background: rgba(27, 29, 34, 0.88); border-bottom: 1px solid #2d3038; white-space: nowrap; }
+      #bar { position: fixed; top: 0; left: 0; right: 0; box-sizing: border-box; padding: 0 52px 0 8px; display: flex; gap: 6px; align-items: center; z-index: 7; flex-wrap: nowrap; background: rgba(27, 29, 34, 0.88); border-bottom: 1px solid #2d3038; white-space: nowrap; }
       .icon { display: inline-flex; vertical-align: middle; margin-right: 5px; }
       #bar button .icon, #tools button .icon { margin-right: 5px; }
       #bar .searchicon { margin: 0 -26px 0 6px; color: var(--ui-offwhite); pointer-events: none; z-index: 1; }
@@ -21,15 +21,20 @@
       #menupanel[hidden] { display: none; }
       #menupanel .group { color: #ffb878; font-size: 11px; margin-top: 2px; }
       #bar #menupanel button, #bar #menupanel select { text-align: left; }
-      #palette-input { width: 190px; box-sizing: border-box; padding: 4px 8px; background: #1b1d22; color: #eee; border: 1px solid #444; border-radius: 4px; font: inherit; outline: none; }
+      #palette-input { width: 190px; box-sizing: border-box; padding: 4px 8px; font-size: 12px; background: #1b1d22; color: #eee; border: 1px solid #444; border-radius: 4px; font: inherit; outline: none; }
       #palette-input:focus { width: 300px; border-color: #ff8a1f; }
-      #gear { position: fixed; right: 8px; top: 5px; z-index: 8; background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; font-size: 18px; padding: 2px 8px; }
+      #gear { position: fixed; right: 8px; top: 0; z-index: 8; width: 32px; height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; font-size: 18px; padding: 0; }
       #settingspanel { position: fixed; right: 8px; top: 44px; z-index: 4; background: #23262d; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; width: 230px; font-size: 13px; }
       #settingspanel[hidden] { display: none; }
       #settingspanel .found { outline: 2px solid #ff8a1f; outline-offset: 3px; border-radius: 3px; }
       #settingspanel label { display: flex; flex-direction: column; gap: 2px; }
       #settingspanel label:has(input[type=checkbox]) { flex-direction: row; gap: 6px; }
       #toolform .eyedropper { padding: 0 6px; } #toolform .eyedropper.armed { background: #ff8a1f; color: #000; }
+      /* Every element of the bar is one height and sits flush to the top; the icon inside a button is plain, not a second box. */
+      #bar > button, #bar > select, #bar > span, #bar > input, #bar #menuwrap > button { height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; margin: 0; padding-top: 0; padding-bottom: 0; }
+      #bar > #status, #bar > #selected, #bar > #latency { font-size: 12px; }
+      #bar button .icon { background: none; border: 0; padding: 0; }
+      #bar [hidden] { display: none !important; }
       #bar span:empty { display: none; }
       #bar button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 4px 8px; }
       #bar span.error { color: #ff8c8c; border-color: #a44; }
