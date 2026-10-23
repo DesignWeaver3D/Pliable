@@ -145,10 +145,10 @@
       #toolform .row { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin: 3px 0; }
       #toolform input { width: 80px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; }
       #toolform .buttons { display: flex; gap: 6px; margin-top: 6px; }
-      #hintline { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); z-index: 1; display: flex; gap: 14px; white-space: nowrap; font-size: 11px; color: #8a8f98; pointer-events: none; }
+      #hintline { position: absolute; left: 50%; bottom: calc(44px + var(--chips-h, 0px)); transform: translateX(-50%); z-index: 1; display: flex; gap: 14px; white-space: nowrap; font-size: 11px; color: #8a8f98; pointer-events: none; }
       #hintline button { pointer-events: auto; background: none; border: 0; color: #8a8f98; cursor: pointer; font: inherit; padding: 0 4px; }
       #hintline kbd { background: #2a2d34; border: 1px solid #3a3e47; border-radius: 3px; padding: 0 4px; margin-right: 3px; color: #bbb; font: inherit; }
-      #hinttip { position: absolute; left: 50%; bottom: 68px; transform: translateX(-50%); z-index: 2; display: flex; gap: 8px; align-items: center; background: #23262d; border: 1px solid #ffb878; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: var(--ui-offwhite); }
+      #hinttip { position: absolute; left: 50%; bottom: calc(68px + var(--chips-h, 0px)); transform: translateX(-50%); z-index: 2; display: flex; gap: 8px; align-items: center; background: #23262d; border: 1px solid #ffb878; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: var(--ui-offwhite); }
       #gettingstarted { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); z-index: 3; background: #23262d; border: 1px solid #ffb878; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--ui-offwhite); max-width: min(520px, 92vw); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
       #gettingstarted ol { margin: 6px 0 8px; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
       #gettingstarted .buttons { display: flex; gap: 8px; justify-content: flex-end; }

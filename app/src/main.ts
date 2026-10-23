@@ -166,6 +166,8 @@ function expand(tool: ToolInfo | null, sels: Sel[]): Sel[] {
 }
 
 const chips = $("chips");
+// The hint line and the tip stand above the chips instead of on top of them.
+new ResizeObserver(() => document.documentElement.style.setProperty("--chips-h", `${chips.offsetHeight}px`)).observe(chips);
 function renderChips() {
   const shown = related.filter((r) => r.faces.length);
   const ctx = chipTool();
