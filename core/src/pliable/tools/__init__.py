@@ -9,5 +9,6 @@ from . import delete_face, remove_round, fill_hole, resize_hole, move_hole, patt
 from . import align_holes, distribute_holes, add_boss, add_slot, center_between, add_box, add_cylinder, shell, mirror, patch_fill  # noqa: F401
 from . import bridge, unify, draft, align_face, move_body, rotate_body, scale_body, add_sphere, add_cone, add_torus  # noqa: F401
 from . import linear_array, circular_array, revolve_face, chamfer_two_distances, chamfer_distance_angle, body_boolean, variable_fillet, fillet_per_edge, loft_faces, sweep_face  # noqa: F401
+from . import path_array, resize_fillet, resize_chamfer, cut_plane, split_plane, offset_body, round_face, inset_face, divide_face  # noqa: F401
 from .. import features  # noqa: E402,F401  (registers the feature tools)
 from .. import stretch  # noqa: E402,F401  (registers the stretch tool)
