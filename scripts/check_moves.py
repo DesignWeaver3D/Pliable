@@ -1,6 +1,6 @@
 """Proves a code move was pure (docs/architecture-plan.md, Phase 0).
 
-Hashes every top-level function and class in core/src/pliable (docstrings included, comments and import lines
+Hashes every top-level function, and every method under ".name", in core/src/pliable (docstrings included, comments and import lines
 not), keyed by name without the module path, so a def that moved to another
 file hashes the same.
 
@@ -42,10 +42,24 @@ def definitions() -> dict[str, list[tuple[str, str]]]:
     found: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for path in sorted(PACKAGE.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+        where = str(path.relative_to(PACKAGE)).replace("\\", "/")
+
+        def add(name: str, node: ast.AST) -> None:
+            digest = hashlib.sha256(ast.dump(_Imports().visit(node), include_attributes=False).encode()).hexdigest()[:16]
+            found[name].append((where, digest))
+
         for node in tree.body:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                digest = hashlib.sha256(ast.dump(_Imports().visit(node), include_attributes=False).encode()).hexdigest()[:16]
-                found[node.name].append((str(path.relative_to(PACKAGE)).replace("\\", "/"), digest))
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                add(node.name, node)
+            elif isinstance(node, ast.ClassDef):
+                # Methods are hashed on their own, under ".name", so a method can move to another class (a mixin);
+                # the class itself is hashed without them and without its bases, and not at all when nothing else is left.
+                methods = [m for m in node.body if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef))]
+                rest = [m for m in node.body if m not in methods and not (isinstance(m, ast.Expr) and isinstance(m.value, ast.Constant))]
+                for m in methods:
+                    add("." + m.name, m)
+                if rest:
+                    add(node.name, ast.ClassDef(name=node.name, bases=[], keywords=[], body=rest, decorator_list=node.decorator_list, type_params=[]))
     return found
 
 
