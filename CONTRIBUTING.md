@@ -26,3 +26,11 @@ The `commit-lint` workflow runs the same check on pushes and pull requests.
 ## Reference material
 
 Notes about how other tools work stay in `docs/research/`, which is ignored by git and never committed or pushed. Write them in our own words. Nothing is copied from other tools: no code, no text, no screenshots.
+
+## Where code goes (core)
+
+- A modeling tool is one file in `core/src/pliable/tools/`, named after the tool's id, plus one import line in `tools/__init__.py` (the list is explicit and in registration order; the packaged app only includes modules that are imported by name). Update `core/tests/tool_registry.json` with `uv run python tests/test_tool_registry.py` when a tool is added or its declaration changes on purpose.
+- A helper used by two or more tools goes in `core/src/pliable/shared/`; a helper used by one tool stays in that tool's file.
+- Sketch code is the `sketch/` package (solver, profiles, planes, operations); server request handlers are mixins in `handlers/`.
+- A file past about 400 lines gets split.
+- When moving code, change nothing else in the same commit, and check it with `uv run python ../scripts/check_moves.py check` (hashes of every function and method against `scripts/move_baseline.json`).
