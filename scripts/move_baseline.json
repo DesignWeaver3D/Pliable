@@ -1,0 +1,1182 @@
+{
+ "Accepts": [
+  "29e03c4414699ccf"
+ ],
+ "AddBoss": [
+  "81711ebb2d360350"
+ ],
+ "AddBox": [
+  "27ff2924e7e84e39"
+ ],
+ "AddCone": [
+  "664cb7669ff51a67"
+ ],
+ "AddCounterbore": [
+  "7d8dc9e5f09f4a4d"
+ ],
+ "AddCountersink": [
+  "68154df7b8e6786d"
+ ],
+ "AddCylinder": [
+  "b1d03b8d3fde85f5"
+ ],
+ "AddHole": [
+  "b17e3c184f40c87d"
+ ],
+ "AddSlot": [
+  "1b0199335e94445e"
+ ],
+ "AddSphere": [
+  "fc4521db2100a9e5"
+ ],
+ "AddTorus": [
+  "4331f66d24396eff"
+ ],
+ "AlignFace": [
+  "073e813402d751b8"
+ ],
+ "AlignHoles": [
+  "d5729bad796e8904"
+ ],
+ "Autosaver": [
+  "6666493b4e9682bb"
+ ],
+ "Band": [
+  "26d3c8b71c89a1e5"
+ ],
+ "Body": [
+  "3b5e5c2dff40f25d"
+ ],
+ "BodyBoolean": [
+  "f5f090c6dd04b5da"
+ ],
+ "BodyState": [
+  "8db03d1b09461579"
+ ],
+ "Bridge": [
+  "2ac0afb3a93b674c"
+ ],
+ "CenterBetween": [
+  "201cc48009b04fb5"
+ ],
+ "ChamferDistanceAngle": [
+  "de155d1fe955dfe0"
+ ],
+ "ChamferTwoDistances": [
+  "abb4a601618857b4"
+ ],
+ "CircularArray": [
+  "17a004daad98ec66"
+ ],
+ "CircularPatternHole": [
+  "d64166dfefa13abe"
+ ],
+ "ConvertToCounterbore": [
+  "095835b515e60fd4"
+ ],
+ "ConvertToCountersink": [
+  "50956324033d37f7"
+ ],
+ "CutPlane": [
+  "09f9c087436f2825"
+ ],
+ "DeleteFace": [
+  "51ad6deef499facb"
+ ],
+ "DistributeHoles": [
+  "2d8010358009e71b"
+ ],
+ "DivideFace": [
+  "148b901ccdf2f3fc"
+ ],
+ "Document": [
+  "de578738027b28ad"
+ ],
+ "Draft": [
+  "ebb152fa5801a12a"
+ ],
+ "EditHole": [
+  "9659743f45152506"
+ ],
+ "FillHole": [
+  "9a5517f73ba42d6f"
+ ],
+ "FilletChamfer": [
+  "99bb678246737a7a"
+ ],
+ "FilletPerEdge": [
+  "443421dfa94f2855"
+ ],
+ "Handle": [
+  "2ea97b109ea372ae"
+ ],
+ "Hole": [
+  "db70fb94a4e7c054"
+ ],
+ "HoleInfo": [
+  "f407f6e101244ef9"
+ ],
+ "InsetFace": [
+  "8705d35e005d6a56"
+ ],
+ "LinearArray": [
+  "b487e1efaa9a8031"
+ ],
+ "LoftFaces": [
+  "1bd0595c5d6dfc4b"
+ ],
+ "Mesh": [
+  "a3d8354eb52d1253"
+ ],
+ "Mirror": [
+  "09f4495ddc18fa60"
+ ],
+ "MoveBody": [
+  "40cbf2c49ee1a511"
+ ],
+ "MoveHole": [
+  "61b0173235a63adb"
+ ],
+ "OffsetBody": [
+  "2e7817be335190df"
+ ],
+ "OpResult": [
+  "fcc6cb923bf665b4"
+ ],
+ "OperationError": [
+  "97bd33426d8d9469"
+ ],
+ "Param": [
+  "cfe225df62483ebe"
+ ],
+ "PatchFill": [
+  "0d0b11ab94193f04"
+ ],
+ "PathArray": [
+  "294d02dd8496403e"
+ ],
+ "PatternHole": [
+  "d8a63b2bfa728420"
+ ],
+ "Plan": [
+  "bbc4d66e12b5d2dc"
+ ],
+ "Project": [
+  "20e9f0f4530c4d21"
+ ],
+ "ProjectFileError": [
+  "77a0ba9e86f59929"
+ ],
+ "PushPull": [
+  "e36262e726bffe3c"
+ ],
+ "PushPullSurface": [
+  "e2b5ad3b64358447"
+ ],
+ "RemoveRound": [
+  "1870818d9b6d6ae9"
+ ],
+ "RequestError": [
+  "bcc9aff5fb419171"
+ ],
+ "ResizeChamfer": [
+  "5b8e536a242c52e0"
+ ],
+ "ResizeFillet": [
+  "dd0c74a675f1bb0c"
+ ],
+ "ResizeHole": [
+  "d06c8f7d11a6ae41"
+ ],
+ "RevolveFace": [
+  "1470512c6adf851e"
+ ],
+ "RingHandler": [
+  "7684cc36d78393db"
+ ],
+ "RotateBody": [
+  "1c4899bc8bb6b51b"
+ ],
+ "RoundFace": [
+  "2e5b69c448bb5c0a"
+ ],
+ "ScaleBody": [
+  "60c52312bd300211"
+ ],
+ "Selection": [
+  "ea0425094b6040cd"
+ ],
+ "Session": [
+  "ef084bd869c0ef67"
+ ],
+ "Shell": [
+  "1591add0b02b2e5f"
+ ],
+ "SketchError": [
+  "6782a33006de6d41"
+ ],
+ "SplitPlane": [
+  "a51c5ae854c7a7ca"
+ ],
+ "Stretch": [
+  "9497c28a08959324"
+ ],
+ "SweepFace": [
+  "995334e9a8a242f1"
+ ],
+ "Tool": [
+  "c645fbb36b600162"
+ ],
+ "Topology": [
+  "b4862e648495a400"
+ ],
+ "Unify": [
+  "a332e9bb0617fe42"
+ ],
+ "Unrolling": [
+  "abe08c5eb6f2551c"
+ ],
+ "UnwrapError": [
+  "0bcb2600e002dd7f"
+ ],
+ "Usage": [
+  "77b76a6635817929"
+ ],
+ "VariableFillet": [
+  "a4e657ef06ae05f3"
+ ],
+ "_Cache": [
+  "2058a14d672c9f0d"
+ ],
+ "_CylinderFaces": [
+  "a919181ec02d863a"
+ ],
+ "_HoleGroup": [
+  "8c5b63a1ad61550a"
+ ],
+ "_HoleOnFace": [
+  "f8b7611d6334dd70"
+ ],
+ "_HoleTool": [
+  "fa696e8fb8b6c96c"
+ ],
+ "_Key": [
+  "9af5aabb3d9532c5"
+ ],
+ "_PlanarFace": [
+  "bcdc528c2306148c"
+ ],
+ "_Segment": [
+  "458fbebef53c9c70"
+ ],
+ "_Solver": [
+  "4b8992d51ce07570"
+ ],
+ "_add": [
+  "528312e4f250ccbf",
+  "76b7f0d2162403fa"
+ ],
+ "_add_material": [
+  "151cef3e3142574d"
+ ],
+ "_all_round_walls": [
+  "f1f2726fe1776bae"
+ ],
+ "_anchor": [
+  "4e9458efbf97b4bc"
+ ],
+ "_array_copies": [
+  "d27e6169dcd0dbbd"
+ ],
+ "_array_source": [
+  "6d79683fc8c3e3f3"
+ ],
+ "_axis_of": [
+  "d06fb31f65af008b"
+ ],
+ "_bind_pairs": [
+  "38d08b3521f55299"
+ ],
+ "_body_bounds": [
+  "a358f1fd94f8ce81"
+ ],
+ "_body_centre": [
+  "2a92d00c69bfb9eb"
+ ],
+ "_boolean": [
+  "bf89102800a4a778"
+ ],
+ "_bounds_diagonal": [
+  "e5dfcfa39d887572"
+ ],
+ "_brep_bytes": [
+  "ca7de7f47cb16829"
+ ],
+ "_brep_shape": [
+  "49e71ec885c22740"
+ ],
+ "_chamfer_with_face": [
+  "973d2b3a68f579d9"
+ ],
+ "_check_room": [
+  "a06121b01df38d81"
+ ],
+ "_children": [
+  "c9ae64c459f48223"
+ ],
+ "_chosen_solids": [
+  "a935e6a2132d1f42"
+ ],
+ "_circle_edges": [
+  "6529902f69747ff6"
+ ],
+ "_clip": [
+  "27a6745b16b8d383"
+ ],
+ "_close": [
+  "b62ca3b204b19817"
+ ],
+ "_close_shell": [
+  "efd7e4e7829a8697"
+ ],
+ "_coaxial_neighbour": [
+  "f5600d85d65112b3"
+ ],
+ "_combine": [
+  "eaa87496b466fa2d"
+ ],
+ "_common_direction": [
+  "f3c32f7bf8c2f716"
+ ],
+ "_compound": [
+  "4bccda71bf9e2378",
+  "4bccda71bf9e2378"
+ ],
+ "_cone_unrolling": [
+  "a834c27550abfc05"
+ ],
+ "_connected_ids": [
+  "a63778ea10d7d7c6"
+ ],
+ "_contains": [
+  "24cb16771eae5739"
+ ],
+ "_cross": [
+  "576d2db7cee8557f"
+ ],
+ "_curved_prism": [
+  "e20d10192a4ae885"
+ ],
+ "_cut_bodies": [
+  "06585b0683c8cf66"
+ ],
+ "_cut_target": [
+  "5233408b7438b6e8"
+ ],
+ "_cutting_plane": [
+  "cc6fb00d76dbae54"
+ ],
+ "_cylinder": [
+  "8ec0b8bc1033d323"
+ ],
+ "_cylinder_dims": [
+  "1aadb55f41c03516"
+ ],
+ "_cylinder_key": [
+  "713b1911c403f9b0"
+ ],
+ "_defeature": [
+  "628ea35ab6bd7386"
+ ],
+ "_dim": [
+  "9a7c915373e695c3"
+ ],
+ "_dir_row": [
+  "8d0e9680eecc322f"
+ ],
+ "_direction": [
+  "0b1040500a652bbc"
+ ],
+ "_dot": [
+  "bdfc462a90dc4e24",
+  "e2abafa924140195"
+ ],
+ "_drag_steps": [
+  "4a5c6462fdd5c92a"
+ ],
+ "_edge_centre": [
+  "b22a916923e03820"
+ ],
+ "_edge_faces": [
+  "9ecaa4467fdeaf16"
+ ],
+ "_edge_ids": [
+  "ef6f1cca4624dc40"
+ ],
+ "_edge_normal": [
+  "f74a67b275309041"
+ ],
+ "_edge_plan": [
+  "37658b38171b21b8"
+ ],
+ "_edge_points": [
+  "66ab29c84807c3af"
+ ],
+ "_edge_vertices": [
+  "cb60769a36488630"
+ ],
+ "_edges": [
+  "0e9561136283feef",
+  "75e4c0bf99507785"
+ ],
+ "_ellipse_edge": [
+  "93650777518fa173"
+ ],
+ "_end_changes": [
+  "7a12d6f6ecba555d"
+ ],
+ "_end_tangent": [
+  "c8ff7cbfeccafbc0"
+ ],
+ "_entity_point_ids": [
+  "23e71f509502c1b8"
+ ],
+ "_entry": [
+  "9a9fd7c840311330"
+ ],
+ "_extent": [
+  "e8c6a2a4408e1cda"
+ ],
+ "_face_angle_plan": [
+  "ccf0513723cda614"
+ ],
+ "_face_arrays": [
+  "e6df8c08c84ffabd"
+ ],
+ "_face_display": [
+  "f2aa362ea052fb69"
+ ],
+ "_face_distance_plan": [
+  "d4d4a7e24d1c49f5"
+ ],
+ "_face_edges": [
+  "cab059133ab5cad9"
+ ],
+ "_face_signature": [
+  "9a30b4c6049dbd75"
+ ],
+ "_faces_of": [
+  "40154f8959c7b9d8",
+  "b1f39e14f521ff72",
+  "be7dcb50f7c0970d"
+ ],
+ "_fillet_face": [
+  "d84ceb4501a249f8"
+ ],
+ "_fillet_plan": [
+  "2e70bbdd23843e4b"
+ ],
+ "_fix_shell": [
+  "fbddbfe71f3ae8d2"
+ ],
+ "_floor_axis": [
+  "42e66bdfbcfbbea5"
+ ],
+ "_fmt": [
+  "0594f90e0005f9da"
+ ],
+ "_follow": [
+  "d83c130999bb23f5"
+ ],
+ "_fresh_bodies": [
+  "453e052e87b82d7b"
+ ],
+ "_fuse_copies": [
+  "c85a48ae224d26e6"
+ ],
+ "_half_space": [
+  "da119385fd636285"
+ ],
+ "_handle_connection": [
+  "f3e97c91ad96f131"
+ ],
+ "_hole_distance_plan": [
+  "85272c43cbd8c23c"
+ ],
+ "_hole_facts": [
+  "d215115d8593f3d4"
+ ],
+ "_hole_plan": [
+  "1b0111eba8a5614c"
+ ],
+ "_holes": [
+  "9e93d87295f7b71a"
+ ],
+ "_host_face": [
+  "6bd139294816a996"
+ ],
+ "_in_solid": [
+  "5102f80d53b28ead"
+ ],
+ "_inward": [
+  "c0fae9d5a651463d"
+ ],
+ "_is_fillet": [
+  "69e487afab2d013a"
+ ],
+ "_is_full_cylinder": [
+  "f37e595f6422a9fe"
+ ],
+ "_is_identity": [
+  "7165836583b569df"
+ ],
+ "_is_round_wall": [
+  "ca0b3548dae798d3"
+ ],
+ "_is_sheet_model": [
+  "6c230a86ce3484e5"
+ ],
+ "_join": [
+  "ace8a93c6c296e93"
+ ],
+ "_keep_unconnected": [
+  "1b09940f1b88c01f"
+ ],
+ "_kind": [
+  "a126bf3684ff5757"
+ ],
+ "_line_direction": [
+  "289938384aa96438"
+ ],
+ "_loose_shells": [
+  "1f7a882b29237e27"
+ ],
+ "_material": [
+  "5132048dc1f119bd"
+ ],
+ "_midpoint": [
+  "aa5dfbc3b474f0c1"
+ ],
+ "_mirrored": [
+  "0dfeb094c6e7f5cd"
+ ],
+ "_model_middle": [
+  "50c48406778997dc"
+ ],
+ "_moved": [
+  "c1dc200cd2ca96ea"
+ ],
+ "_ms": [
+  "2fbebf855f5da67d"
+ ],
+ "_name_list": [
+  "c754dd81c560f2fe"
+ ],
+ "_needs_mesh": [
+  "ce6d764d91a65c33"
+ ],
+ "_new_body": [
+  "36151871dc51e981"
+ ],
+ "_newell": [
+  "327fb81a68682a7f"
+ ],
+ "_norm": [
+  "a58c650cd5950000"
+ ],
+ "_normal_at": [
+  "ef6a843b03f71933"
+ ],
+ "_occt_reason": [
+  "9c05e8a552d72171"
+ ],
+ "_on_axis": [
+  "a898a23a72e8df2d"
+ ],
+ "_on_bodies": [
+  "3ddbb12b751c3107"
+ ],
+ "_open_body_line": [
+  "9c6f004ba62c478e"
+ ],
+ "_opposite_flat": [
+  "6fdc518561e5b11c"
+ ],
+ "_order": [
+  "242734e1c156c489"
+ ],
+ "_outer_wire": [
+  "e51b1a74b419b2f1"
+ ],
+ "_overlap": [
+  "cef88c797c901460"
+ ],
+ "_pair_rows": [
+  "69766b0d236c60d1"
+ ],
+ "_parallel": [
+  "22d026609dca4069"
+ ],
+ "_parametric_unrolling": [
+  "8b63e1ec85934fae"
+ ],
+ "_pass_length": [
+  "1d57d13a710fb7b4"
+ ],
+ "_path": [
+  "25240096eeca1387"
+ ],
+ "_pcurve": [
+  "18d9da386ff45885"
+ ],
+ "_perpendicular": [
+  "7dc6780718b107a8",
+  "ba1ff93c261aa752"
+ ],
+ "_pid_alive": [
+  "23d6979ec4deac5c"
+ ],
+ "_pivot_point": [
+  "ae9a7152850a272e"
+ ],
+ "_planar_pair": [
+  "36083ced53f4f63e"
+ ],
+ "_plane_axes": [
+  "5421c13baf05df88"
+ ],
+ "_plane_dims": [
+  "754405249bef5421"
+ ],
+ "_plane_frame": [
+  "31704bd45832dfac"
+ ],
+ "_plane_handles": [
+  "8da2c3f33b908473"
+ ],
+ "_plane_key": [
+  "81cf4ac62e32a179"
+ ],
+ "_plane_normal": [
+  "dc2f02a68fb5a5b6"
+ ],
+ "_plane_offset": [
+  "4c7fa312d54fe2cd"
+ ],
+ "_polygon": [
+  "805c7adddf86eb75"
+ ],
+ "_polygon_wires": [
+  "627cf5844cfb095a"
+ ],
+ "_position_handles": [
+  "60416080a22abf93"
+ ],
+ "_primitive_turn": [
+  "581b3b979465fdfa"
+ ],
+ "_props": [
+  "5ff48c63d8f8bd11"
+ ],
+ "_push_pull": [
+  "2ab7e6daf94c7878"
+ ],
+ "_push_pull_sheets": [
+  "920a4c6ed576e967"
+ ],
+ "_push_round_walls": [
+  "00ff03765699f5f1"
+ ],
+ "_quaternion": [
+  "d1e77c2bcd417341"
+ ],
+ "_read_brep": [
+  "ac599aa4b0d4e0f9"
+ ],
+ "_rebuild_round": [
+  "b4f51dde3ca28901"
+ ],
+ "_refit": [
+  "810f166260d95c47"
+ ],
+ "_revolved": [
+  "b9f81baeecd76339"
+ ],
+ "_rotation_free": [
+  "01bbf7a68428e5d7"
+ ],
+ "_row": [
+  "21ff535d1093e4c6"
+ ],
+ "_same_direction": [
+  "a22aee7c8dfceb38"
+ ],
+ "_same_line": [
+  "2c89037b036a35c3"
+ ],
+ "_scale": [
+  "8b2e693014958a1e"
+ ],
+ "_seed": [
+  "1a85c034ffde1e31"
+ ],
+ "_segment": [
+  "8243ed5bef9033e5"
+ ],
+ "_sew": [
+  "2ac769113aea8150"
+ ],
+ "_sew_into": [
+  "e058db86a7bef864"
+ ],
+ "_shapes": [
+  "688cbadd21670043"
+ ],
+ "_shared": [
+  "ef40c1689752d376"
+ ],
+ "_solid_indices": [
+  "59a8c0ecedc2d0c9"
+ ],
+ "_solid_indices_by_lookup": [
+  "93b22f05e95c6b5c"
+ ],
+ "_solved": [
+  "89adad1a3b68b347"
+ ],
+ "_static_handler": [
+  "4d5048d6c4d98fc9"
+ ],
+ "_straight": [
+  "be7daddc17f046c6"
+ ],
+ "_strip_unrolling": [
+  "f0aa9097a0c46262"
+ ],
+ "_sub": [
+  "532774eee2264c87"
+ ],
+ "_symmetric_faces": [
+  "47fae96c8ae12d72"
+ ],
+ "_tangent": [
+  "c2b50c58a0d4fd83"
+ ],
+ "_target": [
+  "0fec053ebdb318aa"
+ ],
+ "_tilted": [
+  "0845211979f0fd6a"
+ ],
+ "_touches": [
+  "72717fea72f6e38d"
+ ],
+ "_translation": [
+  "c880849508e00128"
+ ],
+ "_turned": [
+  "7c942d64e6903cf1"
+ ],
+ "_unit": [
+  "388b2a61004c3a75"
+ ],
+ "_vertex_edges": [
+  "660c1b640ed7f695"
+ ],
+ "_vertex_faces": [
+  "9cc0a020aa587d35"
+ ],
+ "_vertex_set": [
+  "76a20048b06a04d1"
+ ],
+ "_vertices": [
+  "554b30e8144a180d"
+ ],
+ "_volume": [
+  "bb667d84b4a10d57",
+  "bb667d84b4a10d57",
+  "e43845a891d5fc06"
+ ],
+ "_volume_of": [
+  "0413a2f1f961a943"
+ ],
+ "_wire": [
+  "c2ffc162c389429a"
+ ],
+ "_with_rotation": [
+  "782f32a48da4166a"
+ ],
+ "_write_brep": [
+  "0ed6b4638f8d2c7b"
+ ],
+ "_xyz": [
+  "e755d68e90c70b9f"
+ ],
+ "acknowledge": [
+  "d6f00636cfebad74"
+ ],
+ "acknowledged": [
+  "9cff976d387b3c3f"
+ ],
+ "add_regions": [
+  "51b922618f049e07"
+ ],
+ "annotate": [
+  "b967462ac32345fb"
+ ],
+ "apply_holes": [
+  "cacaffa2363c4296"
+ ],
+ "apply_solution": [
+  "36f13cd1510329c9"
+ ],
+ "block": [
+  "1e27d54642f106f6"
+ ],
+ "bounds": [
+  "699aef82dcaddb01"
+ ],
+ "box_of": [
+  "319cd79a77d80d51"
+ ],
+ "bracket": [
+  "9cb25e2049528e7b"
+ ],
+ "build": [
+  "38f2f67408ddfc6e"
+ ],
+ "build_unrolling": [
+  "f426e1a89a26dc37"
+ ],
+ "carry": [
+  "8702073547d9c93c"
+ ],
+ "centre_and_area": [
+  "08b8bcef8fc99adf"
+ ],
+ "check_import": [
+  "2baf06e30535a6b5"
+ ],
+ "combine": [
+  "3eafda08c87ef595"
+ ],
+ "conflicting_constraints": [
+  "88fbd7a09c0d9108"
+ ],
+ "core_report": [
+  "708eb917412c6aa5"
+ ],
+ "counterpart": [
+  "feafd267df99fa72"
+ ],
+ "data_folder": [
+  "56a8f1d7f4400ae6"
+ ],
+ "decode_binary": [
+  "f66c3d121261528a"
+ ],
+ "describe_faces": [
+  "eed07cb142b69137"
+ ],
+ "draft_angle": [
+  "7f25caf8934a2bcc"
+ ],
+ "edge_angle": [
+  "a2d12014ba53beb9"
+ ],
+ "edge_curve": [
+  "d5d42449b6eeb9a1"
+ ],
+ "edge_loops": [
+  "363b62bf102a32b5"
+ ],
+ "edge_outward_normal": [
+  "5c6a40ab5132e070"
+ ],
+ "edge_ring": [
+  "ed293fe85fc2013a"
+ ],
+ "encode_binary": [
+  "7d093ce51a6a2b36"
+ ],
+ "encode_mesh": [
+  "139fa513863c9d4c"
+ ],
+ "extrude": [
+  "3cbc0a9017c64734"
+ ],
+ "face_edges": [
+  "85aac044a9a1f80e"
+ ],
+ "face_handle_point": [
+  "6bb4c24abf41c866"
+ ],
+ "face_loops": [
+  "36047f80c36744d2"
+ ],
+ "face_normal_at_edge": [
+  "b27893faff0b352e"
+ ],
+ "face_plane": [
+  "162293579808e511"
+ ],
+ "face_reference": [
+  "156f10d43c429f48"
+ ],
+ "fillet_chamfer": [
+  "c940f43ae91b7215"
+ ],
+ "find_hole": [
+  "265d64804f864a29"
+ ],
+ "find_related": [
+  "3eb2ae284bd04d43"
+ ],
+ "finish": [
+  "75664ecab59e61b2"
+ ],
+ "follow_cylinder": [
+  "acb066d5b80ba8fe"
+ ],
+ "followed": [
+  "e4efac689914b703"
+ ],
+ "frame": [
+  "79ed7d7833ffadbb"
+ ],
+ "free_port": [
+  "f748a0c444206a18"
+ ],
+ "fresh": [
+  "4a79ebac08636dbc"
+ ],
+ "frontend_dir": [
+  "6cd5064fe0b82a9e"
+ ],
+ "get_tool": [
+  "c2ff730e8db260d5"
+ ],
+ "hole_centre": [
+  "513c5afa29070f28"
+ ],
+ "hole_profile": [
+  "d35ff7509ddaf01d"
+ ],
+ "hole_solid": [
+  "a1db59968a5faed2"
+ ],
+ "info": [
+  "bbad9fa719cd8a91"
+ ],
+ "insert_solid": [
+  "4db662cdd4323478"
+ ],
+ "install": [
+  "3944740e43767f29"
+ ],
+ "is_flat": [
+  "98be49722d7beccd"
+ ],
+ "is_placed": [
+  "23abbbde5f1a07ba"
+ ],
+ "linear_deflection": [
+  "39eb9e3a8abb4329"
+ ],
+ "list_trsf": [
+  "a3a86471cc9857fe"
+ ],
+ "load_demo": [
+  "8537c4b9c4a1ee4e"
+ ],
+ "main": [
+  "092ce5920b4aea50",
+  "9788db75f7b9fb18"
+ ],
+ "make": [
+  "534cc37f2faebbb3"
+ ],
+ "measure": [
+  "d2f17874a862d60f"
+ ],
+ "measure_edge": [
+  "4e59ed8dd839aec4"
+ ],
+ "measure_face": [
+  "f9e9e8682125c0af"
+ ],
+ "measure_vertex": [
+  "1d3db8c22b43e774"
+ ],
+ "mirror_candidates": [
+  "24ba61fe0b367186"
+ ],
+ "mirror_result": [
+  "e6b0b53b79127920"
+ ],
+ "model_info": [
+  "d88c40ac66beef57"
+ ],
+ "namer": [
+  "d6ff8ed8c35539a0"
+ ],
+ "offset_entities": [
+  "e22d43b2859724e0"
+ ],
+ "offset_plane": [
+  "08fe43008842f40b"
+ ],
+ "open_loops": [
+  "b0b7b1409b17d020"
+ ],
+ "outer_loop": [
+  "9857b0e7673acab9"
+ ],
+ "pack": [
+  "7915c2d3d082074b"
+ ],
+ "part_names": [
+  "eef2a586d2f9d0e4"
+ ],
+ "perforated_plate": [
+  "d7b7dea313524ee9"
+ ],
+ "plan": [
+  "a0124cb6a765f5b7"
+ ],
+ "planar_normal": [
+  "5f2867b3e2323562"
+ ],
+ "plane_normal_to": [
+  "e408bb3c60661adf"
+ ],
+ "plane_through": [
+  "f68da12ee7c6e9d7"
+ ],
+ "point_freedom": [
+  "d910cabc18f73563"
+ ],
+ "profile_face": [
+  "dbe7c4de3701bc03"
+ ],
+ "profile_meshes": [
+  "b8c88f17a50afb4c"
+ ],
+ "push_pull": [
+  "effdd40db64b311e"
+ ],
+ "read_step": [
+  "5fe5668102723aab"
+ ],
+ "read_step_checked": [
+  "89c914b618b44668"
+ ],
+ "read_step_parts": [
+  "9c54e684aa5acf34"
+ ],
+ "read_step_tree": [
+  "c1288a8c688d28c4"
+ ],
+ "reason": [
+  "95d71fae55827c51"
+ ],
+ "rebuild_hole": [
+  "ba7cea75d4751f2e"
+ ],
+ "region_boundary": [
+  "8d6758e9730b81b2"
+ ],
+ "region_face": [
+  "7ced66e2170842df"
+ ],
+ "regions": [
+  "c09d7bc74ca707ce"
+ ],
+ "register": [
+  "29b41f182ff429ab"
+ ],
+ "renamed": [
+  "d4e7e6b927c8dc1f"
+ ],
+ "resolve": [
+  "76b694f376560036"
+ ],
+ "revolve": [
+  "ef4c01f8aec830e5"
+ ],
+ "rotate_plane": [
+  "b058cdec04345e84"
+ ],
+ "round_handles": [
+  "6910c7b3012560d8"
+ ],
+ "run": [
+  "03348057767ab999"
+ ],
+ "same_signature": [
+  "695e92832e225469"
+ ],
+ "scrub": [
+  "b81d84522989ac8a"
+ ],
+ "settle": [
+  "8451e7f0d8e6c808"
+ ],
+ "shared_loop": [
+  "adbf9dca78c3d562"
+ ],
+ "sharp_edges": [
+  "a505544a9245eb5c"
+ ],
+ "shifted_plane": [
+  "3c4f66aaabb2ee35"
+ ],
+ "signature": [
+  "e3afdbb7c4cc980f"
+ ],
+ "solids_of": [
+  "63da546f10eed931"
+ ],
+ "solve": [
+  "01036feb459da423"
+ ],
+ "stretch_solid": [
+  "81034c48038ac4e9"
+ ],
+ "symmetric_faces": [
+  "08bc3aa857d36b16"
+ ],
+ "tangent_chain": [
+  "f0ff6186593a8031"
+ ],
+ "tangent_plane": [
+  "36b7383a1219a6fe"
+ ],
+ "tessellate": [
+  "24631741eb42fc35"
+ ],
+ "transform_handles": [
+  "8f9c5aeab7057184"
+ ],
+ "trsf_list": [
+  "0323438f15bf40fa"
+ ],
+ "unify_result": [
+  "2c585b3e9dba70a6"
+ ],
+ "unpack": [
+  "92f57e5eb9191a1d"
+ ],
+ "unwrap_plane": [
+  "24ca4ada2adb412d"
+ ],
+ "wrap_regions": [
+  "8eb88d234d554eff"
+ ],
+ "write_mesh": [
+  "9acc7f45190836bd"
+ ],
+ "write_step": [
+  "476b3f7df6abdad8"
+ ]
+}
