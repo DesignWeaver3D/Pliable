@@ -94,7 +94,7 @@ export function showImportNotice(core: Requester, solids: number, warnings: stri
   card.append(title);
   if (solids > 1) {
     const text = document.createElement("p");
-    text.textContent = `${solids} solids. Edits apply to one solid at a time and solids can't be hidden yet, so covered features are out of reach. Operations may fail.`;
+    text.textContent = `${solids} solids. Edits apply to one solid at a time. Use See-through or Focus on a body in the bodies list to reach features that other solids cover. Operations may fail on stacked or overlapping solids.`;
     card.append(text);
   }
   if (warnings.length) {
