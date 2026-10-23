@@ -258,7 +258,7 @@ def test_push_pull_handle_follows_the_distance_and_skips_hole_walls():
 
 
 def _is_whole_cylinder(face):
-    from pliable.tools import _all_round_walls
+    from pliable.tools.push_pull import _all_round_walls
 
     class _T:
         def face(self, i):
@@ -273,7 +273,7 @@ from OCP.BRepClass3d import BRepClass3d_SolidClassifier  # noqa: E402
 from OCP.TopAbs import TopAbs_OUT  # noqa: E402
 from OCP.gp import gp_Pnt as _Pnt  # noqa: E402
 
-from pliable.features import solids_of  # noqa: E402
+from pliable.ops import solids_of  # noqa: E402
 from pliable.ops import edge_curve, edge_outward_normal  # noqa: E402
 
 

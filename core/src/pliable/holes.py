@@ -1,4 +1,4 @@
-﻿"""What a hole is, and how to find and rebuild one in a model that has no history.
+"""What a hole is, and how to find and rebuild one in a model that has no history.
 
 A hole is a cut around one axis made of full cylinders and cones (plain, counterbore, countersink, stepped) and flat
 shoulders, entering from a face and either running through the body or ending at a flat or conical bottom. Anything
@@ -434,7 +434,7 @@ def hole_solid(info: HoleInfo, offset: gp_Vec | None = None, **changes):
 def rebuild_hole(shape, info: HoleInfo, offset: gp_Vec | None = None, **changes):
     """The model with this hole filled and cut again with changes (`diameter`, `depth`, `through`, `stages`, `start`) and moved
     by `offset`. Returns the new shape (not yet unified)."""
-    from .features import _combine
+    from .shared.solids import _combine
 
     size = max(info.pass_length, info.depth, info.diameter)
     margin = 0.01 * size + 1e-3
