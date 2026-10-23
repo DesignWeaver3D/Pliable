@@ -447,6 +447,11 @@ function setCommitted(mesh: MeshData, frame = false, sels: Sel[] = []) {
   committed = mesh;
   lastOp = null; // callers that commit a tool run set it again afterwards
   editLastButton.disabled = true;
+  if (frame) { // a newly opened model: its body ids restart at 1, so the old model's hidden, see-through and focus state would hit its bodies
+    bodyView.hidden = new Set();
+    bodyView.ghost = new Set();
+    bodyView.focus = null;
+  }
   show(mesh, frame);
   viewport.selectItems(sels);
   setSelection(sels);

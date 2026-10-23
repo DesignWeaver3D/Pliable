@@ -47,6 +47,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - The bodies list is a persistent plain list on the left of the 3D view, outside the drawer. Rows have a name, eye and isolate; right-click gives Rename, Duplicate, Delete and Edit primitive.
 - Clicking a row selects the whole body; tools then use bodies directly.
 - Each body has a stable id and an auto name; rename is an undo step.
+- When a different model is opened (demo, import, project, resume), every body starts visible, solid and out of focus.
 
 ## Sketch
 
