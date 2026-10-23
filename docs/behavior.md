@@ -36,7 +36,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - A failed preview keeps the last good size and shows the status in red; release commits the last good size.
 - Each tool with a drag parameter has on-screen handles, one per parameter; with a form open a handle sets the form field.
 - Handles show their name and value only for the one under the pointer. Diameter parameters have a radius handle plus a perpendicular double-ended diameter handle.
-- Holding Shift while left-dragging a face makes push/pull symmetric: a sketch face about its sketch plane, two parallel faces about their mid-plane, one face about the global origin plane or a datum plane.
+- Holding Shift while left-dragging a face makes push/pull symmetric: a sketch face about its sketch plane, two parallel faces about their mid-plane, one face about the global origin plane or a datum plane. Pressing or releasing Shift during the drag switches the mode from then on (provisional).
 - Move and rotate are one tool (Move/Rotate). Rotate and scale pivot about each the current move base point.
 - Primitives are separate bodies by default. Sketch extrude are Join if intersecting a body or separate bodies if no intersection with any body.
 - Dimensions are edited in place by double-clicking the text; an edit runs the ordinary tool as one undo step. Impossible edits show the reason in red and change nothing.

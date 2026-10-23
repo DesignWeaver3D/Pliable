@@ -661,7 +661,17 @@ let dragSels: Sel[] | null = null;
 // Shift held when a push/pull drag starts makes the whole drag symmetric (about a plane, see the core's symmetric push/pull).
 let shiftHeld = false;
 let dragSymmetric = false;
-for (const type of ["keydown", "keyup"] as const) window.addEventListener(type, (e) => (shiftHeld = e.shiftKey));
+for (const type of ["keydown", "keyup"] as const) {
+  window.addEventListener(type, (e) => {
+    shiftHeld = e.shiftKey;
+    // Pressing or letting go of Shift during a push/pull drag switches the symmetric mode from then on and previews it at once.
+    if (dragSels !== null && dragToolFor(dragSels)?.id === "push_pull" && dragSymmetric !== shiftHeld) {
+      dragSymmetric = shiftHeld;
+      queued = dragValue;
+      pump(session);
+    }
+  });
+}
 window.addEventListener("blur", () => (shiftHeld = false));
 
 function toolRequest(sels: Sel[], distance: number) {
