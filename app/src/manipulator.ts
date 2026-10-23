@@ -15,6 +15,7 @@ const COLOR_HOT = 0xffffff;
 const COLOR_TOGGLE = 0x6fd3ff;
 /** The line a hole's axis handle draws from its opening to its far grip. */
 const AXIS_LINE = 0xffb347;
+const HANDLE_OUTLINE = 0x1b1d22; // the dark outline under grips, as under the dimension lines
 /** Resize grips are neutral squares (orange on hover) so they never read as the coloured move arrows. */
 const COLOR_RESIZE = 0xc8ccd4;
 const COLOR_RESIZE_HOT = 0xffb347;
@@ -244,6 +245,11 @@ export class Manipulator {
     const geometry = info.toggle ? new THREE.SphereGeometry(0.17, 16, 12) : resize ? new THREE.BoxGeometry(0.3, 0.3, 0.3) : new THREE.ConeGeometry(0.16, 0.42, 16);
     const tip = new THREE.Mesh(geometry, material());
     tip.renderOrder = 11;
+    // A dark outline so the grip stays visible against light surfaces: a slightly larger back-facing copy drawn just beneath it.
+    const outline = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: HANDLE_OUTLINE, side: THREE.BackSide, depthTest: false, transparent: true }));
+    outline.scale.setScalar(1.3);
+    outline.renderOrder = 10;
+    tip.add(outline);
     if (resize) {
       tip.position.copy(dir).multiplyScalar(-0.15); // the grip sits on the anchor, with a thin stem back to the model
     } else if (!info.toggle) {

@@ -41,6 +41,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Primitives are separate bodies by default. Sketch extrude are Join if intersecting a body or separate bodies if no intersection with any body.
 - Dimensions are edited in place by double-clicking the text; an edit runs the ordinary tool as one undo step. Impossible edits show the reason in red and change nothing.
 - Warnings show in orange; red is for errors.
+- Dimension values, leaders and arrowheads are off-white with a dark outline, and handle grips have a dark outline, so they stay readable over light bodies.
 
 ## Bodies
 

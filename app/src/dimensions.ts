@@ -32,9 +32,10 @@ const LEADER_PX = 34; // a leader runs this far beyond the feature before its la
 const LANDING_PX = 14; // the short horizontal landing the text sits at the end of
 const TEXT_PX = 13;
 const CURSOR_CLEAR_PX = 28; // text moves away when the pointer is closer than this
-const COLOR = "#ff8a1f";
-/** Leaders, extension lines, dimension lines and arrowheads use the off-white of the UI buttons (the --ui-offwhite token in index.html). */
+/** Leaders, extension lines, dimension lines, arrowheads and the values use the off-white of the UI buttons (the --ui-offwhite token in index.html). */
 const LINE_COLOR = "var(--ui-offwhite, #ddd)";
+/** The dark outline under all of them, so they stay readable over light surfaces. */
+const HALO_COLOR = "#1b1d22";
 const NS = "http://www.w3.org/2000/svg";
 
 type V = { x: number; y: number };
@@ -117,9 +118,10 @@ export class DimensionOverlay {
         continue;
       }
       if (this.clash) continue;
+      const halos = mine.filter((el) => el.tagName === "line").map(lineHalo);
       if (d.activate) mine.push(...this.lineHits(d, mine));
       if (this.drewLabel) this.labelAt.set(index, this.drewLabel);
-      parts.push(...mine);
+      parts.push(...halos, ...mine);
       this.placed.push(...this.pending);
     }
     this.svg.replaceChildren(...parts);
@@ -287,8 +289,8 @@ export class DimensionOverlay {
     t.setAttribute("dominant-baseline", "central");
     t.setAttribute("font-size", String(TEXT_PX));
     t.setAttribute("font-family", "system-ui, sans-serif");
-    t.setAttribute("fill", COLOR);
-    t.setAttribute("stroke", "#1b1d22");
+    t.setAttribute("style", `fill: ${LINE_COLOR}`);
+    t.setAttribute("stroke", HALO_COLOR);
     t.setAttribute("stroke-width", "4");
     t.setAttribute("paint-order", "stroke");
     g.append(t);
@@ -330,6 +332,14 @@ function line(a: V, b: V): SVGElement {
   return l;
 }
 
+/** A wider dark copy of a line, drawn under it. */
+function lineHalo(el: SVGElement): SVGElement {
+  const h = el.cloneNode(false) as SVGElement;
+  h.setAttribute("style", `stroke: ${HALO_COLOR}; pointer-events: none`);
+  h.setAttribute("stroke-width", "4");
+  return h;
+}
+
 /** Filled arrowhead with its tip at `tip`, pointing along `dir`. */
 function arrow(tip: V, dir: V): SVGElement {
   const back = sub(tip, mul(dir, ARROW_PX));
@@ -338,6 +348,10 @@ function arrow(tip: V, dir: V): SVGElement {
   const pts = [tip, add(back, mul(n, ARROW_PX / 3)), sub(back, mul(n, ARROW_PX / 3))];
   p.setAttribute("points", pts.map((q) => `${q.x},${q.y}`).join(" "));
   p.setAttribute("style", `fill: ${LINE_COLOR}`);
+  p.setAttribute("stroke", HALO_COLOR);
+  p.setAttribute("stroke-width", "2.5");
+  p.setAttribute("stroke-linejoin", "round");
+  p.setAttribute("paint-order", "stroke");
   return p;
 }
 
@@ -347,5 +361,8 @@ function dot(at: V): SVGElement {
   c.setAttribute("cy", String(at.y));
   c.setAttribute("r", "3");
   c.setAttribute("style", `fill: ${LINE_COLOR}`);
+  c.setAttribute("stroke", HALO_COLOR);
+  c.setAttribute("stroke-width", "2.5");
+  c.setAttribute("paint-order", "stroke");
   return c;
 }
