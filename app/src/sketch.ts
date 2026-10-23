@@ -948,7 +948,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.render();
   }
 
-/** The constraint and dimension buttons of the sketch strip: every one, enabled when the selection takes it. */  constraintChoices(): { label: string; enabled: boolean }[] {    return M.allConstraintOptions(this.s, this.selection).map((c) => ({ label: c.option.label, enabled: c.enabled }));  }  /** Apply the strip button with this label to the selection. */  chooseConstraint(label: string) {    const chosen = M.allConstraintOptions(this.s, this.selection).find((c) => c.option.label === label);    if (chosen?.enabled) void this.applyConstraint(chosen.option);  }
+/** The constraint and dimension buttons of the sketch strip: every one, enabled when the selection takes it. */  constraintChoices(): { label: string; enabled: boolean }[] {    return M.allConstraintOptions(this.s, this.selection).map((c) => ({ label: c.option.label, enabled: c.enabled }));  }  /** Apply the strip button with this label to the selection. */  chooseConstraint(label: string) {    const chosen = M.allConstraintOptions(this.s, this.selection).find((c) => c.option.label === label);    if (chosen?.enabled) void this.applyConstraint(chosen.option);    else if (chosen) this.host.status(`${label} does not fit the current selection`, "warn");  }
   private async applyConstraint(chosen: M.ConstraintOption) {
     const option = chosen.pick?.(this.s, this.selection) ?? chosen; // the smart dimension stands for one of the others
     const built = option.build(this.s, this.selection);
@@ -1011,7 +1011,10 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     input.value = String(parseFloat(c.value.toFixed(3)));
     box.append(input);
     for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "dblclick"]) box.addEventListener(type, (e) => e.stopPropagation());
+    let closed = false;
     const close = () => {
+      if (closed) return; // removing the field blurs it, which calls this again
+      closed = true;
       box.remove();
       if (this.valueField === box) this.valueField = null;
     };
@@ -1275,7 +1278,48 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     if (seq === this.profileSeq && this.active) this.setProfiles(profiles);
   }
 
+  private profileData: { positions: number[]; indices: number[] }[] = [];
+  private triangleCache: { data: unknown; key: string; triangles: number[][][] } | null = null;
+
+  /** Whether a sketch point lies inside a closed region (a tinted profile face), and how far to look from the geometry (about 40 px): dimensions are placed outside the faces. */
+  private outside(): M.Outside | undefined {
+    if (!this.profileData.length || !this.s.constraints.some((c) => c.value !== undefined || c.reference)) return undefined;
+    const key = JSON.stringify(this.s.plane);
+    if (this.triangleCache?.data !== this.profileData || this.triangleCache.key !== key) {
+      const triangles = this.profileData.flatMap((m) => {
+        const uv = (i: number) => M.toPlane(this.s.plane, [m.positions[3 * i], m.positions[3 * i + 1], m.positions[3 * i + 2]]);
+        return Array.from({ length: Math.floor(m.indices.length / 3) }, (_, t) => [uv(m.indices[3 * t]), uv(m.indices[3 * t + 1]), uv(m.indices[3 * t + 2])]);
+      });
+      this.triangleCache = { data: this.profileData, key, triangles };
+    }
+    const triangles = this.triangleCache.triangles;
+    const inside = (u: number, v: number) =>
+      triangles.some(([a, b, c]) => {
+        const side = (p: number[], q: number[]) => (q[0] - p[0]) * (v - p[1]) - (q[1] - p[1]) * (u - p[0]);
+        const [x, y, z] = [side(a, b), side(b, c), side(c, a)];
+        return (x >= 0 && y >= 0 && z >= 0) || (x <= 0 && y <= 0 && z <= 0);
+      });
+    return { inside, probe: this.pixelAt(0, 0) * 40 };
+  }
+
+  /** Move a dimension's text (and with it the line or leader) to where the pointer is; the first move is one undo step. */
+  private dragDimension(id: number, e: PointerEvent) {
+    const at = this.planeUV(e);
+    const c = this.s.constraints.find((x) => x.id === id);
+    if (!at || !c) return;
+    if (this.draggedDimension !== id) {
+      this.pushUndo();
+      this.draggedDimension = id;
+      window.addEventListener("pointerup", () => (this.draggedDimension = null), { once: true, capture: true });
+    }
+    c.place = at;
+    this.render(false);
+  }
+  private draggedDimension: number | null = null;
+
   private setProfiles(profiles: { positions: number[]; indices: number[] }[]) {
+    this.profileData = profiles;
+    if (this.s.constraints.some((c) => c.value !== undefined || c.reference)) this.render(false); // dimensions are placed outside the regions
     for (const old of this.profileFills) {
       this.group.remove(old);
       old.geometry.dispose();
@@ -1535,9 +1579,11 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.points.geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
     this.points.geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
     this.points.geometry.computeBoundingSphere();
-    const dimensions = M.dimensionsOf(this.s).map((d) => {
+    const dimensions = M.dimensionsOf(this.s, this.outside()).map((d) => {
       const c = this.s.constraints.find((x) => x.id === d.constraint);
-      return c && !c.reference && c.value !== undefined ? { ...d, activate: (at: { x: number; y: number }) => this.editInline(c.id, at) } : d;
+      if (!c) return d;
+      const drag = (e: PointerEvent) => this.dragDimension(c.id, e);
+      return !c.reference && c.value !== undefined ? { ...d, drag, activate: (at: { x: number; y: number }) => this.editInline(c.id, at) } : { ...d, drag };
     });
     this.overlay.set([...dimensions, ...(this.showMarks ? M.constraintMarks(this.s) : []), ...this.liveDimensions()]);
     if (panel) this.renderPanel();
@@ -1633,11 +1679,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
 
     const tools = buildToolOptions(this);
 
-    const options = M.optionsFor(this.s, this.selection);
-    const constraints = el("div", "row-buttons");
-    constraints.append(...options.map((o) => button(o.label, () => this.applyConstraint(o))));
+    // The constraint and dimension buttons live in the strip at the top; the card keeps the other selection tools.
     const constraintsBox = el("div", "section");
-    constraintsBox.append(el("div", "group", this.selection.length ? "Constrain selection" : "Select items to constrain"), constraints);
+    constraintsBox.append(el("div", "group", this.selection.length ? "Selection" : "Select items to edit"));
 
     const transformRow = this.transformButtons();
     const transformBox = el("div", "section");

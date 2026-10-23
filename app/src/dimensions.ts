@@ -22,6 +22,14 @@ export interface Dimension {
   constraint?: number;
   /** Set when double-clicking the text or the dimension's lines runs this (the sketch's own inline editor), given where the text is. */
   activate?: (at: { x: number; y: number }) => void;
+  /** Linear: how far the dimension line sits from the measured points, signed along `offsetDirection` (world units); the pixel default when unset. */
+  offset?: number;
+  /** Linear: how far the text is slid along the dimension line from its middle (world units). */
+  slide?: number;
+  /** Leaders: where the leader bends and ends (a world point); the default direction and length when unset. */
+  labelAt?: number[];
+  /** Set when the dimension can be dragged to a new place: called with the pointer while it is dragged. */
+  drag?: (e: PointerEvent) => void;
 }
 
 const DIM_OFFSET_PX = 36; // distance of a linear dimension line from the measured points
@@ -31,6 +39,7 @@ const ARROW_PX = 9;
 const LEADER_PX = 34; // a leader runs this far beyond the feature before its landing
 const LANDING_PX = 14; // the short horizontal landing the text sits at the end of
 const TEXT_PX = 13;
+const DRAG_START_PX = 4; // a press that moves less than this is a click, not a drag
 const CURSOR_CLEAR_PX = 28; // text moves away when the pointer is closer than this
 /** Leaders, extension lines, dimension lines, arrowheads and the values use the off-white of the UI buttons (the --ui-offwhite token in index.html). */
 const LINE_COLOR = "var(--ui-offwhite, #ddd)";
@@ -92,7 +101,7 @@ export class DimensionOverlay {
     const cam = this.camera();
     cam.updateMatrixWorld();
     // The pointer only matters to labels that dodge it; the interactive ones (editable or explained) stay put under it.
-    const dodging = this.dims.some((d) => !d.edit && !d.editNote && !d.activate);
+    const dodging = this.dims.some((d) => !d.edit && !d.editNote && !d.activate && !d.drag);
     const state = [...cam.matrixWorld.elements, ...(cam as THREE.PerspectiveCamera).projectionMatrix.elements, rect.width, rect.height, dodging ? this.pointer?.x : 0, dodging ? this.pointer?.y : 0, this.editing].join(",");
     if (state === this.drawn) return; // nothing moved: rebuilding the SVG every frame made it flicker
     this.drawn = state;
@@ -120,7 +129,7 @@ export class DimensionOverlay {
       }
       if (this.clash) continue;
       const halos = mine.filter((el) => el.tagName === "line").map(lineHalo);
-      if (d.activate) mine.push(...this.lineHits(d, mine));
+      if (d.activate || d.drag) mine.push(...this.lineHits(d, mine));
       if (this.drewLabel) this.labelAt.set(index, this.drewLabel);
       parts.push(...halos, ...mine);
       this.placed.push(...this.pending);
@@ -147,7 +156,20 @@ export class DimensionOverlay {
       side = { x: -along.y, y: along.x };
       if (side.y > 1e-6 || (Math.abs(side.y) <= 1e-6 && side.x < 0)) side = mul(side, -1);
     }
-    const off = mul(side, DIM_OFFSET_PX);
+    let off = mul(side, DIM_OFFSET_PX);
+    let slide: V = { x: 0, y: 0 };
+    if (d.offset !== undefined && d.offsetDirection) {
+      // Placed by the user: the line sits at the dragged distance, the text at the dragged place along it.
+      const o = d.offsetDirection;
+      const moved = (p: number[], k: number) => project(p.map((c, i) => c + o[i] * k));
+      off = sub(moved(d.points[0], d.offset), a);
+      if (d.slide) {
+        const mid = d.points[0].map((c, i) => (c + d.points[1][i]) / 2);
+        const dir = d.points[1].map((c, i) => c - d.points[0][i]);
+        const length = Math.hypot(...dir) || 1;
+        slide = sub(project(mid.map((c, i) => c + (dir[i] / length) * d.slide!)), project(mid));
+      }
+    }
     const a2 = add(a, off);
     const b2 = add(b, off);
     for (const [p, q] of [
@@ -158,7 +180,7 @@ export class DimensionOverlay {
       out.push(line(add(p, mul(dir, EXT_GAP_PX)), add(q, mul(dir, EXT_OVERSHOOT_PX))));
     }
     this.dimLine(a2, b2, out);
-    this.label(mul(add(a2, b2), 0.5), d.text, out, false, angleOf(along));
+    this.label(add(mul(add(a2, b2), 0.5), slide), d.text, out, false, angleOf(along));
   }
 
   private leader(d: Dimension, project: (p: number[]) => V, out: SVGElement[]) {
@@ -175,8 +197,9 @@ export class DimensionOverlay {
     }
     if (d.kind !== "diameter") out.push(arrow(rim, outDir));
     // Leader: continues past the rim, then a horizontal landing that carries the text.
-    const knee = add(rim, mul(outDir, LEADER_PX));
-    const side = outDir.x < 0 ? -1 : 1;
+    const placed = d.labelAt ? project(d.labelAt) : null; // dragged by the user: bend where it was dropped
+    const knee = placed ?? add(rim, mul(outDir, LEADER_PX));
+    const side = placed ? (placed.x < rim.x ? -1 : 1) : outDir.x < 0 ? -1 : 1;
     const end = add(knee, { x: side * LANDING_PX, y: 0 });
     out.push(line(rim, knee), line(knee, end));
     this.label(add(end, { x: side * (d.text.length * TEXT_PX * 0.275 + 6), y: 0 }), d.text, out, false);
@@ -202,12 +225,13 @@ export class DimensionOverlay {
     r.setAttribute("width", String(half.x * 2));
     r.setAttribute("height", String(half.y * 2));
     r.setAttribute("rx", "3");
-    r.setAttribute("class", dim.edit || dim.activate ? "dimhit edit" : "dimhit");
+    r.setAttribute("class", (dim.edit || dim.activate ? "dimhit edit" : "dimhit") + (dim.drag ? " drag" : ""));
     const tip = document.createElementNS(NS, "title");
-    tip.textContent = dim.edit || dim.activate ? "Double-click to edit" : (dim.editNote ?? "");
+    tip.textContent = dim.edit || dim.activate ? "Double-click to edit" + (dim.drag ? ", drag to move" : "") : (dim.editNote ?? (dim.drag ? "Drag to move" : ""));
     r.append(tip);
     // The pointer gestures on the text belong to the text: they must not reach the viewport (which would clear the selection).
     for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup"]) r.addEventListener(type, (e) => e.stopPropagation());
+    this.makeDraggable(r, dim);
     if (dim.activate) {
       r.addEventListener("dblclick", (e) => {
         e.preventDefault();
@@ -230,17 +254,40 @@ export class DimensionOverlay {
     return r;
   }
 
+  /** Dragging the text or a line of a dimension moves it (`dim.drag` gets the pointer); a click without movement stays a click. */
+  private makeDraggable(el: SVGElement, dim: Dimension) {
+    if (!dim.drag) return;
+    el.addEventListener("pointerdown", (down) => {
+      if (down.button !== 0) return;
+      const start = { x: down.clientX, y: down.clientY };
+      let moving = false;
+      const move = (e: PointerEvent) => {
+        if (!moving && Math.hypot(e.clientX - start.x, e.clientY - start.y) < DRAG_START_PX) return;
+        moving = true;
+        dim.drag!(e);
+      };
+      const end = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", end, true);
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", end, true); // capture: the text and lines stop pointerup from bubbling
+    });
+  }
+
   /** Wide invisible copies of a dimension's lines, so double-clicking the leader or dimension line edits it like the text does. */
   private lineHits(d: Dimension, drawn: SVGElement[]): SVGElement[] {
     const at = this.drewLabel;
-    return drawn
-      .filter((el) => el.tagName === "line")
+    // The line across a circle (to its centre or through it) is left out: its hit area would cover the centre and the curve, which stay selectable.
+    const lines = drawn.filter((el) => el.tagName === "line");
+    return (d.kind === "radius" || d.kind === "diameter" ? lines.slice(1) : lines)
       .map((el) => {
         const hit = el.cloneNode(false) as SVGElement;
         hit.setAttribute("stroke", "rgba(255,138,31,0)");
         hit.setAttribute("stroke-width", "12");
         hit.setAttribute("style", "pointer-events:stroke;cursor:text");
         for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup"]) hit.addEventListener(type, (e) => e.stopPropagation());
+        this.makeDraggable(hit, d);
         hit.addEventListener("dblclick", (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -267,7 +314,7 @@ export class DimensionOverlay {
 
   private label(at: V, text: string, out: SVGElement[], dotted: boolean, angle = 0) {
     const dim = this.dims[this.current];
-    const interactive = !!(dim?.edit || dim?.editNote || dim?.activate);
+    const interactive = !!(dim?.edit || dim?.editNote || dim?.activate || dim?.drag);
     let p = at;
     if (!interactive && this.pointer && len(sub(p, this.pointer)) < CURSOR_CLEAR_PX) {
       p = add(this.pointer, mul(unit(sub(p, this.pointer)), CURSOR_CLEAR_PX));
@@ -303,7 +350,7 @@ export class DimensionOverlay {
 
 const HIT_STYLE = (() => {
   const style = document.createElementNS(NS, "style");
-  style.textContent = ".dimhit { fill: rgba(255,138,31,0); stroke: none; pointer-events: all; } .dimhit.edit { cursor: text; } .dimhit.edit:hover { fill: rgba(255,138,31,0.16); stroke: #ff8a1f; stroke-width: 1; }";
+  style.textContent = ".dimhit { fill: rgba(255,138,31,0); stroke: none; pointer-events: all; } .dimhit.edit { cursor: text; } .dimhit.drag { cursor: move; } .dimhit.edit:hover { fill: rgba(255,138,31,0.16); stroke: #ff8a1f; stroke-width: 1; }";
   return style;
 })();
 

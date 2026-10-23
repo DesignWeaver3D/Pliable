@@ -36,6 +36,8 @@ export interface SketchConstraint {
   reference?: boolean;
   /** Added by a drawing tool rather than chosen by the user; shown as such and removable with one click. */
   auto?: boolean;
+  /** Where the user dragged this dimension's text to, in sketch coordinates (display only; the solver ignores it). */
+  place?: [number, number];
 }
 export interface SketchData {
   plane: PlaneData;
@@ -139,11 +141,34 @@ export function describeConstraint(s: SketchData, c: SketchConstraint): string {
   return `${c.reference ? "Reference " : ""}${names[c.type] ?? c.type} ${refs.join(" ")}${value != null ? ` = ${parseFloat(value.toFixed(3))}` : ""}`;
 }
 
+/** What dimension placement knows about the closed regions: whether a sketch point lies inside one, and how far from the geometry to look. */
+export interface Outside {
+  inside(u: number, v: number): boolean;
+  probe: number;
+}
+
 /** Dimension annotations (drawn by DimensionOverlay) for the sketch's dimensional constraints. */
-export function dimensionsOf(s: SketchData): Dimension[] {
+export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
   const f = frame(s.plane);
   const out: Dimension[] = [];
   const world = (id: number) => toWorld(s.plane, pointOf(s, id).u, pointOf(s, id).v);
+  /** A linear dimension on the side of its points that lies outside the closed regions, or where the user dragged it. */
+  const linear = (c: SketchConstraint, text: string, a: number[], b: number[], direction: number[]): Dimension => {
+    let o = direction;
+    if (outside) {
+      const mid = [0, 1, 2].map((k) => (a[k] + b[k]) / 2);
+      const probe = (sign: number) => toPlane(s.plane, mid.map((x, k) => x + sign * o[k] * outside.probe));
+      if (outside.inside(...probe(1)) && !outside.inside(...probe(-1))) o = o.map((x) => -x);
+    }
+    const made: Dimension = { kind: "linear", text, points: [a, b], offsetDirection: o };
+    if (c.place) {
+      const at = toWorld(s.plane, c.place[0], c.place[1]);
+      made.offset = dot(sub(at, a), norm(o));
+      made.slide = dot(sub(at, a.map((x, k) => (x + b[k]) / 2)), norm(sub(b, a)));
+    }
+    return made;
+  };
+  const placed = (c: SketchConstraint, fallback: number[]) => (c.place ? toWorld(s.plane, c.place[0], c.place[1]) : fallback);
   for (const c of s.constraints) {
     const value = c.reference ? measure(s, c) : c.value;
     if (value === undefined || value === null) continue;
@@ -154,7 +179,7 @@ export function dimensionsOf(s: SketchData): Dimension[] {
       const ends = entity && entity.type === "line" ? [entity.a, entity.b] : c.points!;
       const [a, b] = [world(ends[0]), world(ends[1])];
       const along = norm(sub(b, a));
-      out.push({ kind: "linear", text, points: [a, b], offsetDirection: cross(f.n, along) });
+      out.push(linear(c, text, a, b, cross(f.n, along)));
     } else if ((c.type === "horizontal_distance" || c.type === "vertical_distance") && true) {
       const horizontal = c.type === "horizontal_distance";
       const ids = entity && entity.type === "line" ? [entity.a, entity.b] : c.points!;
@@ -164,33 +189,40 @@ export function dimensionsOf(s: SketchData): Dimension[] {
       const side = horizontal ? f.y : f.x;
       // The dimension runs along the projected leg (a to corner) and sits on the side away from the other point.
       const away = horizontal ? (pb.v >= pa.v ? -1 : 1) : pb.u >= pa.u ? -1 : 1;
-      out.push({ kind: "linear", text, points: [a, corner], offsetDirection: side.map((x) => x * away) });
+      out.push(linear(c, text, a, corner, side.map((x) => x * away)));
     } else if (c.type === "axis_angle" && entity && entity.type === "line") {
       const [a, b] = [pointOf(s, entity.a), pointOf(s, entity.b)];
-      out.push({ kind: "tag", text: `∠${text}°`, points: [toWorld(s.plane, (a.u + b.u) / 2, (a.v + b.v) / 2)] });
+      out.push({ kind: "tag", text: `∠${text}°`, points: [placed(c, toWorld(s.plane, (a.u + b.u) / 2, (a.v + b.v) / 2))] });
     } else if (c.type === "angle" && c.entities?.length === 2) {
       const lines = c.entities.map((id) => s.entities.find((e) => e.id === id));
       if (lines.every((l) => l?.type === "line")) {
         const mids = (lines as Extract<SketchEntity, { type: "line" }>[]).map((l) => [(pointOf(s, l.a).u + pointOf(s, l.b).u) / 2, (pointOf(s, l.a).v + pointOf(s, l.b).v) / 2]);
-        out.push({ kind: "tag", text: `∠${text}°`, points: [toWorld(s.plane, (mids[0][0] + mids[1][0]) / 2, (mids[0][1] + mids[1][1]) / 2)] });
+        out.push({ kind: "tag", text: `∠${text}°`, points: [placed(c, toWorld(s.plane, (mids[0][0] + mids[1][0]) / 2, (mids[0][1] + mids[1][1]) / 2))] });
       }
     } else if (c.type === "minor_radius" && entity && entity.type === "ellipse") {
       const [m, o] = [pointOf(s, entity.center), pointOf(s, entity.major)];
       const length = Math.hypot(o.u - m.u, o.v - m.v) || 1;
-      out.push({ kind: "tag", text: `r${text}`, points: [toWorld(s.plane, m.u - ((o.v - m.v) / length) * entity.minor, m.v + ((o.u - m.u) / length) * entity.minor)] });
+      out.push({ kind: "tag", text: `r${text}`, points: [placed(c, toWorld(s.plane, m.u - ((o.v - m.v) / length) * entity.minor, m.v + ((o.u - m.u) / length) * entity.minor))] });
     } else if (c.type === "point_line_distance" && entity && entity.type === "line" && c.point !== undefined) {
       const [la, lb, p] = [pointOf(s, entity.a), pointOf(s, entity.b), pointOf(s, c.point)];
       const length = Math.hypot(lb.u - la.u, lb.v - la.v) || 1;
       const t = ((p.u - la.u) * (lb.u - la.u) + (p.v - la.v) * (lb.v - la.v)) / (length * length);
       const foot = toWorld(s.plane, la.u + t * (lb.u - la.u), la.v + t * (lb.v - la.v));
       const at = world(c.point);
-      out.push({ kind: "linear", text, points: [foot, at], offsetDirection: norm(sub(at, foot)).map((x) => -x) });
+      out.push(linear(c, text, foot, at, norm(sub(at, foot)).map((x) => -x)));
     } else if ((c.type === "radius" || c.type === "diameter") && entity && (entity.type === "circle" || entity.type === "arc")) {
       const center = world(entity.center);
       const r = radiusOf(s, entity);
-      const rim = entity.type === "circle" ? [0, 1, 2].map((k) => center[k] + r * f.x[k]) : world(entity.start);
-      if (c.type === "radius") out.push({ kind: "radius", text: `R${text}`, points: [center, rim] });
-      else out.push({ kind: "diameter", text: `⌀${text}`, points: [[0, 1, 2].map((k) => 2 * center[k] - rim[k]), rim] });
+      let way: number[] = f.x; // the way a circle's leader leaves it: toward where it was dragged, else the first way that ends outside the closed regions
+      if (c.place) way = norm(sub(toWorld(s.plane, c.place[0], c.place[1]), center));
+      else if (outside) {
+        const ways = [f.x, f.x.map((x) => -x), f.y, f.y.map((x) => -x)];
+        way = ways.find((w) => !outside.inside(...toPlane(s.plane, center.map((x, k) => x + w[k] * (r + outside.probe))))) ?? f.x;
+      }
+      const rim = entity.type === "circle" ? [0, 1, 2].map((k) => center[k] + r * way[k]) : world(entity.start);
+      const leader: Dimension = c.type === "radius" ? { kind: "radius", text: `R${text}`, points: [center, rim] } : { kind: "diameter", text: `⌀${text}`, points: [[0, 1, 2].map((k) => 2 * center[k] - rim[k]), rim] };
+      if (c.place) leader.labelAt = toWorld(s.plane, c.place[0], c.place[1]);
+      out.push(leader);
     }
     for (const made of out.slice(first)) made.constraint = c.id;
   }

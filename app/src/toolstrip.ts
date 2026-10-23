@@ -56,8 +56,8 @@ export function createToolStrip(d: StripDeps) {
     toolbarKey = key;
     d.toolbar.classList.add("sketching");
     d.toolbar.style.maxWidth = `${available}px`;
-    d.toolbar.style.width = "";
-    d.toolbar.style.left = `${centre}px`;
+    d.toolbar.style.width = `${available}px`; // the whole room, so a row fills before the next one starts
+    d.toolbar.style.left = `${centre - Math.round(available / 2)}px`;
     d.toolbar.replaceChildren(
       ...SKETCH_TOOLS.map((t) => {
         const button = document.createElement("button");
@@ -70,13 +70,12 @@ export function createToolStrip(d: StripDeps) {
         button.addEventListener("click", () => d.chooseSketchTool(t.id));
         return button;
       }),
-      // The second row: every constraint and dimension, greyed unless the selection takes it (for testing which work).
+      // The second row: every constraint and dimension, always available; the title says whether the selection fits (`enabled` is kept for that).
       Object.assign(document.createElement("div"), { className: "rowbreak" }),
       ...choices.map((c) => {
         const button = document.createElement("button");
         button.textContent = c.label;
-        button.disabled = !c.enabled;
-        button.title = c.enabled ? `Apply ${c.label} to the selection` : `${c.label}: select what it applies to first`;
+        button.title = c.enabled ? `Apply ${c.label} to the selection` : `${c.label}: does not fit the current selection`;
         button.addEventListener("click", () => d.chooseConstraint(c.label));
         return button;
       }),

@@ -210,3 +210,21 @@ test("constraints that only apply to edges ignore selected vertices", () => {
   assert.ok(labels(stray).includes("Horizontal"));
   assert.ok(labels([{ kind: "entity", id: 10 }, { kind: "point", id: 3 }]).includes("Horizontal"));
 });
+
+test("a length dimension sits outside the closed regions and follows where it was dragged", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }],
+    constraints: [{ id: 20, type: "distance", entity: 10, value: 10 }],
+  };
+  const regionAbove = { inside: (u, v) => v > 0, probe: 2 };
+  const regionBelow = { inside: (u, v) => v < 0, probe: 2 };
+  assert.ok(dimensionsOf(s, regionAbove)[0].offsetDirection[1] < 0, "region above: the dimension goes below");
+  assert.ok(dimensionsOf(s, regionBelow)[0].offsetDirection[1] > 0, "region below: the dimension goes above");
+  // dragged: the line sits at the dropped distance, the text slid along it
+  s.constraints[0].place = [7, 4];
+  const placed = dimensionsOf(s)[0];
+  assert.ok(Math.abs(Math.abs(placed.offset) - 4) < 1e-9);
+  assert.ok(Math.abs(placed.slide - 2) < 1e-9);
+});
