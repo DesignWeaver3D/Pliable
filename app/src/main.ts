@@ -21,7 +21,7 @@ import { SETTING_ENTRIES, createSettingsWindow, onSettingsChange, openSettings, 
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
 import { HintLine } from "./hints";
-import { exportAs as saveModel, toBase64 } from "./filesave";
+import { exportAs as saveModel, installFileOpening } from "./filesave";
 import { Palette, type Command } from "./palette";
 import { toolKeywords } from "./search";
 import { TOOLS_HANDLE_ICON, sketchIcon, toolIcon, uiIcon } from "./icons";
@@ -1146,54 +1146,17 @@ window.addEventListener("beforeunload", (e) => {
   if (!undoButton.disabled || sketch.active) e.preventDefault();
 });
 
-// Import adds the file as a body and keeps the session; "Open as new model" starts again from the file.
-let importAsNew = false;
-$("open").addEventListener("click", () => {
-  importAsNew = false;
-  fileInput.click();
-});
-$("openasnew").addEventListener("click", () => {
-  importAsNew = true;
-  fileInput.click();
-});
-fileInput.addEventListener("change", async () => {
-  const file = fileInput.files?.[0];
-  fileInput.value = "";
-  if (!file) return;
-  const mode = importAsNew ? "replace" : "add";
-  if (mode === "replace" && !undoButton.disabled && !window.confirm("Opening a file as a new model replaces the current model and its undo history. Continue? (Use Import STEP to add the file to the current model instead.)")) return;
-  try {
-    status.textContent = `importing ${file.name}...`;
-    const data = toBase64(new Uint8Array(await file.arrayBuffer()));
-    if (mode === "replace") setCommitted(await core.request<MeshData>("import_step", { name: file.name, data }), true);
-    else setCommitted(await core.request<MeshData>("combine_step", { data, mode }), false);
-  } catch (e) {
-    status.textContent = (e as Error).message;
-    status.classList.add("error");
-  }
-});
+installFileOpening(
+  { core, status, hasEdits: () => !undoButton.disabled, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame) },
+  { open: $("open"), openAsNew: $("openasnew"), openProject: $("openproject") },
+  { step: fileInput, project: $("projectfile") as HTMLInputElement },
+);
 
 /** Ask the core for the model in a file format and save it through the browser. */
 const exportAs = (request: string, extension: string, params: Record<string, unknown> = {}) => saveModel(core, status, select.value || "model", request, extension, params);
 
 $("export").addEventListener("click", () => exportAs("export_step", "step"));
 $("saveproject").addEventListener("click", () => exportAs("save_project", "plbl"));
-const projectInput = $("projectfile") as HTMLInputElement;
-$("openproject").addEventListener("click", () => projectInput.click());
-projectInput.addEventListener("change", async () => {
-  const file = projectInput.files?.[0];
-  projectInput.value = "";
-  if (!file) return;
-  if (!undoButton.disabled && !window.confirm("Opening a project replaces the current model and its undo history. Continue?")) return;
-  try {
-    status.textContent = `opening ${file.name}...`;
-    const data = toBase64(new Uint8Array(await file.arrayBuffer()));
-    setCommitted(await core.request<MeshData>("open_project", { data }), true);
-  } catch (e) {
-    status.textContent = (e as Error).message;
-    status.classList.add("error");
-  }
-});
 const exportMesh = $("exportmesh") as HTMLSelectElement;
 exportMesh.addEventListener("change", () => {
   const format = exportMesh.value;

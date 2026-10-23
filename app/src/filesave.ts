@@ -45,3 +45,59 @@ export async function exportAs(core: FileCore, status: HTMLElement, baseName: st
     status.classList.add("error");
   }
 }
+
+export interface OpenFileDeps {
+  core: FileCore;
+  status: HTMLElement;
+  /** Whether the model has edits (an enabled Undo): replacing it asks first. */
+  hasEdits(): boolean;
+  /** Show a mesh the core answered with as the committed model; `frame` fits the camera to it. */
+  setCommitted(mesh: unknown, frame: boolean): void;
+}
+
+/** Import adds a STEP file as bodies and keeps the session; "Open as new model" starts again from the file.
+ *  A project file (.plbl) always replaces the model. */
+export function installFileOpening(d: OpenFileDeps, buttons: { open: HTMLElement; openAsNew: HTMLElement; openProject: HTMLElement }, inputs: { step: HTMLInputElement; project: HTMLInputElement }) {
+  const fail = (e: unknown) => {
+    d.status.textContent = (e as Error).message;
+    d.status.classList.add("error");
+  };
+  let importAsNew = false;
+  buttons.open.addEventListener("click", () => {
+    importAsNew = false;
+    inputs.step.click();
+  });
+  buttons.openAsNew.addEventListener("click", () => {
+    importAsNew = true;
+    inputs.step.click();
+  });
+  inputs.step.addEventListener("change", async () => {
+    const file = inputs.step.files?.[0];
+    inputs.step.value = "";
+    if (!file) return;
+    const mode = importAsNew ? "replace" : "add";
+    if (mode === "replace" && d.hasEdits() && !window.confirm("Opening a file as a new model replaces the current model and its undo history. Continue? (Use Import STEP to add the file to the current model instead.)")) return;
+    try {
+      d.status.textContent = `importing ${file.name}...`;
+      const data = toBase64(new Uint8Array(await file.arrayBuffer()));
+      if (mode === "replace") d.setCommitted(await d.core.request("import_step", { name: file.name, data }), true);
+      else d.setCommitted(await d.core.request("combine_step", { data, mode }), false);
+    } catch (e) {
+      fail(e);
+    }
+  });
+  buttons.openProject.addEventListener("click", () => inputs.project.click());
+  inputs.project.addEventListener("change", async () => {
+    const file = inputs.project.files?.[0];
+    inputs.project.value = "";
+    if (!file) return;
+    if (d.hasEdits() && !window.confirm("Opening a project replaces the current model and its undo history. Continue?")) return;
+    try {
+      d.status.textContent = `opening ${file.name}...`;
+      const data = toBase64(new Uint8Array(await file.arrayBuffer()));
+      d.setCommitted(await d.core.request("open_project", { data }), true);
+    } catch (e) {
+      fail(e);
+    }
+  });
+}
