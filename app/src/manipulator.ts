@@ -246,8 +246,8 @@ export class Manipulator {
     const tip = new THREE.Mesh(geometry, material());
     tip.renderOrder = 11;
     // A dark outline so the grip stays visible against light surfaces: a slightly larger back-facing copy drawn just beneath it.
-    const outline = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: HANDLE_OUTLINE, side: THREE.BackSide, depthTest: false, transparent: true }));
-    outline.scale.setScalar(1.3);
+    const outline = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: HANDLE_OUTLINE, side: THREE.BackSide, depthTest: false, transparent: true, opacity: 0.6 }));
+    outline.scale.setScalar(1.2);
     outline.renderOrder = 10;
     tip.add(outline);
     if (resize) {

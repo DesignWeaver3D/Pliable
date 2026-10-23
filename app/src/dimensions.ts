@@ -36,6 +36,7 @@ const CURSOR_CLEAR_PX = 28; // text moves away when the pointer is closer than t
 const LINE_COLOR = "var(--ui-offwhite, #ddd)";
 /** The dark outline under all of them, so they stay readable over light surfaces. */
 const HALO_COLOR = "#1b1d22";
+const HALO_OPACITY = "0.6"; // see-through, so it reads as a soft shadow rather than a hard outline
 const NS = "http://www.w3.org/2000/svg";
 
 type V = { x: number; y: number };
@@ -291,7 +292,8 @@ export class DimensionOverlay {
     t.setAttribute("font-family", "system-ui, sans-serif");
     t.setAttribute("style", `fill: ${LINE_COLOR}`);
     t.setAttribute("stroke", HALO_COLOR);
-    t.setAttribute("stroke-width", "4");
+    t.setAttribute("stroke-opacity", HALO_OPACITY);
+    t.setAttribute("stroke-width", "3");
     t.setAttribute("paint-order", "stroke");
     g.append(t);
     if (interactive && !hidden) g.append(this.hitArea(half, dim, p));
@@ -336,7 +338,8 @@ function line(a: V, b: V): SVGElement {
 function lineHalo(el: SVGElement): SVGElement {
   const h = el.cloneNode(false) as SVGElement;
   h.setAttribute("style", `stroke: ${HALO_COLOR}; pointer-events: none`);
-  h.setAttribute("stroke-width", "4");
+  h.setAttribute("stroke-opacity", HALO_OPACITY);
+  h.setAttribute("stroke-width", "3");
   return h;
 }
 
@@ -349,7 +352,8 @@ function arrow(tip: V, dir: V): SVGElement {
   p.setAttribute("points", pts.map((q) => `${q.x},${q.y}`).join(" "));
   p.setAttribute("style", `fill: ${LINE_COLOR}`);
   p.setAttribute("stroke", HALO_COLOR);
-  p.setAttribute("stroke-width", "2.5");
+  p.setAttribute("stroke-opacity", HALO_OPACITY);
+  p.setAttribute("stroke-width", "2");
   p.setAttribute("stroke-linejoin", "round");
   p.setAttribute("paint-order", "stroke");
   return p;
@@ -362,7 +366,8 @@ function dot(at: V): SVGElement {
   c.setAttribute("r", "3");
   c.setAttribute("style", `fill: ${LINE_COLOR}`);
   c.setAttribute("stroke", HALO_COLOR);
-  c.setAttribute("stroke-width", "2.5");
+  c.setAttribute("stroke-opacity", HALO_OPACITY);
+  c.setAttribute("stroke-width", "2");
   c.setAttribute("paint-order", "stroke");
   return c;
 }
