@@ -13,6 +13,7 @@ import * as E from "./sketchedit";
 import * as M from "./sketchmodel";
 import * as Sh from "./sketchshapes";
 import { buildGridGroup, disposeGrid } from "./sketchgrid";
+import { openSketchSettings } from "./sketchsettings";
 import { parseValue } from "./dimedit";
 import { uiIcon } from "./icons";
 import { LENGTH_UNIT } from "./units";
@@ -1232,74 +1233,7 @@ export class SketchMode {
   /** The sketch settings window (the gear in the sketch card): grid spacing and automatic constraints. Changes apply at once and are remembered on this computer. */
   private openSettings() {
     if (this.settingsDialog?.open) return;
-    const dialog = document.createElement("dialog");
-    dialog.className = "sketchsettings";
-    dialog.addEventListener("keydown", (e) => e.stopPropagation()); // typing here is not a sketch shortcut
-    const row = (label: string, input: HTMLElement, unit = "") => {
-      const r = document.createElement("label");
-      const text = document.createElement("span");
-      text.textContent = label;
-      const tail = document.createElement("span");
-      tail.className = "unit";
-      tail.textContent = unit;
-      r.append(text, input, tail);
-      return r;
-    };
-    const spacing = (value: number, min: number, on: (n: number) => void) => {
-      const input = document.createElement("input");
-      input.type = "number";
-      input.min = String(min);
-      input.step = "any";
-      input.value = String(value);
-      input.addEventListener("change", () => {
-        const n = Number(input.value);
-        if (Number.isFinite(n) && n >= min) on(n);
-        input.value = String(n >= min ? n : value);
-        this.saveOptions();
-        this.buildGrid();
-      });
-      return input;
-    };
-    const auto = document.createElement("select");
-    for (const [value, label] of [["none", "Off: geometry stays free"], ["snaps", "From snaps only"], ["shape", "Snaps and shapes"]]) auto.append(new Option(label, value, false, value === this.options.auto));
-    auto.title = "Off: drawing tools never add constraints, so everything moves freely until you constrain it. From snaps: a line snapped to horizontal or vertical, or a point snapped onto a curve, keeps that. Snaps and shapes: also keeps rectangles, polygons and slots in shape";
-    auto.addEventListener("change", () => {
-      this.options.auto = auto.value as SketchOptions["auto"];
-      this.saveOptions();
-    });
-    const fade = document.createElement("select");
-    for (const [value, label] of [["off", "Off"], ["subtle", "Subtle"], ["strong", "Strong"]]) fade.append(new Option(label, value, false, value === this.options.fade));
-    fade.title = "Fades the grid toward the edges of the view. It is always measured from the middle of the view, so panning never hides the grid where you are looking";
-    fade.addEventListener("change", () => {
-      this.options.fade = fade.value as SketchOptions["fade"];
-      this.saveOptions();
-      this.buildGrid();
-    });
-    const title = document.createElement("h3");
-    title.textContent = "Sketch settings";
-    const grid = document.createElement("div");
-    grid.className = "group";
-    grid.textContent = "Grid (shown with the grid button in the sketch card)";
-    const done = document.createElement("button");
-    done.textContent = "Done";
-    done.addEventListener("click", () => dialog.close());
-    dialog.append(
-      title,
-      grid,
-      row("Major spacing", spacing(this.options.major, 0.001, (n) => (this.options.major = n)), LENGTH_UNIT),
-      row("Minor spacing", spacing(this.options.minor, 0, (n) => (this.options.minor = n)), `${LENGTH_UNIT} (0 for none)`),
-      row("Fade at the edges", fade),
-      Object.assign(document.createElement("div"), { className: "group", textContent: "Drawing" }),
-      row("Automatic constraints", auto),
-      done,
-    );
-    dialog.addEventListener("close", () => {
-      dialog.remove();
-      this.settingsDialog = null;
-    });
-    document.body.append(dialog);
-    this.settingsDialog = dialog;
-    dialog.showModal();
+    this.settingsDialog = openSketchSettings(this.options, { save: () => this.saveOptions(), rebuildGrid: () => this.buildGrid(), closed: () => (this.settingsDialog = null) });
   }
 
   /** Run `then` once the dimensions have been drawn (the overlay redraws every frame). */
