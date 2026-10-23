@@ -4,12 +4,11 @@ import { bodyCentres, movedBodies } from "./slide";
 import { PointPicker, ReferenceView } from "./reference";
 import { installAlphaUi, showDiagnostics, showImportNotice, showLaunchNotice } from "./alpha";
 import { CoreClient, type MeshData } from "./client";
-import { SKETCH_TOOLS, SketchMode } from "./sketch";
+import { SketchMode } from "./sketch";
 import type { Tool as SketchTool } from "./sketch";
 import { SketchBar } from "./sketchbar";
 import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
-import { fitStripCount, stripRoom } from "./stripfit";
 import { DimensionOverlay, type Dimension } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
@@ -24,13 +23,13 @@ import { HintLine } from "./hints";
 import { exportAs as saveModel, installFileOpening } from "./filesave";
 import { askRestore, dismissRestorePrompt } from "./restoreprompt";
 import { bodyView } from "./appstate";
+import { createToolStrip } from "./toolstrip";
 import { helperSignature as helperSignatureOf, selectionHelpers as selectionHelpersOf, type HelperDeps } from "./toolhelpers";
 import { expand, relatedState, renderChips as chipsRender, type RelatedRule } from "./relatedrules";
 import { installBodyActions } from "./bodyactions";
 import { Palette, type Command } from "./palette";
 import { toolKeywords } from "./search";
-import { TOOLS_HANDLE_ICON, sketchIcon, toolIcon, uiIcon } from "./icons";
-import { TOOL_GROUPS } from "./layout";
+import { TOOLS_HANDLE_ICON, uiIcon } from "./icons";
 import type { AnchorInfo } from "./placepick";
 import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type HandleInfo, type ToolInfo } from "./tools";
 import { Viewport, type Sel } from "./viewport";
@@ -222,23 +221,7 @@ $("drawerbtn").addEventListener("click", () => {
 });
 $("drawerusable").addEventListener("change", (e) => drawer.classList.toggle("usableonly", (e.target as HTMLInputElement).checked));
 
-/** Strip order: the tool a drag runs first, then the tool groups' order. */
-const GROUP_ORDER = TOOL_GROUPS.flatMap((g) => g.tools);
 
-/** Room for the context strip: from the edge of the bodies list to the nav cube group. */
-function stripWidthAvailable(): { width: number; centre: number } {
-  const vw = document.documentElement.clientWidth;
-  const list = $("bodypanel").getBoundingClientRect();
-  const left = list.width > 0 ? list.right + STRIP_MARGIN_PX : drawer.hidden ? LEFT_RESERVE_PX : DRAWER_RESERVE_PX;
-  const cube = $("navcube").getBoundingClientRect();
-  const right = cube.width > 0 ? vw - cube.left + STRIP_MARGIN_PX : 160;
-  return stripRoom(vw, left, right);
-}
-const STRIP_MARGIN_PX = 8;
-const DRAWER_RESERVE_PX = 532; // list, drawer and its handle
-const LEFT_RESERVE_PX = 240;
-
-let toolbarKey = "";
 
 /** While a sketch is open the top strip holds the drawing tools instead of the model's tools. The sketch itself is made below. */
 let currentSketchTool: () => SketchTool = () => "select";
@@ -246,103 +229,24 @@ let chooseSketchTool: (tool: SketchTool) => void = () => {};
 let sketchConstraints: () => { label: string; enabled: boolean }[] = () => [];
 let chooseConstraint: (label: string) => void = () => {};
 
-function renderSketchStrip() {
-  const room = stripWidthAvailable();
-  const available = Math.round(room.width);
-  const centre = Math.round(room.centre);
-  const tool = currentSketchTool();
-  const choices = sketchConstraints();
-  const key = `sketch|${tool}|${available}|${centre}|${choices.map((c) => `${c.label}${c.enabled ? 1 : 0}`).join()}`;
-  if (key === toolbarKey) return;
-  toolbarKey = key;
-  toolbar.classList.add("sketching");
-  toolbar.style.maxWidth = `${available}px`;
-  toolbar.style.width = "";
-  toolbar.style.left = `${centre}px`;
-  toolbar.replaceChildren(
-    ...SKETCH_TOOLS.map((t) => {
-      const button = document.createElement("button");
-      const label = document.createElement("span");
-      label.className = "label";
-      label.textContent = t.label;
-      button.append(sketchIcon(t.id), label);
-      button.title = `${t.label}: ${t.hint}`;
-      button.className = t.id === tool ? "active" : "";
-      button.addEventListener("click", () => chooseSketchTool(t.id));
-      return button;
-    }),
-    // The second row: every constraint and dimension, greyed unless the selection takes it (for testing which work).
-    Object.assign(document.createElement("div"), { className: "rowbreak" }),
-    ...choices.map((c) => {
-      const button = document.createElement("button");
-      button.textContent = c.label;
-      button.disabled = !c.enabled;
-      button.title = c.enabled ? `Apply ${c.label} to the selection` : `${c.label}: select what it applies to first`;
-      button.addEventListener("click", () => chooseConstraint(c.label));
-      return button;
-    }),
-  );
-}
+const { renderToolbar } = createToolStrip({
+  toolbar,
+  sketchOpen: () => !!viewport.interceptor,
+  sketchTool: () => currentSketchTool(),
+  chooseSketchTool: (tool) => chooseSketchTool(tool),
+  sketchConstraints: () => sketchConstraints(),
+  chooseConstraint: (label) => chooseConstraint(label),
+  drawerHidden: () => !!drawer.hidden,
+  toggleDrawer: (open, usableOnly) => toggleDrawer(open, usableOnly),
+  selection: () => currentSels,
+  usableTools: () => usableTools(),
+  dragToolFor: (sels) => dragToolFor(sels),
+  helperSignature: () => helperSignature(),
+  selectionHelpers: () => selectionHelpers(),
+  renderChips: () => renderChips(),
+  armTool: (tool) => armTool(tool, "strip"),
+});
 
-function renderToolbar() {
-  if (viewport.interceptor) {
-    renderSketchStrip(); // a sketch is open
-    return;
-  }
-  toolbar.classList.remove("sketching");
-  renderChips();
-  const usable = usableTools();
-  const active = dragToolFor(currentSels)?.id;
-  const helperKey = helperSignature();
-  const room = stripWidthAvailable();
-  const available = Math.round(room.width);
-  const centre = Math.round(room.centre);
-  const key = `${usable.map((t) => t.id).join(",")}|${active}|${currentSels.length}|${helperKey}|${available}|${centre}`;
-  if (key === toolbarKey) return; // unchanged: keep the buttons (avoids flicker as the core's replies arrive)
-  toolbarKey = key;
-  toolbar.style.maxWidth = `${available}px`;
-  toolbar.style.width = `${available}px`; // the whole room, so a row fills before the next one starts
-  toolbar.style.left = `${centre - Math.round(available / 2)}px`;
-  const helpers = selectionHelpers();
-  if (usable.length === 0 && helpers.length === 0) {
-    const hint = document.createElement("span");
-    hint.className = "none";
-    hint.textContent = currentSels.length ? "No tools for this selection" : "Select a face or edge (Ctrl+K for commands)";
-    const browse = document.createElement("button");
-    browse.append(uiIcon("more"), "... More");
-    browse.className = "more";
-    browse.title = "Open the tool drawer (T)";
-    browse.addEventListener("click", () => toggleDrawer(true));
-    toolbar.replaceChildren(hint, browse);
-    return;
-  }
-  const rank = (t: ToolInfo) => (t.id === active ? -1 : GROUP_ORDER.includes(t.id) ? GROUP_ORDER.indexOf(t.id) : GROUP_ORDER.length);
-  const ordered = [...usable].sort((a, b) => rank(a) - rank(b));
-  const more = document.createElement("button");
-  more.className = "more";
-  more.title = "Open the tool drawer, showing the tools that work now (T)";
-  more.addEventListener("click", () => toggleDrawer(true, true));
-  const buttons = ordered.map((tool) => {
-    const button = document.createElement("button");
-    button.append(toolIcon(tool.id, tool.label), tool.label);
-    button.title = toolTooltip(tool);
-    button.className = tool.id === active ? "active" : "";
-    button.addEventListener("click", () => armTool(tool, "strip"));
-    return button;
-  });
-  // Measure pass: lay everything out, read the widths, then keep what fits in two rows. "... More" shows only when some tools do not.
-  more.replaceChildren(uiIcon("more"), "... More");
-  toolbar.replaceChildren(...buttons, ...helpers, more);
-  const style = getComputedStyle(toolbar);
-  const gap = parseFloat(style.columnGap) || 6;
-  const chrome = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2;
-  const width = (b: HTMLElement) => b.getBoundingClientRect().width;
-  const count = fitStripCount({ tools: buttons.map(width), helpers: helpers.map(width), more: width(more), gap, chrome }, available);
-  for (const b of buttons.slice(count)) b.remove();
-  if (count >= ordered.length) more.remove();
-}
-
-window.addEventListener("resize", () => renderToolbar());
 
 const helperDeps: HelperDeps = {
   core,
