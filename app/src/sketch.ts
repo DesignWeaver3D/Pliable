@@ -10,10 +10,10 @@ import type { CoreClient, MeshData } from "./client";
 import type { Dimension, DimensionOverlay } from "./dimensions";
 import * as E from "./sketchedit";
 import * as M from "./sketchmodel";
-import * as Sh from "./sketchshapes";
 import { buildGridGroup, disposeGrid } from "./sketchgrid";
 import * as B from "./sketchbuilders";
 import * as Sn from "./sketchsnap";
+import * as Pv from "./sketchpreview";
 import { buildConstraintList, buildToolOptions, button, el, type PanelContext } from "./sketchpanelparts";
 import { openSketchSettings } from "./sketchsettings";
 import { parseValue } from "./dimedit";
@@ -121,7 +121,7 @@ interface SolveReply {
 
 export type Drag = { point: number; u: number; v: number } | { points: { point: number; u: number; v: number }[] };
 
-export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContext {
+export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContext, Pv.PreviewContext {
   active = false;
   s!: M.SketchData;
   private plane = new THREE.Plane();
@@ -131,7 +131,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   /** Geometry lit up while the pointer is over a row of the constraint list. */
   highlight: M.SketchSel[] = [];
   chain: Snap[] = []; // points clicked so far for the current drawing
-  private cursor: Snap | null = null;
+  cursor: Snap | null = null;
   private drag: { id: number; startX: number; startY: number; moved: boolean; body?: { u: number; v: number; points: { id: number; u: number; v: number }[] } } | null = null;
   private dof: number | null = null;
   failed = new Set<number>();
@@ -485,7 +485,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   }
 
   /** Sides of a regular polygon tool: the Polygon tool uses the count in the sketch card, the fixed shapes their own. */
-  private sidesOf(tool: Tool): number | undefined {
+  sidesOf(tool: Tool): number | undefined {
     return tool === "polygon" ? this.options.sides : POLYGON_SIDES[tool];
   }
 
@@ -785,7 +785,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     if (this.typed) this.host.status(rect ? `Typed size: ${this.typed}| (width, space, height; Enter places it)` : `Typed size: ${this.typed}| (Enter places it)`);
     this.render();
   };
-  private typed = "";
+  typed = "";
 
   /** Place the next point at the typed distance in the pointer's direction and keep the typed size as a dimension. */
   private async applyTyped() {
@@ -909,9 +909,6 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   }
   private addRectangle(a: Snap, b: Snap, centred = false) {
     B.addRectangle(this, a, b, centred);
-  }
-  private polygonCorners(center: { u: number; v: number }, corner: { u: number; v: number }, sides: number) {
-    return B.polygonCorners(center, corner, sides);
   }
   private addPolygon(center: Snap, corner: Snap, sides: number) {
     B.addPolygon(this, center, corner, sides);
@@ -1572,91 +1569,12 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
 
   /** Size tags next to the cursor while a shape is being placed: length and angle, width by height, or radius. */
   private liveDimensions(): Dimension[] {
-    const c = this.cursor;
-    const a = this.chain[this.chain.length - 1];
-    if (!c || !a) return [];
-    const n = (x: number) => parseFloat(x.toFixed(2)).toString();
-    const tag = (u: number, v: number, text: string): Dimension[] => [{ kind: "tag", text, points: [M.toWorld(this.s.plane, u, v)] }];
-    const du = c.u - a.u;
-    const dv = c.v - a.v;
-    if (this.typed) return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `${this.typed}|`);
-    if (this.tool === "line") return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `${n(Math.hypot(du, dv))} at ${n((Math.atan2(dv, du) * 180) / Math.PI)}°`);
-    if (this.tool === "rectangle") return tag((a.u + c.u) / 2, c.v, `${n(Math.abs(du))} × ${n(Math.abs(dv))}`);
-    if (this.tool === "rectcentre") return tag(a.u, c.v, `${n(Math.abs(du) * 2)} × ${n(Math.abs(dv) * 2)}`);
-    if (this.tool === "circle" || this.sidesOf(this.tool)) return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `R${n(Math.hypot(du, dv))}`);
-    return [];
+    return Pv.liveDimensions(this);
   }
 
   /** Rubber-band shapes for the drawing in progress. */
   private pendingShapes(): [number, number][][] {
-    return [...this.pendingBase(), ...(this.cursor?.guides ?? [])];
-  }
-  private pendingBase(): [number, number][][] {
-    const c = this.cursor;
-    const first = this.chain[0];
-    if (!c || !first) return c?.guides ?? [];
-    if (this.tool === "line") {
-      const last = this.chain[this.chain.length - 1];
-      return [[[last.u, last.v], [c.u, c.v]]];
-    }
-    if (this.tool === "rectangle") return [[[first.u, first.v], [c.u, first.v], [c.u, c.v], [first.u, c.v], [first.u, first.v]]];
-    if (this.tool === "rectcentre") {
-      const [x, y] = [2 * first.u - c.u, 2 * first.v - c.v];
-      return [[[x, y], [c.u, y], [c.u, c.v], [x, c.v], [x, y]]];
-    }
-    const sides = this.sidesOf(this.tool);
-    if (sides) {
-      const corners = this.polygonCorners(first, c, sides).map((q) => [q.u, q.v] as [number, number]);
-      return [[...corners, corners[0]]];
-    }
-    if (this.tool === "spline") {
-      const through = [...this.chain, c];
-      const probe: M.SketchData = { ...this.s, points: through.map((q, i) => ({ id: -1 - i, u: q.u, v: q.v })) };
-      return [M.polyline(probe, { id: 0, type: "spline", points: through.map((_, i) => -1 - i) }, 48)];
-    }
-    if (this.tool === "ellipse") {
-      const probe: M.SketchData = { ...this.s, points: [{ id: -1, u: first.u, v: first.v }, { id: -2, u: (this.chain[1] ?? c).u, v: (this.chain[1] ?? c).v }] };
-      const a = Math.hypot(probe.points[1].u - first.u, probe.points[1].v - first.v);
-      if (!this.chain[1] || a < 1e-9) return [[[first.u, first.v], [c.u, c.v]]];
-      const minor = Math.abs(((c.u - first.u) * (probe.points[1].v - first.v) - (c.v - first.v) * (probe.points[1].u - first.u)) / a);
-      return [M.polyline(probe, { id: 0, type: "ellipse", center: -1, major: -2, minor: Math.max(minor, 1e-6) }, 48)];
-    }
-    const second = this.chain[1];
-    if (this.tool === "slot") {
-      if (!second) return [[[first.u, first.v], [c.u, c.v]]];
-      const corners = Sh.slotCorners(first, second, Sh.distanceToAxis(first, second, c));
-      if (!corners) return [[[first.u, first.v], [second.u, second.v]]];
-      const ring = (centre: Sh.UV, from: Sh.UV, to: Sh.UV): [number, number][] => {
-        const [a0, a1] = [Math.atan2(from.v - centre.v, from.u - centre.u), Math.atan2(to.v - centre.v, to.u - centre.u)];
-        const sweep = (a1 - a0 + 4 * Math.PI) % (2 * Math.PI);
-        const radius = Math.hypot(from.u - centre.u, from.v - centre.v);
-        return Array.from({ length: 25 }, (_, i) => [centre.u + radius * Math.cos(a0 + (sweep * i) / 24), centre.v + radius * Math.sin(a0 + (sweep * i) / 24)]);
-      };
-      return [[[corners.aLeft.u, corners.aLeft.v], [corners.bLeft.u, corners.bLeft.v]], [[corners.bRight.u, corners.bRight.v], [corners.aRight.u, corners.aRight.v]], ring(second, corners.bRight, corners.bLeft), ring(first, corners.aLeft, corners.aRight)];
-    }
-    if (this.tool === "circle3" || this.tool === "arc3") {
-      if (!second) return [[[first.u, first.v], [c.u, c.v]]];
-      const probe = Sh.circumcircle(first, second, c);
-      if (!probe) return [[[first.u, first.v], [second.u, second.v], [c.u, c.v]]];
-      if (this.tool === "circle3") return [Array.from({ length: 49 }, (_, i) => [probe.u + probe.radius * Math.cos((2 * Math.PI * i) / 48), probe.v + probe.radius * Math.sin((2 * Math.PI * i) / 48)] as [number, number])];
-      const arc = Sh.arcThrough(first, second, c)!;
-      const [from, to] = arc.from === "start" ? [first, c] : [c, first];
-      const a0 = Math.atan2(from.v - probe.v, from.u - probe.u);
-      const sweep = (Math.atan2(to.v - probe.v, to.u - probe.u) - a0 + 4 * Math.PI) % (2 * Math.PI);
-      return [Array.from({ length: 49 }, (_, i) => [probe.u + probe.radius * Math.cos(a0 + (sweep * i) / 48), probe.v + probe.radius * Math.sin(a0 + (sweep * i) / 48)] as [number, number])];
-    }
-    const r = Math.hypot(c.u - first.u, c.v - first.v);
-    if (this.tool === "circle") return [Array.from({ length: 49 }, (_, i) => [first.u + r * Math.cos((2 * Math.PI * i) / 48), first.v + r * Math.sin((2 * Math.PI * i) / 48)] as [number, number])];
-    if (this.tool === "arc") {
-      const second = this.chain[1];
-      if (!second) return [[[first.u, first.v], [c.u, c.v]]];
-      const radius = Math.hypot(second.u - first.u, second.v - first.v);
-      const a0 = Math.atan2(second.v - first.v, second.u - first.u);
-      let sweep = Math.atan2(c.v - first.v, c.u - first.u) - a0;
-      if (sweep <= 0) sweep += 2 * Math.PI;
-      return [Array.from({ length: 49 }, (_, i) => [first.u + radius * Math.cos(a0 + (sweep * i) / 48), first.v + radius * Math.sin(a0 + (sweep * i) / 48)] as [number, number])];
-    }
-    return [];
+    return Pv.pendingShapes(this);
   }
 
   // Panel -------------------------------------------------------------------------------------------
