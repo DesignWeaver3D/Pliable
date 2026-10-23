@@ -258,7 +258,7 @@ def test_push_pull_handle_follows_the_distance_and_skips_hole_walls():
 
 
 def _is_whole_cylinder(face):
-    from pliable.tools import _all_round_walls
+    from pliable.tools.push_pull import _all_round_walls
 
     class _T:
         def face(self, i):
