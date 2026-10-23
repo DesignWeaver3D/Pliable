@@ -24,6 +24,7 @@ import { HintLine } from "./hints";
 import { exportAs as saveModel, installFileOpening } from "./filesave";
 import { askRestore, dismissRestorePrompt } from "./restoreprompt";
 import { bodyView } from "./appstate";
+import { expand, relatedState, renderChips as chipsRender, type RelatedRule } from "./relatedrules";
 import { installBodyActions } from "./bodyactions";
 import { Palette, type Command } from "./palette";
 import { toolKeywords } from "./search";
@@ -125,90 +126,18 @@ let currentSels: Sel[] = [];
 let refined: string[] | null = null; // ids the core says apply to currentSels (null until it replies)
 let armedTool: string | null = null; // tool the user chose in the toolbar or palette
 
-// Relationship rules: faces related to the selected face by a rule that is on
-// are highlighted and join the selection of tools that declare the rule.
-interface RelatedRule {
-  id: string;
-  label: string;
-  faces: number[];
-}
-let related: RelatedRule[] = [];
-// What a tool applies to is decided per tool: a saved choice for the tool, else a saved choice for all tools,
-// else the tool's own default, else the base default. Until a rule is defined for a tool, its chip is shown but off.
-const BASE_RULES: Record<string, boolean> = { coplanar: false, parallel: false, equal_radius: false, coaxial: false, symmetric: false };
-const TOOL_RULES: Record<string, Record<string, boolean>> = { resize_hole: { equal_radius: true } };
-const RULES_KEY = "pliable.rules";
-let ruleChoices: Record<string, boolean> = {};
-try {
-  ruleChoices = JSON.parse(localStorage.getItem(RULES_KEY) ?? "{}");
-} catch {
-  /* storage can be blocked */
-}
-function ruleFor(toolId: string | null, rule: string): boolean {
-  return ruleChoices[`${toolId}:${rule}`] ?? ruleChoices[`*:${rule}`] ?? (toolId ? TOOL_RULES[toolId]?.[rule] : undefined) ?? BASE_RULES[rule] ?? false;
-}
 /** The tool the chips speak for: the armed tool, else the open form's tool, else none (a choice for all tools). */
 function chipTool(): string | null {
   return armedTool ?? toolPanel.openToolId;
 }
-function setRule(toolId: string | null, rule: string, on: boolean) {
-  ruleChoices[`${toolId ?? "*"}:${rule}`] = on;
-  try {
-    localStorage.setItem(RULES_KEY, JSON.stringify(ruleChoices));
-  } catch {
-    /* ignore */
-  }
-}
-
-/** The selection a tool runs on: the picked items plus the faces of its related rules that are switched on. */
-function expand(tool: ToolInfo | null, sels: Sel[]): Sel[] {
-  if (!tool?.related?.length || sels.length !== 1 || sels[0].kind !== "face") return sels;
-  const extra = new Set<number>();
-  for (const rule of related) if (tool.related.includes(rule.id) && ruleFor(tool.id, rule.id)) rule.faces.forEach((f) => extra.add(f));
-  return [...sels, ...[...extra].filter((f) => f !== sels[0].id).map((id) => ({ kind: "face" as const, id }))];
-}
-
 const chips = $("chips");
 // The hint line and the tip stand above the chips instead of on top of them.
 new ResizeObserver(() => document.documentElement.style.setProperty("--chips-h", `${chips.offsetHeight}px`)).observe(chips);
 function renderChips() {
-  const shown = related.filter((r) => r.faces.length);
-  const ctx = chipTool();
-  const ruleOn = (id: string) => ruleFor(ctx, id);
-  const all = (label: string, on: boolean) => {
-    const b = document.createElement("button");
-    b.textContent = label;
-    b.className = "all";
-    b.title = on ? "Include every related face shown here in the selection" : "Include none of the related faces; tools change only the selected face";
-    b.addEventListener("click", () => {
-      for (const rule of shown) setRule(ctx, rule.id, on);
-      renderChips();
-      renderToolbar();
-      toolPanel.renderList();
-    });
-    return b;
-  };
-  chips.replaceChildren(
-    ...(shown.length > 1 ? [all("All", true), all("None", false)] : []),
-    ...shown.map((rule) => {
-      const b = document.createElement("button");
-      const n = rule.faces.length;
-      const what = `${rule.label.toLowerCase()} face${n === 1 ? "" : "s"}`;
-      b.textContent = `${ruleOn(rule.id) ? "✔ With" : "+ Add"} ${n} ${what}`;
-      b.className = ruleOn(rule.id) ? "on" : "";
-      b.title = ruleOn(rule.id) ? `The ${n} ${what} are included with the selected face; click to exclude them` : `The ${n} ${what} are not included yet; click to include them with the selected face`;
-      b.addEventListener("click", () => {
-        setRule(ctx, rule.id, !ruleOn(rule.id));
-        renderChips();
-        renderToolbar();
-        toolPanel.renderList();
-      });
-      return b;
-    }),
-  );
-  const faces = new Set<number>();
-  for (const rule of shown) if (ruleOn(rule.id)) rule.faces.forEach((f) => faces.add(f));
-  viewport.setRelated([...faces].map((id) => ({ kind: "face" as const, id })));
+  chipsRender({ chips, viewport, tool: chipTool, changed: () => {
+    renderToolbar();
+    toolPanel.renderList();
+  } });
 }
 
 /** Tools usable with the current selection: counts checked here, the core's extra checks once it replies. */
@@ -540,7 +469,7 @@ function setSelection(sels: Sel[]) {
   navCube.fitSelectedButton.disabled = sels.length === 0;
   bodyList.setSelected(sels.filter((s) => s.kind === "body").map((s) => s.id));
   refined = null;
-  related = [];
+  relatedState.rules = [];
   selected.textContent = describe(sels);
   if (sels.length === 0) {
     measurePanel.hide();
@@ -567,7 +496,7 @@ function setSelection(sels: Sel[]) {
   const available = core.request<{ tools: string[] }>("available_tools", { selection: selectionPayload(sels) });
   Promise.allSettled([rules, available]).then(([rulesReply, availableReply]) => {
     if (currentSels !== sels) return; // the selection changed while waiting
-    related = rulesReply.status === "fulfilled" ? rulesReply.value.rules : [];
+    relatedState.rules = rulesReply.status === "fulfilled" ? rulesReply.value.rules : [];
     refined = availableReply.status === "fulfilled" ? availableReply.value.tools : null;
     void refreshSelectionHandles();
     renderChips();
