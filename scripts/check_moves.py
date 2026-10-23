@@ -8,9 +8,13 @@ file hashes the same.
   python scripts/check_moves.py check [file]    compare the current tree with them; exit 1 on any difference
   python scripts/check_moves.py dupes           list top-level names defined more than once
 
+Set PLIABLE_PACKAGE to hash another copy of the package (for example one extracted from a tag).
+Relative import statements inside function bodies are ignored (their paths change when code moves).
+
 Known, deliberate differences go in IGNORED below with the reason."""
 
 import ast
+import os
 import hashlib
 import json
 import sys
@@ -18,12 +22,19 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PACKAGE = ROOT / "core" / "src" / "pliable"
+PACKAGE = Path(os.environ.get("PLIABLE_PACKAGE") or ROOT / "core" / "src" / "pliable")
 DEFAULT = Path(__file__).with_name("move_baseline.json")
 
 # name -> why the hash may differ or vanish. The first `_faces_of` in features.py is dead code (a later
 # definition replaces it), and the plan drops it.
 IGNORED = {"_faces_of": "defined twice in features.py; only the later (raw shape) version is live"}
+
+
+class _Imports(ast.NodeTransformer):
+    """Drops function-local relative imports; where they point changes when code moves."""
+
+    def visit_ImportFrom(self, node):
+        return None if node.level else node
 
 
 def definitions() -> dict[str, list[tuple[str, str]]]:
@@ -33,7 +44,7 @@ def definitions() -> dict[str, list[tuple[str, str]]]:
         tree = ast.parse(path.read_text(encoding="utf-8-sig"))
         for node in tree.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                digest = hashlib.sha256(ast.dump(node, include_attributes=False).encode()).hexdigest()[:16]
+                digest = hashlib.sha256(ast.dump(_Imports().visit(node), include_attributes=False).encode()).hexdigest()[:16]
                 found[node.name].append((str(path.relative_to(PACKAGE)).replace("\\", "/"), digest))
     return found
 

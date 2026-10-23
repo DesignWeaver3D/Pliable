@@ -438,7 +438,8 @@ def _all_round_walls(topology, selection) -> bool:
 def _push_round_walls(topology, selection, distance: float) -> OpResult:
     """Push/pull on a hole or boss wall moves the wall along its normal: a hole shrinks when the wall is pushed
     toward the axis (material added) and a boss grows when pulled outward, so the radius changes by `distance`."""
-    from .features import Hole, apply_holes, finish
+    from .shared.hole_groups import Hole, apply_holes
+    from .shared.solids import finish
 
     holes = [Hole(topology.face(i)) for i in selection.faces]
     moves = []

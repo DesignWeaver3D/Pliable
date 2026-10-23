@@ -31,143 +31,27 @@ from OCP.gp import gp_Ax1, gp_Ax2, gp_Dir, gp_Pln, gp_Pnt, gp_Trsf, gp_Vec
 
 from .ops import edge_curve, edge_outward_normal, face_handle_point, MIN_DISTANCE, OperationError, OpResult, _boolean, _contains, planar_normal, push_pull, solids_of
 from .tools import Accepts, Handle, Param, Tool, get_tool, register, round_handles
-
-TOL = 1e-6
-
-
-def finish(shape: TopoDS_Shape) -> OpResult:
-    """Merge faces that share a surface, check the result, and return it (the selection is not carried over)."""
-    copy = BRepBuilderAPI_Copy(shape, False, True)  # UnifySameDomain edits its input in place
-    unify = ShapeUpgrade_UnifySameDomain(copy.Shape(), True, True, True)
-    unify.Build()
-    result = unify.Shape()
-    if result.IsNull() or not BRepCheck_Analyzer(result).IsValid():
-        raise OperationError("Operation produced invalid geometry")
-    return OpResult(result, [], unified=True)
-
-
-def _combine(shape: TopoDS_Shape, tool: TopoDS_Shape, fuse: bool) -> TopoDS_Shape:
-    operation = _boolean(shape, tool, fuse, glue=False)
-    if operation is None:
-        raise OperationError("Boolean operation failed")
-    return operation.Shape()
-
-
-def _add_material(shape: TopoDS_Shape, solid: TopoDS_Shape, separate: bool) -> TopoDS_Shape:
-    """Add a solid to the model: kept as its own body (`separate`) or fused into the bodies it touches."""
-    if not separate:
-        return _combine(shape, solid, fuse=True)
-    compound, builder = TopoDS_Compound(), BRep_Builder()
-    builder.MakeCompound(compound)
-    for body in solids_of(shape):
-        builder.Add(compound, body)
-    builder.Add(compound, solid)
-    return compound
-
-
-def _new_body(values: dict) -> bool:
-    return values.get("new_body", 0.0) >= 0.5
-
-
-NEW_BODY = Param("new_body", "number", 1)  # 1 keeps the new solid as its own body, 0 joins it to the model
-
-
-def _volume(shape: TopoDS_Shape) -> float:
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
-    return props.Mass()
-
-
-def _bounds_diagonal(shape: TopoDS_Shape) -> float:
-    box = Bnd_Box()
-    BRepBndLib.Add_s(shape, box)
-    lo, hi = box.CornerMin(), box.CornerMax()
-    return math.dist((lo.X(), lo.Y(), lo.Z()), (hi.X(), hi.Y(), hi.Z()))
-
-
-def _cylinder(origin: gp_Pnt, direction: gp_Dir, radius: float, length: float) -> TopoDS_Shape:
-    return BRepPrimAPI_MakeCylinder(gp_Ax2(origin, direction), radius, length).Shape()
-
-
-def _moved(shape: TopoDS_Shape, offset: gp_Vec) -> TopoDS_Shape:
-    transform = gp_Trsf()
-    transform.SetTranslation(offset)
-    return BRepBuilderAPI_Transform(shape, transform, True).Shape()
-
-
-class Hole:
-    """A cylindrical face read as a hole: where its axis starts, which way it runs, its radius and length."""
-
-    def __init__(self, face):
-        surface = BRepAdaptor_Surface(face)
-        if surface.GetType() != GeomAbs_Cylinder:
-            raise OperationError("Select the cylindrical wall of a hole")
-        cylinder = surface.Cylinder()
-        u0, u1, v0, v1 = BRepTools.UVBounds_s(face)
-        if u1 - u0 < 2 * math.pi - 1e-6:
-            raise OperationError("That cylinder face is only partly round (a fillet?); select a full hole wall")
-        axis = cylinder.Axis()
-        self.direction = axis.Direction()
-        self.origin = axis.Location().Translated(gp_Vec(self.direction).Multiplied(v0))
-        self.radius = cylinder.Radius()
-        self.length = v1 - v0
-        # The face's outward (material) normal points away from the axis for a boss, toward it for a hole.
-        self.boss = face.Orientation() != TopAbs_REVERSED
-
-    def solid(self, radius: float | None = None, offset: gp_Vec | None = None) -> TopoDS_Shape:
-        origin = self.origin.Translated(offset) if offset is not None else self.origin
-        return _cylinder(origin, self.direction, self.radius if radius is None else radius, self.length)
-
-
-    def clear(self, shape: TopoDS_Shape) -> TopoDS_Shape:
-        """The model as if this hole or boss were absent (hole filled, boss cut away)."""
-        return _combine(shape, self.solid(), fuse=not self.boss)
-
-    def place(self, shape: TopoDS_Shape, radius: float | None = None, offset: gp_Vec | None = None, transform: gp_Trsf | None = None) -> TopoDS_Shape:
-        """Add a hole (or boss) like this one, optionally with another radius or position, or moved by a transform."""
-        solid = self.solid(radius, offset)
-        if transform is not None:
-            solid = BRepBuilderAPI_Transform(solid, transform, True).Shape()
-        return _combine(shape, solid, fuse=self.boss)
-
-
-def _compound(shapes: list[TopoDS_Shape]) -> TopoDS_Shape:
-    compound = TopoDS_Compound()
-    builder = BRep_Builder()
-    builder.MakeCompound(compound)
-    for shape in shapes:
-        builder.Add(compound, shape)
-    return compound
-
-
-def apply_holes(shape: TopoDS_Shape, holes: list["Hole"], moves: list[tuple[float | None, gp_Vec | None]] | None = None) -> TopoDS_Shape:
-    """Clear every hole or boss, then (if `moves` is given: one (radius, offset) per hole) place the replacements.
-    All holes of a kind go through one boolean, so editing hundreds of equal holes stays fast."""
-    for boss in (False, True):
-        group = [h for h in holes if h.boss == boss]
-        if group:
-            shape = _combine(shape, _compound([h.solid() for h in group]), fuse=not boss)
-    if moves is not None:
-        for boss in (False, True):
-            solids = [h.solid(radius, offset) for h, (radius, offset) in zip(holes, moves) if h.boss == boss]
-            if solids:
-                shape = _combine(shape, _compound(solids), fuse=boss)
-    return shape
-
-
-def _holes(topology, selection) -> list[Hole]:
-    return [Hole(topology.face(i)) for i in selection.faces]
-
-
-class _CylinderFaces(Tool):
-    def applies(self, topology, selection):
-        return all(BRepAdaptor_Surface(topology.face(i)).GetType() == GeomAbs_Cylinder for i in selection.faces)
-
-    def refusal(self, topology, selection):
-        from .holes import NOT_ROUND
-
-        return NOT_ROUND if self.accepts.matches(selection) else None
-
+from .shared.arrays import _array_copies, _fuse_copies
+from .shared.bodies import _body_bounds, _body_centre, _chosen_solids, _on_bodies, _pivot_point
+from .shared.faces import _chamfer_with_face, _face_edges, _PlanarFace, _plane_axes, _rebuild_round
+from .shared.hole_groups import _CylinderFaces, _HoleGroup, _HoleOnFace, _holes, apply_holes, Hole
+from .shared.planes import _cut_target, _model_middle, _plane_frame, _plane_handles, _plane_normal, _tilted, TILT
+from .shared.primitives import _position_handles, _turned, _with_rotation, ROTATION
+from .shared.solids import (
+    _add_material,
+    _bounds_diagonal,
+    _combine,
+    _compound,
+    _cylinder,
+    _defeature,
+    _faces_of,
+    _new_body,
+    _sew_into,
+    _volume,
+    finish,
+    NEW_BODY,
+    TOL,
+)
 
 @register
 class DeleteFace(Tool):
@@ -193,26 +77,6 @@ class RemoveRound(Tool):
 
     def run(self, topology, selection, values, preview):
         return _defeature(topology, selection, "remove this fillet or chamfer")
-
-
-def _defeature(topology, selection, what: str) -> OpResult:
-    operation = BRepAlgoAPI_Defeaturing()
-    operation.SetShape(topology.shape)
-    for i in selection.faces:
-        operation.AddFaceToRemove(topology.face(i))
-    operation.SetRunParallel(True)
-    operation.Build()
-    if not operation.IsDone() or operation.Shape().IsNull():
-        raise OperationError(f"Could not {what}: the neighbouring faces cannot be extended to close the gap")
-    from .topology import Topology
-
-    result = operation.Shape()
-    if abs(_volume(result) - _volume(topology.shape)) < 1e-9 and Topology(result).face_count == topology.face_count:
-        raise OperationError(
-            f"Could not {what}: nothing changed because the neighbouring faces do not close over this face. "
-            "Select a feature such as a pocket, boss, hole or round, not an outside wall of the body"
-        )
-    return finish(result)
 
 
 @register
@@ -338,48 +202,6 @@ class CircularPatternHole(_CylinderFaces):
         return finish(shape)
 
 
-def _plane_axes(face) -> tuple[gp_Pnt, gp_Dir, gp_Dir, gp_Dir]:
-    """Centre of a planar face, its outward normal and two in-plane directions."""
-    normal = planar_normal(face)
-    if normal is None:
-        raise OperationError("Select a flat face")
-    props = GProp_GProps()
-    BRepGProp.SurfaceProperties_s(face, props)
-    plane = BRepAdaptor_Surface(face).Plane()
-    return props.CentreOfMass(), normal, plane.XAxis().Direction(), plane.YAxis().Direction()
-
-
-class _PlanarFace(Tool):
-    def applies(self, topology, selection):
-        return all(planar_normal(topology.face(i)) is not None for i in selection.faces)
-
-
-class _HoleOnFace(_PlanarFace):
-    """Shared placement for holes cut into a flat face: positioned from the face centre, running inward."""
-
-    accepts = Accepts(faces=(1, 1))
-    params = [Param("diameter", "length", 6), Param("depth", "length"), Param("offset_u", "length"), Param("offset_v", "length")]
-
-    def extra_cutters(self, start: gp_Pnt, normal: gp_Dir, values: dict, depth: float, margin: float) -> list[TopoDS_Shape]:
-        """Shapes to cut besides the main bore; `start` is on the face plane, `margin` the lead-in above it."""
-        return []
-
-    def run(self, topology, selection, values, preview):
-        if values["diameter"] < MIN_DISTANCE:
-            raise OperationError("The diameter must be positive")
-        face = topology.face(selection.faces[0])
-        centre, normal, u, v = _plane_axes(face)
-        start = centre.Translated(gp_Vec(u).Multiplied(values["offset_u"])).Translated(gp_Vec(v).Multiplied(values["offset_v"]))
-        depth = values["depth"] if values["depth"] > MIN_DISTANCE else _bounds_diagonal(topology.shape)
-        # Cylinders start a little outside the face so the cut is clean, and run inward.
-        margin = 0.01 * depth + 1e-3
-        lead = start.Translated(gp_Vec(normal).Multiplied(margin))
-        shape = _combine(topology.shape, _cylinder(lead, normal.Reversed(), values["diameter"] / 2, depth + margin), fuse=False)
-        for cutter in self.extra_cutters(start, normal, values, depth, margin):
-            shape = _combine(shape, cutter, fuse=False)
-        return finish(shape)
-
-
 @register
 class AddHole(_HoleOnFace):
     """A round hole into a flat face, positioned from the face centre; depth 0 cuts all the way through."""
@@ -424,29 +246,6 @@ class AddCountersink(_HoleOnFace):
         r_lead = r_top + margin * math.tan(half)
         base = start.Translated(gp_Vec(normal).Multiplied(-height))
         return [BRepPrimAPI_MakeCone(gp_Ax2(base, normal), r_bottom, r_lead, height + margin).Shape()]
-
-
-class _HoleGroup(_CylinderFaces):
-    """Tools that reposition several holes along a model axis (0 = X, 1 = Y, 2 = Z)."""
-
-    @staticmethod
-    def _axis(values) -> int:
-        axis = int(round(values["axis"]))
-        if axis not in (0, 1, 2):
-            raise OperationError("The axis must be 0 (X), 1 (Y) or 2 (Z)")
-        return axis
-
-    @staticmethod
-    def _centre(hole: Hole, axis: int) -> float:
-        middle = hole.origin.Translated(gp_Vec(hole.direction).Multiplied(hole.length / 2))
-        return (middle.X(), middle.Y(), middle.Z())[axis]
-
-    def _shift(self, topology, holes: list[Hole], deltas: list[float], axis: int) -> OpResult:
-        moves = [(None, gp_Vec(*(delta if k == axis else 0.0 for k in range(3)))) for delta in deltas]
-        keep = [(h, m) for h, m, d in zip(holes, moves, deltas) if abs(d) >= MIN_DISTANCE]
-        if not keep:
-            return OpResult(topology.shape, [])
-        return finish(apply_holes(topology.shape, [h for h, _ in keep], [m for _, m in keep]))
 
 
 @register
@@ -641,71 +440,6 @@ class CenterBetween(Tool):
 
 
 
-def _position_handles(values, size: float) -> list[Handle]:
-    """Three move arrows at a primitive's reference point, one per axis, each starting there and pointing the positive
-    way along its axis (drawn in the axis colour), like an axis gizmo."""
-    x, y, z = values["x"], values["y"], values["z"]
-    return [
-        Handle("x", "Move along X", (x, y, z), (1, 0, 0), kind="move"),
-        Handle("y", "Move along Y", (x, y, z), (0, 1, 0), kind="move"),
-        Handle("z", "Move along Z", (x, y, z), (0, 0, 1), kind="move"),
-    ]
-
-
-ROTATION = [Param("rx", "angle"), Param("ry", "angle"), Param("rz", "angle")]
-
-
-def _primitive_turn(values) -> gp_Trsf | None:
-    """The turn a primitive gets about its base point (x, y, z): rx about X, then ry about Y, then rz about Z. None when it is not turned."""
-    angles = [values.get(n, 0.0) for n in ("rx", "ry", "rz")]
-    if all(abs(a) < 1e-9 for a in angles):
-        return None
-    c = gp_Pnt(values["x"], values["y"], values["z"])
-    total = gp_Trsf()
-    for k in (2, 1, 0):  # Multiply puts the later factor first, so this applies X, then Y, then Z
-        if abs(angles[k]) < 1e-9:
-            continue
-        turn = gp_Trsf()
-        turn.SetRotation(gp_Ax1(c, gp_Dir(*(1.0 if i == k else 0.0 for i in range(3)))), math.radians(angles[k]))
-        total.Multiply(turn)
-    return total
-
-
-def _turned(shape, values):
-    turn = _primitive_turn(values)
-    return shape if turn is None else BRepBuilderAPI_Transform(shape, turn, True).Shape()
-
-
-def _with_rotation(handles: list[Handle], values, size: float) -> list[Handle]:
-    """A primitive's handles turned with the primitive, plus one rotation ring per axis about its base point. A grip that
-    also moves the base point (a low face) is left out while the primitive is turned, since its own axes are no longer X, Y and Z."""
-    from dataclasses import replace
-
-    turn = _primitive_turn(values)
-    out = []
-    for h in handles:
-        if turn is not None and h.kind != "move":
-            if h.links:
-                continue
-            h = replace(
-                h,
-                anchor=tuple(gp_Pnt(*h.anchor).Transformed(turn).Coord()),
-                direction=tuple(gp_Vec(*h.direction).Transformed(turn).Coord()),
-            )
-        out.append(h)
-    centre = (values["x"], values["y"], values["z"])
-    radius = max(size * 0.9, 8.0)
-    axes = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
-    for i, name in enumerate(("rx", "ry", "rz")):
-        u, v = (i + 1) % 3, (i + 2) % 3
-        theta = math.radians(45 + values.get(name, 0.0))
-        anchor, tangent = list(centre), [0.0, 0.0, 0.0]
-        anchor[u], anchor[v] = centre[u] + radius * math.cos(theta), centre[v] + radius * math.sin(theta)
-        tangent[u], tangent[v] = -math.sin(theta), math.cos(theta)
-        out.append(Handle(name, f"Rotate about {'XYZ'[i]}", tuple(anchor), tuple(tangent), scale=math.degrees(1 / radius), unit="°", axis=axes[i], ring=(*centre, radius)))
-    return out
-
-
 # Solids ----------------------------------------------------------------------------------------------
 
 
@@ -868,67 +602,6 @@ class Mirror(_PlanarFace):
         transform.SetMirror(gp_Ax2(centre, normal))
         mirrored = BRepBuilderAPI_Transform(topology.shape, transform, True).Shape()
         return finish(_combine(topology.shape, mirrored, fuse=True))
-
-
-def _body_bounds(topology, selection):
-    """Corner points (min, max) of the solids a whole-body tool acts on (the whole model with nothing selected)."""
-    from OCP.Bnd import Bnd_Box
-    from OCP.BRepBndLib import BRepBndLib
-
-    box = Bnd_Box()
-
-    def note(shape):
-        BRepBndLib.AddOptimal_s(shape, box, False, False)
-        return shape
-
-    _on_bodies(topology, selection, note)
-    if box.IsVoid():
-        return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)
-    lo, hi = box.CornerMin(), box.CornerMax()
-    return (lo.X(), lo.Y(), lo.Z()), (hi.X(), hi.Y(), hi.Z())
-
-
-def _faces_of(shape):
-    from OCP.TopAbs import TopAbs_FACE
-
-    explorer = _Explorer(shape, TopAbs_FACE)
-    while explorer.More():
-        yield TopoDS.Face(explorer.Current())
-        explorer.Next()
-
-
-def _children(compound: TopoDS_Shape):
-    from OCP.TopoDS import TopoDS_Iterator
-
-    it = TopoDS_Iterator(compound)
-    while it.More():
-        yield it.Value()
-        it.Next()
-
-
-def _sew_into(shape: TopoDS_Shape, face: TopoDS_Shape) -> OpResult:
-    """Sew a new face onto a model; if that closes a shell the result becomes a solid."""
-    # Sewing edits the shapes it is given (tolerances), and the new face shares edges with the model: sew a deep copy of both.
-    pair, builder = TopoDS_Compound(), BRep_Builder()
-    builder.MakeCompound(pair)
-    builder.Add(pair, shape)
-    builder.Add(pair, face)
-    parts = list(_children(BRepBuilderAPI_Copy(pair, True, False).Shape()))
-    sewing = BRepBuilderAPI_Sewing(1e-4)
-    for part in parts:
-        sewing.Add(part)
-    sewing.Perform()
-    result = sewing.SewedShape()
-    shells = _Explorer(result, TopAbs_SHELL)
-    if shells.More() and not result.IsNull():
-        shell = TopoDS.Shell(shells.Current())
-        if BRepCheck_Analyzer(shell).IsValid():
-            solid = BRepBuilderAPI_MakeSolid(shell).Solid()
-            if BRepCheck_Analyzer(solid).IsValid() and _volume(solid) > 0:
-                return finish(solid)
-    if result.IsNull() or not BRepCheck_Analyzer(result).IsValid():
-        raise OperationError("Operation produced invalid geometry")
-    return OpResult(result, [])
 
 
 @register
@@ -1113,72 +786,6 @@ class AlignFace(_PlanarFace):
 
 
 # Whole-body transforms and more primitives -----------------------------------------------------------------
-
-
-def _chosen_solids(topology, selection) -> list:
-    """The solids a whole-body tool acts on: the selected bodies, else the ones containing the selected faces."""
-    solids = solids_of(topology.shape)
-    chosen = []
-    for body_id in selection.bodies:
-        index = topology.bodies.find(body_id)
-        if index is None or index >= len(solids):
-            raise OperationError("The selected body no longer exists")
-        chosen.append(solids[index])
-    for i in selection.faces:
-        face = topology.face(i)
-        for solid in solids:
-            if any(f.IsSame(face) for f in _faces_of(solid)) and not any(solid.IsSame(c) for c in chosen):
-                chosen.append(solid)
-    return chosen
-
-
-def _body_centre(shape) -> gp_Pnt:
-    """The middle of a body's bounding box: the pivot of rotate and scale when whole bodies are selected."""
-    box = Bnd_Box()
-    BRepBndLib.AddOptimal_s(shape, box, False, False)
-    lo, hi = box.CornerMin(), box.CornerMax()
-    return gp_Pnt((lo.X() + hi.X()) / 2, (lo.Y() + hi.Y()) / 2, (lo.Z() + hi.Z()) / 2)
-
-
-def _pivot_point(topology, selection) -> tuple[float, float, float]:
-    """Where rotate and scale pivot for the handles: the middle of the selected bodies' box, else the origin."""
-    if not selection.bodies:
-        return (0.0, 0.0, 0.0)
-    lo, hi = _body_bounds(topology, selection)
-    return tuple((a + b) / 2 for a, b in zip(lo, hi))
-
-
-def _on_bodies(topology, selection, change, pivot: bool = False, trsf=None, record: dict | None = None, centre_always: bool = False) -> TopoDS_Shape:
-    """Apply `change` (shape -> shape) to the selected bodies, else to the solids that contain the selected faces; with
-    no selection, to the whole model. With `pivot` and bodies selected, `change(shape, centre)` also gets each body's own centre.
-    With `trsf` (centre -> gp_Trsf) and `record`, the transform applied to each solid is stored in `record` by solid index,
-    so editable primitives can follow the move (see recipes.py)."""
-    if not selection.faces and not selection.bodies:
-        if record is not None and trsf is not None:
-            for index in range(len(solids_of(topology.shape))):
-                record[index] = trsf(None)
-        return change(topology.shape)
-    chosen = _chosen_solids(topology, selection)
-    if not chosen:
-        raise OperationError("The selected faces do not belong to a solid")
-    compound, builder = TopoDS_Compound(), BRep_Builder()
-    builder.MakeCompound(compound)
-    for index, solid in enumerate(solids_of(topology.shape)):
-        if not any(solid.IsSame(c) for c in chosen):
-            builder.Add(compound, solid)
-        else:
-            centre = _body_centre(solid) if pivot and (selection.bodies or centre_always) else None
-            if record is not None and trsf is not None:
-                record[index] = trsf(centre)
-            builder.Add(compound, change(solid, centre) if centre is not None else change(solid))
-    return compound
-
-
-def _faces_of(shape):
-    explorer = _Explorer(shape, TopAbs_FACE)
-    while explorer.More():
-        yield explorer.Current()
-        explorer.Next()
 
 
 @register
@@ -1472,39 +1079,6 @@ class AddTorus(Tool):
         return finish(_add_material(topology.shape, self.make(values), _new_body(values)))
 
 
-MAX_ARRAY_COPIES = 200
-
-
-def _array_copies(count: float) -> int:
-    n = int(round(count))
-    if n < 2 or n > MAX_ARRAY_COPIES:
-        raise OperationError(f"The count must be between 2 and {MAX_ARRAY_COPIES}")
-    return n
-
-
-def _array_source(topology, selection) -> TopoDS_Shape:
-    """What an array copies: the solids containing the selected faces, or the whole model with no faces selected."""
-    if not selection.faces:
-        return topology.shape
-    chosen = []
-    for i in selection.faces:
-        face = topology.face(i)
-        for solid in solids_of(topology.shape):
-            if any(f.IsSame(face) for f in _faces_of(solid)) and not any(solid.IsSame(c) for c in chosen):
-                chosen.append(solid)
-    if not chosen:
-        raise OperationError("The selected faces do not belong to a solid")
-    return _compound(chosen)
-
-
-def _fuse_copies(topology, selection, transforms: list[gp_Trsf]) -> OpResult:
-    source = _array_source(topology, selection)
-    result = topology.shape
-    for trsf in transforms:
-        result = _combine(result, BRepBuilderAPI_Transform(source, trsf, True).Shape(), fuse=True)
-    return finish(result)
-
-
 @register
 class LinearArray(Tool):
     """Copies of the chosen body (the whole model when no face is selected) at equal steps (dx, dy, dz), fused with it. `count` includes the original."""
@@ -1592,27 +1166,6 @@ class RevolveFace(Tool):
         if abs(_volume(result) - before) < 1e-9:
             raise OperationError("Revolving changed nothing: the swept volume is already inside or outside the model")
         return finish(result)
-
-
-def _chamfer_with_face(topology, selection, add) -> OpResult:
-    """Chamfer the selected edges, measuring from the selected face, which every edge must border."""
-    from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer
-
-    face = topology.face(selection.faces[0])
-    maker = BRepFilletAPI_MakeChamfer(topology.shape)
-    edges = [topology.edge(i) for i in selection.edges]
-    for edge in edges:
-        if not any(f.IsSame(face) for f in topology.edge_faces(edge)):
-            raise OperationError("Every edge must border the selected reference face")
-        add(maker, edge, face)
-    try:
-        maker.Build()
-    except Exception as e:  # OCCT raises Standard_Failure for impossible sizes
-        raise OperationError(f"Could not chamfer: {e}") from None
-    if not maker.IsDone() or maker.Shape().IsNull() or not BRepCheck_Analyzer(maker.Shape()).IsValid():
-        raise OperationError("Could not chamfer these edges at this size")
-    generated = [g for edge in edges for g in maker.Generated(edge)]
-    return OpResult(maker.Shape(), generated)
 
 
 @register
@@ -1952,59 +1505,6 @@ class PathArray(Tool):
 # Re-radius a fillet ---------------------------------------------------------------------------------------
 
 
-def _rebuild_round(topology, face, neighbours: list, size: float, chamfer: bool, end_size: float = 0.0) -> OpResult:
-    """Remove a fillet or chamfer face (its two neighbours extend back to a sharp edge), then round that edge
-    again with `size` (a fillet radius or chamfer leg); size 0 leaves the sharp edge. A fillet with `end_size`
-    above 0 is variable: `size` at the edge's first vertex growing or shrinking to `end_size` at its last."""
-    from .ops import _follow, fillet_chamfer
-    from .topology import Topology
-
-    operation = BRepAlgoAPI_Defeaturing()
-    operation.SetShape(topology.shape)
-    operation.AddFaceToRemove(face)
-    operation.SetRunParallel(True)
-    operation.Build()
-    if not operation.IsDone() or operation.Shape().IsNull():
-        raise OperationError("Could not remove this round to resize it")
-    sharp = operation.Shape()
-    if size < MIN_DISTANCE:
-        return finish(sharp)
-    rebuilt = Topology(sharp)
-    modified = []
-    for n in neighbours:
-        found = _follow(operation.History(), [n])
-        if len(found) != 1:
-            raise OperationError("Could not find the sharp edge left by this round")
-        modified.append(found[0])
-    shared = [e for _, e in rebuilt.edges() if all(any(f.IsSame(m) for f in rebuilt.edge_faces(e)) for m in modified)]
-    if len(shared) != 1:
-        raise OperationError("Could not find the sharp edge left by this round")
-    if end_size > MIN_DISTANCE and not chamfer:
-        from OCP.BRepFilletAPI import BRepFilletAPI_MakeFillet
-
-        maker = BRepFilletAPI_MakeFillet(sharp)
-        maker.Add(size, end_size, shared[0])
-        try:
-            maker.Build()
-        except Exception as e:  # OCCT raises Standard_Failure for impossible sizes
-            raise OperationError(f"Could not round: {e}") from None
-        if not maker.IsDone() or maker.Shape().IsNull() or not BRepCheck_Analyzer(maker.Shape()).IsValid():
-            raise OperationError("Could not round this edge with these radii")
-        return finish(maker.Shape())
-    return finish(fillet_chamfer(sharp, shared, -size if chamfer else size).shape)
-
-
-def _face_edges(face):
-    from OCP.TopAbs import TopAbs_EDGE
-    from OCP.TopExp import TopExp_Explorer
-    from OCP.TopoDS import TopoDS
-
-    explorer = TopExp_Explorer(face, TopAbs_EDGE)
-    while explorer.More():
-        yield TopoDS.Edge(explorer.Current())
-        explorer.Next()
-
-
 @register
 class ResizeFillet(Tool):
     """Change the radius of a fillet from the fillet face itself: the round is removed (neighbours extended back
@@ -2071,20 +1571,6 @@ class ResizeChamfer(Tool):
         return _rebuild_round(topology, face, neighbours, values["size"], chamfer=True)
 
 
-def _plane_normal(values) -> tuple[float, float, float]:
-    """The unit normal of a cutting plane: world axis 0, 1 or 2, or axis 3 for the direction (nx, ny, nz)."""
-    axis = int(round(values["axis"]))
-    if axis in (0, 1, 2):
-        return tuple(1.0 if k == axis else 0.0 for k in range(3))
-    if axis != 3:
-        raise OperationError("axis must be 0, 1 or 2 (a world axis) or 3 (the direction nx, ny, nz)")
-    n = [values.get("nx", 0.0), values.get("ny", 0.0), values.get("nz", 0.0)]
-    length = math.sqrt(sum(c * c for c in n))
-    if length < 1e-9:
-        raise OperationError("Give a plane direction (nx, ny, nz) that is not zero")
-    return tuple(c / length for c in n)
-
-
 def _half_space(shape, normal, position: float, above: bool):
     """A block covering everything past the plane `normal . x = position` (on the normal's side when `above`)."""
     from OCP.gp import gp_Ax2, gp_Dir
@@ -2102,30 +1588,6 @@ def _half_space(shape, normal, position: float, above: bool):
     return BRepPrimAPI_MakeBox(gp_Ax2(corner, gp_Dir(*normal), ax.XDirection()), size, size, size).Shape()
 
 
-TILT = [Param("tilt_u", "angle"), Param("tilt_v", "angle")]
-
-
-def _plane_frame(normal) -> tuple[tuple, tuple]:
-    """Two unit axes square to `normal` that the plane is tilted about (the same two every time for the same normal)."""
-    ref = (1.0, 0.0, 0.0) if abs(normal[2]) > 0.9 else (0.0, 0.0, 1.0)
-    u = gp_Vec(*normal).Crossed(gp_Vec(*ref))
-    u.Normalize()
-    v = gp_Vec(*normal).Crossed(u)
-    return (u.X(), u.Y(), u.Z()), (v.X(), v.Y(), v.Z())
-
-
-def _tilted(vec, axis, degrees: float):
-    v = gp_Vec(*vec)
-    v.Rotate(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(*axis)), math.radians(degrees))
-    return (v.X(), v.Y(), v.Z())
-
-
-def _model_middle(shape) -> tuple[float, float, float]:
-    box = Bnd_Box()
-    BRepBndLib.Add_s(shape, box)
-    return tuple((box.CornerMin().Coord(k + 1) + box.CornerMax().Coord(k + 1)) / 2 for k in range(3))
-
-
 def _cutting_plane(shape, values) -> tuple[tuple[float, float, float], float]:
     """The plane's unit normal and its distance from the origin along it. `position` is measured along the untilted
     normal; tilt_u and tilt_v turn the plane about two axes through the point of it nearest the model's middle."""
@@ -2138,32 +1600,6 @@ def _cutting_plane(shape, values) -> tuple[tuple[float, float, float], float]:
     mid = _model_middle(shape)
     pivot = [mid[k] + base[k] * (values["position"] - sum(base[i] * mid[i] for i in range(3))) for k in range(3)]
     return normal, sum(normal[k] * pivot[k] for k in range(3))
-
-
-def _cut_target(topology, selection):
-    """The solids a plane cuts: the selected bodies (or the bodies of the selected faces), else every body. Returns (chosen solids or [], their shape)."""
-    chosen = _chosen_solids(topology, selection) if (selection.bodies or selection.faces) else []
-    return chosen, (_compound(chosen) if chosen else topology.shape)
-
-
-def _plane_handles(topology, selection, values) -> list[Handle]:
-    """An arrow that slides the plane along its untilted normal and a ring for each of the two tilts, centred where the plane
-    is nearest the model's middle. A tilt grip sits where the plane's normal points after that turn alone."""
-    base = _plane_normal(values)
-    target = _cut_target(topology, selection)[1]
-    mid = _model_middle(target)
-    shift = values["position"] - sum(base[i] * mid[i] for i in range(3))
-    centre = tuple(mid[k] + base[k] * shift for k in range(3))
-    u, v = _plane_frame(base)
-    radius = max(_bounds_diagonal(target) * 0.6, 8.0)
-    out = [Handle("position", "Move the cutting plane", centre, base, kind="move")]
-    for name, label, axis in (("tilt_u", "Tilt the plane about its first axis", u), ("tilt_v", "Tilt the plane about its second axis", v)):
-        spot = _tilted(base, axis, 45 + values.get(name, 0.0))
-        anchor = tuple(centre[k] + spot[k] * radius for k in range(3))
-        tangent = gp_Vec(*axis).Crossed(gp_Vec(*spot))
-        tangent.Normalize()
-        out.append(Handle(name, label, anchor, (tangent.X(), tangent.Y(), tangent.Z()), scale=math.degrees(1 / radius), unit="°", axis=axis, ring=(*centre, radius)))
-    return out
 
 
 def _cut_bodies(topology, selection, values) -> TopoDS_Shape:
@@ -2293,30 +1729,6 @@ class RoundFace(Tool):
                 if not any(edge.IsSame(e) for e in edges):
                     edges.append(edge)
         return finish(fillet_chamfer(topology.shape, edges, values["distance"]).shape)
-
-
-def combine(shape: TopoDS_Shape, other: TopoDS_Shape, mode: str, offset: gp_Vec | None = None) -> OpResult:
-    """Boolean of the model with another solid (mode "union", "cut" or "intersect"), the other optionally moved first."""
-    from OCP.BRepAlgoAPI import BRepAlgoAPI_Common
-
-    if mode not in ("union", "cut", "intersect", "add"):
-        raise OperationError("mode must be union, cut, intersect or add")
-    if offset is not None and offset.Magnitude() > 0:
-        other = _moved(other, offset)
-    if mode == "add":  # keep it as its own body next to the others, with no boolean
-        return finish(_compound(solids_of(shape) + solids_of(other)))
-    if mode == "intersect":
-        common = BRepAlgoAPI_Common(shape, other)
-        common.SetRunParallel(True)
-        common.Build()
-        if not common.IsDone() or common.Shape().IsNull():
-            raise OperationError("The shapes do not intersect")
-        result = common.Shape()
-    else:
-        result = _combine(shape, other, fuse=mode == "union")
-    if _volume(result) < 1e-9:
-        raise OperationError("The result would be empty")
-    return finish(result)
 
 
 @register

@@ -294,7 +294,7 @@ def test_distance_angle_chamfer(block):
 def _two_blocks(offset):
     from OCP.BRep import BRep_Builder
     from OCP.TopoDS import TopoDS_Compound
-    from pliable.features import _moved
+    from pliable.shared.solids import _moved
 
     a = load_demo("block")
     compound, builder = TopoDS_Compound(), BRep_Builder()
@@ -340,7 +340,7 @@ def test_variable_fillet_removes_material(block):
 
 
 def test_loft_between_faces_fills_the_gap():
-    from pliable.features import _moved
+    from pliable.shared.solids import _moved
 
     a = load_demo("block")
     from OCP.BRep import BRep_Builder

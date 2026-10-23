@@ -141,7 +141,7 @@ def stretch_solid(solid, selected: list, offset: gp_Vec):
     fixer = ShapeFix_Solid(BRepBuilderAPI_MakeSolid(TopoDS.Shell(shells[0])).Solid())
     fixer.Perform()
     result = fixer.Solid()
-    from .features import _volume
+    from .shared.solids import _volume
     if _volume(result) <= 0 or not BRepCheck_Analyzer(result).IsValid():
         raise OperationError("The stretched solid is not valid." + REFUSED)
     return result
@@ -188,7 +188,7 @@ class Stretch(Tool):
         if mode == 1 and len(selected) != 1:
             raise OperationError("Insert takes one flat end face")
         changed = stretch_solid(body, selected, offset) if mode == 0 else insert_solid(body, selected[0], offset)
-        from .features import finish
+        from .shared.solids import finish
         compound, builder = TopoDS_Compound(), BRep_Builder()
         builder.MakeCompound(compound)
         for solid in solids_of(topology.shape):

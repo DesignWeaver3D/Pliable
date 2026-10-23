@@ -11,7 +11,7 @@ import math
 
 from OCP.gp import gp_Vec
 
-from .features import finish
+from .shared.solids import finish
 from .holes import NOT_ROUND, HoleInfo, find_hole, follow_cylinder, rebuild_hole
 from .ops import MIN_DISTANCE, OperationError, OpResult
 from .tools import Accepts, Handle, Param, Tool, register, round_handles

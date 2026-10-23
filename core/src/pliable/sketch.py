@@ -862,7 +862,7 @@ def face_plane(face_shape) -> dict:
     from OCP.BRepAdaptor import BRepAdaptor_Surface
     from OCP.BRepTools import BRepTools
 
-    from .features import _plane_axes
+    from .shared.faces import _plane_axes
 
     centre, normal, u, _ = _plane_axes(face_shape)
     u0, u1, v0, v1 = BRepTools.UVBounds_s(face_shape)
@@ -950,7 +950,7 @@ def extrude(shape, sketch: dict, distance: float, mode: str, symmetric: bool = F
     distances go along the normal, so out of a face the sketch sits on) or cut it (mode "cut": into the material)."""
     from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
 
-    from .features import _add_material, _combine, finish
+    from .shared.solids import _add_material, _combine, finish
 
     if mode not in ("join", "cut", "new"):
         raise SketchError("mode must be 'join', 'cut' or 'new'")
@@ -990,7 +990,7 @@ def revolve(shape, sketch: dict, axis_entity: int, angle: float, mode: str):
     from OCP.BRepPrimAPI import BRepPrimAPI_MakeRevol
     from OCP.gp import gp_Ax1
 
-    from .features import _add_material, _combine, finish
+    from .shared.solids import _add_material, _combine, finish
 
     if mode not in ("join", "cut", "new"):
         raise SketchError("mode must be 'join', 'cut' or 'new'")

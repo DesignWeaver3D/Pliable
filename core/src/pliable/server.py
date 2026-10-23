@@ -32,7 +32,7 @@ from .demos import load_demo
 from . import diagnostics
 from .usage import Usage
 from .document import Document
-from .features import combine, finish
+from .shared.solids import combine, finish
 from .files import part_names, read_step_parts, read_step_tree, write_mesh, write_step
 from OCP.gp import gp_Vec
 from .measure import measure, model_info
@@ -190,7 +190,7 @@ class Session:
                 raise RequestError("Unknown face") from e
         if kind == "face_frame":
             # Where a flat face sits: its centre, normal and the two in-plane axes the Divide face tool measures from.
-            from .features import _plane_axes
+            from .shared.faces import _plane_axes
             topology = self._require_document().current
             try:
                 centre, normal, u, v = _plane_axes(topology.face(int(request["face"])))
