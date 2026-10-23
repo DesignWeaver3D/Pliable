@@ -8,5 +8,6 @@ from . import push_pull, push_pull_surface, fillet_chamfer  # noqa: F401  (regis
 from . import delete_face, remove_round, fill_hole, resize_hole, move_hole, pattern_hole, pattern_hole_circular, add_hole, add_counterbore, add_countersink  # noqa: F401
 from . import align_holes, distribute_holes, add_boss, add_slot, center_between, add_box, add_cylinder, shell, mirror, patch_fill  # noqa: F401
 from . import bridge, unify, draft, align_face, move_body, rotate_body, scale_body, add_sphere, add_cone, add_torus  # noqa: F401
+from . import linear_array, circular_array, revolve_face, chamfer_two_distances, chamfer_distance_angle, body_boolean, variable_fillet, fillet_per_edge, loft_faces, sweep_face  # noqa: F401
 from .. import features  # noqa: E402,F401  (registers the feature tools)
 from .. import stretch  # noqa: E402,F401  (registers the stretch tool)
