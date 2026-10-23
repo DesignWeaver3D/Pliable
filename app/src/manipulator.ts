@@ -28,6 +28,15 @@ export function pickScore(distPx: number, kind: string | undefined, t: number): 
   return t === 0 ? distPx - 2 : distPx;
 }
 
+/** Where along a handle (0 at its tail, 1 at its head) the grabbable end shape sits, or null when the whole arm can be
+ *  grabbed. A resize grip is grabbed by its cube and a move arrow by its arrowhead, never by the line between them. */
+export function grabFraction(kind: string | undefined, toggle: boolean | undefined): number | null {
+  if (toggle) return null;
+  if (kind === "resize") return 0;
+  if (kind === "move") return (MOVE_ARM_PX / ARM_PX - 0.21) / (MOVE_ARM_PX / ARM_PX);
+  return null;
+}
+
 /** The origin-axis colour of a direction (its largest component), or white-ish for none. */
 export function axisColorOf(d: readonly number[]): number {
   const a = d.map(Math.abs);
@@ -243,8 +252,10 @@ export class Manipulator {
       // whole arrow stands outside the surface it moves, like an axis gizmo.
       tip.position.copy(dir).multiplyScalar(0.79);
     }
+    // A resize grip's stem runs from the cube back into the model; every other arm points away from its anchor.
+    const armEnd = resize ? dir.clone().multiplyScalar(-1) : dir.clone();
     const arm = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), info.toggle ? new THREE.Vector3() : dir.clone()]),
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), info.toggle ? new THREE.Vector3() : armEnd]),
       new THREE.LineBasicMaterial({ color: handleColors(info).rest, depthTest: false, transparent: true }),
     );
     arm.renderOrder = 10;
@@ -364,7 +375,8 @@ export class Manipulator {
       const a = this.screen(tip);
       const b = end;
       const ab = b.clone().sub(a);
-      const t = ab.lengthSq() < 1e-6 ? 0 : Math.max(0, Math.min(1, pointer.clone().sub(a).dot(ab) / ab.lengthSq()));
+      const only = grabFraction(item.info.kind, item.info.toggle);
+      const t = only !== null ? only : ab.lengthSq() < 1e-6 ? 0 : Math.max(0, Math.min(1, pointer.clone().sub(a).dot(ab) / ab.lengthSq()));
       const d = pickScore(pointer.distanceTo(a.clone().addScaledVector(ab, t)), item.info.kind, t);
       if (d < bestD) {
         bestD = d;

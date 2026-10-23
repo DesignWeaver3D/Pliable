@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { Manipulator, linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep, pickScore, MOVE_ARM_PX, refitRing } from "../src/manipulator.ts";
+import { Manipulator, linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep, pickScore, grabFraction, MOVE_ARM_PX, refitRing } from "../src/manipulator.ts";
 
 const h = { value: 10, scale: 1, min: 1 };
 
@@ -185,4 +185,12 @@ test("refitRing keeps the grip's angle and turns degrees per unit with the new r
   assert.deepEqual(fit.ring, [1, 2, 3, 4]);
   assert.deepEqual(fit.anchor, [5, 2, 3]);
   assert.equal(fit.scale, 5);
+});
+
+test("only the cube of a resize grip and the head of a move arrow can be grabbed, not the line", () => {
+  assert.equal(grabFraction("resize", false), 0);
+  const head = grabFraction("move", false);
+  assert.ok(head > 0.85 && head < 1);
+  assert.equal(grabFraction("arrow", false), null);
+  assert.equal(grabFraction("resize", true), null);
 });
