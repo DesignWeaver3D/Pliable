@@ -221,7 +221,11 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
                 raise RequestError("Unknown face or edge") from e
             raise RequestError(f"Unknown edge selection mode {mode!r}")
         if kind == "model_info":
-            return model_info(self._require_document().current)
+            try:
+                body = int(request["body"]) if request.get("body") is not None else None
+                return model_info(self._require_document().current, body)
+            except (ValueError, TypeError) as e:
+                raise RequestError("Unknown body") from e
         if kind == "sketch_plane" and "faces" in request:
             return self._sketch_on_faces(request)
         if kind == "sketch_plane" and "unwrap" in request:  # a cylinder face unrolled flat to sketch on

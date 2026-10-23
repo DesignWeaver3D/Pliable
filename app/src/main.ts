@@ -972,7 +972,9 @@ async function history(kind: "undo" | "redo") {
 }
 $("info").addEventListener("click", async () => {
   try {
-    measurePanel.show(await core.request<MeasureReply>("model_info"));
+    // One selected body reports on that body alone; anything else reports on the whole model.
+    const bodies = currentSels.filter((s) => s.kind === "body");
+    measurePanel.show(await core.request<MeasureReply>("model_info", bodies.length === 1 ? { body: bodies[0].id } : {}));
   } catch (e) {
     status.textContent = (e as Error).message;
   }

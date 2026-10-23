@@ -178,3 +178,24 @@ def test_hole_centre_and_centre_distances(bracket):
     distances = {round(r["value"], 3) for r in pair["summary"] if r["label"] == "Centre distance"}
     assert distances and distances <= {28.0, 35.0, round(math.hypot(35, 28), 3)}
     assert pair["dimensions"][0]["kind"] == "linear"
+
+
+def test_model_info_for_one_body_of_two():
+    from build123d import Box, Compound, Pos
+
+    from pliable import bodies as body_ids
+    from pliable.measure import model_info
+    from pliable.topology import Topology
+
+    shape = Compound([Box(10, 10, 10), Pos(30, 0, 0) * Box(20, 20, 20)]).wrapped
+    state = body_ids.fresh(shape, body_ids.namer({}))
+    topology = Topology(shape, state)
+    both = {r["label"]: r["value"] for r in model_info(topology)["items"][0]["rows"]}
+    assert both["Solids"] == 2 and both["Faces"] == 12
+    second = state.bodies[1]
+    item = model_info(topology, second.id)["items"][0]
+    rows = {r["label"]: r["value"] for r in item["rows"]}
+    assert item["title"] == second.name and rows["Solids"] == 1 and rows["Faces"] == 6
+    assert rows["Volume"] != pytest.approx(both["Volume"]) and rows["Volume"] == pytest.approx(rows["Size (X, Y, Z)"][0] ** 3)
+    with pytest.raises(ValueError):
+        model_info(topology, 999)

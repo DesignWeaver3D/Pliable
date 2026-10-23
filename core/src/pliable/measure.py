@@ -324,8 +324,10 @@ def measure(topology: Topology, selection: Selection) -> dict:
     return {"items": items, "summary": summary, "dimensions": dims if len(items) > 1 else [d for item in items for d in item["dimensions"]]}
 
 
-def model_info(topology: Topology) -> dict:
-    """Whole-model facts and a validity check, as rows in the same shape as an item's `rows`."""
+def model_info(topology: Topology, body: int | None = None) -> dict:
+    """Whole-model facts and a validity check, as rows in the same shape as an item's `rows`.
+    With a body id, the same facts for that body alone."""
+    from .ops import solids_of
     from OCP.BRepBndLib import BRepBndLib
     from OCP.BRepCheck import BRepCheck_Analyzer
     from OCP.Bnd import Bnd_Box
@@ -333,6 +335,13 @@ def model_info(topology: Topology) -> dict:
     from OCP.TopExp import TopExp
     from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher
 
+    title = "Model"
+    if body is not None:
+        index = topology.bodies.find(body)
+        if index is None:
+            raise ValueError(f"no body {body}")
+        title = topology.bodies.bodies[index].name
+        topology = Topology(solids_of(topology.shape)[index])
     shape = topology.shape
     solids = IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher()
     TopExp.MapShapes_s(shape, TopAbs_SOLID, solids)
@@ -355,4 +364,4 @@ def model_info(topology: Topology) -> dict:
         _row("Surface area", area.Mass()),
         _row("Size (X, Y, Z)", [hi.X() - lo.X(), hi.Y() - lo.Y(), hi.Z() - lo.Z()]),
     ]
-    return {"items": [{"kind": "model", "id": 0, "title": "Model", "rows": rows, "anchor": [0, 0, 0], "dimensions": []}], "summary": [], "dimensions": []}
+    return {"items": [{"kind": "model", "id": 0, "title": title, "rows": rows, "anchor": [0, 0, 0], "dimensions": []}], "summary": [], "dimensions": []}
