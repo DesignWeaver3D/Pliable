@@ -138,7 +138,8 @@
       #toollist .group { color: #ffb878; font-size: 11px; margin-top: 4px; }
       #toollist button, #toolform button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; text-align: left; display: block; width: 100%; margin-top: 2px; }
       #toollist button:disabled { color: #666; }
-      #toolform { position: fixed; top: 104px; left: calc(var(--leftw) + 12px); z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
+      #toolform { position: fixed; top: 270px; right: 12px; width: 250px; box-sizing: border-box; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
+      #measure.aside { right: 274px; } /* an edit card that reaches the measurement card moves it left */
       #toolform[hidden] { display: none; }
       #toolform .title { color: #ffb878; font-weight: 600; margin-bottom: 4px; }
       #toolform .row { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin: 3px 0; }
