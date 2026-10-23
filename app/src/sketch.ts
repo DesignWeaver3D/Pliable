@@ -14,7 +14,7 @@ import * as M from "./sketchmodel";
 import * as Sh from "./sketchshapes";
 import { buildGridGroup, disposeGrid } from "./sketchgrid";
 import * as B from "./sketchbuilders";
-import { AUTO_AXIS_DEG } from "./sketchbuilders";
+import * as Sn from "./sketchsnap";
 import { openSketchSettings } from "./sketchsettings";
 import { parseValue } from "./dimedit";
 import { uiIcon } from "./icons";
@@ -23,8 +23,6 @@ import { usage } from "./usage";
 import type { HandleInfo } from "./tools";
 import type { Sel, Viewport } from "./viewport";
 
-const SNAP_PX = 10; // pointer snaps to an existing sketch point this close
-const PICK_PX = 8; // pick radius for points and curves in the select tool
 const DRAG_START_PX = 3;
 const POINT_SIZE_PX = 8;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
@@ -123,11 +121,11 @@ interface SolveReply {
 
 export type Drag = { point: number; u: number; v: number } | { points: { point: number; u: number; v: number }[] };
 
-export class SketchMode implements B.BuilderContext {
+export class SketchMode implements B.BuilderContext, Sn.SnapContext {
   active = false;
   s!: M.SketchData;
   private plane = new THREE.Plane();
-  private tool: Tool = "select";
+  tool: Tool = "select";
   private selection: M.SketchSel[] = [];
   private hover: M.SketchSel | null = null;
   /** Geometry lit up while the pointer is over a row of the constraint list. */
@@ -152,7 +150,7 @@ export class SketchMode implements B.BuilderContext {
   private pending = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.pending, linewidth: 2, depthTest: false, transparent: true }));
   private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false, transparent: true }));
   private grid: THREE.Group | null = null;
-  private options = loadSketchOptions();
+  options = loadSketchOptions();
   private settingsDialog: HTMLDialogElement | null = null;
   /** Called when the active drawing tool, or whether a sketch is open, changes (the top strip redraws). */
   onToolChange: (() => void) | null = null;
@@ -481,7 +479,7 @@ export class SketchMode implements B.BuilderContext {
   }
 
   /** The distance the pointer snaps to when snap to grid is on: the light lines when there are any, else the bold ones. */
-  private gridStep(): number {
+  gridStep(): number {
     const { major, minor } = this.options;
     return minor > 0 && minor < major ? minor : major;
   }
@@ -513,113 +511,29 @@ export class SketchMode implements B.BuilderContext {
 
   // Pointer handling --------------------------------------------------------------------------------
 
-  private planeUV(e: PointerEvent): [number, number] | null {
+  planeUV(e: PointerEvent): [number, number] | null {
     const p = this.viewport.planePoint(e, this.plane);
     return p ? M.toPlane(this.s.plane, [p.x, p.y, p.z]) : null;
   }
 
-  private screenOf(u: number, v: number): THREE.Vector2 {
+  screenOf(u: number, v: number): THREE.Vector2 {
     return this.viewport.toScreen(new THREE.Vector3(...M.toWorld(this.s.plane, u, v)));
   }
 
-  private mousePx(e: PointerEvent): THREE.Vector2 {
+  mousePx(e: PointerEvent): THREE.Vector2 {
     const r = this.viewport.renderer.domElement.getBoundingClientRect();
     return new THREE.Vector2(e.clientX - r.left, e.clientY - r.top);
   }
 
-  private nearestPoint(e: PointerEvent): M.SketchPoint | null {
-    const m = this.mousePx(e);
-    let best: M.SketchPoint | null = null;
-    let bestD = SNAP_PX;
-    for (const p of this.s.points) {
-      const d = this.screenOf(p.u, p.v).distanceTo(m);
-      if (d < bestD) {
-        best = p;
-        bestD = d;
-      }
-    }
-    return best;
+  // Snap and pick rules live in sketchsnap.ts (this mode is their context).
+  pixelAt(u: number, v: number): number {
+    return this.viewport.pixelSizeAt(new THREE.Vector3(...M.toWorld(this.s.plane, u, v)));
   }
-
   private snap(e: PointerEvent): Snap | null {
-    const near = this.nearestPoint(e);
-    if (near) return { id: near.id, u: near.u, v: near.v };
-    const uv = this.planeUV(e);
-    if (!uv) return null;
-    let [u, v] = uv;
-    if (this.options.snapGrid) {
-      const step = this.gridStep();
-      [u, v] = [Math.round(u / step) * step, Math.round(v / step) * step];
-    }
-    let axis: Snap["axis"];
-    const last = this.chain[this.chain.length - 1];
-    if (this.tool === "line" && last) {
-      const angle = (Math.atan2(v - last.v, u - last.u) * 180) / Math.PI;
-      const fromH = Math.min(Math.abs(angle), Math.abs(Math.abs(angle) - 180));
-      if (fromH < AUTO_AXIS_DEG) [v, axis] = [last.v, "h"];
-      else if (Math.abs(Math.abs(angle) - 90) < AUTO_AXIS_DEG) [u, axis] = [last.u, "v"];
-    }
-    const pixel = this.viewport.pixelSizeAt(new THREE.Vector3(...M.toWorld(this.s.plane, u, v)));
-    const reach = SNAP_PX * pixel;
-    if (this.tool === "line" && this.chain.length >= 1) {
-      const t = M.tangentFrom(this.s, this.chain[this.chain.length - 1], u, v, reach);
-      if (t) return { u: t.u, v: t.v, tangent: t.entity, on: { entity: t.entity } };
-    }
-    if (this.tool === "circle" && this.chain.length === 1) {
-      const t = M.tangentRadius(this.s, this.chain[0], u, v, reach);
-      if (t) return { u: t.u, v: t.v, tangent: t.entity };
-    }
-    // Midpoints of lines, then the nearest point on a curve.
-    for (const en of this.s.entities) {
-      if (en.type !== "line") continue;
-      const a = M.pointOf(this.s, en.a);
-      const b = M.pointOf(this.s, en.b);
-      const mid = [(a.u + b.u) / 2, (a.v + b.v) / 2];
-      if (Math.hypot(u - mid[0], v - mid[1]) < reach) return { u: mid[0], v: mid[1], on: { entity: en.id, midpoint: true } };
-    }
-    for (const en of this.s.entities) {
-      if (M.distanceTo(this.s, en, u, v) < reach) {
-        const on = M.closestOn(this.s, en, u, v);
-        if (on) return { u: on[0], v: on[1], on: { entity: en.id } };
-      }
-    }
-    // The sketch's own axes, through the centre of the face (its origin).
-    for (const a of M.sketchAxes(this.s.plane)) {
-      const t = (u - a.u) * a.du + (v - a.v) * a.dv;
-      const on: [number, number] = [a.u + t * a.du, a.v + t * a.dv];
-      if (Math.hypot(u - on[0], v - on[1]) < reach) return { u: on[0], v: on[1] };
-    }
-    // Line up with the u or v of an existing point and show a guide to it.
-    if (!axis) {
-      let [su, sv] = [u, v];
-      const hit = this.s.points.find((p) => Math.abs(p.u - u) < reach);
-      const level = this.s.points.find((p) => Math.abs(p.v - v) < reach);
-      if (hit) su = hit.u;
-      if (level) sv = level.v;
-      const guides: [number, number][][] = [];
-      if (hit) guides.push([[hit.u, hit.v], [su, sv]]);
-      if (level) guides.push([[level.u, level.v], [su, sv]]);
-      if (guides.length) return { u: su, v: sv, guides };
-    }
-    return { u, v, axis };
+    return Sn.snap(this, e);
   }
-
   private pick(e: PointerEvent): M.SketchSel | null {
-    const point = this.nearestPoint(e);
-    if (point) return { kind: "point", id: point.id };
-    const uv = this.planeUV(e);
-    if (!uv) return null;
-    const pixel = this.viewport.pixelSizeAt(new THREE.Vector3(...M.toWorld(this.s.plane, uv[0], uv[1])));
-    let best: M.SketchSel | null = null;
-    let bestD = PICK_PX * pixel;
-    for (const en of this.s.entities) {
-      const d = M.distanceTo(this.s, en, uv[0], uv[1]);
-      if (d < bestD) {
-        best = { kind: "entity", id: en.id };
-        bestD = d;
-      }
-    }
-    return best;
+    return Sn.pick(this, e);
   }
 
   /** The box being dragged on empty space (client pixels); window = left to right, crossing = right to left, as in the 3D view. */
