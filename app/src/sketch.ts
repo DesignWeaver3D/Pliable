@@ -378,7 +378,7 @@ export class SketchMode {
   /** While picking what to project: the faces and edges chosen so far (null when not picking). */
   private projectPick: Sel[] | null = null;
   /** Whether the plane's move and turn gizmos are drawn (the header's gizmo button). */
-  private gizmosShown = true;
+  private gizmosShown = false;
   /** The base point picked for moving the plane (null until picked). */
   private moveFrom: number[] | null = null;
 

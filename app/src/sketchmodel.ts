@@ -176,7 +176,7 @@ export function measure(s: SketchData, c: SketchConstraint): number | null {
 /** The selected lines that may still take a horizontal or vertical constraint, when two or more lines are selected. */
 function freeLines(s: SketchData, sel: SketchSel[]): Extract<SketchEntity, { type: "line" }>[] {
   const es = entities(s, sel);
-  if (es.length < 2 || !only(es, "line") || pts(sel).length) return [];
+  if (es.length < 2 || !only(es, "line")) return [];
   const held = (id: number) => s.constraints.some((c) => c.entity === id && (c.type === "horizontal" || c.type === "vertical"));
   return (es as Extract<SketchEntity, { type: "line" }>[]).filter((l) => !l.reference && !held(l.id));
 }
@@ -206,7 +206,7 @@ function coincidences(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "
  * (for more than two items, only those that meet at a point). */
 function tangentOrCollinear(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[] {
   const es = entities(s, sel);
-  if (es.length < 2 || pts(sel).length || !only(es, "line", "arc", "circle")) return [];
+  if (es.length < 2 || !only(es, "line", "arc", "circle")) return [];
   const has = (type: string, a: number, b: number) => s.constraints.some((c) => c.type === type && c.entities?.includes(a) && c.entities?.includes(b));
   if (es.every((e) => e.type === "line")) {
     return es.slice(1).filter((e) => !e.reference && !has("collinear", es[0].id, e.id)).map((e) => ({ type: "collinear", entities: [es[0].id, e.id] }));
@@ -247,7 +247,7 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
       const many = freeLines(s, sel);
       if (many.length) return { type: "horizontal", entity: many[0].id };
       const es = entities(s, sel);
-      if (es.length === 1 && only(es, "line") && !pts(sel).length) return { type: "horizontal", entity: es[0].id };
+      if (es.length === 1 && only(es, "line")) return { type: "horizontal", entity: es[0].id };
       const p = pts(sel);
       return p.length === 2 && !es.length ? { type: "horizontal", points: p } : null;
     },
@@ -259,7 +259,7 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
       const many = freeLines(s, sel);
       if (many.length) return { type: "vertical", entity: many[0].id };
       const es = entities(s, sel);
-      if (es.length === 1 && only(es, "line") && !pts(sel).length) return { type: "vertical", entity: es[0].id };
+      if (es.length === 1 && only(es, "line")) return { type: "vertical", entity: es[0].id };
       const p = pts(sel);
       return p.length === 2 && !es.length ? { type: "vertical", points: p } : null;
     },
@@ -277,21 +277,21 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     label: "Parallel",
     build: (s, sel) => {
       const es = entities(s, sel);
-      return es.length === 2 && only(es, "line") && !pts(sel).length ? { type: "parallel", entities: es.map((e) => e.id) } : null;
+      return es.length === 2 && only(es, "line") ? { type: "parallel", entities: es.map((e) => e.id) } : null;
     },
   },
   {
     label: "Perpendicular",
     build: (s, sel) => {
       const es = entities(s, sel);
-      return es.length === 2 && only(es, "line") && !pts(sel).length ? { type: "perpendicular", entities: es.map((e) => e.id) } : null;
+      return es.length === 2 && only(es, "line") ? { type: "perpendicular", entities: es.map((e) => e.id) } : null;
     },
   },
   {
     label: "Equal",
     build: (s, sel) => {
       const es = entities(s, sel);
-      if (es.length !== 2 || pts(sel).length) return null;
+      if (es.length !== 2) return null;
       const lines = es.filter((e) => e.type === "line").length;
       return lines === 2 || lines === 0 ? { type: "equal", entities: es.map((e) => e.id) } : null;
     },
@@ -319,7 +319,7 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     label: "Lock",
     build: (s, sel) => {
       const es = entities(s, sel);
-      return es.length === 1 && !pts(sel).length && !es[0].reference ? { type: "block", entity: es[0].id } : null;
+      return es.length === 1 && !es[0].reference ? { type: "block", entity: es[0].id } : null;
     },
   },
   {
@@ -386,7 +386,7 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     dimension: true,
     build: (s, sel) => {
       const es = entities(s, sel);
-      return es.length === 1 && only(es, "line") && !pts(sel).length ? { type: "axis_angle", entity: es[0].id } : null;
+      return es.length === 1 && only(es, "line") ? { type: "axis_angle", entity: es[0].id } : null;
     },
     initial: (s, sel) => Math.round(measure(s, { id: 0, type: "axis_angle", entity: entities(s, sel)[0].id })! * 1000) / 1000,
   },
@@ -395,7 +395,7 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     dimension: true,
     build: (s, sel) => {
       const es = entities(s, sel);
-      return es.length === 1 && only(es, "ellipse") && !pts(sel).length ? { type: "minor_radius", entity: es[0].id } : null;
+      return es.length === 1 && only(es, "ellipse") ? { type: "minor_radius", entity: es[0].id } : null;
     },
     initial: (s, sel) => (entities(s, sel)[0] as Extract<SketchEntity, { type: "ellipse" }>).minor,
   },
@@ -404,7 +404,7 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     dimension: true,
     build: (s, sel) => {
       const es = entities(s, sel);
-      return es.length === 1 && only(es, "circle", "arc") && !pts(sel).length ? { type: "radius", entity: es[0].id } : null;
+      return es.length === 1 && only(es, "circle", "arc") ? { type: "radius", entity: es[0].id } : null;
     },
     initial: (s, sel) => radiusOf(s, entities(s, sel)[0]),
   },
@@ -413,7 +413,7 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     dimension: true,
     build: (s, sel) => {
       const es = entities(s, sel);
-      return es.length === 1 && only(es, "circle", "arc") && !pts(sel).length ? { type: "diameter", entity: es[0].id } : null;
+      return es.length === 1 && only(es, "circle", "arc") ? { type: "diameter", entity: es[0].id } : null;
     },
     initial: (s, sel) => 2 * radiusOf(s, entities(s, sel)[0]),
   },
@@ -422,7 +422,7 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     dimension: true,
     build: (s, sel) => {
       const es = entities(s, sel);
-      return es.length === 2 && only(es, "line") && !pts(sel).length ? { type: "angle", entities: es.map((e) => e.id) } : null;
+      return es.length === 2 && only(es, "line") ? { type: "angle", entities: es.map((e) => e.id) } : null;
     },
     initial: (s, sel) => {
       const [a, b] = entities(s, sel) as Extract<SketchEntity, { type: "line" }>[];

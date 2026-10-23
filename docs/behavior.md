@@ -71,3 +71,5 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - When faces, edges or vertices are selected and the view is right-clicked without dragging, a menu offers "Select parent bodies" (the owning bodies replace the selection); with a single face or edge, the Select similar choices come first. (Provisional, S116.)
 - A resize grip (cube) sits on its anchor with its stem running inward toward the solid; only the cube is grabbable. A move arrow is grabbed only by its arrowhead, not its line. (S118.)
 - A tip stays on screen until its Got it is clicked, even after the action that raised it ends. The chips (such as Add Parallel Face) and the hint line never overlap: the hint line and tip stand above the chips. There is no separate sketch key hint line. (S123, S124)
+- The sketch plane move and turn gizmos are off by default; the sketch card button shows them. (S125)
+- Sketch constraint tools that only apply to edges ignore selected vertices instead of doing nothing. (S126)

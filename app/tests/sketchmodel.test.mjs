@@ -195,3 +195,18 @@ test("every dimension drawn on the sketch names its constraint, so it can be edi
   };
   assert.deepEqual(dimensionsOf(s).map((d) => d.constraint), [20, 21, 22, 23]);
 });
+
+test("constraints that only apply to edges ignore selected vertices", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 4, v: 3 }, { id: 4, u: 0, v: 5 }, { id: 5, u: 10, v: 5 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 4, b: 5 }],
+    constraints: [],
+  };
+  const labels = (sel) => optionsFor(s, sel).map((o) => o.label);
+  const lines = [{ kind: "entity", id: 10 }, { kind: "entity", id: 11 }];
+  const stray = [...lines, { kind: "point", id: 3 }];
+  for (const label of ["Horizontal", "Vertical", "Parallel", "Perpendicular", "Equal"]) assert.equal(labels(stray).includes(label), labels(lines).includes(label), label);
+  assert.ok(labels(stray).includes("Horizontal"));
+  assert.ok(labels([{ kind: "entity", id: 10 }, { kind: "point", id: 3 }]).includes("Horizontal"));
+});
