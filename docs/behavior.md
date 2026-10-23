@@ -67,3 +67,4 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - The Tools handle sits on the left edge of the 3D view.
 - The measurement card starts collapsed and sits bottom right. 
 - Dark theme only for now.
+- When faces, edges or vertices are selected and the view is right-clicked without dragging, a menu offers "Select parent bodies" (the owning bodies replace the selection); with a single face or edge, the Select similar choices come first. (Provisional, S116.)

@@ -12,7 +12,7 @@ import { splitDrawLists } from "./slide";
 import { ghostRuns } from "./visibility";
 import { Manipulator } from "./manipulator";
 import { onSettingsChange, settings, updateSettings } from "./settings";
-import { similarTo, type SimilarKind } from "./selfilter";
+import { parentBodies, similarTo, type SimilarKind } from "./selfilter";
 import { bodyColorArray } from "./bodycolorarray";
 
 /** A "body" selection is a whole solid (every face of the body), chosen from the body list. */
@@ -1201,8 +1201,9 @@ export class Viewport {
     this.closeSimilarMenu();
     const data = this.data;
     const only = this.selected.length === 1 ? this.selected[0] : null;
-    if (!data || !only || (only.kind !== "face" && only.kind !== "edge")) return;
-    const choices: [string, SimilarKind][] = only.kind === "face" ? [["Select faces facing the same way", "faceDirection"], ["Select faces of the same area", "faceArea"]] : [["Select edges of the same length", "edgeLength"]];
+    const owned = this.selected.length > 0 && this.selected.every((s) => s.kind !== "body");
+    if (!data || !owned) return;
+    const choices: [string, SimilarKind][] = !only ? [] : only.kind === "face" ? [["Select faces facing the same way", "faceDirection"], ["Select faces of the same area", "faceArea"]] : only.kind === "edge" ? [["Select edges of the same length", "edgeLength"]] : [];
     const menu = document.createElement("div");
     menu.style.cssText = `position:fixed;left:${x}px;top:${y}px;z-index:20;display:flex;flex-direction:column;background:#2b2b2b;color:#eee;font:13px sans-serif;border:1px solid #555;border-radius:6px;padding:4px`;
     for (const [label, kind] of choices) {
@@ -1210,14 +1211,24 @@ export class Viewport {
       button.textContent = label;
       button.style.cssText = "text-align:left;background:none;color:inherit;border:0;padding:5px 10px;cursor:pointer";
       button.onclick = () => {
-        const ids = similarTo(data, kind, only.id);
+        const ids = similarTo(data, kind, only!.id);
         this.closeSimilarMenu();
-        const next: Sel[] = ids.map((id) => ({ kind: only.kind, id }));
+        const next: Sel[] = ids.map((id) => ({ kind: only!.kind, id }));
         this.selectItems(next);
         this.onSelect(next);
       };
       menu.append(button);
     }
+    const parents = document.createElement("button");
+    parents.textContent = "Select parent bodies";
+    parents.style.cssText = "text-align:left;background:none;color:inherit;border:0;padding:5px 10px;cursor:pointer";
+    parents.onclick = () => {
+      const next: Sel[] = parentBodies(data, this.selected).map((id) => ({ kind: "body", id }));
+      this.closeSimilarMenu();
+      this.selectItems(next);
+      this.onSelect(next);
+    };
+    menu.append(parents);
     document.body.appendChild(menu);
     this.similarMenu = menu;
   }

@@ -44,3 +44,18 @@ export function similarTo(data: MeshData, kind: SimilarKind, id: number): number
   const area = faceArea(data, own.start, own.count);
   return data.faces.filter((f) => f.count > 0 && close(faceArea(data, f.start, f.count), area)).map((f) => f.id);
 }
+
+/** Ids of the bodies that own the given faces, edges or vertices (bodies in the list are kept as they are). */
+export function parentBodies(data: Pick<MeshData, "faces" | "edges" | "vertices">, items: { kind: string; id: number }[]): number[] {
+  const found = new Set<number>();
+  for (const item of items) {
+    if (item.kind === "body") {
+      found.add(item.id);
+      continue;
+    }
+    const table = item.kind === "face" ? data.faces : item.kind === "edge" ? data.edges : item.kind === "vertex" ? data.vertices : [];
+    const body = (table as { id: number; body?: number }[]).find((x) => x.id === item.id)?.body;
+    if (body !== undefined) found.add(body);
+  }
+  return [...found];
+}

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { faceArea, edgeLength, similarTo } from "../src/selfilter.ts";
+import { faceArea, edgeLength, similarTo, parentBodies } from "../src/selfilter.ts";
 
 // Two unit squares facing +z (faces 1 and 2), one two-by-two square facing +z (face 3) and one unit square facing +x (face 4).
 const square = (x, y, z, w, axis) => {
@@ -33,4 +33,11 @@ test("similar edges by length", () => {
   assert.deepEqual(similarTo(data, "edgeLength", 1), [1, 2]);
   assert.deepEqual(similarTo(data, "edgeLength", 3), [3]);
   assert.deepEqual(similarTo(data, "edgeLength", 99), []);
+});
+
+test("parentBodies gives each owning body once, for mixed kinds", () => {
+  const data = { faces: [{ id: 1, body: 7 }, { id: 2, body: 7 }, { id: 3, body: 9 }], edges: [{ id: 4, body: 11 }], vertices: [{ id: 5, body: 9 }] };
+  const items = [{ kind: "face", id: 1 }, { kind: "face", id: 2 }, { kind: "face", id: 3 }, { kind: "edge", id: 4 }, { kind: "vertex", id: 5 }, { kind: "face", id: 99 }];
+  assert.deepEqual(parentBodies(data, items).sort((a, b) => a - b), [7, 9, 11]);
+  assert.deepEqual(parentBodies(data, []), []);
 });
