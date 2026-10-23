@@ -73,3 +73,4 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - A tip stays on screen until its Got it is clicked, even after the action that raised it ends. The chips (such as Add Parallel Face) and the hint line never overlap: the hint line and tip stand above the chips. There is no separate sketch key hint line. (S123, S124)
 - The sketch plane move and turn gizmos are off by default; the sketch card button shows them. (S125)
 - Sketch constraint tools that only apply to edges ignore selected vertices instead of doing nothing. (S126)
+- While a sketch is open the top strip has a second row with all constraint and dimension buttons, greyed unless the selection takes them. (S127, for testing before the UI is slimmed)

@@ -310,13 +310,16 @@ let toolbarKey = "";
 /** While a sketch is open the top strip holds the drawing tools instead of the model's tools. The sketch itself is made below. */
 let currentSketchTool: () => SketchTool = () => "select";
 let chooseSketchTool: (tool: SketchTool) => void = () => {};
+let sketchConstraints: () => { label: string; enabled: boolean }[] = () => [];
+let chooseConstraint: (label: string) => void = () => {};
 
 function renderSketchStrip() {
   const room = stripWidthAvailable();
   const available = Math.round(room.width);
   const centre = Math.round(room.centre);
   const tool = currentSketchTool();
-  const key = `sketch|${tool}|${available}|${centre}`;
+  const choices = sketchConstraints();
+  const key = `sketch|${tool}|${available}|${centre}|${choices.map((c) => `${c.label}${c.enabled ? 1 : 0}`).join()}`;
   if (key === toolbarKey) return;
   toolbarKey = key;
   toolbar.classList.add("sketching");
@@ -333,6 +336,16 @@ function renderSketchStrip() {
       button.title = `${t.label}: ${t.hint}`;
       button.className = t.id === tool ? "active" : "";
       button.addEventListener("click", () => chooseSketchTool(t.id));
+      return button;
+    }),
+    // The second row: every constraint and dimension, greyed unless the selection takes it (for testing which work).
+    Object.assign(document.createElement("div"), { className: "rowbreak" }),
+    ...choices.map((c) => {
+      const button = document.createElement("button");
+      button.textContent = c.label;
+      button.disabled = !c.enabled;
+      button.title = c.enabled ? `Apply ${c.label} to the selection` : `${c.label}: select what it applies to first`;
+      button.addEventListener("click", () => chooseConstraint(c.label));
       return button;
     }),
   );
@@ -1333,6 +1346,8 @@ const sketch = new SketchMode(
 );
 currentSketchTool = () => sketch.activeTool;
 chooseSketchTool = (tool) => sketch.selectTool(tool);
+sketchConstraints = () => sketch.constraintChoices();
+chooseConstraint = (label) => sketch.chooseConstraint(label);
 sketch.onToolChange = () => renderToolbar();
 /** Run a request that changes the kept sketches and takes the document state it answers with. */
 function keptRequest(kind: string, args: Record<string, unknown>) {

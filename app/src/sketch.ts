@@ -1287,6 +1287,7 @@ export class SketchMode {
     this.render();
   }
 
+/** The constraint and dimension buttons of the sketch strip: every one, enabled when the selection takes it. */  constraintChoices(): { label: string; enabled: boolean }[] {    return M.allConstraintOptions(this.s, this.selection).map((c) => ({ label: c.option.label, enabled: c.enabled }));  }  /** Apply the strip button with this label to the selection. */  chooseConstraint(label: string) {    const chosen = M.allConstraintOptions(this.s, this.selection).find((c) => c.option.label === label);    if (chosen?.enabled) void this.applyConstraint(chosen.option);  }
   private async applyConstraint(chosen: M.ConstraintOption) {
     const option = chosen.pick?.(this.s, this.selection) ?? chosen; // the smart dimension stands for one of the others
     const built = option.build(this.s, this.selection);
@@ -1946,6 +1947,7 @@ export class SketchMode {
     });
     this.overlay.set([...dimensions, ...(this.showMarks ? M.constraintMarks(this.s) : []), ...this.liveDimensions()]);
     if (panel) this.renderPanel();
+    this.onToolChange?.(); // the strip's constraint row follows the selection
   }
 
   private drawAxes() {

@@ -981,3 +981,8 @@ export function forSolver(s: SketchData): SketchData {
   const points = s.points.filter((p) => !p.fixed || usedPoints.has(p.id));
   return entities.length === s.entities.length && points.length === s.points.length ? s : { ...s, points, entities };
 }
+
+/** Every constraint and dimension button for the sketch strip, each with whether the current selection takes it. */
+export function allConstraintOptions(s: SketchData, sel: SketchSel[]): { option: ConstraintOption; enabled: boolean }[] {
+  return [...CONSTRAINT_OPTIONS, SMART_DIMENSION].map((option) => ({ option, enabled: sel.length > 0 && option.build(s, sel) !== null }));
+}
