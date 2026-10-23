@@ -1,17 +1,15 @@
-"""Stretch: move the faces at one end of a solid and let their neighbours follow, without cutting and lofting.
-
-Headless spike (S36). Faces whose vertices all belong to the selected faces move rigidly (the moved set);
-every other face that touches the moved set is rebuilt through its new boundary and the faces are sewn back
-into a solid. This covers solids whose connecting faces are flat polygons with straight edges, including
-tapers (the end keeps its size, so the slope changes). Anything else (curved connecting faces, a connecting
-face whose corners stop being flat) is refused with a pointer to `mode` 1 (insert), the robust alternative:
-the end face's section is extruded and fused (or cut away), which keeps every section constant.
-"""
+"""The Stretch tool."""
 
 from OCP.BRep import BRep_Builder, BRep_Tool
 from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
-from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon, BRepBuilderAPI_MakeSolid, BRepBuilderAPI_Sewing, BRepBuilderAPI_Transform
+from OCP.BRepBuilderAPI import (
+    BRepBuilderAPI_MakeFace,
+    BRepBuilderAPI_MakePolygon,
+    BRepBuilderAPI_MakeSolid,
+    BRepBuilderAPI_Sewing,
+    BRepBuilderAPI_Transform,
+)
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
 from OCP.BRepTools import BRepTools_WireExplorer
@@ -23,8 +21,9 @@ from OCP.TopoDS import TopoDS, TopoDS_Compound
 from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as ShapeIndexedMap
 from OCP.gp import gp_Dir, gp_Pln, gp_Pnt, gp_Trsf, gp_Vec
 
-from .ops import MIN_DISTANCE, OperationError, OpResult, planar_normal, solids_of
-from .tools import Accepts, Param, Tool, register
+from ..ops import MIN_DISTANCE, OperationError, OpResult, planar_normal, solids_of
+from ..tools import Accepts, Param, register, Tool
+
 
 REFUSED = " Try Insert (mode 1), which extrudes the end face's section instead."
 
@@ -141,7 +140,7 @@ def stretch_solid(solid, selected: list, offset: gp_Vec):
     fixer = ShapeFix_Solid(BRepBuilderAPI_MakeSolid(TopoDS.Shell(shells[0])).Solid())
     fixer.Perform()
     result = fixer.Solid()
-    from .shared.solids import _volume
+    from ..shared.solids import _volume
     if _volume(result) <= 0 or not BRepCheck_Analyzer(result).IsValid():
         raise OperationError("The stretched solid is not valid." + REFUSED)
     return result
@@ -188,7 +187,7 @@ class Stretch(Tool):
         if mode == 1 and len(selected) != 1:
             raise OperationError("Insert takes one flat end face")
         changed = stretch_solid(body, selected, offset) if mode == 0 else insert_solid(body, selected[0], offset)
-        from .shared.solids import finish
+        from ..shared.solids import finish
         compound, builder = TopoDS_Compound(), BRep_Builder()
         builder.MakeCompound(compound)
         for solid in solids_of(topology.shape):
