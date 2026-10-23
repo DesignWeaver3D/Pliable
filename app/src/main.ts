@@ -24,6 +24,7 @@ import { HintLine } from "./hints";
 import { exportAs as saveModel, installFileOpening } from "./filesave";
 import { askRestore, dismissRestorePrompt } from "./restoreprompt";
 import { bodyView } from "./appstate";
+import { helperSignature as helperSignatureOf, selectionHelpers as selectionHelpersOf, type HelperDeps } from "./toolhelpers";
 import { expand, relatedState, renderChips as chipsRender, type RelatedRule } from "./relatedrules";
 import { installBodyActions } from "./bodyactions";
 import { Palette, type Command } from "./palette";
@@ -343,68 +344,20 @@ function renderToolbar() {
 
 window.addEventListener("resize", () => renderToolbar());
 
-/** Which selection helper buttons apply to the current selection (also the toolbar cache key). */
-function helperSignature(): string {
-  if (currentSels.length === 1 && currentSels[0].kind === "body") {
-    const id = currentSels[0].id;
-    return `body${id}${committed ? bodiesOf(committed).find((b) => b.id === id)?.editable : ""}`;
-  }
-  if (currentSels.length === 1) return `${currentSels[0].kind}${currentSels[0].id}`;
-  if (currentSels.length > 1 && currentSels.every((s) => s.kind === "face")) return "faces" + currentSels.map((s) => s.id).join(",");
-  return "";
-}
-
-/** Buttons that grow a selection of faces or an edge into a selection of edges. */
-function selectionHelpers(): HTMLButtonElement[] {
-  const make = (label: string, title: string, request: Record<string, unknown>, none = "Nothing more to select") => {
-    const button = document.createElement("button");
-    button.textContent = label;
-    button.title = title;
-    button.className = "helper";
-    button.addEventListener("click", async () => {
-      try {
-        const reply = await core.request<{ edges?: number[]; loops?: number[][] }>("edge_selection", request);
-        const ids = reply.edges ?? (reply.loops ?? []).flat();
-        const picked: Sel[] = ids.map((id) => ({ kind: "edge" as const, id }));
-        viewport.selectItems(picked);
-        setSelection(picked);
-        const same = picked.length === 1 && currentSels.length === 1 && "edge" in request;
-        status.textContent = same ? `${label}: ${none}` : `${label}: ${picked.length} edge${picked.length === 1 ? "" : "s"} selected`;
-      } catch (e) {
-        status.textContent = (e as Error).message;
-      }
-    });
-    return button;
-  };
-  const one = currentSels.length === 1 ? currentSels[0] : null;
-  if (one?.kind === "body") {
-    const body = committed ? bodiesOf(committed).find((b) => b.id === one.id) : undefined;
-    if (!body?.editable) return [];
-    const button = document.createElement("button");
-    button.textContent = "Edit primitive";
-    button.title = "Reopen the form and handles this body was made with";
-    button.className = "helper";
-    button.addEventListener("click", () => editPrimitive(one.id));
-    return [button];
-  }
-  if (one?.kind === "face") {
-    return [
-      make("All edges", "Select every edge of the selected face, outline and holes", { mode: "face_edges", face: one.id }),
-      make("Edge loops", "Select only the perimeter (outer) loop of the selected face, leaving out any holes", { mode: "face_outline", face: one.id }),
-    ];
-  }
-  if (one?.kind === "edge") {
-    return [
-      make("Edge loops", "Select the closed outline of each face beside this edge (loops follow the shared faces, not an angle)", { mode: "edge_loops", edge: one.id }, "this edge has no outline beyond itself"),
-      make("Edge ring", "Select the parallel edges across the faces on both sides of this edge, like the rungs of a ladder (needs four-sided faces)", { mode: "ring", edge: one.id }, "no ring: the faces beside it are not four-sided"),
-      make("Sharp edges", `Select the connected edges where faces meet at ${settings.sharpAngle} degrees or more (change the angle in settings)`, { mode: "sharp", edge: one.id, angle: settings.sharpAngle }, "no connected sharp edges"),
-    ];
-  }
-  if (currentSels.length > 1 && currentSels.every((s) => s.kind === "face")) {
-    return [make("Region outline", "Select the edges around the outside of the selected faces", { mode: "region_boundary", faces: currentSels.map((s) => s.id) })];
-  }
-  return [];
-}
+const helperDeps: HelperDeps = {
+  core,
+  status,
+  committed: () => committed,
+  selection: () => currentSels,
+  select: (sels) => {
+    viewport.selectItems(sels);
+    setSelection(sels);
+  },
+  editPrimitive: (id) => editPrimitive(id),
+  sharpAngle: () => settings.sharpAngle,
+};
+const helperSignature = () => helperSignatureOf(helperDeps);
+const selectionHelpers = () => selectionHelpersOf(helperDeps);
 
 /** Reopen the creation form and handles of an editable primitive body, filled with the values it was made with. */
 function editPrimitive(id: number) {
