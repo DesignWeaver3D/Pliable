@@ -33,6 +33,10 @@ export interface ToolPanelHost {
 
 const PREVIEW_DELAY_MS = 150;
 const UNITS: Record<string, string> = { length: "mm", angle: "°", number: "" };
+/** Form fields whose bare name is unclear: a fuller label and a tooltip. */
+const PARAM_HELP: Record<string, { label: string; title: string }> = {
+  new_body: { label: "new body (1 = separate, 0 = join)", title: "1 keeps the new solid as its own body. 0 fuses it into the bodies it touches, which only shows when it overlaps or touches one." },
+};
 
 export class ToolPanel {
   private open: ToolInfo | null = null;
@@ -134,7 +138,9 @@ export class ToolPanel {
       const row = document.createElement("label");
       row.className = "row";
       const name = document.createElement("span");
-      name.textContent = `${p.name.replace(/_/g, " ")}${UNITS[p.kind] ? ` (${UNITS[p.kind]})` : ""}`;
+      const help = PARAM_HELP[p.name];
+      name.textContent = help?.label ?? `${p.name.replace(/_/g, " ")}${UNITS[p.kind] ? ` (${UNITS[p.kind]})` : ""}`;
+      if (help) row.title = help.title;
       const input = document.createElement("input");
       input.type = "number";
       input.step = "any";
