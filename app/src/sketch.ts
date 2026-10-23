@@ -8,13 +8,13 @@ import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { CoreClient, MeshData } from "./client";
 import type { Dimension, DimensionOverlay } from "./dimensions";
-import * as Chk from "./sketchcheck";
 import * as E from "./sketchedit";
 import * as M from "./sketchmodel";
 import * as Sh from "./sketchshapes";
 import { buildGridGroup, disposeGrid } from "./sketchgrid";
 import * as B from "./sketchbuilders";
 import * as Sn from "./sketchsnap";
+import { buildConstraintList, buildToolOptions, button, el, type PanelContext } from "./sketchpanelparts";
 import { openSketchSettings } from "./sketchsettings";
 import { parseValue } from "./dimedit";
 import { uiIcon } from "./icons";
@@ -121,24 +121,24 @@ interface SolveReply {
 
 export type Drag = { point: number; u: number; v: number } | { points: { point: number; u: number; v: number }[] };
 
-export class SketchMode implements B.BuilderContext, Sn.SnapContext {
+export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContext {
   active = false;
   s!: M.SketchData;
   private plane = new THREE.Plane();
   tool: Tool = "select";
-  private selection: M.SketchSel[] = [];
+  selection: M.SketchSel[] = [];
   private hover: M.SketchSel | null = null;
   /** Geometry lit up while the pointer is over a row of the constraint list. */
-  private highlight: M.SketchSel[] = [];
+  highlight: M.SketchSel[] = [];
   chain: Snap[] = []; // points clicked so far for the current drawing
   private cursor: Snap | null = null;
   private drag: { id: number; startX: number; startY: number; moved: boolean; body?: { u: number; v: number; points: { id: number; u: number; v: number }[] } } | null = null;
   private dof: number | null = null;
-  private failed = new Set<number>();
+  failed = new Set<number>();
   /** Directions each point can still move in (0 = placed by the constraints); empty until the first settled solve. */
   private freedom = new Map<number, number>();
   /** Whether small tags (H, V, T, =, ...) show where constraints act. */
-  private showMarks = true;
+  showMarks = true;
   private undoStack: string[] = [];
   private group = new THREE.Group();
   private normal = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.line, linewidth: 2, depthTest: false, transparent: true }));
@@ -489,7 +489,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext {
     return tool === "polygon" ? this.options.sides : POLYGON_SIDES[tool];
   }
 
-  private saveOptions() {
+  saveOptions() {
     try {
       localStorage.setItem(OPTIONS_KEY, JSON.stringify(this.options));
     } catch {
@@ -1056,7 +1056,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext {
   }
 
   /** Change the value of an existing dimension; a value the other constraints refuse is undone. */
-  private async editDimension(id: number) {
+  async editDimension(id: number) {
     const c = this.s.constraints.find((x) => x.id === id);
     if (!c || c.value === undefined) return;
     const answer = await this.askNumber(M.describeConstraint(this.s, c).replace(/ = .*$/, ""), c.value);
@@ -1065,7 +1065,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext {
   }
 
   /** Switch a dimension between driving the shape and only measuring it; a driving one starts from the current measurement. */
-  private async toggleReference(id: number) {
+  async toggleReference(id: number) {
     await this.changeConstraints((cs) =>
       cs.map((x) => {
         if (x.id !== id) return x;
@@ -1494,7 +1494,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext {
     return out;
   }
 
-  private lightUp(c: M.SketchConstraint | null) {
+  lightUp(c: M.SketchConstraint | null) {
     const ids = c ? [...(c.entities ?? []), ...(c.entity !== undefined ? [c.entity] : [])] : [];
     const points = c ? [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])] : [];
     this.highlight = [...points.map((id) => ({ kind: "point" as const, id })), ...ids.map((id) => ({ kind: "entity" as const, id }))];
@@ -1513,7 +1513,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext {
     return ids.length > 0 && ids.every((id) => this.freedom.get(id) === 0);
   }
 
-  private render(panel = true) {
+  render(panel = true) {
     if (!this.active) return;
     const normal: [number, number][][] = [];
     const marked: [number, number][][] = [];
@@ -1675,17 +1675,6 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext {
     const asking = keepAsk && !keepAsk.hidden;
     if (asking) return; // do not rebuild while a value is being typed
     this.panel.hidden = false;
-    const el = (tag: string, cls = "", text = "") => {
-      const e = document.createElement(tag);
-      if (cls) e.className = cls;
-      if (text) e.textContent = text;
-      return e;
-    };
-    const button = (label: string, on: () => void, cls = "") => {
-      const b = el("button", cls, label) as HTMLButtonElement;
-      b.addEventListener("click", on);
-      return b;
-    };
 
     const iconButton = (icon: string, title: string, on: () => void, pressed = false) => {
       const b = document.createElement("button");
@@ -1724,43 +1713,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext {
     const status = el("div", "dof", this.failed.size ? `Conflict: ${this.s.constraints.filter((c) => this.failed.has(c.id)).map((c) => M.describeConstraint(this.s, c)).join("; ") || [...this.failed].join(", ")}. Remove one (red rows below)` : this.dof === null ? "" : this.dof === 0 ? "Fully constrained" : `${this.dof} degrees of freedom left`);
     if (this.failed.size) status.classList.add("bad");
 
-    const tools = el("div", "row-buttons"); // options of the drawing tool chosen in the top bar
-
-    if (this.tool === "polygon") {
-      const sides = document.createElement("input");
-      sides.type = "number";
-      sides.min = "3";
-      sides.max = "64";
-      sides.step = "1";
-      sides.value = String(this.options.sides);
-      sides.title = "Number of sides (3 to 64)";
-      sides.addEventListener("keydown", (e) => e.stopPropagation());
-      sides.addEventListener("change", () => {
-        const n = Math.round(Number(sides.value));
-        if (Number.isFinite(n)) this.options.sides = Math.min(64, Math.max(3, n));
-        sides.value = String(this.options.sides);
-        this.saveOptions();
-      });
-      const row = el("label", "", "Sides ");
-      row.append(sides);
-      tools.append(row);
-    }
-    if (this.tool === "rectangle" || this.tool === "rectcentre") {
-      const corner = document.createElement("select");
-      for (const [v, label] of [["none", "Square corners"], ["fillet", "Rounded corners"], ["chamfer", "Bevelled corners"]]) corner.append(new Option(label, v, false, v === this.rectOptions.corner));
-      corner.addEventListener("change", () => (this.rectOptions.corner = corner.value as "none" | "fillet" | "chamfer"));
-      const size = document.createElement("input");
-      size.type = "number";
-      size.step = "any";
-      size.min = "0";
-      size.value = String(this.rectOptions.size);
-      size.title = "Corner radius or bevel size";
-      size.addEventListener("keydown", (e) => e.stopPropagation());
-      size.addEventListener("input", () => (this.rectOptions.size = Math.abs(Number(size.value)) || 0));
-      const row = el("div", "row-buttons");
-      row.append(corner, size);
-      tools.append(row);
-    }
+    const tools = buildToolOptions(this);
 
     const options = M.optionsFor(this.s, this.selection);
     const constraints = el("div", "row-buttons");
@@ -1774,68 +1727,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext {
     const ask = el("div", "ask");
     ask.hidden = true;
 
-    const list = el("div", "section");
-    const autos = this.s.constraints.filter((c) => c.auto);
-    list.append(el("div", "group", `Constraints (${this.s.constraints.length}${autos.length ? `, ${autos.length} automatic` : ""})`));
-    const marks = button(this.showMarks ? "Hide marks" : "Show marks", () => {
-      this.showMarks = !this.showMarks;
-      this.render();
-    });
-    marks.title = "Show or hide the small tags (H, V, T, =, ...) that mark where constraints act";
-    list.append(marks);
-    const check = button("Check sketch", () => {
-      this.selection = Chk.openEnds(this.s).map((id) => ({ kind: "point" as const, id }));
-      this.host.status(Chk.describeProblems(this.s));
-      this.render();
-    });
-    check.title = "Report points that nearly touch and line ends that meet nothing; the open ends are selected";
-    const join = button("Join near points", async () => {
-      const gaps = Chk.findGaps(this.s);
-      if (!gaps.length) return this.host.status("No points nearly touch");
-      this.pushUndo();
-      this.s = Chk.joinGaps(this.s, gaps);
-      this.selection = [];
-      await this.resolve();
-      this.host.status(`Joined ${gaps.length} pair${gaps.length === 1 ? "" : "s"} of points`);
-      this.render();
-    });
-    join.title = "Merge points that are very close but not the same point, so outlines close";
-    list.append(check, join);
-    for (const c of this.s.constraints) {
-      const row = el("div", this.failed.has(c.id) ? "crow bad" : "crow");
-      row.append(el("span", "", M.describeConstraint(this.s, c) + (c.auto ? " (automatic)" : "")));
-      row.title = c.auto ? "Added by a drawing tool. Hover to see what it holds; the x removes it so the geometry moves freely" : "Hover to see what it holds; the x removes it";
-      row.addEventListener("pointerenter", () => this.lightUp(c));
-      row.addEventListener("pointerleave", () => this.lightUp(null));
-      if (c.value !== undefined) {
-        const edit = button("✎", () => void this.editDimension(c.id));
-        edit.title = c.reference ? "Make this a driving dimension again" : "Change the value";
-        const ref = button(c.reference ? "Drive" : "Ref", () => void this.toggleReference(c.id));
-        ref.title = c.reference ? "Make this dimension drive the shape" : "Keep only the measurement; the dimension stops driving the shape";
-        row.append(...(c.reference ? [ref] : [edit, ref]));
-      }
-      const remove = button("✕", () => {
-        this.pushUndo();
-        this.s.constraints = this.s.constraints.filter((x) => x.id !== c.id);
-        this.highlight = [];
-        this.resolve();
-        this.render();
-      });
-      remove.title = "Remove this constraint";
-      row.append(remove);
-      list.append(row);
-    }
-    if (autos.length) {
-      const clear = button("Remove automatic constraints", () => {
-        this.pushUndo();
-        this.s.constraints = this.s.constraints.filter((x) => !x.auto);
-        this.highlight = [];
-        this.resolve();
-        this.render();
-      });
-      clear.title = "Remove every constraint a drawing tool added (horizontal and vertical sides, snaps onto curves); constraints you added stay";
-      list.append(clear);
-    }
+    const list = buildConstraintList(this);
 
     if (this.selection.some((x) => x.kind === "point")) {
       const size = document.createElement("input");
