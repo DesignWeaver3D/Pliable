@@ -1153,7 +1153,9 @@ async function exportAs(request: string, extension: string, params: Record<strin
         if ((e as Error).name === "AbortError") return; // cancelled in the dialog
       }
     }
-    const { name, data } = await core.request<{ name: string; data: string }>(request, params);
+    const reply = await core.request<{ name: string; data: string }>(request, params);
+    if (typeof reply?.data !== "string") throw new Error(`The core did not return a file for ${request} (restart the core if it is out of date)`);
+    const { name, data } = reply;
     const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
     const blob = new Blob([bytes], { type: "application/octet-stream" });
     if (handle) {
@@ -1169,6 +1171,7 @@ async function exportAs(request: string, extension: string, params: Record<strin
     URL.revokeObjectURL(link.href);
   } catch (e) {
     status.textContent = (e as Error).message;
+    status.classList.add("error");
   }
 }
 

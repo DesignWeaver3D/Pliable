@@ -98,3 +98,12 @@ def test_autosave_survives_a_core_restart_with_names_and_sketches(tmp_path):
     restarted.handle({"type": "restore_session"})
     assert state_of(restarted) == before
     assert restarted.document.can_undo  # the undo steps came back too
+
+
+def test_a_refused_project_file_shows_in_the_diagnostics():
+    session = Session()
+    with pytest.raises(RequestError):
+        session.handle({"type": "open_project", "data": base64.b64encode(b"Unknown request type").decode()})
+    report = session.handle({"type": "diagnostics"})["report"]
+    assert report["lastTool"]["tool"] == "open_project" and not report["lastTool"]["ok"]
+    assert "not a Pliable project file" in report["lastTool"]["error"]

@@ -320,7 +320,9 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             try:
                 project = projectfile.unpack(base64.b64decode(request["data"]))
             except projectfile.ProjectFileError as e:
+                self.last_tool = {"tool": "open_project", "commit": True, "ok": False, "error": diagnostics.scrub(str(e))}
                 raise RequestError(str(e)) from e
+            self.last_tool = {"tool": "open_project", "commit": True, "ok": True, "error": None}
             self.document = Document.from_project(project)
             self._autosave(fresh=True)
             return self._mesh_reply(self.document.current, {}, name=self.document.name)
