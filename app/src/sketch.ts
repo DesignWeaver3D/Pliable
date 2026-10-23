@@ -13,6 +13,8 @@ import * as E from "./sketchedit";
 import * as M from "./sketchmodel";
 import * as Sh from "./sketchshapes";
 import { buildGridGroup, disposeGrid } from "./sketchgrid";
+import * as B from "./sketchbuilders";
+import { AUTO_AXIS_DEG } from "./sketchbuilders";
 import { openSketchSettings } from "./sketchsettings";
 import { parseValue } from "./dimedit";
 import { uiIcon } from "./icons";
@@ -23,7 +25,6 @@ import type { Sel, Viewport } from "./viewport";
 
 const SNAP_PX = 10; // pointer snaps to an existing sketch point this close
 const PICK_PX = 8; // pick radius for points and curves in the select tool
-const AUTO_AXIS_DEG = 3; // a line drawn within this angle of horizontal/vertical becomes exactly so
 const DRAG_START_PX = 3;
 const POINT_SIZE_PX = 8;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
@@ -97,7 +98,7 @@ export interface SketchHost {
   committed(mesh: MeshData): void;
 }
 
-interface Snap {
+export interface Snap {
   id?: number;
   u: number;
   v: number;
@@ -120,18 +121,18 @@ interface SolveReply {
   conflicts?: number[];
 }
 
-type Drag = { point: number; u: number; v: number } | { points: { point: number; u: number; v: number }[] };
+export type Drag = { point: number; u: number; v: number } | { points: { point: number; u: number; v: number }[] };
 
-export class SketchMode {
+export class SketchMode implements B.BuilderContext {
   active = false;
-  private s!: M.SketchData;
+  s!: M.SketchData;
   private plane = new THREE.Plane();
   private tool: Tool = "select";
   private selection: M.SketchSel[] = [];
   private hover: M.SketchSel | null = null;
   /** Geometry lit up while the pointer is over a row of the constraint list. */
   private highlight: M.SketchSel[] = [];
-  private chain: Snap[] = []; // points clicked so far for the current drawing
+  chain: Snap[] = []; // points clicked so far for the current drawing
   private cursor: Snap | null = null;
   private drag: { id: number; startX: number; startY: number; moved: boolean; body?: { u: number; v: number; points: { id: number; u: number; v: number }[] } } | null = null;
   private dof: number | null = null;
@@ -952,7 +953,7 @@ export class SketchMode {
 
   // Editing -----------------------------------------------------------------------------------------
 
-  private pushUndo() {
+  pushUndo() {
     this.undoStack.push(JSON.stringify(this.s));
     if (this.undoStack.length > 100) this.undoStack.shift();
   }
@@ -968,7 +969,7 @@ export class SketchMode {
   }
 
   /** The id of an existing or new point for a clicked position. */
-  private pointFor(snap: Snap): number {
+  pointFor(snap: Snap): number {
     if (snap.id !== undefined) return snap.id;
     const id = M.nextId(this.s);
     this.s.points.push({ id, u: snap.u, v: snap.v });
@@ -978,209 +979,49 @@ export class SketchMode {
   }
 
   /** A constraint a drawing tool adds on its own: "snap" ones follow from where you clicked, "shape" ones keep a rectangle, polygon or slot its shape. Whether either is added is the sketch option `auto`. */
-  private addConstraintRaw(c: Omit<M.SketchConstraint, "id">, kind: "snap" | "shape" = "shape") {
+  addConstraintRaw(c: Omit<M.SketchConstraint, "id">, kind: "snap" | "shape" = "shape") {
     if (this.options.auto === "none" || (this.options.auto === "snaps" && kind === "shape")) return;
     this.s.constraints.push({ id: M.nextId(this.s), ...c, auto: true }); // every caller is a drawing tool, not the user
   }
 
-  /** Returns true if the line ended on the first point of the chain (a closed outline). */
+  // Drawing tools: the work is in sketchbuilders.ts, which takes this mode as its context.
+  chainStart?: Snap;
+  rectOptions: { corner: "none" | "fillet" | "chamfer"; size: number } = { corner: "none", size: 5 };
+  status(text: string, error?: boolean | "warn") {
+    this.host.status(text, error);
+  }
   private addLine(a: Snap, b: Snap): boolean {
-    this.pushUndo();
-    const first = this.chainStart;
-    if (!this.chainStart) this.chainStart = a;
-    const ia = this.pointFor(a);
-    const ib = this.pointFor(b);
-    if (ia === ib) return false;
-    const id = M.nextId(this.s);
-    this.s.entities.push({ id, type: "line", a: ia, b: ib });
-    if (b.tangent !== undefined) this.addConstraintRaw({ type: "tangent", entities: [id, b.tangent] }, "snap");
-    if (b.axis === "h") this.addConstraintRaw({ type: "horizontal", entity: id }, "snap");
-    if (b.axis === "v") this.addConstraintRaw({ type: "vertical", entity: id }, "snap");
-    this.resolve();
-    const closed = first !== undefined && first.id === ib && first !== a;
-    if (closed) this.chainStart = undefined;
-    return closed;
+    return B.addLine(this, a, b);
   }
-  private chainStart?: Snap;
-
-  /** Corner to corner, or (centred) from the centre to a corner; optional rounded or bevelled corners. */
   private addRectangle(a: Snap, b: Snap, centred = false) {
-    const [u0, u1] = centred ? [2 * a.u - b.u, b.u].sort((x, y) => x - y) : [a.u, b.u].sort((x, y) => x - y);
-    const [v0, v1] = centred ? [2 * a.v - b.v, b.v].sort((x, y) => x - y) : [a.v, b.v].sort((x, y) => x - y);
-    if (u1 - u0 < 1e-6 || v1 - v0 < 1e-6) return;
-    this.pushUndo();
-    const { corner } = this.rectOptions;
-    const size = Math.min(this.rectOptions.size, (Math.min(u1 - u0, v1 - v0) / 2) * 0.999);
-    if (corner === "none" || size < 1e-6) {
-      // Snapped corners (existing points) stay in use; the other two are new.
-      const corners: Snap[] = [{ u: u0, v: v0 }, { u: u1, v: v0 }, { u: u1, v: v1 }, { u: u0, v: v1 }].map((c) => (!centred ? [a, b].find((o) => o.id !== undefined && o.u === c.u && o.v === c.v) : undefined) ?? c);
-      const p = corners.map((c) => this.pointFor(c));
-      const ids = p.map((_, k) => this.addLineBetween(p[k], p[(k + 1) % 4]));
-      ids.forEach((id, k) => this.addConstraintRaw({ type: k % 2 === 0 ? "horizontal" : "vertical", entity: id }));
-      this.resolve();
-      return;
-    }
-    // Going counterclockwise: each side runs between its two trimmed ends, each corner is an arc or a bevel.
-    const r = size;
-    const side = (u: number, v: number) => this.pointFor({ u, v } as Snap);
-    const ends: [number, number][][] = [
-      [[u0 + r, v0], [u1 - r, v0]],
-      [[u1, v0 + r], [u1, v1 - r]],
-      [[u1 - r, v1], [u0 + r, v1]],
-      [[u0, v1 - r], [u0, v0 + r]],
-    ];
-    const pts = ends.map((e) => e.map(([u, v]) => side(u, v)));
-    const centres: [number, number][] = [[u1 - r, v0 + r], [u1 - r, v1 - r], [u0 + r, v1 - r], [u0 + r, v0 + r]];
-    const sides = pts.map(([from, to]) => this.addLineBetween(from, to));
-    sides.forEach((id, k) => this.addConstraintRaw({ type: k % 2 === 0 ? "horizontal" : "vertical", entity: id }));
-    for (let k = 0; k < 4; k++) {
-      const start = pts[k][1];
-      const end = pts[(k + 1) % 4][0];
-      if (corner === "chamfer") {
-        this.addLineBetween(start, end);
-        continue;
-      }
-      const centre = this.pointFor({ u: centres[k][0], v: centres[k][1] } as Snap);
-      const arc = M.nextId(this.s);
-      this.s.entities.push({ id: arc, type: "arc", center: centre, start, end });
-      this.addConstraintRaw({ type: "tangent", entities: [arc, sides[k]] });
-      this.addConstraintRaw({ type: "tangent", entities: [arc, sides[(k + 1) % 4]] });
-    }
-    this.resolve();
+    B.addRectangle(this, a, b, centred);
   }
-
-  private addLineBetween(a: number, b: number): number {
-    const id = M.nextId(this.s);
-    this.s.entities.push({ id, type: "line", a, b });
-    return id;
+  private polygonCorners(center: { u: number; v: number }, corner: { u: number; v: number }, sides: number) {
+    return B.polygonCorners(center, corner, sides);
   }
-  private rectOptions: { corner: "none" | "fillet" | "chamfer"; size: number } = { corner: "none", size: 5 };
-
-  private polygonCorners(center: { u: number; v: number }, corner: { u: number; v: number }, sides: number): { u: number; v: number }[] {
-    const radius = Math.hypot(corner.u - center.u, corner.v - center.v);
-    const start = Math.atan2(corner.v - center.v, corner.u - center.u);
-    return Array.from({ length: sides }, (_, k) => ({
-      u: center.u + radius * Math.cos(start + (2 * Math.PI * k) / sides),
-      v: center.v + radius * Math.sin(start + (2 * Math.PI * k) / sides),
-    }));
-  }
-
   private addPolygon(center: Snap, corner: Snap, sides: number) {
-    if (Math.hypot(corner.u - center.u, corner.v - center.v) < 1e-6) return;
-    this.pushUndo();
-    const p = this.polygonCorners(center, corner, sides).map((c) => this.pointFor(c as Snap));
-    const ids = p.map((_, k) => {
-      const id = M.nextId(this.s);
-      this.s.entities.push({ id, type: "line", a: p[k], b: p[(k + 1) % sides] });
-      return id;
-    });
-    // Equal sides keep it regular when a corner is dragged; the corners stay free.
-    ids.slice(1).forEach((id) => this.addConstraintRaw({ type: "equal", entities: [ids[0], id] }));
-    this.resolve();
+    B.addPolygon(this, center, corner, sides);
   }
-
   private addCircle(center: Snap, edge: Snap) {
-    const radius = Math.hypot(edge.u - center.u, edge.v - center.v);
-    if (radius < 1e-6) return;
-    this.pushUndo();
-    const c = this.pointFor(center);
-    const id = M.nextId(this.s);
-    this.s.entities.push({ id, type: "circle", center: c, radius });
-    if (edge.tangent !== undefined) this.addConstraintRaw({ type: "tangent", entities: [id, edge.tangent] }, "snap");
-    this.resolve();
+    B.addCircle(this, center, edge);
   }
-
   private addEllipse(center: Snap, major: Snap, side: Snap) {
-    const a = Math.hypot(major.u - center.u, major.v - center.v);
-    if (a < 1e-6) return;
-    // the short radius is how far the third click is from the long axis
-    const minor = Math.abs(((side.u - center.u) * (major.v - center.v) - (side.v - center.v) * (major.u - center.u)) / a);
-    if (minor < 1e-6) return;
-    this.pushUndo();
-    const c = this.pointFor(center);
-    const m = this.pointFor(major);
-    this.s.entities.push({ id: M.nextId(this.s), type: "ellipse", center: c, major: m, minor });
-    this.resolve();
+    B.addEllipse(this, center, major, side);
   }
-
-  /** The clicked points become a spline through them; a closed one joins the last back to the first. */
   private addSpline(closed: boolean) {
-    this.pushUndo();
-    const ids: number[] = [];
-    for (const snap of this.chain) {
-      const id = this.pointFor(snap);
-      if (ids[ids.length - 1] !== id) ids.push(id);
-    }
-    if (ids.length < 2) return;
-    this.s.entities.push({ id: M.nextId(this.s), type: "spline", points: ids, ...(closed && ids.length > 2 ? { closed: true } : {}) });
-    this.chain = [];
-    this.resolve();
+    B.addSpline(this, closed);
   }
-
   private addArcThrough(start: Snap, through: Snap, end: Snap) {
-    const arc = Sh.arcThrough(start, through, end);
-    if (!arc) return this.host.status("Those three points are in a line, so no arc passes through them", true);
-    this.pushUndo();
-    const [first, last] = arc.from === "start" ? [start, end] : [end, start];
-    const centre = this.pointFor({ u: arc.centre.u, v: arc.centre.v } as Snap);
-    const a = this.pointFor(first);
-    const b = this.pointFor(last);
-    this.s.entities.push({ id: M.nextId(this.s), type: "arc", center: centre, start: a, end: b });
-    this.resolve();
+    B.addArcThrough(this, start, through, end);
   }
-
   private addCircleThrough(a: Snap, b: Snap, c: Snap) {
-    const circle = Sh.circumcircle(a, b, c);
-    if (!circle) return this.host.status("Those three points are in a line, so no circle passes through them", true);
-    this.pushUndo();
-    const centre = this.pointFor({ u: circle.u, v: circle.v } as Snap);
-    const id = M.nextId(this.s);
-    this.s.entities.push({ id, type: "circle", center: centre, radius: circle.radius });
-    for (const snap of [a, b, c]) if (snap.id !== undefined) this.addConstraintRaw({ type: "point_on", point: snap.id, entity: id }, "snap"); // existing points stay on it
-    this.resolve();
+    B.addCircleThrough(this, a, b, c);
   }
-
-  /** Two end centres and a width: two straight edges and two half-circle ends that stay tangent and equal. */
   private addSlot(a: Snap, b: Snap, side: Snap) {
-    const corners = Sh.slotCorners(a, b, Sh.distanceToAxis(a, b, side));
-    if (!corners) return;
-    this.pushUndo();
-    const [ca, cb] = [this.pointFor(a), this.pointFor(b)];
-    const at = (p: Sh.UV) => this.pointFor({ u: p.u, v: p.v } as Snap);
-    const [aLeft, aRight, bLeft, bRight] = [corners.aLeft, corners.aRight, corners.bLeft, corners.bRight].map(at);
-    const top = this.addLineBetween(aLeft, bLeft);
-    const bottom = this.addLineBetween(bRight, aRight);
-    // Both ends run counterclockwise: the far end from its right corner to its left, the near end back round.
-    const endB = M.nextId(this.s);
-    this.s.entities.push({ id: endB, type: "arc", center: cb, start: bRight, end: bLeft });
-    const endA = M.nextId(this.s);
-    this.s.entities.push({ id: endA, type: "arc", center: ca, start: aLeft, end: aRight });
-    for (const [arc, line] of [[endB, top], [endB, bottom], [endA, top], [endA, bottom]]) this.addConstraintRaw({ type: "tangent", entities: [arc, line] });
-    this.addConstraintRaw({ type: "equal", entities: [endA, endB] });
-    this.resolve();
+    B.addSlot(this, a, b, side);
   }
-
   private addArc(center: Snap, start: Snap, end: Snap) {
-    const radius = Math.hypot(start.u - center.u, start.v - center.v);
-    if (radius < 1e-6) return;
-    this.pushUndo();
-    const angle = Math.atan2(end.v - center.v, end.u - center.u);
-    const c = this.pointFor(center);
-    const s = this.pointFor(start);
-    const e = this.pointFor({ u: center.u + radius * Math.cos(angle), v: center.v + radius * Math.sin(angle) });
-    const arcId = M.nextId(this.s);
-    this.s.entities.push({ id: arcId, type: "arc", center: c, start: s, end: e });
-    // An arc that starts on the end of a line, with its centre square to the line there, continues it tangentially.
-    const meets = this.s.entities.find((x) => x.type === "line" && !x.reference && (x.a === s || x.b === s));
-    if (meets && meets.type === "line") {
-      const other = M.pointOf(this.s, meets.a === s ? meets.b : meets.a);
-      const at = M.pointOf(this.s, s);
-      const [lu, lv] = [at.u - other.u, at.v - other.v];
-      const [cu, cv] = [center.u - at.u, center.v - at.v];
-      const cosine = Math.abs(lu * cu + lv * cv) / (Math.hypot(lu, lv) * Math.hypot(cu, cv) || 1);
-      if (cosine < Math.sin((AUTO_AXIS_DEG * 2 * Math.PI) / 180)) this.addConstraintRaw({ type: "tangent", entities: [arcId, meets.id] }, "snap");
-    }
-    this.resolve();
+    B.addArc(this, center, start, end);
   }
 
   private setTool(tool: Tool) {
@@ -1502,7 +1343,7 @@ export class SketchMode {
   // Solving -----------------------------------------------------------------------------------------
 
   /** Solve the constraints (latest request wins while one is in flight). Resolves true if the solver succeeded. */
-  private resolve(drag?: Drag): Promise<boolean> {
+  resolve(drag?: Drag): Promise<boolean> {
     this.queued = { drag };
     if (this.solving) return Promise.resolve(true);
     return this.runSolve();
