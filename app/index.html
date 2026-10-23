@@ -42,7 +42,7 @@
       #bar button:disabled { opacity: 0.4; }
       #bar button.active { border-color: #ff8a1f; color: #ffb878; }
       #bar select, #bar span { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 4px 8px; }
-      #tools { position: fixed; top: 52px; left: 50%; max-width: calc(100vw - 340px); display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 6px; align-items: center; z-index: 2; pointer-events: none; }
+      #tools { position: fixed; top: 38px; left: 50%; max-width: calc(100vw - 340px); display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 6px; align-items: center; z-index: 2; pointer-events: none; }
       #tools button { pointer-events: auto; white-space: nowrap; background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 4px 10px; }
       #tools button.active { border-color: #ff8a1f; color: #ffb878; }
       #tools button.active::after { content: "drag"; margin-left: 6px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a1f; }
@@ -64,7 +64,7 @@
       #dim { white-space: pre; position: fixed; z-index: 2; pointer-events: none; background: #23262d; color: #ffb878; border: 1px solid #ff8a1f; border-radius: 4px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
       #dim.entry { background: #343944; color: #fff; }
       #dim[hidden] { display: none; }
-      .navcube { position: fixed; top: 52px; right: 12px; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+      .navcube { position: fixed; top: 38px; right: 12px; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
       .navcube-scene { perspective: 400px; margin: 14px 14px 18px; }
       .navcube-cube { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
       .navcube-face { position: absolute; text-align: center; font-size: 11px; color: #cfd6e4; background: rgba(60, 68, 84, 0.85); border: 1px solid #7d8aa5; box-sizing: border-box; cursor: pointer; user-select: none; }
@@ -87,7 +87,7 @@
       #drawer .drawerhead button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; }
       #drawer.usableonly #toollist > div:not(:has(button:enabled)) { display: none; }
       #drawer.usableonly #toollist button:disabled { display: none; }
-      #bodypanel { position: fixed; top: 52px; left: calc(var(--drawerw) + var(--handlew)); width: calc(var(--listw) - 8px); bottom: 10px; z-index: 3; display: flex; flex-direction: column; pointer-events: none; }
+      #bodypanel { position: fixed; top: 38px; left: calc(var(--drawerw) + var(--handlew)); width: calc(var(--listw) - 8px); bottom: 10px; z-index: 3; display: flex; flex-direction: column; pointer-events: none; }
       #bodypanel > * { pointer-events: auto; }
       #bodyhead { align-self: flex-start; background: none; border: none; color: #9aa0ab; font-size: 11px; text-align: left; padding: 4px 8px; cursor: pointer; display: flex; gap: 6px; align-items: center; text-shadow: 0 0 4px #1b1d22; }
       #bodyhead:hover { color: #ffb878; }
@@ -214,6 +214,7 @@
       /* Touch screens: finger-sized targets (40 px) for the bar, the tool strip, the view controls and the Tools handle. Mouse layout is unchanged. */
       @media (pointer: coarse) {
         html { --handlew: 44px; }
+        #tools, .navcube, #bodypanel { top: 52px; } /* the bar is taller here */
         #bar button, #bar select, #tools button, .viewctl button, #gear, #drawer .drawerhead button { min-height: 40px; min-width: 40px; }
         #drawerbtn { width: 40px; height: 56px; }
         #drawerbtn[aria-expanded="true"] { left: 280px; }
