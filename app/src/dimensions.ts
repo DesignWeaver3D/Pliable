@@ -45,6 +45,8 @@ const CURSOR_CLEAR_PX = 28; // text moves away when the pointer is closer than t
 const LINE_COLOR = "var(--ui-offwhite, #ddd)";
 /** The dark outline under all of them, so they stay readable over light surfaces. */
 const HALO_COLOR = "#1b1d22";
+const BACKGROUND_COLOR = "#1b1d22"; // the 3D view's background (viewport.ts), for the patch behind a dimension value
+const PATCH_PAD_PX = 2;
 const HALO_OPACITY = "0.6"; // see-through, so it reads as a soft shadow rather than a hard outline
 const NS = "http://www.w3.org/2000/svg";
 
@@ -331,6 +333,17 @@ export class DimensionOverlay {
     g.setAttribute("transform", `translate(${p.x},${p.y}) rotate(${angle})`);
     if (interactive) this.drewLabel = p;
     const hidden = this.editing === this.current;
+    if (dim?.constraint !== undefined) {
+      // A dimension's value sits on a padded patch of the view's background, so the lines under it look broken.
+      const patch = document.createElementNS(NS, "rect");
+      patch.setAttribute("x", String(-half.x - PATCH_PAD_PX));
+      patch.setAttribute("y", String(-half.y - PATCH_PAD_PX));
+      patch.setAttribute("width", String((half.x + PATCH_PAD_PX) * 2));
+      patch.setAttribute("height", String((half.y + PATCH_PAD_PX) * 2));
+      patch.setAttribute("rx", "3");
+      patch.setAttribute("style", `fill: ${BACKGROUND_COLOR}; pointer-events: none`);
+      g.append(patch);
+    }
     const t = document.createElementNS(NS, "text");
     t.textContent = hidden ? "" : text;
     t.setAttribute("text-anchor", "middle");
