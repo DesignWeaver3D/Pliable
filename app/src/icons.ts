@@ -175,6 +175,8 @@ export const UI_ICONS: Record<string, string> = {
   gizmos: '<path d="M6 18V5M3.5 7.5L6 5l2.5 2.5"/><path d="M6 18h13M16.5 15.5L19 18l-2.5 2.5"/><circle cx="6" cy="18" r="1.6" fill="currentColor"/>',
   pickBase: '<circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>',
   pickTarget: '<circle cx="9" cy="15" r="2.2" fill="currentColor"/><path d="M11 13l8-8M13.5 5H19v5.5"/>',
+  drivingDim: '<path d="M4 7v10M20 7v10"/><path d="M4 12h16M7 9.5L4 12l3 2.5M17 9.5L20 12l-3 2.5"/>',
+  referenceDim: '<path d="M9 5q-5 7 0 14M15 5q5 7 0 14"/><path d="M9 12h6"/>',
   keys: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 11h.01M11 11h.01M15 11h.01M8 14h8"/>',
 };
 

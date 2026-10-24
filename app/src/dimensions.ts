@@ -30,6 +30,10 @@ export interface Dimension {
   labelAt?: number[];
   /** Set when the dimension can be dragged to a new place: called with the pointer while it is dragged. */
   drag?: (e: PointerEvent) => void;
+  /** Sketch dimensions: drawn highlighted when selected, a click on the text selects it, and a right-click on the text opens its menu. */
+  selected?: boolean;
+  select?: (e: MouseEvent) => void;
+  menu?: (e: MouseEvent) => void;
 }
 
 const DIM_OFFSET_PX = 36; // distance of a linear dimension line from the measured points
@@ -247,6 +251,14 @@ export class DimensionOverlay {
     // The pointer gestures on the text belong to the text: they must not reach the viewport (which would clear the selection).
     for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup"]) r.addEventListener(type, (e) => e.stopPropagation());
     this.makeDraggable(r, dim);
+    if (dim.select) r.addEventListener("click", (e) => dim.select!(e));
+    if (dim.menu) {
+      r.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dim.menu!(e);
+      });
+    }
     if (dim.activate) {
       r.addEventListener("dblclick", (e) => {
         e.preventDefault();
@@ -363,7 +375,7 @@ export class DimensionOverlay {
     t.setAttribute("dominant-baseline", "central");
     t.setAttribute("font-size", String(TEXT_PX));
     t.setAttribute("font-family", "system-ui, sans-serif");
-    t.setAttribute("style", `fill: ${LINE_COLOR}`);
+    t.setAttribute("style", `fill: ${dim?.selected ? "#ff8a1f" : LINE_COLOR}`);
     t.setAttribute("stroke", HALO_COLOR);
     t.setAttribute("stroke-opacity", HALO_OPACITY);
     t.setAttribute("stroke-width", "3");

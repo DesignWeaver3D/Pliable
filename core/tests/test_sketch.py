@@ -1042,3 +1042,11 @@ def test_sketch_extrude_of_a_divided_rectangle_and_of_attached_lines():
         _free_line(lines, points, a, b, 60 + k)
     result = sketch.extrude(shape, sketch_of(points, lines, plane=far), 5, "new")
     assert _solid_volume(result.shape) == pytest.approx(volume(shape) + (400 + 100) * 5, rel=1e-3)
+
+
+def test_a_redundant_dimension_marked_reference_solves_and_drives_nothing():
+    driving = {"id": 20, "type": "diameter", "entity": 10, "value": 10}
+    redundant = {"id": 21, "type": "diameter", "entity": 10, "value": 14}
+    assert sketch.solve(_circle_with(driving, redundant))["status"] == "failed"
+    result = sketch.solve(_circle_with(driving, {**redundant, "reference": True}))
+    assert result["status"] == "ok" and result["radii"][10] == pytest.approx(5)

@@ -3,6 +3,7 @@
 import * as Chk from "./sketchcheck";
 import * as M from "./sketchmodel";
 import * as Co from "./sketchcoincident";
+import { uiIcon } from "./icons";
 import type { SketchOptions, Tool } from "./sketch";
 
 export interface PanelContext {
@@ -120,8 +121,10 @@ export function buildConstraintList(ctx: PanelContext): HTMLElement {
     if (c.value !== undefined) {
       const edit = button("✎", () => void ctx.editDimension(c.id));
       edit.title = c.reference ? "Make this a driving dimension again" : "Change the value";
-      const ref = button(c.reference ? "Drive" : "Ref", () => void ctx.toggleReference(c.id));
-      ref.title = c.reference ? "Make this dimension drive the shape" : "Keep only the measurement; the dimension stops driving the shape";
+      const ref = el("button", "iconbtn");
+      ref.append(uiIcon(c.reference ? "drivingDim" : "referenceDim"));
+      ref.addEventListener("click", () => void ctx.toggleReference(c.id));
+      ref.title = c.reference ? "Make this dimension drive the shape" : "Keep only the measurement; the dimension stops driving the shape (reference)";
       row.append(...(c.reference ? [ref] : [edit, ref]));
     }
     const remove = button("✕", () => {

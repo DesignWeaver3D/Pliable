@@ -243,6 +243,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(...f.n), new THREE.Vector3(...f.origin));
     this.tool = "select";
     this.selection = [];
+    this.selectedDimensions.clear();
     this.chain = [];
     this.dof = null;
     this.failed.clear();
@@ -627,6 +628,10 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private onDown(e: PointerEvent) {
     if (this.projectPick !== null) return this.pickToProject(e);
     if (this.tool !== "select") return;
+    if (this.selectedDimensions.size) {
+      this.selectedDimensions.clear(); // a click anywhere but on a dimension's value ends the dimension selection
+      this.render(false);
+    }
     const hit = this.pick(e);
     const additive = e.ctrlKey || e.metaKey || e.shiftKey;
     const same = (s: M.SketchSel) => !!hit && s.kind === hit.kind && s.id === hit.id;
@@ -1015,12 +1020,22 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
         if (at) this.editInline(id, at, true);
       });
     }
+    if (!ok && option.dimension) {
+      // A redundant (or clashing) dimension is kept as a reference dimension: it shows the measurement and drives nothing.
+      for (const c of this.s.constraints) if (addedIds.has(c.id)) c.reference = true;
+      if (await this.resolve()) {
+        this.host.status("That dimension is redundant with the existing constraints, so it was added as a reference dimension (in parentheses). Make it driving from the constraint list or the right-click menu", "warn");
+        this.render();
+        return;
+      }
+    }
     if (!ok) {
       const clash = this.s.constraints.filter((c) => this.failed.has(c.id) && !addedIds.has(c.id)).map((c) => M.describeConstraint(this.s, c));
       this.s = JSON.parse(before);
       this.undoStack.pop();
       await this.resolve();
-      this.host.status(`That constraint conflicts with ${clash.length ? clash.join("; ") : "the existing ones"} (or is redundant), so it was not added`, true);
+      // There are no reference geometric constraints: a redundant or clashing one is dropped.
+      this.host.status(`That constraint was dropped: it ${clash.length ? `conflicts with ${clash.join("; ")} or` : "is"} repeats what the existing constraints already hold`, "warn");
     }
     this.render();
   }
@@ -1107,19 +1122,71 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     await this.changeConstraints((cs) => cs.map((x) => (x.id === id ? { ...x, value: answer.value } : x)), "That value conflicts with other constraints, so it was not changed");
   }
 
+  /** Dimensions picked in the view (a click on a dimension's value; Shift or Ctrl adds), for the right-click menu to switch several at once. */
+  private selectedDimensions = new Set<number>();
+
+  private selectDimension(id: number, additive: boolean) {
+    const had = this.selectedDimensions.has(id);
+    if (!additive) this.selectedDimensions.clear();
+    if (additive && had) this.selectedDimensions.delete(id);
+    else this.selectedDimensions.add(id);
+    this.render(false);
+  }
+
+  /** Right-click on a dimension's value: switch it (and the other selected dimensions, when it is one of them) between driving and reference. */
+  private async dimensionMenu(id: number, e: MouseEvent) {
+    const ids = this.selectedDimensions.has(id) ? [...this.selectedDimensions] : [id];
+    if (!this.selectedDimensions.has(id)) {
+      this.selectedDimensions.clear();
+      this.selectedDimensions.add(id);
+      this.render(false);
+    }
+    const dims = this.s.constraints.filter((c) => ids.includes(c.id) && c.value !== undefined);
+    const items: { label: string; reference: boolean }[] = [];
+    if (dims.some((c) => !c.reference)) items.push({ label: "Make reference (measure only)", reference: true });
+    if (dims.some((c) => c.reference)) items.push({ label: "Make driving", reference: false });
+    const picked = items.length ? await chooseAtCursor({ x: e.clientX, y: e.clientY }, items) : null;
+    if (picked) await this.setReference(dims.map((c) => c.id), picked.reference);
+  }
+
   /** Switch a dimension between driving the shape and only measuring it; a driving one starts from the current measurement. */
   async toggleReference(id: number) {
-    await this.changeConstraints((cs) =>
-      cs.map((x) => {
-        if (x.id !== id) return x;
-        if (x.reference) {
-          const { reference: _unused, ...rest } = x;
-          return { ...rest, value: M.measure(this.s, x) ?? x.value };
-        }
-        return { ...x, reference: true, value: M.measure(this.s, x) ?? x.value };
-      }),
-      "Making that dimension drive the shape conflicts with other constraints, so it stays a reference",
-    );
+    const c = this.s.constraints.find((x) => x.id === id);
+    if (c) await this.setReference([id], !c.reference);
+  }
+
+  /** Make dimensions reference (measure only) or driving. A dimension made driving that clashes with the others turns the dimensions it clashes with into reference ones, with a warning. */
+  async setReference(ids: number[], reference: boolean) {
+    const wanted = new Set(ids);
+    const dims = this.s.constraints.filter((c) => wanted.has(c.id) && c.value !== undefined && !!c.reference !== reference);
+    if (!dims.length) return;
+    this.pushUndo();
+    const before = JSON.stringify(this.s);
+    const turn = (c: M.SketchConstraint, toReference: boolean) => {
+      const value = M.measure(this.s, c) ?? c.value;
+      if (toReference) Object.assign(c, { reference: true, value });
+      else {
+        delete c.reference;
+        c.value = value;
+      }
+    };
+    for (const c of dims) turn(c, reference);
+    let displaced: M.SketchConstraint[] = [];
+    let ok = await this.resolve();
+    if (!ok && !reference) {
+      displaced = this.s.constraints.filter((c) => this.failed.has(c.id) && c.value !== undefined && !c.reference && !wanted.has(c.id));
+      for (const c of displaced) turn(c, true);
+      ok = displaced.length > 0 && (await this.resolve());
+    }
+    if (!ok) {
+      this.s = JSON.parse(before);
+      this.undoStack.pop();
+      await this.resolve();
+      this.host.status("Making that dimension drive the shape conflicts with other constraints that are not dimensions, so it stays a reference", true);
+    } else if (displaced.length) {
+      this.host.status(`${displaced.map((c) => M.describeConstraint(this.s, c)).join("; ")} became a reference dimension because the new driving dimension makes it redundant`, "warn");
+    }
+    this.render();
   }
 
   private async changeConstraints(change: (cs: M.SketchConstraint[]) => M.SketchConstraint[], failure: string) {
@@ -1626,7 +1693,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       const c = this.s.constraints.find((x) => x.id === d.constraint);
       if (!c) return d;
       const drag = (e: PointerEvent) => this.dragDimension(c.id, e);
-      return !c.reference && c.value !== undefined ? { ...d, drag, activate: (at: { x: number; y: number }) => this.editInline(c.id, at) } : { ...d, drag };
+      const marked = { selected: this.selectedDimensions.has(c.id), select: (e: MouseEvent) => this.selectDimension(c.id, e.shiftKey || e.ctrlKey || e.metaKey), menu: (e: MouseEvent) => void this.dimensionMenu(c.id, e) };
+      return !c.reference && c.value !== undefined ? { ...d, ...marked, drag, activate: (at: { x: number; y: number }) => this.editInline(c.id, at) } : { ...d, ...marked, drag };
     });
     this.overlay.set([...dimensions, ...(this.showMarks ? M.constraintMarks(this.s) : []), ...this.liveDimensions()]);
     if (panel) this.renderPanel();
