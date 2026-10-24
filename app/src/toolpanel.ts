@@ -27,6 +27,8 @@ export interface ToolPanelHost {
   showBase?(point: number[] | null): void;
   /** The points of a new shape that can be put at the destination (primitives), for the current values. */
   anchors?(tool: ToolInfo, values: Record<string, ParamValue>): Promise<AnchorInfo[]>;
+  /** Called before another tool's form replaces the open one: may ask what to do with it (an unapplied array). */
+  settleOpenForm?(): Promise<void>;
   /** The open form changed (opened or closed). */
   changed?(): void;
 }
@@ -83,13 +85,17 @@ export class ToolPanel {
           button.append(toolIcon(tool.id, tool.label), tool.label);
           button.disabled = !this.host.usable(tool);
           button.title = toolTooltip(tool);
-          button.addEventListener("click", () => this.openForm(tool, {}, "drawer"));
+          button.addEventListener("click", () => void (this.host.settleOpenForm?.() ?? Promise.resolve()).then(() => this.openForm(tool, {}, "drawer")));
           this.listButtons.set(tool.id, button);
           box.append(button);
         }
         return box;
       }),
     );
+  }
+
+  get openToolLabel(): string {
+    return this.open?.label ?? "";
   }
 
   get openToolId(): string | null {
@@ -354,7 +360,8 @@ export class ToolPanel {
     this.timer = window.setTimeout(() => this.host.preview(tool, this.values(), this.editBody), delay);
   }
 
-  private async apply() {
+  /** Applies the open form (the same as its Apply button). */
+  async apply() {
     const tool = this.open;
     if (!tool) return;
     const values = this.values();
