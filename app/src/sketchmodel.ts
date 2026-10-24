@@ -270,7 +270,7 @@ export function constraintMarks(s: SketchData): Dimension[] {
     }
     if (!anchors.length) continue;
     const [u, v] = [anchors.reduce((a, q) => a + q[0], 0) / anchors.length, anchors.reduce((a, q) => a + q[1], 0) / anchors.length];
-    out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)] });
+    out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true });
   }
   return out;
 }

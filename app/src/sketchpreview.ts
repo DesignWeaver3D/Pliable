@@ -22,7 +22,7 @@ export function liveDimensions(ctx: PreviewContext): Dimension[] {
   const a = ctx.chain[ctx.chain.length - 1];
   if (!c || !a) return [];
   const n = (x: number) => parseFloat(x.toFixed(2)).toString();
-  const tag = (u: number, v: number, text: string): Dimension[] => [{ kind: "tag", text, points: [M.toWorld(ctx.s.plane, u, v)] }];
+  const tag = (u: number, v: number, text: string): Dimension[] => [{ kind: "tag", text, points: [M.toWorld(ctx.s.plane, u, v)], mark: true }];
   const du = c.u - a.u;
   const dv = c.v - a.v;
   if (ctx.typed) return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `${ctx.typed}|`);

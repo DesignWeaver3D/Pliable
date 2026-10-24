@@ -295,3 +295,14 @@ test("a point to line dimension runs square to the line with its extension lines
   const [dragged] = dimensionsOf({ ...s, constraints: [{ ...c, place: [12, 12] }] });
   assert.ok(Math.abs(dragged.offset) > 1);
 });
+
+test("constraint tags are marks (no value patch) and dimension values are not", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }],
+    constraints: [{ id: 1, type: "horizontal", entity: 10 }, { id: 2, type: "distance", entity: 10, value: 10 }],
+  };
+  assert.ok(constraintMarks(s).every((m) => m.mark === true));
+  assert.ok(dimensionsOf(s).every((d) => !d.mark));
+});

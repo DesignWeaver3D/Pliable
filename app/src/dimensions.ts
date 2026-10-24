@@ -31,6 +31,8 @@ export interface Dimension {
   /** Set when the dimension can be dragged to a new place: called with the pointer while it is dragged. */
   drag?: (e: PointerEvent) => void;
   /** Sketch dimensions: drawn highlighted when selected, a click on the text selects it, and a right-click on the text opens its menu. */
+  /** Not a dimension value: a constraint tag (H, V, =) or a live size tag while drawing. It gets no background patch. */
+  mark?: boolean;
   selected?: boolean;
   select?: (e: MouseEvent) => void;
   menu?: (e: MouseEvent) => void;
@@ -358,8 +360,8 @@ export class DimensionOverlay {
     g.setAttribute("transform", `translate(${p.x},${p.y}) rotate(${angle})`);
     if (interactive) this.drewLabel = p;
     const hidden = this.editing === this.current;
-    if (dim?.constraint !== undefined) {
-      // A dimension's value sits on a padded patch of the view's background, so the lines under it look broken.
+    if (!dim?.mark) {
+      // A dimension's value (sketch or model) sits on a padded patch of the view's background, so the lines under it look broken.
       const patch = document.createElementNS(NS, "rect");
       patch.setAttribute("x", String(-half.x - PATCH_PAD_PX));
       patch.setAttribute("y", String(-half.y - PATCH_PAD_PX));
