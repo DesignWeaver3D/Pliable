@@ -126,7 +126,7 @@ class SketchHandlers:
             if "unwrap" in request:
                 shape, count = unwrap.wrap_regions(document.current.shape, document.current, [int(i) for i in (request["unwrap"] if isinstance(request["unwrap"], list) else [request["unwrap"]])], request["sketch"])
             else:
-                shape, count = sketch.add_regions(document.current.shape, request["sketch"], request.get("region"))
+                shape, count = sketch.add_regions(document.current.shape, request["sketch"], request.get("picked_regions", request.get("region")))
         except (unwrap.UnwrapError, sketch.SketchError) as e:
             raise RequestError(str(e)) from e
         except (KeyError, TypeError, ValueError) as e:
@@ -144,14 +144,19 @@ class SketchHandlers:
         target = document.commit(shape)
         self._autosave()
         selection = Selection()
-        if request.get("region") is not None:  # one region picked in the view: leave its new face selected
-            try:
-                face = sketch.region_face(target.shape, request["sketch"], int(request["region"]))
-            except (KeyError, TypeError, ValueError, sketch.SketchError):
-                face = None
-            index = target.face_id(face) if face is not None else None
-            if index is not None:
-                selection = Selection(faces=[index])
+        picked = request.get("picked_regions", [request["region"]] if request.get("region") is not None else [])
+        if picked:  # regions picked in the view: leave their new faces selected
+            faces = []
+            for region in picked:
+                try:
+                    face = sketch.region_face(target.shape, request["sketch"], int(region))
+                except (KeyError, TypeError, ValueError, sketch.SketchError):
+                    face = None
+                index = target.face_id(face) if face is not None else None
+                if index is not None:
+                    faces.append(index)
+            if faces:
+                selection = Selection(faces=faces)
         return self._mesh_reply(target, timings, preview=False, selection=selection.to_json())
 
     @staticmethod

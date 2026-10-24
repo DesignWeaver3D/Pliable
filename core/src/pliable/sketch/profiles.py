@@ -304,10 +304,10 @@ def _host_face(shape, zone: Face):
     return None
 
 
-def add_regions(shape, sketch: dict, only: int | None = None):
+def add_regions(shape, sketch: dict, only: int | list[int] | None = None):
     """Put the sketch's regions into the model so they can be picked: zones lying on a flat face of the model
     are imprinted on it (the face is split along their outline), the others are added as free faces. `only` picks
-    one region by its index in `regions` (the order `profile_meshes` draws them in). Returns the new shape and how
+    one region, or several, by their index in `regions` (the order `profile_meshes` draws them in). Returns the new shape and how
     many regions became faces."""
     from OCP.BRep import BRep_Builder
     from OCP.BRepAlgoAPI import BRepAlgoAPI_Splitter
@@ -318,9 +318,10 @@ def add_regions(shape, sketch: dict, only: int | None = None):
     if not zones:
         raise SketchError("The sketch has no closed outline to make a face from")
     if only is not None:
-        if not 0 <= only < len(zones):
+        wanted = [only] if isinstance(only, int) else list(only)
+        if not wanted or any(not 0 <= i < len(zones) for i in wanted):
             raise SketchError("That region of the sketch no longer exists")
-        zones = [zones[only]]
+        zones = [zones[i] for i in dict.fromkeys(wanted)]
     imprint, loose = [], []
     for zone in zones:
         (imprint if _host_face(shape, zone) is not None else loose).append(zone)

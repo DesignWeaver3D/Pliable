@@ -60,6 +60,7 @@ export const KEY_COMMANDS: KeyCommand[] = [
   { id: "history.redo", label: "Redo", class: "history", defaults: ["Ctrl+Y", "Ctrl+Shift+Z"], repeat: true, notInSketch: true },
   // Sketch editing keys: fixed, but they pass through the same guards as every other shortcut.
   { id: "sketch.undo", label: "Sketch: undo", class: "history", defaults: ["Ctrl+Z"], onlyInSketch: true, fixed: true },
+  { id: "sketch.redo", label: "Sketch: redo", class: "history", defaults: ["Ctrl+Y", "Ctrl+Shift+Z"], onlyInSketch: true, fixed: true },
   { id: "sketch.cancel", label: "Sketch: cancel the step, then leave", class: "view", defaults: ["Escape"], onlyInSketch: true, fixed: true, anyFocus: true },
   { id: "sketch.finish", label: "Sketch: finish the line chain", class: "view", defaults: ["Enter"], onlyInSketch: true, fixed: true },
   { id: "sketch.smartDimension", label: "Sketch: smart dimension the selection", class: "arm", defaults: ["D"], onlyInSketch: true },

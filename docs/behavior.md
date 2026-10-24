@@ -8,7 +8,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 
 ## Selection and picking
 
-- Left to right box select encloses; right to left touches. Holding F, E or V during a box drag restricts it to faces, edges or vertices.
+- Left to right box select encloses; right to left touches. With no filter (the Box selects setting on All, nothing held) the box takes faces, edges and vertices together; holding F, E or V during a box drag restricts it to faces, edges or vertices.
 - Shift+click and Ctrl+click both add to or remove from the selection, in the 3D view and in sketches. A plain click in a sketch adds to the selection.
 - Double-click on an edge selects the tangent-continuous chain; Ctrl+double-click adds it. A double-click on a face selects its whole body.
 - Pick ranges are 5 px for edges and 8 px for points and come from settings, never inline constants.
@@ -97,3 +97,5 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - While a sketch is open the top strip has a second row of constraint buttons, each an icon with its name, the Dimension (smart dimension) button first. Buttons whose constraints the smart dimension reaches through every selection are not in the row (length and distances, short radius, point to line distance, symmetric); the audit is in smart-dimension-plan.md.
 - Dimension values are always drawn upright (horizontal on the screen), whatever direction their line runs, including vertical dimensions (owner, 2026-10-24).
 - The sketch's horizontal and vertical axes can be picked like lines (when no other curve or point is near) and dimensioned or constrained to; the Symmetric button is always on the strip and takes two points about a line, three points about the third, or two lines about a line or a point.
+- In a sketch the top bar's Undo and Redo and Ctrl+Z, Ctrl+Y step through the sketch's own edits; a constraint that is dropped says which constraints it repeats or conflicts with.
+- Shift or Ctrl+click on a kept sketch's tinted region adds it to (or takes it out of) the picked regions; all picked regions of one sketch are selected as faces together.

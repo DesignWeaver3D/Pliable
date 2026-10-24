@@ -300,16 +300,20 @@ function armTool(tool: ToolInfo, surface: Surface) {
 }
 
 /** The model state made by picking a sketch region, while its face is still the only selection and nothing was done with it. */
-let pendingProfile: { mesh: MeshData; face: number } | null = null;
+let pendingProfile: { mesh: MeshData; faces: number[]; sketchId: number; regions: number[] } | null = null;
 
 /** A sketch region picked in the view becomes a temporary face of the model, selected so the usual tools work on it. */
-async function pickProfile(sketchId: number, region: number) {
+async function pickProfile(sketchId: number, region: number, additive = false) {
+  // Shift or Ctrl adds another region of the same sketch (or takes a picked one out again): all the picked regions become faces together.
+  const before = additive && pendingProfile && pendingProfile.sketchId === sketchId && committed === pendingProfile.mesh ? pendingProfile.regions : [];
+  const regions = before.includes(region) ? before.filter((r) => r !== region) : [...before, region];
   await dropPendingProfile();
+  if (!regions.length) return setSelection([]);
   try {
-    const mesh = await core.request<MeshData>("sketch_regions", { sketch_id: sketchId, region });
-    const face = mesh.header.selection?.faces?.[0];
-    setCommitted(mesh, false, face === undefined ? [] : [{ kind: "face", id: face }]);
-    if (face !== undefined) pendingProfile = { mesh, face };
+    const mesh = await core.request<MeshData>("sketch_regions", { sketch_id: sketchId, picked_regions: regions });
+    const faces: number[] = mesh.header.selection?.faces ?? [];
+    setCommitted(mesh, false, faces.map((id) => ({ kind: "face" as const, id })));
+    if (faces.length) pendingProfile = { mesh, faces, sketchId, regions };
   } catch (e) {
     status.textContent = (e as Error).message;
     status.classList.add("error");
@@ -345,7 +349,7 @@ function setSelection(sels: Sel[]) {
     if (!askingArray) void settleOpenArray().then((answer) => { if (answer === "discard" && committed) { viewport.selectItems(before); setSelection(before); } });
     return;
   }
-  if (pendingProfile && (committed !== pendingProfile.mesh || sels.length !== 1 || sels[0].kind !== "face" || sels[0].id !== pendingProfile.face)) {
+  if (pendingProfile && (committed !== pendingProfile.mesh || sels.length !== pendingProfile.faces.length || sels.some((s) => s.kind !== "face" || !pendingProfile!.faces.includes(s.id)))) {
     if (committed === pendingProfile.mesh && !toolPanel.isOpen) void dropPendingProfile(); // clicked away from the picked region: it was only a pick
     else pendingProfile = null; // a tool used it, or the history moved on
   }
@@ -451,8 +455,16 @@ function show(mesh: MeshData, frame = false) {
     onSketches(mesh.header.sketches ?? []);
     onDatums(mesh.header.datums ?? [], mesh.header.mirror ?? null);
   }
-  undoButton.disabled = !mesh.header.canUndo;
-  redoButton.disabled = !mesh.header.canRedo;
+  modelHistory = { undo: !!mesh.header.canUndo, redo: !!mesh.header.canRedo };
+  syncHistoryButtons();
+}
+
+let modelHistory = { undo: false, redo: false }; // what the model itself can undo and redo, kept while a sketch is edited
+
+/** The top bar's Undo and Redo follow the sketch's edits while a sketch is open, and the model's otherwise. */
+function syncHistoryButtons() {
+  undoButton.disabled = sketch.active ? !sketch.canUndo : !modelHistory.undo;
+  redoButton.disabled = sketch.active ? !sketch.canRedo : !modelHistory.redo;
 }
 
 function describe(sels: Sel[]): string {
@@ -850,6 +862,7 @@ editLastButton.addEventListener("click", async () => {
 });
 
 async function history(kind: "undo" | "redo") {
+  if (sketch.active) return sketch.step(kind); // while a sketch is edited the top bar steps through the sketch's own edits
   try {
     setCommitted(await core.request<MeshData>(kind));
   } catch (e) {
@@ -910,7 +923,7 @@ const keys = new KeyRouter({
     "history.undo": () => void history("undo"),
     "history.redo": () => void history("redo"),
     "sketch.smartDimension": () => sketch.chooseConstraint("Dimension"),
-    ...Object.fromEntries(["sketch.undo", "sketch.cancel", "sketch.finish", "sketch.delete"].map((id) => [id, (e: KeyboardEvent) => sketch.onKey(e)])),
+    ...Object.fromEntries(["sketch.undo", "sketch.redo", "sketch.cancel", "sketch.finish", "sketch.delete"].map((id) => [id, (e: KeyboardEvent) => sketch.onKey(e)])),
   },
   entryActive: () => viewport.dragging || dragSels !== null || viewport.manipulator.dragging || viewport.pullGizmo.dragging,
   sketchActive: () => sketch.active,
@@ -927,11 +940,11 @@ setKeysOpener(() => keys.openSettings());
 setHintsBinding({ get: () => hintLine.prefs.on, set: (on) => hintLine.setOn(on) });
 // Leaving with edits (undo steps) or an open sketch asks first; autosave still protects against crashes.
 window.addEventListener("beforeunload", (e) => {
-  if (!undoButton.disabled || sketch.active) e.preventDefault();
+  if (modelHistory.undo || sketch.active) e.preventDefault();
 });
 
 installFileOpening(
-  { core, status, hasEdits: () => !undoButton.disabled, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame) },
+  { core, status, hasEdits: () => modelHistory.undo, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame) },
   { open: $("open"), openAsNew: $("openasnew"), openProject: $("openproject") },
   { step: fileInput, project: $("projectfile") as HTMLInputElement },
 );
@@ -950,7 +963,7 @@ exportMesh.addEventListener("change", () => {
 
 let loadedSample = select.value;
 select.addEventListener("change", () => {
-  if (!undoButton.disabled && !window.confirm("Opening a sample model replaces the current model and its undo history. Continue?")) {
+  if (modelHistory.undo && !window.confirm("Opening a sample model replaces the current model and its undo history. Continue?")) {
     select.value = loadedSample;
     return;
   }
@@ -1059,6 +1072,7 @@ sketchConstraints = () => sketch.constraintChoices();
 chooseConstraint = (label) => sketch.chooseConstraint(label);
 sketch.onToolChange = () => {
   renderToolbar();
+  syncHistoryButtons();
   navCube.fitSelectedButton.disabled = sketch.active ? !sketch.selection.length : currentSels.length === 0; // in a sketch the fit button follows the sketch selection
 };
 /** Run a request that changes the kept sketches and takes the document state it answers with. */
@@ -1150,7 +1164,7 @@ function addDatum(args: Record<string, unknown>) {
   keptRequest("datum_add", args);
 }
 viewport.profileTargets = () => (sketch.active ? [] : keptSketches.fillTargets());
-viewport.onProfileClick = (id, region) => void pickProfile(id, region);
+viewport.onProfileClick = (id, region, additive) => void pickProfile(id, region, additive);
 sketch.onEditing = (id) => keptSketches.setEditing(id);
 $("keptsketchhead").addEventListener("click", () => {
   const head = $("keptsketchhead");

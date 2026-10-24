@@ -860,7 +860,11 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
       e.preventDefault();
       e.stopImmediatePropagation();
-      this.undo();
+      this.step(e.shiftKey ? "redo" : "undo");
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      this.step("redo");
     } else if (this.projectPick !== null && (e.key === "Escape" || e.key === "Enter")) {
       if (e.key === "Enter") void this.guard(() => this.finishProjectPick());
       else this.cancelProjectPick();
@@ -896,13 +900,27 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
 
   pushUndo() {
     this.undoStack.push(JSON.stringify(this.s));
+    this.redoStack = [];
     if (this.undoStack.length > 100) this.undoStack.shift();
   }
 
-  private undo() {
-    const last = this.undoStack.pop();
-    if (!last) return;
-    this.s = JSON.parse(last);
+  private redoStack: string[] = [];
+
+  get canUndo() {
+    return this.undoStack.length > 0;
+  }
+  get canRedo() {
+    return this.redoStack.length > 0;
+  }
+
+  /** Step back or forward through the sketch's own edits (the top bar's Undo and Redo and the keys do this while a sketch is edited). */
+  step(kind: "undo" | "redo") {
+    const from = kind === "undo" ? this.undoStack : this.redoStack;
+    const to = kind === "undo" ? this.redoStack : this.undoStack;
+    const next = from.pop();
+    if (!next) return;
+    to.push(JSON.stringify(this.s));
+    this.s = JSON.parse(next);
     this.selection = [];
     this.chain = [];
     this.resolve();
@@ -1041,12 +1059,15 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       }
     }
     if (!ok) {
-      const clash = this.s.constraints.filter((c) => this.failed.has(c.id) && !addedIds.has(c.id)).map((c) => M.describeConstraint(this.s, c));
+      const named = (ids: (id: number) => boolean) => this.s.constraints.filter((c) => ids(c.id)).map((c) => M.describeConstraint(this.s, c));
+      const dropped = named((id) => addedIds.has(id));
+      const clash = named((id) => this.failed.has(id) && !addedIds.has(id));
       this.s = JSON.parse(before);
       this.undoStack.pop();
       await this.resolve();
       // There are no reference geometric constraints: a redundant or clashing one is dropped.
-      this.host.status(`That constraint was dropped: it ${clash.length ? `conflicts with ${clash.join("; ")} or` : "is"} repeats what the existing constraints already hold`, "warn");
+      const against = clash.length ? `the existing ${clash.join("; ")}` : "the fixed points and the constraints already on these items";
+      this.host.status(`Dropped ${dropped.join("; ")}: it repeats or conflicts with ${against}`, "warn");
     }
     this.render();
   }

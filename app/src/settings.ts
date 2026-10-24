@@ -152,11 +152,11 @@ export function createSettingsWindow(host: HTMLElement) {
   seeThrough.append(check, " See-through");
   onSettingsChange(() => (check.checked = settings.seeThrough));
   const boxRow = document.createElement("label");
-  boxRow.title = "What dragging a box selects. Auto keeps the kind already selected, or edges if nothing is.";
+  boxRow.title = "What dragging a box selects. All takes faces, edges and vertices together; holding F, E or V while dragging restricts it to one kind.";
   const boxText = document.createElement("span");
   boxText.textContent = "Box selects";
   const boxSelect = document.createElement("select");
-  for (const [value, name] of [["auto", "Auto (current kind)"], ["edge", "Edges"], ["face", "Faces"], ["vertex", "Vertices"]]) {
+  for (const [value, name] of [["auto", "All (faces, edges, vertices)"], ["edge", "Edges"], ["face", "Faces"], ["vertex", "Vertices"]]) {
     const o = document.createElement("option");
     o.value = value;
     o.textContent = name;

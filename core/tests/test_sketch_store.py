@@ -297,3 +297,16 @@ def test_a_picked_region_can_be_pulled_along_a_chosen_direction():
     before = volume()
     header(session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": picked}, "params": params}))
     assert volume() == pytest.approx(before + 100 * 10 * slant, rel=1e-6)  # a 10 by 10 region pulled 10 along a 45 degree direction
+
+
+def test_picking_several_regions_selects_all_their_faces():
+    session = open_session()
+    plane = session.handle({"type": "sketch_plane", "plane": "XY"})["plane"]
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 30, "v": 0}]
+    circles = [{"id": 10, "type": "circle", "center": 1, "radius": 5}, {"id": 11, "type": "circle", "center": 2, "radius": 4}]
+    session.handle({"type": "sketch_keep", "sketch": sketch_of(points, circles, plane=plane), "regions": False})
+    before = faces(session)
+    h = header(session.handle({"type": "sketch_regions", "sketch_id": 1, "picked_regions": [0, 1]}))
+    assert faces(session) == before + 2
+    areas = sorted(round(sketch.Face(session.document.current.face(i)).area, 3) for i in h["selection"]["faces"])
+    assert len(areas) == 2 and areas[0] == pytest.approx(3.14159265 * 16, abs=0.01) and areas[1] == pytest.approx(3.14159265 * 25, abs=0.01)

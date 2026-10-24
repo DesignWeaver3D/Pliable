@@ -156,7 +156,7 @@ export class Viewport {
   onSelect: (selection: Sel[]) => void = () => {};
   /** The tinted profile regions of kept sketches that a click can pick as if they were faces (they belong to no model). */
   profileTargets: () => { id: number; region: number; object: THREE.Object3D }[] = () => [];
-  onProfileClick: (sketchId: number, region: number) => void = () => {};
+  onProfileClick: (sketchId: number, region: number, additive: boolean) => void = () => {};
   /** Double-click on an edge: the host selects the whole smooth chain it belongs to (Ctrl adds to the selection). */
   onEdgeLoop: (edgeId: number, additive: boolean) => void = () => {};
   /** Double-click on a face: select its whole body (same as clicking its row in the body list). */
@@ -1314,12 +1314,14 @@ export class Viewport {
       y1: Math.max(b.y0, b.y1) - rect.top,
     };
     const crossing = b.x1 < b.x0; // right-to-left touches; left-to-right must enclose
-    const kind: Kind = this.heldKind ?? (settings.boxKind === "auto" ? (this.selected[0]?.kind ?? "edge") : settings.boxKind);
-    const found = this.itemsInBox(kind, r, crossing, rect);
+    // With no filter (no key held, the setting on All) the box takes faces, edges and vertices together.
+    const only: Kind | null = this.heldKind ?? (settings.boxKind === "auto" ? null : settings.boxKind);
+    const kinds: Kind[] = only ? [only] : ["vertex", "edge", "face"];
+    const found = kinds.flatMap((kind) => this.itemsInBox(kind, r, crossing, rect));
     let next = found;
     if (b.additive) {
-      const same = this.selected.filter((s) => s.kind === kind);
-      next = [...same, ...found.filter((f) => !same.some((s) => s.id === f.id))];
+      const same = this.selected.filter((s) => kinds.includes(s.kind as Kind));
+      next = [...same, ...found.filter((f) => !same.some((s) => s.kind === f.kind && s.id === f.id))];
     }
     this.selectItems(next);
     this.onSelect(next);
@@ -1412,7 +1414,7 @@ export class Viewport {
   private clickOrProfile(e: PointerEvent, additive: boolean) {
     const picked = this.pickCycling(e);
     const profile = !picked || picked.kind === "face" ? this.profileUnder(e) : null;
-    if (profile) this.onProfileClick(profile.id, profile.region);
+    if (profile) this.onProfileClick(profile.id, profile.region, additive);
     else this.clickSelect(picked, additive);
   }
 
