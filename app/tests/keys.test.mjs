@@ -76,6 +76,8 @@ test("sketch mode swaps undo and hide for the sketch's own keys and keeps view k
   assert.equal(ran(ev("1"), sketching), "view.front");
   assert.equal(ran(ev("Delete", { code: "Delete" }), sketching), "sketch.delete");
   assert.equal(ran(ev("Backspace", { code: "Backspace" }), sketching), "sketch.delete");
+  assert.equal(ran(ev("d"), sketching), "sketch.smartDimension");
+  assert.equal(ran(ev("d")), null); // not in a sketch
   assert.equal(ran(ev("Delete", { code: "Delete" })), null); // not in a sketch
   assert.equal(ran(ev("Enter", { code: "Enter" }), sketching), "sketch.finish");
 });

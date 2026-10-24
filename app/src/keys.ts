@@ -62,6 +62,7 @@ export const KEY_COMMANDS: KeyCommand[] = [
   { id: "sketch.undo", label: "Sketch: undo", class: "history", defaults: ["Ctrl+Z"], onlyInSketch: true, fixed: true },
   { id: "sketch.cancel", label: "Sketch: cancel the step, then leave", class: "view", defaults: ["Escape"], onlyInSketch: true, fixed: true, anyFocus: true },
   { id: "sketch.finish", label: "Sketch: finish the line chain", class: "view", defaults: ["Enter"], onlyInSketch: true, fixed: true },
+  { id: "sketch.smartDimension", label: "Sketch: smart dimension the selection", class: "arm", defaults: ["D"], onlyInSketch: true },
   { id: "sketch.delete", label: "Sketch: delete selection (Ctrl+Z restores)", class: "history", defaults: ["Delete", "Backspace"], onlyInSketch: true, fixed: true },
 ];
 

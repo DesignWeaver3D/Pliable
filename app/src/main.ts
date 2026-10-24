@@ -842,6 +842,7 @@ const keys = new KeyRouter({
     "display.showAll": () => setVisibility("show"),
     "history.undo": () => void history("undo"),
     "history.redo": () => void history("redo"),
+    "sketch.smartDimension": () => sketch.chooseConstraint("Dimension"),
     ...Object.fromEntries(["sketch.undo", "sketch.cancel", "sketch.finish", "sketch.delete"].map((id) => [id, (e: KeyboardEvent) => sketch.onKey(e)])),
   },
   entryActive: () => viewport.dragging || dragSels !== null || viewport.manipulator.dragging,
