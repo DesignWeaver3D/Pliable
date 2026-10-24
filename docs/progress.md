@@ -48,6 +48,8 @@ First job: read the START HERE block at the top; the feedback rows S113-S127 are
 
 ## Backlog ideas (not built, raised in 2026-10-19 sessions)
 
+More ideas, with their status, are in [future-ideas.md](future-ideas.md); the questions they raise are in [questions.md](questions.md).
+
 - Mouse-modifier shortcuts (owner, 2026-10-24): direct manipulation such as dragging a face is a shortcut for a tool the arrow handle or the tool strip also starts, with the same options; more shortcuts using mouse modifiers are expected, with the modifiers not decided yet (see S129).
 - Arrays (owner, 2026-10-23): array parameters stored and editable like primitives, and an option for an array to be a compound with its source (S130-S132).
 - Merge Cut with plane and Split with plane into one tool with a keep option (both sides or remove one side), and let the plane come from a selected face (owner question pending).

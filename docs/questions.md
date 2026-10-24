@@ -4,7 +4,12 @@ Only real questions that need your answer. Each one ends with a question mark an
 
 ## Open questions
 
-No open questions. In-place face-to-face distance editing (which face moves) is deferred with the design-intent features on the long-term roadmap.
+1. Should an array keep its settings (count and spacing) so you can edit it later, or stay plain separate solids as it is now? Arrays make separate solids today (S132); storing the settings means a hidden record that any face edit would end, and a third option is an array that stays one compound with its source. Options: plain solids, a stored recipe that a "separate" command restores, or a compound. Default: plain solids until you answer.
+2. Should a push/pull be able to run "up to" a chosen face or plane, and all the way through ("full pull")? Today you drag or type a distance and the far-face snap only helps a through-cut when the profile is fully covered. Options: add Up To and Full Pull as reference picks on push/pull, or keep typed distances only. Default: keep typed distances only.
+3. Should a relationship (for example "these two holes stay coaxial") be lockable so that it is re-checked after every edit, or should everything stay re-detected on each edit? A lock would remember the faces and could go silently stale after a complex edit, which is the risk. Options: soft locks with a warning when one is lost, or re-detect only. Default: re-detect only.
+4. After you edit a part that has fillets, should the fillets be removed and re-added around the edit automatically, or only when the edit fails? Re-adding saves a manual step but can change a rounded edge you did not mean to touch. Options: automatic "round last", or only on failure. Default: only on failure.
+
+The other open questions in the research notes (hotkey letters per tool, plain Delete on a selected face, a repeat-last key, drag-only versus gizmo-first, blocking versus hint for fillet order) are listed in docs/future-ideas.md; none of them blocks work.
 
 ## Topics you asked to discuss one at a time
 
