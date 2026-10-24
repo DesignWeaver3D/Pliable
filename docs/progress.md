@@ -10,7 +10,6 @@ State (2026-10-24): `dev` is many local commits ahead of `origin/dev`, nothing p
 
 Sketch requests (owner, 2026-10-24, third batch), one row each, in this order:
 
-- **Dimension line vanishes when the value is pulled outside.** "Sketch dimension when value is pulled out from between two extension lines, the outer arrows look and work great, but the line between the extension lines should disappear in this mode." Needs: in the outside-arrow mode no line is drawn between the extension lines.
 - **Smart dimension on many selections (build; plan and the owner's answers in [smart-dimension-plan.md](smart-dimension-plan.md)).** Owner: "We need the smart dimension tool do work on as many selections as possible to make constraining much easier." Needs: every item in the "Owner decisions" section of the plan file, in the order given there.
 
 
@@ -36,7 +35,7 @@ Built, unit tested, not hand-checked in the app unless noted. Delete a line once
 - Sketch point drag: a dragged point snaps to the grid (when on), the axes and the lines of other points (with guides), but never joins another point; Horizontal and Vertical on a single line now add their constraint (the former open bug).
 - Core crash on editing a diameter after a redundant-constraint error: not reproduced in the solver (fuzzed redundant, conflicting, lock and zero values: no native crash, no uncaught error). Hardened instead: a radius or diameter value that is not a positive number is refused, a circle of no size gives no regions, a native crash now prints a traceback (faulthandler), and the page keeps retrying if the connection drops while it syncs after reconnecting. If it happens again, note the core console output.
 - Implied faces for 3D work: picking a divided-rectangle region and push/pull (loose and imprinted), and sketch extrude or revolve of a sketch with a divider or attached lines, are tested in the core; the app path (click a tinted region, then push/pull) is unchanged and not hand-checked on implied faces. Restart the core first.
-- Outside dimension arrows: pull a length dimension's value past an extension line and check the arrows (not seen in the app; drawn in `dimensions.ts` `dimLine`).
+- Outside dimension arrows (no line between the extension lines now): pull a length dimension's value past an extension line and check the arrows (not seen in the app; drawn in `dimensions.ts` `dimLine`).
 - Sketch D hotkey: applies the smart dimension to the selection (no key conflicts in the default keymap).
 - Region next to an extruded region: picking it works again (the neighbour's shared edge was mistaken for lying on the extruded face); restart the core first.
 - Sketch planes and regions: faces from areas enclosed by geometry without shared end points (divider across a rectangle, lines attached to a side); offset and angled planes from a flat face, plane tangent to a face at a vertex (angle turns about the face plane's x axis); clicking a kept sketch's tinted region adds it as a selected face (push/pull, pocket, Revolve face, Sweep, Loft); clicking one opens its extrude dialog; grid drawn per pixel (jiggle during a camera glide); grid-off lock-up not reproduced (needs exact steps); slot unconstrainable not reproduced; sketch lift of the alpha "unsupported" label.

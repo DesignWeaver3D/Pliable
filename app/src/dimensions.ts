@@ -216,9 +216,11 @@ export class DimensionOverlay {
       // `textAlong`: how far from the middle, along the line, the text sits (past one end).
       const mid = mul(add(a, b), 0.5);
       const tail = mul(dir, ARROW_PX + 6);
-      const from = textAlong < 0 ? add(mid, mul(dir, textAlong)) : sub(a, tail);
-      const to = textAlong > 0 ? add(mid, mul(dir, textAlong)) : add(b, tail);
-      out.push(line(from, to), arrow(a, dir), arrow(b, mul(dir, -1)));
+      // Nothing is drawn between the extension lines: a short tail behind the far arrow, and a line from the near arrow out to the text.
+      const toText = add(mid, mul(dir, textAlong));
+      if (textAlong > 0) out.push(line(sub(a, tail), a), line(b, toText));
+      else out.push(line(toText, a), line(b, add(b, tail)));
+      out.push(arrow(a, dir), arrow(b, mul(dir, -1)));
       return;
     }
     if (len(sub(b, a)) < 2.5 * ARROW_PX) {
