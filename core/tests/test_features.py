@@ -131,15 +131,53 @@ def test_add_box_and_cylinder(block):
 
 
 def test_add_prism_is_a_regular_polygon_extruded(block):
-    hexagon = run("add_prism", block, diameter=10, height=10, x=0, y=0, z=10, new_body=0)  # defaults to 6 sides
+    hexagon = run("add_prism", block, bottom_diameter=10, top_diameter=10, height=10, x=0, y=0, z=10, new_body=0)  # defaults to 6 sides
     assert volume(hexagon.shape) == pytest.approx(24000 + 1.5 * math.sqrt(3) * 25 * 10, rel=1e-4)  # side = circumradius = 5
     assert Topology(hexagon.shape).face_count == 6 + 7  # the block's six faces, the six walls and the prism's top
-    square = run("add_prism", block, sides=4, diameter=10, height=10, x=0, y=0, z=10, new_body=0)
+    square = run("add_prism", block, sides=4, bottom_diameter=10, top_diameter=10, height=10, x=0, y=0, z=10, new_body=0)
     assert volume(square.shape) == pytest.approx(24000 + 2 * 25 * 10, rel=1e-4)  # a square of diagonal 10 has area 50
-    assert volume(run("add_prism", block, sides=4.4, diameter=10, height=10, x=0, y=0, z=10, new_body=0).shape) == pytest.approx(volume(square.shape))  # rounds to 4
+    assert volume(run("add_prism", block, sides=4.4, bottom_diameter=10, top_diameter=10, height=10, x=0, y=0, z=10, new_body=0).shape) == pytest.approx(volume(square.shape))  # rounds to 4
     for bad in (2, 65):
         with pytest.raises(OperationError):
             run("add_prism", block, sides=bad)
+
+
+def _polygon_area(sides, radius):
+    return 0.5 * sides * radius * radius * math.sin(2 * math.pi / sides)
+
+
+def _faces(shape):
+    return Topology(shape).face_count
+
+
+@pytest.mark.parametrize("sides", [3, 4, 6])
+def test_add_prism_with_two_diameters_is_a_frustum_with_flat_sides(sides):
+    from OCP.BRepCheck import BRepCheck_Analyzer
+    from OCP.TopoDS import TopoDS_Compound
+
+    from pliable.ops import planar_normal
+
+    empty = Topology(TopoDS_Compound())
+    frustum = run("add_prism", empty, sides=sides, bottom_diameter=12, top_diameter=6, height=9, new_body=1).shape
+    a1, a2 = _polygon_area(sides, 6), _polygon_area(sides, 3)
+    assert volume(frustum) == pytest.approx(9 / 3 * (a1 + a2 + math.sqrt(a1 * a2)), rel=1e-6)
+    assert BRepCheck_Analyzer(frustum).IsValid() and _faces(frustum) == sides + 2  # flat sides plus the two polygons
+    assert all(planar_normal(f) is not None for _, f in Topology(frustum).faces())
+
+
+def test_add_prism_pyramid_and_inverted_pyramid():
+    from OCP.BRepCheck import BRepCheck_Analyzer
+    from OCP.TopoDS import TopoDS_Compound
+
+    empty = Topology(TopoDS_Compound())
+    pyramid = run("add_prism", empty, sides=4, bottom_diameter=10, top_diameter=0, height=6, new_body=1).shape
+    assert volume(pyramid) == pytest.approx(_polygon_area(4, 5) * 6 / 3, rel=1e-6)  # base area times height over three
+    assert BRepCheck_Analyzer(pyramid).IsValid() and _faces(pyramid) == 5  # four triangles and the base
+    upside_down = run("add_prism", empty, sides=4, bottom_diameter=0, top_diameter=10, height=6, new_body=1).shape
+    assert volume(upside_down) == pytest.approx(volume(pyramid), rel=1e-6) and BRepCheck_Analyzer(upside_down).IsValid()
+    for bad in ({"bottom_diameter": 0, "top_diameter": 0}, {"bottom_diameter": -1}, {"top_diameter": -1}):
+        with pytest.raises(OperationError):
+            run("add_prism", empty, **bad)
 
 
 def test_shell_leaves_walls(block):

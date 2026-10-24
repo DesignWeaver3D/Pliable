@@ -87,7 +87,7 @@ PRIMITIVES = {
     "add_sphere": {"diameter": 9, "x": 3, "y": -2, "z": 1},
     "add_cone": {"bottom_diameter": 10, "top_diameter": 4, "height": 7, "x": 3, "y": -2, "z": 1},
     "add_torus": {"major": 20, "minor": 5, "x": 3, "y": -2, "z": 1},
-    "add_prism": {"sides": 5, "diameter": 9, "height": 7, "x": 3, "y": -2, "z": 1},
+    "add_prism": {"sides": 5, "bottom_diameter": 10, "top_diameter": 4, "height": 7, "x": 3, "y": -2, "z": 1},
 }
 
 

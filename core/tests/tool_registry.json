@@ -1823,7 +1823,7 @@
  {
   "id": "add_prism",
   "label": "Add prism",
-  "description": "Adds a prism: a regular polygon (6 sides by default, a hexagon) of the given corner-to-corner diameter, standing on the XY plane at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model.",
+  "description": "Adds a prism: a regular polygon (6 sides by default, a hexagon) with a bottom and a top corner-to-corner diameter, standing on the XY plane at the given position. A top diameter of 0 makes a pyramid. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model.",
   "accepts": {
    "faces": [
     0,
@@ -1851,7 +1851,13 @@
     "drag": false
    },
    {
-    "name": "diameter",
+    "name": "bottom_diameter",
+    "kind": "length",
+    "default": 10,
+    "drag": false
+   },
+   {
+    "name": "top_diameter",
     "kind": "length",
     "default": 10,
     "drag": false
