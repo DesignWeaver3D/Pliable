@@ -126,6 +126,7 @@ export function describeConstraint(s: SketchData, c: SketchConstraint): string {
     point_on: "Point on",
     midpoint: "Midpoint",
     symmetric: "Symmetric",
+    symmetric_point: "Symmetric about a point",
     collinear: "Collinear",
     block: "Lock",
     minor_radius: "Short radius",
@@ -136,7 +137,6 @@ export function describeConstraint(s: SketchData, c: SketchConstraint): string {
     radius: "Radius",
     diameter: "Diameter",
     angle: "Angle",
-    axis_angle: "Angle to horizontal axis",
   };
   const refs = [...(c.points ?? []).map((p) => `p${p}`), ...(c.point !== undefined ? [`p${c.point}`] : []), ...(c.entity !== undefined ? [`#${c.entity}`] : []), ...(c.entities ?? []).map((e) => `#${e}`)];
   void s;
@@ -193,9 +193,6 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
       // The dimension runs along the projected leg (a to corner) and sits on the side away from the other point.
       const away = horizontal ? (pb.v >= pa.v ? -1 : 1) : pb.u >= pa.u ? -1 : 1;
       out.push(linear(c, text, a, corner, side.map((x) => x * away)));
-    } else if (c.type === "axis_angle" && entity && entity.type === "line") {
-      const [a, b] = [pointOf(s, entity.a), pointOf(s, entity.b)];
-      out.push({ kind: "tag", text: `∠${text}°`, points: [placed(c, toWorld(s.plane, (a.u + b.u) / 2, (a.v + b.v) / 2))] });
     } else if (c.type === "angle" && c.entities?.length === 2) {
       const lines = c.entities.map((id) => s.entities.find((e) => e.id === id));
       if (lines.every((l) => l?.type === "line")) {
@@ -280,6 +277,7 @@ const MARKS: Record<string, string> = {
   point_on: "On",
   midpoint: "Mid",
   symmetric: "Sym",
+  symmetric_point: "Sym",
   collinear: "Col",
 };
 

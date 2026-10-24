@@ -61,7 +61,9 @@ test("three or more items offer only constraints that take that many arguments",
   assert.deepEqual(labels(s, ent(10, 11, 17)), ["Equal length", "Collinear"]);
   assert.deepEqual(built(s, ent(10, 11, 17), "Equal length"), [{ type: "equal", entities: [10, 11] }, { type: "equal", entities: [10, 17] }]);
   assert.deepEqual(labels(s, ent(13, 14, 15)), ["Equal radius", "Concentric"]);
-  assert.deepEqual(labels(s, pt(1, 2, 3)), ["Coincident"]);
+  // far-apart points are never pulled onto one place; three of them are symmetric about the one in the middle
+  assert.deepEqual(labels(s, pt(1, 2, 3)), ["Symmetric"]);
+  assert.deepEqual(labels(s, pt(6, 7, 11)), ["Symmetric", "Coincident"]);
   assert.deepEqual(labels(s, [...ent(10, 11), ...pt(3)]), []); // nothing takes these
 });
 
@@ -98,4 +100,19 @@ test("each button removed from the strip has its constraint reachable through th
   const strip = allConstraintOptions(e, ent(10)).map((c) => c.option.label);
   for (const label of Object.keys(ABSORBED_BY_SMART)) assert.ok(!strip.includes(label), label);
   assert.equal(strip[0], "Dimension");
+});
+
+test("two points and a fixed point such as the origin are symmetric about it", () => {
+  const o = sketch([{ id: 1, u: 0, v: 0, fixed: true }, P(2, -4, 1), P(3, 5, 2)], []);
+  assert.deepEqual(labels(o, pt(2, 3, 1)), ["Symmetric"]);
+  assert.deepEqual(built(o, pt(2, 3, 1), "Symmetric"), [{ type: "symmetric_point", points: [2, 3], point: 1 }]);
+  const free = sketch([P(1, 0, 0), P(2, 10, 0), P(3, 4.9, 0.1)], []);
+  assert.deepEqual(built(free, pt(1, 2, 3), "Symmetric"), [{ type: "symmetric_point", points: [1, 2], point: 3 }]);
+});
+
+test("projected (reference) geometry can be constrained to, but alone it offers nothing", () => {
+  const r = sketch([P(1, 0, 0), P(2, 10, 0), P(3, 0, 5), P(4, 10, 6), P(5, 3, 3)], [{ ...L(10, 1, 2), reference: true }, L(11, 3, 4)]);
+  assert.deepEqual(labels(r, ent(10)), []);
+  assert.deepEqual(labels(r, ent(10, 11)), ["Angle"]);
+  assert.deepEqual(labels(r, [...ent(10), ...pt(5)]), ["Point to line distance"]);
 });

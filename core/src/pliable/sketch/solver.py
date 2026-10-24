@@ -123,8 +123,6 @@ class _Solver:
         elif kind == "angle":
             a, b = (self._entity(e, "line") for e in c["entities"])
             h = s.addAngle(value, bool(c.get("outside")), a, b, wp, g)  # outside: the value is the supplement (the angle across the other pair of sectors)
-        elif kind == "axis_angle":  # the angle between a line and the sketch's horizontal axis
-            h = s.addAngle(value, False, self._entity(c["entity"], "line"), self._axis_line(True), wp, g)
         elif kind == "tangent":
             (ka, ha), (kb, hb) = (self.entities[e] for e in c["entities"])
             ids = c["entities"]
@@ -169,6 +167,8 @@ class _Solver:
             h = s.addWhereDragged(self._point(c["point"]), wp, g)
         elif kind == "midpoint":
             h = s.addMidPoint(self._point(c["point"]), self._entity(c["entity"], "line"), wp, g)
+        elif kind == "symmetric_point":  # the two points lie opposite each other about the third: it is the middle of the segment between them
+            h = s.addMidPoint(self._point(c["point"]), s.addLineSegment(points[0], points[1], g), wp, g)
         elif kind == "symmetric":
             h = s.addSymmetricLine(points[0], points[1], self._entity(c["entity"], "line"), wp, g)
         elif kind == "minor_radius":

@@ -47,7 +47,7 @@ export function smartChoices(s: SketchData, sel: SketchSel[], near: number): Con
   const es = entities(s, sel);
   const ps = pts(sel);
   const total = es.length + ps.length;
-  if (!total || es.some((e) => e.reference)) return [];
+  if (!total || (!ps.length && es.every((e) => e.reference))) return []; // projected edges can be constrained to, but a selection of only those has nothing free to constrain
   const out: ConstraintOption[] = [];
   const add = (o: ConstraintOption) => {
     if (o.build(s, sel)) out.push(o);
@@ -104,7 +104,9 @@ export function smartChoices(s: SketchData, sel: SketchSel[], near: number): Con
   const lineFirst = es[0];
   if (es.length === 1 && lineFirst.type === "line" && ps.length === 2) add(named("Symmetric"));
   if (es.length === 1 && lineFirst.type === "line" && ps.length >= 2) add(constraint("Midpoint", (s2, sel2) => pts(sel2).map((p) => ({ type: "midpoint", point: p, entity: entities(s2, sel2)[0].id }))));
-  if (ps.length >= 3 && !es.length) add(constraint("Coincident", coincidences));
+  if (ps.length === 3 && !es.length) add(named("Symmetric"));
+  // Coincident only for points that are already together; far-apart points are not pulled onto one place.
+  if (ps.length >= 3 && !es.length && ps.every((p) => dist(s, p, ps[0]) <= near)) add(constraint("Coincident", coincidences));
   const chain = (type: string) => (s2: SketchData, sel2: SketchSel[]): Build[] => entities(s2, sel2).slice(1).map((e) => ({ type, entities: [entities(s2, sel2)[0].id, e.id] }));
   if (es.length >= 3 && !ps.length && only(es, "line")) {
     add(constraint("Equal length", chain("equal")));
@@ -142,7 +144,7 @@ export const ABSORBED_BY_SMART: Record<string, string> = {
   "Vertical distance": "two separated points, then Vertical distance in the menu",
   "Short radius": "one ellipse",
   "Point to line distance": "a point and a line",
-  Symmetric: "a line and two points",
+  Symmetric: "a line and two points, or three points (the first two opposite each other about the third)",
 };
 
 /** Every constraint and dimension button for the sketch strip (the smart dimension first), each with whether the current selection takes it. */

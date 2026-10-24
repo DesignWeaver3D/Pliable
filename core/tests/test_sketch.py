@@ -924,15 +924,6 @@ def test_dimensioned_horizontal_line_drags_by_its_body():
         assert moved[3] == pytest.approx((10, 8)) and moved[4] == pytest.approx((0, 8))
 
 
-def test_line_to_axis_angle_dimension():
-    points = [{"id": 1, "u": 0, "v": 0, "fixed": True}, {"id": 2, "u": 10, "v": 2}]
-    lines = [{"id": 10, "type": "line", "a": 1, "b": 2}]
-    result = sketch.solve(sketch_of(points, lines, [{"id": 1, "type": "axis_angle", "entity": 10, "value": 30}]))
-    assert result["status"] == "ok"
-    p2 = next(p for p in result["points"] if p["id"] == 2)
-    assert math.degrees(math.atan2(p2["v"], p2["u"])) == pytest.approx(30, abs=1e-4)
-
-
 def _areas(sk):
     return sorted(round(z.area, 3) for z in sketch.regions(sk))
 
@@ -1101,3 +1092,12 @@ def test_polygon_with_two_construction_circles_solves_and_is_regular(n):
     assert sides[0] == pytest.approx(2 * 10 * math.tan(math.pi / n), rel=1e-5)  # incircle radius 10
     (zone,) = sketch.regions(final)  # the construction circles make no faces
     assert zone.area == pytest.approx(n * 100 * math.tan(math.pi / n), rel=1e-5)
+
+
+def test_symmetric_about_a_point():
+    points = [{"id": 1, "u": 0, "v": 0, "fixed": True}, {"id": 2, "u": -4, "v": 1}, {"id": 3, "u": 5, "v": 2, "fixed": True}]
+    constraints = [{"id": 1, "type": "symmetric_point", "points": [2, 3], "point": 1}]
+    result = sketch.solve(sketch_of(points, [], constraints))
+    assert result["status"] == "ok"
+    p2 = next(p for p in result["points"] if p["id"] == 2)
+    assert (p2["u"], p2["v"]) == pytest.approx((-5, -2), abs=1e-6)

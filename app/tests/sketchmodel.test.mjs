@@ -177,10 +177,8 @@ test("the smart dimension picks the dimension from the selection", () => {
   assert.deepEqual(smart(E(10, 11)), { type: "angle", entities: [10, 11] });
   assert.deepEqual(smart([{ kind: "point", id: 4 }, ...E(10)]), { type: "point_line_distance", point: 4, entity: 10 });
   assert.equal(smart(E(12, 13)), undefined);
-  // a line also offers its angle to the horizontal axis, read from the geometry
-  const axis = optionsFor(s, E(11)).find((o) => o.label === "Angle to horizontal axis");
-  assert.equal(axis.initial(s, E(11)), 90);
-  assert.equal(measure(s, { id: 1, type: "axis_angle", entity: 10 }), 0);
+  // a lone line has no angle option: an angle is always between two lines
+  assert.equal(optionsFor(s, E(11)).some((o) => o.label.startsWith("Angle")), false);
 });
 
 test("every dimension drawn on the sketch names its constraint, so it can be edited there", () => {
@@ -190,10 +188,10 @@ test("every dimension drawn on the sketch names its constraint, so it can be edi
     entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "circle", center: 3, radius: 2 }],
     constraints: [
       { id: 20, type: "distance", entity: 10, value: 10 }, { id: 21, type: "diameter", entity: 11, value: 4 },
-      { id: 22, type: "axis_angle", entity: 10, value: 0 }, { id: 23, type: "horizontal_distance", entity: 10, value: 10 },
+      { id: 22, type: "horizontal_distance", entity: 10, value: 10 },
     ],
   };
-  assert.deepEqual(dimensionsOf(s).map((d) => d.constraint), [20, 21, 22, 23]);
+  assert.deepEqual(dimensionsOf(s).map((d) => d.constraint), [20, 21, 22]);
 });
 
 test("constraints that only apply to edges ignore selected vertices", () => {
@@ -241,7 +239,7 @@ test("every kind of dimensional constraint is drawn as a dimension that points b
   };
   const cases = [
     { type: "distance", entity: 10 }, { type: "distance", points: [1, 3] }, { type: "horizontal_distance", entity: 10 }, { type: "vertical_distance", points: [1, 3] },
-    { type: "axis_angle", entity: 10 }, { type: "angle", entities: [10, 11] }, { type: "radius", entity: 12 }, { type: "diameter", entity: 12 },
+    { type: "angle", entities: [10, 11] }, { type: "radius", entity: 12 }, { type: "diameter", entity: 12 },
     { type: "radius", entity: 14 }, { type: "diameter", entity: 14 }, { type: "minor_radius", entity: 13 }, { type: "point_line_distance", point: 4, entity: 10 },
   ];
   cases.forEach((c, k) => {

@@ -56,11 +56,6 @@ export function measure(s: SketchData, c: SketchConstraint): number | null {
       return entity ? 2 * radiusOf(s, entity) : null;
     case "point_line_distance":
       return line && c.point !== undefined ? pointLineDistance(s, c.point, line) : null;
-    case "axis_angle": {
-      if (!line) return null;
-      const [a, b] = [pointOf(s, line.a), pointOf(s, line.b)];
-      return (Math.acos((b.u - a.u) / (Math.hypot(b.u - a.u, b.v - a.v) || 1)) * 180) / Math.PI;
-    }
     case "angle": {
       const [a, b] = (c.entities ?? []).map((id) => s.entities.find((e) => e.id === id));
       if (!a || !b || a.type !== "line" || b.type !== "line") return null;
@@ -251,7 +246,18 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     label: "Symmetric",
     build: (s, sel) => {
       const es = entities(s, sel);
-      return es.length === 1 && only(es, "line") && pts(sel).length === 2 ? { type: "symmetric", points: pts(sel), entity: es[0].id } : null;
+      if (es.length === 1 && only(es, "line") && pts(sel).length === 2) return { type: "symmetric", points: pts(sel), entity: es[0].id };
+      // Three points: the first two lie opposite each other about the third (the fixed one, such as the origin, else the one nearest the others' middle).
+      if (!es.length && pts(sel).length === 3) {
+        const p = pts(sel);
+        const offMiddle = (c: number) => {
+          const [a, b] = p.filter((q) => q !== c).map((q) => pointOf(s, q));
+          return Math.hypot(pointOf(s, c).u - (a.u + b.u) / 2, pointOf(s, c).v - (a.v + b.v) / 2);
+        };
+        const centre = p.find((id) => pointOf(s, id).fixed) ?? [...p].sort((x, y) => offMiddle(x) - offMiddle(y))[0];
+        return { type: "symmetric_point", points: p.filter((id) => id !== centre), point: centre };
+      }
+      return null;
     },
   },
   {
@@ -305,15 +311,6 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
       const [a, b] = ends(s, sel);
       return Math.abs(pointOf(s, a).v - pointOf(s, b).v);
     },
-  },
-  {
-    label: "Angle to horizontal axis",
-    dimension: true,
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      return es.length === 1 && only(es, "line") ? { type: "axis_angle", entity: es[0].id } : null;
-    },
-    initial: (s, sel) => Math.round(measure(s, { id: 0, type: "axis_angle", entity: entities(s, sel)[0].id })! * 1000) / 1000,
   },
   {
     label: "Short radius",
