@@ -727,3 +727,19 @@ def test_sketch_project_takes_only_the_picked_faces_and_edges():
 
     with pytest.raises(RequestError):
         s.handle({"type": "sketch_project", "plane": plane, "faces": [9999]})
+
+
+def test_push_pull_along_a_chosen_direction(block):
+    top = top_of(block)
+    slant = 2 ** -0.5
+    result = run("push_pull", block, faces=[top], distance=10, ux=slant, uy=0, uz=slant)  # 45 degrees off the normal
+    assert volume(result.shape) == pytest.approx(24000 + 1200 * 10 * slant, rel=1e-6)  # the slanted prism has the base area and a height of 10 cos 45
+    flipped = run("push_pull", block, faces=[top], distance=10, ux=-slant, uy=0, uz=-slant)  # an edge has no sign: it is turned to point out of the face
+    assert volume(flipped.shape) == pytest.approx(volume(result.shape) + 0, rel=1e-6)
+    handle = get_tool("push_pull").handles(block, Selection(faces=[top]), get_tool("push_pull").bind({"distance": 10, "ux": slant, "uy": 0, "uz": slant}))[0]
+    assert handle.direction == pytest.approx((slant, 0, slant))
+    with pytest.raises(OperationError):
+        run("push_pull", block, faces=[top], distance=10, ux=1, uy=0, uz=0)  # along the face
+    with pytest.raises(OperationError):
+        run("push_pull", block, faces=[top], distance=10, ux=slant, uy=0, uz=slant, symmetric=1)
+    assert volume(run("push_pull", block, faces=[top], distance=10, ux=0, uy=0, uz=1).shape) == pytest.approx(24000 + 12000)  # the normal itself
