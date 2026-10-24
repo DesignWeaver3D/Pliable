@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PullDirection, angleFromNormal, edgeVector, leavesFace, outOf, sideFrame, tiltFromDrag, tilted, unit } from "../src/pulldir.ts";
+import { PullDirection, angleFromNormal, arcSide, edgeVector, leavesFace, outOf, sideFrame, tiltFromDrag, tilted, unit } from "../src/pulldir.ts";
 
 const close = (a, b) => a.forEach((v, i) => assert.ok(Math.abs(v - b[i]) < 1e-9, `${a} vs ${b}`));
 
@@ -26,6 +26,19 @@ test("the side frame is square to the direction and itself", () => {
     for (const [p, q] of [[a, b], [a, d], [b, d]]) assert.ok(Math.abs(p[0] * q[0] + p[1] * q[1] + p[2] * q[2]) < 1e-9);
     assert.ok(Math.abs(Math.hypot(...a) - 1) < 1e-9 && Math.abs(Math.hypot(...b) - 1) < 1e-9);
   }
+});
+
+test("the four arcs lie toward unit sides square to the direction, 45 degrees apart", () => {
+  const d = [0, 0.6, 0.8];
+  const [a, b] = sideFrame(d);
+  const sides = [0, Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4].map((t) => arcSide(a, b, t));
+  for (const s of sides) {
+    assert.ok(Math.abs(Math.hypot(...s) - 1) < 1e-9);
+    assert.ok(Math.abs(s[0] * d[0] + s[1] * d[1] + s[2] * d[2]) < 1e-9);
+  }
+  const dotp = (p, q) => p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
+  assert.ok(Math.abs(dotp(sides[0], sides[1]) - Math.SQRT1_2) < 1e-9);
+  assert.ok(Math.abs(dotp(sides[0], sides[2])) < 1e-9);
 });
 
 test("tilting toward a side turns the direction in their plane", () => {
