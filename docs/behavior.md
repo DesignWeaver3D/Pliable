@@ -64,6 +64,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Every sketch drawing tool except Line returns to Select once its first shape is complete; Line keeps drawing.
 - While a sketch is open, the nav cube's zoom to fit everything fits all geometry of the sketch being edited, and zoom to fit selection fits the selected sketch points and curves.
 - In a sketch, Delete with only points selected removes what holds them to other geometry (a coincident constraint, or the shared end of two lines, which is split in two) and leaves the lines; a point nothing holds is deleted with its geometry as before.
+- The sketch constraint list shows every constraint when nothing is selected, and only those that name the selected curves or points (or points of the selected curves) otherwise. A point where drawn curves meet is listed as an automatic Coincident row; its x splits the point so the curves have their own ends.
 - Horizontal and vertical constraints apply to several selected lines at once; by default both kinds are applied as detected (nearly horizontal lines get horizontal, nearly vertical get vertical).
 - Every dimensional constraint (any constraint holding a number) is editable on screen by double-clicking its dimension leader or its number.
 - When a numeric constraint is created, its dimension appears immediately with the as-created value prefilled and ready for editing.

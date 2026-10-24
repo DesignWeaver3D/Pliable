@@ -2,6 +2,7 @@
  *  Moved out of sketch.ts; `SketchMode` is the context. */
 import * as Chk from "./sketchcheck";
 import * as M from "./sketchmodel";
+import * as Co from "./sketchcoincident";
 import type { SketchOptions, Tool } from "./sketch";
 
 export interface PanelContext {
@@ -81,8 +82,11 @@ export function buildToolOptions(ctx: PanelContext): HTMLElement {
 /** The "Constraints" section: counts, mark toggle, checks and one row per constraint. */
 export function buildConstraintList(ctx: PanelContext): HTMLElement {
   const list = el("div", "section");
-  const autos = ctx.s.constraints.filter((c) => c.auto);
-  list.append(el("div", "group", `Constraints (${ctx.s.constraints.length}${autos.length ? `, ${autos.length} automatic` : ""})`));
+  // Points where drawn curves meet are listed as automatic coincident rows (a negative id marks them); with a selection only its own rows show.
+  const everything = [...ctx.s.constraints, ...Co.sharedAsConstraints(ctx.s)];
+  const shown = Co.constraintsFor(ctx.s, everything, ctx.selection);
+  const autos = everything.filter((c) => c.auto);
+  list.append(el("div", "group", `Constraints (${shown.length === everything.length ? everything.length : `${shown.length} of ${everything.length}`}${autos.length ? `, ${autos.length} automatic` : ""})`));
   const marks = button(ctx.showMarks ? "Hide marks" : "Show marks", () => {
     ctx.showMarks = !ctx.showMarks;
     ctx.render();
@@ -107,10 +111,10 @@ export function buildConstraintList(ctx: PanelContext): HTMLElement {
   });
   join.title = "Merge points that are very close but not the same point, so outlines close";
   list.append(check, join);
-  for (const c of ctx.s.constraints) {
+  for (const c of shown) {
     const row = el("div", ctx.failed.has(c.id) ? "crow bad" : "crow");
     row.append(el("span", "", M.describeConstraint(ctx.s, c) + (c.auto ? " (automatic)" : "")));
-    row.title = c.auto ? "Added by a drawing tool. Hover to see what it holds; the x removes it so the geometry moves freely" : "Hover to see what it holds; the x removes it";
+    row.title = c.id < 0 ? "Drawn curves share this end point. Hover to see what it holds; the x splits it so each curve has its own end" : c.auto ? "Added by a drawing tool. Hover to see what it holds; the x removes it so the geometry moves freely" : "Hover to see what it holds; the x removes it";
     row.addEventListener("pointerenter", () => ctx.lightUp(c));
     row.addEventListener("pointerleave", () => ctx.lightUp(null));
     if (c.value !== undefined) {
@@ -122,16 +126,17 @@ export function buildConstraintList(ctx: PanelContext): HTMLElement {
     }
     const remove = button("✕", () => {
       ctx.pushUndo();
-      ctx.s.constraints = ctx.s.constraints.filter((x) => x.id !== c.id);
+      if (c.id < 0) ctx.s = Co.splitPoint(ctx.s, -c.id);
+      else ctx.s.constraints = ctx.s.constraints.filter((x) => x.id !== c.id);
       ctx.highlight = [];
       ctx.resolve();
       ctx.render();
     });
-    remove.title = "Remove this constraint";
+    remove.title = c.id < 0 ? "Split this shared end point so the curves can move apart" : "Remove this constraint";
     row.append(remove);
     list.append(row);
   }
-  if (autos.length) {
+  if (ctx.s.constraints.some((c) => c.auto)) {
     const clear = button("Remove automatic constraints", () => {
       ctx.pushUndo();
       ctx.s.constraints = ctx.s.constraints.filter((x) => !x.auto);
