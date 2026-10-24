@@ -10,7 +10,6 @@ State (2026-10-24): `dev` is many local commits ahead of `origin/dev`, nothing p
 
 Sketch requests (owner, 2026-10-24), one row each, in this order:
 
-- **Double-click a dimension to edit in place.** "Double-clicking a dimensionsl constraint should allow editing the value in situ." Needs: in-place edit by double-click (already in the hand-test list: confirm it works for every dimension type, else fix).
 - **Dimension text breaks the lines under it.** "All dimensions with numeric values drawn over arrow extension and leader lines should have padding around them that looks like a break in the line/arrow underneath it. Currnetly I can see the arrow lines of dimension constraints going through the values." Needs: padded background behind every dimension value so lines under it look broken.
 
 - **One push/pull path.** Push/pull from the face arrow handle and from dragging the face directly must be the same tool with the same options (measure pick M, typed values, Shift symmetric, companion faces). Today they are separate code paths (`viewport.ts` face-press drag vs `manipulator.ts` handle drag; M and measure edges exist only on the face press). Make one path; the direct drag becomes a thin shortcut layer that can take more shortcuts later (mouse modifiers, not decided yet). Plan only until the owner says go.

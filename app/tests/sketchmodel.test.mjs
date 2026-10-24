@@ -228,3 +228,24 @@ test("a length dimension sits outside the closed regions and follows where it wa
   assert.ok(Math.abs(Math.abs(placed.offset) - 4) < 1e-9);
   assert.ok(Math.abs(placed.slide - 2) < 1e-9);
 });
+
+test("every kind of dimensional constraint is drawn as a dimension that points back to its constraint (so it can be double-clicked)", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 2 }, { id: 3, u: 10, v: 8 }, { id: 4, u: 5, v: 5 }, { id: 5, u: 20, v: 20 }, { id: 6, u: 25, v: 20 }, { id: 7, u: 40, v: 0 }, { id: 8, u: 44, v: 0 }, { id: 9, u: 40, v: 3 }],
+    entities: [
+      { id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 2, b: 3 }, { id: 12, type: "circle", center: 4, radius: 2 },
+      { id: 13, type: "ellipse", center: 5, major: 6, minor: 2 }, { id: 14, type: "arc", center: 7, start: 8, end: 9 },
+    ],
+    constraints: [],
+  };
+  const cases = [
+    { type: "distance", entity: 10 }, { type: "distance", points: [1, 3] }, { type: "horizontal_distance", entity: 10 }, { type: "vertical_distance", points: [1, 3] },
+    { type: "axis_angle", entity: 10 }, { type: "angle", entities: [10, 11] }, { type: "radius", entity: 12 }, { type: "diameter", entity: 12 },
+    { type: "radius", entity: 14 }, { type: "diameter", entity: 14 }, { type: "minor_radius", entity: 13 }, { type: "point_line_distance", point: 4, entity: 10 },
+  ];
+  cases.forEach((c, k) => {
+    const made = dimensionsOf({ ...s, constraints: [{ id: 100 + k, value: 5, ...c }] });
+    assert.ok(made.length > 0 && made.every((d) => d.constraint === 100 + k), `${c.type} on ${c.entity ?? c.points ?? c.entities}`);
+  });
+});
