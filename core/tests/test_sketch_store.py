@@ -241,3 +241,25 @@ def test_picking_one_region_adds_its_face_and_selects_it():
     assert faces(session) == before
     with pytest.raises(RequestError):
         session.handle({"type": "sketch_regions", "sketch_id": 1, "region": 5})
+
+
+def test_every_region_stays_pickable_after_a_neighbour_is_extruded_or_its_body_deleted():
+    from test_sketch import _free_line
+
+    session = open_session()
+    plane = session.handle({"type": "sketch_plane", "plane": "XY"})["plane"]
+    points, lines = rectangle(20, 20, x0=30)
+    _free_line(lines, points, (30, 8), (50, 8), 50)
+    header(session.handle({"type": "sketch_keep", "sketch": sketch_of(points, lines, plane=plane)}))
+
+    def pick(region):
+        return header(session.handle({"type": "sketch_regions", "sketch_id": 1, "region": region}))["selection"]["faces"]
+
+    (face,) = pick(0)
+    extruded = decode_binary(session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": [face]}, "params": {"distance": 5}}))[0]
+    assert len(pick(1)) == 1  # the neighbour of the extruded region
+    session.handle({"type": "undo"})
+    body = max(b["id"] for b in extruded["bodies"])
+    deleted = decode_binary(session.handle({"type": "delete_body", "body": body}))[0]
+    assert body not in [b["id"] for b in deleted["bodies"]]
+    assert len(pick(0)) == 1 and len(pick(1)) == 1

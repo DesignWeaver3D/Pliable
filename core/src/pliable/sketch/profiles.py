@@ -297,7 +297,10 @@ def _host_face(shape, zone: Face):
         if abs(abs(host.normal_at().dot(zone_normal)) - 1) > 1e-6 or abs(host.distance_to(point) if False else (host.center() - point).dot(zone_normal)) > 1e-5:
             continue
         if host.is_inside(zone.outer_wire().position_at(0.25)) or host.is_inside(probe):
-            return host
+            # Touching only along an edge is not lying on the face (a neighbouring region of the same sketch): some area must overlap.
+            common = zone.intersect(host)
+            if common is not None and getattr(common, "area", 0) > 1e-6:
+                return host
     return None
 
 
