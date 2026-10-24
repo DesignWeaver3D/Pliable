@@ -25,6 +25,8 @@ export interface BodyListHost {
   rename(id: number, name: string): void;
   duplicate(id: number): void;
   remove(id: number): void;
+  /** Several bodies at once, one undo step. */
+  removeMany(ids: number[]): void;
   /** The rows the user selected (empty when cleared). */
   select(ids: number[]): void;
   hover(id: number | null): void;
@@ -209,7 +211,8 @@ export class BodyList {
       body.editable ? "Reopen the form and handles this body was made with" : (body.why ?? "This body is not a primitive"),
     );
     item("Duplicate", () => this.host.duplicate(body.id), "Add a copy of this body in the same place");
-    item("Delete", () => this.host.remove(body.id), "Delete this body (undo brings it back)");
+    const several = this.selected.length > 1 && this.selected.includes(body.id); // right-click on one of several selected rows deletes them all
+    item(several ? `Delete ${this.selected.length} bodies` : "Delete", () => (several ? this.host.removeMany(this.selected) : this.host.remove(body.id)), "Delete this body (undo brings it back)");
     menu.style.left = `${Math.min(x, window.innerWidth - 150)}px`;
     menu.style.top = `${Math.min(y, window.innerHeight - 140)}px`;
     document.body.append(menu);
