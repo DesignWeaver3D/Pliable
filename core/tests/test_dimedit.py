@@ -202,6 +202,8 @@ def test_draft_angle_edit():
     wall = face_where(top(s), (1, 0, 0), 20)
     angle_dim = next(d for d in measure(s, faces=[wall])["dimensions"] if d.get("edit", {}).get("kind") == "face_angle")
     assert angle_dim["edit"]["value"] == pytest.approx(0, abs=1e-9)
+    centre = next(d for d in measure(s, faces=[wall])["items"])["anchor"]
+    assert angle_dim["points"][0][2] > centre[2] + 1  # the tag sits above the face centre, off the push/pull arrow
     edit(s, "face_angle", 5, faces=[wall])
     tilted = [draft_angle(f) for _, f in top(s).faces() if planar_normal(f) is not None and abs(planar_normal(f).X()) > 0.9]
     assert any(abs(a - 5) < 1e-6 for a in tilted)
