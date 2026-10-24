@@ -1,4 +1,6 @@
 #!/bin/sh
 # Blocks other products' names in added lines (scripts/check_content.py).
+# Prints a note for long source files (scripts/check_size.py); it never blocks.
 . "$(dirname "$0")/find-python.sh"
+"$PY" "$top/scripts/check_size.py"
 exec "$PY" "$top/scripts/check_content.py" --staged

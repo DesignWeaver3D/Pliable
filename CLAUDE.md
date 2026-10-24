@@ -27,6 +27,8 @@ Most of the owner's lost time comes from regressions and from invented design, n
 
 ## During a session
 
+- **Keep code modular.** Before adding a file or code, read "Where code goes" and "Keeping code modular" in [CONTRIBUTING.md](CONTRIBUTING.md): one job per file, new behavior in a new file named for its job (not appended to `main.ts`, `sketch.ts` or `viewport.ts`), shared helpers in a shared module. When the commit hook prints a long-file note for a file you touched, check whether it mixes jobs and, if so, raise it with the owner and add a Planned row; line count alone is not a reason to split.
+
 - Usage is limited (a subscription plan). Keep context small: read only the files the task needs, keep command output short, and don't dump large files.
 - Use subagents only when clearly cheaper than doing the work directly, and give them a cheap model: the `searcher` agent (Haiku) for lookups, the `researcher` agent (Sonnet) for research.
 - Commit to `dev` after every working step, with tests passing. Push to `dev` only when the owner asks (a permission rule asks before any push, and agents never push). Never commit failing tests. Never push to `rebuild` or `main` directly: pushing `rebuild` starts the release build and cancels the previous one. Merge `dev` into `rebuild` only when the owner asks.
