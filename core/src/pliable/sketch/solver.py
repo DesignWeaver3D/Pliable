@@ -95,6 +95,8 @@ class _Solver:
         kind = c["type"]
         points = [self._point(p) for p in c.get("points", [])]
         value = c.get("value")
+        if kind in ("radius", "diameter", "minor_radius") and not (isinstance(value, (int, float)) and math.isfinite(value) and value > 0):
+            raise SketchError("A radius or diameter must be a positive number")  # a circle of no size breaks everything built on it
         if kind == "coincident":
             h = s.addPointsCoincident(points[0], points[1], wp, g)
         elif kind == "point_on":

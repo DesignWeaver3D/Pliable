@@ -974,3 +974,37 @@ def test_regions_can_be_extruded_from_a_split_rectangle():
     _free_line(lines, points, (0, 8), (20, 8), 50)
     shape, count = sketch.add_regions(load_demo("block"), sketch_of(points, lines, plane=sketch.STANDARD_PLANES["XY"]), only=1)
     assert count == 1
+
+
+def _circle_with(*constraints):
+    return sketch_of([{"id": 1, "u": 0, "v": 0}], [{"id": 10, "type": "circle", "center": 1, "radius": 5}], list(constraints))
+
+
+@pytest.mark.parametrize("second", [
+    {"id": 21, "type": "diameter", "entity": 10, "value": 10},  # redundant
+    {"id": 21, "type": "diameter", "entity": 10, "value": 14},  # conflicting
+    {"id": 21, "type": "radius", "entity": 10, "value": 7},
+    {"id": 21, "type": "block", "entity": 10},
+])
+def test_redundant_or_conflicting_diameter_edits_are_reported_not_fatal(second):
+    from pliable.server import Session
+
+    session = Session()
+    for detail in (True, False):
+        reply = session.handle({"type": "sketch_solve", "sketch": _circle_with({"id": 20, "type": "diameter", "entity": 10, "value": 10}, second), "detail": detail})
+        assert reply["status"] in ("ok", "failed")
+    # editing the value afterwards (the in-place editor) still answers
+    edited = session.handle({"type": "sketch_solve", "sketch": _circle_with({"id": 20, "type": "diameter", "entity": 10, "value": 12}), "detail": True})
+    assert edited["status"] == "ok" and edited["radii"][10] == pytest.approx(6)
+
+
+@pytest.mark.parametrize("value", [0, -4, float("nan"), float("inf"), None])
+def test_a_circle_of_no_size_is_refused_by_the_dimension(value):
+    from pliable.server import RequestError, Session
+
+    session = Session()
+    with pytest.raises((RequestError, OperationError)):
+        session.handle({"type": "sketch_solve", "sketch": _circle_with({"id": 20, "type": "diameter", "entity": 10, "value": value})})
+    # a circle already drawn with no size gives no regions instead of an error
+    flat = sketch_of([{"id": 1, "u": 0, "v": 0}], [{"id": 10, "type": "circle", "center": 1, "radius": 0}])
+    assert session.handle({"type": "sketch_profiles", "sketch": flat}) == {"profiles": []}

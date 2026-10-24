@@ -1333,6 +1333,7 @@ async function connectToCore() {
         reconnectButton.hidden = true;
         status.classList.remove("error");
         await syncWithCore(hadModel);
+        if (!core.isOpen()) throw new Error("Lost connection to the core"); // dropped while syncing: the early drop notice was ignored, so keep retrying here
         return;
       } catch {
         // Not reachable, or the connection dropped again while syncing: show it and try again.

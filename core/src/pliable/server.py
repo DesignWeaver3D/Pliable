@@ -9,6 +9,7 @@ reply carrying the same id. Replies that include a mesh are binary frames
 import argparse
 import asyncio
 import base64
+import faulthandler
 
 import json
 import logging
@@ -265,6 +266,9 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
                 return {"profiles": sketch.profile_meshes(content)}
             except (KeyError, TypeError, ValueError, sketch.SketchError) as e:
                 raise RequestError(f"Malformed sketch request: {e!r}") from e
+            except Exception as e:  # a degenerate curve the modeling kernel refuses (such as a circle of no size): no regions, not a failure
+                log.warning("sketch_profiles: %r", e)
+                return {"profiles": []}
         if kind == "sketch_keep":
             return self._sketch_keep(request)
         if kind == "sketch_get":
@@ -453,6 +457,7 @@ def main():
     args = parser.parse_args()
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format="%(asctime)s %(name)s %(message)s")
     diagnostics.install()
+    faulthandler.enable()  # a native crash leaves a traceback on the console instead of a silent exit
     asyncio.run(run(args.host, args.port))
 
 
