@@ -68,6 +68,7 @@ export class NavCube {
     this.lower.className = "viewctl";
     this.lower.append(fitAll, home, this.fitSelectedButton);
     host.append(this.group, scene, this.lower);
+    this.viewport.onProjectionChange = () => this.updateProjectionLabel();
     this.updateProjectionLabel();
   }
 

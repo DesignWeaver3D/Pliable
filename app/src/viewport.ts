@@ -411,6 +411,7 @@ export class Viewport {
     this.scene.add(this.camera);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
+    this.controls.addEventListener("change", () => this.returnFromSketchView());
     // Navigation: left selects (and drags tools), right orbits,
     // middle pans, the wheel zooms toward the cursor.
     this.controls.mouseButtons = { LEFT: null as unknown as THREE.MOUSE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
@@ -665,6 +666,7 @@ export class Viewport {
   /** Switch between perspective and orthographic, keeping what is framed the same size. */
   setOrthographic(on: boolean) {
     if (on === this.orthographic) return;
+    this.sketchViewReturn = null; // a projection chosen by hand ends any pending return
     const target = this.controls.target;
     const from = this.camera;
     const to = on ? this.orthoCamera : this.perspectiveCamera;
@@ -688,6 +690,28 @@ export class Viewport {
     this.lastClip = 0;
     this.fitClipping(true);
     this.controls.update();
+    this.onProjectionChange();
+  }
+
+  /** Set while a sketch view switched to orthographic: the view direction it looked along, to go back to perspective when the camera is turned away. */
+  private sketchViewReturn: THREE.Vector3 | null = null;
+  /** The projection changed (the nav cube's button follows it). */
+  onProjectionChange: () => void = () => {};
+
+  /** Look straight down a direction in orthographic projection, remembering a perspective view so that turning the camera brings it back. */
+  lookFromOrthographic(direction: THREE.Vector3) {
+    const remember = !this.orthographic || this.sketchViewReturn !== null; // pressed again in the same switched view: still remembered
+    this.setOrthographic(true);
+    this.sketchViewReturn = null; // turning to the sketch must not count as turning away
+    this.lookFrom(direction);
+    if (remember) this.sketchViewReturn = this.camera.position.clone().sub(this.controls.target).normalize();
+  }
+
+  private returnFromSketchView() {
+    if (!this.sketchViewReturn) return;
+    const now = this.camera.position.clone().sub(this.controls.target).normalize();
+    if (now.dot(this.sketchViewReturn) > 0.99985) return; // still looking along the sketch (zoom and pan keep it)
+    this.setOrthographic(false);
   }
 
   /** Look at the model from a standard direction (a key of STANDARD_VIEWS), keeping target and distance. */

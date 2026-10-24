@@ -1665,7 +1665,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.saveOptions();
       this.renderPanel();
     }, this.options.snapGrid);
-    const look = iconButton("lookAt", "Turn the view square to the sketch plane (entering a sketch does not move the view)", () => this.viewport.lookFrom(new THREE.Vector3(...M.frame(this.s.plane).n)));
+    const look = iconButton("lookAt", "Turn the view square to the sketch plane in orthographic projection (entering a sketch does not move the view). Turning the camera afterwards goes back to the projection you had", () => this.viewport.lookFromOrthographic(new THREE.Vector3(...M.frame(this.s.plane).n)));
     const gizmos = iconButton("gizmos", this.gizmosShown ? "Hide the sketch plane's move and turn gizmos" : "Show the sketch plane's move and turn gizmos", () => {
       this.gizmosShown = !this.gizmosShown;
       this.showPlaneHandles();

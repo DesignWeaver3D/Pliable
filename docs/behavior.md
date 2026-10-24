@@ -20,7 +20,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 
 - Wheel zooms toward the cursor, right-drag orbits, middle-drag pans, including during a tool drag.
 - View keys: 0 iso, 1 front, 2 top, 3 right, 4 rear, 5 bottom, 6 left, P projection, V look at face.
-- Entering a sketch does not move the camera; the Look at plane button does.
+- Entering a sketch does not move the camera; the Look at plane button does. It turns the view square to the sketch plane in orthographic projection; when the view was perspective, turning the camera away from the sketch (not zooming or panning) goes back to perspective.
 
 ## Keys
 
