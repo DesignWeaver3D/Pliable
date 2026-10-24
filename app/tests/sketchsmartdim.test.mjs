@@ -58,13 +58,13 @@ test("circles and arcs: centre distances, or concentric when the centres sit tog
 
 test("three or more items offer only constraints that take that many arguments", () => {
   assert.deepEqual(labels(s, [...ent(10), ...pt(3, 4)]), ["Symmetric", "Midpoint"]);
-  assert.deepEqual(labels(s, ent(10, 11, 17)), ["Equal length", "Collinear"]);
+  assert.deepEqual(labels(s, ent(10, 11, 17)), ["Symmetric", "Equal length", "Collinear"]);
   assert.deepEqual(built(s, ent(10, 11, 17), "Equal length"), [{ type: "equal", entities: [10, 11] }, { type: "equal", entities: [10, 17] }]);
   assert.deepEqual(labels(s, ent(13, 14, 15)), ["Equal radius", "Concentric"]);
   // far-apart points are never pulled onto one place; three of them are symmetric about the one in the middle
   assert.deepEqual(labels(s, pt(1, 2, 3)), ["Symmetric"]);
   assert.deepEqual(labels(s, pt(6, 7, 11)), ["Symmetric", "Coincident"]);
-  assert.deepEqual(labels(s, [...ent(10, 11), ...pt(3)]), []); // nothing takes these
+  assert.deepEqual(labels(s, [...ent(10, 11), ...pt(3)]), ["Symmetric"]); // two edges about a point
 });
 
 test("the smart dimension heads the button list and is enabled when anything fits", () => {
@@ -88,7 +88,6 @@ test("each button removed from the strip has its constraint reachable through th
     "Vertical distance": [pt(1, 2), "Vertical distance"],
     "Short radius": [ent(11), "Short radius"],
     "Point to line distance": [[...ent(10), ...pt(3)], "Point to line distance"],
-    Symmetric: [[...ent(10), ...pt(4, 5)], "Symmetric"],
   };
   assert.deepEqual(Object.keys(reach).sort(), Object.keys(ABSORBED_BY_SMART).sort(), "every removed button is covered here");
   for (const [label, [sel, fit]] of Object.entries(reach)) {
@@ -115,4 +114,23 @@ test("projected (reference) geometry can be constrained to, but alone it offers 
   assert.deepEqual(labels(r, ent(10)), []);
   assert.deepEqual(labels(r, ent(10, 11)), ["Angle"]);
   assert.deepEqual(labels(r, [...ent(10), ...pt(5)]), ["Point to line distance"]);
+});
+
+test("symmetric takes vertices or edges, and its button stays on the strip", () => {
+  const e = sketch([P(1, -4, 1), P(2, -4, 5), P(3, 4, 1), P(4, 4, 5), P(5, 0, 0), P(6, 0, 9)], [L(10, 1, 2), L(11, 3, 4), L(12, 5, 6)]);
+  // two edges about a third: the ends are paired so mirrored ends meet (1 with 3, 2 with 4)
+  assert.deepEqual(built(e, ent(10, 11, 12), "Symmetric"), [{ type: "symmetric", points: [1, 3], entity: 12 }, { type: "symmetric", points: [2, 4], entity: 12 }]);
+  // the sketch axis is the axis of symmetry whatever the selection order
+  assert.deepEqual(built(e, ent(-1, 10, 11), "Symmetric").map((c) => c.entity), [-1, -1]);
+  // two edges about a point
+  const about = built(sketch([P(1, -4, 1), P(2, -4, 5), P(3, 4, -1), P(4, 4, -5), P(5, 0, 0)], [L(10, 1, 2), L(11, 3, 4)]), [...ent(10, 11), ...pt(5)], "Symmetric");
+  assert.deepEqual(about, [{ type: "symmetric_point", points: [1, 3], point: 5 }, { type: "symmetric_point", points: [2, 4], point: 5 }]);
+  assert.ok(allConstraintOptions(e, pt(1, 2, 3)).some((c) => c.option.label === "Symmetric" && c.enabled));
+  assert.ok(allConstraintOptions(e, []).some((c) => c.option.label === "Symmetric" && !c.enabled));
+});
+
+test("the sketch axes can be dimensioned to", () => {
+  const e = sketch([P(1, 3, 4), P(2, 8, 4)], [L(10, 1, 2)]);
+  assert.equal(labels(e, [...pt(1), ...ent(-1)])[0], "Point to line distance");
+  assert.equal(labels(e, ent(10, -2)).includes("Angle"), true);
 });

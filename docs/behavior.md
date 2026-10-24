@@ -95,3 +95,5 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - The sketch plane move and turn gizmos are off by default; the sketch card button shows them.
 - Sketch constraint tools that only apply to edges ignore selected vertices instead of doing nothing.
 - While a sketch is open the top strip has a second row of constraint buttons, each an icon with its name, the Dimension (smart dimension) button first. Buttons whose constraints the smart dimension reaches through every selection are not in the row (length and distances, short radius, point to line distance, symmetric); the audit is in smart-dimension-plan.md.
+- Dimension values are always drawn upright (horizontal on the screen), whatever direction their line runs, including vertical dimensions (owner, 2026-10-24).
+- The sketch's horizontal and vertical axes can be picked like lines (when no other curve or point is near) and dimensioned or constrained to; the Symmetric button is always on the strip and takes two points about a line, three points about the third, or two lines about a line or a point.

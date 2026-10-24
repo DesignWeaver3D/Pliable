@@ -102,9 +102,8 @@ export function smartChoices(s: SketchData, sel: SketchSel[], near: number): Con
 
   // Three or more items: only constraints that take that many arguments.
   const lineFirst = es[0];
-  if (es.length === 1 && lineFirst.type === "line" && ps.length === 2) add(named("Symmetric"));
+  if (named("Symmetric").build(s, sel)) add(named("Symmetric"));
   if (es.length === 1 && lineFirst.type === "line" && ps.length >= 2) add(constraint("Midpoint", (s2, sel2) => pts(sel2).map((p) => ({ type: "midpoint", point: p, entity: entities(s2, sel2)[0].id }))));
-  if (ps.length === 3 && !es.length) add(named("Symmetric"));
   // Coincident only for points that are already together; far-apart points are not pulled onto one place.
   if (ps.length >= 3 && !es.length && ps.every((p) => dist(s, p, ps[0]) <= near)) add(constraint("Coincident", coincidences));
   const chain = (type: string) => (s2: SketchData, sel2: SketchSel[]): Build[] => entities(s2, sel2).slice(1).map((e) => ({ type, entities: [entities(s2, sel2)[0].id, e.id] }));
@@ -144,7 +143,6 @@ export const ABSORBED_BY_SMART: Record<string, string> = {
   "Vertical distance": "two separated points, then Vertical distance in the menu",
   "Short radius": "one ellipse",
   "Point to line distance": "a point and a line",
-  Symmetric: "a line and two points, or three points (the first two opposite each other about the third)",
 };
 
 /** Every constraint and dimension button for the sketch strip (the smart dimension first), each with whether the current selection takes it. */

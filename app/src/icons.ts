@@ -220,6 +220,7 @@ export const CONSTRAINT_ICONS: Record<string, string> = {
   Parallel: '<path d="M7 20L13 4M13 20L19 4"/>',
   Perpendicular: '<path d="M12 4v16M12 20h8"/><path d="M12 16h4v4"/>',
   Equal: '<path d="M5 9h14M5 15h14"/>',
+  Symmetric: '<path d="M12 3v18" stroke-dasharray="2 2.5"/><circle cx="6" cy="8" r="1.8" fill="currentColor"/><circle cx="18" cy="8" r="1.8" fill="currentColor"/><circle cx="6" cy="16" r="1.8" fill="currentColor"/><circle cx="18" cy="16" r="1.8" fill="currentColor"/>',
   "Tangent / collinear": '<circle cx="12" cy="14" r="6"/><path d="M3 8h18"/>',
   "Point on": '<path d="M3 17L21 7"/><circle cx="12" cy="12" r="2" fill="currentColor"/>',
   Midpoint: '<path d="M4 15h16"/><circle cx="4" cy="15" r="1.4" fill="currentColor"/><circle cx="20" cy="15" r="1.4" fill="currentColor"/><path d="M12 6v9"/><circle cx="12" cy="15" r="2" fill="currentColor"/>',

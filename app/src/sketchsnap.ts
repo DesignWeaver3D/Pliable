@@ -142,5 +142,14 @@ export function pick(ctx: SnapContext, e: PointerEvent): M.SketchSel | null {
       bestD = d;
     }
   }
+  if (best) return best;
+  // The sketch's axes can be picked too (to dimension or constrain to), but any other curve or point nearby wins.
+  for (const [i, a] of M.sketchAxes(ctx.s.plane).entries()) {
+    const d = Math.abs((uv[0] - a.u) * -a.dv + (uv[1] - a.v) * a.du);
+    if (d < bestD) {
+      best = { kind: "entity", id: -1 - i };
+      bestD = d;
+    }
+  }
   return best;
 }

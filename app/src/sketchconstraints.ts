@@ -1,6 +1,6 @@
 /** Which constraint and dimension buttons fit a selection of sketch points and curves, and what each builds. No DOM or WebGL.
  * Split out of sketchmodel.ts; that file re-exports everything here, so imports of it keep working. */
-import { pointOf, entityPoints, type SketchData, type SketchSel, type SketchEntity, type SketchConstraint } from "./sketchmodel.ts";
+import { pointOf, entityOf, entityPoints, type SketchData, type SketchSel, type SketchEntity, type SketchConstraint } from "./sketchmodel.ts";
 
 export interface ConstraintOption {
   label: string;
@@ -17,7 +17,7 @@ export interface ConstraintOption {
   dimension?: boolean;
 }
 
-export const entities = (s: SketchData, sel: SketchSel[]) => sel.filter((x) => x.kind === "entity").map((x) => s.entities.find((e) => e.id === x.id)!);
+export const entities = (s: SketchData, sel: SketchSel[]) => sel.filter((x) => x.kind === "entity").map((x) => entityOf(s, x.id)!);
 export const pts = (sel: SketchSel[]) => sel.filter((x) => x.kind === "point").map((x) => x.id);
 export const only = (list: SketchEntity[], ...types: string[]) => list.length > 0 && list.every((e) => types.includes(e.type));
 export const dist = (s: SketchData, a: number, b: number) => Math.hypot(pointOf(s, a).u - pointOf(s, b).u, pointOf(s, a).v - pointOf(s, b).v);
@@ -38,7 +38,7 @@ export function pointLineDistance(s: SketchData, pointId: number, line: Extract<
 
 /** The current value of a dimensional constraint, read from the geometry (what a reference dimension shows). */
 export function measure(s: SketchData, c: SketchConstraint): number | null {
-  const entity = s.entities.find((e) => e.id === c.entity);
+  const entity = entityOf(s, c.entity);
   const line = entity && entity.type === "line" ? entity : null;
   const ends = line ? [line.a, line.b] : c.points;
   switch (c.type) {
@@ -57,7 +57,7 @@ export function measure(s: SketchData, c: SketchConstraint): number | null {
     case "point_line_distance":
       return line && c.point !== undefined ? pointLineDistance(s, c.point, line) : null;
     case "angle": {
-      const [a, b] = (c.entities ?? []).map((id) => s.entities.find((e) => e.id === id));
+      const [a, b] = (c.entities ?? []).map((id) => entityOf(s, id));
       if (!a || !b || a.type !== "line" || b.type !== "line") return null;
       const d = (l: typeof a) => [pointOf(s, l.b).u - pointOf(s, l.a).u, pointOf(s, l.b).v - pointOf(s, l.a).v];
       const [da, db] = [d(a), d(b)];
@@ -70,7 +70,7 @@ export function measure(s: SketchData, c: SketchConstraint): number | null {
 
 /** Which angle between two lines a point (a dragged value) sits in: true for the outside one, false for the inside one (between the line directions), null when the lines are parallel. */
 export function angleSideOutside(s: SketchData, lines: [number, number], at: [number, number]): boolean | null {
-  const [a, b] = lines.map((id) => s.entities.find((e) => e.id === id));
+  const [a, b] = lines.map((id) => entityOf(s, id));
   if (!a || !b || a.type !== "line" || b.type !== "line") return null;
   const [a0, a1, b0, b1] = [pointOf(s, a.a), pointOf(s, a.b), pointOf(s, b.a), pointOf(s, b.b)];
   const da = [a1.u - a0.u, a1.v - a0.v];
@@ -91,6 +91,50 @@ export function constraintsToAdd(option: ConstraintOption, s: SketchData, sel: S
   if (many.length) return many;
   const one = option.build(s, sel);
   return one ? [one] : [];
+}
+
+type Line = Extract<SketchEntity, { type: "line" }>;
+
+/** Symmetry for a selection of points and lines: two points about a line; three points (the first two opposite each other about the third, which is the fixed
+ * one such as the origin, else the one nearest the others' middle); two lines about a third line (the sketch axis or a construction line if there is one, else
+ * the last selected), or about a point. The lines' ends are paired whichever way fits the drawn shape best. */
+export function symmetries(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[] {
+  const es = entities(s, sel);
+  const p = pts(sel);
+  const uv = (id: number) => pointOf(s, id);
+  if (es.length === 1 && only(es, "line") && p.length === 2) return [{ type: "symmetric", points: p, entity: es[0].id }];
+  if (!es.length && p.length === 3) {
+    const offMiddle = (c: number) => {
+      const [a, b] = p.filter((q) => q !== c).map(uv);
+      return Math.hypot(uv(c).u - (a.u + b.u) / 2, uv(c).v - (a.v + b.v) / 2);
+    };
+    const centre = p.find((id) => uv(id).fixed) ?? [...p].sort((x, y) => offMiddle(x) - offMiddle(y))[0];
+    return [{ type: "symmetric_point", points: p.filter((id) => id !== centre), point: centre }];
+  }
+  if (!only(es, "line") || es.length < 2) return [];
+  const lines = es as Line[];
+  /** The two ways to pair the ends of two lines; the one with the smaller `gap` is used. */
+  const pairings = (a: Line, b: Line): [number, number][][] => [[[a.a, b.a], [a.b, b.b]], [[a.a, b.b], [a.b, b.a]]];
+  const best = (a: Line, b: Line, gap: (x: number, y: number) => number) => pairings(a, b).sort((m, n) => m.reduce((sum, [x, y]) => sum + gap(x, y), 0) - n.reduce((sum, [x, y]) => sum + gap(x, y), 0))[0];
+  if (lines.length === 2 && p.length === 1) {
+    const c = uv(p[0]);
+    const pairs = best(lines[0], lines[1], (x, y) => Math.hypot((uv(x).u + uv(y).u) / 2 - c.u, (uv(x).v + uv(y).v) / 2 - c.v));
+    return pairs.map(([x, y]) => ({ type: "symmetric_point", points: [x, y], point: p[0] }));
+  }
+  if (lines.length === 3 && !p.length) {
+    const axis = lines.find((l) => l.axis) ?? lines.find((l) => l.construction || l.reference) ?? lines[2];
+    const [a, b] = lines.filter((l) => l !== axis);
+    const [o, d] = [uv(axis.a), uv(axis.b)];
+    const length = Math.hypot(d.u - o.u, d.v - o.v) || 1;
+    const mirrored = (x: number, y: number) => {
+      const [q, r] = [uv(x), uv(y)];
+      const along = ((q.u - o.u) * (d.u - o.u) + (q.v - o.v) * (d.v - o.v)) / (length * length);
+      const foot = [o.u + along * (d.u - o.u), o.v + along * (d.v - o.v)];
+      return Math.hypot(2 * foot[0] - q.u - r.u, 2 * foot[1] - q.v - r.v);
+    };
+    return best(a, b, mirrored).map(([x, y]) => ({ type: "symmetric", points: [x, y], entity: axis.id }));
+  }
+  return [];
 }
 
 /** The selected lines that may still take a horizontal or vertical constraint, when two or more lines are selected. */
@@ -213,7 +257,7 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
       const es = entities(s, sel);
       if (es.length !== 2) return null;
       const lines = es.filter((e) => e.type === "line").length;
-      return lines === 2 || lines === 0 ? { type: "equal", entities: es.map((e) => e.id) } : null;
+      return (lines === 2 && !es.some((e) => e.reference && e.type === "line" && e.axis)) || lines === 0 ? { type: "equal", entities: es.map((e) => e.id) } : null;
     },
   },
   {
@@ -232,7 +276,7 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     label: "Midpoint",
     build: (s, sel) => {
       const es = entities(s, sel);
-      return es.length === 1 && only(es, "line") && pts(sel).length === 1 ? { type: "midpoint", point: pts(sel)[0], entity: es[0].id } : null;
+      return es.length === 1 && only(es, "line") && !(es[0] as { axis?: boolean }).axis && pts(sel).length === 1 ? { type: "midpoint", point: pts(sel)[0], entity: es[0].id } : null;
     },
   },
   {
@@ -244,21 +288,8 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
   },
   {
     label: "Symmetric",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      if (es.length === 1 && only(es, "line") && pts(sel).length === 2) return { type: "symmetric", points: pts(sel), entity: es[0].id };
-      // Three points: the first two lie opposite each other about the third (the fixed one, such as the origin, else the one nearest the others' middle).
-      if (!es.length && pts(sel).length === 3) {
-        const p = pts(sel);
-        const offMiddle = (c: number) => {
-          const [a, b] = p.filter((q) => q !== c).map((q) => pointOf(s, q));
-          return Math.hypot(pointOf(s, c).u - (a.u + b.u) / 2, pointOf(s, c).v - (a.v + b.v) / 2);
-        };
-        const centre = p.find((id) => pointOf(s, id).fixed) ?? [...p].sort((x, y) => offMiddle(x) - offMiddle(y))[0];
-        return { type: "symmetric_point", points: p.filter((id) => id !== centre), point: centre };
-      }
-      return null;
-    },
+    build: (s, sel) => symmetries(s, sel)[0] ?? null,
+    buildMany: symmetries,
   },
   {
     label: "Length / distance",

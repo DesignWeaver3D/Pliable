@@ -1109,3 +1109,13 @@ def test_freedom_stops_at_its_time_budget():
     s = sketch_of(points, lines, [])
     assert set(sketch.point_freedom(s)) == {1, 2, 3}
     assert sketch.point_freedom(s, budget=-1) == {}  # no time left: nothing is worked out
+
+
+def test_dimension_to_a_sketch_axis_sent_as_a_fixed_line():
+    # the app sends an axis a constraint refers to as a fixed reference line with ids below zero
+    points = [{"id": -11, "u": -1e4, "v": 0, "fixed": True}, {"id": -12, "u": 1e4, "v": 0, "fixed": True}, {"id": 1, "u": 3, "v": 4, "fixed": True}, {"id": 2, "u": 9, "v": 6}]
+    lines = [{"id": -1, "type": "line", "a": -11, "b": -12, "reference": True, "axis": True}, {"id": 10, "type": "line", "a": 1, "b": 2}]
+    constraints = [{"id": 1, "type": "point_line_distance", "point": 2, "entity": -1, "value": 10}]
+    result = sketch.solve(sketch_of(points, lines, constraints))
+    assert result["status"] == "ok"
+    assert next(p for p in result["points"] if p["id"] == 2)["v"] == pytest.approx(10, abs=1e-5)

@@ -202,7 +202,7 @@ export class DimensionOverlay {
       slide = mul(along, pulled);
     }
     this.dimLine(a2, b2, out, Math.abs(pulled) > len(sub(b2, a2)) / 2 ? pulled : undefined);
-    this.label(add(mul(add(a2, b2), 0.5), slide), d.text, out, false, angleOf(along));
+    this.label(add(mul(add(a2, b2), 0.5), slide), d.text, out, false);
   }
 
   /** An arc between the two lines with an arrowhead at each end, extension lines out to it, and the value on its middle (beside it when the arc is short). */
@@ -402,18 +402,18 @@ export class DimensionOverlay {
   }
 
   /** Cut the dimension's own lines (those already drawn into `out`) around the padded rectangle of its value, so they look broken there; nothing else is hidden. */
-  private gapLines(out: SVGElement[], centre: V, half: V, angle: number) {
+  private gapLines(out: SVGElement[], centre: V, half: V) {
     for (let i = out.length - 1; i >= 0; i--) {
       const el = out[i];
       if (el.tagName !== "line") continue;
       const [a, b] = [{ x: Number(el.getAttribute("x1")), y: Number(el.getAttribute("y1")) }, { x: Number(el.getAttribute("x2")), y: Number(el.getAttribute("y2")) }];
-      const pieces = gapSegment(a, b, centre, half.x, half.y, angle);
+      const pieces = gapSegment(a, b, centre, half.x, half.y, 0);
       if (pieces.length === 1 && pieces[0][0] === a && pieces[0][1] === b) continue;
       out.splice(i, 1, ...pieces.map(([from, to]) => line(from, to)));
     }
   }
 
-  private label(at: V, text: string, out: SVGElement[], dotted: boolean, angle = 0) {
+  private label(at: V, text: string, out: SVGElement[], dotted: boolean) {
     const dim = this.dims[this.current];
     const interactive = !!(dim?.edit || dim?.editNote || dim?.activate || dim?.drag);
     let p = at;
@@ -424,13 +424,11 @@ export class DimensionOverlay {
     const box = { x0: p.x - half.x, x1: p.x + half.x, y0: p.y - half.y, y1: p.y + half.y };
     if (this.placed.some((q) => overlaps(q, box))) this.clash = true;
     this.pending.push(box);
-    // Keep text upright.
-    if (angle > 90) angle -= 180;
-    if (angle < -90) angle += 180;
+    // Values are always drawn upright (horizontal on the screen), whatever way their line runs.
     if (dotted && dim?.mark) out.push(dot(at)); // a value's dot would sit under its text
-    if (!dim?.mark) this.gapLines(out, p, { x: half.x + GAP_PAD_PX, y: half.y + GAP_PAD_PX }, angle); // the dimension's lines break around its value
+    if (!dim?.mark) this.gapLines(out, p, { x: half.x + GAP_PAD_PX, y: half.y + GAP_PAD_PX }); // the dimension's lines break around its value
     const g = document.createElementNS(NS, "g");
-    g.setAttribute("transform", `translate(${p.x},${p.y}) rotate(${angle})`);
+    g.setAttribute("transform", `translate(${p.x},${p.y})`);
     if (interactive) this.drewLabel = p;
     const hidden = this.editing === this.current;
     const t = document.createElementNS(NS, "text");
@@ -471,10 +469,6 @@ export function overlaps(a: Box, b: Box): boolean {
 /** How wide a value is drawn, in pixels, with a little room around it. */
 function textWidth(text: string) {
   return text.length * TEXT_PX * 0.55 + 8;
-}
-
-function angleOf(d: V) {
-  return (Math.atan2(d.y, d.x) * 180) / Math.PI;
 }
 
 function line(a: V, b: V): SVGElement {

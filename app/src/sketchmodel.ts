@@ -18,7 +18,7 @@ export interface SketchPoint {
   fixed?: boolean;
 }
 export type SketchEntity =
-  | { id: number; type: "line"; a: number; b: number; construction?: boolean; reference?: boolean }
+  | { id: number; type: "line"; a: number; b: number; construction?: boolean; reference?: boolean; axis?: boolean }
   | { id: number; type: "circle"; center: number; radius: number; construction?: boolean; reference?: boolean }
   | { id: number; type: "arc"; center: number; start: number; end: number; construction?: boolean; reference?: boolean }
   /** Centre, the end of the major semi-axis, and the minor radius. Only its two points take constraints. */
@@ -79,9 +79,29 @@ export function toPlane(plane: PlaneData, p: number[]): [number, number] {
 }
 
 export function pointOf(s: SketchData, id: number): SketchPoint {
-  const p = s.points.find((q) => q.id === id);
+  const p = s.points.find((q) => q.id === id) ?? AXIS_POINTS.find((q) => q.id === id);
   if (!p) throw new Error(`no point ${id}`);
   return p;
+}
+
+/** The sketch's own horizontal (u) and vertical (v) axes, which can be picked and constrained to like lines. They are not stored in `entities`: they have these fixed ids below zero and are built on demand. */
+export const AXIS_U = -1;
+export const AXIS_V = -2;
+const AXIS_REACH = 1e4;
+const AXIS_POINTS: SketchPoint[] = [
+  { id: -11, u: -AXIS_REACH, v: 0, fixed: true },
+  { id: -12, u: AXIS_REACH, v: 0, fixed: true },
+  { id: -21, u: 0, v: -AXIS_REACH, fixed: true },
+  { id: -22, u: 0, v: AXIS_REACH, fixed: true },
+];
+const AXIS_LINES: SketchEntity[] = [
+  { id: AXIS_U, type: "line", a: -11, b: -12, reference: true, axis: true },
+  { id: AXIS_V, type: "line", a: -21, b: -22, reference: true, axis: true },
+];
+
+/** The entity with this id: a stored one, or one of the sketch's axes. */
+export function entityOf(s: SketchData, id: number | undefined): SketchEntity | undefined {
+  return s.entities.find((e) => e.id === id) ?? AXIS_LINES.find((e) => e.id === id);
 }
 
 export function nextId(s: SketchData): number {
@@ -138,7 +158,8 @@ export function describeConstraint(s: SketchData, c: SketchConstraint): string {
     diameter: "Diameter",
     angle: "Angle",
   };
-  const refs = [...(c.points ?? []).map((p) => `p${p}`), ...(c.point !== undefined ? [`p${c.point}`] : []), ...(c.entity !== undefined ? [`#${c.entity}`] : []), ...(c.entities ?? []).map((e) => `#${e}`)];
+  const entityName = (e: number) => (e === AXIS_U ? "horizontal axis" : e === AXIS_V ? "vertical axis" : `#${e}`);
+  const refs = [...(c.points ?? []).map((p) => `p${p}`), ...(c.point !== undefined ? [`p${c.point}`] : []), ...(c.entity !== undefined ? [entityName(c.entity)] : []), ...(c.entities ?? []).map(entityName)];
   void s;
   const value = c.reference ? measure(s, c) : c.value;
   return `${c.reference ? "Reference " : ""}${names[c.type] ?? c.type} ${refs.join(" ")}${value != null ? ` = ${parseFloat(value.toFixed(3))}` : ""}`;
@@ -177,7 +198,7 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
     if (value === undefined || value === null) continue;
     const first = out.length;
     const text = c.reference ? `(${parseFloat(value.toFixed(3))})` : parseFloat(value.toFixed(3)).toString();
-    const entity = s.entities.find((e) => e.id === c.entity);
+    const entity = entityOf(s, c.entity);
     if (c.type === "distance") {
       const ends = entity && entity.type === "line" ? [entity.a, entity.b] : c.points!;
       const [a, b] = [world(ends[0]), world(ends[1])];
@@ -194,7 +215,7 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
       const away = horizontal ? (pb.v >= pa.v ? -1 : 1) : pb.u >= pa.u ? -1 : 1;
       out.push(linear(c, text, a, corner, side.map((x) => x * away)));
     } else if (c.type === "angle" && c.entities?.length === 2) {
-      const lines = c.entities.map((id) => s.entities.find((e) => e.id === id));
+      const lines = c.entities.map((id) => entityOf(s, id));
       if (lines.every((l) => l?.type === "line")) {
         const mids = (lines as Extract<SketchEntity, { type: "line" }>[]).map((l) => [(pointOf(s, l.a).u + pointOf(s, l.b).u) / 2, (pointOf(s, l.a).v + pointOf(s, l.b).v) / 2]);
         const arc = angleArc(s, c, lines as Extract<SketchEntity, { type: "line" }>[], mids, `∠${text}°`);
@@ -298,7 +319,7 @@ export function constraintMarks(s: SketchData): Dimension[] {
       if (p) anchors.push([p.u, p.v]);
     }
     for (const id of [...(c.entities ?? []), ...(c.entity !== undefined ? [c.entity] : [])]) {
-      const e = s.entities.find((x) => x.id === id);
+      const e = entityOf(s, id);
       if (e) anchors.push(centre(e));
     }
     if (!anchors.length) continue;
@@ -684,7 +705,7 @@ export function itemsInBox(s: SketchData, toScreen: (u: number, v: number) => { 
  * nothing is tied to; sending them all can exceed the solver's limit on unknowns, which made every solve fail
  * (nothing could be dragged or constrained). Reference curves and fixed points no constraint or kept curve uses are left out.
  */
-export function forSolver(s: SketchData): SketchData {
+export function forSolver(s: SketchData, withAxes = true): SketchData {
   const usedPoints = new Set<number>();
   const usedEntities = new Set<number>();
   for (const c of s.constraints) {
@@ -696,5 +717,8 @@ export function forSolver(s: SketchData): SketchData {
   const entities = s.entities.filter((e) => !e.reference || usedEntities.has(e.id));
   for (const e of entities) for (const id of entityPoints(e)) usedPoints.add(id);
   const points = s.points.filter((p) => !p.fixed || usedPoints.has(p.id));
-  return entities.length === s.entities.length && points.length === s.points.length ? s : { ...s, points, entities };
+  // An axis a constraint refers to is sent as a fixed line (never to the region search: it would cut every face it crosses).
+  const axes = withAxes ? AXIS_LINES.filter((e) => usedEntities.has(e.id)) : [];
+  if (axes.length) points.push(...AXIS_POINTS.filter((p) => axes.some((e) => e.type === "line" && (e.a === p.id || e.b === p.id))));
+  return entities.length === s.entities.length && points.length === s.points.length && !axes.length ? s : { ...s, points, entities: [...entities, ...axes] };
 }

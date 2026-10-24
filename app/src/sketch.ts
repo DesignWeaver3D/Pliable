@@ -883,7 +883,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
         return this.host.status("Removed the coincidence at the selected points; the lines stay");
       }
       for (const sel of this.selection) {
-        const reference = sel.kind === "entity" ? this.s.entities.find((e) => e.id === sel.id)?.reference : this.s.points.find((p) => p.id === sel.id)?.fixed;
+        const reference = sel.kind === "entity" ? M.entityOf(this.s, sel.id)?.reference : this.s.points.find((p) => p.id === sel.id)?.fixed;
         if (!reference) this.s = M.remove(this.s, sel); // the face outline stays
       }
       this.selection = [];
@@ -1407,7 +1407,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const seq = ++this.profileSeq;
     let profiles: { positions: number[]; indices: number[] }[] = [];
     try {
-      profiles = (await this.core.request<{ profiles: typeof profiles }>("sketch_profiles", { sketch: M.forSolver(this.s) })).profiles;
+      profiles = (await this.core.request<{ profiles: typeof profiles }>("sketch_profiles", { sketch: M.forSolver(this.s, false) })).profiles;
     } catch {
       // a sketch the core cannot split into regions simply shows none
     }
@@ -1745,9 +1745,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const reach = 400;
     const positions: number[] = [];
     const colors: number[] = [];
-    for (const a of M.sketchAxes(this.s.plane)) {
+    for (const [i, a] of M.sketchAxes(this.s.plane).entries()) {
       positions.push(...this.world(a.u - a.du * reach, a.v - a.dv * reach).toArray(), ...this.world(a.u + a.du * reach, a.v + a.dv * reach).toArray());
-      const c = new THREE.Color([0xd9534f, 0x5cb85c, 0x4a90e2][a.axis]);
+      const c = new THREE.Color(this.isMarked({ kind: "entity", id: -1 - i }) ? COLORS.selected : [0xd9534f, 0x5cb85c, 0x4a90e2][a.axis]); // the axes are the entities below zero (see M.entityOf)
       colors.push(c.r, c.g, c.b, c.r, c.g, c.b);
     }
     this.axes.visible = positions.length > 0;
