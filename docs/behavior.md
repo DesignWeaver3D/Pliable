@@ -62,6 +62,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Closed areas in a sketch are faces even when the geometry that encloses them shares no end points: lines that end on another line split it, so a rectangle with a divider drawn between two of its sides is two faces, and three lines attached to a side enclose a third. Lines that enclose nothing make no face.
 - While a sketch shape is being drawn, typing digits starts a size entry for the next point: Tab (or space) moves to the next number, Enter places the shape. Rectangle takes width and height, slot length and width, ellipse long and short radius, arc radius and sweep degrees; line, circle and polygons take one number.
 - Every sketch drawing tool except Line returns to Select once its first shape is complete; Line keeps drawing.
+- While a sketch is open, the nav cube's zoom to fit everything fits all geometry of the sketch being edited, and zoom to fit selection fits the selected sketch points and curves.
 - Horizontal and vertical constraints apply to several selected lines at once; by default both kinds are applied as detected (nearly horizontal lines get horizontal, nearly vertical get vertical).
 - Every dimensional constraint (any constraint holding a number) is editable on screen by double-clicking its dimension leader or its number.
 - When a numeric constraint is created, its dimension appears immediately with the as-created value prefilled and ready for editing.

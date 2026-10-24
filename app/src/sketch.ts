@@ -15,6 +15,7 @@ import * as B from "./sketchbuilders";
 import * as Sn from "./sketchsnap";
 import * as Pv from "./sketchpreview";
 import * as T from "./sketchtyped";
+import * as F from "./sketchfit";
 import { buildConstraintList, buildToolOptions, button, el, type PanelContext } from "./sketchpanelparts";
 import { openSketchSettings } from "./sketchsettings";
 import { parseValue } from "./dimedit";
@@ -254,6 +255,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.viewport.scene.add(this.group);
     this.viewport.interceptor = { down: (e) => this.onDown(e), move: (e) => this.onMove(e), up: (e) => this.onUp(e) };
     this.viewport.onFrame2 = () => this.onFrame();
+    this.viewport.fitSource = { all: () => F.fitPointsAll(this.s), selected: () => F.fitPointsSelected(this.s, this.selection) }; // the nav cube's zoom to fit uses the sketch
     this.render();
     if (kept) void this.refreshProfiles();
     this.onToolChange?.();
@@ -332,6 +334,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.cancelBox();
     this.viewport.interceptor = null;
     this.viewport.onFrame2 = null;
+    this.viewport.fitSource = null;
     this.viewport.manipulator.clear();
     if (this.projectPick !== null) this.cancelProjectPick(true);
     this.viewport.scene.remove(this.group);

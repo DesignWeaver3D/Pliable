@@ -1735,8 +1735,21 @@ export class Viewport {
     this.onSelect(next);
   }
 
+  /** While a sketch is open the zoom-to-fit buttons use the sketch's geometry: the world points to fit (all of it, or the selection), null when it has none. */
+  fitSource: { all(): number[][] | null; selected(): number[][] | null } | null = null;
+
+  /** Zoom to the given world points (a minimum size keeps a lone point from zooming in absurdly far), without turning the view. */
+  private fitPoints(points: number[][]) {
+    const box = new THREE.Box3().setFromPoints(points.map((p) => new THREE.Vector3(...p)));
+    const size = box.getSize(new THREE.Vector3());
+    if (size.length() < 10) box.expandByVector(new THREE.Vector3().setScalar((10 - size.length()) / 2));
+    this.frame([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], true);
+  }
+
   /** Zoom so the whole visible model fills the view, without turning it. */
   fitAll() {
+    const sketch = this.fitSource?.all();
+    if (sketch) return this.fitPoints(sketch);
     if (!this.mesh) return;
     this.mesh.geometry.computeBoundingBox();
     const box = this.mesh.geometry.boundingBox;
@@ -1745,6 +1758,11 @@ export class Viewport {
 
   /** Zoom to the selected body, face, edge or vertex (the selection together, if several), without turning the view. Returns false when nothing is selected. */
   fitSelected(): boolean {
+    if (this.fitSource) {
+      const sketch = this.fitSource.selected();
+      if (sketch) this.fitPoints(sketch);
+      return !!sketch;
+    }
     const data = this.data;
     const box = new THREE.Box3();
     if (!data || !this.mesh || !this.selected.length) return false;

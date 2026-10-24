@@ -988,7 +988,10 @@ currentSketchTool = () => sketch.activeTool;
 chooseSketchTool = (tool) => sketch.selectTool(tool);
 sketchConstraints = () => sketch.constraintChoices();
 chooseConstraint = (label) => sketch.chooseConstraint(label);
-sketch.onToolChange = () => renderToolbar();
+sketch.onToolChange = () => {
+  renderToolbar();
+  navCube.fitSelectedButton.disabled = sketch.active ? !sketch.selection.length : currentSels.length === 0; // in a sketch the fit button follows the sketch selection
+};
 /** Run a request that changes the kept sketches and takes the document state it answers with. */
 function keptRequest(kind: string, args: Record<string, unknown>) {
   core
