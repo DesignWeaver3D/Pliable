@@ -208,6 +208,27 @@ function element(inner: string, size: number, className: string): HTMLSpanElemen
 /** Icon on the Tools handle (left edge). The owner chose the toolbox; change this one name to swap it. */
 export const TOOLS_HANDLE_ICON = "toolsBox";
 
+/** Icons for the constraint buttons of the sketch strip, by button label (same 24 px stroke style as the rest). */
+export const CONSTRAINT_ICONS: Record<string, string> = {
+  Dimension: '<path d="M4 7v10M20 7v10"/><path d="M4 12h16M7 9.5L4 12l3 2.5M17 9.5L20 12l-3 2.5"/>',
+  "Horizontal / vertical": '<path d="M3 9h11"/><path d="M18 5v14"/>',
+  Horizontal: '<path d="M4 12h16"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="20" cy="12" r="1.5" fill="currentColor"/>',
+  Vertical: '<path d="M12 4v16"/><circle cx="12" cy="4" r="1.5" fill="currentColor"/><circle cx="12" cy="20" r="1.5" fill="currentColor"/>',
+  Coincident: '<circle cx="12" cy="12" r="2.2" fill="currentColor"/><path d="M4 20l8-8M20 4l-8 8"/>',
+  Fixed: '<circle cx="12" cy="8" r="2.2" fill="currentColor"/><path d="M12 10v6M7 16h10M8 20l2-4M12 20l2-4M16 20l-2-4"/>',
+  Parallel: '<path d="M7 20L13 4M13 20L19 4"/>',
+  Perpendicular: '<path d="M12 4v16M12 20h8"/><path d="M12 16h4v4"/>',
+  Equal: '<path d="M5 9h14M5 15h14"/>',
+  "Tangent / collinear": '<circle cx="12" cy="14" r="6"/><path d="M3 8h18"/>',
+  "Point on": '<path d="M3 17L21 7"/><circle cx="12" cy="12" r="2" fill="currentColor"/>',
+  Midpoint: '<path d="M4 15h16"/><circle cx="4" cy="15" r="1.4" fill="currentColor"/><circle cx="20" cy="15" r="1.4" fill="currentColor"/><path d="M12 6v9"/><circle cx="12" cy="15" r="2" fill="currentColor"/>',
+  Lock: '<rect x="6" y="11" width="12" height="9" rx="1.5"/><path d="M9 11V8a3 3 0 0 1 6 0v3"/>',
+  "Angle to horizontal axis": '<path d="M4 18h16M4 18L16 8"/><path d="M11 18a7 7 0 0 0-2.5-5.3"/>',
+  Radius: '<circle cx="12" cy="12" r="8"/><path d="M12 12l5.7-5.7"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/>',
+  Diameter: '<circle cx="12" cy="12" r="8"/><path d="M6.3 17.7L17.7 6.3"/>',
+  Angle: '<path d="M3 18L12 6M3 18l17-3"/><path d="M9 15.5a6 6 0 0 1 2.5-4"/>',
+};
+export const constraintIcon = (label: string, size = 14) => element(CONSTRAINT_ICONS[label] ?? initialsIcon(label), size, "icon");
 export const sketchIcon = (id: string, size = 16) => element(SKETCH_ICONS[id] ?? initialsIcon(id), size, "icon");
 export const toolIcon = (id: string, label = id, size = 16) => element(toolIconInner(id, label), size, "icon");
 export const uiIcon = (name: string, size = 16) => element(UI_ICONS[name] ?? "", size, "icon");

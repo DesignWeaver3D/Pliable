@@ -40,3 +40,17 @@ test("the tools handle candidates are drawn as valid, currentColor-based SVG", a
     assert.equal((svg.match(/<g\b/g) ?? []).length, (svg.match(/<\/g>/g) ?? []).length);
   }
 });
+
+test("every constraint button in the sketch strip has a drawn icon", async () => {
+  const { CONSTRAINT_ICONS, svgFor } = await import("../src/icons.ts");
+  const { allConstraintOptions } = await import("../src/sketchsmartdim.ts");
+  const s = { plane: { origin: [0, 0, 0], normal: [0, 0, 1], xdir: [1, 0, 0] }, points: [], entities: [], constraints: [] };
+  const labels = allConstraintOptions(s, []).map((c) => c.option.label);
+  assert.ok(labels.length >= 15);
+  assert.deepEqual(labels.filter((l) => !CONSTRAINT_ICONS[l]), []);
+  for (const label of labels) {
+    const svg = svgFor(CONSTRAINT_ICONS[label], 14);
+    assert.match(svg, /^<svg [^>]*viewBox="0 0 24 24"[^>]*stroke="currentColor"[\s\S]*<\/svg>$/, label);
+    assert.equal((svg.match(/<g\b/g) ?? []).length, (svg.match(/<\/g>/g) ?? []).length);
+  }
+});

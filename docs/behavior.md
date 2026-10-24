@@ -89,4 +89,4 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - A tip stays on screen until its Got it is clicked, even after the action that raised it ends. The chips (such as Add Parallel Face) and the hint line never overlap: the hint line and tip stand above the chips. There is no separate sketch key hint line.
 - The sketch plane move and turn gizmos are off by default; the sketch card button shows them.
 - Sketch constraint tools that only apply to edges ignore selected vertices instead of doing nothing.
-- While a sketch is open the top strip has a second row with all constraint and dimension buttons, greyed unless the selection takes them. (for testing before the UI is slimmed)
+- While a sketch is open the top strip has a second row of constraint buttons, each an icon with its name, the Dimension (smart dimension) button first. Buttons whose constraints the smart dimension reaches through every selection are not in the row (length and distances, short radius, point to line distance, symmetric); the audit is in smart-dimension-plan.md.
