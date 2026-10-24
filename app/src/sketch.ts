@@ -972,7 +972,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.pushUndo();
     const before = JSON.stringify(this.s);
     const addedIds = new Set<number>();
-    for (const one of option.buildMany?.(this.s, this.selection) ?? [built]) {
+    for (const one of M.constraintsToAdd(option, this.s, this.selection)) {
       const added = { id: M.nextId(this.s), ...one, ...(built.value !== undefined ? { value: built.value } : {}) };
       this.s.constraints.push(added);
       addedIds.add(added.id);

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { axisLines, polyline, distanceTo, entityPoints, measure, optionsFor, describeConstraint, dimensionsOf, constraintMarks, sketchAxes } from "../src/sketchmodel.ts";
+import { axisLines, polyline, distanceTo, entityPoints, measure, optionsFor, describeConstraint, dimensionsOf, constraintMarks, sketchAxes, allConstraintOptions, constraintsToAdd } from "../src/sketchmodel.ts";
 
 const plane = (origin, normal, xdir) => ({ origin, normal, xdir });
 
@@ -248,4 +248,13 @@ test("every kind of dimensional constraint is drawn as a dimension that points b
     const made = dimensionsOf({ ...s, constraints: [{ id: 100 + k, value: 5, ...c }] });
     assert.ok(made.length > 0 && made.every((d) => d.constraint === 100 + k), `${c.type} on ${c.entity ?? c.points ?? c.entities}`);
   });
+});
+
+test("Horizontal on one nearly horizontal line adds its constraint", () => {
+  const s = { plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]), points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0.5 }], entities: [{ id: 10, type: "line", a: 1, b: 2 }], constraints: [] };
+  const sel = [{ kind: "entity", id: 10 }];
+  const horizontal = allConstraintOptions(s, sel).find((c) => c.option.label === "Horizontal").option;
+  assert.deepEqual(constraintsToAdd(horizontal, s, sel), [{ type: "horizontal", entity: 10 }]);
+  const two = { ...s, points: [...s.points, { id: 3, u: 0, v: 5 }, { id: 4, u: 1, v: 9 }], entities: [...s.entities, { id: 11, type: "line", a: 3, b: 4 }] };
+  assert.equal(constraintsToAdd(horizontal, two, [...sel, { kind: "entity", id: 11 }]).length, 2);
 });

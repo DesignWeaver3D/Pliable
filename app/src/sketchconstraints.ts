@@ -70,6 +70,14 @@ export function measure(s: SketchData, c: SketchConstraint): number | null {
   return null;
 }
 
+/** Every constraint an option adds for the selection: its several at once, or the single one when it has no several for this selection (a lone line gives none from `buildMany`). */
+export function constraintsToAdd(option: ConstraintOption, s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[] {
+  const many = option.buildMany?.(s, sel) ?? [];
+  if (many.length) return many;
+  const one = option.build(s, sel);
+  return one ? [one] : [];
+}
+
 /** The selected lines that may still take a horizontal or vertical constraint, when two or more lines are selected. */
 function freeLines(s: SketchData, sel: SketchSel[]): Extract<SketchEntity, { type: "line" }>[] {
   const es = entities(s, sel);

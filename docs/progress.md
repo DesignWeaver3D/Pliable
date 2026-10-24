@@ -16,10 +16,6 @@ Sketch requests (owner, 2026-10-24), one row each, in this order:
 - **Array apply or discard.** Editing the source primitive of an array made the array disappear (it had not been applied). Clicking outside an array being edited prompts: apply or discard. Possibly later: apply automatically.
 - **Stored array parameters (long term, needs owner feedback).** Store array parameters like primitives (editable later); today arrays make separate solids. Consider an option for the array to be a compound with its source object.
 
-## Open bug
-
-- On a fresh nearly horizontal sketch line, pressing Horizontal in the card or the strip adds no constraint and shows no message (DOF stays 4; Lock and the conflict message work; same before the app split). Needs the owner's exact steps, or inspect `applyConstraint` and the core solve.
-
 ## Awaiting the owner's hand test
 
 Built, unit tested, not hand-checked in the app unless noted. Delete a line once the owner has tested it.
