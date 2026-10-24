@@ -51,3 +51,8 @@ test("recents list is newest first, unique and capped", () => {
   assert.deepEqual(loadRecents({ getItem: () => '["a",3]' }), ["a"]);
 });
 test("long queries need a real match", () => { assert.equal(matchRank({ label: "Keyboard shortcuts" }, "round"), null); });
+
+test("the prism tool is found by polygon names", () => {
+  const items = [{ label: "Add prism", scope: "tool", keywords: toolKeywords("add_prism") }];
+  for (const word of ["hexagon", "polygon", "prism"]) assert.equal(searchItems(items, word)[0]?.label, "Add prism", word);
+});

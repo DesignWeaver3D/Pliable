@@ -119,6 +119,7 @@ const TOOL_WORDS: [RegExp, string[]][] = [
   [/cut_plane|split/, ["cut", "split", "slice", "section"]],
   [/draft/, ["draft", "taper", "angle", "mold"]],
   [/revolve|sweep|loft/, ["revolve", "sweep", "loft", "lathe", "spin"]],
+  [/add_prism/, ["prism", "hexagon", "polygon", "hex", "pentagon", "octagon", "extruded polygon"]],
   [/add_/, ["add", "create", "new", "primitive", "make"]],
   [/delete_face|unify|fill_hole|patch/, ["delete", "remove", "defeature", "heal", "repair"]],
 ];

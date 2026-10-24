@@ -50,6 +50,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Clicking a row selects the whole body; tools then use bodies directly.
 - Delete (the key) removes the selected bodies (Shift or Ctrl selection in the list) as one undo step; right-click Delete on one of several selected rows removes them all. A clicked sketch or datum plane row is removed by Delete or its right-click Delete too. The key is ignored while typing, in a sketch or with a tool form open.
 - The linear array's corner grip is a cube: dragged in the plane of the column and row steps it sets columns and rows independently, one whole step each; no typed entry on it (type the counts in the form).
+- Add prism is in the Solids group after Add torus: a regular polygon (6 sides by default) extruded up, with the same handles, form, placement and later editing as Add cylinder, plus a sides grip.
 - Each body has a stable id and an auto name; rename is an undo step.
 - When a different model is opened (demo, import, project, resume), every body starts visible, solid and out of focus.
 

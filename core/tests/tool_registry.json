@@ -1821,6 +1821,104 @@
   "keeps_body_order": false
  },
  {
+  "id": "add_prism",
+  "label": "Add prism",
+  "description": "Adds a prism: a regular polygon (6 sides by default, a hexagon) of the given corner-to-corner diameter, standing on the XY plane at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model.",
+  "accepts": {
+   "faces": [
+    0,
+    0
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "sides",
+    "kind": "number",
+    "default": 6,
+    "drag": false
+   },
+   {
+    "name": "diameter",
+    "kind": "length",
+    "default": 10,
+    "drag": false
+   },
+   {
+    "name": "height",
+    "kind": "length",
+    "default": 10,
+    "drag": false
+   },
+   {
+    "name": "x",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false
+   },
+   {
+    "name": "y",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false
+   },
+   {
+    "name": "z",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false
+   },
+   {
+    "name": "rx",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false
+   },
+   {
+    "name": "ry",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false
+   },
+   {
+    "name": "rz",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false
+   },
+   {
+    "name": "new_body",
+    "kind": "number",
+    "default": 1,
+    "drag": false
+   }
+  ],
+  "related": [],
+  "placement": [
+   "x",
+   "y",
+   "z"
+  ],
+  "move_vector": null,
+  "starts_from": "tool",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Prism",
+  "keeps_body_order": false
+ },
+ {
   "id": "linear_array",
   "label": "Linear array",
   "description": "Makes copies of a body in a grid of columns and rows and fuses them. Select any face of the body, or nothing for the whole model; the counts include the original. Set rows to 1 for a single line.",
