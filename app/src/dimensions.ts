@@ -11,9 +11,12 @@ export interface DimEdit {
 }
 
 export interface Dimension {
-  kind: "linear" | "diameter" | "radius" | "tag";
+  kind: "linear" | "diameter" | "radius" | "tag" | "angle";
   text: string;
+  /** Angle: the point where the lines meet, then points along the arc from one line to the other. */
   points: number[][];
+  /** Angle: extension segments (a start and an end point) that carry a line out to the arc. */
+  extend?: number[][][];
   offsetDirection?: number[];
   /** Set when double-clicking the text edits the value in place. */
   edit?: DimEdit;
@@ -130,6 +133,7 @@ export class DimensionOverlay {
       try {
         if (d.kind === "linear") this.linear(d, project, mine);
         else if (d.kind === "tag") this.label(project(d.points[0]), d.text, mine, true);
+        else if (d.kind === "angle") this.angle(d, project, mine);
         else this.leader(d, project, mine);
       } catch (e) {
         console.error("A dimension could not be drawn and was skipped:", d, e);
@@ -191,6 +195,25 @@ export class DimensionOverlay {
     const pulled = slide.x * along.x + slide.y * along.y;
     this.dimLine(a2, b2, out, Math.abs(pulled) > len(sub(b2, a2)) / 2 ? pulled : undefined);
     this.label(add(mul(add(a2, b2), 0.5), slide), d.text, out, false, angleOf(along));
+  }
+
+  /** An arc between the two lines with an arrowhead at each end, extension lines out to it, and the value on its middle (beside it when the arc is short). */
+  private angle(d: Dimension, project: (p: number[]) => V, out: SVGElement[]) {
+    const apex = project(d.points[0]);
+    const arc = d.points.slice(1).map(project);
+    for (let i = 1; i < arc.length; i++) out.push(line(arc[i - 1], arc[i]));
+    out.push(arrow(arc[0], unit(sub(arc[0], arc[1]))), arrow(arc[arc.length - 1], unit(sub(arc[arc.length - 1], arc[arc.length - 2]))));
+    for (const [p, q] of d.extend ?? []) {
+      const [from, to] = [project(p), project(q)];
+      const dir = unit(sub(to, from));
+      out.push(line(from, add(to, mul(dir, EXT_OVERSHOOT_PX))));
+    }
+    const mid = arc[Math.floor(arc.length / 2)];
+    let length = 0;
+    for (let i = 1; i < arc.length; i++) length += len(sub(arc[i], arc[i - 1]));
+    const width = d.text.length * TEXT_PX * 0.55 + 8;
+    const away = unit(sub(mid, apex));
+    this.label(length < width + 3 * ARROW_PX ? add(mid, mul(away, width / 2 + ARROW_PX)) : mid, d.text, out, false);
   }
 
   private leader(d: Dimension, project: (p: number[]) => V, out: SVGElement[]) {

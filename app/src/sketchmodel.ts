@@ -200,7 +200,8 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
       const lines = c.entities.map((id) => s.entities.find((e) => e.id === id));
       if (lines.every((l) => l?.type === "line")) {
         const mids = (lines as Extract<SketchEntity, { type: "line" }>[]).map((l) => [(pointOf(s, l.a).u + pointOf(s, l.b).u) / 2, (pointOf(s, l.a).v + pointOf(s, l.b).v) / 2]);
-        out.push({ kind: "tag", text: `∠${text}°`, points: [placed(c, toWorld(s.plane, (mids[0][0] + mids[1][0]) / 2, (mids[0][1] + mids[1][1]) / 2))] });
+        const arc = angleArc(s, c, lines as Extract<SketchEntity, { type: "line" }>[], mids, `∠${text}°`);
+        out.push(arc ?? { kind: "tag", text: `∠${text}°`, points: [placed(c, toWorld(s.plane, (mids[0][0] + mids[1][0]) / 2, (mids[0][1] + mids[1][1]) / 2))] });
       }
     } else if (c.type === "minor_radius" && entity && entity.type === "ellipse") {
       const [m, o] = [pointOf(s, entity.center), pointOf(s, entity.major)];
@@ -231,6 +232,40 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
     for (const made of out.slice(first)) made.constraint = c.id;
   }
   return out;
+}
+
+const ARC_STEPS = 24;
+
+/** An angle dimension drawn as an arc about the point where the two lines meet, in the sector the value sits in (where it was dragged, else toward the lines' middles). Null when the lines are parallel. */
+function angleArc(s: SketchData, c: SketchConstraint, lines: Extract<SketchEntity, { type: "line" }>[], mids: number[][], text: string): Dimension | null {
+  const [a0, a1, b0, b1] = [pointOf(s, lines[0].a), pointOf(s, lines[0].b), pointOf(s, lines[1].a), pointOf(s, lines[1].b)];
+  const da = [a1.u - a0.u, a1.v - a0.v];
+  const db = [b1.u - b0.u, b1.v - b0.v];
+  const crossUV = (p: number[], q: number[]) => p[0] * q[1] - p[1] * q[0];
+  const det = crossUV(da, db);
+  if (Math.abs(det) < 1e-12 * (Math.hypot(...da) * Math.hypot(...db) || 1)) return null;
+  const t = crossUV([b0.u - a0.u, b0.v - a0.v], db) / det;
+  const apex = [a0.u + t * da[0], a0.v + t * da[1]];
+  const unitUV = (p: number[]) => p.map((x) => x / (Math.hypot(...p) || 1));
+  const [ua, ub] = [unitUV(da), unitUV(db)];
+  const neg = (p: number[]) => p.map((x) => -x);
+  // The two opposite sectors that hold this angle; the one the value was placed in (or faces the lines' middles) is drawn.
+  const pair = c.outside ? [[ua, neg(ub)], [neg(ua), ub]] : [[ua, ub], [neg(ua), neg(ub)]];
+  const toward = c.place ? [c.place[0] - apex[0], c.place[1] - apex[1]] : [(mids[0][0] + mids[1][0]) / 2 - apex[0], (mids[0][1] + mids[1][1]) / 2 - apex[1]];
+  const score = ([r1, r2]: number[][]) => toward[0] * (r1[0] + r2[0]) + toward[1] * (r1[1] + r2[1]);
+  const [r1, r2] = score(pair[1]) > score(pair[0]) ? pair[1] : pair[0];
+  const radius = Math.max(Math.hypot(...toward) * (c.place ? 1 : 0.6), 1e-3);
+  const start = Math.atan2(r1[1], r1[0]);
+  const sweep = Math.atan2(crossUV(r1, r2), r1[0] * r2[0] + r1[1] * r2[1]);
+  const at = (angle: number, r: number) => toWorld(s.plane, apex[0] + r * Math.cos(angle), apex[1] + r * Math.sin(angle));
+  const points = [toWorld(s.plane, apex[0], apex[1]), ...Array.from({ length: ARC_STEPS + 1 }, (_, i) => at(start + (sweep * i) / ARC_STEPS, radius))];
+  // Extension lines carry a short line out to the arc.
+  const extend: number[][][] = [];
+  for (const [ray, l] of [[r1, lines[0]], [r2, lines[1]]] as const) {
+    const reach = Math.max(...[l.a, l.b].map((id) => (pointOf(s, id).u - apex[0]) * ray[0] + (pointOf(s, id).v - apex[1]) * ray[1]), 0);
+    if (reach < radius) extend.push([toWorld(s.plane, apex[0] + ray[0] * reach, apex[1] + ray[1] * reach), toWorld(s.plane, apex[0] + ray[0] * radius, apex[1] + ray[1] * radius)]);
+  }
+  return { kind: "angle", text, points, extend };
 }
 
 const MARKS: Record<string, string> = {

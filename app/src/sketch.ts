@@ -1003,12 +1003,22 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const built = option.build(this.s, this.selection);
     if (!built) return;
     // A dimension is created at once with its current value and opened for editing on the sketch (Escape keeps the value).
+    // An angle between two lines is the one nearest the pointer: the sector it was invoked in (the inside or the outside angle).
+    if (built.type === "angle" && built.entities) {
+      const at = this.planeUV({ clientX: this.lastPointer.x, clientY: this.lastPointer.y } as PointerEvent);
+      const outside = at ? M.angleSideOutside(this.s, [built.entities[0], built.entities[1]], at) : null;
+      if (at && outside !== null) {
+        built.place = at;
+        if (outside) built.outside = true;
+      }
+    }
     if (option.dimension) built.value = option.initial!(this.s, this.selection);
+    if (built.type === "angle" && built.outside && built.value !== undefined) built.value = Math.round((M.measure(this.s, { id: 0, ...built }) ?? built.value) * 1000) / 1000;
     this.pushUndo();
     const before = JSON.stringify(this.s);
     const addedIds = new Set<number>();
     for (const one of M.constraintsToAdd(option, this.s, this.selection)) {
-      const added = { id: M.nextId(this.s), ...one, ...(built.value !== undefined ? { value: built.value } : {}) };
+      const added = { id: M.nextId(this.s), ...one, ...(built.value !== undefined ? { value: built.value } : {}), ...(built.type === "angle" ? { place: built.place, outside: built.outside } : {}) };
       this.s.constraints.push(added);
       addedIds.add(added.id);
     }

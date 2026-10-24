@@ -306,3 +306,24 @@ test("constraint tags are marks (no value patch) and dimension values are not", 
   assert.ok(constraintMarks(s).every((m) => m.mark === true));
   assert.ok(dimensionsOf(s).every((d) => !d.mark));
 });
+
+test("an angle dimension is an arc in the sector it was placed in", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 0, v: 10 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 1, b: 3 }],
+    constraints: [],
+  };
+  const arc = (extra) => dimensionsOf({ ...s, constraints: [{ id: 20, type: "angle", entities: [10, 11], value: 90, ...extra }] })[0];
+  const first = arc({});
+  assert.equal(first.kind, "angle");
+  assert.equal(first.points.length, 26);
+  // the arc runs from one line to the other, in the quadrant between the line middles
+  assert.ok(first.points.slice(1).every((p) => p[0] > -1e-9 && p[1] > -1e-9));
+  // placed in the opposite quadrant, the same inside angle is drawn there
+  const opposite = arc({ place: [-3, -3] });
+  assert.ok(opposite.points.slice(1).every((p) => p[0] < 1e-9 && p[1] < 1e-9));
+  // the outside angle sits across the lines, in the quadrant the value was placed in
+  const across = arc({ place: [-3, 3], outside: true });
+  assert.ok(across.points.slice(1).every((p) => p[0] < 1e-9 && p[1] > -1e-9));
+});
