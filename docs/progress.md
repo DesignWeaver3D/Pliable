@@ -13,6 +13,7 @@ Sketch requests (owner, 2026-10-24, third batch), one row each, in this order:
 
 
 
+- **Prism top and bottom diameters (pyramids).** "I want the Prism primitive to have top and bottom radius/dimension handles similar to cone so that it can be used to make pyramids too. Will there be a problem if the top radius/diameter is zero for a true pyramid?" Needs: bottom and top diameter parameters and handles like the cone (top may be zero, giving a true pyramid; both may not be zero); the sides grip stays; planar side faces; core tests for volume (frustum and pyramid cases); the tool registry golden file regenerated.
 - **Stored array parameters (long term, needs owner feedback).** Store array parameters like primitives (editable later); today arrays make separate solids. Consider an option for the array to be a compound with its source object.
 
 ## Awaiting the owner's hand test
