@@ -35,6 +35,13 @@ export function sideFrame(direction: Vec): [Vec, Vec] {
   return [first, unit(cross(direction, first))!];
 }
 
+/** The side an arc at `azimuth` (radians from the first side) of the frame lies toward. */
+export function arcSide(first: Vec, second: Vec, azimuth: number): Vec {
+  const c = Math.cos(azimuth);
+  const s = Math.sin(azimuth);
+  return [first[0] * c + second[0] * s, first[1] * c + second[1] * s, first[2] * c + second[2] * s];
+}
+
 /** The direction tilted by `angle` (radians) toward `side` (a unit vector square to it): it stays in the plane of the two. */
 export function tilted(direction: Vec, side: Vec, angle: number): Vec {
   const c = Math.cos(angle);

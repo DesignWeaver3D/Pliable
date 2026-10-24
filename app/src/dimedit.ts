@@ -34,6 +34,11 @@ const LABELS: Record<string, string> = {
 };
 
 /** The text of a number with up to 4 decimals and no trailing zeros. */
+/** The measured dimensions without the draft angle tag of an upright wall: it sat on the push/pull arrow, and the owner wants no face angle shown unless the push/pull direction is tilted (see pullgizmo.ts). */
+export function withoutDraftTag<T extends { kind: string; edit?: { kind?: string } }>(dims: T[]): T[] {
+  return dims.filter((d) => !(d.kind === "tag" && d.edit?.kind === "face_angle"));
+}
+
 export function formatValue(v: number): string {
   return String(Number(v.toFixed(4)));
 }

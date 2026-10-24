@@ -10,7 +10,7 @@ import { SketchBar } from "./sketchbar";
 import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay, type Dimension } from "./dimensions";
-import { DimensionEditor } from "./dimedit";
+import { DimensionEditor, withoutDraftTag } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
 import { deleteAction, isTyping, type RowRef } from "./listdelete";
 import { outOf } from "./pulldir";
@@ -398,7 +398,7 @@ function setSelection(sels: Sel[]) {
       // Not while a drag is live (the panel is hidden then); never on a stale dragSels left by a drag that failed to end.
       if (currentSels === sels && !viewport.dragging) {
         measurePanel.show(reply);
-        measuredDims = reply.dimensions ?? [];
+        measuredDims = withoutDraftTag(reply.dimensions ?? []);
         previewDimsShown = false;
         dimensionOverlay.set(measuredDims);
       }
