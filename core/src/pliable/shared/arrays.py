@@ -2,7 +2,7 @@
 
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
 from OCP.TopoDS import TopoDS_Shape
-from OCP.gp import gp_Trsf
+from OCP.gp import gp_Trsf, gp_Vec
 
 from ..ops import OperationError, OpResult, solids_of
 from .solids import _combine, _compound, _faces_of, finish
@@ -16,6 +16,29 @@ def _array_copies(count: float) -> int:
     if n < 2 or n > MAX_ARRAY_COPIES:
         raise OperationError(f"The count must be between 2 and {MAX_ARRAY_COPIES}")
     return n
+
+
+def _grid_counts(columns: float, rows: float) -> tuple[int, int]:
+    """Whole column and row counts (each at least 1, the original included); the grid needs at least one copy and at most MAX_ARRAY_COPIES in all."""
+    c, r = int(round(columns)), int(round(rows))
+    if c < 1 or r < 1:
+        raise OperationError("The count and the rows must each be at least 1")
+    if c * r < 2 or c * r > MAX_ARRAY_COPIES:
+        raise OperationError(f"The grid must hold between 2 and {MAX_ARRAY_COPIES} copies in all")
+    return c, r
+
+
+def _grid_transforms(columns: int, rows: int, step1: gp_Vec, step2: gp_Vec) -> list[gp_Trsf]:
+    """The translations of every grid cell but the original (column i, row j moves by i * step1 + j * step2)."""
+    transforms = []
+    for j in range(rows):
+        for i in range(columns):
+            if i == 0 and j == 0:
+                continue
+            trsf = gp_Trsf()
+            trsf.SetTranslation(step1.Multiplied(i).Added(step2.Multiplied(j)))
+            transforms.append(trsf)
+    return transforms
 
 
 def _array_source(topology, selection) -> TopoDS_Shape:

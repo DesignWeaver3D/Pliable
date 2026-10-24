@@ -238,11 +238,36 @@ def test_torus(block):
 
 
 def test_linear_array_fuses_touching_copies(block):
-    result = run("linear_array", block, count=3, dx=40, dy=0, dz=0)  # block is 40 wide: copies touch
+    result = run("linear_array", block, count=3, rows=1, dx=40, dy=0, dz=0)  # block is 40 wide: copies touch
     assert volume(result.shape) == pytest.approx(3 * 24000, rel=1e-6)
     assert Topology(result.shape).face_count == 6  # one long block after merging coplanar faces
     with pytest.raises(OperationError):
-        run("linear_array", block, count=3, dx=0)
+        run("linear_array", block, count=3, rows=1, dx=0)
+
+
+def test_linear_array_makes_a_grid_of_rows_and_columns(block):
+    result = run("linear_array", block, count=3, rows=2, dx=40, dy=0, dz=0, dx2=0, dy2=30, dz2=0)  # block is 40 by 30: cells touch
+    assert volume(result.shape) == pytest.approx(6 * 24000, rel=1e-6)
+    assert Topology(result.shape).face_count == 6  # one large block after merging
+    default = get_tool("linear_array").bind({})
+    assert (default["count"], default["rows"]) == (3, 3)
+    with pytest.raises(OperationError):
+        run("linear_array", block, count=1, rows=1)
+    with pytest.raises(OperationError):
+        run("linear_array", block, count=3, rows=2, dx=40, dx2=0, dy2=0)
+
+
+def test_linear_array_grips_set_spacing_and_counts(block):
+    tool = get_tool("linear_array")
+    values = tool.bind({"count": 3, "rows": 2, "dx": 40, "dy": 0, "dz": 0, "dx2": 0, "dy2": 30, "dz2": 0})
+    handles = {h.label: h for h in tool.handles(block, Selection(faces=[], edges=[]), values)}
+    assert set(handles) == {"Column spacing", "Row spacing", "Columns and rows"}
+    column = handles["Column spacing"]
+    assert column.param == "dx" and column.direction == (1.0, 0.0, 0.0) and column.scale == pytest.approx(0.5)  # the last copy is 2 steps out
+    assert {name for name, _ in column.links} == {"dy", "dz"}
+    both = handles["Columns and rows"]
+    assert both.param == "count" and both.links == (("rows", both.scale),)
+    assert both.scale == pytest.approx(1 / 50)  # one more column and row adds a 40 + 30 step diagonal of length 50
 
 
 def test_circular_array(block):
@@ -539,10 +564,10 @@ def test_arrays_copy_only_the_chosen_body(block):
 
     two = _two_bodies(block)
     face = next(i for i in range(two.face_count) if _box_x(two, i) > 90)
-    result = run("linear_array", two, faces=[face], count=3, dx=0, dy=0, dz=30)
+    result = run("linear_array", two, faces=[face], count=3, rows=1, dx=0, dy=0, dz=30)
     assert volume(result.shape) == pytest.approx(24000 + 3 * 1000 + 0, rel=1e-6)
     assert len(solids_of(result.shape)) == 4  # the block, the small box and its two copies (30 apart, so not touching)
-    whole = run("linear_array", two, count=3, dx=0, dy=0, dz=60)
+    whole = run("linear_array", two, count=3, rows=1, dx=0, dy=0, dz=60)
     assert volume(whole.shape) == pytest.approx(3 * 25000, rel=1e-6)
     ring = run("circular_array", two, faces=[face], count=2, axis=2, angle=180)
     assert volume(ring.shape) == pytest.approx(24000 + 2000, rel=1e-6)
