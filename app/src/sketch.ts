@@ -607,7 +607,11 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       const uv = this.planeUV(e);
       const body = this.drag.body;
       if (uv && body) this.resolve({ points: body.points.map((p) => ({ point: p.id, u: p.u + uv[0] - body.u, v: p.v + uv[1] - body.v })) });
-      else if (uv) this.resolve({ point: this.drag.id, u: uv[0], v: uv[1] });
+      else if (uv) {
+        const at = Sn.snapDragged(this, uv, [this.drag.id]); // onto the grid, the axes, or in line with another point
+        this.cursor = at.guides ? at : null; // the guide lines show while dragging
+        this.resolve({ point: this.drag.id, u: at.u, v: at.v });
+      }
       return;
     }
     if (this.tool === "select" || this.tool === "trim" || this.tool === "extend" || this.tool === "split") this.hover = this.pick(e);
@@ -686,6 +690,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     if (this.drag) {
       const moved = this.drag.moved;
       this.drag = null;
+      this.cursor = null;
       if (moved) {
         while (this.solving) await new Promise((r) => setTimeout(r, 5)); // let the last pinned position finish first
         await this.resolve(); // settle without pinning the dragged point

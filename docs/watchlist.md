@@ -64,6 +64,8 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Sketch drawing tools other than Line leave to Select after the first shape (`sketch.ts` `shapeDone`, commit 323c2c1). A smarter rule for when a tool may keep drawing, such as a modifier-click on the tool button, is not decided. Symptom: repeating a shape needs the tool picked again each time.
 - Sketch typed sizes: slot, ellipse and arc sizes place the shape but are not kept as dimensions (only line, circle and rectangle are); the slot width typed is the whole width, the arc sweep is counterclockwise degrees (`sketchtyped.ts`, commit 323c2c1).
 
+- Sketch point drag snapping (`sketchsnap.ts` `snapDragged`): only single-point drags snap, with the same 10 px reach as drawing; dragging whole curves or several items does not snap, and a point dropped on another point does not join it. Symptom: a dragged end that is meant to meet another point needs the Coincident button.
+
 ## Keys and settings
 
 - Bare keys need an engaged viewport (pointer over the view, a recent exit, or a click in it; `ENGAGE_GRACE_MS = 1500`). Symptom: a view key does nothing right after using a panel.

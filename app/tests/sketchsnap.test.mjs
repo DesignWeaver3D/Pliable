@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { snap, pick, nearestPoint } from "../src/sketchsnap.ts";
+import { snap, pick, nearestPoint, snapDragged } from "../src/sketchsnap.ts";
 
 // A stand-in for the sketch mode: the sketch plane is the screen (1 unit = 1 pixel), the pointer is already in sketch units.
 function context(tool = "select", extra = {}) {
@@ -44,4 +44,14 @@ test("pick prefers a point over a curve and finds nothing far away", () => {
   assert.deepEqual(pick(ctx, at(1, 2)), { kind: "point", id: 1 });
   assert.deepEqual(pick(ctx, at(40, 3)), { kind: "entity", id: 10 });
   assert.equal(pick(ctx, at(40, 40)), null);
+});
+
+test("a dragged point lands on the grid, the axes, or in line with another point, and never joins one", () => {
+  const ctx = context("select", { s: { plane: { origin: [0, 0, 0], normal: [0, 0, 1], xdir: [1, 0, 0] }, points: [{ id: 1, u: 30, v: 40 }, { id: 2, u: 100, v: 80 }, { id: 3, u: 60, v: 60 }], entities: [], constraints: [] } });
+  assert.deepEqual(snapDragged(ctx, [57, 3], [3]), { u: 57, v: 0 }); // onto the horizontal axis
+  assert.deepEqual(snapDragged(ctx, [2, 61], [3]), { u: 0, v: 61 }); // onto the vertical axis
+  const aligned = snapDragged(ctx, [33, 62], [3]);
+  assert.deepEqual([aligned.u, aligned.v, aligned.guides.length], [30, 62, 1]); // in line with point 1's u
+  assert.deepEqual(snapDragged(ctx, [60, 61], [3]), { u: 60, v: 61 }); // its own place does not count
+  assert.deepEqual(snapDragged(context("select", { options: { snapGrid: true, major: 10, minor: 0 } }), [42, 38], [9]), { u: 40, v: 40 });
 });

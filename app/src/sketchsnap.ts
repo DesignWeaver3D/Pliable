@@ -101,6 +101,32 @@ export function snap(ctx: SnapContext, e: PointerEvent): Snap | null {
   return { u, v, axis };
 }
 
+/**
+ * Where a dragged point lands: the grid when snap to grid is on, then the sketch's axes, else lined up with the u or v of
+ * another point (with guide lines to show it). It never snaps onto other points or curves, so a drag does not join things.
+ */
+export function snapDragged(ctx: Pick<SnapContext, "s" | "options" | "gridStep" | "pixelAt">, uv: [number, number], dragged: number[]): Snap {
+  let [u, v] = uv;
+  if (ctx.options.snapGrid) {
+    const step = ctx.gridStep();
+    [u, v] = [Math.round(u / step) * step, Math.round(v / step) * step];
+  }
+  const reach = SNAP_PX * ctx.pixelAt(u, v);
+  for (const a of M.sketchAxes(ctx.s.plane)) {
+    const t = (u - a.u) * a.du + (v - a.v) * a.dv;
+    const on: [number, number] = [a.u + t * a.du, a.v + t * a.dv];
+    if (Math.hypot(u - on[0], v - on[1]) < reach) return { u: on[0], v: on[1] };
+  }
+  const others = ctx.s.points.filter((p) => !dragged.includes(p.id));
+  const hit = others.find((p) => Math.abs(p.u - u) < reach);
+  const level = others.find((p) => Math.abs(p.v - v) < reach);
+  const [su, sv] = [hit ? hit.u : u, level ? level.v : v];
+  const guides: [number, number][][] = [];
+  if (hit) guides.push([[hit.u, hit.v], [su, sv]]);
+  if (level) guides.push([[level.u, level.v], [su, sv]]);
+  return guides.length ? { u: su, v: sv, guides } : { u, v };
+}
+
 export function pick(ctx: SnapContext, e: PointerEvent): M.SketchSel | null {
   const point = nearestPoint(ctx, e);
   if (point) return { kind: "point", id: point.id };
