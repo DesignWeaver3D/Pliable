@@ -1,4 +1,5 @@
 /** The sketches kept in the document: a list under the bodies (show or hide, open, rename, delete) and their curves drawn in the view. Open paths are kept like closed outlines. */
+import { openRowMenu } from "./rowmenu";
 import * as THREE from "three";
 import type { CoreClient } from "./client";
 import { uiIcon } from "./icons";
@@ -19,6 +20,8 @@ export interface KeptHost {
   open(id: number): void;
   remove(id: number): void;
   rename(id: number, name: string): void;
+  /** A row was clicked: the Delete key then removes it (see listdelete.ts). */
+  pick?(id: number): void;
 }
 
 const CURVE_COLOR = 0x9bb7d4;
@@ -32,6 +35,7 @@ export class KeptSketches {
   private readonly curves = new Map<number, { rev: number; lines: THREE.LineSegments; fills: THREE.Mesh[] }>();
   private readonly profiles = new Map<number, { rev: number; meshes: { positions: number[]; indices: number[] }[] }>();
   private editing: number | null = null;
+  private picked: number | null = null;
   private readonly group = new THREE.Group();
   private syncing = false;
   private again = false;
@@ -51,6 +55,12 @@ export class KeptSketches {
     for (const id of [...this.hidden]) if (!list.some((k) => k.id === id)) this.hidden.delete(id);
     this.render();
     void this.sync();
+  }
+
+  /** Highlight the row the Delete key would remove (null for none). */
+  setPicked(id: number | null) {
+    this.picked = id;
+    this.render();
   }
 
   /** The sketch being edited is drawn by the sketch editor; its kept copy is hidden meanwhile. */
@@ -92,6 +102,16 @@ export class KeptSketches {
       del.append(uiIcon("close", 14));
       del.addEventListener("click", () => this.host.remove(k.id));
       row.append(eye, name, edit, del);
+      row.classList.toggle("selected", this.picked === k.id);
+      row.addEventListener("click", (e) => {
+        if ((e.target as HTMLElement).closest("button, input")) return;
+        this.host.pick?.(k.id);
+      });
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        this.host.pick?.(k.id);
+        openRowMenu(e.clientX, e.clientY, "Delete", () => this.host.remove(k.id), "Delete this sketch (Undo brings it back)");
+      });
       list.append(row);
     }
     if (!this.list.length) {

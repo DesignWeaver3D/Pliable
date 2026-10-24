@@ -66,7 +66,12 @@ class LinearArray(Tool):
         size = math.sqrt(sum(c * c for c in diagonal))
         if size > MIN_DISTANCE:
             corner = tuple(centre[i] + step1[i] * (columns - 1) + step2[i] * (rows - 1) for i in range(3))
-            out.append(Handle("count", "Columns and rows", corner, diagonal, scale=1 / size, min=1, unit="", links=(("rows", 1 / size),)))
+            # A cube grip: dragged in the plane of the two steps it sets columns and rows independently (the view reads `plane`);
+            # when the steps are parallel there is no plane, so it stays an arrow along the diagonal.
+            cross = (step1[1] * step2[2] - step1[2] * step2[1], step1[2] * step2[0] - step1[0] * step2[2], step1[0] * step2[1] - step1[1] * step2[0])
+            grid = math.sqrt(sum(c * c for c in cross)) > MIN_DISTANCE
+            out.append(Handle("count", "Columns and rows", corner, diagonal, scale=1 / size, min=1, unit="", links=(("rows", 1 / size),),
+                              kind="resize" if grid else "arrow", plane=(step1, step2) if grid else None))
         return out
 
     def run(self, topology, selection, values, preview):

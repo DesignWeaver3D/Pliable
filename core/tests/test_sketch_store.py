@@ -263,3 +263,18 @@ def test_every_region_stays_pickable_after_a_neighbour_is_extruded_or_its_body_d
     deleted = decode_binary(session.handle({"type": "delete_body", "body": body}))[0]
     assert body not in [b["id"] for b in deleted["bodies"]]
     assert len(pick(0)) == 1 and len(pick(1)) == 1
+
+
+def test_extruding_a_picked_region_is_one_undo_step():
+    session = open_session()
+    session.handle({"type": "sketch_keep", "sketch": make(session, 10), "regions": False})
+    before = faces(session)
+    picked = header(session.handle({"type": "sketch_regions", "sketch_id": 1, "region": 0}))["selection"]["faces"]
+    pull = {"type": "tool_commit", "tool": "push_pull", "selection": {"faces": picked}, "params": {"distance": 5}, "foldPick": True}
+    after = header(session.handle(pull))
+    pulled = faces(session)
+    assert after["canUndo"] and len(session.document.ids) == 3  # open, keep, pull
+    undone = header(session.handle({"type": "undo"}))
+    assert faces(session) == before and undone["canRedo"]
+    session.handle({"type": "redo"})
+    assert faces(session) == pulled

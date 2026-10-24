@@ -65,6 +65,7 @@ Test on: a simple block, a part with holes (the bracket), and an imported STEP f
 - [ ] add_sphere
 - [ ] add_cone
 - [ ] add_torus
+- [ ] add_prism
 - [ ] linear_array
 - [ ] circular_array
 - [ ] path_array — over connected edges

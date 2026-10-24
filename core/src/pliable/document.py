@@ -194,6 +194,22 @@ class Document:
         bodies = BodyState(state.bodies[:index] + state.bodies[index + 1 :], state.next_id, state.counts)
         return self._push(_compound(solids), bodies)
 
+    def delete_bodies(self, ids: list[int]) -> Topology:
+        """Remove several bodies as one undoable step."""
+        state = self.current.bodies
+        solids = solids_of(self.current.shape)
+        if len(solids) != len(state.bodies) or not ids or len(set(ids)) != len(ids):
+            raise KeyError(ids)
+        drop = set()
+        for body_id in ids:
+            index = state.find(body_id)
+            if index is None:
+                raise KeyError(body_id)
+            drop.add(index)
+        keep = [i for i in range(len(solids)) if i not in drop]
+        bodies = BodyState(tuple(state.bodies[i] for i in keep), state.next_id, state.counts)
+        return self._push(_compound([solids[i] for i in keep]), bodies)
+
     def duplicate_body(self, body_id: int) -> tuple[Topology, int]:
         """Add a copy of one body, in the same place, named after it; returns the new state and the copy's id."""
         state = self.current.bodies
@@ -230,6 +246,17 @@ class Document:
             del self._mirrors[:excess]
             self._index -= excess
         return self.current
+
+    def fold_previous_step(self) -> bool:
+        """Merge the step just before the current one into it, so one undo reverts both (the previous state is forgotten).
+        Used when a picked sketch region's loose face is extruded: the pick and the extrusion are one undo step."""
+        if self._index < 2:
+            return False
+        at = self._index - 1
+        for items in (self._history, self._ids, self._sketches, self._datums, self._mirrors):
+            del items[at]
+        self._index -= 1
+        return True
 
     @property
     def can_undo(self) -> bool:

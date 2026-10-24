@@ -309,7 +309,9 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             document = self._require_document()
             extra: dict = {}
             try:
-                if kind == "delete_body":
+                if kind == "delete_body" and "bodies" in request:  # several bodies, one undo step
+                    target = document.delete_bodies([int(b) for b in request["bodies"]])
+                elif kind == "delete_body":
                     target = document.delete_body(int(request["body"]))
                 else:
                     target, extra["created"] = document.duplicate_body(int(request["body"]))

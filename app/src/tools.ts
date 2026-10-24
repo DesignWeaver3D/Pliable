@@ -44,6 +44,8 @@ export interface HandleInfo {
   /** A rotation handle: the axis it turns about (it is drawn in that axis's colour) and the ring it runs on: centre and radius. */
   axis?: [number, number, number] | null;
   ring?: [number, number, number, number] | null;
+  /** A grid grip: the grid's two step vectors. Dragged in their plane it sets this parameter (whole steps along the first) and the first linked parameter (along the second) independently. */
+  plane?: [[number, number, number], [number, number, number]] | null;
   /** The number shown and typed is the parameter times `factor` (0.5: a diameter parameter shown as a radius), after `symbol`. */
   factor?: number;
   symbol?: string;

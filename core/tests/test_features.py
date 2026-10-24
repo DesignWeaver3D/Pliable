@@ -130,6 +130,18 @@ def test_add_box_and_cylinder(block):
     assert Topology(box.shape).face_count == 6 + 5  # box top and four walls; the block's top face stays
 
 
+def test_add_prism_is_a_regular_polygon_extruded(block):
+    hexagon = run("add_prism", block, diameter=10, height=10, x=0, y=0, z=10, new_body=0)  # defaults to 6 sides
+    assert volume(hexagon.shape) == pytest.approx(24000 + 1.5 * math.sqrt(3) * 25 * 10, rel=1e-4)  # side = circumradius = 5
+    assert Topology(hexagon.shape).face_count == 6 + 7  # the block's six faces, the six walls and the prism's top
+    square = run("add_prism", block, sides=4, diameter=10, height=10, x=0, y=0, z=10, new_body=0)
+    assert volume(square.shape) == pytest.approx(24000 + 2 * 25 * 10, rel=1e-4)  # a square of diagonal 10 has area 50
+    assert volume(run("add_prism", block, sides=4.4, diameter=10, height=10, x=0, y=0, z=10, new_body=0).shape) == pytest.approx(volume(square.shape))  # rounds to 4
+    for bad in (2, 65):
+        with pytest.raises(OperationError):
+            run("add_prism", block, sides=bad)
+
+
 def test_shell_leaves_walls(block):
     result = run("shell", block, faces=[top_of(block)], thickness=2)
     assert volume(result.shape) == pytest.approx(24000 - 36 * 26 * 18, rel=1e-4)
@@ -268,6 +280,15 @@ def test_linear_array_grips_set_spacing_and_counts(block):
     both = handles["Columns and rows"]
     assert both.param == "count" and both.links == (("rows", both.scale),)
     assert both.scale == pytest.approx(1 / 50)  # one more column and row adds a 40 + 30 step diagonal of length 50
+    assert both.kind == "resize" and both.plane == ((40, 0, 0), (0, 30, 0))  # a cube grip dragged in the plane of the two steps
+    assert both.to_json(3, values)["plane"] == [[40.0, 0.0, 0.0], [0.0, 30.0, 0.0]]
+
+
+def test_linear_array_corner_grip_is_an_arrow_when_the_steps_are_parallel(block):
+    tool = get_tool("linear_array")
+    values = tool.bind({"count": 3, "rows": 2, "dx": 40, "dy": 0, "dz": 0, "dx2": 20, "dy2": 0, "dz2": 0})
+    both = next(h for h in tool.handles(block, Selection(faces=[], edges=[]), values) if h.label == "Columns and rows")
+    assert both.kind == "arrow" and both.plane is None
 
 
 def test_circular_array(block):
@@ -504,7 +525,7 @@ def test_path_array_needs_a_connected_path(block):
 def test_placement_tools_declare_their_point_parameters():
     from pliable.tools import TOOLS
 
-    for tool_id in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus", "pattern_hole_circular"):
+    for tool_id in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus", "add_prism", "pattern_hole_circular"):
         info = TOOLS[tool_id].describe()
         assert info["placement"] is not None
         assert all(name in {p["name"] for p in info["params"]} for name in info["placement"])

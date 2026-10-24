@@ -12,6 +12,7 @@ import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay, type Dimension } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
+import { deleteAction, isTyping, type RowRef } from "./listdelete";
 import { DatumPlanes } from "./datumplanes";
 import type { DatumPlane, MirrorMode } from "./datumcorners";
 import { LatestWins } from "./latestwins";
@@ -347,6 +348,7 @@ function setSelection(sels: Sel[]) {
     if (committed === pendingProfile.mesh && !toolPanel.isOpen) void dropPendingProfile(); // clicked away from the picked region: it was only a pick
     else pendingProfile = null; // a tool used it, or the history moved on
   }
+  if (sels.length && pickedRow) pickRow(null); // a body or face was picked: the Delete key leaves the sketch and datum rows
   if (toolPanel.isOpen) toolPanel.close(false); // the selection changed under an open tool form
   viewport.manipulator.clear();
   currentSels = sels;
@@ -517,11 +519,13 @@ for (const type of ["keydown", "keyup"] as const) {
 }
 window.addEventListener("blur", () => (shiftHeld = false));
 
-function toolRequest(sels: Sel[], distance: number) {
+function toolRequest(sels: Sel[], distance: number, commit = false) {
   const tool = dragToolFor(sels)!;
   const params: Record<string, number> = { [dragParam(tool)!]: distance };
   if (tool.id === "push_pull" && dragSymmetric) params.symmetric = 1;
-  return { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params };
+  // Pulling a just-picked sketch region: the pick and the extrusion are one undo step.
+  const foldPick = commit && pendingProfile !== null && committed === pendingProfile.mesh ? { foldPick: true } : {};
+  return { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params, ...foldPick };
 }
 
 function pump(token: number) {
@@ -775,12 +779,12 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
       const start = performance.now();
       let mesh: MeshData;
       try {
-        mesh = await core.request<MeshData>("tool_commit", toolRequest(sels, distance));
+        mesh = await core.request<MeshData>("tool_commit", toolRequest(sels, distance, true));
       } catch (e) {
         // The final size can fail when the last preview reply was dropped at release;
         // fall back to the newest size known to work.
         if (good === null || good === distance) throw e;
-        mesh = await core.request<MeshData>("tool_commit", toolRequest(sels, good));
+        mesh = await core.request<MeshData>("tool_commit", toolRequest(sels, good, true));
       }
       setCommitted(mesh, false, mappedSelection(mesh));
       rememberOp(dragToolFor(sels), sels, distance);
@@ -1049,6 +1053,7 @@ const keptSketches = new KeptSketches({
     }
   },
   remove: (id) => keptRequest("sketch_delete", { sketch_id: id }),
+  pick: (id) => pickRow({ list: "sketch", id }),
   rename: (id, name) => keptRequest("sketch_rename", { sketch_id: id, name }),
 });
 onSketches = (list) => keptSketches.setList(list);
@@ -1059,8 +1064,42 @@ const datumPlanes = new DatumPlanes({
   mirror: $("mirrorstate"),
   mirrorOff: () => keptRequest("mirror_clear", {}),
   remove: (id) => keptRequest("datum_delete", { datum_id: id }),
+  pick: (id) => pickRow({ list: "datum", id }),
   rename: (id, name) => keptRequest("datum_rename", { datum_id: id, name }),
 });
+// The Delete key (listdelete.ts): selected bodies, or the sketch or datum plane row last clicked.
+let pickedRow: RowRef | null = null;
+function pickRow(row: RowRef | null) {
+  pickedRow = row;
+  keptSketches.setPicked(row?.list === "sketch" ? row.id : null);
+  datumPlanes.setPicked(row?.list === "datum" ? row.id : null);
+  if (row && currentSels.length) {
+    viewport.selectItems([]);
+    setSelection([]);
+  }
+}
+window.addEventListener("keydown", (e) => {
+  const action = deleteAction(e.key, {
+    bodies: currentSels.filter((s) => s.kind === "body").map((s) => s.id),
+    row: pickedRow,
+    typing: isTyping(e.target),
+    blocked: sketch.active || toolPanel.isOpen || e.ctrlKey || e.metaKey || e.altKey || viewport.dragging || dragSels !== null,
+  });
+  if (!action) return;
+  e.preventDefault();
+  if (action.kind === "bodies") {
+    if (action.ids.length === 1) void core.request<MeshData>("delete_body", { body: action.ids[0] }).then((mesh) => setCommitted(mesh, false, [])).catch(showError);
+    else void core.request<MeshData>("delete_body", { bodies: action.ids }).then((mesh) => setCommitted(mesh, false, [])).catch(showError);
+  } else {
+    const id = action.row.id;
+    pickRow(null);
+    void (action.row.list === "sketch" ? keptRequest("sketch_delete", { sketch_id: id }) : keptRequest("datum_delete", { datum_id: id }));
+  }
+});
+function showError(e: unknown) {
+  status.textContent = (e as Error).message;
+  status.classList.add("error");
+}
 onDatums = (list, mirror) => {
   datumPlanes.setList(list);
   datumPlanes.setMirror(mirror);

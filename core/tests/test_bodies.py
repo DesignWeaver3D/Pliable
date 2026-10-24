@@ -146,3 +146,16 @@ def test_deleting_the_only_body_leaves_an_empty_model_that_can_be_undone():
     header = decode_binary(session.handle({"type": "delete_body", "body": only}))[0]
     assert header["bodies"] == [] and header["bounds"] == [0.0] * 6
     assert len(decode_binary(session.handle({"type": "undo"}))[0]["bodies"]) == 1
+
+
+def test_deleting_several_bodies_is_one_undo_step():
+    session = make()
+    commit(session, "add_box", {"width": 10, "depth": 10, "height": 10, "x": 100, "new_body": 1})
+    commit(session, "add_box", {"width": 10, "depth": 10, "height": 10, "x": 200, "new_body": 1})
+    ids = [b[0] for b in bodies(decode_binary(session._mesh_reply(session.document.current, {}))[0])]
+    assert len(ids) == 3
+    header = decode_binary(session.handle({"type": "delete_body", "bodies": ids[:2]}))[0]
+    assert [b[0] for b in bodies(header)] == ids[2:]
+    assert [b[0] for b in bodies(decode_binary(session.handle({"type": "undo"}))[0])] == ids
+    with pytest.raises(Exception):
+        session.handle({"type": "delete_body", "bodies": [ids[0], 99]})

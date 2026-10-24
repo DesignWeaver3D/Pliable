@@ -39,6 +39,7 @@ from . import scale_body  # noqa: F401
 from . import add_sphere  # noqa: F401
 from . import add_cone  # noqa: F401
 from . import add_torus  # noqa: F401
+from . import add_prism  # noqa: F401
 from . import linear_array  # noqa: F401
 from . import circular_array  # noqa: F401
 from . import revolve_face  # noqa: F401

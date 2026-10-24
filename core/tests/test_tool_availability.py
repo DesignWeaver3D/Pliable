@@ -20,7 +20,7 @@ def test_nothing_selected_offers_only_tools_that_need_no_selection():
     got = _available(_bracket(), {})
     assert got == {
         # new primitives
-        "add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus",
+        "add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus", "add_prism",
         # whole-model tools (the demo has a single body, so "the whole model" is unambiguous)
         "unify", "cut_plane", "split_plane", "offset_body", "linear_array", "circular_array",
         "move_body", "rotate_body", "scale_body",

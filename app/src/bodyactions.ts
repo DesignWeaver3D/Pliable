@@ -97,6 +97,12 @@ export function installBodyActions(d: BodyActionDeps) {
     remove(id) {
       runBodyRequest("delete_body", id);
     },
+    removeMany(ids) {
+      d.core
+        .request<MeshData>("delete_body", { bodies: ids })
+        .then((mesh) => d.setCommitted(mesh, false, []))
+        .catch(fail);
+    },
     rename(id, name) {
       d.core
         .request<MeshData>("rename_body", { body: id, name })

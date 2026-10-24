@@ -4,6 +4,7 @@
 import * as THREE from "three";
 import { AXIS_COLORS } from "./axes.ts";
 import type { HandleInfo } from "./tools";
+import { gridCounts, gridShift, planePoint } from "./gridgrip.ts";
 
 /** Length of a handle's arm and the radius of its grab target, in screen pixels. */
 export const ARM_PX = 34;
@@ -140,6 +141,9 @@ interface Item {
   label: HTMLElement;
   /** Travel from the declared anchor while this handle is being dragged. */
   travel: number;
+  /** A grid grip: how far the drag moved it from its anchor, and the counts it now asks for. */
+  shift: THREE.Vector3;
+  grid?: { columns: number; rows: number };
 }
 
 interface Active {
@@ -158,6 +162,8 @@ interface Active {
   /** The button was let go while a typed value held the handle. */
   released?: boolean;
   negative: boolean;
+  /** A grid grip: where the pointer first met the plane of the steps. */
+  p0?: THREE.Vector3;
 }
 
 function dispose(o: THREE.Object3D) {
@@ -294,7 +300,7 @@ export class Manipulator {
     const label = document.createElement("div");
     label.style.cssText = "position:absolute;padding:1px 5px;border-radius:3px;background:rgba(20,20,24,.85);color:#ffd9a0;font:11px sans-serif;white-space:nowrap;transform:translate(10px,-50%)";
     this.layer.append(label);
-    return { info: { ...info }, declared: info.ring ? info : undefined, group, tip, arm, axis, label, travel: 0 };
+    return { info: { ...info }, declared: info.ring ? info : undefined, group, tip, arm, axis, label, travel: 0, shift: new THREE.Vector3() };
   }
 
   /** Per frame: keep handles a constant size on screen and put the value labels beside them. */
@@ -314,7 +320,7 @@ export class Manipulator {
         }
       }
       const { info, group } = item;
-      const pos =new THREE.Vector3(...info.anchor).addScaledVector(new THREE.Vector3(...info.direction), item.travel);
+      const pos = new THREE.Vector3(...info.anchor).addScaledVector(new THREE.Vector3(...info.direction), item.travel).add(item.shift);
       group.position.copy(pos);
       if (item.axis && info.axisFrom) {
         const from = new THREE.Vector3(...info.axisFrom);
@@ -347,7 +353,7 @@ export class Manipulator {
       const typing = item === this.active?.item && this.active.typed !== null;
       const symbol = info.symbol ?? "";
       const shown = symbol + (typing ? `${this.active!.negative ? "-" : ""}${this.active!.typed}|` : formatValue(value * (info.factor || 1)));
-      item.label.textContent = info.toggle ? info.label : `${info.label} ${shown}${unit}`;
+      item.label.textContent = info.toggle ? info.label : info.plane && item.grid ? `${info.label} ${item.grid.columns} × ${item.grid.rows}` : `${info.label} ${shown}${unit}`;
       item.label.style.outline = typing ? "1px solid #ffb347" : "";
       item.label.style.fontWeight = hot ? "bold" : "normal";
     }
@@ -362,7 +368,7 @@ export class Manipulator {
   }
 
   private tipPoint(item: Item): THREE.Vector3 {
-    return new THREE.Vector3(...item.info.anchor).addScaledVector(new THREE.Vector3(...item.info.direction), item.travel);
+    return new THREE.Vector3(...item.info.anchor).addScaledVector(new THREE.Vector3(...item.info.direction), item.travel).add(item.shift);
   }
 
   /** The handle under the pointer: the nearest one whose arm or tip is within the grab range. */
@@ -419,6 +425,11 @@ export class Manipulator {
     const tip = this.tipPoint(item);
     const axisPx = this.screen(tip.clone().addScaledVector(dir, this.pixelSizeAt(tip) * ARM_PX)).sub(this.screen(tip));
     this.active = { item, t0: t0 - item.travel, x: e.clientX, y: e.clientY, axisPx, travel0: item.travel, moved: false, typed: null, negative: false };
+    if (item.info.plane) {
+      const [u, v] = item.info.plane;
+      const p = planePoint(ray.origin.toArray(), ray.direction.toArray(), item.info.anchor, u, v);
+      this.active.p0 = p ? new THREE.Vector3(...p) : undefined;
+    }
     this.dom.style.cursor = "grabbing";
     (document.activeElement as HTMLElement | null)?.blur?.(); // typed digits belong to the handle, not to a form field that had focus
     return true;
@@ -443,10 +454,38 @@ export class Manipulator {
     a.lastX = e.clientX;
     a.lastY = e.clientY;
     if (a.typed !== null) return; // a typed value holds the handle; the mouse is ignored
+    if (a.item.info.plane) {
+      this.moveGrid(a, e);
+      return;
+    }
     a.moved = true;
     const value = handleValue(a.item.info, this.travelAt(a, e));
     a.item.travel = travelFor(a.item.info, value);
     this.onDrag(a.item.info.param, Math.round(value * 1000) / 1000, "move", e.clientX, e.clientY, linkedValues(a.item.info, a.item.travel));
+  }
+
+  /** The counts of a grid grip (its parameter and its first linked one) as the grip was computed. */
+  private gridStart(info: HandleInfo): { columns: number; rows: number } {
+    return { columns: info.value, rows: info.links?.[0]?.value ?? 1 };
+  }
+
+  /** A grid grip follows the pointer in the plane of the steps and asks for whole columns and rows, independently. */
+  private moveGrid(a: Active, e: { clientX: number; clientY: number }) {
+    const { item } = a;
+    const { info } = item;
+    if (!info.plane || !a.p0) return;
+    const ray = this.ray(e);
+    const p = planePoint(ray.origin.toArray(), ray.direction.toArray(), info.anchor, info.plane[0], info.plane[1]);
+    if (!p) return;
+    const [u, v] = info.plane;
+    const start = this.gridStart(info);
+    const delta = new THREE.Vector3(...p).sub(a.p0);
+    const now = gridCounts(delta.toArray(), u, v, start.columns, start.rows, info.min ?? 1);
+    a.moved = true;
+    item.grid = now;
+    item.shift.set(...gridShift(u, v, now.columns, now.rows, start.columns, start.rows));
+    const rowsParam = info.links?.[0]?.param;
+    this.onDrag(info.param, now.columns, "move", e.clientX, e.clientY, rowsParam ? { [rowsParam]: now.rows } : {});
   }
 
   /** Whether a number is being typed for the handle being dragged. */
@@ -459,6 +498,12 @@ export class Manipulator {
   key(e: { key: string }): boolean {
     const a = this.active;
     if (!a || a.item.info.toggle) return false;
+    if (a.item.info.plane) {
+      // A grid grip has two values, so there is no typed entry: Enter keeps the drag, Escape cancels it.
+      if (e.key === "Enter") this.finish();
+      else if (e.key === "Escape") this.cancel();
+      return e.key === "Enter" || e.key === "Escape";
+    }
     if (e.key === "Enter") {
       // The typed value is applied only now; while typing, only the label shows it and the shape stays put.
       const travel = a.typed === null ? null : typedTravel(a.item.info, a.typed, a.negative);
@@ -511,6 +556,14 @@ export class Manipulator {
     this.dom.style.cursor = "";
     const { info } = a.item;
     a.item.travel = a.travel0;
+    if (info.plane) {
+      a.item.shift.set(0, 0, 0);
+      a.item.grid = undefined;
+      const start = this.gridStart(info);
+      const rowsParam = info.links?.[0]?.param;
+      if (a.moved) this.onDrag(info.param, start.columns, "cancel", a.lastX ?? a.x, a.lastY ?? a.y, rowsParam ? { [rowsParam]: start.rows } : {});
+      return;
+    }
     if (a.moved) this.onDrag(info.param, Math.round(handleValue(info, a.travel0) * 1000) / 1000, "cancel", a.lastX ?? a.x, a.lastY ?? a.y, linkedValues(info, a.travel0));
   }
 
@@ -531,6 +584,12 @@ export class Manipulator {
     const e = { clientX: x, clientY: y };
     if (info.toggle) {
       this.onDrag(info.param, info.value >= 0.5 ? 0 : 1, "end", e.clientX, e.clientY, {});
+      return;
+    }
+    if (info.plane) {
+      const now = a.item.grid;
+      const rowsParam = info.links?.[0]?.param;
+      if (a.moved && now) this.onDrag(info.param, now.columns, "end", e.clientX, e.clientY, rowsParam ? { [rowsParam]: now.rows } : {});
       return;
     }
     if (a.moved) this.onDrag(info.param, Math.round(handleValue(info, travel) * 1000) / 1000, "end", e.clientX, e.clientY, linkedValues(info, travel));

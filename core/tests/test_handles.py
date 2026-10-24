@@ -87,6 +87,7 @@ PRIMITIVES = {
     "add_sphere": {"diameter": 9, "x": 3, "y": -2, "z": 1},
     "add_cone": {"bottom_diameter": 10, "top_diameter": 4, "height": 7, "x": 3, "y": -2, "z": 1},
     "add_torus": {"major": 20, "minor": 5, "x": 3, "y": -2, "z": 1},
+    "add_prism": {"sides": 5, "diameter": 9, "height": 7, "x": 3, "y": -2, "z": 1},
 }
 
 
@@ -152,7 +153,7 @@ def test_size_handles_sit_on_the_solid_and_resizing_moves_its_extent(tool_id):
 
     base, base_volume = solid(params)
     for h in _handles(tool_id, params):
-        if h["param"] in ("x", "y", "z", "rx", "ry", "rz"):
+        if h["param"] in ("x", "y", "z", "rx", "ry", "rz", "sides"):  # a count of sides is not an extent
             continue
         axis = max(range(3), key=lambda i: abs(h["direction"][i]))
         # The anchor lies on the solid's outer extent along its axis (the tip of the top diameter sits just outside).
@@ -397,7 +398,7 @@ def test_chamfer_two_distances_handles_mark_the_leg_on_each_side_and_follow_the_
 
 
 def test_primitive_move_arrows_point_the_positive_way_and_resize_grips_are_marked(session):
-    for tool in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus"):
+    for tool in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus", "add_prism"):
         handles = session.handle({"type": "tool_handles", "tool": tool, "params": {"x": 5, "y": 6, "z": 7}})["handles"]
         moves = {h["param"]: h for h in handles if h["kind"] == "move"}
         assert set(moves) == {"x", "y", "z"}
@@ -408,7 +409,7 @@ def test_primitive_move_arrows_point_the_positive_way_and_resize_grips_are_marke
 
 
 def test_primitives_offer_anchor_points_with_the_default_at_the_placement_point(session):
-    for tool in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus"):
+    for tool in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus", "add_prism"):
         anchors = session.handle({"type": "tool_handles", "tool": tool})["anchors"]
         assert anchors and anchors[0]["offset"] == [0.0, 0.0, 0.0]
         assert len({a["label"] for a in anchors}) == len(anchors)

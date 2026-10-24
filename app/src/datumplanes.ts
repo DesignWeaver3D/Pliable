@@ -1,5 +1,6 @@
 /** The datum planes kept in the document: a list under the sketches (show or hide, rename, delete) and each plane drawn
  *  in the view as a thin outlined square. They are helper planes for operations such as symmetric push/pull and mirror. */
+import { openRowMenu } from "./rowmenu";
 import * as THREE from "three";
 import { uiIcon } from "./icons";
 import { DATUM_HALF, datumCorners, type DatumPlane, type MirrorMode } from "./datumcorners";
@@ -13,6 +14,8 @@ export interface DatumHost {
   mirrorOff(): void;
   remove(id: number): void;
   rename(id: number, name: string): void;
+  /** A row was clicked: the Delete key then removes it (see listdelete.ts). */
+  pick?(id: number): void;
 }
 
 const DATUM_COLOR = 0xd49bd0;
@@ -22,6 +25,7 @@ export class DatumPlanes {
   private readonly hidden = new Set<number>();
   private readonly group = new THREE.Group();
   private mirror: MirrorMode | null = null;
+  private picked: number | null = null;
   private readonly host: DatumHost;
 
   constructor(host: DatumHost) {
@@ -33,6 +37,12 @@ export class DatumPlanes {
 
   get planes(): readonly DatumPlane[] {
     return this.list;
+  }
+
+  /** Highlight the row the Delete key would remove (null for none). */
+  setPicked(id: number | null) {
+    this.picked = id;
+    this.render();
   }
 
   /** Mirror mode changed (every committed state): show its plane and a line to turn it off. */
@@ -120,6 +130,16 @@ export class DatumPlanes {
       del.append(uiIcon("close", 14));
       del.addEventListener("click", () => this.host.remove(d.id));
       row.append(eye, name, del);
+      row.classList.toggle("selected", this.picked === d.id);
+      row.addEventListener("click", (e) => {
+        if ((e.target as HTMLElement).closest("button, input")) return;
+        this.host.pick?.(d.id);
+      });
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        this.host.pick?.(d.id);
+        openRowMenu(e.clientX, e.clientY, "Delete", () => this.host.remove(d.id), "Delete this datum plane (Undo brings it back)");
+      });
       list.append(row);
     }
     if (!this.list.length) {
