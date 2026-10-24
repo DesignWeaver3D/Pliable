@@ -9,6 +9,10 @@ Only real questions that need your answer. Each one ends with a question mark an
 3. Should a relationship (for example "these two holes stay coaxial") be lockable so that it is re-checked after every edit, or should everything stay re-detected on each edit? A lock would remember the faces and could go silently stale after a complex edit, which is the risk. Options: soft locks with a warning when one is lost, or re-detect only. Default: re-detect only.
 4. After you edit a part that has fillets, should the fillets be removed and re-added around the edit automatically, or only when the edit fails? Re-adding saves a manual step but can change a rounded edge you did not mean to touch. Options: automatic "round last", or only on failure. Default: only on failure.
 
+5. Should the smart dimension menus also offer Radius for a circle, Coincident for separated points, and Parallel, Perpendicular or Angle for two lines, so the matching discrete constraint buttons can be removed? Those buttons stay today because some selections have no smart route, which keeps two ways to do the same thing. Options: add the choices and remove the buttons, or keep the buttons as they are. Default if unanswered: keep the buttons.
+6. What exact steps show "sketch face extrusion by the pull gizmo didn't get registered in undo"? Undo and redo worked in every case tried; the only gap found was that one Undo left the picked loose face behind, now fixed so a single Undo removes both. Default if unanswered: treat it as fixed.
+7. Should `sketch.ts` (about 1860 lines) and `main.ts` (about 1450 lines) be split into modules now? The commit hook flags both, and the architecture plan holds the order and risks. Options: split now with a Chrome check per slice, or keep adding features first. Default if unanswered: keep adding features, no split.
+
 The other open questions in the research notes (hotkey letters per tool, plain Delete on a selected face, a repeat-last key, drag-only versus gizmo-first, blocking versus hint for fillet order) are listed in docs/future-ideas.md; none of them blocks work.
 
 ## Topics you asked to discuss one at a time
