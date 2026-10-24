@@ -15,6 +15,9 @@ Sketch requests (owner, 2026-10-24, third batch), one row each, in this order:
 - **Smart dimension on many selections (build; plan and the owner's answers in [smart-dimension-plan.md](smart-dimension-plan.md)).** Owner: "We need the smart dimension tool do work on as many selections as possible to make constraining much easier." Needs: every item in the "Owner decisions" section of the plan file, in the order given there.
 
 
+- **Undo for sketch face extrusion by the pull gizmo.** "Sketch face extrusion by pull gizmo didn't get registered in undo." Needs: the extrusion is one undo step; redo restores it; test where possible.
+- **Delete key removes selected bodies in the lists.** "Select body or multiple bodies by shift or ctrl addition in the body list should be able to be deleted by delete key stroke and not require using the right-click menu, though that should be another avenue to deleting bodies and other project objects in any of the lists." Needs: Delete removes the selected bodies (multi-select by Shift or Ctrl); the right-click menu still deletes; other project lists get Delete and right-click delete too.
+- **Linear array rows and columns grip is a cube.** "Linear Array columns and rows gizmo grip should be a cube that allows having differing values for columns and rows. The current arrow grip only moves diagonally and forces same qty of rows and columns." Needs: the corner grip is a cube; dragging it sets columns and rows independently.
 - **Stored array parameters (long term, needs owner feedback).** Store array parameters like primitives (editable later); today arrays make separate solids. Consider an option for the array to be a compound with its source object.
 
 ## Awaiting the owner's hand test
