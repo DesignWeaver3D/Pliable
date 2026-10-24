@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { axisLines, polyline, distanceTo, entityPoints, measure, optionsFor, describeConstraint, dimensionsOf, constraintMarks, sketchAxes, allConstraintOptions, constraintsToAdd } from "../src/sketchmodel.ts";
+import { axisLines, polyline, distanceTo, entityPoints, measure, optionsFor, describeConstraint, dimensionsOf, constraintMarks, sketchAxes, allConstraintOptions, constraintsToAdd, angleSideOutside } from "../src/sketchmodel.ts";
 
 const plane = (origin, normal, xdir) => ({ origin, normal, xdir });
 
@@ -257,4 +257,21 @@ test("Horizontal on one nearly horizontal line adds its constraint", () => {
   assert.deepEqual(constraintsToAdd(horizontal, s, sel), [{ type: "horizontal", entity: 10 }]);
   const two = { ...s, points: [...s.points, { id: 3, u: 0, v: 5 }, { id: 4, u: 1, v: 9 }], entities: [...s.entities, { id: 11, type: "line", a: 3, b: 4 }] };
   assert.equal(constraintsToAdd(horizontal, two, [...sel, { kind: "entity", id: 11 }]).length, 2);
+});
+
+test("an angle value dragged across the lines switches between the inside and the outside angle", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 0, v: 0 }, { id: 4, u: 5, v: 5 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 3, b: 4 }],
+    constraints: [],
+  };
+  assert.equal(angleSideOutside(s, [10, 11], [8, 2]), false); // between the two directions (45 degrees)
+  assert.equal(angleSideOutside(s, [10, 11], [-8, -2]), false); // the opposite sector has the same angle
+  assert.equal(angleSideOutside(s, [10, 11], [-3, 4]), true); // across the second line: 135 degrees
+  assert.equal(angleSideOutside(s, [10, 11], [3, -4]), true);
+  const c = { id: 1, type: "angle", entities: [10, 11] };
+  assert.ok(Math.abs(measure(s, c) - 45) < 1e-9);
+  assert.ok(Math.abs(measure(s, { ...c, outside: true }) - 135) < 1e-9);
+  assert.equal(angleSideOutside({ ...s, points: [...s.points.slice(0, 3), { id: 4, u: 5, v: 0 }] }, [10, 11], [1, 1]), null);
 });

@@ -1050,3 +1050,22 @@ def test_a_redundant_dimension_marked_reference_solves_and_drives_nothing():
     assert sketch.solve(_circle_with(driving, redundant))["status"] == "failed"
     result = sketch.solve(_circle_with(driving, {**redundant, "reference": True}))
     assert result["status"] == "ok" and result["radii"][10] == pytest.approx(5)
+
+
+def _two_lines():
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 0, "v": 0.0}, {"id": 4, "u": 5, "v": 6}]
+    return points, [{"id": 10, "type": "line", "a": 1, "b": 2}, {"id": 11, "type": "line", "a": 3, "b": 4}]
+
+
+@pytest.mark.parametrize("outside,expected", [(False, 60.0), (True, 120.0)])
+def test_angle_between_lines_can_be_the_inside_or_the_outside_value(outside, expected):
+    points, lines = _two_lines()
+    cons = [{"id": 30, "type": "coincident", "points": [1, 3]}, {"id": 31, "type": "horizontal", "entity": 10}, {"id": 32, "type": "angle", "entities": [10, 11], "value": 60, "outside": outside}]
+    result = sketch.solve(sketch_of(points, lines, cons))
+    assert result["status"] == "ok"
+    p = coords(result)
+    angle = math.degrees(math.atan2(p[4][1] - p[3][1], p[4][0] - p[3][0]))
+    a = (p[2][0] - p[1][0], p[2][1] - p[1][1])
+    b = (p[4][0] - p[3][0], p[4][1] - p[3][1])
+    between = math.degrees(math.acos((a[0] * b[0] + a[1] * b[1]) / math.hypot(*a) / math.hypot(*b)))
+    assert between == pytest.approx(60.0 if not outside else 120.0, abs=1e-4)

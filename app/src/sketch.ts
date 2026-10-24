@@ -1423,6 +1423,16 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       window.addEventListener("pointerup", () => (this.draggedDimension = null), { once: true, capture: true });
     }
     c.place = at;
+    if (c.type === "angle" && c.entities?.length === 2) {
+      // Dragging the value across the lines switches between the inside angle and the outside one (the supplement, 180 degrees at most).
+      const outside = M.angleSideOutside(this.s, [c.entities[0], c.entities[1]], at);
+      if (outside !== null && outside !== !!c.outside) {
+        if (outside) c.outside = true;
+        else delete c.outside;
+        if (c.value !== undefined) c.value = M.measure(this.s, c) ?? c.value;
+        void this.resolve();
+      }
+    }
     this.render(false);
   }
   private draggedDimension: number | null = null;

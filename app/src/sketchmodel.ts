@@ -35,6 +35,8 @@ export interface SketchConstraint {
   value?: number;
   /** A dimension that only reports the current measurement (shown in brackets); the solver ignores it. */
   reference?: boolean;
+  /** Angle between two lines: the value is the outside angle (180 degrees minus the one between the line directions). */
+  outside?: boolean;
   /** Added by a drawing tool rather than chosen by the user; shown as such and removable with one click. */
   auto?: boolean;
   /** Where the user dragged this dimension's text to, in sketch coordinates (display only; the solver ignores it). */

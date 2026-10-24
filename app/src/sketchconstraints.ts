@@ -66,10 +66,28 @@ export function measure(s: SketchData, c: SketchConstraint): number | null {
       if (!a || !b || a.type !== "line" || b.type !== "line") return null;
       const d = (l: typeof a) => [pointOf(s, l.b).u - pointOf(s, l.a).u, pointOf(s, l.b).v - pointOf(s, l.a).v];
       const [da, db] = [d(a), d(b)];
-      return (Math.acos((da[0] * db[0] + da[1] * db[1]) / Math.hypot(...da) / Math.hypot(...db)) * 180) / Math.PI;
+      const inside = (Math.acos((da[0] * db[0] + da[1] * db[1]) / Math.hypot(...da) / Math.hypot(...db)) * 180) / Math.PI;
+      return c.outside ? 180 - inside : inside;
     }
   }
   return null;
+}
+
+/** Which angle between two lines a point (a dragged value) sits in: true for the outside one, false for the inside one (between the line directions), null when the lines are parallel. */
+export function angleSideOutside(s: SketchData, lines: [number, number], at: [number, number]): boolean | null {
+  const [a, b] = lines.map((id) => s.entities.find((e) => e.id === id));
+  if (!a || !b || a.type !== "line" || b.type !== "line") return null;
+  const [a0, a1, b0, b1] = [pointOf(s, a.a), pointOf(s, a.b), pointOf(s, b.a), pointOf(s, b.b)];
+  const da = [a1.u - a0.u, a1.v - a0.v];
+  const db = [b1.u - b0.u, b1.v - b0.v];
+  const cross = (p: number[], q: number[]) => p[0] * q[1] - p[1] * q[0];
+  const det = cross(da, db);
+  if (Math.abs(det) < 1e-12 * (Math.hypot(...da) * Math.hypot(...db) || 1)) return null;
+  // Where the two lines meet, then the point as a mix of the two directions from there: the same signs means the sector between the directions.
+  const t = cross([b0.u - a0.u, b0.v - a0.v], db) / det;
+  const meet = [a0.u + t * da[0], a0.v + t * da[1]];
+  const v = [at[0] - meet[0], at[1] - meet[1]];
+  return (cross(v, db) / det) * (cross(da, v) / det) < 0;
 }
 
 /** Every constraint an option adds for the selection: its several at once, or the single one when it has no several for this selection (a lone line gives none from `buildMany`). */

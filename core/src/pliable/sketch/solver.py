@@ -122,7 +122,7 @@ class _Solver:
                 raise SketchError("Equal needs two lines or two round entities")
         elif kind == "angle":
             a, b = (self._entity(e, "line") for e in c["entities"])
-            h = s.addAngle(value, False, a, b, wp, g)
+            h = s.addAngle(value, bool(c.get("outside")), a, b, wp, g)  # outside: the value is the supplement (the angle across the other pair of sectors)
         elif kind == "axis_angle":  # the angle between a line and the sketch's horizontal axis
             h = s.addAngle(value, False, self._entity(c["entity"], "line"), self._axis_line(True), wp, g)
         elif kind == "tangent":
