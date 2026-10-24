@@ -16,6 +16,7 @@ import * as Sn from "./sketchsnap";
 import * as Pv from "./sketchpreview";
 import * as T from "./sketchtyped";
 import * as F from "./sketchfit";
+import * as Co from "./sketchcoincident";
 import { buildConstraintList, buildToolOptions, button, el, type PanelContext } from "./sketchpanelparts";
 import { openSketchSettings } from "./sketchsettings";
 import { parseValue } from "./dimedit";
@@ -858,7 +859,16 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     } else if (e.key === "Enter" && this.chain.length) {
       this.endChain();
     } else if ((e.key === "Delete" || e.key === "Backspace") && this.selection.length) {
+      // Only points selected and something holds them to other geometry: Delete lets go of that (the lines stay).
+      const released = this.selection.every((x) => x.kind === "point") ? Co.releasePoints(this.s, this.selection.map((x) => x.id)) : null;
       this.pushUndo();
+      if (released) {
+        this.s = released;
+        this.selection = [];
+        this.resolve();
+        this.render();
+        return this.host.status("Removed the coincidence at the selected points; the lines stay");
+      }
       for (const sel of this.selection) {
         const reference = sel.kind === "entity" ? this.s.entities.find((e) => e.id === sel.id)?.reference : this.s.points.find((p) => p.id === sel.id)?.fixed;
         if (!reference) this.s = M.remove(this.s, sel); // the face outline stays

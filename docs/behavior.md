@@ -63,6 +63,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - While a sketch shape is being drawn, typing digits starts a size entry for the next point: Tab (or space) moves to the next number, Enter places the shape. Rectangle takes width and height, slot length and width, ellipse long and short radius, arc radius and sweep degrees; line, circle and polygons take one number.
 - Every sketch drawing tool except Line returns to Select once its first shape is complete; Line keeps drawing.
 - While a sketch is open, the nav cube's zoom to fit everything fits all geometry of the sketch being edited, and zoom to fit selection fits the selected sketch points and curves.
+- In a sketch, Delete with only points selected removes what holds them to other geometry (a coincident constraint, or the shared end of two lines, which is split in two) and leaves the lines; a point nothing holds is deleted with its geometry as before.
 - Horizontal and vertical constraints apply to several selected lines at once; by default both kinds are applied as detected (nearly horizontal lines get horizontal, nearly vertical get vertical).
 - Every dimensional constraint (any constraint holding a number) is editable on screen by double-clicking its dimension leader or its number.
 - When a numeric constraint is created, its dimension appears immediately with the as-created value prefilled and ready for editing.
