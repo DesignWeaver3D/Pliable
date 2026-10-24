@@ -1249,6 +1249,9 @@ toolPanel.renderList();
 // A handle dragged in the view sets its parameter through the open form, so typed entry and the preview stay in step.
 // With no form open (a selection waiting for its drag tool) the handle runs that tool's normal drag instead.
 let lastDragEvent = 0;
+// The value arrow of the selection's drag tool (push/pull's) starts the same drag as pressing the face: measure pick, typed value, Shift.
+viewport.handleStartsItemDrag = (info) =>
+  !toolPanel.isOpen && selectionHandleTool?.id === "push_pull" && !info.toggle && info.param === dragParam(selectionHandleTool);
 viewport.manipulator.onDrag = (param, value, phase, x, y, linked) => {
   lastDragEvent = performance.now();
   if (sketch.onPlaneDrag(param, value, phase)) return; // a sketch's plane gizmo
