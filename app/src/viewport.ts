@@ -450,7 +450,8 @@ export class Viewport {
         }
         this.dragReleased = false;
         this.drag = { sels: [...this.selected], normal: direction, point: hit.point, x: e.clientX, y: e.clientY, moved: false };
-        this.measures = this.drag.sels.length === 1 && hit.kind === "face" ? this.findMeasures(this.drag.sels[0], direction, hit.point) : [];
+        // The edges come from the face pressed, also when companion faces (the "With parallel face" chips) are selected with it.
+        this.measures = hit.kind === "face" ? this.findMeasures({ kind: "face", id: hit.id }, direction, hit.point) : [];
         this.primaryMeasure = this.measures.reduce<Measure | null>(
           (best, m) => (best === null || m.anchor.distanceTo(hit.point) < best.anchor.distanceTo(hit.point) ? m : best),
           null,
