@@ -13,6 +13,7 @@ import { DimensionOverlay, type Dimension } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
 import { deleteAction, isTyping, type RowRef } from "./listdelete";
+import { outOf } from "./pulldir";
 import { DatumPlanes } from "./datumplanes";
 import type { DatumPlane, MirrorMode } from "./datumcorners";
 import { LatestWins } from "./latestwins";
@@ -174,7 +175,7 @@ async function refreshSelectionHandles() {
     return;
   }
   try {
-    const reply = await core.request<{ handles: HandleInfo[] }>("tool_handles", { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params: {} });
+    const reply = await core.request<{ handles: HandleInfo[] }>("tool_handles", { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params: tool.id === "push_pull" ? viewport.pullDirection.params() : {} });
     if (currentSels !== sels || toolPanel.isOpen) return; // the selection changed or a form took over while waiting
     viewport.manipulator.setHandles(reply.handles);
   } catch {
@@ -348,6 +349,7 @@ function setSelection(sels: Sel[]) {
     if (committed === pendingProfile.mesh && !toolPanel.isOpen) void dropPendingProfile(); // clicked away from the picked region: it was only a pick
     else pendingProfile = null; // a tool used it, or the history moved on
   }
+  viewport.pullDirection.reset(); // a chosen push/pull direction belongs to the face it was chosen for
   if (sels.length && pickedRow) pickRow(null); // a body or face was picked: the Delete key leaves the sketch and datum rows
   if (toolPanel.isOpen) toolPanel.close(false); // the selection changed under an open tool form
   viewport.manipulator.clear();
@@ -523,6 +525,7 @@ function toolRequest(sels: Sel[], distance: number, commit = false) {
   const tool = dragToolFor(sels)!;
   const params: Record<string, number> = { [dragParam(tool)!]: distance };
   if (tool.id === "push_pull" && dragSymmetric) params.symmetric = 1;
+  if (tool.id === "push_pull") Object.assign(params, viewport.pullDirection.params()); // the chosen direction (pulldir.ts), for the arrow handle and the face drag alike
   // Pulling a just-picked sketch region: the pick and the extrusion are one undo step.
   const foldPick = commit && pendingProfile !== null && committed === pendingProfile.mesh ? { foldPick: true } : {};
   return { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params, ...foldPick };
@@ -626,6 +629,30 @@ viewport.onCentreDrag = async (face, offset, phase) => {
   }
 };
 viewport.onEyedropCancel = () => cancelEyedrop();
+// The push/pull direction: the gizmo's pick icon asks for an edge (a straight line) or a face (its normal); the selected face itself goes back to its own normal.
+viewport.pullDirection.onChange = () => void refreshSelectionHandles();
+viewport.pullGizmo.onPick = () => {
+  cancelEyedrop();
+  status.classList.remove("error");
+  status.textContent = "Push/pull direction: click a straight edge (or a face for its normal); the selected face resets it; Esc cancels";
+  // The press that raised the pick is still going: arm the picker once it is let go, or its own release would pick the face under it.
+  window.addEventListener("pointerup", () => (viewport.eyedropper = pickPullDirection), { once: true });
+};
+const pickPullDirection = (sel: Sel) => {
+  {
+    viewport.eyedropper = null;
+    const own = currentSels.length === 1 && currentSels[0].kind === "face" && sel.kind === "face" && sel.id === currentSels[0].id;
+    const direction = own ? null : viewport.directionOf(sel);
+    if (!own && !direction) {
+      status.textContent = "Pick a straight edge or a flat face for the direction";
+      status.classList.add("error");
+      return;
+    }
+    const normal = viewport.pullDirection.normal;
+    viewport.pullDirection.set(direction && normal ? outOf(direction, normal) : null);
+    status.textContent = direction ? "Push/pull direction set; drag the arrow" : "Push/pull direction reset to the face normal";
+  }
+};
 viewport.onFaceBody = (id) => {
   const picked: Sel[] = [{ kind: "body", id }];
   viewport.selectItems(picked);

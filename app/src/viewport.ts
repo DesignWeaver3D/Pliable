@@ -11,6 +11,8 @@ import type { CentreInfo, FaceRange, MeshData } from "./client";
 import { splitDrawLists } from "./slide";
 import { ghostRuns } from "./visibility";
 import { Manipulator } from "./manipulator";
+import { PullGizmo } from "./pullgizmo";
+import { PullDirection, edgeVector, type Vec } from "./pulldir";
 import type { HandleInfo } from "./tools";
 import { onSettingsChange, settings, updateSettings } from "./settings";
 import { parentBodies, similarTo, type SimilarKind } from "./selfilter";
@@ -198,6 +200,9 @@ export class Viewport {
 
   /** The handles a tool declares for its parameters, drawn over the model and dragged with the left button. */
   readonly manipulator: Manipulator;
+  /** The push/pull direction (see pulldir.ts) and the gizmo that sets it. */
+  readonly pullDirection = new PullDirection();
+  readonly pullGizmo: PullGizmo;
 
   /** While set (sketch mode), left-button pointer events go here instead of selection and tool drags. */
   interceptor: { down(e: PointerEvent): void; move(e: PointerEvent): void; up(e: PointerEvent): void } | null = null;
@@ -434,6 +439,7 @@ export class Viewport {
     this.controls.zoomToCursor = true;
     const dom = this.renderer.domElement;
     this.manipulator = new Manipulator(this.scene, () => this.camera, dom, (p) => this.pixelSizeAt(p));
+    this.pullGizmo = new PullGizmo(this.scene, () => this.camera, dom, (p) => this.pixelSizeAt(p), this.manipulator, this.pullDirection);
     let down: { x: number; y: number } | null = null;
     dom.addEventListener("pointerdown", (e) => {
       if (this.interceptor && e.button === 0) {
@@ -443,6 +449,11 @@ export class Viewport {
           return;
         }
         this.interceptor.down(e);
+        return;
+      }
+      // The direction gizmo past the push/pull arrow: its pick icon and tilt arcs.
+      if (e.button === 0 && !this.measureMode && !this.eyedropper && this.pullGizmo.down(e)) {
+        dom.setPointerCapture(e.pointerId);
         return;
       }
       // The arrow handle of the selection's drag tool is a start point for the same drag as pressing the face itself.
@@ -464,7 +475,9 @@ export class Viewport {
       if (this.startCentreDrag(e) || this.startDivideDrag(e)) return;
       const hit = this.pickHit(e);
       this.box = null;
-      const direction = hit && this.dragDirection(hit);
+      // A chosen push/pull direction replaces the normal of the selected face being pressed (the arrow handle already carries it).
+      const chosen = hit?.kind === "face" && this.pullDirection.dir && this.isSelected(hit) ? new THREE.Vector3(...this.pullDirection.dir) : null;
+      const direction = chosen ?? (hit && this.dragDirection(hit));
       // Dragging the selected face or edge starts its tool instead of orbiting.
       const additive = e.ctrlKey || e.metaKey || e.shiftKey;
       const shiftOnly = e.shiftKey && !e.ctrlKey && !e.metaKey; // Shift keeps the selection and drags symmetrically (push/pull)
@@ -498,6 +511,10 @@ export class Viewport {
         this.updateBox(e);
         return;
       }
+      if (this.pullGizmo.dragging) {
+        this.pullGizmo.move(e);
+        return;
+      }
       if (this.manipulator.dragging) {
         this.manipulator.move(e);
         return;
@@ -507,7 +524,7 @@ export class Viewport {
         if (e.buttons === 0 && this.manipulator.count) this.manipulator.hover(e);
         return;
       }
-      if (e.buttons === 0 && !this.drag) this.manipulator.hover(e);
+      if (e.buttons === 0 && !this.drag && !this.pullGizmo.hover(e)) this.manipulator.hover(e);
       if (this.drag) {
         if (this.measureMode) {
           this.measureHover = this.nearestMeasure(e);
@@ -570,6 +587,10 @@ export class Viewport {
       if (body !== null) this.onFaceBody(body);
     });
     dom.addEventListener("pointerup", (e) => {
+      if (this.pullGizmo.dragging && e.button === 0) {
+        this.pullGizmo.up();
+        return;
+      }
       if (this.manipulator.dragging && e.button === 0) {
         this.manipulator.up(e);
         return;
@@ -672,6 +693,7 @@ export class Viewport {
       this.fitClipping();
       this.renderer.render(this.scene, this.camera);
       this.manipulator.update();
+      this.pullGizmo.update();
       this.onFrame();
       this.onFrame2?.();
     });
@@ -1410,6 +1432,18 @@ export class Viewport {
   private pick(e: PointerEvent): Sel | null {
     const hit = this.pickHit(e);
     return hit && { kind: hit.kind, id: hit.id };
+  }
+
+  /** The direction a picked edge (its straight line) or face (its normal) gives, or null for a curved edge or an unknown item. */
+  directionOf(sel: Sel): Vec | null {
+    const data = this.data;
+    if (!data) return null;
+    if (sel.kind === "face") return data.faces.find((f) => f.id === sel.id)?.normal ?? null;
+    if (sel.kind !== "edge") return null;
+    const edge = data.edges.find((e) => e.id === sel.id);
+    if (!edge || edge.count !== 2) return null;
+    const at = (i: number): Vec => [data.edgePositions[i * 3], data.edgePositions[i * 3 + 1], data.edgePositions[i * 3 + 2]];
+    return edgeVector(at(edge.start), at(edge.start + 1));
   }
 
   /** Axis a picked item is dragged along (faces: normal, edges: outward bisector), or null if it has none. */
