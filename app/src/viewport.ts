@@ -11,6 +11,7 @@ import type { CentreInfo, FaceRange, MeshData } from "./client";
 import { splitDrawLists } from "./slide";
 import { ghostRuns } from "./visibility";
 import { Manipulator } from "./manipulator";
+import type { HandleInfo } from "./tools";
 import { onSettingsChange, settings, updateSettings } from "./settings";
 import { parentBodies, similarTo, type SimilarKind } from "./selfilter";
 import { bodyColorArray } from "./bodycolorarray";
@@ -160,6 +161,8 @@ export class Viewport {
   onFaceBody: (bodyId: number) => void = () => {};
   /** Dragging a selected face or edge drives its tool on the whole selection. distance is in model units along the dragged item's outward direction. */
   onItemDrag: (sels: Sel[], distance: number, phase: "move" | "end" | "cancel", x?: number, y?: number) => void = () => {};
+  /** Whether this handle of the selection starts the selection's tool drag (set by main.ts: the drag tool's own value handle). */
+  handleStartsItemDrag: (info: HandleInfo) => boolean = () => false;
   /** While true (typed value entry or measure mode), pointer movement does not change the drag distance. */
   holdDrag = false;
   /** Set when the button was let go while a typed value held the drag; Escape then cancels instead of resuming the mouse. */
@@ -298,6 +301,19 @@ export class Viewport {
     return new THREE.Vector2(((n.x + 1) / 2) * rect.width, ((1 - n.y) / 2) * rect.height);
   }
 
+  /** Starts the tool drag of the selection: the one path behind both a direct face press and the face's arrow handle. */
+  private beginItemDrag(e: PointerEvent, direction: THREE.Vector3, point: THREE.Vector3, faceId: number | null) {
+    this.dragReleased = false;
+    this.drag = { sels: [...this.selected], normal: direction, point, x: e.clientX, y: e.clientY, moved: false };
+    // The edges come from the face pressed, also when companion faces (the "With parallel face" chips) are selected with it.
+    this.measures = faceId !== null ? this.findMeasures({ kind: "face", id: faceId }, direction, point) : [];
+    this.primaryMeasure = this.measures.reduce<Measure | null>(
+      (best, m) => (best === null || m.anchor.distanceTo(point) < best.anchor.distanceTo(point) ? m : best),
+      null,
+    );
+    this.drawMeasures(0);
+  }
+
   /** Straight edges parallel to the face normal with exactly one end on the face (and inside it). */
   private findMeasures(sel: Sel, normal: THREE.Vector3, point: THREE.Vector3): Measure[] {
     const data = this.data;
@@ -429,6 +445,16 @@ export class Viewport {
         this.interceptor.down(e);
         return;
       }
+      // The arrow handle of the selection's drag tool is a start point for the same drag as pressing the face itself.
+      const handle = e.button === 0 && !this.measureMode ? this.manipulator.hit(e)?.info : undefined;
+      if (handle && this.handleStartsItemDrag(handle)) {
+        const anchor = new THREE.Vector3(...handle.anchor);
+        const face = this.selected.find((s) => s.kind === "face");
+        down = { x: e.clientX, y: e.clientY };
+        this.beginItemDrag(e, new THREE.Vector3(...handle.direction), anchor, face ? face.id : null);
+        dom.setPointerCapture(e.pointerId);
+        return;
+      }
       if (e.button === 0 && this.manipulator.down(e)) {
         dom.setPointerCapture(e.pointerId);
         return;
@@ -449,15 +475,7 @@ export class Viewport {
           this.selectItems(shiftOnly ? [...this.selected, sel] : [sel]);
           this.onSelect([sel]);
         }
-        this.dragReleased = false;
-        this.drag = { sels: [...this.selected], normal: direction, point: hit.point, x: e.clientX, y: e.clientY, moved: false };
-        // The edges come from the face pressed, also when companion faces (the "With parallel face" chips) are selected with it.
-        this.measures = hit.kind === "face" ? this.findMeasures({ kind: "face", id: hit.id }, direction, hit.point) : [];
-        this.primaryMeasure = this.measures.reduce<Measure | null>(
-          (best, m) => (best === null || m.anchor.distanceTo(hit.point) < best.anchor.distanceTo(hit.point) ? m : best),
-          null,
-        );
-        this.drawMeasures(0);
+        this.beginItemDrag(e, direction, hit.point, hit.kind === "face" ? hit.id : null);
         // Controls stay enabled: the left button is unmapped, so right-drag orbits and
         // middle-drag pans while the tool drag continues.
         dom.setPointerCapture(e.pointerId);

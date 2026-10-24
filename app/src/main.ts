@@ -21,6 +21,7 @@ import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
 import { HintLine } from "./hints";
 import { exportAs as saveModel, installFileOpening } from "./filesave";
+import { askApplyOrDiscard, isArrayTool } from "./arrayprompt";
 import { askRestore, dismissRestorePrompt } from "./restoreprompt";
 import { bodyView } from "./appstate";
 import { createToolStrip } from "./toolstrip";
@@ -264,7 +265,8 @@ const helperSignature = () => helperSignatureOf(helperDeps);
 const selectionHelpers = () => selectionHelpersOf(helperDeps);
 
 /** Reopen the creation form and handles of an editable primitive body, filled with the values it was made with. */
-function editPrimitive(id: number) {
+async function editPrimitive(id: number) {
+  await settleOpenArray(); // an array still being edited is applied or discarded first
   const body = committed ? bodiesOf(committed).find((b) => b.id === id) : undefined;
   const tool = body?.editable && body.recipe ? tools.find((t) => t.id === body.recipe!.tool) : undefined;
   if (!body || !tool || !body.recipe) {
@@ -280,6 +282,10 @@ function editPrimitive(id: number) {
 }
 
 function armTool(tool: ToolInfo, surface: Surface) {
+  if (isArrayTool(toolPanel.openToolId)) {
+    void settleOpenArray().then(() => armTool(tool, surface));
+    return;
+  }
   if (dragParam(tool) === null) {
     toolPanel.openForm(tool, {}, surface);
     return;
@@ -315,7 +321,28 @@ async function dropPendingProfile() {
   if (pending && committed === pending.mesh) await history("undo");
 }
 
+/** An array form that is only a preview is open: ask to apply or discard it; resolves with the answer once the form is closed, or null at once when none is open. */
+let askingArray = false;
+async function settleOpenArray(): Promise<"apply" | "discard" | null> {
+  if (!isArrayTool(toolPanel.openToolId) || askingArray) return null;
+  askingArray = true;
+  try {
+    const answer = await askApplyOrDiscard(toolPanel.openToolLabel);
+    if (answer === "apply") await toolPanel.apply();
+    else toolPanel.close();
+    return answer;
+  } finally {
+    askingArray = false;
+  }
+}
+
 function setSelection(sels: Sel[]) {
+  if (isArrayTool(toolPanel.openToolId)) {
+    // Clicking away from an array being edited asks first; the click itself is not carried over (the preview's ids are not the model's).
+    const before = currentSels;
+    if (!askingArray) void settleOpenArray().then((answer) => { if (answer === "discard" && committed) { viewport.selectItems(before); setSelection(before); } });
+    return;
+  }
   if (pendingProfile && (committed !== pendingProfile.mesh || sels.length !== 1 || sels[0].kind !== "face" || sels[0].id !== pendingProfile.face)) {
     if (committed === pendingProfile.mesh && !toolPanel.isOpen) void dropPendingProfile(); // clicked away from the picked region: it was only a pick
     else pendingProfile = null; // a tool used it, or the history moved on
@@ -1239,6 +1266,9 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     renderChips();
     updateDivideFrame();
   },
+  async settleOpenForm() {
+    await settleOpenArray();
+  },
   cancel() {
     if (committed) {
       show(committed);
@@ -1250,6 +1280,9 @@ toolPanel.renderList();
 // A handle dragged in the view sets its parameter through the open form, so typed entry and the preview stay in step.
 // With no form open (a selection waiting for its drag tool) the handle runs that tool's normal drag instead.
 let lastDragEvent = 0;
+// The value arrow of the selection's drag tool (push/pull's) starts the same drag as pressing the face: measure pick, typed value, Shift.
+viewport.handleStartsItemDrag = (info) =>
+  !toolPanel.isOpen && selectionHandleTool?.id === "push_pull" && !info.toggle && info.param === dragParam(selectionHandleTool);
 viewport.manipulator.onDrag = (param, value, phase, x, y, linked) => {
   lastDragEvent = performance.now();
   if (sketch.onPlaneDrag(param, value, phase)) return; // a sketch's plane gizmo

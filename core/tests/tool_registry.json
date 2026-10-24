@@ -1823,7 +1823,7 @@
  {
   "id": "linear_array",
   "label": "Linear array",
-  "description": "Makes copies of a body in a straight line and fuses them. Select any face of the body, or nothing for the whole model; the count includes the original.",
+  "description": "Makes copies of a body in a grid of columns and rows and fuses them. Select any face of the body, or nothing for the whole model; the counts include the original. Set rows to 1 for a single line.",
   "accepts": {
    "faces": [
     0,
@@ -1851,6 +1851,12 @@
     "drag": false
    },
    {
+    "name": "rows",
+    "kind": "number",
+    "default": 3,
+    "drag": false
+   },
+   {
     "name": "dx",
     "kind": "length",
     "default": 20,
@@ -1864,6 +1870,24 @@
    },
    {
     "name": "dz",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false
+   },
+   {
+    "name": "dx2",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false
+   },
+   {
+    "name": "dy2",
+    "kind": "length",
+    "default": 20,
+    "drag": false
+   },
+   {
+    "name": "dz2",
     "kind": "length",
     "default": 0.0,
     "drag": false
