@@ -1778,14 +1778,17 @@ export class Viewport {
   }
 
   /** While a sketch is open the zoom-to-fit buttons use the sketch's geometry: the world points to fit (all of it, or the selection), null when it has none. */
-  fitSource: { all(): number[][] | null; selected(): number[][] | null } | null = null;
+  fitSource: { all(): number[][] | null; selected(): number[][] | null; /** Screen pixels of room to leave around the fitted points (dimension text and lines). */ pad?: number } | null = null;
+
+  /** Pixels at each edge of the view that overlays cover (the top toolbar): the zoom-to-fit buttons fit inside what is left. */
+  fitInsets: (() => { top: number; right: number; bottom: number; left: number }) | null = null;
 
   /** Zoom to the given world points (a minimum size keeps a lone point from zooming in absurdly far), without turning the view. */
   private fitPoints(points: number[][]) {
     const box = new THREE.Box3().setFromPoints(points.map((p) => new THREE.Vector3(...p)));
     const size = box.getSize(new THREE.Vector3());
     if (size.length() < 10) box.expandByVector(new THREE.Vector3().setScalar((10 - size.length()) / 2));
-    this.frame([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], true);
+    this.frame([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], true, true, this.fitSource?.pad ?? 0);
   }
 
   /** Zoom so the whole visible model fills the view, without turning it. */
@@ -1795,7 +1798,7 @@ export class Viewport {
     if (!this.mesh) return;
     this.mesh.geometry.computeBoundingBox();
     const box = this.mesh.geometry.boundingBox;
-    if (box && !box.isEmpty()) this.frame([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], true);
+    if (box && !box.isEmpty()) this.frame([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], true, true);
   }
 
   /** Zoom to the selected body, face, edge or vertex (the selection together, if several), without turning the view. Returns false when nothing is selected. */
@@ -1837,14 +1840,25 @@ export class Viewport {
     const size = box.getSize(new THREE.Vector3());
     const minimum = (this.mesh.geometry.boundingBox ?? new THREE.Box3()).getSize(new THREE.Vector3()).length() * 0.05 || 1;
     if (size.length() < minimum) box.expandByVector(new THREE.Vector3().setScalar((minimum - size.length()) / 2));
-    this.frame([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], true);
+    this.frame([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], true, true);
     return true;
   }
 
-  private frame([x0, y0, z0, x1, y1, z1]: number[], keepDirection = false) {
+  /** Put the box in view. `inside`: fit it in the part of the view the overlays leave free (see `fitInsets`), with `padPx` of room around it. */
+  private frame([x0, y0, z0, x1, y1, z1]: number[], keepDirection = false, inside = false, padPx = 0) {
     const center = new THREE.Vector3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
     const radius = Math.max(Math.hypot(x1 - x0, y1 - y0, z1 - z0) / 2, 1e-3);
-    const distance = radius / Math.sin((PERSPECTIVE_FOV * Math.PI) / 360);
+    let distance = radius / Math.sin((PERSPECTIVE_FOV * Math.PI) / 360);
+    // The box sphere fills the view's height; shrink it into the free area and move its centre to that area's middle.
+    let shift = { x: 0, y: 0 };
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (inside && rect.height > 0 && rect.width > 0) {
+      const gap = this.fitInsets?.() ?? { top: 0, right: 0, bottom: 0, left: 0 };
+      const freeH = Math.max(rect.height * 0.2, rect.height - gap.top - gap.bottom - 2 * padPx);
+      const freeW = Math.max(rect.width * 0.2, rect.width - gap.left - gap.right - 2 * padPx);
+      distance *= Math.max(1, rect.height / Math.min(freeH, freeW));
+      shift = { x: (gap.left - gap.right) / 2, y: (gap.top - gap.bottom) / 2 };
+    }
     this.orthoHalf = distance * Math.tan((PERSPECTIVE_FOV * Math.PI) / 360);
     this.orthoCamera.zoom = 1;
     this.syncOrtho();
@@ -1853,11 +1867,23 @@ export class Viewport {
       const current = this.camera.position.clone().sub(this.controls.target);
       if (current.lengthSq() > 1e-12) direction.copy(current);
     }
-    this.camera.position.copy(center).add(direction.normalize().multiplyScalar(distance));
+    direction.normalize();
+    const focus = center.clone();
+    if (shift.x || shift.y) {
+      // Move the looked-at point so the box's centre lands on the middle of the free area (screen y runs down).
+      const toward = direction.clone().negate();
+      const right = toward.clone().cross(new THREE.Vector3(0, 0, 1));
+      if (right.lengthSq() < 1e-12) right.set(1, 0, 0);
+      right.normalize();
+      const up = right.clone().cross(toward).normalize();
+      const px = (2 * distance * Math.tan((PERSPECTIVE_FOV * Math.PI) / 360)) / rect.height;
+      focus.addScaledVector(right, -shift.x * px).addScaledVector(up, shift.y * px);
+    }
+    this.camera.position.copy(focus).add(direction.multiplyScalar(distance));
     this.camera.near = distance / 100;
     this.camera.far = distance * 100;
     this.camera.updateProjectionMatrix();
-    this.controls.target.copy(center);
+    this.controls.target.copy(focus);
     this.controls.update();
   }
 }

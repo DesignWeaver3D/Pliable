@@ -855,6 +855,13 @@ const { bodyList, setVisibility } = installBodyActions({
   editPrimitive: (id) => editPrimitive(id),
 });
 
+// Zoom to fit leaves out the strip across the top of the view (the tool buttons): the fit uses the room below it.
+viewport.fitInsets = () => {
+  const strip = $("tools").getBoundingClientRect();
+  const view = $("viewport").getBoundingClientRect();
+  return { top: strip.height > 0 ? Math.max(0, strip.bottom - view.top + 8) : 0, right: 0, bottom: 0, left: 0 };
+};
+
 // Keyboard shortcuts: one router applies the policy in keys.ts (engagement, blur, repeat, entry, sketch) and runs these.
 const keys = new KeyRouter({
   viewport: $("viewport"),

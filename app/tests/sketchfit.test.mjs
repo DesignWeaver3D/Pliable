@@ -20,3 +20,12 @@ test("fitting the selection uses only the selected points and curves", () => {
   assert.deepEqual(fitPointsSelected(s, [{ kind: "point", id: 4 }]), [[-20, 7, 5]]);
   assert.equal(fitPointsSelected(s, []), null);
 });
+
+test("fitting everything in a sketch includes where its dimensions reach", async () => {
+  const { dimensionPad } = await import("../src/sketchfit.ts");
+  const dimensioned = { ...s, constraints: [{ id: 1, type: "distance", entity: 10, value: 4, place: [30, 2] }] };
+  const pts = fitPointsAll(dimensioned);
+  assert.ok(pts.length > fitPointsAll(s).length); // the dimension's measured points are added
+  assert.equal(dimensionPad(s), 0);
+  assert.equal(dimensionPad(dimensioned), 70);
+});

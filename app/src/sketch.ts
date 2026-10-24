@@ -259,7 +259,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.viewport.scene.add(this.group);
     this.viewport.interceptor = { down: (e) => this.onDown(e), move: (e) => this.onMove(e), up: (e) => this.onUp(e) };
     this.viewport.onFrame2 = () => this.onFrame();
-    this.viewport.fitSource = { all: () => F.fitPointsAll(this.s), selected: () => F.fitPointsSelected(this.s, this.selection) }; // the nav cube's zoom to fit uses the sketch
+    const mode = this;
+    this.viewport.fitSource = { all: () => F.fitPointsAll(this.s), selected: () => F.fitPointsSelected(this.s, this.selection), get pad() { return F.dimensionPad(mode.s); } }; // the nav cube's zoom to fit uses the sketch
     this.render();
     if (kept) void this.refreshProfiles();
     this.onToolChange?.();
