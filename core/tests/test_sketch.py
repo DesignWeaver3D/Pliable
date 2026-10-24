@@ -1008,3 +1008,37 @@ def test_a_circle_of_no_size_is_refused_by_the_dimension(value):
     # a circle already drawn with no size gives no regions instead of an error
     flat = sketch_of([{"id": 1, "u": 0, "v": 0}], [{"id": 10, "type": "circle", "center": 1, "radius": 0}])
     assert session.handle({"type": "sketch_profiles", "sketch": flat}) == {"profiles": []}
+
+
+def _divided_square(plane=XY, x0=0.0, y0=0.0):
+    points, lines = rectangle(20, 20, x0=x0, y0=y0)
+    _free_line(lines, points, (x0, y0 + 8), (x0 + 20, y0 + 8), 50)  # a divider that shares none of the corner points
+    return sketch_of(points, lines, plane=plane)
+
+
+@pytest.mark.parametrize("height", [30, 10])  # clear of the block (loose face) and on its top face (imprinted)
+def test_each_face_of_a_divided_rectangle_pushes_and_pulls(height):
+    from pliable.ops import push_pull
+    from pliable.topology import Topology
+
+    shape = load_demo("block")
+    plane = {"origin": [0, 0, height], "normal": [0, 0, 1], "xdir": [1, 0, 0]}
+    sk = _divided_square(plane, x0=-10, y0=-10)
+    for area in (160.0, 240.0):
+        index = next(i for i, z in enumerate(sketch.regions(sk)) if z.area == pytest.approx(area))
+        result, _ = sketch.add_regions(shape, sk, only=index)
+        face = next(f for _, f in Topology(result).faces() if _face_area(f) == pytest.approx(area, rel=1e-3))
+        pulled = push_pull(result, face, 4)
+        assert _solid_volume(pulled.shape) == pytest.approx(volume(shape) + area * 4, rel=1e-3)
+
+
+def test_sketch_extrude_of_a_divided_rectangle_and_of_attached_lines():
+    shape = load_demo("block")
+    far = {"origin": [0, 0, 30], "normal": [0, 0, 1], "xdir": [1, 0, 0]}
+    result = sketch.extrude(shape, _divided_square(far, x0=-10, y0=-10), 5, "new")
+    assert _solid_volume(result.shape) == pytest.approx(volume(shape) + 20 * 20 * 5, rel=1e-3)
+    points, lines = rectangle(20, 20, x0=-10, y0=-10)
+    for k, (a, b) in enumerate([((10, -5), (20, -5)), ((20, -5), (20, 5)), ((20, 5), (10, 5))]):
+        _free_line(lines, points, a, b, 60 + k)
+    result = sketch.extrude(shape, sketch_of(points, lines, plane=far), 5, "new")
+    assert _solid_volume(result.shape) == pytest.approx(volume(shape) + (400 + 100) * 5, rel=1e-3)

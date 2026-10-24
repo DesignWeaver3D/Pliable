@@ -61,7 +61,24 @@ def _edges(sketch: dict, skip: int | None = None) -> list[Edge]:
 
 def profile_face(sketch: dict, skip: int | None = None) -> Face:
     """One planar face from the sketch's closed loops (construction lines and `skip` left out); loops inside
-    other loops become holes."""
+    other loops become holes. When the curves enclose areas without making closed chains of shared end points (a
+    divider across a rectangle, lines attached to a side), the areas found by `regions` are joined into one face."""
+    try:
+        return _loops_face(sketch, skip)
+    except SketchError as chains:
+        if "open loop" not in str(chains):
+            raise
+        zones = regions(sketch, skip)
+        if not zones:
+            raise
+        joined = zones[0] if len(zones) == 1 else zones[0].fuse(*zones[1:]).clean()
+        faces = [joined] if isinstance(joined, Face) else list(joined.faces())
+        if len(faces) != 1:
+            raise SketchError("The sketch has several separate outlines; extrude them one at a time") from chains
+        return faces[0]
+
+
+def _loops_face(sketch: dict, skip: int | None = None) -> Face:
     edges = _edges(sketch, skip)
     if not edges:
         raise SketchError("The sketch has no geometry")
@@ -192,7 +209,7 @@ def _split_edges(edges: list[Edge]):
     return pieces
 
 
-def regions(sketch: dict) -> list[Face]:
+def regions(sketch: dict, skip: int | None = None) -> list[Face]:
     """Every distinct zone enclosed by the sketch's curves as a planar face. The curves are cut where they cross or
     where one ends on another (a line that ends on the side of a rectangle without sharing its corner points still
     closes a zone), so a rectangle with a divider is two faces and lines attached to a side enclose a new one. Loops
@@ -203,7 +220,7 @@ def regions(sketch: dict) -> list[Face]:
     from OCP.collections import List_TopoDS_Shape
     from OCP.gp import gp_Ax3, gp_Dir, gp_Pln, gp_Pnt
 
-    edges = _edges(sketch)
+    edges = _edges(sketch, skip)
     if not edges:
         return []
     origin, x, y, normal = frame(sketch["plane"])
