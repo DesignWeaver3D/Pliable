@@ -1,4 +1,4 @@
-# Architecture plan (S112): split the large files safely
+# Architecture plan: split the large files safely
 
 Status: DRAFT for owner approval. No code has been moved. Every split is a pure move: no behavior change, `dev` green after each step, one commit per move.
 
@@ -106,9 +106,9 @@ Order, riskiest last: 1) `sketchmodel.ts` into `sketch/model.ts` and its helpers
 
 One commit per move: revert that commit. The `pre-split` tag restores everything. Nothing is pushed or merged into the owner's checkout until the owner says to.
 
-## Order for the feedback rows S113-S127
+## Order for the owner feedback rows
 
-After Phase 2 and Phase 3, core/model rows (S113-S120) and UI/sketch rows (S121-S127) live in disjoint files and can go to two agents in parallel. S113 (save-project fix) is independent and can run any time.
+After Phase 2 and Phase 3, core/model rows and UI/sketch rows live in disjoint files and can go to two agents in parallel.
 
 ## Open decisions
 

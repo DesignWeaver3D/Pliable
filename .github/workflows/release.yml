@@ -1,6 +1,6 @@
 # Alpha release: on a version tag, build the portable app on each OS, smoke-test the packaged build,
 # and attach the archives to a draft release. The draft is never published automatically;
-# publish it by hand after checking the archives. See docs/progress.md (S17).
+# publish it by hand after checking the archives. See docs/progress.md (alpha release is deferred).
 name: release
 
 on:

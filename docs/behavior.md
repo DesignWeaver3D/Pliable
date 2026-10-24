@@ -67,12 +67,12 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 
 - The tool strip is fixed at top centre. The context strip has no box behind it, fills each row from the left, spans from the bodies list to the nav cube group, wraps to two rows, and shows "... More" only when a third row would be needed.
 - The Tools handle sits on the left edge of the 3D view.
-- Edit cards (tool forms) sit at the right under the nav cube group like the sketch card; the measurement card moves left only when an edit card reaches it. (S122)
+- Edit cards (tool forms) sit at the right under the nav cube group like the sketch card; the measurement card moves left only when an edit card reaches it.
 - The measurement card starts collapsed and sits bottom right. 
 - Dark theme only for now.
-- When faces, edges or vertices are selected and the view is right-clicked without dragging, a menu offers "Select parent bodies" (the owning bodies replace the selection); with a single face or edge, the Select similar choices come first. (Provisional, S116.)
-- A resize grip (cube) sits on its anchor with its stem running inward toward the solid; only the cube is grabbable. A move arrow is grabbed only by its arrowhead, not its line. (S118.)
-- A tip stays on screen until its Got it is clicked, even after the action that raised it ends. The chips (such as Add Parallel Face) and the hint line never overlap: the hint line and tip stand above the chips. There is no separate sketch key hint line. (S123, S124)
-- The sketch plane move and turn gizmos are off by default; the sketch card button shows them. (S125)
-- Sketch constraint tools that only apply to edges ignore selected vertices instead of doing nothing. (S126)
-- While a sketch is open the top strip has a second row with all constraint and dimension buttons, greyed unless the selection takes them. (S127, for testing before the UI is slimmed)
+- When faces, edges or vertices are selected and the view is right-clicked without dragging, a menu offers "Select parent bodies" (the owning bodies replace the selection); with a single face or edge, the Select similar choices come first. (Provisional.)
+- A resize grip (cube) sits on its anchor with its stem running inward toward the solid; only the cube is grabbable. A move arrow is grabbed only by its arrowhead, not its line.
+- A tip stays on screen until its Got it is clicked, even after the action that raised it ends. The chips (such as Add Parallel Face) and the hint line never overlap: the hint line and tip stand above the chips. There is no separate sketch key hint line.
+- The sketch plane move and turn gizmos are off by default; the sketch card button shows them.
+- Sketch constraint tools that only apply to edges ignore selected vertices instead of doing nothing.
+- While a sketch is open the top strip has a second row with all constraint and dimension buttons, greyed unless the selection takes them. (for testing before the UI is slimmed)

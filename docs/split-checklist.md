@@ -1,4 +1,4 @@
-# Split checks (S112)
+# Split checks
 
 Baselines taken at tag `pre-split` (2026-10-22): 440 core tests (`docs/split-baseline-core-tests.txt` also lists `test_tool_registry.py`, added in Phase 0, so it has 441 lines), 159 node tests in 26 files (`split-baseline-node-tests.txt`), `tsc --noEmit` and `npm run build` clean, frozen build 310 s, `core/scripts/smoke.py` passes on the frozen app.
 
