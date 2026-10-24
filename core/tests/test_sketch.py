@@ -931,3 +931,46 @@ def test_line_to_axis_angle_dimension():
     assert result["status"] == "ok"
     p2 = next(p for p in result["points"] if p["id"] == 2)
     assert math.degrees(math.atan2(p2["v"], p2["u"])) == pytest.approx(30, abs=1e-4)
+
+
+def _areas(sk):
+    return sorted(round(z.area, 3) for z in sketch.regions(sk))
+
+
+def _free_line(entities, points, a, b, line_id):
+    points += [{"id": 900 + line_id * 2, "u": a[0], "v": a[1]}, {"id": 901 + line_id * 2, "u": b[0], "v": b[1]}]
+    entities.append({"id": line_id, "type": "line", "a": 900 + line_id * 2, "b": 901 + line_id * 2})
+
+
+def test_divider_not_touching_the_corners_makes_two_faces():
+    points, lines = rectangle(20, 20)
+    _free_line(lines, points, (0, 8), (20, 8), 50)  # ends on the two side edges, shares none of the corner points
+    assert _areas(sketch_of(points, lines)) == [160.0, 240.0]
+
+
+def test_lines_attached_to_a_side_enclose_a_new_face():
+    points, lines = rectangle(20, 20)
+    for k, (a, b) in enumerate([((20, 5), (30, 5)), ((30, 5), (30, 15)), ((30, 15), (20, 15))]):
+        _free_line(lines, points, a, b, 60 + k)
+    # the three lines meet each other only at their ends and touch the side at their outer ends
+    sk = sketch_of(points, lines)
+    zones = sketch.regions(sk)
+    assert _areas(sk) == [100.0, 400.0]
+    assert all(z.normal_at().Z > 0 for z in zones)
+
+
+def test_nested_loops_and_dangling_lines():
+    points, lines = rectangle(20, 20)
+    inner_points, inner = rectangle(6, 6, x0=5, y0=5, first_id=11)
+    _free_line(inner, inner_points, (0, 0), (-5, -5), 70)  # a loose line that closes nothing
+    sk = sketch_of(points + inner_points, lines + inner)
+    assert _areas(sk) == [36.0, 364.0]  # the inner loop is a hole in the outer face and a face of its own
+    open_sk = sketch_of(points[:2], [lines[0]])
+    assert sketch.regions(open_sk) == []
+
+
+def test_regions_can_be_extruded_from_a_split_rectangle():
+    points, lines = rectangle(20, 20)
+    _free_line(lines, points, (0, 8), (20, 8), 50)
+    shape, count = sketch.add_regions(load_demo("block"), sketch_of(points, lines, plane=sketch.STANDARD_PLANES["XY"]), only=1)
+    assert count == 1

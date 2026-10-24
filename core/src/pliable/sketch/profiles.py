@@ -169,38 +169,65 @@ def offset_entities(sketch: dict, entity_ids: list[int], distance: float) -> dic
     return {"points": points, "entities": entities}
 
 
-def regions(sketch: dict) -> list[Face]:
-    """Every distinct zone of the sketch's closed loops as a planar face: overlapping loops are split where
-    they cross, and a loop inside another cuts a hole in it (the inner zone is a face of its own)."""
+def _split_edges(edges: list[Edge]):
+    """The edges cut into pieces wherever they cross, touch or overlap, so that pieces meet only at shared ends."""
     from OCP.BOPAlgo import BOPAlgo_Builder
-    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopAbs import TopAbs_EDGE
     from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+
+    if len(edges) == 1:
+        return [edges[0].wrapped]
+    builder = BOPAlgo_Builder()
+    for e in edges:
+        builder.AddArgument(e.wrapped)
+    builder.Perform()
+    if builder.HasErrors():
+        raise SketchError("Could not split the sketch into regions")
+    pieces = []
+    explorer = TopExp_Explorer(builder.Shape(), TopAbs_EDGE)
+    while explorer.More():
+        pieces.append(TopoDS.Edge(explorer.Current()))
+        explorer.Next()
+    return pieces
+
+
+def regions(sketch: dict) -> list[Face]:
+    """Every distinct zone enclosed by the sketch's curves as a planar face. The curves are cut where they cross or
+    where one ends on another (a line that ends on the side of a rectangle without sharing its corner points still
+    closes a zone), so a rectangle with a divider is two faces and lines attached to a side enclose a new one. Loops
+    that overlap are split where they cross, and a loop inside another cuts a hole in it (the inner zone is a face of
+    its own). Curves that enclose nothing (dangling lines) make no face."""
+    from OCP.BOPAlgo import BOPAlgo_BuilderFace
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace
+    from OCP.collections import List_TopoDS_Shape
+    from OCP.gp import gp_Ax3, gp_Dir, gp_Pln, gp_Pnt
 
     edges = _edges(sketch)
     if not edges:
         return []
-    wires = Wire.combine(edges)
-    if not isinstance(wires, list):
-        wires = [wires]
-    faces = [Face(w) for w in wires if w.is_closed]
-    faces = [f for f in faces if f.area > MIN_LOOP_AREA]
-    if not faces:
-        return []
-    split = faces[0].wrapped
-    if len(faces) > 1:  # a single loop needs no splitting (and the algorithm wants two or more arguments)
-        builder = BOPAlgo_Builder()
-        for f in faces:
-            builder.AddArgument(f.wrapped)
-        builder.Perform()
-        if builder.HasErrors():
-            raise SketchError("Could not split the sketch into regions")
-        split = builder.Shape()
-    explorer = TopExp_Explorer(split, TopAbs_FACE)
-    _, _, _, normal = frame(sketch["plane"])
+    origin, x, y, normal = frame(sketch["plane"])
+    pieces = _split_edges(edges)
+    # A huge flat face in the sketch plane for the builder to cut up; each piece is given in both directions so that
+    # the zones on either side of it can use it.
+    plane = gp_Pln(gp_Ax3(gp_Pnt(*origin), gp_Dir(*normal), gp_Dir(*x)))
+    reach = 1e5
+    base = BRepBuilderAPI_MakeFace(plane, -reach, reach, -reach, reach).Face()
+    shapes = List_TopoDS_Shape()
+    for piece in pieces:
+        shapes.Append(piece)
+        shapes.Append(piece.Reversed())
+    builder = BOPAlgo_BuilderFace()
+    builder.SetFace(base)
+    builder.SetShapes(shapes)
+    builder.Perform()
+    if builder.HasErrors():
+        raise SketchError("Could not split the sketch into regions")
     zones = []
-    while explorer.More():
-        zone = Face(explorer.Current())
-        explorer.Next()
+    for found in builder.Areas():
+        zone = Face(found)
+        if zone.area < MIN_LOOP_AREA:
+            continue
         if zone.normal_at().dot(Vector(*normal)) < 0:  # outward = along the sketch plane normal
             zone = Face(zone.wrapped.Reversed())
         zones.append(zone)
