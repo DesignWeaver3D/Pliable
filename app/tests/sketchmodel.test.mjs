@@ -275,3 +275,23 @@ test("an angle value dragged across the lines switches between the inside and th
   assert.ok(Math.abs(measure(s, { ...c, outside: true }) - 135) < 1e-9);
   assert.equal(angleSideOutside({ ...s, points: [...s.points.slice(0, 3), { id: 4, u: 5, v: 0 }] }, [10, 11], [1, 1]), null);
 });
+
+test("a point to line dimension runs square to the line with its extension lines along the line", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 10 }, { id: 3, u: 8, v: 2 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }],
+    constraints: [],
+  };
+  const c = { id: 5, type: "point_line_distance", point: 3, entity: 10, value: 4 };
+  const [d] = dimensionsOf({ ...s, constraints: [c] });
+  const [a, b] = d.points;
+  const along = [b[0] - a[0], b[1] - a[1]];
+  assert.ok(Math.abs(along[0] + along[1]) < 1e-9, "the measured segment is square to the line"); // the line runs along (1, 1)
+  const o = d.offsetDirection;
+  assert.ok(Math.abs(o[0] - o[1]) < 1e-9 && Math.abs(Math.hypot(o[0], o[1]) - 1) < 1e-9, "extension lines run along the line");
+  assert.ok(Math.abs(o[0] * along[0] + o[1] * along[1]) < 1e-9, "the dimension line is offset sideways from the measured segment");
+  // dragged out: the stored place moves the dimension line along the line's direction
+  const [dragged] = dimensionsOf({ ...s, constraints: [{ ...c, place: [12, 12] }] });
+  assert.ok(Math.abs(dragged.offset) > 1);
+});

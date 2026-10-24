@@ -212,7 +212,8 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
       const t = ((p.u - la.u) * (lb.u - la.u) + (p.v - la.v) * (lb.v - la.v)) / (length * length);
       const foot = toWorld(s.plane, la.u + t * (lb.u - la.u), la.v + t * (lb.v - la.v));
       const at = world(c.point);
-      out.push(linear(c, text, foot, at, norm(sub(at, foot)).map((x) => -x)));
+      // The dimension line runs from the line to the point (square to the line); its extension lines run along the line's direction.
+      out.push(linear(c, text, foot, at, norm(sub(world(entity.b), world(entity.a)))));
     } else if ((c.type === "radius" || c.type === "diameter") && entity && (entity.type === "circle" || entity.type === "arc")) {
       const center = world(entity.center);
       const r = radiusOf(s, entity);
