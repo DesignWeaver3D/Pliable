@@ -1384,6 +1384,21 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     return this.runSolve();
   }
 
+  private freedomSeq = 0;
+
+  /** How free each point still is (its colour), worked out after the solve so the shape and its dimensions update first; a newer solve discards an older answer. */
+  private async refreshFreedom() {
+    const seq = ++this.freedomSeq;
+    try {
+      const reply = await this.core.request<{ freedom: Record<string, number> }>("sketch_freedom", { sketch: M.forSolver(this.s) });
+      if (seq !== this.freedomSeq || !this.active) return;
+      this.freedom = new Map(Object.entries(reply.freedom).map(([id, n]) => [Number(id), n]));
+      this.render(false);
+    } catch {
+      // the points keep their earlier colours
+    }
+  }
+
   private profileFills: THREE.Mesh[] = [];
   private profileSeq = 0;
 
@@ -1478,7 +1493,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
         this.queued = null;
         let reply: SolveReply;
         try {
-          reply = await this.core.request<SolveReply>("sketch_solve", { sketch: M.forSolver(this.s), drag: job.drag, detail: !job.drag });
+          reply = await this.core.request<SolveReply>("sketch_solve", { sketch: M.forSolver(this.s), drag: job.drag });
+          // Which constraints to blame is only worked out for a failure, and only when nothing is being dragged.
+          if (reply.status !== "ok" && !job.drag) reply = await this.core.request<SolveReply>("sketch_solve", { sketch: M.forSolver(this.s), detail: true });
         } catch (e) {
           this.host.status((e as Error).message, true);
           ok = false;
@@ -1496,9 +1513,11 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
           }
           this.dof = reply.dof;
           this.failed.clear();
-          if (reply.freedom) this.freedom = new Map(Object.entries(reply.freedom).map(([id, n]) => [Number(id), n]));
           ok = true;
-          if (!job.drag) void this.refreshProfiles();
+          if (!job.drag) {
+            void this.refreshProfiles();
+            void this.refreshFreedom();
+          }
         } else if (!job.drag) {
           this.failed = new Set([...reply.failed, ...(reply.conflicts ?? [])].filter((x): x is number => x !== null));
           ok = false;

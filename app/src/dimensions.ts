@@ -49,6 +49,7 @@ const ARROW_PX = 9;
 const LEADER_PX = 34; // a leader runs this far beyond the feature before its landing
 const LANDING_PX = 14; // the short horizontal landing the text sits at the end of
 const TEXT_PX = 13;
+const DOUBLE_TAP_MS = 450; // two taps closer in time than this are a double-click
 const DRAG_START_PX = 4; // a press that moves less than this is a click, not a drag
 const CURSOR_CLEAR_PX = 28; // text moves away when the pointer is closer than this
 /** Leaders, extension lines, dimension lines, arrowheads and the values use the off-white of the UI buttons (the --ui-offwhite token in index.html). */
@@ -192,7 +193,14 @@ export class DimensionOverlay {
       out.push(line(add(p, mul(dir, EXT_GAP_PX)), add(q, mul(dir, EXT_OVERSHOOT_PX))));
     }
     // Text pulled past either extension line: the arrows go outside the extension lines, pointing in, and the line runs on to the text.
-    const pulled = slide.x * along.x + slide.y * along.y;
+    let pulled = slide.x * along.x + slide.y * along.y;
+    // A value too wide for the room between the arrows goes past the far extension line, with the dimension line run on to it.
+    const room = len(sub(b2, a2));
+    const width = textWidth(d.text);
+    if (Math.abs(pulled) <= room / 2 && room < width + 2 * ARROW_PX + 4) {
+      pulled = room / 2 + ARROW_PX + 4 + width / 2;
+      slide = mul(along, pulled);
+    }
     this.dimLine(a2, b2, out, Math.abs(pulled) > len(sub(b2, a2)) / 2 ? pulled : undefined);
     this.label(add(mul(add(a2, b2), 0.5), slide), d.text, out, false, angleOf(along));
   }
@@ -211,7 +219,7 @@ export class DimensionOverlay {
     const mid = arc[Math.floor(arc.length / 2)];
     let length = 0;
     for (let i = 1; i < arc.length; i++) length += len(sub(arc[i], arc[i - 1]));
-    const width = d.text.length * TEXT_PX * 0.55 + 8;
+    const width = textWidth(d.text);
     const away = unit(sub(mid, apex));
     this.label(length < width + 3 * ARROW_PX ? add(mid, mul(away, width / 2 + ARROW_PX)) : mid, d.text, out, false);
   }
@@ -285,10 +293,11 @@ export class DimensionOverlay {
       });
     }
     if (dim.activate) {
+      this.activateOnDoubleTap(r, dim, () => dim.activate!(at));
       r.addEventListener("dblclick", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        dim.activate!(at);
+        this.activateOnce(() => dim.activate!(at));
       });
     } else if (dim.edit) {
       r.addEventListener("dblclick", (e) => {
@@ -327,6 +336,33 @@ export class DimensionOverlay {
     });
   }
 
+  private lastTap: { time: number; x: number; y: number; key: string | number } | null = null;
+  private activatedAt = 0;
+  private tapDown: { x: number; y: number } | null = null;
+
+  /** Run the editor at most once per double-click, whichever of the two detections (the browser's dblclick, or `activateOnDoubleTap`) sees it first. */
+  private activateOnce(run: () => void) {
+    if (Date.now() - this.activatedAt < DOUBLE_TAP_MS) return;
+    this.activatedAt = Date.now();
+    run();
+  }
+
+  /** Two quick taps on the same dimension open its editor even when the drawing was rebuilt between them (the browser then sends no dblclick, because the second press lands on a new element). */
+  private activateOnDoubleTap(el: SVGElement, dim: Dimension, run: () => void) {
+    const key = dim.constraint ?? this.current;
+    el.addEventListener("pointerdown", (e) => (this.tapDown = { x: e.clientX, y: e.clientY }));
+    el.addEventListener("pointerup", (e) => {
+      const down = this.tapDown; // kept on the overlay: the drawing may be rebuilt between the press and the release
+      if (e.button !== 0 || !down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > DRAG_START_PX) return; // a drag is not a tap
+      const last = this.lastTap;
+      const now = Date.now();
+      if (last && last.key === key && now - last.time < DOUBLE_TAP_MS && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 2 * DRAG_START_PX) {
+        this.lastTap = null;
+        this.activateOnce(run);
+      } else this.lastTap = { time: now, x: e.clientX, y: e.clientY, key };
+    });
+  }
+
   /** Wide invisible copies of a dimension's lines, so double-clicking the leader or dimension line edits it like the text does. */
   private lineHits(d: Dimension, drawn: SVGElement[]): SVGElement[] {
     const at = this.drewLabel;
@@ -340,10 +376,11 @@ export class DimensionOverlay {
         hit.setAttribute("style", "pointer-events:stroke;cursor:text");
         for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup"]) hit.addEventListener(type, (e) => e.stopPropagation());
         this.makeDraggable(hit, d);
+        if (at && d.activate) this.activateOnDoubleTap(hit, d, () => d.activate!(at));
         hit.addEventListener("dblclick", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (at) d.activate?.(at);
+          if (at) this.activateOnce(() => d.activate?.(at));
         });
         return hit;
       });
@@ -383,7 +420,7 @@ export class DimensionOverlay {
     if (!interactive && this.pointer && len(sub(p, this.pointer)) < CURSOR_CLEAR_PX) {
       p = add(this.pointer, mul(unit(sub(p, this.pointer)), CURSOR_CLEAR_PX));
     }
-    const half = { x: (text.length * TEXT_PX * 0.55 + 8) / 2, y: TEXT_PX / 2 + 2 };
+    const half = { x: textWidth(text) / 2, y: TEXT_PX / 2 + 2 };
     const box = { x0: p.x - half.x, x1: p.x + half.x, y0: p.y - half.y, y1: p.y + half.y };
     if (this.placed.some((q) => overlaps(q, box))) this.clash = true;
     this.pending.push(box);
@@ -429,6 +466,11 @@ interface Box {
 /** Axis-aligned overlap of two text boxes (rotated text is approximated by its unrotated box). */
 export function overlaps(a: Box, b: Box): boolean {
   return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+}
+
+/** How wide a value is drawn, in pixels, with a little room around it. */
+function textWidth(text: string) {
+  return text.length * TEXT_PX * 0.55 + 8;
 }
 
 function angleOf(d: V) {

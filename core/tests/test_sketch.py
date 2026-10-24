@@ -1101,3 +1101,11 @@ def test_symmetric_about_a_point():
     assert result["status"] == "ok"
     p2 = next(p for p in result["points"] if p["id"] == 2)
     assert (p2["u"], p2["v"]) == pytest.approx((-5, -2), abs=1e-6)
+
+
+def test_freedom_stops_at_its_time_budget():
+    points = [{"id": 1, "u": 0, "v": 0, "fixed": True}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 10, "v": 5}]
+    lines = [{"id": 10, "type": "line", "a": 1, "b": 2}, {"id": 11, "type": "line", "a": 2, "b": 3}]
+    s = sketch_of(points, lines, [])
+    assert set(sketch.point_freedom(s)) == {1, 2, 3}
+    assert sketch.point_freedom(s, budget=-1) == {}  # no time left: nothing is worked out

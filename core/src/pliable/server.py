@@ -249,6 +249,11 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             except (KeyError, TypeError, ValueError) as e:
                 raise RequestError(f"Malformed sketch: {e!r}") from e
             return result
+        if kind == "sketch_freedom":
+            try:
+                return {"freedom": sketch.point_freedom(request["sketch"], budget=0.4)}
+            except (KeyError, TypeError, ValueError) as e:
+                raise RequestError(f"Malformed sketch: {e!r}") from e
         if kind == "sketch_extrude":
             return self._sketch_extrude(request)
         if kind == "sketch_offset":

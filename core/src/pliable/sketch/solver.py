@@ -1,6 +1,7 @@
 """The constraint solver: solves a sketch and moves points under a drag."""
 
 import math
+import time
 
 from py_slvs import slvs
 
@@ -344,12 +345,16 @@ def conflicting_constraints(sketch: dict) -> list[int]:
     return blamed
 
 
-def point_freedom(sketch: dict) -> dict[int, int]:
+def point_freedom(sketch: dict, budget: float | None = None) -> dict[int, int]:
     """How many directions (0, 1 or 2) each point can still move in. The solver reports a redundancy when a
     point is held in a direction the constraints already fix, so holding the point one coordinate at a time, and
-    then both, shows which are free. 0 means the constraints already place it."""
+    then both, shows which are free. 0 means the constraints already place it.
+    Each point takes several solves, so a big sketch is slow: with a `budget` (seconds) the points not reached in time are left out."""
     freedom = {}
+    deadline = None if budget is None else time.monotonic() + budget
     for p in sketch.get("points", []):
+        if deadline is not None and time.monotonic() > deadline:
+            break
         if p.get("fixed"):
             freedom[p["id"]] = 0
             continue
