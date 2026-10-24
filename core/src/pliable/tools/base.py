@@ -158,6 +158,8 @@ class Handle:
     # A grid grip: the two step vectors (u, v) of the grid it sits on. The view drags it in their plane; whole steps along u
     # change `param` and whole steps along v change the first linked parameter, independently.
     plane: tuple[tuple[float, float, float], tuple[float, float, float]] | None = None
+    # The x and y axes of the sketch plane on the face the handle belongs to (push/pull's direction gizmo swings about them).
+    frame: tuple[tuple[float, float, float], tuple[float, float, float]] | None = None
 
     def to_json(self, value: float, values: dict | None = None) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
@@ -167,6 +169,7 @@ class Handle:
             "axis": [float(c) for c in self.axis] if self.axis else None,
             "ring": [float(c) for c in self.ring] if self.ring else None,
             "plane": [[float(c) for c in self.plane[0]], [float(c) for c in self.plane[1]]] if self.plane else None,
+            "frame": [[float(c) for c in self.frame[0]], [float(c) for c in self.frame[1]]] if self.frame else None,
             "axisFrom": [float(c) for c in self.axis_from] if self.axis_from else None,
             "param": self.param,
             "label": self.label,

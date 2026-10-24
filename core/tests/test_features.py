@@ -781,3 +781,14 @@ def test_push_pull_along_a_chosen_direction(block):
     with pytest.raises(OperationError):
         run("push_pull", block, faces=[top], distance=10, ux=slant, uy=0, uz=slant, symmetric=1)
     assert volume(run("push_pull", block, faces=[top], distance=10, ux=0, uy=0, uz=1).shape) == pytest.approx(24000 + 12000)  # the normal itself
+
+
+def test_push_pull_handle_carries_the_sketch_axes_of_its_face(block):
+    top = top_of(block)
+    tool = get_tool("push_pull")
+    handle = tool.handle_list(block, Selection(faces=[top]), {"distance": 0})[0]
+    x_axis, y_axis = handle["frame"]
+    normal = handle["direction"]
+    for a, b in ((x_axis, y_axis), (x_axis, normal), (y_axis, normal)):
+        assert sum(p * q for p, q in zip(a, b)) == pytest.approx(0, abs=1e-9)  # square to each other and to the normal
+    assert math.hypot(*x_axis) == pytest.approx(1) and math.hypot(*y_axis) == pytest.approx(1)

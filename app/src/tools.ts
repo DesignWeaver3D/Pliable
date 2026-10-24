@@ -46,6 +46,8 @@ export interface HandleInfo {
   ring?: [number, number, number, number] | null;
   /** A grid grip: the grid's two step vectors. Dragged in their plane it sets this parameter (whole steps along the first) and the first linked parameter (along the second) independently. */
   plane?: [[number, number, number], [number, number, number]] | null;
+  /** The x and y axes of the sketch plane on the handle's face (push/pull's direction gizmo swings about them). */
+  frame?: [[number, number, number], [number, number, number]] | null;
   /** The number shown and typed is the parameter times `factor` (0.5: a diameter parameter shown as a radius), after `symbol`. */
   factor?: number;
   symbol?: string;

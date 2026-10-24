@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PullDirection, angleFromNormal, arcSide, edgeVector, leavesFace, outOf, sideFrame, tiltFromDrag, tilted, unit } from "../src/pulldir.ts";
+import { PullDirection, resolvePick, angleFromNormal, sideToward, edgeVector, leavesFace, outOf, sideFrame, tiltFromDrag, tilted, unit } from "../src/pulldir.ts";
 
 const close = (a, b) => a.forEach((v, i) => assert.ok(Math.abs(v - b[i]) < 1e-9, `${a} vs ${b}`));
 
@@ -28,17 +28,11 @@ test("the side frame is square to the direction and itself", () => {
   }
 });
 
-test("the four arcs lie toward unit sides square to the direction, 45 degrees apart", () => {
-  const d = [0, 0.6, 0.8];
-  const [a, b] = sideFrame(d);
-  const sides = [0, Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4].map((t) => arcSide(a, b, t));
-  for (const s of sides) {
-    assert.ok(Math.abs(Math.hypot(...s) - 1) < 1e-9);
-    assert.ok(Math.abs(s[0] * d[0] + s[1] * d[1] + s[2] * d[2]) < 1e-9);
-  }
-  const dotp = (p, q) => p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
-  assert.ok(Math.abs(dotp(sides[0], sides[1]) - Math.SQRT1_2) < 1e-9);
-  assert.ok(Math.abs(dotp(sides[0], sides[2])) < 1e-9);
+test("an arc side is the face axis made square to the arrow", () => {
+  close(sideToward([0, 0, 1], [1, 0, 0]), [1, 0, 0]);
+  close(sideToward([0, 0.6, 0.8], [0, 1, 0]), [0, 0.8, -0.6]);
+  const s = sideToward([1, 0, 0], [1, 0, 0]); // the axis lies along the arrow: any square side
+  assert.ok(Math.abs(s[0]) < 1e-9 && Math.abs(Math.hypot(...s) - 1) < 1e-9);
 });
 
 test("tilting toward a side turns the direction in their plane", () => {
@@ -64,4 +58,11 @@ test("the chosen direction becomes tool parameters, none for the normal", () => 
   p.reset();
   assert.deepEqual(p.params(), {});
   assert.equal(changes, 1);
+});
+
+test("a pick of the selected face resets, an edge sets a direction turned out of the face, nothing usable is refused", () => {
+  assert.deepEqual(resolvePick(true, null, [0, 0, 1]), { kind: "reset" });
+  assert.deepEqual(resolvePick(false, [1, 0.5, -1], [0, 0, 1]), { kind: "set", direction: [-1, -0.5, 1] });
+  assert.deepEqual(resolvePick(false, [1, 0, 1], [0, 0, 1]), { kind: "set", direction: [1, 0, 1] });
+  assert.deepEqual(resolvePick(false, null, [0, 0, 1]), { kind: "refused" });
 });

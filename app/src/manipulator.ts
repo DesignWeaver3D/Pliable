@@ -215,9 +215,9 @@ export class Manipulator {
   }
 
   /** The push/pull arrow as it stands now (where it starts and which way it points), for the direction gizmo that sits past its head. */
-  pushPullHandle(): { anchor: [number, number, number]; direction: [number, number, number] } | null {
+  pushPullHandle(): { anchor: [number, number, number]; direction: [number, number, number]; frame: [[number, number, number], [number, number, number]] | null } | null {
     const item = this.items.find((i) => i.info.param === "distance" && i.info.label === "Push/pull");
-    return item ? { anchor: item.info.anchor, direction: item.info.direction } : null;
+    return item ? { anchor: item.info.anchor, direction: item.info.direction, frame: item.info.frame ?? null } : null;
   }
 
   /** The handles now shown; a handle being dragged keeps its own position until the drag ends. */

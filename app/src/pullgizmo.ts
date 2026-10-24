@@ -1,20 +1,23 @@
-/** The push/pull direction gizmo: four arcs of 120 degrees, drawn as if on a hemisphere around the arrow (each runs 60 degrees either side of the arrowhead's tip,
- *  in the colour of the axis it turns about, like the rotate gizmo's rings), and the UI's pick icon just past the tip.
- *  Pressing the icon asks for a vector to pick (an edge, see main.ts); dragging an arc leans the arrow along it.
+/** The push/pull direction gizmo: two arcs of 120 degrees, drawn as if on a hemisphere around the arrow (each runs 60 degrees either side of the arrowhead's tip,
+ *  so it covers both ways of its axis: four cardinal tilts), and the UI's pick icon just past the tip. The red arc swings the arrow toward the x axis of the sketch
+ *  plane on the face (about the face's y axis) and the green arc toward its y axis (about its x axis). Pressing the icon asks for a vector to pick (an edge, see main.ts).
  *  It follows the push/pull arrow handle of the manipulator and holds no state of its own beyond the drag in progress. */
 import * as THREE from "three";
 import { uiIcon } from "./icons";
-import { ARM_PX, axisColorOf, type Manipulator } from "./manipulator.ts";
-import { angleFromNormal, arcSide, sideFrame, tiltFromDrag, type PullDirection, type Vec } from "./pulldir.ts";
+import { AXIS_COLORS } from "./axes.ts";
+import { ARM_PX, type Manipulator } from "./manipulator.ts";
+import { angleFromNormal, sideFrame, sideToward, tiltFromDrag, type PullDirection, type Vec } from "./pulldir.ts";
 
 const COLOR_HOT = 0xffffff; // the hover colour of the move and rotate gizmos
 /** The arcs lie on a sphere around the arrow's base whose radius is the arrow length, so they pass through the arrowhead's tip; the pick icon sits past it, in arrow lengths. */
-const ICON_AT = 1.32;
+const ICON_AT = 1.3;
+/** The sphere the arcs lie on is a little larger than the arrow, so the arcs stand clear of its head (in arrow lengths). */
+const SPHERE = 1.5;
 const ARC_HALF_SPAN = Math.PI / 3;
 const ARC_STEPS = 24;
 const ARC_GRAB_PX = 8;
-/** The four arcs are great-circle arcs through the tip, turned 45 degrees apart: left-right, up-down and the two diagonals. */
-const ARC_AZIMUTHS = [0, Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4];
+/** The red arc swings toward the face's x axis, the green one toward its y axis (the colours of those axes). */
+const ARC_COLORS = [AXIS_COLORS.x, AXIS_COLORS.y];
 const REST_OPACITY = 0.9; // stronger than the rotation rings (0.55): the arcs are short and cross a coloured face
 
 interface Layout {
@@ -54,7 +57,7 @@ export class PullGizmo {
     private readonly state: PullDirection,
   ) {
     this.group.renderOrder = 10;
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 2; i++) {
       const arc = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ depthTest: false, transparent: true, opacity: REST_OPACITY }));
       arc.renderOrder = 9;
       this.arcs.push(arc);
@@ -67,8 +70,9 @@ export class PullGizmo {
     this.pick.type = "button";
     this.pick.className = "iconbtn";
     this.pick.title = "Pick the push/pull direction: click a straight edge (or a face for its normal); the selected face goes back to its own normal";
-    this.pick.style.cssText = "position:absolute;display:none;padding:3px;line-height:0;transform:translate(-50%,-50%);z-index:5;background:rgba(32,34,40,.9);border:1px solid #666;border-radius:4px;color:#ddd;cursor:pointer";
-    this.pick.append(uiIcon("pickBase", 18));
+    // No backing and no padding: only the icon's own strokes cover anything behind it.
+    this.pick.style.cssText = "position:absolute;display:none;padding:0;margin:0;line-height:0;transform:translate(-50%,-50%);z-index:5;background:none;border:none;color:#e8e8e8;cursor:pointer;filter:drop-shadow(0 0 1.5px #000)";
+    this.pick.append(uiIcon("pickBase", 22));
     this.pick.addEventListener("click", () => this.onPick());
     layer.append(this.pick);
     this.label = document.createElement("div");
@@ -93,7 +97,8 @@ export class PullGizmo {
     const s = new THREE.Vector3(...layout.sides[side]);
     return Array.from({ length: ARC_STEPS + 1 }, (_, i) => {
       const a = -ARC_HALF_SPAN + (2 * ARC_HALF_SPAN * i) / ARC_STEPS;
-      return layout.base.clone().addScaledVector(d, Math.cos(a) * layout.length).addScaledVector(s, Math.sin(a) * layout.length);
+      const radius = layout.length * SPHERE;
+      return layout.base.clone().addScaledVector(d, Math.cos(a) * radius).addScaledVector(s, Math.sin(a) * radius);
     });
   }
 
@@ -112,19 +117,17 @@ export class PullGizmo {
     const direction = this.live ?? handle.direction;
     const base = new THREE.Vector3(...handle.anchor);
     const length = this.pixelSizeAt(base) * ARM_PX;
-    const [e1, e2] = sideFrame(direction);
-    const layout: Layout = { base, direction, length, sides: ARC_AZIMUTHS.map((a) => arcSide(e1, e2, a)) };
+    const [e1, e2] = handle.frame ?? sideFrame(direction);
+    const layout: Layout = { base, direction, length, sides: [sideToward(direction, e1), sideToward(direction, e2)] };
     this.layout = layout;
     this.group.visible = true;
     this.arcs.forEach((arc, i) => {
       arc.geometry.setFromPoints(this.arcPoints(layout, i));
       const material = arc.material as THREE.LineBasicMaterial;
-      const axis = new THREE.Vector3(...direction).cross(new THREE.Vector3(...layout.sides[i])); // the axis this arc's tilt turns about
-      const hot = this.hot === i || this.drag !== null;
-      material.color.setHex(hot && this.hot === i ? COLOR_HOT : axisColorOf([axis.x, axis.y, axis.z]));
-      material.opacity = hot && this.hot === i ? 1 : REST_OPACITY;
+      material.color.setHex(this.hot === i ? COLOR_HOT : ARC_COLORS[i]);
+      material.opacity = this.hot === i ? 1 : REST_OPACITY;
     });
-    const tip = base.clone().addScaledVector(new THREE.Vector3(...direction), length * ICON_AT);
+    const tip = base.clone().addScaledVector(new THREE.Vector3(...direction), length * SPHERE * ICON_AT);
     const rect = this.dom.getBoundingClientRect();
     const icon = this.screen(tip);
     this.pick.style.display = "block";
@@ -146,7 +149,7 @@ export class PullGizmo {
     const pointer = new THREE.Vector3(e.clientX, e.clientY, 0);
     let best: number | null = null;
     let bestD = ARC_GRAB_PX;
-    for (let side = 0; side < 4; side++) {
+    for (let side = 0; side < 2; side++) {
       const points = this.arcPoints(layout, side).map((p) => this.screen(p));
       for (let i = 0; i + 1 < points.length; i++) {
         const segment = new THREE.Line3(new THREE.Vector3(points[i].x, points[i].y, 0), new THREE.Vector3(points[i + 1].x, points[i + 1].y, 0));
@@ -175,7 +178,7 @@ export class PullGizmo {
     const layout = this.layout;
     if (hot === null || !layout) return false;
     const side = layout.sides[hot];
-    const tip = layout.base.clone().addScaledVector(new THREE.Vector3(...layout.direction), layout.length);
+    const tip = layout.base.clone().addScaledVector(new THREE.Vector3(...layout.direction), layout.length * SPHERE);
     const sidePx = this.screen(tip.clone().addScaledVector(new THREE.Vector3(...side), layout.length)).sub(this.screen(tip));
     this.drag = { side, direction: layout.direction, x: e.clientX, y: e.clientY, sidePx: sidePx.lengthSq() < 4 ? new THREE.Vector2(1, 0) : sidePx.normalize() };
     this.live = layout.direction;
@@ -188,7 +191,7 @@ export class PullGizmo {
     const drag = this.drag;
     if (!drag || !this.state.normal) return;
     const pixels = new THREE.Vector2(e.clientX - drag.x, e.clientY - drag.y).dot(drag.sidePx);
-    this.live = tiltFromDrag(drag.direction, drag.side, this.state.normal, pixels, ARM_PX);
+    this.live = tiltFromDrag(drag.direction, drag.side, this.state.normal, pixels, ARM_PX * SPHERE);
     this.state.set(this.live);
   }
 

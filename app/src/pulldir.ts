@@ -35,11 +35,11 @@ export function sideFrame(direction: Vec): [Vec, Vec] {
   return [first, unit(cross(direction, first))!];
 }
 
-/** The side an arc at `azimuth` (radians from the first side) of the frame lies toward. */
-export function arcSide(first: Vec, second: Vec, azimuth: number): Vec {
-  const c = Math.cos(azimuth);
-  const s = Math.sin(azimuth);
-  return [first[0] * c + second[0] * s, first[1] * c + second[1] * s, first[2] * c + second[2] * s];
+/** `axis` made square to `direction` (the part of it that lies across the arrow), as a unit vector; any square one when it lies along the arrow. */
+export function sideToward(direction: Vec, axis: Vec): Vec {
+  const along = dot(axis, direction);
+  const across = unit([axis[0] - along * direction[0], axis[1] - along * direction[1], axis[2] - along * direction[2]]);
+  return across ?? sideFrame(direction)[0];
 }
 
 /** The direction tilted by `angle` (radians) toward `side` (a unit vector square to it): it stays in the plane of the two. */
@@ -63,6 +63,16 @@ export function tiltFromDrag(direction: Vec, side: Vec, normal: Vec, pixels: num
 /** The angle between the chosen direction and the face normal, in degrees. */
 export function angleFromNormal(direction: Vec, normal: Vec): number {
   return (Math.acos(Math.max(-1, Math.min(1, dot(direction, normal)))) * 180) / Math.PI;
+}
+
+/** What a click in the view means while the push/pull direction is being picked: the selected face itself goes back to its normal, a straight edge or a face gives its direction
+ *  (turned to point out of the face), anything else is refused and the picker stays armed. */
+export type PickResult = { kind: "reset" } | { kind: "set"; direction: Vec } | { kind: "refused" };
+
+export function resolvePick(isSelectedFace: boolean, direction: Vec | null, normal: Vec | null): PickResult {
+  if (isSelectedFace) return { kind: "reset" };
+  if (!direction) return { kind: "refused" };
+  return { kind: "set", direction: normal ? outOf(direction, normal) : direction };
 }
 
 /** The chosen direction of the selected face (null: the face normal). Reset whenever the selection changes. */

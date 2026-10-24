@@ -13,7 +13,7 @@ import { DimensionOverlay, type Dimension } from "./dimensions";
 import { DimensionEditor, withoutDraftTag } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
 import { deleteAction, isTyping, type RowRef } from "./listdelete";
-import { outOf } from "./pulldir";
+import { resolvePick } from "./pulldir";
 import { DatumPlanes } from "./datumplanes";
 import type { DatumPlane, MirrorMode } from "./datumcorners";
 import { LatestWins } from "./latestwins";
@@ -635,23 +635,20 @@ viewport.pullGizmo.onPick = () => {
   cancelEyedrop();
   status.classList.remove("error");
   status.textContent = "Push/pull direction: click a straight edge (or a face for its normal); the selected face resets it; Esc cancels";
-  // The press that raised the pick is still going: arm the picker once it is let go, or its own release would pick the face under it.
-  window.addEventListener("pointerup", () => (viewport.eyedropper = pickPullDirection), { once: true });
+  // The icon is an HTML button, so its press and release are over (the click event comes after them) and cannot pick anything in the view: arm at once.
+  viewport.eyedropper = pickPullDirection;
 };
 const pickPullDirection = (sel: Sel) => {
-  {
-    viewport.eyedropper = null;
-    const own = currentSels.length === 1 && currentSels[0].kind === "face" && sel.kind === "face" && sel.id === currentSels[0].id;
-    const direction = own ? null : viewport.directionOf(sel);
-    if (!own && !direction) {
-      status.textContent = "Pick a straight edge or a flat face for the direction";
-      status.classList.add("error");
-      return;
-    }
-    const normal = viewport.pullDirection.normal;
-    viewport.pullDirection.set(direction && normal ? outOf(direction, normal) : null);
-    status.textContent = direction ? "Push/pull direction set; drag the arrow" : "Push/pull direction reset to the face normal";
+  const own = currentSels.length === 1 && currentSels[0].kind === "face" && sel.kind === "face" && sel.id === currentSels[0].id;
+  const result = resolvePick(own, own ? null : viewport.directionOf(sel), viewport.pullDirection.normal);
+  if (result.kind === "refused") {
+    status.textContent = "Pick a straight edge or a flat face for the direction (Esc cancels)";
+    status.classList.add("error");
+    return; // the picker stays armed
   }
+  viewport.eyedropper = null;
+  viewport.pullDirection.set(result.kind === "set" ? result.direction : null);
+  status.textContent = result.kind === "set" ? "Push/pull direction set; drag the arrow" : "Push/pull direction reset to the face normal";
 };
 viewport.onFaceBody = (id) => {
   const picked: Sel[] = [{ kind: "body", id }];

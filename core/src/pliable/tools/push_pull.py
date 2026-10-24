@@ -35,7 +35,10 @@ class PushPull(Tool):
             pull = pull_direction(normal, _chosen(values))
         except OperationError:
             pull = pull_direction(normal)  # a direction along the face: the run reports it, the arrow stays on the normal
-        return [Handle("distance", "Push/pull", (point.X() + pull.X() * distance, point.Y() + pull.Y() * distance, point.Z() + pull.Z() * distance), (pull.X(), pull.Y(), pull.Z()))]
+        from ..sketch.planes import face_plane, frame
+
+        _, x_axis, y_axis, _ = frame(face_plane(face))  # the axes a sketch on this face would use
+        return [Handle("distance", "Push/pull", (point.X() + pull.X() * distance, point.Y() + pull.Y() * distance, point.Z() + pull.Z() * distance), (pull.X(), pull.Y(), pull.Z()), frame=(x_axis, y_axis))]
 
     def applies(self, topology, selection):
         if _all_round_walls(topology, selection):
