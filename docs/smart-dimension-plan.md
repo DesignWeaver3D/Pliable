@@ -73,3 +73,14 @@ Principle: the smart dimension should always give the dimension a person would d
 2. Wire the Dimension button and the D key to it; keep the existing buttons unchanged.
 3. Ask-for-edit chaining (Tab) for multi-item results.
 4. Update `behavior.md` and the hand-test list.
+
+## Owner decisions (2026-10-24, answers to the open questions)
+
+Everything not listed here keeps the proposed table. Alpha build: no backward compatibility is needed.
+
+1. Two points very near each other (pick tolerance in screen pixels) get a coincident constraint; separated points get the linear distance. A single line always gets its length; for horizontal or vertical distance between end points the user selects the two end points. When more than one constraint fits a selection, show a small context menu next to the cursor to choose (no Shift or Alt reading). Point on line stays as is. Two parallel lines give the distance between them.
+2. Three or more items offer only constraints that take three or more arguments (symmetric, midpoint, equal for several, collinear or concurrent sets), chosen from the same cursor menu. Never several dimensions at once.
+3. Regular polygons (n-gon tool): two construction circles, minor (centre to side midpoint) and major (centre to vertex), shown only while editing the sketch and never as real 3D geometry. All sides already carry equality, so dimensioning one side, or either circle, defines the whole polygon. Rectangles are handled separately.
+4. Redundant dimensions are created as reference (shown with parentheses, not driving). A reference can be made driving; the previously driving one that becomes redundant turns into a reference. Switch with an icon button in the constraint list and with right-click on dimensions selected in the 3D view (multiple at once). A redundant geometric constraint is dropped with a warning message. There are no geometric reference constraints.
+5. The angle between two lines picks the inside angle by default (existing placement behavior); dragging the value across switches to the outside value. Limit stays 180 degrees.
+6. With nothing usable selected, D shows a message to select geometry. No pick mode.

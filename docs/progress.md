@@ -8,9 +8,12 @@ State (2026-10-24): `dev` is many local commits ahead of `origin/dev`, nothing p
 
 ## Planned (not started; discuss before coding)
 
-Sketch requests (owner, 2026-10-24, second batch), one row each, in this order:
+Sketch requests (owner, 2026-10-24, third batch), one row each, in this order:
 
-- **Smart dimension on many selections (plan written in [smart-dimension-plan.md](smart-dimension-plan.md), awaiting owner; no code).** "We need the smart dimension tool do work on as many selections as possible to make constraining much easier. Make a plan and discuss the plan with the author." Needs: a written plan listing every selection combination (point, line, circle, arc, point-line, line-line, point-circle, mixed sets and so on) and the dimension each yields, shown to the owner for approval before any coding.
+- **Implied face not selectable after another face is extruded.** "Sketch implied selection face where not complete profile perimiter is not selectable for extrusion after other area face is extruded. Deleting the extrusion body doesn't make it selectable." Needs: reproduce in a test; every region of a sketch stays pickable after a neighbour region is extruded, and after that body is deleted.
+- **Dimension line vanishes when the value is pulled outside.** "Sketch dimension when value is pulled out from between two extension lines, the outer arrows look and work great, but the line between the extension lines should disappear in this mode." Needs: in the outside-arrow mode no line is drawn between the extension lines.
+- **Smart dimension on many selections (build; plan and the owner's answers in [smart-dimension-plan.md](smart-dimension-plan.md)).** Owner: "We need the smart dimension tool do work on as many selections as possible to make constraining much easier." Needs: every item in the "Owner decisions" section of the plan file, in the order given there.
+
 
 - **Stored array parameters (long term, needs owner feedback).** Store array parameters like primitives (editable later); today arrays make separate solids. Consider an option for the array to be a compound with its source object.
 
