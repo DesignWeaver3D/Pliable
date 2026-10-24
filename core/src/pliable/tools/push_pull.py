@@ -1,6 +1,6 @@
 """The Push/Pull tool."""
 
-from ..ops import face_handle_point, MIN_DISTANCE, OperationError, OpResult, planar_normal, push_pull
+from ..ops import face_handle_point, MIN_DISTANCE, OperationError, OpResult, planar_normal, pull_direction, push_pull
 from ..symmetric import symmetric_faces
 from .base import Accepts, Handle, Param, register, Tool
 
@@ -17,6 +17,9 @@ class PushPull(Tool):
     def bind(self, raw):
         values = super().bind(raw)
         values["symmetric"] = 1.0 if raw.get("symmetric") else 0.0  # set by a Shift drag; not a form field
+        # A chosen pull direction (not a form field): unit components, all three or none.
+        if all(k in raw for k in ("ux", "uy", "uz")):
+            values.update({k: float(raw[k]) for k in ("ux", "uy", "uz")})
         return values
 
     def handles(self, topology, selection, values):
@@ -28,7 +31,11 @@ class PushPull(Tool):
             return []
         point = face_handle_point(face)
         distance = values["distance"]
-        return [Handle("distance", "Push/pull", (point.X() + normal.X() * distance, point.Y() + normal.Y() * distance, point.Z() + normal.Z() * distance), (normal.X(), normal.Y(), normal.Z()))]
+        try:
+            pull = pull_direction(normal, _chosen(values))
+        except OperationError:
+            pull = pull_direction(normal)  # a direction along the face: the run reports it, the arrow stays on the normal
+        return [Handle("distance", "Push/pull", (point.X() + pull.X() * distance, point.Y() + pull.Y() * distance, point.Z() + pull.Z() * distance), (pull.X(), pull.Y(), pull.Z()))]
 
     def applies(self, topology, selection):
         if _all_round_walls(topology, selection):
@@ -48,9 +55,17 @@ class PushPull(Tool):
             faces = symmetric_faces(topology, faces, getattr(topology, "datums", []))
         elif len(faces) == 2 and planar_normal(faces[0]).IsOpposite(planar_normal(faces[1]), 1e-6):
             raise OperationError("These two faces face away from each other; hold Shift while dragging to push/pull them symmetrically")
-        result = push_pull(topology.shape, faces if len(faces) > 1 else faces[0], values["distance"], preview=preview, symmetric=symmetric and loose)
+        direction = _chosen(values)
+        if direction is not None and symmetric:
+            raise OperationError("Symmetric push/pull uses the face normal; reset the pull direction first")
+        result = push_pull(topology.shape, faces if len(faces) > 1 else faces[0], values["distance"], preview=preview, symmetric=symmetric and loose, direction=direction)
         result.tracked_faces = result.tracked_faces[:1]  # keep a single face selected, the related ones are found again
         return result
+
+
+def _chosen(values):
+    """The pull direction picked by the user as (x, y, z), or None for the face normal."""
+    return (values["ux"], values["uy"], values["uz"]) if "ux" in values else None
 
 
 def _in_solid(shape, face) -> bool:

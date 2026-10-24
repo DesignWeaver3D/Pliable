@@ -278,3 +278,22 @@ def test_extruding_a_picked_region_is_one_undo_step():
     assert faces(session) == before and undone["canRedo"]
     session.handle({"type": "redo"})
     assert faces(session) == pulled
+
+
+def test_a_picked_region_can_be_pulled_along_a_chosen_direction():
+    session = open_session()
+    session.handle({"type": "sketch_keep", "sketch": make(session, 10, x0=500), "regions": False})
+    picked = header(session.handle({"type": "sketch_regions", "sketch_id": 1, "region": 0}))["selection"]["faces"]
+    slant = 2 ** -0.5
+    params = {"distance": 10, "ux": slant, "uy": 0, "uz": slant}
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+
+    def volume():
+        props = GProp_GProps()
+        BRepGProp.VolumeProperties_s(session.document.current.shape, props)
+        return props.Mass()
+
+    before = volume()
+    header(session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": picked}, "params": params}))
+    assert volume() == pytest.approx(before + 100 * 10 * slant, rel=1e-6)  # a 10 by 10 region pulled 10 along a 45 degree direction
