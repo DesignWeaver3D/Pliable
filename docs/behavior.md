@@ -60,6 +60,8 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - A sketch dimension's value is a plain number; no expressions or named values yet.
 - Clicking a kept sketch's tinted region adds it as a temporary face; clicking away without using it undoes the pick.
 - Closed areas in a sketch are faces even when the geometry that encloses them shares no end points: lines that end on another line split it, so a rectangle with a divider drawn between two of its sides is two faces, and three lines attached to a side enclose a third. Lines that enclose nothing make no face.
+- While a sketch shape is being drawn, typing digits starts a size entry for the next point: Tab (or space) moves to the next number, Enter places the shape. Rectangle takes width and height, slot length and width, ellipse long and short radius, arc radius and sweep degrees; line, circle and polygons take one number.
+- Every sketch drawing tool except Line returns to Select once its first shape is complete; Line keeps drawing.
 - Horizontal and vertical constraints apply to several selected lines at once; by default both kinds are applied as detected (nearly horizontal lines get horizontal, nearly vertical get vertical).
 - Every dimensional constraint (any constraint holding a number) is editable on screen by double-clicking its dimension leader or its number.
 - When a numeric constraint is created, its dimension appears immediately with the as-created value prefilled and ready for editing.

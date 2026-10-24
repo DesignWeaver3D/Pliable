@@ -61,6 +61,9 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Unwrap: a chain is a path of flat faces and cylinders running one direction (a sharp fold unrolls like a bend); a cone must not reach its apex and unrolls under half a turn and cannot chain; regions wider than half a turn are unsupported; regions outside a chain strip are dropped; outlines are 48-point interpolated curves (areas exact). The unrolled sketch has no extrude, revolve or edge projection; its plane sits beside the model and does not follow later changes.
 - Ctrl+Z inside a sketch undoes a sketch step, not the model. Escape leaves the sketch once there is nothing to cancel. Sketch dimensions redraw every frame (untested with hundreds). Sketch polygons, trim, extend and unwrap on cones/chains are mostly unit-tested, not hand-tested in the app.
 
+- Sketch drawing tools other than Line leave to Select after the first shape (`sketch.ts` `shapeDone`). A smarter rule for when a tool may keep drawing, such as a modifier-click on the tool button, is not decided. Symptom: repeating a shape needs the tool picked again each time.
+- Sketch typed sizes: slot, ellipse and arc sizes place the shape but are not kept as dimensions (only line, circle and rectangle are); the slot width typed is the whole width, the arc sweep is counterclockwise degrees (`sketchtyped.ts`).
+
 ## Keys and settings
 
 - Bare keys need an engaged viewport (pointer over the view, a recent exit, or a click in it; `ENGAGE_GRACE_MS = 1500`). Symptom: a view key does nothing right after using a panel.

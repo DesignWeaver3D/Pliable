@@ -14,6 +14,7 @@ import { buildGridGroup, disposeGrid } from "./sketchgrid";
 import * as B from "./sketchbuilders";
 import * as Sn from "./sketchsnap";
 import * as Pv from "./sketchpreview";
+import * as T from "./sketchtyped";
 import { buildConstraintList, buildToolOptions, button, el, type PanelContext } from "./sketchpanelparts";
 import { openSketchSettings } from "./sketchsettings";
 import { parseValue } from "./dimedit";
@@ -715,6 +716,12 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.place(snap);
   }
 
+  /** A shape is complete: every drawing tool but Line is left for Select, so the next click selects (smarter continuing is on the watchlist). */
+  private shapeDone() {
+    this.chain = [];
+    this.setTool("select");
+  }
+
   /** Add the next point of the shape being drawn, from a click or a typed size; finishes the shape when it has enough points. */
   private place(snap: Snap) {
     this.chain.push(snap);
@@ -729,90 +736,81 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       if (this.chain.length >= 3 && snap.id !== undefined && snap.id === first.id) {
         this.chain.pop();
         this.addSpline(true);
+        this.shapeDone();
         return;
       }
     } else if (this.tool === "ellipse" && this.chain.length === 3) {
       this.addEllipse(this.chain[0], this.chain[1], this.chain[2]);
-      this.chain = [];
+      this.shapeDone();
     } else if ((this.tool === "rectangle" || this.tool === "rectcentre") && this.chain.length === 2) {
       this.addRectangle(this.chain[0], this.chain[1], this.tool === "rectcentre");
-      this.chain = [];
+      this.shapeDone();
     } else if (this.tool === "circle" && this.chain.length === 2) {
       this.addCircle(this.chain[0], this.chain[1]);
-      this.chain = [];
+      this.shapeDone();
     } else if (this.sidesOf(this.tool) && this.chain.length === 2) {
       this.addPolygon(this.chain[0], this.chain[1], this.sidesOf(this.tool)!);
-      this.chain = [];
+      this.shapeDone();
     } else if (this.tool === "arc" && this.chain.length === 3) {
       this.addArc(this.chain[0], this.chain[1], this.chain[2]);
-      this.chain = [];
+      this.shapeDone();
     } else if (this.tool === "arc3" && this.chain.length === 3) {
       this.addArcThrough(this.chain[0], this.chain[1], this.chain[2]);
-      this.chain = [];
+      this.shapeDone();
     } else if (this.tool === "circle3" && this.chain.length === 3) {
       this.addCircleThrough(this.chain[0], this.chain[1], this.chain[2]);
-      this.chain = [];
+      this.shapeDone();
     } else if (this.tool === "slot" && this.chain.length === 3) {
       this.addSlot(this.chain[0], this.chain[1], this.chain[2]);
-      this.chain = [];
+      this.shapeDone();
     } else if (this.tool === "point") {
       this.pushUndo();
       this.pointFor(snap);
-      this.chain = [];
+      this.shapeDone();
       this.resolve();
     }
     this.cursor = null;
     this.render();
   }
 
-  /** Drawing tools whose size can be typed: the digits go to the next point's distance, Enter places it. */
-  private typable(): boolean {
-    return this.active && this.chain.length > 0 && (["line", "circle", "rectangle", "rectcentre"].includes(this.tool) || !!this.sidesOf(this.tool));
+  /** The numbers the current drawing tool takes at this stage (empty when it takes none): typing starts an entry. */
+  private typedLabels(): string[] {
+    return this.active ? T.typedLabels(this.tool, this.chain.length, !!this.sidesOf(this.tool)) : [];
   }
 
-  /** Digits typed while drawing (captured before the key router sees them). Enter applies, Backspace edits, Escape clears. */
+  /** Keys typed while drawing (captured before the key router sees them). Digits start the entry, Tab or space moves to the next number, Enter applies, Backspace edits, Escape clears. */
   private onTyping = (e: KeyboardEvent) => {
-    if (!this.typable() || e.ctrlKey || e.metaKey || e.altKey || (e.target as HTMLElement).closest("input, select, textarea")) return;
-    const rect = this.tool === "rectangle" || this.tool === "rectcentre";
-    if (/^[0-9]$/.test(e.key) || e.key === "." || e.key === ",") this.typed += e.key === "," ? "." : e.key;
-    else if (e.key === " " && rect && this.typed && !this.typed.includes(" ")) this.typed += " ";
-    else if (e.key === "Backspace" && this.typed) this.typed = this.typed.slice(0, -1);
-    else if (e.key === "Escape" && this.typed) this.typed = "";
+    const labels = this.typedLabels();
+    if (!labels.length || e.ctrlKey || e.metaKey || e.altKey || (e.target as HTMLElement).closest("input, select, textarea")) return;
+    const next = T.typedKey(this.typed, e.key, labels.length);
+    if (next !== null) this.typed = next;
     else if (e.key === "Enter" && this.typed) void this.applyTyped();
     else return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    if (this.typed) this.host.status(rect ? `Typed size: ${this.typed}| (width, space, height; Enter places it)` : `Typed size: ${this.typed}| (Enter places it)`);
+    if (this.typed) {
+      const field = Math.min(labels.length - 1, this.typed.trim().split(/\s+/).length - (this.typed.endsWith(" ") ? 0 : 1));
+      this.host.status(`Typing the ${labels[field]}: ${this.typed}| (${labels.length > 1 ? `${labels.join(", ")}; Tab for the next number, ` : ""}Enter places it)`);
+    }
     this.render();
   };
   typed = "";
 
-  /** Place the next point at the typed distance in the pointer's direction and keep the typed size as a dimension. */
+  /** Place the next points at the typed sizes in the pointer's direction and keep the typed sizes as dimensions where the shape has them. */
   private async applyTyped() {
-    const numbers = this.typed.trim().split(/\s+/).map(Number);
+    const numbers = T.parseTyped(this.typed);
     this.typed = "";
-    if (numbers.some((n) => !Number.isFinite(n) || n <= 0)) return this.host.status("That is not a positive size", true);
-    const last = this.chain[this.chain.length - 1];
-    const first = this.chain[0];
-    const toward = this.cursor ?? { u: last.u + 1, v: last.v };
-    const [du, dv] = [toward.u - last.u, toward.v - last.v];
-    const length = Math.hypot(du, dv) || 1;
-    const before = this.s.entities.length;
-    let dimensions: Omit<M.SketchConstraint, "id">[] = [];
-    let target: { u: number; v: number };
+    if (!numbers) return this.host.status("That is not a positive size", true);
+    const tool = this.tool; // placing the last point can leave the tool
     const [w, h] = [numbers[0], numbers[1] ?? numbers[0]];
-    if (this.tool === "rectangle" || this.tool === "rectcentre") {
-      const k = this.tool === "rectcentre" ? 2 : 1;
-      target = { u: first.u + (toward.u - first.u < 0 ? -w : w) / k, v: first.v + (toward.v - first.v < 0 ? -h : h) / k };
-    } else {
-      target = { u: last.u + (du / length) * w, v: last.v + (dv / length) * w };
-    }
-    this.place({ ...target });
+    const before = this.s.entities.length;
+    for (const target of T.typedTargets(tool, this.chain, this.cursor, numbers.slice(0, this.typedLabels().length))) this.place({ ...target });
     const made = this.s.entities.slice(before);
     const plain = !made.some((x) => x.type === "arc"); // a rounded rectangle's sides are not its overall size
-    if (this.tool === "line" && made[0]?.type === "line") dimensions = [{ type: "distance", entity: made[0].id, value: w }];
-    else if (this.tool === "circle" && made[0]?.type === "circle") dimensions = [{ type: "radius", entity: made[0].id, value: w }];
-    else if ((this.tool === "rectangle" || this.tool === "rectcentre") && plain && made.length >= 2) {
+    let dimensions: Omit<M.SketchConstraint, "id">[] = [];
+    if (tool === "line" && made[0]?.type === "line") dimensions = [{ type: "distance", entity: made[0].id, value: w }];
+    else if (tool === "circle" && made[0]?.type === "circle") dimensions = [{ type: "radius", entity: made[0].id, value: w }];
+    else if ((tool === "rectangle" || tool === "rectcentre") && plain && made.length >= 2) {
       dimensions = [{ type: "distance", entity: made[0].id, value: w }, { type: "distance", entity: made[1].id, value: h }];
     }
     for (const d of dimensions) {
@@ -828,7 +826,10 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
 
   private endChain() {
     this.typed = "";
-    if (this.tool === "spline" && this.chain.length >= 2) this.addSpline(false);
+    if (this.tool === "spline" && this.chain.length >= 2) {
+      this.addSpline(false);
+      return this.shapeDone();
+    }
     this.chain = [];
     this.chainStart = undefined;
     this.cursor = null;
