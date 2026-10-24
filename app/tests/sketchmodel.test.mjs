@@ -112,7 +112,7 @@ test("horizontal and vertical apply to several selected lines, each as detected"
   };
   const sel = [{ kind: "entity", id: 10 }, { kind: "entity", id: 11 }];
   const labels = optionsFor(s, sel).map((o) => o.label);
-  assert.deepEqual(labels.slice(0, 3), ["Horizontal / vertical", "Horizontal", "Vertical"]);
+  assert.deepEqual(labels.slice(0, 4), ["Dimension", "Horizontal / vertical", "Horizontal", "Vertical"]);
   const byLabel = (l) => optionsFor(s, sel).find((o) => o.label === l);
   assert.deepEqual(byLabel("Horizontal / vertical").buildMany(s, sel), [{ type: "horizontal", entity: 10 }, { type: "vertical", entity: 11 }]);
   assert.deepEqual(byLabel("Vertical").buildMany(s, sel), [{ type: "vertical", entity: 10 }, { type: "vertical", entity: 11 }]);

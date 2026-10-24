@@ -12,13 +12,15 @@ export interface ConstraintOption {
   pick?(s: SketchData, sel: SketchSel[]): ConstraintOption | null;
   /** For dimensions: the value the dialog starts with, from the current geometry. */
   initial?(s: SketchData, sel: SketchSel[]): number;
+  /** For the smart dimension: every constraint that fits the selection (`near`: how close two points must be to count as one place), for a menu next to the cursor when there are several. */
+  choices?(s: SketchData, sel: SketchSel[], near: number): ConstraintOption[];
   dimension?: boolean;
 }
 
-const entities = (s: SketchData, sel: SketchSel[]) => sel.filter((x) => x.kind === "entity").map((x) => s.entities.find((e) => e.id === x.id)!);
-const pts = (sel: SketchSel[]) => sel.filter((x) => x.kind === "point").map((x) => x.id);
-const only = (list: SketchEntity[], ...types: string[]) => list.length > 0 && list.every((e) => types.includes(e.type));
-const dist = (s: SketchData, a: number, b: number) => Math.hypot(pointOf(s, a).u - pointOf(s, b).u, pointOf(s, a).v - pointOf(s, b).v);
+export const entities = (s: SketchData, sel: SketchSel[]) => sel.filter((x) => x.kind === "entity").map((x) => s.entities.find((e) => e.id === x.id)!);
+export const pts = (sel: SketchSel[]) => sel.filter((x) => x.kind === "point").map((x) => x.id);
+export const only = (list: SketchEntity[], ...types: string[]) => list.length > 0 && list.every((e) => types.includes(e.type));
+export const dist = (s: SketchData, a: number, b: number) => Math.hypot(pointOf(s, a).u - pointOf(s, b).u, pointOf(s, a).v - pointOf(s, b).v);
 export const radiusOf = (s: SketchData, e: SketchEntity) => (e.type === "circle" ? e.radius : e.type === "arc" ? dist(s, e.center, e.start) : 0);
 
 /** The two points a selection measures between: a line's ends, or two selected points. */
@@ -28,7 +30,7 @@ function ends(s: SketchData, sel: SketchSel[]): [number, number] {
 }
 
 /** Perpendicular distance from a point to the infinite line through a line entity. */
-function pointLineDistance(s: SketchData, pointId: number, line: Extract<SketchEntity, { type: "line" }>): number {
+export function pointLineDistance(s: SketchData, pointId: number, line: Extract<SketchEntity, { type: "line" }>): number {
   const [a, b, p] = [pointOf(s, line.a), pointOf(s, line.b), pointOf(s, pointId)];
   const length = Math.hypot(b.u - a.u, b.v - a.v) || 1;
   return Math.abs((b.u - a.u) * (p.v - a.v) - (b.v - a.v) * (p.u - a.u)) / length;
@@ -95,7 +97,7 @@ function coincidentGroups(s: SketchData): Map<number, number> {
 }
 
 /** Coincident for the selection: several points are joined to the first; points and curves put each point on each curve. */
-function coincidences(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[] {
+export function coincidences(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[] {
   const p = pts(sel);
   const es = entities(s, sel);
   if (!es.length) {
@@ -109,7 +111,7 @@ function coincidences(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "
 
 /** Tangent or collinear, whichever fits the selection: lines are made collinear with the first; a curve and a line or curve are made tangent
  * (for more than two items, only those that meet at a point). */
-function tangentOrCollinear(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[] {
+export function tangentOrCollinear(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[] {
   const es = entities(s, sel);
   if (es.length < 2 || !only(es, "line", "arc", "circle")) return [];
   const has = (type: string, a: number, b: number) => s.constraints.some((c) => c.type === type && c.entities?.includes(a) && c.entities?.includes(b));
@@ -338,34 +340,3 @@ export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
     },
   },
 ];
-
-/** The smart dimension: one button that dimensions whatever is selected. A line or two points: length; an arc: radius; a circle: diameter;
- * two lines: the angle between them; a point and a line: the distance from the point to the line; an ellipse: its short radius. */
-const SMART_ORDER = ["Length / distance", "Radius", "Diameter", "Angle", "Point to line distance", "Short radius"];
-const SMART_DIMENSION: ConstraintOption = {
-  label: "Dimension",
-  dimension: true,
-  pick: (s, sel) => {
-    const es = entities(s, sel);
-    const circle = es.length === 1 && es[0].type === "circle";
-    for (const label of SMART_ORDER) {
-      if (label === "Radius" && circle) continue; // a circle is dimensioned by its diameter
-      if (label === "Diameter" && !circle) continue; // an arc by its radius
-      const option = CONSTRAINT_OPTIONS.find((o) => o.label === label)!;
-      if (option.build(s, sel)) return option;
-    }
-    return null;
-  },
-  build: (s, sel) => SMART_DIMENSION.pick!(s, sel)?.build(s, sel) ?? null,
-  initial: (s, sel) => SMART_DIMENSION.pick!(s, sel)!.initial!(s, sel),
-};
-
-/** Constraint options that fit a selection. */
-export function optionsFor(s: SketchData, sel: SketchSel[]): ConstraintOption[] {
-  return sel.length === 0 ? [] : [...CONSTRAINT_OPTIONS, SMART_DIMENSION].filter((o) => o.build(s, sel) !== null);
-}
-
-/** Every constraint and dimension button for the sketch strip, each with whether the current selection takes it. */
-export function allConstraintOptions(s: SketchData, sel: SketchSel[]): { option: ConstraintOption; enabled: boolean }[] {
-  return [...CONSTRAINT_OPTIONS, SMART_DIMENSION].map((option) => ({ option, enabled: sel.length > 0 && option.build(s, sel) !== null }));
-}

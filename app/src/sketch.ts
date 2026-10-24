@@ -17,6 +17,7 @@ import * as Pv from "./sketchpreview";
 import * as T from "./sketchtyped";
 import * as F from "./sketchfit";
 import * as Co from "./sketchcoincident";
+import { chooseAtCursor } from "./sketchmenu";
 import { buildConstraintList, buildToolOptions, button, el, type PanelContext } from "./sketchpanelparts";
 import { openSketchSettings } from "./sketchsettings";
 import { parseValue } from "./dimedit";
@@ -179,6 +180,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   ) {
     this.panel = panel;
     window.addEventListener("keydown", this.onTyping, true);
+    window.addEventListener("pointermove", (e) => (this.lastPointer = { x: e.clientX, y: e.clientY }), true);
     window.addEventListener("resize", () => { if (this.active) this.placePanel(); });
     for (const o of [this.normal, this.placed, this.construction, this.points]) o.userData.extent = true; // counted by the origin axes' length
     for (const o of [this.axes, this.normal, this.placed, this.construction, this.marked, this.pending, this.points]) {
@@ -967,9 +969,31 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.render();
   }
 
-/** The constraint and dimension buttons of the sketch strip: every one, enabled when the selection takes it. */  constraintChoices(): { label: string; enabled: boolean }[] {    return M.allConstraintOptions(this.s, this.selection).map((c) => ({ label: c.option.label, enabled: c.enabled }));  }  /** Apply the strip button with this label to the selection. */  chooseConstraint(label: string) {    const chosen = M.allConstraintOptions(this.s, this.selection).find((c) => c.option.label === label);    if (chosen?.enabled) void this.applyConstraint(chosen.option);    else if (chosen) this.host.status(`${label} does not fit the current selection`, "warn");  }
+  /** The constraint and dimension buttons of the sketch strip: every one, enabled when the selection takes it. */
+  constraintChoices(): { label: string; enabled: boolean }[] {
+    return M.allConstraintOptions(this.s, this.selection).map((c) => ({ label: c.option.label, enabled: c.enabled }));
+  }
+
+  /** Apply the strip button with this label to the selection. */
+  chooseConstraint(label: string) {
+    const chosen = M.allConstraintOptions(this.s, this.selection).find((c) => c.option.label === label);
+    if (chosen?.enabled || label === M.SMART_DIMENSION.label) void this.applyConstraint(chosen?.option ?? M.SMART_DIMENSION); // the smart dimension says what to select when nothing fits
+    else if (chosen) this.host.status(`${label} does not fit the current selection`, "warn");
+  }
+
+  /** Where the pointer last was on the page (client pixels): the smart dimension's menu opens there. */
+  private lastPointer = { x: 200, y: 200 };
+
   private async applyConstraint(chosen: M.ConstraintOption) {
-    const option = chosen.pick?.(this.s, this.selection) ?? chosen; // the smart dimension stands for one of the others
+    let option = chosen;
+    if (chosen.choices) {
+      // The smart dimension: every fit for the selection; one is applied, several are chosen from a menu at the cursor.
+      const fits = chosen.choices(this.s, this.selection, Sn.SNAP_PX * this.pixelAt(0, 0));
+      if (!fits.length) return this.host.status("Select geometry to dimension or constrain: a line, circle or arc, two points, a point and a line or curve, two lines or curves, or three or more items for symmetric, midpoint, equal or collinear", "warn");
+      const picked = fits.length === 1 ? fits[0] : await chooseAtCursor(this.lastPointer, fits);
+      if (!picked) return;
+      option = picked;
+    }
     const built = option.build(this.s, this.selection);
     if (!built) return;
     // A dimension is created at once with its current value and opened for editing on the sketch (Escape keeps the value).

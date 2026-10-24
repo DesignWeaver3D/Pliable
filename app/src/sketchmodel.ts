@@ -3,6 +3,7 @@ import type { Dimension } from "./dimensions";
 import { pointInRect, polylineInBox, type Rect } from "./boxselect.ts";
 import { measure, radiusOf } from "./sketchconstraints.ts";
 export * from "./sketchconstraints.ts";
+export * from "./sketchsmartdim.ts";
 
 export interface PlaneData {
   origin: number[];
