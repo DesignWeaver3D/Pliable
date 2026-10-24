@@ -1069,3 +1069,35 @@ def test_angle_between_lines_can_be_the_inside_or_the_outside_value(outside, exp
     b = (p[4][0] - p[3][0], p[4][1] - p[3][1])
     between = math.degrees(math.acos((a[0] * b[0] + a[1] * b[1]) / math.hypot(*a) / math.hypot(*b)))
     assert between == pytest.approx(60.0 if not outside else 120.0, abs=1e-4)
+
+
+def _polygon_with_circles(n=6, r=5.0):
+    """The structure the frontend builds for the polygon tool: sides, a major construction circle through the corners and a minor one tangent to a side."""
+    points = [{"id": 1, "u": 0.0, "v": 0.0}]
+    for k in range(n):
+        a = 2 * math.pi * k / n + 0.03 * k  # slightly off, the solver corrects it
+        points.append({"id": 2 + k, "u": r * math.cos(a), "v": r * math.sin(a)})
+    ents = [{"id": 20 + k, "type": "line", "a": 2 + k, "b": 2 + (k + 1) % n} for k in range(n)]
+    ents += [{"id": 50, "type": "circle", "center": 1, "radius": r, "construction": True}, {"id": 51, "type": "circle", "center": 1, "radius": r * math.cos(math.pi / n), "construction": True}]
+    cons = [{"id": 60 + k, "type": "equal", "entities": [20, 20 + k]} for k in range(1, n)]
+    cons += [{"id": 70 + k, "type": "point_on", "point": 2 + k, "entity": 50} for k in range(n)]
+    cons.append({"id": 80, "type": "tangent", "entities": [51, 20]})
+    return sketch_of(points, ents, cons)
+
+
+@pytest.mark.parametrize("n", [3, 5, 6, 8])
+def test_polygon_with_two_construction_circles_solves_and_is_regular(n):
+    sk = _polygon_with_circles(n)
+    result = sketch.solve(sk, detail=True)
+    assert result["status"] == "ok", result
+    solved = sketch.apply_solution(sk, result)
+    # dimensioning the minor circle (or a side) sets the whole polygon
+    sized = sketch.solve({**solved, "constraints": solved["constraints"] + [{"id": 90, "type": "diameter", "entity": 51, "value": 20}]})
+    assert sized["status"] == "ok"
+    final = sketch.apply_solution(solved, sized)
+    p = {q["id"]: (q["u"], q["v"]) for q in final["points"]}
+    sides = [math.dist(p[2 + k], p[2 + (k + 1) % n]) for k in range(n)]
+    assert max(sides) - min(sides) < 1e-6
+    assert sides[0] == pytest.approx(2 * 10 * math.tan(math.pi / n), rel=1e-5)  # incircle radius 10
+    (zone,) = sketch.regions(final)  # the construction circles make no faces
+    assert zone.area == pytest.approx(n * 100 * math.tan(math.pi / n), rel=1e-5)

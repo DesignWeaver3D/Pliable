@@ -62,8 +62,14 @@ test("a rounded rectangle has four lines, four arcs and tangent constraints", ()
 test("a polygon, circle and slot add their curves", () => {
   const poly = context();
   addPolygon(poly, { u: 0, v: 0 }, { u: 5, v: 0 }, 6);
-  assert.equal(poly.s.entities.length, 6);
-  assert.equal(poly.s.constraints.length, 5);
+  const circles = poly.s.entities.filter((e) => e.type === "circle");
+  assert.equal(poly.s.entities.length, 8); // six sides and the two construction circles
+  assert.ok(circles.length === 2 && circles.every((c) => c.construction));
+  assert.ok(Math.abs(circles[0].radius - 5) < 1e-9 && Math.abs(circles[1].radius - 5 * Math.cos(Math.PI / 6)) < 1e-9);
+  assert.equal(poly.s.constraints.length, 5 + 6 + 1); // equal sides, corners on the major circle, the minor circle tangent to a side
+  const bare = context("none");
+  addPolygon(bare, { u: 0, v: 0 }, { u: 5, v: 0 }, 5);
+  assert.equal(bare.s.constraints.length, 4 + 5 + 1); // whatever the automatic constraint option says
   assert.equal(polygonCorners({ u: 0, v: 0 }, { u: 1, v: 0 }, 4).length, 4);
   const circle = context();
   addCircle(circle, { u: 1, v: 1 }, { u: 4, v: 5 });

@@ -113,8 +113,19 @@ export function addPolygon(ctx: BuilderContext, center: Snap, corner: Snap, side
     ctx.s.entities.push({ id, type: "line", a: p[k], b: p[(k + 1) % sides] });
     return id;
   });
-  // Equal sides keep it regular when a corner is dragged; the corners stay free.
-  ids.slice(1).forEach((id) => ctx.addConstraintRaw({ type: "equal", entities: [ids[0], id] }));
+  // What makes it a regular polygon (always added, whatever the automatic constraint option): equal sides, every corner on a
+  // construction circle about the centre (the major circle), and a second construction circle (the minor one) tangent to a
+  // side. Dimension a side, or either circle, and the whole polygon follows. The circles show only while the sketch is edited.
+  const centre = ctx.pointFor(center);
+  const radius = Math.hypot(corner.u - center.u, corner.v - center.v);
+  const major = M.nextId(ctx.s);
+  ctx.s.entities.push({ id: major, type: "circle", center: centre, radius, construction: true });
+  const minor = M.nextId(ctx.s);
+  ctx.s.entities.push({ id: minor, type: "circle", center: centre, radius: radius * Math.cos(Math.PI / sides), construction: true });
+  const add = (c: Omit<M.SketchConstraint, "id">) => ctx.s.constraints.push({ id: M.nextId(ctx.s), ...c, auto: true });
+  ids.slice(1).forEach((id) => add({ type: "equal", entities: [ids[0], id] }));
+  p.forEach((point) => add({ type: "point_on", point, entity: major }));
+  add({ type: "tangent", entities: [minor, ids[0]] });
   ctx.resolve();
 }
 
