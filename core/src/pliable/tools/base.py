@@ -155,6 +155,9 @@ class Handle:
     # A rotation handle: the axis it turns about (the view colours it by that axis) and the ring it runs on, (cx, cy, cz, radius).
     axis: tuple[float, float, float] | None = None
     ring: tuple[float, float, float, float] | None = None
+    # A grid grip: the two step vectors (u, v) of the grid it sits on. The view drags it in their plane; whole steps along u
+    # change `param` and whole steps along v change the first linked parameter, independently.
+    plane: tuple[tuple[float, float, float], tuple[float, float, float]] | None = None
 
     def to_json(self, value: float, values: dict | None = None) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
@@ -163,6 +166,7 @@ class Handle:
         return {
             "axis": [float(c) for c in self.axis] if self.axis else None,
             "ring": [float(c) for c in self.ring] if self.ring else None,
+            "plane": [[float(c) for c in self.plane[0]], [float(c) for c in self.plane[1]]] if self.plane else None,
             "axisFrom": [float(c) for c in self.axis_from] if self.axis_from else None,
             "param": self.param,
             "label": self.label,

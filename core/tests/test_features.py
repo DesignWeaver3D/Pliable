@@ -268,6 +268,15 @@ def test_linear_array_grips_set_spacing_and_counts(block):
     both = handles["Columns and rows"]
     assert both.param == "count" and both.links == (("rows", both.scale),)
     assert both.scale == pytest.approx(1 / 50)  # one more column and row adds a 40 + 30 step diagonal of length 50
+    assert both.kind == "resize" and both.plane == ((40, 0, 0), (0, 30, 0))  # a cube grip dragged in the plane of the two steps
+    assert both.to_json(3, values)["plane"] == [[40.0, 0.0, 0.0], [0.0, 30.0, 0.0]]
+
+
+def test_linear_array_corner_grip_is_an_arrow_when_the_steps_are_parallel(block):
+    tool = get_tool("linear_array")
+    values = tool.bind({"count": 3, "rows": 2, "dx": 40, "dy": 0, "dz": 0, "dx2": 20, "dy2": 0, "dz2": 0})
+    both = next(h for h in tool.handles(block, Selection(faces=[], edges=[]), values) if h.label == "Columns and rows")
+    assert both.kind == "arrow" and both.plane is None
 
 
 def test_circular_array(block):

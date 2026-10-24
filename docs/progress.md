@@ -15,7 +15,6 @@ Sketch requests (owner, 2026-10-24, third batch), one row each, in this order:
 - **Smart dimension on many selections (build; plan and the owner's answers in [smart-dimension-plan.md](smart-dimension-plan.md)).** Owner: "We need the smart dimension tool do work on as many selections as possible to make constraining much easier." Needs: every item in the "Owner decisions" section of the plan file, in the order given there.
 
 
-- **Linear array rows and columns grip is a cube.** "Linear Array columns and rows gizmo grip should be a cube that allows having differing values for columns and rows. The current arrow grip only moves diagonally and forces same qty of rows and columns." Needs: the corner grip is a cube; dragging it sets columns and rows independently.
 - **Stored array parameters (long term, needs owner feedback).** Store array parameters like primitives (editable later); today arrays make separate solids. Consider an option for the array to be a compound with its source object.
 
 ## Awaiting the owner's hand test
@@ -27,7 +26,7 @@ Built, unit tested, not hand-checked in the app unless noted. Delete a line once
 - One push/pull path: dragging the face's arrow handle now behaves like dragging the face itself (M or right-click measure edges, typed value, Shift symmetric, companion faces); check both start points give the same result and that the arrow still tracks.
 - Sketch region pull undo: pick a kept sketch's region, pull it with the arrow or the face, press Undo once: the model returns to before the pick (no loose face left) and Redo brings the extrusion back (core test passes; one Chrome run showed the pull and undo working, the exact face count after Undo was not distinguishable).
 - Delete key in the lists: select bodies in the list (Shift or Ctrl), press Delete, one Undo brings them back (checked in the app with two bodies, and a sketch row clicked then Delete); right-click Delete on sketch and datum rows and on a multi-selected body row not checked in the app.
-- Linear array grid: 3 by 3 default, two spacing grips and the corner grip for columns and rows (grips not checked in the app); rows 1 gives the old line.
+- Linear array grid: 3 by 3 default, two spacing grips and a cube corner grip: dragging it in the plane of the two steps sets columns and rows independently (checked: 3 by 4 from one drag); the two spacing grips not checked; rows 1 gives the old line; with parallel steps the corner grip stays an arrow along the diagonal.
 - Array apply or discard: with an array form open, clicking away, editing a primitive or picking another tool asks Apply or Discard (checked: click away then Discard; Apply and the edit-primitive path not checked). Push/pull arrow drag shares the face drag (not checked in the app: the drag attempt missed the arrow).
 - Sketch zoom to fit: the nav cube's fit everything and fit selection use the edited sketch's geometry (the fit-selection button enables with a sketch selection).
 - Sketch view button: switches to orthographic and back to the earlier mode when the camera is turned (not hand-checked; the 0.99985 direction threshold is about 1 degree).
