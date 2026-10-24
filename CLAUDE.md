@@ -1,14 +1,16 @@
 # Working on Pliable with the AI assistant
 
-Pliable is being rebuilt; day-to-day work goes on branch `dev`, and `rebuild` is the release candidate (see CONTRIBUTING.md). The plan is in [ROADMAP.md](ROADMAP.md); live status and the open session plan are in [docs/progress.md](docs/progress.md), and finished sessions are one line each in [docs/history.md](docs/history.md) (read it only when you need to know what already exists).
+Pliable is being rebuilt; day-to-day work goes on branch `dev`, and `rebuild` is the release candidate (see CONTRIBUTING.md). The plan is in [ROADMAP.md](ROADMAP.md); open work is in [docs/progress.md](docs/progress.md), and lasting technical notes are in [docs/dev-notes.md](docs/dev-notes.md). Finished work is not recorded in a file: it lives in the commit messages (`git log --grep`).
 
 ## Starting a session
 
-The steps below apply to interactive sessions. In an unattended session (see "Unattended sessions") the queue is every row not Done, and that section overrides any rule here or below about scope or stopping.
+The steps below apply to interactive sessions. In an unattended session (see "Unattended sessions") the queue is every open row, and that section overrides any rule here or below about scope or stopping.
 
 1. Read `docs/progress.md`. Don't re-read or re-explore anything it already records.
-2. Take the first session in the plan whose status isn't "Done". Work only on that session's goal; if something else comes up, add it to the plan instead of doing it.
-3. If the previous session left an "In progress" note, resume from it exactly.
+2. Take the first open row in the plan (not Parked, not awaiting the owner's hand test). Work only on that row; if something else comes up, add it to the plan instead of doing it. Rows have no numbers; the title identifies them.
+3. If a row has an "In progress" note, resume from it exactly.
+4. New rows quote the owner's request in their own words and list what it needs as a checklist. Never paraphrase the request. A row is deleted only when every checklist item is verified against the quote.
+5. Keep `docs/progress.md` open-work-only and under about 10 KB. When work is finished, delete its entry (git keeps the history) and describe the change in the commit message; do not write session narratives, summaries or numbered labels in any file or commit.
 
 ## Protecting existing behavior
 
@@ -32,7 +34,7 @@ Most of the owner's lost time comes from regressions and from invented design, n
 - Commit messages and PR text contain no AI attribution lines of any kind.
 - Commit messages are written for a human reading the log later: a plain subject (12-72 characters, capitalized, imperative, no period, no labels like `S22:`, `feat:` or `Progress:`) that says what the change does, and for any commit touching 3 or more files a short body saying what changed and why. Never name commercial products or other programs (other CAD tools, AI tools, vendors); describe the behavior instead. The hook also rejects the name of the AI tool and of its instructions file, so write "the project instructions file". Write the message once, correctly: check it against these rules before running `git commit` and never retry a commit because the hook rejected it. Commit from the Bash tool with a heredoc (`git commit -F -`); the hook finds the project's own Python by itself, so PATH does not matter. Prefer one commit per logical change, not a log entry per session step.
 - Enforcement: `.githooks/commit-msg` and the `commit-lint` workflow run `scripts/check_commit_message.py`. Enable the hook once per clone with `git config core.hooksPath .githooks`. Fix a rejected message; never bypass the hook.
-- Interactive sessions: stop at the session's done-criteria. If it's a checkpoint session, stop and report to the user. (Unattended sessions never stop here; see "Unattended sessions".)
+- Interactive sessions: stop when the row's checklist is verified, then report to the user. (Unattended sessions never stop here; see "Unattended sessions".)
 - **No runaway processes.** Never start a background command that you do not stop yourself, and give every command a time limit of about two minutes (use the tool timeout or `timeout`). If a check hangs, abandon it, say it could not be verified, and stop the process. Before returning a final report, make sure nothing you started is still running (your own servers, shells and scripts); a research agent once kept a stray script running for nearly an hour after its report was done.
 - **Clean up when finished.** Before returning a final report, stop your own copy of Pliable (core server and frontend dev server, found by your assigned ports) and close every Chrome tab you opened, after undoing or discarding any edits so no leave-site prompt blocks the close. Never close or stop anything you did not start; the owner keeps their own test tab and servers. State in your report that you did this, or what you could not close.
 
@@ -57,23 +59,23 @@ Use the gathered research before searching again: `docs/research/` holds the lan
 
 When the prompt says the owner is asleep, away, or that the session is unattended, this is an unattended session. These rules OVERRIDE every other rule in this file about stopping, reporting, scoping to one session, and wrapping up. The goal of an unattended session is to run for many hours and finish everything in `docs/progress.md`.
 
-- **The queue is every row in the `docs/progress.md` plan whose status is not Done**, in order, plus any prompt-specified items first. The run is finished only when no row remains that is not Done, Parked, or "Done, awaiting owner". Nothing else is a valid reason to stop.
+- **The queue is every open row in `docs/progress.md`** (the Planned and Open bug sections, plus unparked rows), in order, plus any prompt-specified items first. The run is finished only when no open row remains outside the Parked and Awaiting-hand-test sections. Nothing else is a valid reason to stop.
 - **Ending your turn ends the run.** A final message with no tool call stops everything and nobody is there to reply. So never write a summary, status report, "next steps" or "let me know" message while queue items remain. After finishing an item, immediately start the next one in the same turn. The only final message is the one described in "Stopping" below.
 - **Not valid reasons to stop:** finishing one session or a batch of sessions; a checkpoint session; a question or ambiguity; a decision that needs the owner; a failing or skipped item; "good stopping point"; the feeling that the context is large or the session has run long (context is compacted automatically, keep going); having made a lot of progress; the remaining items being large, hard or risky.
-- **Checkpoint sessions:** do the work, mark the row "Done, awaiting owner" with what the owner should review, and continue. Do not report.
-- **Items needing an owner decision:** decide using "Deciding without the owner", log it in `docs/decisions-log.md`, build it, mark the row Done and say it is provisional. Never wait.
-- **Failures:** if an item fails or stagnates after a reasonable attempt (about three different approaches), write what was tried in `docs/progress.md`, mark the row Parked, and go to the next row. Never retry in a loop, and never treat one failure as the end of the run.
-- **Rows with sub-parts:** a row that is "In progress" or partly done is not Done. Finish the remaining parts, or park them explicitly with notes, before moving on.
-- **If the plan seems exhausted but rows remain that are not Done,** re-read `docs/progress.md` from the top; you have missed some. If every row is truly Done/Parked/awaiting owner, add new sessions from `ROADMAP.md`, `docs/research/` (parity plan, command inventory, GUI plan) and the "Not built" items in `docs/decisions-log.md`, and keep working. Only an empty plan with nothing left to add in any of those places counts as an empty queue.
-- **Before each new item, run this check:** "Is there a row not Done or Parked in `docs/progress.md`?" If yes, start it now. If you catch yourself composing a wrap-up message, run the check instead.
-- **Stopping.** Stop only when (a) the check above finds no row to work on, (b) the usage limit ends the session, or (c) you are blocked on something only the owner can do and every remaining row depends on it. Before a stop, make sure everything is committed and `docs/progress.md` says exactly where to resume. Then, and only then, put a short summary of what was done at the top of `docs/progress.md`, list any real questions in `docs/questions.md`, and write the final message.
+- **Work the owner must hand-test:** do the work, move it to the "Awaiting the owner's hand test" list in `docs/progress.md` with what the owner should check, and continue. Do not report.
+- **Items needing an owner decision:** decide using "Deciding without the owner", log it in `docs/decisions-log.md`, build it, move it to the hand-test list and say it is provisional. Never wait.
+- **Failures:** if an item fails or stagnates after a reasonable attempt (about three different approaches), write what was tried in `docs/progress.md`, move the row to Parked, and go to the next row. Never retry in a loop, and never treat one failure as the end of the run.
+- **Rows with sub-parts:** a row that is partly done stays open. Finish the remaining parts, or park them explicitly with notes, before moving on.
+- **If the plan seems exhausted but open rows remain,** re-read `docs/progress.md` from the top; you have missed some. If every row is truly Parked or awaiting the owner, add new rows from `ROADMAP.md`, `docs/research/` (parity plan, command inventory, GUI plan) and the "Not built" items in `docs/decisions-log.md`, and keep working. Only an empty plan with nothing left to add in any of those places counts as an empty queue.
+- **Before each new item, run this check:** "Is there an open row (not Parked, not awaiting hand test) in `docs/progress.md`?" If yes, start it now. If you catch yourself composing a wrap-up message, run the check instead.
+- **Stopping.** Stop only when (a) the check above finds no row to work on, (b) the usage limit ends the session, or (c) you are blocked on something only the owner can do and every remaining row depends on it. Before a stop, make sure everything is committed and `docs/progress.md` says exactly where to resume. Then, and only then, put the resume point in `docs/progress.md` (the summary of what was done goes in the final message and the commits, not in a file), list any real questions in `docs/questions.md`, and write the final message.
 - Do not push to `rebuild` or `main`, tag, merge, run or cancel release workflows, or change this file or settings.
 - Commit to `dev` after every working step with tests passing (local commits survive a cutoff; do not push unless the prompt says to), and keep `docs/progress.md` current so a cutoff loses nothing. Before the usage limit hits, make sure everything is committed and the log says exactly where to resume.
 
 ## Ending a session (always, including when stopping early)
 
 1. Run the tests.
-2. Update `docs/progress.md`: mark the session Done, or write an "In progress" note saying exactly what's finished, what's half-done, and the next concrete step.
+2. Update `docs/progress.md`: delete finished rows (moving anything the owner must hand-test to the hand-test list), or write an "In progress" note saying exactly what's finished, what's half-done, and the next concrete step.
 3. Commit (push only if the owner asked).
 
 In an interactive session, if it is running long or the usage window is nearly used up, do these steps right away rather than starting anything new. This wrap-up rule does not apply to unattended sessions until the usage limit is actually reached: there, do these steps after every item and keep going.
@@ -87,4 +89,4 @@ In an interactive session, if it is running long or the usage window is nearly u
 - OCP 8 API notes (collections module, renamed static methods) are recorded in `docs/progress.md`.
 - Run npm, npx and uv from the PowerShell tool after refreshing PATH (the Bash tool has no npm; a nested `powershell.exe` from Bash cannot run npm because of the script execution policy). Check results with `Select-String '^ℹ (pass|fail)'` for node tests, `Select-Object -Last 1` for pytest.
 - The owner tests on frontend port 5180 with a core on 8770 (`VITE_CORE_PORT=8770`); never stop their servers unless asked. To restart a core: stop the listener and its `uv run` parent processes, then start `uv run pliable-server --port 8770` hidden from `core/`.
-- Agent worktrees, ports and the usage rules are in `docs/orchestration.md` ("Keeping usage low"); the current status and the first thing to do in a new session are in the Resume note of `docs/progress.md`.
+- Agent worktrees, ports and the usage rules are in `docs/orchestration.md` ("Keeping usage low"); the current state and the open work are in `docs/progress.md`; lasting technical notes are in `docs/dev-notes.md`.
