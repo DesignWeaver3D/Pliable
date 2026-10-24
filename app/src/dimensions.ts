@@ -1,5 +1,6 @@
 /** Drawing-style dimension leaders over the viewport, from the `dimensions` in the core's `measure` reply. */
 import * as THREE from "three";
+import { gapSegment } from "./dimensiongap";
 
 /** What the core says an in-place edit of this dimension means (see `dimedit.py`); `blocked` is why it would fail. */
 export interface DimEdit {
@@ -31,7 +32,7 @@ export interface Dimension {
   /** Set when the dimension can be dragged to a new place: called with the pointer while it is dragged. */
   drag?: (e: PointerEvent) => void;
   /** Sketch dimensions: drawn highlighted when selected, a click on the text selects it, and a right-click on the text opens its menu. */
-  /** Not a dimension value: a constraint tag (H, V, =) or a live size tag while drawing. It gets no background patch. */
+  /** Not a dimension value: a constraint tag (H, V, =) or a live size tag while drawing. Its lines are not cut around it. */
   mark?: boolean;
   selected?: boolean;
   select?: (e: MouseEvent) => void;
@@ -51,8 +52,7 @@ const CURSOR_CLEAR_PX = 28; // text moves away when the pointer is closer than t
 const LINE_COLOR = "var(--ui-offwhite, #ddd)";
 /** The dark outline under all of them, so they stay readable over light surfaces. */
 const HALO_COLOR = "#1b1d22";
-const BACKGROUND_COLOR = "#1b1d22"; // the 3D view's background (viewport.ts), for the patch behind a dimension value
-const PATCH_PAD_PX = 2;
+const GAP_PAD_PX = 3; // room kept clear of the dimension's own lines around a value
 const HALO_OPACITY = "0.6"; // see-through, so it reads as a soft shadow rather than a hard outline
 const NS = "http://www.w3.org/2000/svg";
 
@@ -341,6 +341,18 @@ export class DimensionOverlay {
     return this.dims[index];
   }
 
+  /** Cut the dimension's own lines (those already drawn into `out`) around the padded rectangle of its value, so they look broken there; nothing else is hidden. */
+  private gapLines(out: SVGElement[], centre: V, half: V, angle: number) {
+    for (let i = out.length - 1; i >= 0; i--) {
+      const el = out[i];
+      if (el.tagName !== "line") continue;
+      const [a, b] = [{ x: Number(el.getAttribute("x1")), y: Number(el.getAttribute("y1")) }, { x: Number(el.getAttribute("x2")), y: Number(el.getAttribute("y2")) }];
+      const pieces = gapSegment(a, b, centre, half.x, half.y, angle);
+      if (pieces.length === 1 && pieces[0][0] === a && pieces[0][1] === b) continue;
+      out.splice(i, 1, ...pieces.map(([from, to]) => line(from, to)));
+    }
+  }
+
   private label(at: V, text: string, out: SVGElement[], dotted: boolean, angle = 0) {
     const dim = this.dims[this.current];
     const interactive = !!(dim?.edit || dim?.editNote || dim?.activate || dim?.drag);
@@ -355,22 +367,12 @@ export class DimensionOverlay {
     // Keep text upright.
     if (angle > 90) angle -= 180;
     if (angle < -90) angle += 180;
-    if (dotted) out.push(dot(at));
+    if (dotted && dim?.mark) out.push(dot(at)); // a value's dot would sit under its text
+    if (!dim?.mark) this.gapLines(out, p, { x: half.x + GAP_PAD_PX, y: half.y + GAP_PAD_PX }, angle); // the dimension's lines break around its value
     const g = document.createElementNS(NS, "g");
     g.setAttribute("transform", `translate(${p.x},${p.y}) rotate(${angle})`);
     if (interactive) this.drewLabel = p;
     const hidden = this.editing === this.current;
-    if (!dim?.mark) {
-      // A dimension's value (sketch or model) sits on a padded patch of the view's background, so the lines under it look broken.
-      const patch = document.createElementNS(NS, "rect");
-      patch.setAttribute("x", String(-half.x - PATCH_PAD_PX));
-      patch.setAttribute("y", String(-half.y - PATCH_PAD_PX));
-      patch.setAttribute("width", String((half.x + PATCH_PAD_PX) * 2));
-      patch.setAttribute("height", String((half.y + PATCH_PAD_PX) * 2));
-      patch.setAttribute("rx", "3");
-      patch.setAttribute("style", `fill: ${BACKGROUND_COLOR}; pointer-events: none`);
-      g.append(patch);
-    }
     const t = document.createElementNS(NS, "text");
     t.textContent = hidden ? "" : text;
     t.setAttribute("text-anchor", "middle");
