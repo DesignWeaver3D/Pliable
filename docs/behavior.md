@@ -59,7 +59,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Right-click in a sketch not on sketch geometry ends the current drawing tool.
 - Project model edges is a pick mode: pick faces and edges, Enter or the button projects, Escape cancels. Projected edges are snapshots.
 - A sketch dimension's value is a plain number; no expressions or named values yet.
-- Clicking a kept sketch's tinted region adds it as a temporary face; clicking away without using it undoes the pick.
+- Clicking a kept sketch's tinted region adds it as a temporary face; clicking away without using it undoes the pick; pulling it into a solid is one undo step together with the pick.
 - Closed areas in a sketch are faces even when the geometry that encloses them shares no end points: lines that end on another line split it, so a rectangle with a divider drawn between two of its sides is two faces, and three lines attached to a side enclose a third. Lines that enclose nothing make no face.
 - While a sketch shape is being drawn, typing digits starts a size entry for the next point: Tab (or space) moves to the next number, Enter places the shape. Rectangle takes width and height, slot length and width, ellipse long and short radius, arc radius and sweep degrees; line, circle and polygons take one number.
 - Every sketch drawing tool except Line returns to Select once its first shape is complete; Line keeps drawing.

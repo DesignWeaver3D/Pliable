@@ -103,6 +103,8 @@ class ToolHandlers:
         change = self._recipe_change(tool, topology, selection, request.get("params") or {}, result)
         target = document.commit(result.shape, body_kind, ordered, change=change) if commit else document.preview(result.shape, body_kind, ordered, change=change)
         if commit:
+            if request.get("foldPick"):  # extruding a just-picked sketch region: its pick is not a step of its own
+                document.fold_previous_step()
             self._autosave()
         faces = [i for f in result.tracked_faces if (i := target.face_id(f)) is not None]
         edges = [i for e in result.tracked_edges if (i := target.edge_id(e)) is not None]

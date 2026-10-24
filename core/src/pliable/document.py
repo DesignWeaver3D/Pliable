@@ -231,6 +231,17 @@ class Document:
             self._index -= excess
         return self.current
 
+    def fold_previous_step(self) -> bool:
+        """Merge the step just before the current one into it, so one undo reverts both (the previous state is forgotten).
+        Used when a picked sketch region's loose face is extruded: the pick and the extrusion are one undo step."""
+        if self._index < 2:
+            return False
+        at = self._index - 1
+        for items in (self._history, self._ids, self._sketches, self._datums, self._mirrors):
+            del items[at]
+        self._index -= 1
+        return True
+
     @property
     def can_undo(self) -> bool:
         return self._index > 0

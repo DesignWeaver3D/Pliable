@@ -517,11 +517,13 @@ for (const type of ["keydown", "keyup"] as const) {
 }
 window.addEventListener("blur", () => (shiftHeld = false));
 
-function toolRequest(sels: Sel[], distance: number) {
+function toolRequest(sels: Sel[], distance: number, commit = false) {
   const tool = dragToolFor(sels)!;
   const params: Record<string, number> = { [dragParam(tool)!]: distance };
   if (tool.id === "push_pull" && dragSymmetric) params.symmetric = 1;
-  return { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params };
+  // Pulling a just-picked sketch region: the pick and the extrusion are one undo step.
+  const foldPick = commit && pendingProfile !== null && committed === pendingProfile.mesh ? { foldPick: true } : {};
+  return { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params, ...foldPick };
 }
 
 function pump(token: number) {
@@ -775,12 +777,12 @@ viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
       const start = performance.now();
       let mesh: MeshData;
       try {
-        mesh = await core.request<MeshData>("tool_commit", toolRequest(sels, distance));
+        mesh = await core.request<MeshData>("tool_commit", toolRequest(sels, distance, true));
       } catch (e) {
         // The final size can fail when the last preview reply was dropped at release;
         // fall back to the newest size known to work.
         if (good === null || good === distance) throw e;
-        mesh = await core.request<MeshData>("tool_commit", toolRequest(sels, good));
+        mesh = await core.request<MeshData>("tool_commit", toolRequest(sels, good, true));
       }
       setCommitted(mesh, false, mappedSelection(mesh));
       rememberOp(dragToolFor(sels), sels, distance);

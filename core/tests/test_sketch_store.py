@@ -241,3 +241,18 @@ def test_picking_one_region_adds_its_face_and_selects_it():
     assert faces(session) == before
     with pytest.raises(RequestError):
         session.handle({"type": "sketch_regions", "sketch_id": 1, "region": 5})
+
+
+def test_extruding_a_picked_region_is_one_undo_step():
+    session = open_session()
+    session.handle({"type": "sketch_keep", "sketch": make(session, 10), "regions": False})
+    before = faces(session)
+    picked = header(session.handle({"type": "sketch_regions", "sketch_id": 1, "region": 0}))["selection"]["faces"]
+    pull = {"type": "tool_commit", "tool": "push_pull", "selection": {"faces": picked}, "params": {"distance": 5}, "foldPick": True}
+    after = header(session.handle(pull))
+    pulled = faces(session)
+    assert after["canUndo"] and len(session.document.ids) == 3  # open, keep, pull
+    undone = header(session.handle({"type": "undo"}))
+    assert faces(session) == before and undone["canRedo"]
+    session.handle({"type": "redo"})
+    assert faces(session) == pulled
