@@ -67,6 +67,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - The sketch constraint list shows every constraint when nothing is selected, and only those that name the selected curves or points (or points of the selected curves) otherwise. A point where drawn curves meet is listed as an automatic Coincident row; its x splits the point so the curves have their own ends.
 - The value of a sketch dimension sits on a padded patch of the view's background, so the arrow, extension and leader lines under it look broken.
 - Dragging a single sketch point snaps it to the grid (when snap to grid is on), to the sketch axes, or in line with another point (guide lines show); it never snaps onto another point or curve, so a drag does not join geometry.
+- When a linear sketch dimension's value is pulled past either extension line, its arrows move outside the extension lines pointing inward (one at each), and the dimension line runs on to the value; back between the lines it is the inside double arrow again.
 - Horizontal and vertical constraints apply to several selected lines at once; by default both kinds are applied as detected (nearly horizontal lines get horizontal, nearly vertical get vertical).
 - Every dimensional constraint (any constraint holding a number) is editable on screen by double-clicking its dimension leader or its number.
 - When a numeric constraint is created, its dimension appears immediately with the as-created value prefilled and ready for editing.

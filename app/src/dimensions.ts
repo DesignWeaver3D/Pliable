@@ -181,7 +181,9 @@ export class DimensionOverlay {
       const dir = unit(sub(q, p));
       out.push(line(add(p, mul(dir, EXT_GAP_PX)), add(q, mul(dir, EXT_OVERSHOOT_PX))));
     }
-    this.dimLine(a2, b2, out);
+    // Text pulled past either extension line: the arrows go outside the extension lines, pointing in, and the line runs on to the text.
+    const pulled = slide.x * along.x + slide.y * along.y;
+    this.dimLine(a2, b2, out, Math.abs(pulled) > len(sub(b2, a2)) / 2 ? pulled : undefined);
     this.label(add(mul(add(a2, b2), 0.5), slide), d.text, out, false, angleOf(along));
   }
 
@@ -208,8 +210,17 @@ export class DimensionOverlay {
   }
 
   /** A dimension line with an arrowhead at each end: inside the span, or outside it when the span is too short. */
-  private dimLine(a: V, b: V, out: SVGElement[]) {
+  private dimLine(a: V, b: V, out: SVGElement[], textAlong?: number) {
     const dir = unit(sub(b, a));
+    if (textAlong !== undefined) {
+      // `textAlong`: how far from the middle, along the line, the text sits (past one end).
+      const mid = mul(add(a, b), 0.5);
+      const tail = mul(dir, ARROW_PX + 6);
+      const from = textAlong < 0 ? add(mid, mul(dir, textAlong)) : sub(a, tail);
+      const to = textAlong > 0 ? add(mid, mul(dir, textAlong)) : add(b, tail);
+      out.push(line(from, to), arrow(a, dir), arrow(b, mul(dir, -1)));
+      return;
+    }
     if (len(sub(b, a)) < 2.5 * ARROW_PX) {
       const tail = mul(dir, ARROW_PX + 6);
       out.push(line(sub(a, tail), add(b, tail)), arrow(a, dir), arrow(b, mul(dir, -1)));
