@@ -8,8 +8,13 @@ State (2026-10-24): `dev` is many local commits ahead of `origin/dev`, nothing p
 
 ## Planned (not started; discuss before coding)
 
-Sketch requests (owner, 2026-10-24), one row each, in this order:
+Sketch requests (owner, 2026-10-24, second batch), one row each, in this order:
 
+- **Core crash on editing a diameter after a redundant-constraint error.** "double-clicking a circle diameter constraint after receiving a redundant constraint error message crashed the core and app is not reconnecting after core restart." Needs: reproduce in a core test; the core never crashes on a redundant or conflicting edit; the app reconnects after a core restart.
+- **Implied faces usable for extrusion.** "Sketch, implied face from closed geometry that doesn't make complete edge loops is not usable for 3d extrusion, which was the whole point of having it." Needs: faces from the region work (T-junction and divided areas) can be picked and extruded, pushed/pulled and used in every tool a loop face works in; test the extrusion path in the core.
+- **Dimension arrows flip outside when the value is pulled aside.** "Pulling a dimension value aside from the extension line leader should switch its arrow mode from double-headed arrow from inside one extension line to the other to two arrows on the outside of the two extension lines pointing inward, one pointing in at each extension line." Needs: when the value text is dragged beyond either extension line, draw two outside arrows pointing inward at each extension line; back inside gives the inner double arrow.
+- **Smart dimension hotkey D.** "Sketch smart dimension tool hotkey should be D." Needs: D starts the tool (check for key conflicts in the shortcut policy and behavior.md).
+- **Smart dimension on many selections (plan, discuss with the owner; no code).** "We need the smart dimension tool do work on as many selections as possible to make constraining much easier. Make a plan and discuss the plan with the author." Needs: a written plan listing every selection combination (point, line, circle, arc, point-line, line-line, point-circle, mixed sets and so on) and the dimension each yields, shown to the owner for approval before any coding.
 
 - **One push/pull path.** Push/pull from the face arrow handle and from dragging the face directly must be the same tool with the same options (measure pick M, typed values, Shift symmetric, companion faces). Today they are separate code paths (`viewport.ts` face-press drag vs `manipulator.ts` handle drag; M and measure edges exist only on the face press). Make one path; the direct drag becomes a thin shortcut layer that can take more shortcuts later (mouse modifiers, not decided yet). Plan only until the owner says go.
 - **Array gizmos.** The linear array becomes a multi-linear array (two directions): one grip for the spacing in each direction and a third grip that sets rows and columns together; default 3 rows by 3 columns.
