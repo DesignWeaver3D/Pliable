@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { AXIS_COLORS } from "./axes.ts";
 import type { HandleInfo } from "./tools";
 import { gridCounts, gridShift, planePoint } from "./gridgrip.ts";
+import { TypedFields, typedCounts } from "./typedentry.ts";
 
 /** Length of a handle's arm and the radius of its grab target, in screen pixels. */
 export const ARM_PX = 34;
@@ -164,6 +165,8 @@ interface Active {
   negative: boolean;
   /** A grid grip: where the pointer first met the plane of the steps. */
   p0?: THREE.Vector3;
+  /** A grid grip's typed entry: columns, then rows (Tab switches); null while the mouse sets them. */
+  fields?: TypedFields | null;
 }
 
 function dispose(o: THREE.Object3D) {
@@ -359,8 +362,11 @@ export class Manipulator {
       const typing = item === this.active?.item && this.active.typed !== null;
       const symbol = info.symbol ?? "";
       const shown = symbol + (typing ? `${this.active!.negative ? "-" : ""}${this.active!.typed}|` : formatValue(value * (info.factor || 1)));
-      item.label.textContent = info.toggle ? info.label : info.plane && item.grid ? `${info.label} ${item.grid.columns} × ${item.grid.rows}` : `${info.label} ${shown}${unit}`;
-      item.label.style.outline = typing ? "1px solid #ffb347" : "";
+      const fields = item === this.active?.item ? this.active.fields : null;
+      const grid = info.plane && (item.grid || fields) ? { ...this.gridStart(info), ...item.grid } : null;
+      const gridText = grid ? (fields ? `${fields.shown(0, String(grid.columns))} × ${fields.shown(1, String(grid.rows))}` : `${grid.columns} × ${grid.rows}`) : "";
+      item.label.textContent = info.toggle ? info.label : grid ? `${info.label} ${gridText}` : `${info.label} ${shown}${unit}`;
+      item.label.style.outline = typing || fields ? "1px solid #ffb347" : "";
       item.label.style.fontWeight = hot ? "bold" : "normal";
     }
   }
@@ -504,12 +510,7 @@ export class Manipulator {
   key(e: { key: string }): boolean {
     const a = this.active;
     if (!a || a.item.info.toggle) return false;
-    if (a.item.info.plane) {
-      // A grid grip has two values, so there is no typed entry: Enter keeps the drag, Escape cancels it.
-      if (e.key === "Enter") this.finish();
-      else if (e.key === "Escape") this.cancel();
-      return e.key === "Enter" || e.key === "Escape";
-    }
+    if (a.item.info.plane) return this.gridKey(a, e);
     if (e.key === "Enter") {
       // The typed value is applied only now; while typing, only the label shows it and the shape stays put.
       const travel = a.typed === null ? null : typedTravel(a.item.info, a.typed, a.negative);
@@ -539,6 +540,45 @@ export class Manipulator {
     a.typed = step.text;
     a.negative = step.negative;
     return true;
+  }
+
+  /** Typed entry for a grid grip: digits set the columns, Tab moves to the rows, Enter commits (whole numbers, at least 1), Escape goes back to the mouse, then cancels. */
+  private gridKey(a: Active, e: { key: string }): boolean {
+    const item = a.item;
+    if (e.key === "Enter") {
+      if (a.fields) {
+        item.grid = typedCounts(a.fields, item.grid ?? this.gridStart(item.info));
+        this.applyGrid(item);
+        a.moved = true;
+      }
+      this.finish();
+      return true;
+    }
+    if (e.key === "Escape") {
+      if (a.fields && !a.released) {
+        a.fields = null; // button still held: back to dragging
+        a.typed = null;
+        return true;
+      }
+      this.cancel();
+      return true;
+    }
+    const fields = a.fields ?? new TypedFields(2, true);
+    if (!fields.key(e.key)) return false;
+    a.fields = fields;
+    a.typed = ""; // the mouse is ignored while the numbers are typed (see move)
+    return true;
+  }
+
+  /** Put a grid grip where its counts say, and tell the form. */
+  private applyGrid(item: Item) {
+    const info = item.info;
+    const now = item.grid;
+    if (!info.plane || !now) return;
+    const start = this.gridStart(info);
+    item.shift.set(...gridShift(info.plane[0], info.plane[1], now.columns, now.rows, start.columns, start.rows));
+    const rowsParam = info.links?.[0]?.param;
+    this.onDrag(info.param, now.columns, "move", this.active?.lastX ?? 0, this.active?.lastY ?? 0, rowsParam ? { [rowsParam]: now.rows } : {});
   }
 
   private setTravel(a: Active, travel: number) {

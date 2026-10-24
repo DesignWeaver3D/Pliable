@@ -98,3 +98,14 @@ export class PullDirection {
     return this.dir ? { ux: this.dir[0], uy: this.dir[1], uz: this.dir[2] } : {};
   }
 }
+
+/** The direction for `degrees` typed on an arc: the face normal tilted that far toward the arc's side (negative: the other way along the arc), cut back until it still leaves the face at a usable angle. */
+export function typedTilt(normal: Vec, side: Vec, degrees: number): Vec {
+  let angle = Math.max(-90, Math.min(90, degrees)) * (Math.PI / 180);
+  for (let i = 0; i < 60; i++) {
+    const out = tilted(normal, side, angle);
+    if (leavesFace(out, normal)) return out;
+    angle *= 0.95;
+  }
+  return normal;
+}

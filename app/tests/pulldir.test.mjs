@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PullDirection, resolvePick, angleFromNormal, sideToward, edgeVector, leavesFace, outOf, sideFrame, tiltFromDrag, tilted, unit } from "../src/pulldir.ts";
+import { PullDirection, resolvePick, typedTilt, angleFromNormal, sideToward, edgeVector, leavesFace, outOf, sideFrame, tiltFromDrag, tilted, unit } from "../src/pulldir.ts";
 
 const close = (a, b) => a.forEach((v, i) => assert.ok(Math.abs(v - b[i]) < 1e-9, `${a} vs ${b}`));
 
@@ -65,4 +65,12 @@ test("a pick of the selected face resets, an edge sets a direction turned out of
   assert.deepEqual(resolvePick(false, [1, 0.5, -1], [0, 0, 1]), { kind: "set", direction: [-1, -0.5, 1] });
   assert.deepEqual(resolvePick(false, [1, 0, 1], [0, 0, 1]), { kind: "set", direction: [1, 0, 1] });
   assert.deepEqual(resolvePick(false, null, [0, 0, 1]), { kind: "refused" });
+});
+
+test("typed degrees tilt from the face normal toward the arc's side, either way, and stop short of the face", () => {
+  close(typedTilt([0, 0, 1], [1, 0, 0], 45), [Math.SQRT1_2, 0, Math.SQRT1_2]);
+  close(typedTilt([0, 0, 1], [1, 0, 0], -45), [-Math.SQRT1_2, 0, Math.SQRT1_2]);
+  close(typedTilt([0, 0, 1], [1, 0, 0], 0), [0, 0, 1]);
+  const flat = typedTilt([0, 0, 1], [1, 0, 0], 90);
+  assert.ok(leavesFace(flat, [0, 0, 1]) && flat[0] > 0.9);
 });

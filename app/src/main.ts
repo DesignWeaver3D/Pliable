@@ -718,6 +718,11 @@ function hideDim() {
 }
 
 window.addEventListener("keydown", (e) => {
+  // A direction arc being dragged owns the keyboard too: typed degrees set its tilt (see PullGizmo.key).
+  if (viewport.pullGizmo.dragging && !e.ctrlKey && !e.metaKey && !e.altKey && viewport.pullGizmo.key(e)) {
+    e.preventDefault();
+    return;
+  }
   // A handle being dragged owns the keyboard: typed digits set its value (see Manipulator.key).
   if (viewport.manipulator.dragging && !e.ctrlKey && !e.metaKey && !e.altKey && viewport.manipulator.key(e)) {
     e.preventDefault();
@@ -907,11 +912,12 @@ const keys = new KeyRouter({
     "sketch.smartDimension": () => sketch.chooseConstraint("Dimension"),
     ...Object.fromEntries(["sketch.undo", "sketch.cancel", "sketch.finish", "sketch.delete"].map((id) => [id, (e: KeyboardEvent) => sketch.onKey(e)])),
   },
-  entryActive: () => viewport.dragging || dragSels !== null || viewport.manipulator.dragging,
+  entryActive: () => viewport.dragging || dragSels !== null || viewport.manipulator.dragging || viewport.pullGizmo.dragging,
   sketchActive: () => sketch.active,
   cancelInteraction: () => {
     viewport.cancelDrag();
     viewport.manipulator.cancel();
+    viewport.pullGizmo.cancel();
   },
   status,
   hints: { get: () => hintLine.prefs.on, set: (on) => hintLine.setOn(on) },

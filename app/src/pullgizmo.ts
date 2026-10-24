@@ -6,7 +6,8 @@ import * as THREE from "three";
 import { uiIcon } from "./icons";
 import { AXIS_COLORS } from "./axes.ts";
 import { ARM_PX, type Manipulator } from "./manipulator.ts";
-import { angleFromNormal, sideFrame, sideToward, tiltFromDrag, type PullDirection, type Vec } from "./pulldir.ts";
+import { angleFromNormal, sideFrame, sideToward, tiltFromDrag, typedTilt, type PullDirection, type Vec } from "./pulldir.ts";
+import { TypedFields } from "./typedentry.ts";
 
 const COLOR_HOT = 0xffffff; // the hover colour of the move and rotate gizmos
 /** The arcs lie on a sphere around the arrow's base whose radius is the arrow length, so they pass through the arrowhead's tip; the pick icon sits past it, in arrow lengths. */
@@ -25,6 +26,8 @@ interface Layout {
   direction: Vec;
   length: number;
   sides: Vec[];
+  /** The face's own x and y axes the two arcs swing toward. */
+  axes: Vec[];
 }
 
 interface ArcDrag {
@@ -33,6 +36,9 @@ interface ArcDrag {
   x: number;
   y: number;
   sidePx: THREE.Vector2;
+  /** The direction chosen before this drag (null: the face normal), and the arc's side seen from the face normal (typed degrees are measured from the normal). */
+  start: Vec | null;
+  baseSide: Vec;
 }
 
 export class PullGizmo {
@@ -47,6 +53,9 @@ export class PullGizmo {
   private drag: ArcDrag | null = null;
   private live: Vec | null = null;
   private layout: Layout | null = null;
+  /** Typed entry of the tilt in degrees while an arc is held (null while the mouse sets it). */
+  private fields: TypedFields | null = null;
+  private released = false;
 
   constructor(
     scene: THREE.Scene,
@@ -118,7 +127,7 @@ export class PullGizmo {
     const base = new THREE.Vector3(...handle.anchor);
     const length = this.pixelSizeAt(base) * ARM_PX;
     const [e1, e2] = handle.frame ?? sideFrame(direction);
-    const layout: Layout = { base, direction, length, sides: [sideToward(direction, e1), sideToward(direction, e2)] };
+    const layout: Layout = { base, direction, length, sides: [sideToward(direction, e1), sideToward(direction, e2)], axes: [e1, e2] };
     this.layout = layout;
     this.group.visible = true;
     this.arcs.forEach((arc, i) => {
@@ -134,9 +143,10 @@ export class PullGizmo {
     this.pick.style.left = `${icon.x - rect.left}px`;
     this.pick.style.top = `${icon.y - rect.top}px`;
     const lean = this.state.dir && this.state.normal ? angleFromNormal(this.state.dir, this.state.normal) : 0;
-    this.label.hidden = lean < 0.05;
+    this.label.hidden = lean < 0.05 && !this.fields;
     if (!this.label.hidden) {
-      this.label.textContent = `${Math.round(lean * 10) / 10}° off the face normal`;
+      this.label.textContent = this.fields ? `Tilt ${this.fields.shown(0, String(Math.round(lean * 10) / 10))}° off the face normal` : `${Math.round(lean * 10) / 10}° off the face normal`;
+      this.label.style.outline = this.fields ? "1px solid #ffb347" : "";
       this.label.style.left = `${icon.x - rect.left + 12}px`;
       this.label.style.top = `${icon.y - rect.top}px`;
     }
@@ -180,7 +190,8 @@ export class PullGizmo {
     const side = layout.sides[hot];
     const tip = layout.base.clone().addScaledVector(new THREE.Vector3(...layout.direction), layout.length * SPHERE);
     const sidePx = this.screen(tip.clone().addScaledVector(new THREE.Vector3(...side), layout.length)).sub(this.screen(tip));
-    this.drag = { side, direction: layout.direction, x: e.clientX, y: e.clientY, sidePx: sidePx.lengthSq() < 4 ? new THREE.Vector2(1, 0) : sidePx.normalize() };
+    const normal = this.state.normal ?? layout.direction;
+    this.drag = { side, direction: layout.direction, x: e.clientX, y: e.clientY, start: this.state.dir, baseSide: sideToward(normal, layout.axes[hot]), sidePx: sidePx.lengthSq() < 4 ? new THREE.Vector2(1, 0) : sidePx.normalize() };
     this.live = layout.direction;
     this.hot = hot;
     this.dom.style.cursor = "grabbing";
@@ -189,13 +200,63 @@ export class PullGizmo {
 
   move(e: PointerEvent) {
     const drag = this.drag;
-    if (!drag || !this.state.normal) return;
+    if (!drag || !this.state.normal || this.fields) return; // typed degrees hold the arc: the mouse is ignored
     const pixels = new THREE.Vector2(e.clientX - drag.x, e.clientY - drag.y).dot(drag.sidePx);
     this.live = tiltFromDrag(drag.direction, drag.side, this.state.normal, pixels, ARM_PX * SPHERE);
     this.state.set(this.live);
   }
 
+  /** Whether degrees are being typed for the arc held. */
+  get typing(): boolean {
+    return this.fields !== null;
+  }
+
+  /** Keyboard entry while an arc is held: digits, "." and "-" type the tilt in degrees from the face normal (the sign is the way along the arc), Backspace edits,
+   *  Enter applies it, Escape goes back to the mouse and then cancels the drag. Returns whether the key was used. */
+  key(e: { key: string }): boolean {
+    const drag = this.drag;
+    if (!drag) return false;
+    if (e.key === "Enter") {
+      const degrees = this.fields?.value(0) ?? null;
+      if (degrees !== null && this.state.normal) this.state.set(typedTilt(this.state.normal, drag.baseSide, degrees));
+      this.end();
+      return true;
+    }
+    if (e.key === "Escape") {
+      if (this.fields && !this.released) {
+        this.fields = null; // the button is still down: back to dragging
+        return true;
+      }
+      this.cancel();
+      return true;
+    }
+    const fields = this.fields ?? new TypedFields(1);
+    if (!fields.key(e.key)) return false;
+    this.fields = fields;
+    return true;
+  }
+
+  /** Abandon the arc being held: the direction goes back to what it was. */
+  cancel() {
+    if (!this.drag) return;
+    this.state.set(this.drag.start);
+    this.end();
+  }
+
+  private end() {
+    this.drag = null;
+    this.live = null;
+    this.hot = null;
+    this.fields = null;
+    this.released = false;
+    this.dom.style.cursor = "";
+  }
+
   up() {
+    if (this.fields) {
+      this.released = true; // typing overrides the drag: Enter applies and Escape cancels
+      return;
+    }
     this.drag = null;
     this.live = null;
     this.hot = null;
