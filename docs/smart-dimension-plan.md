@@ -84,3 +84,32 @@ Everything not listed here keeps the proposed table. Alpha build: no backward co
 4. Redundant dimensions are created as reference (shown with parentheses, not driving). A reference can be made driving; the previously driving one that becomes redundant turns into a reference. Switch with an icon button in the constraint list and with right-click on dimensions selected in the 3D view (multiple at once). A redundant geometric constraint is dropped with a warning message. There are no geometric reference constraints.
 5. The angle between two lines picks the inside angle by default (existing placement behavior); dragging the value across switches to the outside value. Limit stays 180 degrees.
 6. With nothing usable selected, D shows a message to select geometry. No pick mode.
+
+## Button audit (constraint buttons absorbed by the smart tools)
+
+Owner: "many of the sketch constraint buttons appear to be redundant. We need to clean up constraint tools that are absorbed by smart constraint tools. Be certain user can access the full functionality before removing a discrete constraint tool." A button is removed from the strip only when the same constraint is built by a selection the smart dimension takes (the Dimension button or D, including its cursor menu). The test `each button removed from the strip has its constraint reachable through the smart dimension` checks the removed ones.
+
+| Button | Smart route | Verdict |
+| --- | --- | --- |
+| Dimension | itself, first in the row | kept |
+| Length / distance | one line; two separated points | removed |
+| Horizontal distance | two separated points, menu choice | removed (a single line is dimensioned horizontally by selecting its two end points, as the owner decided) |
+| Vertical distance | two separated points, menu choice | removed (same) |
+| Short radius | one ellipse | removed |
+| Point to line distance | a point and a line | removed |
+| Symmetric | a line and two points | removed |
+| Radius | arc only; a circle gets Diameter | kept: the radius of a circle (and the diameter of an arc) has no smart route |
+| Diameter | circle only | kept (same reason) |
+| Angle | two lines that are not parallel | kept: nearly parallel lines (under one degree) get the distance between them instead, so their small angle has no smart route |
+| Angle to horizontal axis | none (a single line only gets its length) | kept |
+| Coincident | only for two points very near each other, or three or more points | kept: two separated points get a distance, so joining them has no smart route; points on curves likewise |
+| Point on | only when the point is within the pick tolerance of the curve | kept |
+| Midpoint | none (a point and a line get the distance) | kept |
+| Horizontal / vertical, Horizontal, Vertical | none (several lines offer equal or collinear) | kept |
+| Parallel, Perpendicular | none (two lines get angle or distance) | kept |
+| Equal | three or more lines or curves only; two items get dimensions | kept |
+| Tangent / collinear | collinear for three or more lines only; tangent has none | kept |
+| Fixed | none | kept |
+| Lock | none | kept |
+
+Questions for the owner: should a circle's menu offer Radius as well as Diameter (then Radius could go), should two separated points offer Coincident in their menu (then Coincident could go for points), and should two lines offer Parallel, Perpendicular and Angle together in one menu (then those three could go)? Each would make a menu appear where today one fit is applied at once.

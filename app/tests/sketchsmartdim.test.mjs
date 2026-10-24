@@ -71,3 +71,31 @@ test("the smart dimension heads the button list and is enabled when anything fit
   assert.equal(all[0].enabled, true);
   assert.equal(allConstraintOptions(s, pt(1))[0].enabled, false);
 });
+
+test("each button removed from the strip has its constraint reachable through the smart dimension", async () => {
+  const { ABSORBED_BY_SMART } = await import("../src/sketchsmartdim.ts");
+  const { CONSTRAINT_OPTIONS } = await import("../src/sketchconstraints.ts");
+  const e = sketch(
+    [P(1, 0, 0), P(2, 10, 3), P(3, 5, 8), P(4, 30, 30), P(5, 40, 30)],
+    [L(10, 1, 2), { id: 11, type: "ellipse", center: 4, major: 5, minor: 2 }],
+  );
+  // For every removed label: a selection the smart dimension takes, and the label of the fit that builds the same thing.
+  const reach = {
+    "Length / distance": [ent(10), "Length / distance"],
+    "Horizontal distance": [pt(1, 2), "Horizontal distance"],
+    "Vertical distance": [pt(1, 2), "Vertical distance"],
+    "Short radius": [ent(11), "Short radius"],
+    "Point to line distance": [[...ent(10), ...pt(3)], "Point to line distance"],
+    Symmetric: [[...ent(10), ...pt(4, 5)], "Symmetric"],
+  };
+  assert.deepEqual(Object.keys(reach).sort(), Object.keys(ABSORBED_BY_SMART).sort(), "every removed button is covered here");
+  for (const [label, [sel, fit]] of Object.entries(reach)) {
+    const discrete = CONSTRAINT_OPTIONS.find((o) => o.label === label);
+    const smart = smartChoices(e, sel, 0.5).find((o) => o.label === fit);
+    assert.ok(discrete && smart, label);
+    assert.deepEqual(smart.build(e, sel), discrete.build(e, sel), label);
+  }
+  const strip = allConstraintOptions(e, ent(10)).map((c) => c.option.label);
+  for (const label of Object.keys(ABSORBED_BY_SMART)) assert.ok(!strip.includes(label), label);
+  assert.equal(strip[0], "Dimension");
+});

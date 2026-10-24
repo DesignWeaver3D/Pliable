@@ -135,7 +135,17 @@ export function optionsFor(s: SketchData, sel: SketchSel[]): ConstraintOption[] 
   return sel.length === 0 ? [] : [SMART_DIMENSION, ...CONSTRAINT_OPTIONS].filter((o) => o.build(s, sel) !== null);
 }
 
+/** Buttons the smart dimension replaces: each one's constraint is reached by a selection the smart dimension handles (tested in sketchsmartdim.test.mjs; the audit is in docs/smart-dimension-plan.md). */
+export const ABSORBED_BY_SMART: Record<string, string> = {
+  "Length / distance": "one line, or two separated points",
+  "Horizontal distance": "two separated points, then Horizontal distance in the menu",
+  "Vertical distance": "two separated points, then Vertical distance in the menu",
+  "Short radius": "one ellipse",
+  "Point to line distance": "a point and a line",
+  Symmetric: "a line and two points",
+};
+
 /** Every constraint and dimension button for the sketch strip (the smart dimension first), each with whether the current selection takes it. */
 export function allConstraintOptions(s: SketchData, sel: SketchSel[]): { option: ConstraintOption; enabled: boolean }[] {
-  return [SMART_DIMENSION, ...CONSTRAINT_OPTIONS].map((option) => ({ option, enabled: sel.length > 0 && option.build(s, sel) !== null }));
+  return [SMART_DIMENSION, ...CONSTRAINT_OPTIONS.filter((o) => !(o.label in ABSORBED_BY_SMART))].map((option) => ({ option, enabled: sel.length > 0 && option.build(s, sel) !== null }));
 }
