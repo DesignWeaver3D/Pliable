@@ -27,7 +27,7 @@ test("one item gets its own dimension", () => {
 });
 
 test("two points: far apart offer the distances, very near each other a coincident", () => {
-  assert.deepEqual(labels(s, pt(1, 2)), ["Length / distance", "Horizontal distance", "Vertical distance"]);
+  assert.deepEqual(labels(s, pt(1, 2)), ["Length / distance"]); // horizontal and vertical distance have their own buttons
   assert.deepEqual(labels(s, pt(6, 7)), ["Coincident"]);
   assert.deepEqual(built(s, pt(6, 7), "Coincident"), [{ type: "coincident", points: [6, 7] }]);
 });
@@ -84,8 +84,6 @@ test("each button removed from the strip has its constraint reachable through th
   // For every removed label: a selection the smart dimension takes, and the label of the fit that builds the same thing.
   const reach = {
     "Length / distance": [ent(10), "Length / distance"],
-    "Horizontal distance": [pt(1, 2), "Horizontal distance"],
-    "Vertical distance": [pt(1, 2), "Vertical distance"],
     "Short radius": [ent(11), "Short radius"],
     "Point to line distance": [[...ent(10), ...pt(3)], "Point to line distance"],
   };

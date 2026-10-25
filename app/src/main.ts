@@ -316,7 +316,7 @@ async function pickProfileNow(sketchId: number, region: number, additive: boolea
   await dropPendingProfile();
   if (!regions.length) return setSelection([]);
   try {
-    const mesh = await core.request<MeshData>("sketch_regions", { sketch_id: sketchId, picked_regions: regions });
+    const mesh = await core.request<MeshData>("sketch_regions", { sketch_id: sketchId, region: regions[0], picked_regions: regions });
     const faces: number[] = mesh.header.selection?.faces ?? [];
     setCommitted(mesh, false, faces.map((id) => ({ kind: "face" as const, id })));
     if (faces.length) pendingProfile = { mesh, faces, sketchId, regions };

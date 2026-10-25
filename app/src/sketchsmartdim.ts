@@ -66,7 +66,7 @@ export function smartChoices(s: SketchData, sel: SketchSel[], near: number): Con
   if (total === 2) {
     if (ps.length === 2) {
       if (dist(s, ps[0], ps[1]) <= near) add(constraint("Coincident", coincidences));
-      else for (const label of ["Length / distance", "Horizontal distance", "Vertical distance"]) add(named(label));
+      else add(named("Length / distance")); // the horizontal and vertical distances have their own buttons
     } else if (es.length === 2) {
       const [a, b] = es;
       if (a.type === "line" && b.type === "line") {
@@ -142,8 +142,6 @@ export function optionsFor(s: SketchData, sel: SketchSel[]): ConstraintOption[] 
 /** Buttons the smart dimension replaces: each one's constraint is reached by a selection the smart dimension handles (tested in sketchsmartdim.test.mjs; the audit is in docs/smart-dimension-plan.md). */
 export const ABSORBED_BY_SMART: Record<string, string> = {
   "Length / distance": "one line, or two separated points",
-  "Horizontal distance": "two separated points, then Horizontal distance in the menu",
-  "Vertical distance": "two separated points, then Vertical distance in the menu",
   "Short radius": "one ellipse",
   "Point to line distance": "a point and a line",
 };

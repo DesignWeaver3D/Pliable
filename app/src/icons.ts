@@ -212,6 +212,8 @@ export const TOOLS_HANDLE_ICON = "toolsBox";
 /** Icons for the constraint buttons of the sketch strip, by button label (same 24 px stroke style as the rest). */
 export const CONSTRAINT_ICONS: Record<string, string> = {
   Dimension: '<path d="M4 7v10M20 7v10"/><path d="M4 12h16M7 9.5L4 12l3 2.5M17 9.5L20 12l-3 2.5"/>',
+  "Horizontal distance": '<path d="M4 6v12M20 6v12"/><path d="M4 12h16M7 9.5L4 12l3 2.5M17 9.5L20 12l-3 2.5"/>',
+  "Vertical distance": '<path d="M6 4h12M6 20h12"/><path d="M12 4v16M9.5 7L12 4l2.5 3M9.5 17L12 20l2.5-3"/>',
   "Horizontal / vertical": '<path d="M3 9h11"/><path d="M18 5v14"/>',
   Horizontal: '<path d="M4 12h16"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="20" cy="12" r="1.5" fill="currentColor"/>',
   Vertical: '<path d="M12 4v16"/><circle cx="12" cy="4" r="1.5" fill="currentColor"/><circle cx="12" cy="20" r="1.5" fill="currentColor"/>',
