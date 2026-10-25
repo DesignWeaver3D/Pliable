@@ -325,3 +325,17 @@ test("an angle dimension is an arc in the sector it was placed in", () => {
   const across = arc({ place: [-3, 3], outside: true });
   assert.ok(across.points.slice(1).every((p) => p[0] < 1e-9 && p[1] > -1e-9));
 });
+
+test("symmetric takes a line or an axis as the item the others are mirrored about", async () => {
+  const { symmetries } = await import("../src/sketchconstraints.ts");
+  const plane = { origin: [0, 0, 0], normal: [0, 0, 1], xdir: [1, 0, 0] };
+  const s = {
+    plane,
+    points: [{ id: 1, u: -5, v: 3 }, { id: 2, u: 5, v: 3 }, { id: 5, u: -6, v: 10 }, { id: 6, u: 6, v: 10 }],
+    entities: [{ id: 14, type: "line", a: 1, b: 2 }, { id: 12, type: "circle", center: 5, radius: 1 }, { id: 13, type: "circle", center: 6, radius: 1 }],
+    constraints: [],
+  };
+  const e = (...ids) => ids.map((id) => ({ kind: "entity", id }));
+  assert.deepEqual(symmetries(s, e(14, -2)), [{ type: "symmetric", points: [1, 2], entity: -2 }]);
+  assert.deepEqual(symmetries(s, e(12, 13, -2)), [{ type: "symmetric", points: [5, 6], entity: -2 }]);
+});
