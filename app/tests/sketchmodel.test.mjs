@@ -176,7 +176,7 @@ test("the smart dimension picks the dimension from the selection", () => {
   assert.deepEqual(smart(E(13)), { type: "radius", entity: 13 });
   assert.deepEqual(smart(E(10, 11)), { type: "angle", entities: [10, 11] });
   assert.deepEqual(smart([{ kind: "point", id: 4 }, ...E(10)]), { type: "point_line_distance", point: 4, entity: 10 });
-  assert.equal(smart(E(12, 13)), undefined);
+  assert.deepEqual(smart(E(12, 13)), { type: "round_gap", entities: [12, 13] }); // already concentric: the spacing between them
   // a lone line has no angle option: an angle is always between two lines
   assert.equal(optionsFor(s, E(11)).some((o) => o.label.startsWith("Angle")), false);
 });

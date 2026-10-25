@@ -226,10 +226,17 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
       const [ea, eb] = c.entities.map((id) => entityOf(s, id));
       if (ea && eb && (ea.type === "circle" || ea.type === "arc") && (eb.type === "circle" || eb.type === "arc")) {
         const [ca, cb] = [world(ea.center), world(eb.center)];
-        const along = norm(sub(cb, ca));
         const [ra, rb] = [radiusOf(s, ea), radiusOf(s, eb)];
-        // The spacing runs along the line of the centres, from rim to rim.
-        out.push(linear(c, text, ca.map((x, k) => x + along[k] * ra), cb.map((x, k) => x - along[k] * rb), cross(f.n, along)));
+        const apart = Math.hypot(...sub(cb, ca));
+        // The spacing runs along the line of the centres, from rim to rim; concentric circles use the sketch's horizontal direction.
+        const along = apart > 1e-9 ? norm(sub(cb, ca)) : f.x;
+        const nested = apart <= Math.abs(ra - rb);
+        const [outer, inner] = ra >= rb ? [[ca, ra], [cb, rb]] : [[cb, rb], [ca, ra]];
+        const way = nested ? (ra >= rb ? along : along.map((x) => -x)) : along; // nested: from the outer centre toward the inner one
+        const [pa, pb] = nested
+          ? [(outer[0] as number[]).map((x, k) => x + way[k] * (outer[1] as number)), (inner[0] as number[]).map((x, k) => x + way[k] * (inner[1] as number))]
+          : [ca.map((x, k) => x + along[k] * ra), cb.map((x, k) => x - along[k] * rb)];
+        out.push(linear(c, text, pa, pb, cross(f.n, along)));
       }
     } else if (c.type === "minor_radius" && entity && entity.type === "ellipse") {
       const [m, o] = [pointOf(s, entity.center), pointOf(s, entity.major)];

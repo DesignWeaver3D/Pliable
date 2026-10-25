@@ -51,7 +51,7 @@ test("a point with a line or a circle", () => {
 test("circles and arcs: centre distances, or concentric when the centres sit together; a line and a circle", () => {
   assert.deepEqual(labels(s, ent(13, 14)), ["Distance between the centres", "Gap between the rims"]);
   assert.deepEqual(built(s, ent(13, 14), "Distance between the centres"), [{ type: "distance", points: [5, 6] }]);
-  assert.deepEqual(labels(s, ent(14, 16)), ["Concentric"]);
+  assert.deepEqual(labels(s, ent(14, 16)), ["Concentric", "Gap between the rims"]);
   assert.deepEqual(built(s, ent(14, 16), "Concentric"), [{ type: "coincident", points: [6, 11] }]);
   assert.deepEqual(labels(s, ent(13, 10)), ["Centre to line distance"]);
 });
@@ -146,4 +146,11 @@ test("two circles or arcs offer the distance between the centres and the gap bet
   // overlapping circles have no gap to dimension
   const touching = sketch([P(1, 0, 0), P(2, 5, 0)], [{ id: 10, type: "circle", center: 1, radius: 3 }, { id: 11, type: "circle", center: 2, radius: 4 }]);
   assert.deepEqual(labels(touching, ent(10, 11)), ["Distance between the centres"]);
+});
+
+test("concentric and nested circles offer the gap between their rims", () => {
+  const e = sketch([P(1, 0, 0), P(2, 1, 0)], [{ id: 10, type: "circle", center: 1, radius: 3 }, { id: 11, type: "circle", center: 1, radius: 5 }, { id: 12, type: "circle", center: 2, radius: 1 }]);
+  assert.deepEqual(labels(e, ent(10, 11)), ["Gap between the rims"]);
+  assert.equal(smartChoices(e, ent(10, 11), 0.5).find((o) => o.label === "Gap between the rims").initial(e, ent(10, 11)), 2);
+  assert.deepEqual(labels(e, ent(11, 12)), ["Distance between the centres", "Gap between the rims"]); // 12 sits inside 11: 5 - 1 - 1
 });

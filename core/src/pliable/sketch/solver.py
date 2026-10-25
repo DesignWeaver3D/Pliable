@@ -277,15 +277,24 @@ class _Solver:
             return e["radius"] if e["type"] == "circle" else math.dist(coords[e["center"]], coords[e["start"]])
 
         ca, cb = coords[a["center"]], coords[b["center"]]
-        d = math.dist(ca, cb) or 1.0
-        toward = ((cb[0] - ca[0]) / d, (cb[1] - ca[1]) / d)
-        near_a = s.addPoint2dV(wp, ca[0] + toward[0] * radius(a), ca[1] + toward[1] * radius(a), g)
-        near_b = s.addPoint2dV(wp, cb[0] - toward[0] * radius(b), cb[1] - toward[1] * radius(b), g)
-        through = s.addLineSegment(self._point(a["center"]), self._point(b["center"]), g)
+        ra, rb = radius(a), radius(b)
+        d = math.dist(ca, cb)
+        toward = ((cb[0] - ca[0]) / d, (cb[1] - ca[1]) / d) if d > 1e-9 else (1.0, 0.0)  # concentric: any direction gives the same gap
+        if d <= abs(ra - rb):  # one inside the other: both points lie the same way from the centres, on the outer one's rim and the inner one's
+            sign = 1.0 if ra >= rb else -1.0
+            guess_a = (ca[0] + sign * toward[0] * ra, ca[1] + sign * toward[1] * ra)
+            guess_b = (cb[0] + sign * toward[0] * rb, cb[1] + sign * toward[1] * rb)
+        else:
+            guess_a = (ca[0] + toward[0] * ra, ca[1] + toward[1] * ra)
+            guess_b = (cb[0] - toward[0] * rb, cb[1] - toward[1] * rb)
+        near_a = s.addPoint2dV(wp, guess_a[0], guess_a[1], g)
+        near_b = s.addPoint2dV(wp, guess_b[0], guess_b[1], g)
+        # The line the two points lie on: through both centres, or (concentric) out from the centre through the first point.
+        through = s.addLineSegment(self._point(a["center"]), self._point(b["center"]) if d > 1e-9 else near_a, g)
         return [
             s.addPointOnCircle(near_a, self.entities[id_a][1], g),
             s.addPointOnCircle(near_b, self.entities[id_b][1], g),
-            s.addPointOnLine(near_a, through, wp, g),
+            *([s.addPointOnLine(near_a, through, wp, g)] if d > 1e-9 else []),  # concentric: the line starts at the first point already
             s.addPointOnLine(near_b, through, wp, g),
             s.addPointsDistance(gap, near_a, near_b, wp, g),
         ]

@@ -1134,3 +1134,12 @@ def test_gap_between_two_circles_and_two_arcs():
     result = sketch.solve(sketch_of(arc_points, [circles[0], arc], [{"id": 1, "type": "round_gap", "entities": [10, 12], "value": 2}, sizes[0]]))
     assert result["status"] == "ok"
     assert next(p for p in result["points"] if p["id"] == 1)["u"] == pytest.approx(40 - 5 - 2 - 3, abs=1e-5)
+
+
+def test_gap_between_concentric_circles():
+    points = [{"id": 1, "u": 5, "v": 5, "fixed": True}]
+    circles = [{"id": 10, "type": "circle", "center": 1, "radius": 3}, {"id": 11, "type": "circle", "center": 1, "radius": 5}]
+    sizes = [{"id": 2, "type": "radius", "entity": 10, "value": 3}]
+    result = sketch.solve(sketch_of(points, circles, [{"id": 1, "type": "round_gap", "entities": [10, 11], "value": 4}, *sizes]))
+    assert result["status"] == "ok"
+    assert result["radii"][11] == pytest.approx(7, abs=1e-5)

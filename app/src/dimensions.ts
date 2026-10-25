@@ -377,6 +377,7 @@ export class DimensionOverlay {
         for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup"]) hit.addEventListener(type, (e) => e.stopPropagation());
         this.makeDraggable(hit, d);
         if (at && d.activate) this.activateOnDoubleTap(hit, d, () => d.activate!(at));
+        if (d.select) hit.addEventListener("click", (e) => d.select!(e)); // a click on a dimension's line selects it like a click on its value
         hit.addEventListener("dblclick", (e) => {
           e.preventDefault();
           e.stopPropagation();
