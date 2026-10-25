@@ -1016,6 +1016,14 @@ def test_regions_can_be_extruded_from_a_split_rectangle():
     assert count == 1
 
 
+def test_regions_of_a_blank_document_become_loose_faces():
+    from OCP.TopoDS import TopoDS_Compound
+
+    points, lines = rectangle(20, 20)
+    shape, count = sketch.add_regions(TopoDS_Compound(), sketch_of(points, lines, plane=sketch.STANDARD_PLANES["XY"]))
+    assert count == 1 and not shape.IsNull()
+
+
 def _circle_with(*constraints):
     return sketch_of([{"id": 1, "u": 0, "v": 0}], [{"id": 10, "type": "circle", "center": 1, "radius": 5}], list(constraints))
 

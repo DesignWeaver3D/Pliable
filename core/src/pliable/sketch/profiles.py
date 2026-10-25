@@ -344,7 +344,8 @@ def add_regions(shape, sketch: dict, only: int | list[int] | None = None):
     if loose:
         compound, builder = TopoDS_Compound(), BRep_Builder()
         builder.MakeCompound(compound)
-        builder.Add(compound, result)
+        if not result.IsNull():  # a blank document's shape is a null compound; adding it would crash
+            builder.Add(compound, result)
         for zone in loose:
             builder.Add(compound, zone.wrapped)
         result = compound
