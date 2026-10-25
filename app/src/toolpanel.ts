@@ -102,11 +102,6 @@ export class ToolPanel {
     return this.open?.id ?? null;
   }
 
-  /** A primitive's creation form is open (its preview is a new body that only Apply makes real). */
-  get isPrimitiveOpen(): boolean {
-    return !!this.open?.placement;
-  }
-
   get isOpen(): boolean {
     return this.open !== null;
   }

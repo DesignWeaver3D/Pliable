@@ -410,7 +410,7 @@ function setSelection(sels: Sel[]) {
     if (committed === pendingProfile.mesh && !toolPanel.isOpen) void dropPendingProfile(); // clicked away from the picked region: it was only a pick
     else pendingProfile = null; // a tool used it, or the history moved on
   }
-  if (toolPanel.isPrimitiveOpen) { // clicking away from a primitive being created applies it; the click itself is not carried over
+  if (toolPanel.isOpen) { // clicking away from an open tool card applies it (to the selection it was opened on); the click itself is not carried over
     void toolPanel.apply();
     return;
   }
