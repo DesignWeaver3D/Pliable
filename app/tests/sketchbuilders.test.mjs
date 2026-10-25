@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addRectangle, addPolygon, addCircle, addSlot, polygonCorners } from "../src/sketchbuilders.ts";
+import { addArc, addEllipse, addRectangle, addPolygon, addCircle, addSlot, polygonCorners } from "../src/sketchbuilders.ts";
 
 // A stand-in for the sketch mode: the same rules as SketchMode.pointFor and addConstraintRaw, with undo and solving as counters.
 function context(auto = "shape") {
@@ -20,7 +20,7 @@ function context(auto = "shape") {
       return id;
     },
     addConstraintRaw(c, kind = "shape") {
-      if (auto === "none" || (auto === "snaps" && kind === "shape")) return;
+      if (kind !== "always" && (auto === "none" || (auto === "snaps" && kind === "shape"))) return;
       this.s.constraints.push({ id: this.s.points.length + this.s.entities.length + this.s.constraints.length + 1, ...c, auto: true });
     },
     status() {},
@@ -81,4 +81,71 @@ test("a polygon, circle and slot add their curves", () => {
   addSlot(slot, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 5, v: 2 });
   assert.equal(slot.s.entities.filter((e) => e.type === "arc").length, 2);
   assert.equal(slot.s.entities.filter((e) => e.type === "line").length, 2);
+});
+
+test("an arc by centre follows the pointer: counterclockwise or clockwise from the start", () => {
+  const sweepOf = (ctx) => {
+    const arc = ctx.s.entities.find((e) => e.type === "arc");
+    const at = (id) => ctx.s.points.find((p) => p.id === id);
+    const [c, a, b] = [at(arc.center), at(arc.start), at(arc.end)];
+    const turn = Math.atan2(b.v - c.v, b.u - c.u) - Math.atan2(a.v - c.v, a.u - c.u);
+    return ((turn + 4 * Math.PI) % (2 * Math.PI)) * (180 / Math.PI); // the stored counterclockwise sweep
+  };
+  const up = context("none");
+  addArc(up, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 0, v: 10 });
+  assert.ok(Math.abs(sweepOf(up) - 90) < 1e-6); // pointer moved counterclockwise: start stays the arc's start
+  const down = context("none");
+  addArc(down, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 0, v: -10 });
+  assert.ok(Math.abs(sweepOf(down) - 90) < 1e-6); // pointer moved clockwise: a 90 degree arc through the lower quadrant
+  const clicked = down.s.entities.find((e) => e.type === "arc");
+  assert.equal(down.s.points.find((p) => p.id === clicked.end).v, 0); // runs from the pointer's end back to the start
+  const typed = context("none");
+  addArc(typed, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 0, v: -10 }, true);
+  assert.ok(Math.abs(sweepOf(typed) - 270) < 1e-6); // typed sweeps stay counterclockwise
+});
+
+test("an ellipse gets two construction lines joining the opposite ends of its axes", () => {
+  const ctx = context("none");
+  addEllipse(ctx, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 0, v: 4 });
+  const ellipse = ctx.s.entities.find((e) => e.type === "ellipse");
+  const lines = ctx.s.entities.filter((e) => e.type === "line");
+  assert.equal(lines.length, 2);
+  assert.ok(lines.every((l) => l.construction));
+  const ends = lines.map((l) => [l.a, l.b].sort((x, y) => x - y)).sort();
+  assert.deepEqual(ends, [[ellipse.major, ellipse.major2].sort((x, y) => x - y), [ellipse.minor1, ellipse.minor2].sort((x, y) => x - y)].sort());
+});
+
+test("a rectangle drawn from its centre always gets a centre point held symmetric about two opposite corners", () => {
+  const ctx = context("none"); // automatic constraints off: the centre's constraints are made anyway, the shape's are not
+  addRectangle(ctx, { u: 3, v: 2 }, { u: 7, v: 5 }, true);
+  assert.equal(ctx.s.points.length, 5);
+  const centre = ctx.s.points.find((p) => p.u === 3 && p.v === 2);
+  assert.equal(ctx.s.constraints.length, 1);
+  const [c] = ctx.s.constraints;
+  assert.equal(c.type, "symmetric_point");
+  assert.equal(c.point, centre.id);
+  const [p, q] = c.points.map((id) => ctx.s.points.find((x) => x.id === id));
+  assert.deepEqual([(p.u + q.u) / 2, (p.v + q.v) / 2], [3, 2]);
+  assert.notDeepEqual([p.u, p.v], [q.u, q.v]);
+});
+
+test("a centre clicked on a curve, a sketch axis or a point is made coincident with it; rounded corners get the same centre", () => {
+  const onLine = context("none");
+  addRectangle(onLine, { u: 3, v: 2, on: { entity: 99 } }, { u: 7, v: 5 }, true);
+  assert.ok(onLine.s.constraints.some((c) => c.type === "point_on" && c.entity === 99));
+  const onAxis = context("none");
+  addRectangle(onAxis, { u: 5, v: 0 }, { u: 7, v: 3 }, true);
+  assert.ok(onAxis.s.constraints.some((c) => c.type === "point_on" && c.entity === -1));
+  const onPoint = context("none");
+  onPoint.s.points.push({ id: 50, u: 3, v: 2 });
+  addRectangle(onPoint, { id: 50, u: 3, v: 2 }, { u: 7, v: 5 }, true);
+  assert.equal(onPoint.s.points.length, 5);
+  assert.ok(onPoint.s.constraints.some((c) => c.type === "symmetric_point" && c.point === 50));
+  assert.equal(onPoint.s.constraints.some((c) => c.type === "point_on"), false);
+  const rounded = context("none");
+  rounded.rectOptions = { corner: "fillet", size: 1 };
+  addRectangle(rounded, { u: 3, v: 2 }, { u: 7, v: 5 }, true);
+  const sym = rounded.s.constraints.find((c) => c.type === "symmetric_point");
+  const [p, q] = sym.points.map((id) => rounded.s.points.find((x) => x.id === id));
+  assert.deepEqual([(p.u + q.u) / 2, (p.v + q.v) / 2], [3, 2]);
 });

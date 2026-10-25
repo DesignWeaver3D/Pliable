@@ -60,7 +60,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 ## Sketch
 
 - Sketches are kept as separate objects. Finishing a sketch adds no faces to the model; closed regions show as tinted view-only profile faces.
-- Automatic constraints are off by default, and unconstrained geometry floats freely. The grid is off by default; grid options live in the gear on the sketch card, not the global settings.
+- Automatic constraints are on by default (Snaps and shapes; owner, 2026-10-25, replacing the earlier off default); a saved choice in the sketch settings still wins, and the setting Off leaves geometry floating freely. The grid is off by default; grid options live in the gear on the sketch card, not the global settings.
 - Sketch card sits under the nav cube: title and gear on the first row, icon row, then Finish and Discard.
 - Right-click in a sketch not on sketch geometry ends the current drawing tool.
 - Project model edges is a pick mode: pick faces and edges, Enter or the button projects, Escape cancels. Projected edges are snapshots.
@@ -110,4 +110,12 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - The smart dimension on two separated points is the length between them (no menu); horizontal distance and vertical distance are separate buttons on the constraint strip.
 - In a sketch, Enter with no drawing tool active (the Select tool, nothing being typed) starts the drawing tool used last again; Enter while a line chain is open still ends the chain (owner, 2026-10-24).
 - Concentric and nested circles or arcs selected together offer the gap between their rims as a dimension; clicking a dimension's leader or extension line selects it like clicking its value.
+- Trim takes two clicks on a line (owner, 2026-10-25): the first cuts the line at every crossing with other lines and circles and turns the piece under the click into construction geometry; a second click on that piece deletes it. Changing tool or stepping undo or redo forgets the marked pieces. The cutting is the Split tool's, so direction constraints stay on the pieces.
+- Split adds an automatic Collinear constraint to a line with no direction constraint; two lines that share an end point are collinear by making them parallel, with no conflict reported.
+- Arc by centre (centre, start, end): the arc runs the way the pointer moves from the start, clockwise or counterclockwise by the short way round (up to 180 degrees); the preview and the committed arc agree. A typed sweep in degrees is always counterclockwise. (owner, 2026-10-25)
+- Arc by 3 points takes its clicks in the order start point, end point, then the point the arc passes through; after the second click the preview is the arc through the pointer, and the chord alone when the three points are in a line. (owner, 2026-10-25; replaces start, through point, end)
+- In a sketch, when a constraint or dimension is applied from the strip, D or the smart dimension menu, the geometry selection is cleared; one that is dropped as conflicting leaves the selection as it was. (owner, 2026-10-25)
+- Construction geometry in a sketch (toggled construction curves, polygon circles, projected edges, trimmed pieces) is drawn dashed in grey, with dashes of constant screen size, and always beneath the normal curves; the sketch points still draw over everything. A selected construction curve is drawn orange and solid. (owner, 2026-10-25)
+- A new sketch ellipse gets two construction lines, one joining the opposite ends of the major axis and one the minor axis; they share the ellipse's end points, so they follow it when it is edited, and selecting one alone offers its length as a dimension. They are not part of the profile. Deleting the ellipse leaves them. (owner, 2026-10-25)
+- A rectangle drawn by its centre also gets that centre as a point, held halfway between two opposite corners (Symmetric); if the centre was clicked on a point it is that point, and if on a line, a sketch axis or a line midpoint it is also made coincident with it (Point on or Midpoint). These constraints are always made, whatever the automatic-constraints setting. (owner, 2026-10-25)
 - Diameter dimension values start with the capital Ø (full capital height, like the R of a radius), in sketches, the typed-size dimensions and the 3D measurements.

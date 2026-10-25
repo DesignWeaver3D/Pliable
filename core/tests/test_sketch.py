@@ -625,6 +625,17 @@ def test_an_ellipse_with_axis_ends_keeps_them_square_and_takes_widths():
     assert sketch.profile_face(sketch.apply_solution(sk, result)).area == pytest.approx(math.pi * 20 * 6, rel=1e-6)
 
 
+def test_an_ellipse_axis_line_is_a_construction_line_that_takes_a_dimension():
+    sk = _ellipse_with_ends()
+    sk["entities"] += [{"id": 12, "type": "line", "a": 2, "b": 4, "construction": True}, {"id": 13, "type": "line", "a": 5, "b": 6, "construction": True}]
+    sk["constraints"] = [{"id": 8, "type": "fixed", "point": 1}, {"id": 11, "type": "horizontal", "points": [1, 2]}, {"id": 9, "type": "distance", "entity": 12, "value": 40}, {"id": 10, "type": "distance", "entity": 13, "value": 12}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok" and result["dof"] == 0
+    assert result["radii"][3] == pytest.approx(6)
+    # the construction lines are not part of the profile
+    assert sketch.profile_face(sketch.apply_solution(sk, result)).area == pytest.approx(math.pi * 20 * 6, rel=1e-6)
+
+
 def test_a_point_can_be_put_on_an_ellipse_and_follows_it():
     sk = _ellipse_with_ends()
     sk["points"].append({"id": 7, "u": 6.5, "v": 4.5})  # near the rim, not on it
@@ -763,6 +774,15 @@ def test_collinear_lines_share_a_line():
     constraints = [{"type": "fixed", "point": 1}, {"type": "fixed", "point": 2}, {"type": "collinear", "entities": [10, 11]}]
     c = coords(sketch.solve(sketch_of(points, lines, constraints)))
     assert c[3][1] == pytest.approx(0, abs=1e-6) and c[4][1] == pytest.approx(0, abs=1e-6)
+
+
+def test_collinear_on_lines_sharing_an_end_is_not_a_conflict():
+    """What the split tool leaves behind: two lines with a shared end point and an automatic collinear constraint."""
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 5, "v": 0}, {"id": 3, "u": 10, "v": 0}]
+    lines = [{"id": 10, "type": "line", "a": 1, "b": 2}, {"id": 11, "type": "line", "a": 2, "b": 3}]
+    constraints = [{"id": 5, "type": "collinear", "entities": [10, 11], "auto": True}]
+    result = sketch.solve(sketch_of(points, lines, constraints))
+    assert result["status"] == "ok" and not result.get("conflicts")
 
 
 @pytest.mark.parametrize("v", [7.0, -7.0])
@@ -1200,3 +1220,15 @@ def test_gap_between_concentric_circles():
     result = sketch.solve(sketch_of(points, circles, [{"id": 1, "type": "round_gap", "entities": [10, 11], "value": 4}, *sizes]))
     assert result["status"] == "ok"
     assert result["radii"][11] == pytest.approx(7, abs=1e-5)
+
+
+def test_a_centre_rectangle_centre_point_stays_in_the_middle():
+    """What the centre rectangle tool makes: the shape's four constraints and a centre point symmetric about two opposite corners."""
+    points, lines = rectangle()
+    points.append({"id": 9, "u": 5, "v": 5})  # clicked off-centre, the solver puts it back
+    constraints = [{"type": "horizontal", "entity": 101}, {"type": "vertical", "entity": 102}, {"type": "horizontal", "entity": 103}, {"type": "vertical", "entity": 104},
+                   {"type": "symmetric_point", "points": [1, 3], "point": 9}, {"type": "fixed", "point": 9}]
+    result = sketch.solve(sketch_of(points, lines, constraints))
+    assert result["status"] == "ok"
+    at = coords(result)
+    assert at[9] == pytest.approx(((at[1][0] + at[3][0]) / 2, (at[1][1] + at[3][1]) / 2), abs=1e-6)

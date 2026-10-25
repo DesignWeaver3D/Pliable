@@ -28,6 +28,15 @@ export function arcThrough(start: UV, through: UV, end: UV): { centre: UV; from:
 }
 
 /**
+ * The turn from the arc's start to where the pointer is, the short way round: positive is counterclockwise, negative clockwise
+ * (between -180 and 180 degrees). The centre-start-end arc tool follows it, so the arc grows the way the pointer moves from the start.
+ */
+export function arcSweepToward(centre: UV, start: UV, end: UV): number {
+  const turn = Math.atan2(end.v - centre.v, end.u - centre.u) - Math.atan2(start.v - centre.v, start.u - centre.u);
+  return turn - 2 * Math.PI * Math.round(turn / (2 * Math.PI));
+}
+
+/**
  * A slot from end centre `a` to end centre `b` with the given half-width: the four tangent points and the two
  * arcs' counterclockwise ends. Lines run a-side to b-side along each edge.
  */

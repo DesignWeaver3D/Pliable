@@ -93,13 +93,16 @@ function pendingBase(ctx: PreviewContext): [number, number][][] {
   if (ctx.tool === "circle3" || ctx.tool === "arc3") {
     if (!second) return [[[first.u, first.v], [c.u, c.v]]];
     const probe = Sh.circumcircle(first, second, c);
-    if (!probe) return [[[first.u, first.v], [second.u, second.v], [c.u, c.v]]];
+    if (!probe) return ctx.tool === "arc3" ? [[[first.u, first.v], [second.u, second.v]]] : [[[first.u, first.v], [second.u, second.v], [c.u, c.v]]];
+    if (ctx.tool === "arc3") {
+      // Start, end, then the point it passes through: the pointer is the through point, the second click was the end.
+      const arc = Sh.arcThrough(first, c, second)!;
+      const [from, to] = arc.from === "start" ? [first, second] : [second, first];
+      const a0 = Math.atan2(from.v - probe.v, from.u - probe.u);
+      const sweep = (Math.atan2(to.v - probe.v, to.u - probe.u) - a0 + 4 * Math.PI) % (2 * Math.PI);
+      return [Array.from({ length: 49 }, (_, i) => [probe.u + probe.radius * Math.cos(a0 + (sweep * i) / 48), probe.v + probe.radius * Math.sin(a0 + (sweep * i) / 48)] as [number, number])];
+    }
     if (ctx.tool === "circle3") return [Array.from({ length: 49 }, (_, i) => [probe.u + probe.radius * Math.cos((2 * Math.PI * i) / 48), probe.v + probe.radius * Math.sin((2 * Math.PI * i) / 48)] as [number, number])];
-    const arc = Sh.arcThrough(first, second, c)!;
-    const [from, to] = arc.from === "start" ? [first, c] : [c, first];
-    const a0 = Math.atan2(from.v - probe.v, from.u - probe.u);
-    const sweep = (Math.atan2(to.v - probe.v, to.u - probe.u) - a0 + 4 * Math.PI) % (2 * Math.PI);
-    return [Array.from({ length: 49 }, (_, i) => [probe.u + probe.radius * Math.cos(a0 + (sweep * i) / 48), probe.v + probe.radius * Math.sin(a0 + (sweep * i) / 48)] as [number, number])];
   }
   const r = Math.hypot(c.u - first.u, c.v - first.v);
   if (ctx.tool === "circle") return [Array.from({ length: 49 }, (_, i) => [first.u + r * Math.cos((2 * Math.PI * i) / 48), first.v + r * Math.sin((2 * Math.PI * i) / 48)] as [number, number])];
@@ -108,8 +111,8 @@ function pendingBase(ctx: PreviewContext): [number, number][][] {
     if (!second) return [[[first.u, first.v], [c.u, c.v]]];
     const radius = Math.hypot(second.u - first.u, second.v - first.v);
     const a0 = Math.atan2(second.v - first.v, second.u - first.u);
-    let sweep = Math.atan2(c.v - first.v, c.u - first.u) - a0;
-    if (sweep <= 0) sweep += 2 * Math.PI;
+    let sweep = Sh.arcSweepToward(first, second, c); // follows the pointer: clockwise or counterclockwise from the start
+    if (ctx.typed && sweep <= 0) sweep += 2 * Math.PI; // a typed sweep is always counterclockwise
     return [Array.from({ length: 49 }, (_, i) => [first.u + radius * Math.cos(a0 + (sweep * i) / 48), first.v + radius * Math.sin(a0 + (sweep * i) / 48)] as [number, number])];
   }
   return [];

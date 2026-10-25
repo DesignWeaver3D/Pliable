@@ -4,7 +4,7 @@ Open work only, for the rebuild in [ROADMAP.md](../ROADMAP.md). Read this first 
 
 New rows quote the owner's request in their own words, then list what it needs as a checklist. A row is deleted only when every checklist item is verified against the quote.
 
-State (2026-10-24): `dev` is many local commits ahead of `origin/dev`, nothing pushed. Run the tests first (`uv run pytest` in `core/`, `npm test`, `npx tsc --noEmit`, `npm run build` in `app/`). The owner's core on 8770 needs a restart (core files changed). Owner decisions in force: first alpha release deferred (no tag); sketch automatic constraints off by default; grid off by default; sketch geometry stays separate from the model (Finish sketch adds no faces); kept sketches persist (see `decisions-log.md`). Do not invent work; ask the owner for hand-test results or new requests.
+State (2026-10-24): `dev` is many local commits ahead of `origin/dev`, nothing pushed. Run the tests first (`uv run pytest` in `core/`, `npm test`, `npx tsc --noEmit`, `npm run build` in `app/`). The owner's core on 8770 needs a restart (core files changed). Owner decisions in force: first alpha release deferred (no tag); sketch automatic constraints on by default (owner, 2026-10-25); grid off by default; sketch geometry stays separate from the model (Finish sketch adds no faces); kept sketches persist (see `decisions-log.md`). Do not invent work; ask the owner for hand-test results or new requests.
 
 ## Planned (not started; discuss before coding)
 
@@ -36,23 +36,6 @@ Owner batch (2026-10-25), one row each, in this order:
   - Owner note: refreshing the browser tab removed the stale projected construction lines, so the leftover state is held in the frontend (not saved by the core). Look for projection state the new-project reset in the app does not clear.
   - [ ] Find how to reproduce it (project edges in a sketch, then create a new project) and add a test if it can run without a browser.
   - [ ] Creating a new project clears all projection geometry, so nothing from the old sketches remains.
-- **Sketch trim tool does not work (bug).** Owner: "Sketch trim tool doesn't work."
-  - [ ] Reproduce it (which curves, what the tool does or fails to do) and ask the owner for details if it cannot be reproduced; read the trim entries in `docs/behavior.md` first.
-  - [ ] Trim removes the picked segment up to the nearest intersections, as `docs/behavior.md` describes.
-  - [ ] Owner change (2026-10-25): "Sketch trim tool I want the first click to split the edge at intersections and make the trim candidate turn into construction then second click on that same segment deletes it." So: first click splits the picked curve at its intersections and turns the picked segment into construction geometry; a second click on that same segment deletes it. Replaces the trim entries in `docs/behavior.md`; update them.
-  - [ ] Add a test for the fixed case if it can run without a browser.
-- **Sketch split tool does not work (bug).** Owner: "Sketch split tool also doesn't work."
-  - [ ] Reproduce it, and check whether it shares a cause with the trim tool row above (both may fail in the same shared code).
-  - [ ] Split cuts the picked curve at the picked point, as `docs/behavior.md` describes (read its split entries first).
-  - [ ] Add a test for the fixed case if it can run without a browser.
-- **Arc by center cannot be drawn clockwise (bug).** Owner: "Sketch arc by center tool drawing doesn't allow drawing clockwise. Appears to default to CCW instead of following cursor relative to first arc point."
-  - [ ] While drawing, the arc direction follows the cursor relative to the first arc point (start point), so moving the cursor clockwise gives a clockwise arc and counter-clockwise gives a counter-clockwise arc.
-  - [ ] The preview and the committed arc agree.
-  - [ ] Add a test for the direction choice if it can run without a browser.
-- **Arc by 3 points click order.** Owner: "Sketch Arc by 3 points has user click the pass-through point before end point which works grerat but is different than [another CAD program]'s arc by three points where user selects start, end, passthrough. Industry standard ([other CAD programs] all default to or only support) appears to be Start point -> End point -> Through point, so we need to switch to that."
-  - [ ] Click order becomes start point, then end point, then through point.
-  - [ ] The preview after the second click shows the arc's chord and updates with the cursor as the through point.
-  - [ ] This replaces approved behavior: update the arc-by-3-points entry in `docs/behavior.md` (and any test or on-screen prompt text that names the old order) in the same commit.
 - **Construction geometry dashed and drawn below.** Owner: "Sketch construction geometry should be dashed and always drawn below normal sketch geometry."
   - [ ] Construction curves are drawn dashed (check what the current construction style is in `docs/behavior.md` first).
   - [ ] Construction geometry is always drawn beneath normal geometry, so profile curves cover it where they overlap.
@@ -61,14 +44,9 @@ Owner batch (2026-10-25), one row each, in this order:
   - [ ] A rectangle drawn by center creates a construction point at the center, symmetric-constrained about two opposing corners.
   - [ ] If the center is clicked on a line, axis or point, the center point gets a coincident constraint to it.
   - [ ] Owner decision (2026-10-25): these two constraints are always made for this tool, whatever the automatic-constraints setting. Read the rectangle entries in `docs/behavior.md` first.
-- **Automatic sketch constraints on by default.** Owner (2026-10-25): "we will change the default to on for automatic constraints which has been working well in my latest testing."
-  - [ ] The automatic-constraints setting defaults to on for new users and projects (replaces the earlier owner decision "off by default"); update `docs/behavior.md`, the State line above and the decisions log.
 - **Zoom all in a sketch (bug).** Owner: "Zoom all while in sketch editing appears to have some arbitrary minimum zoom level and is not zooming appropriately to the sketch geometry."
   - [ ] Zoom all while editing a sketch frames the sketch geometry (fits it to the view) with no arbitrary minimum zoom level.
   - [ ] Check the zoom-all entries in `docs/behavior.md` first; add a test for the fit calculation if it can run without a browser.
-- **Clear selection after applying a constraint.** Owner: "Sketch, when a constraint is applied the geometry selection should be cleared."
-  - [ ] After a constraint is applied in a sketch, the geometry selection is cleared.
-  - [ ] Check `docs/behavior.md` for any approved selection-keeping behavior after constraints (and dimensions) and settle it with the owner if it conflicts.
 - **White viewport after a symmetry constraint (bug, high priority: risk of lost work).** Owner: "While sketching I made a symmetry constraint and the entire background turned white and sketch axis origin and sketch geometry cannot be seen but dimensions are still visible. No error reported and otherwise the UI elements are there and allow editing. Clicking finish sketch did not resolve the issue. Refreshing the browser tab fixed, but we cannot rely on refreshing the browser tab which always poses a lost work risk becuase sometimes the project state doesn't restore to latest."
   - [ ] Find the cause. Likely a render failure in the 3D view (for example a NaN or invalid value in the symmetry constraint's geometry, or a lost WebGL context) while the HTML dimension labels keep working; check the browser console and the symmetry constraint code path.
   - [ ] Symmetry constraint no longer blanks the viewport; add a test for any bad value found if it can run without a browser.

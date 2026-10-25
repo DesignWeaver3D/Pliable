@@ -17,6 +17,8 @@ import * as Pv from "./sketchpreview";
 import * as T from "./sketchtyped";
 import * as F from "./sketchfit";
 import * as Co from "./sketchcoincident";
+import { trimClick } from "./sketchtrim";
+import { loadSketchOptions, OPTIONS_KEY } from "./sketchoptions";
 import { chooseAtCursor } from "./sketchmenu";
 import { buildConstraintList, buildToolOptions, button, el, type PanelContext } from "./sketchpanelparts";
 import { openSketchSettings } from "./sketchsettings";
@@ -29,6 +31,8 @@ import type { Sel, Viewport } from "./viewport";
 
 const DRAG_START_PX = 3;
 const POINT_SIZE_PX = 8;
+const CONSTRUCTION_DASH_PX = 8;
+const CONSTRUCTION_GAP_PX = 5;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
 export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "polygon" | "ellipse" | "spline" | "trim" | "extend" | "split" | "triangle" | "pentagon" | "hexagon" | "octagon";
@@ -41,54 +45,19 @@ export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "rectcentre", label: "Centre rectangle", hint: "Click the centre, then a corner" },
   { id: "circle", label: "Circle", hint: "Click the centre, then a point on the circle" },
   { id: "circle3", label: "Circle by 3 points", hint: "Click three points the circle passes through" },
-  { id: "arc", label: "Arc", hint: "Click the centre, the start, then the end (counterclockwise)" },
-  { id: "arc3", label: "Arc by 3 points", hint: "Click the start, a point the arc passes through, then the end" },
+  { id: "arc", label: "Arc", hint: "Click the centre, the start, then the end; the arc runs the way the pointer moves from the start" },
+  { id: "arc3", label: "Arc by 3 points", hint: "Click the start, the end, then a point the arc passes through" },
   { id: "slot", label: "Slot", hint: "Click the centre of one end, the centre of the other end, then a point for the width" },
   { id: "point", label: "Point", hint: "Click to place a point; it can be snapped to and constrained" },
   { id: "ellipse", label: "Ellipse", hint: "Click the centre, the end of the long axis, then a point for the short radius" },
   { id: "spline", label: "Spline", hint: "Click points the curve passes through; Enter or right-click ends it, clicking the first point closes it" },
-  { id: "trim", label: "Trim", hint: "Click the part of a line to remove, up to the nearest crossing curves" },
+  { id: "trim", label: "Trim", hint: "Click a line to cut it at its crossings and mark that piece; click the marked piece again to delete it" },
   { id: "split", label: "Split", hint: "Click a line where it should be cut in two" },
   { id: "extend", label: "Extend", hint: "Click near the end of a line to stretch it to the next curve" },
   { id: "polygon", label: "Polygon", hint: "Click the centre, then a corner; the number of sides is set in the sketch card (3 to 64)" },
 ];
 
-/** Sketch preferences kept on this computer: the grid and which constraints the drawing tools add on their own. */
-export interface SketchOptions {
-  grid: boolean;
-  /** Pointer positions snap to the grid while drawing. */
-  snapGrid: boolean;
-  /** Spacing of the bold grid lines, in the length unit (mm). */
-  major: number;
-  /** Spacing of the light lines between them, in the length unit; 0 draws none. The pointer snaps to this when it is set, else to the major spacing. */
-  minor: number;
-  /** Number of sides the Polygon tool draws. */
-  sides: number;
-  /** How much the grid fades toward the edges of the view (always measured from the middle of the view, so panning never hides the grid where you look). */
-  fade: "off" | "subtle" | "strong";
-  /** none: tools add no constraints; snaps: only those a snap implies (horizontal, vertical, on a curve, tangent); shape: also the ones that keep a rectangle, polygon or slot its shape. */
-  auto: "none" | "snaps" | "shape";
-}
-const OPTIONS_KEY = "pliable.sketchOptions2";
-
-export function loadSketchOptions(): SketchOptions {
-  const options: SketchOptions = { grid: false, snapGrid: false, major: 10, minor: 2, fade: "subtle", sides: 6, auto: "none" };
-  try {
-    const saved = JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? "null");
-    if (saved) {
-      options.grid = saved.grid === true;
-      options.snapGrid = saved.snapGrid === true;
-      if (Number.isFinite(saved.major) && saved.major > 0) options.major = saved.major;
-      if (Number.isFinite(saved.minor) && saved.minor >= 0) options.minor = saved.minor;
-      if (["none", "snaps", "shape"].includes(saved.auto)) options.auto = saved.auto;
-      if (["off", "subtle", "strong"].includes(saved.fade)) options.fade = saved.fade;
-      if (Number.isInteger(saved.sides) && saved.sides >= 3 && saved.sides <= 64) options.sides = saved.sides;
-    }
-  } catch {
-    // no saved options (or storage is blocked): the defaults stand
-  }
-  return options;
-}
+export { loadSketchOptions, OPTIONS_KEY, type SketchOptions } from "./sketchoptions";
 
 export interface SketchHost {
   /** Show a message: `error` true is red (a real failure), "warn" is orange (something worth knowing), otherwise plain. */
@@ -146,7 +115,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private undoStack: string[] = [];
   private group = new THREE.Group();
   private normal = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.line, linewidth: 2, depthTest: false, transparent: true }));
-  private construction = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.construction, linewidth: 2, depthTest: false, transparent: true }));
+  private construction = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.construction, linewidth: 2, depthTest: false, transparent: true, dashed: true, dashSize: 1, gapSize: 1 })); // dash lengths are set per frame, in screen pixels
   private placed = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.placed, linewidth: 2, depthTest: false, transparent: true }));
   private marked = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.selected, linewidth: 3, depthTest: false, transparent: true }));
   /** The model's principal axes as they project onto the sketch plane (red x, green y, blue z). */
@@ -189,6 +158,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.group.add(o);
     }
     this.axes.renderOrder = 4; // the sketch axes are drawn over the grid (order 1) and under the sketch shapes (5)
+    this.construction.renderOrder = 4.5; // construction curves are dashed and always under the normal curves (5), over the axes
     this.points.renderOrder = 6; // the points, the origin among them, are drawn over every curve
     // Keys reach onKey through the key router (keyrouter.ts), which applies the shortcut policy first.
     // A right-click (not a right-drag, which orbits) ends the line being drawn and leaves the drawing tool, back to Select.
@@ -722,9 +692,17 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
             this.s = cut.sketch;
             this.resolve();
           } else this.host.status("Click along the line, away from its ends, to cut it", true);
+        } else if (this.tool === "trim") {
+          const trimmed = trimClick(this.s, line.id, uv[0], uv[1], this.trimCandidates);
+          if (trimmed) {
+            this.pushUndo();
+            this.s = trimmed.sketch;
+            this.trimCandidates = trimmed.candidates;
+            this.resolve();
+          }
         } else {
           this.pushUndo();
-          this.s = (this.tool === "trim" ? M.trimLine : M.extendLine)(this.s, line.id, uv[0], uv[1]);
+          this.s = M.extendLine(this.s, line.id, uv[0], uv[1]);
           this.resolve();
         }
       }
@@ -775,7 +753,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.addArc(this.chain[0], this.chain[1], this.chain[2]);
       this.shapeDone();
     } else if (this.tool === "arc3" && this.chain.length === 3) {
-      this.addArcThrough(this.chain[0], this.chain[1], this.chain[2]);
+      this.addArcThrough(this.chain[0], this.chain[2], this.chain[1]); // clicked start, end, then the point it passes through
       this.shapeDone();
     } else if (this.tool === "circle3" && this.chain.length === 3) {
       this.addCircleThrough(this.chain[0], this.chain[1], this.chain[2]);
@@ -815,6 +793,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.render();
   };
   typed = "";
+  /** True while typed sizes place their points: a typed arc sweep is always counterclockwise. */
+  private placingTyped = false;
 
   /** Place the next points at the typed sizes in the pointer's direction and keep the typed sizes as dimensions where the shape has them. */
   private async applyTyped() {
@@ -824,7 +804,12 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const tool = this.tool; // placing the last point can leave the tool
     const [w, h] = [numbers[0], numbers[1] ?? numbers[0]];
     const before = this.s.entities.length;
-    for (const target of T.typedTargets(tool, this.chain, this.cursor, numbers.slice(0, this.typedLabels().length))) this.place({ ...target });
+    this.placingTyped = true;
+    try {
+      for (const target of T.typedTargets(tool, this.chain, this.cursor, numbers.slice(0, this.typedLabels().length))) this.place({ ...target });
+    } finally {
+      this.placingTyped = false;
+    }
     const made = this.s.entities.slice(before);
     const plain = !made.some((x) => x.type === "arc"); // a rounded rectangle's sides are not its overall size
     let dimensions: Omit<M.SketchConstraint, "id">[] = [];
@@ -935,6 +920,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const to = kind === "undo" ? this.redoStack : this.undoStack;
     const next = from.pop();
     if (!next) return;
+    this.trimCandidates.clear();
     to.push(JSON.stringify(this.s));
     this.s = JSON.parse(next);
     this.selection = [];
@@ -954,8 +940,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   }
 
   /** A constraint a drawing tool adds on its own: "snap" ones follow from where you clicked, "shape" ones keep a rectangle, polygon or slot its shape. Whether either is added is the sketch option `auto`. */
-  addConstraintRaw(c: Omit<M.SketchConstraint, "id">, kind: "snap" | "shape" = "shape") {
-    if (this.options.auto === "none" || (this.options.auto === "snaps" && kind === "shape")) return;
+  addConstraintRaw(c: Omit<M.SketchConstraint, "id">, kind: "snap" | "shape" | "always" = "shape") {
+    if (kind !== "always" && (this.options.auto === "none" || (this.options.auto === "snaps" && kind === "shape"))) return;
     this.s.constraints.push({ id: M.nextId(this.s), ...c, auto: true }); // every caller is a drawing tool, not the user
   }
 
@@ -993,15 +979,18 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     B.addSlot(this, a, b, side);
   }
   private addArc(center: Snap, start: Snap, end: Snap) {
-    B.addArc(this, center, start, end);
+    B.addArc(this, center, start, end, this.placingTyped);
   }
 
   /** The drawing tool used last in this sketch; Enter with no tool active starts it again. */
   private lastDrawTool: Tool | null = null;
+  /** Lines the Trim tool has marked for removal; a second click on one deletes it. */
+  private trimCandidates = new Set<number>();
 
   private setTool(tool: Tool) {
     if (tool !== "select") this.lastDrawTool = tool;
     if (tool !== "select") usage.record(`sketch_${tool}`.toLowerCase().replace(/[^a-z0-9_]/g, "_"), "start", "other");
+    this.trimCandidates.clear();
     this.tool = tool;
     this.typed = "";
     this.chain = [];
@@ -1061,6 +1050,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       addedIds.add(added.id);
     }
     const ok = await this.resolve();
+    if (ok) this.selection = []; // an applied constraint ends the selection it was made from
     if (ok && option.dimension) {
       this.render();
       const id = [...addedIds][0];
@@ -1073,6 +1063,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       // A redundant (or clashing) dimension is kept as a reference dimension: it shows the measurement and drives nothing.
       for (const c of this.s.constraints) if (addedIds.has(c.id)) c.reference = true;
       if (await this.resolve()) {
+        this.selection = [];
         this.host.status("That dimension is redundant with the existing constraints, so it was added as a reference dimension (in parentheses). Make it driving from the constraint list or the right-click menu", "warn");
         this.render();
         return;
@@ -1727,6 +1718,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private onFrame() {
     const size = this.viewport.renderer.getSize(new THREE.Vector2());
     for (const l of [this.axes, this.normal, this.placed, this.construction, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
+    const pixel = this.pixelAt(0, 0); // dashes keep their screen size as the view zooms
+    this.construction.material.dashSize = CONSTRUCTION_DASH_PX * pixel;
+    this.construction.material.gapSize = CONSTRUCTION_GAP_PX * pixel;
   }
 
   private world(u: number, v: number): THREE.Vector3 {
@@ -1818,6 +1812,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     // A fresh geometry each time: reusing one whose segment count grows left it drawing only the first segments.
     line.geometry.dispose();
     line.geometry = new LineSegmentsGeometry().setPositions(positions);
+    if (line.material.dashed) line.computeLineDistances();
   }
 
   /** Size tags next to the cursor while a shape is being placed: length and angle, width by height, or radius. */

@@ -121,7 +121,7 @@ export function repeat(s: SketchData, sel: SketchSel[], count: number, step: (k:
  * the direction constraints (horizontal, vertical, parallel, perpendicular, angle), and a line with none stays
  * straight through a collinear constraint. Other constraints on the old line (lengths, equal, tangent) go.
  */
-export function splitLine(s: SketchData, lineId: number, u: number, v: number): EditResult | null {
+export function splitLine(s: SketchData, lineId: number, u: number, v: number, margin = 0.02): EditResult | null {
   const line = s.entities.find((e) => e.id === lineId);
   if (!line || line.type !== "line" || line.reference) return null;
   const [a, b] = [pointOf(s, line.a), pointOf(s, line.b)];
@@ -129,13 +129,13 @@ export function splitLine(s: SketchData, lineId: number, u: number, v: number): 
   const length2 = du * du + dv * dv;
   if (length2 < 1e-12) return null;
   const t = ((u - a.u) * du + (v - a.v) * dv) / length2;
-  if (t < 0.02 || t > 0.98) return null; // too near an end to cut
+  if (t < margin || t > 1 - margin) return null; // too near an end to cut
   let id = nextId(s);
   const middle = id++;
   const second = id++;
   const points = [...s.points, { id: middle, u: a.u + t * du, v: a.v + t * dv }];
   const entities = s.entities.flatMap((e) =>
-    e.id === lineId ? [{ ...e, b: middle } as SketchEntity, { id: second, type: "line", a: middle, b: line.b } as SketchEntity] : [e],
+    e.id === lineId ? [{ ...e, b: middle } as SketchEntity, { id: second, type: "line", a: middle, b: line.b, ...(line.construction ? { construction: true } : {}) } as SketchEntity] : [e],
   );
   const directional = new Set(["horizontal", "vertical", "parallel", "perpendicular", "angle"]);
   const constraints: SketchData["constraints"] = [];

@@ -257,7 +257,8 @@ class _Solver:
         elif kind == "collinear":
             a, b = (self.sketch_line(e) for e in c["entities"])
             handles = [s.addParallel(self._entity(a["id"], "line"), self._entity(b["id"], "line"), wp, g)]
-            handles.append(s.addPointOnLine(self._point(b["a"]), self._entity(a["id"], "line"), wp, g))
+            if not {a["a"], a["b"]} & {b["a"], b["b"]}:  # lines that share an end point are already collinear once parallel; a point-on-line would repeat it
+                handles.append(s.addPointOnLine(self._point(b["a"]), self._entity(a["id"], "line"), wp, g))
             for h in handles:
                 self.failed_ids[h] = c.get("id")
             return
