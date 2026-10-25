@@ -113,3 +113,4 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Diameter dimension values start with the capital Ø (full capital height, like the R of a radius), in sketches, the typed-size dimensions and the 3D measurements.
 - Selecting a body shows its volume (mm³) and its mass (g) in the measurement card; the mass uses the density of the chosen material (the Material setting, ABS by default). Several bodies also show totals.
 - Resize chamfer has two distances, each with its own gizmo on the neighbour face it is measured along; dragging or typing one changes only that distance (both 0 leaves the sharp edge, one alone at 0 is refused).
+- Draft pivots each face about the plane through its own centroid by default; the form's Axis list also offers Picked point (the Pick axis button fills it from a clicked vertex, edge, face centre or axis) and Model base (the lowest point, the earlier default, still used by editing a wall's angle tag).

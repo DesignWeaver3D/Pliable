@@ -19,8 +19,7 @@ Owner batch (2026-10-25), one row each, in this order:
 - **Resize chamfer gizmos.** Owner: "Selecting resize chamfer should provide dual chamfer distance gizmos."
   - [x] Built in the core (two handles from `resize_chamfer`, tested: positions, each leg alone, volumes). Not looked at in the app: hand test, select a chamfer face, Resize chamfer, drag each arrow; which neighbour is "first" is not labelled in the view.
 - **Face Draft pick axis.** Owner: "Face Draft needs to have a pick axis button, default axis should be the face centroid."
-  - [ ] Face Draft has a pick axis button.
-  - [ ] Without a pick, the default axis is the face centroid.
+  - [x] Built: Pick axis button and an Axis list (Face centroid default, Picked point, Model base); core tested, the button not looked at in the app. Interpretation to confirm with the owner: "axis" = the plane the face pivots about (see decisions log); if they meant the pull direction, say so.
 - **Project edges uses the real curve.** Owner: "Sketch Projecting edges should project the real curve of the brep solid instead of tessellated representation from  the view mesh."
   - [ ] Projected edges come from the B-rep edge curve (exact line, arc, circle, spline), not the view mesh polyline.
   - [ ] Projected circles and arcs stay true circles and arcs in the sketch.

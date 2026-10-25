@@ -198,7 +198,12 @@ def test_mirror_doubles_across_a_face(block):
 def test_draft_tilts_side_faces(block):
     side = next(i for i in range(6) if abs(measure(block, Selection(faces=[i]))["items"][0]["rows"][3]["value"][0]) == 1)
     result = run("draft", block, faces=[side], angle=5)
-    assert volume(result.shape) != pytest.approx(24000, rel=1e-4)
+    assert volume(result.shape) == pytest.approx(24000, rel=1e-3)  # about the face centroid: as much leans out below as in above
+    base = run("draft", block, faces=[side], angle=5, axis=2)  # the model's lowest point, the old default
+    assert volume(base.shape) != pytest.approx(24000, rel=1e-3)
+    top = run("draft", block, faces=[side], angle=5, axis=1, axis_x=0, axis_y=0, axis_z=10)  # a picked point on the top plane
+    assert volume(top.shape) != pytest.approx(volume(result.shape), rel=1e-3)
+    assert volume(top.shape) != pytest.approx(volume(base.shape), rel=1e-3)
 
 
 def test_align_face_moves_first_to_second(bracket):
