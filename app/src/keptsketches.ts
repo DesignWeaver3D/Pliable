@@ -102,6 +102,23 @@ export class KeptSketches {
     return [...this.curves].map(([id, c]) => ({ id, object: c.lines }));
   }
 
+  /** Show a sketch moved to `plane` (null puts it back) without changing anything stored: its drawn curves and regions are carried along. */
+  previewPlane(id: number, plane: M.PlaneData | null) {
+    const drawn = this.curves.get(id);
+    const data = this.cache.get(id)?.data;
+    if (!drawn || !data) return;
+    const basis = (p: M.PlaneData) => {
+      const f = M.frame(p);
+      return new THREE.Matrix4().makeBasis(new THREE.Vector3(...f.x), new THREE.Vector3(...f.y), new THREE.Vector3(...f.n)).setPosition(...f.origin);
+    };
+    const carry = plane ? basis(plane).multiply(basis(data.plane).invert()) : new THREE.Matrix4();
+    for (const o of [drawn.lines, ...drawn.fills]) {
+      o.matrixAutoUpdate = false;
+      o.matrix.copy(carry);
+      o.matrixWorldNeedsUpdate = true;
+    }
+  }
+
   /** The sketch being edited is drawn by the sketch editor; its kept copy is hidden meanwhile. */
   setEditing(id: number | null) {
     this.editing = id;

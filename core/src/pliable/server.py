@@ -287,6 +287,8 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             return {"sketch_id": found["id"], "name": found["name"], "rev": found["rev"], "sketch": found["sketch"]}
         if kind in ("sketch_delete", "sketch_rename"):
             return self._sketch_edit(request, kind)
+        if kind == "sketch_move":
+            return self._sketch_move(request)
         if kind in ("mirror_set", "mirror_clear"):
             return self._mirror_edit(request, kind)
         if kind in ("datum_add", "datum_rename", "datum_delete", "datum_move"):

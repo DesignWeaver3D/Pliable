@@ -310,3 +310,17 @@ def test_picking_several_regions_selects_all_their_faces():
     assert faces(session) == before + 2
     areas = sorted(round(sketch.Face(session.document.current.face(i)).area, 3) for i in h["selection"]["faces"])
     assert len(areas) == 2 and areas[0] == pytest.approx(3.14159265 * 16, abs=0.01) and areas[1] == pytest.approx(3.14159265 * 25, abs=0.01)
+
+
+def test_a_kept_sketch_moves_and_turns_as_a_whole_and_the_move_undoes():
+    session = open_session()
+    session.handle({"type": "sketch_keep", "sketch": make(session)})
+    shown = session.handle({"type": "sketch_move", "sketch_id": 1, "params": {"dx": 5, "dz": 2, "rz": 90}})
+    assert shown["handles"] and session.handle({"type": "sketch_get", "sketch_id": 1})["rev"] == 1  # a preview changes nothing
+    h = header(session.handle({"type": "sketch_move", "sketch_id": 1, "commit": True, "params": {"dx": 5, "dz": 2, "rz": 90}}))
+    assert h["sketches"][0]["rev"] == 2
+    plane = session.handle({"type": "sketch_get", "sketch_id": 1})["sketch"]["plane"]
+    assert plane["origin"] == pytest.approx([15, 0, 2])  # the corner (0, 0) turns a quarter about the middle (5, 5) to (10, 0), then the shift adds (5, 0, 2)
+    assert plane["xdir"] == pytest.approx([0, 1, 0], abs=1e-9) and plane["normal"] == pytest.approx([0, 0, 1], abs=1e-9)
+    session.handle({"type": "undo"})
+    assert session.handle({"type": "sketch_get", "sketch_id": 1})["sketch"]["plane"]["origin"] == pytest.approx([0, 0, 0])

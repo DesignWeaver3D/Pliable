@@ -11,6 +11,45 @@ from ..shared.solids import finish
 from ..tools import Accepts, Handle, Param, register, Tool
 
 
+def turn_and_shift(centre, offset, angles) -> gp_Trsf:
+    """Turn about `centre` by the angles (degrees) about X, then Y, then Z, then shift by `offset`."""
+    total = gp_Trsf()
+    total.SetTranslation(offset)
+    for axis_index in (2, 1, 0):  # Multiply puts the later factor first, so this applies X, then Y, then Z
+        if abs(angles[axis_index]) < 1e-9:
+            continue
+        turn = gp_Trsf()
+        turn.SetRotation(gp_Ax1(centre, gp_Dir(*(1.0 if k == axis_index else 0.0 for k in range(3)))), math.radians(angles[axis_index]))
+        total.Multiply(turn)
+    return total
+
+
+def move_handles(lo, hi, values) -> list:
+    """The move arrows and turn rings for something whose box is `lo`..`hi`, at its current move and turn."""
+    centre = [(a + b) / 2 for a, b in zip(lo, hi)]
+    size = max(b - a for a, b in zip(lo, hi))
+    margin = max(size * 0.1, 3.0)
+    now = (values["dx"], values["dy"], values["dz"])
+    axes = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
+    reach = [(hi[k] - lo[k]) / 2 + margin for k in range(3)]  # each arrow sticks out past its face of the body
+    out = [
+        Handle(name, f"Move along {label}", tuple(centre[k] + now[k] + axes[i][k] * reach[i] for k in range(3)), axes[i], kind="move")
+        for i, (name, label) in enumerate((("dx", "X"), ("dy", "Y"), ("dz", "Z")))
+    ]
+    # One ring per axis around the body's (moved) centre; each grip sits 45 degrees round from the axis arrows' directions
+    # and turns with the angle, its direction the tangent there, so a drag along it adds degrees (scale = degrees per unit).
+    here = [centre[k] + now[k] for k in range(3)]
+    radius = max(math.sqrt(sum(((hi[k] - lo[k]) / 2) ** 2 for k in range(3))) * 1.15, 8.0)
+    for i, name in enumerate(("rx", "ry", "rz")):
+        u, v = (i + 1) % 3, (i + 2) % 3
+        theta = math.radians(45 + values[name])
+        anchor, tangent = list(here), [0.0, 0.0, 0.0]
+        anchor[u], anchor[v] = here[u] + radius * math.cos(theta), here[v] + radius * math.sin(theta)
+        tangent[u], tangent[v] = -math.sin(theta), math.cos(theta)
+        out.append(Handle(name, f"Rotate about {'XYZ'[i]}", tuple(anchor), tuple(tangent), scale=math.degrees(1 / radius), unit="°", axis=axes[i], ring=(*here, radius)))
+    return out
+
+
 @register
 class MoveBody(Tool):
     """Move and rotate the selected solids (the whole model when nothing is selected): each is first turned about its
@@ -32,28 +71,7 @@ class MoveBody(Tool):
 
     def handles(self, topology, selection, values):
         lo, hi = _body_bounds(topology, selection)
-        centre = [(a + b) / 2 for a, b in zip(lo, hi)]
-        size = max(b - a for a, b in zip(lo, hi))
-        margin = max(size * 0.1, 3.0)
-        now = (values["dx"], values["dy"], values["dz"])
-        axes = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
-        reach = [(hi[k] - lo[k]) / 2 + margin for k in range(3)]  # each arrow sticks out past its face of the body
-        out = [
-            Handle(name, f"Move along {label}", tuple(centre[k] + now[k] + axes[i][k] * reach[i] for k in range(3)), axes[i], kind="move")
-            for i, (name, label) in enumerate((("dx", "X"), ("dy", "Y"), ("dz", "Z")))
-        ]
-        # One ring per axis around the body's (moved) centre; each grip sits 45 degrees round from the axis arrows' directions
-        # and turns with the angle, its direction the tangent there, so a drag along it adds degrees (scale = degrees per unit).
-        here = [centre[k] + now[k] for k in range(3)]
-        radius = max(math.sqrt(sum(((hi[k] - lo[k]) / 2) ** 2 for k in range(3))) * 1.15, 8.0)
-        for i, name in enumerate(("rx", "ry", "rz")):
-            u, v = (i + 1) % 3, (i + 2) % 3
-            theta = math.radians(45 + values[name])
-            anchor, tangent = list(here), [0.0, 0.0, 0.0]
-            anchor[u], anchor[v] = here[u] + radius * math.cos(theta), here[v] + radius * math.sin(theta)
-            tangent[u], tangent[v] = -math.sin(theta), math.cos(theta)
-            out.append(Handle(name, f"Rotate about {'XYZ'[i]}", tuple(anchor), tuple(tangent), scale=math.degrees(1 / radius), unit="°", axis=axes[i], ring=(*here, radius)))
-        return out
+        return move_handles(lo, hi, values)
 
     def run(self, topology, selection, values, preview):
         offset = gp_Vec(values["dx"], values["dy"], values["dz"])
@@ -64,16 +82,7 @@ class MoveBody(Tool):
 
         def move_trsf(centre):
             """Turn about `centre` (the body's own, else the whole model's) by rx, ry, rz in that order, then shift."""
-            c = centre or whole
-            total = gp_Trsf()
-            total.SetTranslation(offset)
-            for axis_index in (2, 1, 0):  # Multiply puts the later factor first, so this applies X, then Y, then Z
-                if abs(angles[axis_index]) < 1e-9:
-                    continue
-                turn = gp_Trsf()
-                turn.SetRotation(gp_Ax1(c, gp_Dir(*(1.0 if k == axis_index else 0.0 for k in range(3)))), math.radians(angles[axis_index]))
-                total.Multiply(turn)
-            return total
+            return turn_and_shift(centre or whole, offset, angles)
 
         def change(shape, centre=None):
             return BRepBuilderAPI_Transform(shape, move_trsf(centre), True).Shape()

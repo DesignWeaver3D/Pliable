@@ -3,7 +3,7 @@
 import copy
 import time
 
-from .. import diagnostics, sketch, unwrap
+from .. import diagnostics, sketch, sketchmove, unwrap
 from ..mirrormode import mirror_result
 from ..tools import Selection
 from .common import _ms, RequestError
@@ -242,6 +242,28 @@ class SketchHandlers:
                 raise RequestError("A sketch needs a name")
             entry["name"] = name
             entry["rev"] += 1
+        target = document.set_sketches(entries)
+        self._autosave()
+        return self._mesh_reply(target, {}, preview=False)
+
+    def _sketch_move(self, request: dict):
+        """Turn and shift a kept sketch as a whole (its plane moves; the curves keep their place on it). Without `commit`
+        it only answers with the plane and the move handles for the values, to show the move before it is made."""
+        document = self._require_document()
+        sketch_id = self._sketch_id(request)
+        entries = document.sketches
+        entry = next((e for e in entries if e["id"] == sketch_id), None)
+        if entry is None:
+            raise RequestError("No such sketch")
+        try:
+            values = sketchmove.move_values(request.get("params") or {})
+            plane = sketchmove.moved_plane(entry["sketch"], values)
+        except (TypeError, ValueError, KeyError) as e:
+            raise RequestError(f"Malformed sketch move: {e!r}") from e
+        if not request.get("commit"):
+            return {"sketch_id": sketch_id, "plane": plane, "handles": sketchmove.handles_for(entry["sketch"], values)}
+        entry["sketch"] = {**entry["sketch"], "plane": plane}
+        entry["rev"] += 1
         target = document.set_sketches(entries)
         self._autosave()
         return self._mesh_reply(target, {}, preview=False)

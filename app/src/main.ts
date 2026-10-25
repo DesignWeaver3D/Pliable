@@ -4,6 +4,7 @@ import { bodyCentres, movedBodies } from "./slide";
 import { PointPicker, ReferenceView } from "./reference";
 import { installAlphaUi, showDiagnostics, showImportNotice, showLaunchNotice, showMessage } from "./alpha";
 import { installMessageLog } from "./messagelog";
+import type { PlaneData } from "./sketchmodel";
 import { CoreClient, type MeshData } from "./client";
 import { SketchMode } from "./sketch";
 import type { Tool as SketchTool } from "./sketch";
@@ -148,7 +149,43 @@ function renderChips() {
 
 /** Tools usable with the current selection: counts checked here, the core's extra checks once it replies. */
 function usableTools(): ToolInfo[] {
-  return tools.filter((t) => acceptsSelection(t, expand(t, currentSels)) && (refined === null || refined.includes(t.id)));
+  return tools.filter((t) => (acceptsSelection(t, expand(t, currentSels)) || (t.id === "move_body" && movableSketch() !== null)) && (refined === null || refined.includes(t.id)));
+}
+
+/** The kept sketch Move/Rotate would move: the sketch whose row was picked, or whose region was picked in the view. */
+function movableSketch(): number | null {
+  if (pickedRow?.list === "sketch") return pickedRow.id;
+  const pending = pendingProfile;
+  if (pending && committed === pending.mesh && currentSels.length > 0 && currentSels.every((s) => s.kind === "face" && pending.faces.includes(s.id))) return pending.sketchId;
+  return null;
+}
+/** The kept sketch the open Move/Rotate form is moving (its plane moves, see sketchmove.py); null for a body move. */
+let sketchMove: number | null = null;
+
+/** Open Move/Rotate for a sketch: the region pick that led here is taken out of the model first, then the same arrows and rings move the sketch. */
+async function openSketchMove(tool: ToolInfo, id: number, surface: Surface) {
+  await dropPendingProfile();
+  toolPanel.openForm(tool, {}, surface); // this closes a form open before, which would reset the move below
+  sketchMove = id;
+  status.classList.remove("error");
+  status.textContent = "Moving the sketch: drag the arrows and rings or type values, then Apply (Esc cancels)";
+}
+
+async function runSketchMovePreview(values: Record<string, ParamValue>) {
+  const seq = ++formPreviewSeq;
+  const id = sketchMove;
+  if (id === null) return;
+  try {
+    const reply = await core.request<{ plane: PlaneData; handles: HandleInfo[] }>("sketch_move", { sketch_id: id, params: values });
+    if (!toolPanel.isOpen || seq !== formPreviewSeq || sketchMove !== id) return; // closed or a newer preview was asked for
+    keptSketches.previewPlane(id, reply.plane);
+    viewport.manipulator.setHandles(moveHandlesAt(reply.handles, toolPanel.basePosition()));
+    status.classList.remove("error");
+  } catch (e) {
+    if (seq !== formPreviewSeq) return;
+    status.textContent = (e as Error).message;
+    status.classList.add("error");
+  }
 }
 
 /** The tool a drag on `sels` runs: the armed one if it applies, else the first with a drag parameter. */
@@ -289,6 +326,11 @@ async function editPrimitive(id: number) {
 function armTool(tool: ToolInfo, surface: Surface) {
   if (isArrayTool(toolPanel.openToolId)) {
     void settleOpenArray().then(() => armTool(tool, surface));
+    return;
+  }
+  const movable = tool.id === "move_body" ? movableSketch() : null;
+  if (movable !== null) {
+    void openSketchMove(tool, movable, surface);
     return;
   }
   if (dragParam(tool) === null) {
@@ -1276,6 +1318,7 @@ function slideNow() {
 }
 
 async function runPreview(tool: ToolInfo, values: Record<string, ParamValue>, editBody?: number) {
+  if (sketchMove !== null) return runSketchMovePreview(values);
   const seq = ++formPreviewSeq;
   const t0 = performance.now();
   const sentValue = slideLive?.value;
@@ -1315,7 +1358,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     }
   },
   tools: () => tools,
-  usable: (tool) => acceptsSelection(tool, expand(tool, currentSels)) && (refined === null || refined.includes(tool.id)),
+  usable: (tool) => (acceptsSelection(tool, expand(tool, currentSels)) || (tool.id === "move_body" && movableSketch() !== null)) && (refined === null || refined.includes(tool.id)),
   preview(tool, values, editBody) {
     // One preview in flight at a time, the newest request waiting behind it (latest wins): the core answers in order, so
     // sending every pointer move would show nothing until the pointer rests while the replies queue up.
@@ -1324,6 +1367,20 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     return Promise.resolve();
   },
   async commit(tool, values, editBody) {
+    if (sketchMove !== null) {
+      const id = sketchMove;
+      sketchMove = null;
+      try {
+        setCommitted(await core.request<MeshData>("sketch_move", { sketch_id: id, params: values, commit: true }), false);
+        usage.record(tool.id, "commit");
+      } catch (e) {
+        usage.record(tool.id, "error");
+        keptSketches.previewPlane(id, null);
+        status.textContent = (e as Error).message;
+        status.classList.add("error");
+      }
+      return;
+    }
     const sels = currentSels;
     try {
       const mesh = await core.request<MeshData>("tool_commit", { tool: tool.id, selection: selectionPayload(editBody === undefined ? expand(tool, sels) : []), params: values, ...(editBody === undefined ? {} : { edit_body: editBody }) });
@@ -1373,6 +1430,10 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     await settleOpenArray();
   },
   cancel() {
+    if (sketchMove !== null) {
+      keptSketches.previewPlane(sketchMove, null);
+      sketchMove = null;
+    }
     if (committed) {
       show(committed);
       status.classList.remove("error");
