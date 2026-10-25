@@ -189,6 +189,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.group.add(o);
     }
     this.axes.renderOrder = 4; // the sketch axes are drawn over the grid (order 1) and under the sketch shapes (5)
+    this.points.renderOrder = 6; // the points, the origin among them, are drawn over every curve
     // Keys reach onKey through the key router (keyrouter.ts), which applies the shortcut policy first.
     // A right-click (not a right-drag, which orbits) ends the line being drawn and leaves the drawing tool, back to Select.
     let rightDown: { x: number; y: number } | null = null;
@@ -234,10 +235,10 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.onEditing?.(this.kept?.id ?? null);
     // The model origin and the places where the principal axes meet the plane are fixed points too.
     this.unwrapFace = kept ? (kept.sketch.unwrap ?? null) : unwrapFace;
-    if (!kept && unwrapFace === null) {
-      // The sketch origin is the centre of the face (or the plane's origin): a fixed point to snap to and constrain against.
+    if (this.unwrapFace === null) {
+      // The sketch origin is the centre of the face (or the plane's origin): a fixed point to snap to and constrain against; every flat sketch has it, a kept one too.
       if (!this.s.points.some((p) => Math.hypot(p.u, p.v) < 1e-6)) this.s.points.push({ id: M.nextId(this.s), u: 0, v: 0, fixed: true });
-      for (const o of M.originPoints(plane, this.s.points)) this.s.points.push({ id: M.nextId(this.s), u: o.u, v: o.v, fixed: true });
+      if (!kept) for (const o of M.originPoints(plane, this.s.points)) this.s.points.push({ id: M.nextId(this.s), u: o.u, v: o.v, fixed: true });
     }
     const f = M.frame(this.s.plane);
     this.plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(...f.n), new THREE.Vector3(...f.origin));

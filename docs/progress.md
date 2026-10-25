@@ -12,7 +12,6 @@ Sketch requests (owner, 2026-10-24, third batch), one row each, in this order:
 
 Owner batch (2026-10-24, fourth), one row each, in this order:
 
-- **Origin on top.** "Sketch origin must always be drawn on top and selectable for constraining to." Needs: [ ] drawn on top; [ ] selectable.
 - **Move sketches.** "I tried to select a sketch area in 3d view and use Move/Rotate tool to relocate the sketch in 3D space. No gizmos appeared and thie error: "The selected faces do not belong to a solid". I need to be able to move sketches using the same gizmos for moving solids." Needs: [ ] gizmos appear for a sketch; [ ] sketch moves and rotates.
 
 - **Stored array parameters (long term, needs owner feedback).** Store array parameters like primitives (editable later); today arrays make separate solids. Consider an option for the array to be a compound with its source object.
@@ -21,6 +20,7 @@ Owner batch (2026-10-24, fourth), one row each, in this order:
 
 Built, unit tested, not hand-checked in the app unless noted. Delete a line once the owner has tested it.
 
+- Sketch origin (owner, 2026-10-24): the points, the origin among them, are drawn over every curve, and a reopened kept sketch gets its origin point back if it had none (it was only added to new sketches). Not checked in the app.
 - Symmetric (owner, 2026-10-24): besides points and lines about a line or axis, one line (its two ends) about another line or an axis, and two circles, arcs or ellipses (their centres) about a line, axis or point now offer Symmetric. Points or lines with a line or axis already did in the tests, so if your case still says it does not fit, tell me exactly what you selected. Not checked in the app.
 - Error messages and Copy diagnostics (owner, 2026-10-24): every error and warning shown in the top bar's status line is recorded (last 50, with the time) and listed in the diagnostics report; clicking a status message that is cut short, or an error, opens it whole in a window you can select and copy. Not checked in the app.
 - Ellipse (owner, 2026-10-24): a new ellipse has four axis-end points (quadrant points) as well as the centre; typed sizes are the major and minor widths; the Dimension button on an ellipse offers Major width and Minor width (distances between the opposite ends); a point can be put on an ellipse (Coincident, Point on, or snapping a line end to it), solved with hidden focus points, so the TypeError is gone. Older ellipses without the four ends still take a point on them. Not checked in the app; restart the core first.
