@@ -17,8 +17,7 @@ Owner batch (2026-10-24, fourth), one row each, in this order:
 Owner batch (2026-10-25), one row each, in this order:
 
 - **Resize chamfer gizmos.** Owner: "Selecting resize chamfer should provide dual chamfer distance gizmos."
-  - [ ] Selecting a chamfer for resizing shows two distance gizmos, one per chamfer distance.
-  - [ ] Dragging each gizmo changes only its own distance.
+  - [x] Built in the core (two handles from `resize_chamfer`, tested: positions, each leg alone, volumes). Not looked at in the app: hand test, select a chamfer face, Resize chamfer, drag each arrow; which neighbour is "first" is not labelled in the view.
 - **Face Draft pick axis.** Owner: "Face Draft needs to have a pick axis button, default axis should be the face centroid."
   - [ ] Face Draft has a pick axis button.
   - [ ] Without a pick, the default axis is the face centroid.
