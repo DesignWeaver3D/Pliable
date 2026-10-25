@@ -33,6 +33,7 @@ from .usage import Usage
 from .document import Document
 from .shared.solids import combine
 from .files import part_names, read_step_parts, read_step_tree, write_mesh, write_step
+from OCP.TopoDS import TopoDS_Compound
 from OCP.gp import gp_Vec
 from .measure import measure, model_info
 from .ops import OperationError, solids_of
@@ -125,6 +126,8 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             return self._mesh_reply(document.current, {}, name=document.name)
         if kind == "open_demo":
             return self._open(load_demo(request["name"]), request["name"])
+        if kind == "new_project":
+            return self._open(TopoDS_Compound(), "Untitled")
         if kind == "import_step":
             start = time.perf_counter()
             shape, warnings, named = read_step_parts(base64.b64decode(request["data"]))

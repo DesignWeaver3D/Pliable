@@ -148,6 +148,14 @@ def test_deleting_the_only_body_leaves_an_empty_model_that_can_be_undone():
     assert len(decode_binary(session.handle({"type": "undo"}))[0]["bodies"]) == 1
 
 
+def test_new_project_is_empty_and_accepts_a_first_body():
+    session = make()
+    header = decode_binary(session.handle({"type": "new_project"}))[0]
+    assert header["bodies"] == [] and header["name"] == "Untitled"
+    header = commit(session, "add_box", {"width": 10, "depth": 10, "height": 10, "new_body": 1})
+    assert len(header["bodies"]) == 1
+
+
 def test_deleting_several_bodies_is_one_undo_step():
     session = make()
     commit(session, "add_box", {"width": 10, "depth": 10, "height": 10, "x": 100, "new_body": 1})

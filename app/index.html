@@ -232,23 +232,24 @@
         <button id="menubtn" title="File, import and export">Menu</button>
         <div id="menupanel" hidden>
           <button id="gettingstartedbtn" title="Show the six interactions worth knowing first">Getting started</button>
-          <div class="group">Model</div>
-      <button id="open" title="Add a STEP file to the model you have now, as a new body at its own origin. Nothing in the current model changes. Use the Combine bodies tool to join, subtract or intersect bodies afterwards">Import STEP (add to model)</button>
-      <button id="openasnew" title="Close the current model and start a new one from a STEP file">Open STEP as new model</button>
-      <input id="file" type="file" accept=".step,.stp" hidden />
-      <button id="saveproject" title="Save the whole model as a Pliable project file (.plbl): bodies, names and sketches">Save project</button>
-      <button id="openproject" title="Close the current model and open a Pliable project file (.plbl)">Open project</button>
+          <div class="group">Project</div>
+      <button id="newproject" title="Close the current project and start a completely empty one">New Project</button>
+      <button id="openproject" title="Close the current project and open a Pliable project file (.plbl)">Open Project</button>
       <input id="projectfile" type="file" accept=".plbl" hidden />
-      <button id="export" title="Save the current model as a STEP file">Export STEP</button>
-      <select id="exportmesh" title="Save the model as a mesh file (lossy: curved faces become triangles)">
+      <button id="saveproject" title="Save the whole project as a Pliable project file (.plbl): bodies, names and sketches">Save Project</button>
+      <button id="openasnew" title="Close the current project and start a new one from a STEP file">Open STEP as New Project</button>
+      <input id="file" type="file" accept=".step,.stp" hidden />
+      <button id="open" title="Add a STEP file to the project you have now, as a new body at its own origin. Nothing in the current project changes. Use the Boolean tool to join, subtract or intersect bodies afterwards">Import STEP...</button>
+      <button id="export" title="Save the current project as a STEP file">Export STEP</button>
+      <select id="exportmesh" title="Save the project as a mesh file (lossy: curved faces become triangles)">
         <option value="">Export mesh...</option>
         <option value="stl">STL</option>
         <option value="obj">OBJ</option>
         <option value="3mf">3MF</option>
       </select>
-      <button id="info" title="Show the size, face and edge counts and any problems found in the model">Model info</button>
           <div class="group">Sample models (replace the current model)</div>
       <select id="demo" title="Replace the current model with a built-in sample model for trying the tools">
+        <option value="" disabled selected hidden>Choose a sample...</option>
         <option>bracket</option>
         <option>block</option>
         <option>perforated_plate</option>

@@ -955,7 +955,7 @@ export class Viewport {
     this.refreshCentres();
     this.applySeeThrough();
 
-    if (frame) this.frame(mesh.bounds);
+    if (frame) this.frame(mesh.bounds.every((n) => n === 0) ? [-50, -50, 0, 50, 50, 50] : mesh.bounds); // an empty project looks at the origin from a useful distance
   }
 
   /**

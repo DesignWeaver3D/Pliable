@@ -55,6 +55,7 @@ const undoButton = $("undo") as HTMLButtonElement;
 const redoButton = $("redo") as HTMLButtonElement;
 const fileInput = $("file") as HTMLInputElement;
 const select = $("demo") as HTMLSelectElement;
+let loadedSample = [...select.options].find((option) => option.value)!.value; // the sample open now (the first one at start); also names exported files
 const viewport = new Viewport($("viewport"));
 const core = new CoreClient();
 usage.attach(core);
@@ -513,7 +514,7 @@ function setCommitted(mesh: MeshData, frame = false, sels: Sel[] = []) {
   status.classList.remove("error");
   const warnings: string[] = mesh.header.warnings ?? [];
   if (mesh.header.solids !== undefined) showImportNotice(core, mesh.header.solids, warnings, (mesh.header.timings?.importMs ?? 0) + (mesh.header.timings?.meshMs ?? 0));
-  status.textContent = `${mesh.header.name ?? select.value}: ${mesh.faces.length} faces` + (DEV ? `, ${mesh.indices.length / 3} triangles` : "") + (warnings.length ? ` | Warning: ${warnings.join("; ")}` : "");
+  status.textContent = `${mesh.header.name ?? loadedSample}: ${mesh.faces.length} faces` + (DEV ? `, ${mesh.indices.length / 3} triangles` : "") + (warnings.length ? ` | Warning: ${warnings.join("; ")}` : "");
 }
 
 async function load(name: string) {
@@ -881,15 +882,6 @@ async function history(kind: "undo" | "redo") {
     status.textContent = (e as Error).message;
   }
 }
-$("info").addEventListener("click", async () => {
-  try {
-    // One selected body reports on that body alone; anything else reports on the whole model.
-    const bodies = currentSels.filter((s) => s.kind === "body");
-    measurePanel.show(await core.request<MeasureReply>("model_info", bodies.length === 1 ? { body: bodies[0].id } : {}));
-  } catch (e) {
-    status.textContent = (e as Error).message;
-  }
-});
 undoButton.addEventListener("click", () => history("undo"));
 redoButton.addEventListener("click", () => history("redo"));
 const { bodyList, setVisibility } = installBodyActions({
@@ -957,12 +949,12 @@ window.addEventListener("beforeunload", (e) => {
 
 installFileOpening(
   { core, status, hasEdits: () => modelHistory.undo, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame) },
-  { open: $("open"), openAsNew: $("openasnew"), openProject: $("openproject") },
+  { open: $("open"), openAsNew: $("openasnew"), openProject: $("openproject"), newProject: $("newproject") },
   { step: fileInput, project: $("projectfile") as HTMLInputElement },
 );
 
 /** Ask the core for the model in a file format and save it through the browser. */
-const exportAs = (request: string, extension: string, params: Record<string, unknown> = {}) => saveModel(core, status, select.value || "model", request, extension, params);
+const exportAs = (request: string, extension: string, params: Record<string, unknown> = {}) => saveModel(core, status, loadedSample || "model", request, extension, params);
 
 $("export").addEventListener("click", () => exportAs("export_step", "step"));
 $("saveproject").addEventListener("click", () => exportAs("save_project", "plbl"));
@@ -973,14 +965,13 @@ exportMesh.addEventListener("change", () => {
   if (format) void exportAs("export_mesh", format, { format });
 });
 
-let loadedSample = select.value;
 select.addEventListener("change", () => {
-  if (modelHistory.undo && !window.confirm("Opening a sample model replaces the current model and its undo history. Continue?")) {
-    select.value = loadedSample;
-    return;
-  }
-  loadedSample = select.value;
-  load(select.value).catch((e) => (status.textContent = e.message));
+  const name = select.value;
+  select.value = ""; // back to the prompt, so any sample (the first too) can be chosen again
+  if (!name) return;
+  if (modelHistory.undo && !window.confirm("Opening a sample model replaces the current model and its undo history. Continue?")) return;
+  loadedSample = name;
+  load(name).catch((e) => (status.textContent = e.message));
 });
 
 function commands(): Command[] {
@@ -994,7 +985,7 @@ function commands(): Command[] {
     enabled: usable.has(tool.id),
     run: () => armTool(tool, "search"),
   }));
-  const demos: Command[] = [...select.options].map((option) => ({
+  const demos: Command[] = [...select.options].filter((option) => option.value).map((option) => ({
     label: `Open sample model: ${option.value}`,
     scope: "file" as const,
     enabled: true,
@@ -1034,7 +1025,8 @@ function commands(): Command[] {
     { label: hintLine.prefs.on ? "Turn hints off" : "Turn hints on", scope: "view", keywords: ["tips", "help line"], enabled: true, run: () => hintLine.setOn(!hintLine.prefs.on) },
     { label: "Getting started (the first things to try)", scope: "view", keywords: ["help", "tutorial", "learn", "tips", "intro", "basics"], enabled: true, run: () => hintLine.showGettingStarted() },
     { label: "Import STEP file (add to model)", scope: "file", enabled: true, run: () => $("open").click() },
-    { label: "Open STEP file as new model", scope: "file", enabled: true, run: () => $("openasnew").click() },
+    { label: "New project (empty)", scope: "file", keywords: ["blank", "clear"], enabled: true, run: () => $("newproject").click() },
+    { label: "Open STEP file as new project", scope: "file", enabled: true, run: () => $("openasnew").click() },
     ...(["XY", "XZ", "YZ"] as const).map((plane) => ({ label: `Add datum plane: ${plane} origin plane`, scope: "file" as const, keywords: ["helper plane", "construction", "mirror"], enabled: true, run: () => addDatum({ plane }) })),
     ...(["XY", "XZ", "YZ"] as const).map((plane) => ({ label: `Mirror mode on: ${plane} origin plane`, scope: "file" as const, keywords: ["symmetry", "symmetric", "mirror"], enabled: true, run: () => keptRequest("mirror_set", { plane }) })),
     { label: "Mirror mode on: the selected face", scope: "file", keywords: ["symmetry", "symmetric", "mirror"], enabled: currentSels.length === 1 && currentSels[0].kind === "face", run: () => keptRequest("mirror_set", { face: currentSels[0].id, name: "Selected face" }) },
@@ -1461,7 +1453,7 @@ async function syncWithCore(hadModel: boolean) {
     status.textContent = `Restored ${restore.name} (${restore.steps} undo steps)`;
     return;
   }
-  await load(select.value);
+  await load(loadedSample);
 }
 
 async function connectToCore() {

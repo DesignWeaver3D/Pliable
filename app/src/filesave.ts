@@ -57,7 +57,7 @@ export interface OpenFileDeps {
 
 /** Import adds a STEP file as bodies and keeps the session; "Open as new model" starts again from the file.
  *  A project file (.plbl) always replaces the model. */
-export function installFileOpening(d: OpenFileDeps, buttons: { open: HTMLElement; openAsNew: HTMLElement; openProject: HTMLElement }, inputs: { step: HTMLInputElement; project: HTMLInputElement }) {
+export function installFileOpening(d: OpenFileDeps, buttons: { open: HTMLElement; openAsNew: HTMLElement; openProject: HTMLElement; newProject: HTMLElement }, inputs: { step: HTMLInputElement; project: HTMLInputElement }) {
   const fail = (e: unknown) => {
     d.status.textContent = (e as Error).message;
     d.status.classList.add("error");
@@ -82,6 +82,14 @@ export function installFileOpening(d: OpenFileDeps, buttons: { open: HTMLElement
       const data = toBase64(new Uint8Array(await file.arrayBuffer()));
       if (mode === "replace") d.setCommitted(await d.core.request("import_step", { name: file.name, data }), true);
       else d.setCommitted(await d.core.request("combine_step", { data, mode }), false);
+    } catch (e) {
+      fail(e);
+    }
+  });
+  buttons.newProject.addEventListener("click", async () => {
+    if (d.hasEdits() && !window.confirm("A new project replaces the current model and its undo history. Continue?")) return;
+    try {
+      d.setCommitted(await d.core.request("new_project"), true);
     } catch (e) {
       fail(e);
     }
