@@ -168,6 +168,8 @@ class Handle:
     snaps: tuple[float, ...] = ()
     # A rotation handle drawn as a short arc beside the thing it turns (like the push/pull direction arcs) rather than a whole ring.
     arc: bool = False
+    # A move arrow whose label shows the distance moved along it in the drag, not the parameter (its parameter and links are world components of that line).
+    along: bool = False
 
     def to_json(self, value: float, values: dict | None = None) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
@@ -180,6 +182,7 @@ class Handle:
             "frame": [[float(c) for c in self.frame[0]], [float(c) for c in self.frame[1]]] if self.frame else None,
             "snaps": list(self.snaps),
             "arc": self.arc,
+            "along": self.along,
             "axisFrom": [float(c) for c in self.axis_from] if self.axis_from else None,
             "param": self.param,
             "label": self.label,

@@ -63,7 +63,7 @@ class MoveBody(Tool):
     description = (
         "Moves and turns a whole solid in one step. Drag the arrows (or type distances) to move along X, Y and Z, and drag the rings (or type degrees) "
         "to turn about X, Y and Z through the body's centre; the turn is applied first, then the move. Select bodies from the list, any face of the solid, or nothing to move the whole model. "
-        "With edges selected it moves only the edges (the faces beside them follow): the gizmo sits at the edge middle with two arrows square to the edge (Y and Z; X is the edge itself) and one arc between them that turns them about the edge (Rotate X), snapping square to the faces beside the edge. Rotate Y and Z are not used."
+        "With edges selected it moves only the edges (the faces beside them follow): the gizmo sits at the edge middle with two arrows square to the edge and one arc between them that turns the arrows about the edge (Rotate X, which never moves the edge), snapping square to the faces beside the edge. Move X, Y and Z are the edge's world move; Rotate Y and Z are not used."
     )
     accepts = Accepts(faces=(0, None), edges=(0, None), bodies=(0, None))
     params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length"), Param("rx", "angle"), Param("ry", "angle"), Param("rz", "angle")]

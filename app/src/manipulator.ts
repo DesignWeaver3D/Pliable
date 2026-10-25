@@ -426,7 +426,7 @@ export class Manipulator {
       const unit = info.unit === "Â°" || !info.unit ? info.unit : " " + info.unit;
       const typing = item === this.active?.item && this.active.typed !== null;
       const symbol = info.symbol ?? "";
-      const shown = symbol + (typing ? `${this.active!.negative ? "-" : ""}${this.active!.typed}|` : formatValue(value * (info.factor || 1)));
+      const shown = symbol + (typing ? `${this.active!.negative ? "-" : ""}${this.active!.typed}|` : formatValue(info.along ? item.travel : value * (info.factor || 1)));
       const fields = item === this.active?.item ? this.active.fields : null;
       const grid = info.plane && (item.grid || fields) ? { ...this.gridStart(info), ...item.grid } : null;
       const gridText = grid ? (fields ? `${fields.shown(0, String(grid.columns))} × ${fields.shown(1, String(grid.rows))}` : `${grid.columns} × ${grid.rows}`) : "";

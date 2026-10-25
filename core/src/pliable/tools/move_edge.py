@@ -1,6 +1,6 @@
 """Move/Rotate on edges: the gizmo (two arrows square to the edge and one turn arc, with snaps square to the faces beside it) and the edge move.
 
-In edge mode dx, dy and dz are distances along the gizmo's X (the edge itself), Y and Z, and rx turns the gizmo about the edge; ry and rz are not used."""
+In edge mode dx, dy and dz are the world move of the edge, and rx only turns the gizmo's arrows about the edge (it never moves the edge); ry and rz are not used."""
 
 import math
 
@@ -44,13 +44,12 @@ def _normals(topology, edges) -> list:
 
 def edge_handles(topology, selection, values) -> list:
     """The gizmo for moving edges: two arrows square to the first edge (and each other) at the middle of the edges, and one turn arc between them
-    that swings them about the edge (rx)."""
+    that swings them about the edge (rx). Turning the arrows changes only where they point, never the move already made."""
     edges = _edges(topology, selection)
     lines = [_edge_line(e) for e in edges]
     t, u, v = turned_axes(lines[0][1], values["rx"])
-    shift = _shift(lines[0][1], values)
-    here = tuple(sum(line[0][k] for line in lines) / len(lines) + shift[k] for k in range(3))
-    out = [Handle("dy", "Move along gizmo Y", here, u, kind="move"), Handle("dz", "Move along gizmo Z", here, v, kind="move")]
+    here = tuple(sum(line[0][k] for line in lines) / len(lines) + (values["dx"], values["dy"], values["dz"])[k] for k in range(3))
+    out = [_arrow("Move along gizmo Y", here, u), _arrow("Move along gizmo Z", here, v)]
     _, u0, v0 = base_frame(lines[0][1])
     theta = math.radians(45 + values["rx"])  # the arc sits between the arrows, centred 45 degrees round from the first
     radial = tuple(math.cos(theta) * u0[k] + math.sin(theta) * v0[k] for k in range(3))
@@ -61,16 +60,18 @@ def edge_handles(topology, selection, values) -> list:
     return out
 
 
-def _shift(direction, values) -> tuple:
-    """The world offset of the edge: dx along it, dy and dz along the two cross axes of the gizmo (turned by rx)."""
-    t, u, v = turned_axes(direction, values["rx"])
-    return tuple(values["dx"] * t[k] + values["dy"] * u[k] + values["dz"] * v[k] for k in range(3))
+def _arrow(label, here, direction) -> Handle:
+    """A move arrow along `direction`: dragging it changes the world move (dx, dy, dz) along that line, the parameter it is declared on being the one the direction is most along."""
+    names = ("dx", "dy", "dz")
+    main = max(range(3), key=lambda k: abs(direction[k]))
+    links = tuple((names[k], direction[k]) for k in range(3) if k != main)
+    return Handle(names[main], label, here, direction, scale=direction[main], kind="move", links=links, along=True)
 
 
 def edge_run(topology, selection, values) -> OpResult:
     """Move the selected edges by (dx, dy, dz) along the gizmo turned by rx, ry, rz degrees, re-fitting the faces beside them."""
     edges = _edges(topology, selection)
-    offset = gp_Vec(*_shift(_edge_line(edges[0])[1], values))
+    offset = gp_Vec(values["dx"], values["dy"], values["dz"])
     if offset.Magnitude() < MIN_DISTANCE:
         return OpResult(topology.shape, [])
     solids = solids_of(topology.shape)

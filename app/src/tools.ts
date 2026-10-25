@@ -48,6 +48,8 @@ export interface HandleInfo {
   snaps?: number[];
   /** A rotation handle drawn as a short arc about the thing it turns (like the push/pull direction arcs) instead of a whole ring with a grip. */
   arc?: boolean;
+  /** A move arrow whose label shows the distance moved along it, not its parameter. */
+  along?: boolean;
   /** A grid grip: the grid's two step vectors. Dragged in their plane it sets this parameter (whole steps along the first) and the first linked parameter (along the second) independently. */
   plane?: [[number, number, number], [number, number, number]] | null;
   /** The x and y axes of the sketch plane on the handle's face (push/pull's direction gizmo swings about them). */

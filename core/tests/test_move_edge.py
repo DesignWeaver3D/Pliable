@@ -62,15 +62,24 @@ def test_snap_angles_find_an_arrow_square_to_a_normal():
     assert any(abs(a - 135) < 1e-6 for a in snaps) and any(abs(a - 45) < 1e-6 for a in snaps)
 
 
-def test_moving_the_chamfer_edge_along_the_turned_gizmo_refits_the_faces():
+def test_turning_the_gizmo_never_moves_the_edge():
     topology = _chamfered_box()
     edge = _chamfer_top_edge(topology)
     tool = get_tool("move_body")
-    before = volume(topology.shape)
-    # Gizmo turned 45 degrees about X (z now along the chamfer normal), edge pulled 1 mm along it, out of the chamfer face
-    result = tool.execute(topology, Selection(edges=[edge]), {"dx": 0, "dy": 0, "dz": 1, "rx": 45, "ry": 0, "rz": 0}, preview=False)
-    assert volume(result.shape) != pytest.approx(before)
-    assert volume(result.shape) > 0
+    move = {"dx": 0, "dy": 0, "dz": 1, "ry": 0, "rz": 0}
+    flat = tool.execute(topology, Selection(edges=[edge]), {**move, "rx": 0}, preview=False)
+    turned = tool.execute(topology, Selection(edges=[edge]), {**move, "rx": 45}, preview=False)
+    assert volume(flat.shape) != pytest.approx(volume(topology.shape))
+    assert volume(turned.shape) == pytest.approx(volume(flat.shape))
+
+
+def test_the_arrows_move_the_edge_along_the_turned_directions_in_world_components():
+    topology = _chamfered_box()
+    edge = _chamfer_top_edge(topology)
+    arrows = get_tool("move_body").handles(topology, Selection(edges=[edge]), {"dx": 0, "dy": 0, "dz": 0, "rx": 45, "ry": 0, "rz": 0})[:2]
+    for h in arrows:
+        assert h.along and h.kind == "move" and len(h.links) == 2
+        assert h.scale == pytest.approx(h.direction[{"dx": 0, "dy": 1, "dz": 2}[h.param]])
 
 
 def test_a_slanted_edge_moves_in_its_face_with_its_corners_sliding_along_the_faces_that_stay():
