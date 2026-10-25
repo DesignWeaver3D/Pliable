@@ -42,7 +42,7 @@ export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "rectcentre", label: "Centre rectangle", hint: "Click the centre, then a corner" },
   { id: "circle", label: "Circle", hint: "Click the centre, then a point on the circle" },
   { id: "circle3", label: "Circle by 3 points", hint: "Click three points the circle passes through" },
-  { id: "arc", label: "Arc", hint: "Click the centre, the start, then the end (counterclockwise)" },
+  { id: "arc", label: "Arc", hint: "Click the centre, the start, then the end; the arc runs the way the pointer moves from the start" },
   { id: "arc3", label: "Arc by 3 points", hint: "Click the start, a point the arc passes through, then the end" },
   { id: "slot", label: "Slot", hint: "Click the centre of one end, the centre of the other end, then a point for the width" },
   { id: "point", label: "Point", hint: "Click to place a point; it can be snapped to and constrained" },
@@ -824,6 +824,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.render();
   };
   typed = "";
+  /** True while typed sizes place their points: a typed arc sweep is always counterclockwise. */
+  private placingTyped = false;
 
   /** Place the next points at the typed sizes in the pointer's direction and keep the typed sizes as dimensions where the shape has them. */
   private async applyTyped() {
@@ -833,7 +835,12 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const tool = this.tool; // placing the last point can leave the tool
     const [w, h] = [numbers[0], numbers[1] ?? numbers[0]];
     const before = this.s.entities.length;
-    for (const target of T.typedTargets(tool, this.chain, this.cursor, numbers.slice(0, this.typedLabels().length))) this.place({ ...target });
+    this.placingTyped = true;
+    try {
+      for (const target of T.typedTargets(tool, this.chain, this.cursor, numbers.slice(0, this.typedLabels().length))) this.place({ ...target });
+    } finally {
+      this.placingTyped = false;
+    }
     const made = this.s.entities.slice(before);
     const plain = !made.some((x) => x.type === "arc"); // a rounded rectangle's sides are not its overall size
     let dimensions: Omit<M.SketchConstraint, "id">[] = [];
@@ -1003,7 +1010,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     B.addSlot(this, a, b, side);
   }
   private addArc(center: Snap, start: Snap, end: Snap) {
-    B.addArc(this, center, start, end);
+    B.addArc(this, center, start, end, this.placingTyped);
   }
 
   /** The drawing tool used last in this sketch; Enter with no tool active starts it again. */

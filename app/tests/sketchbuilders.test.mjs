@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addRectangle, addPolygon, addCircle, addSlot, polygonCorners } from "../src/sketchbuilders.ts";
+import { addArc, addRectangle, addPolygon, addCircle, addSlot, polygonCorners } from "../src/sketchbuilders.ts";
 
 // A stand-in for the sketch mode: the same rules as SketchMode.pointFor and addConstraintRaw, with undo and solving as counters.
 function context(auto = "shape") {
@@ -81,4 +81,25 @@ test("a polygon, circle and slot add their curves", () => {
   addSlot(slot, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 5, v: 2 });
   assert.equal(slot.s.entities.filter((e) => e.type === "arc").length, 2);
   assert.equal(slot.s.entities.filter((e) => e.type === "line").length, 2);
+});
+
+test("an arc by centre follows the pointer: counterclockwise or clockwise from the start", () => {
+  const sweepOf = (ctx) => {
+    const arc = ctx.s.entities.find((e) => e.type === "arc");
+    const at = (id) => ctx.s.points.find((p) => p.id === id);
+    const [c, a, b] = [at(arc.center), at(arc.start), at(arc.end)];
+    const turn = Math.atan2(b.v - c.v, b.u - c.u) - Math.atan2(a.v - c.v, a.u - c.u);
+    return ((turn + 4 * Math.PI) % (2 * Math.PI)) * (180 / Math.PI); // the stored counterclockwise sweep
+  };
+  const up = context("none");
+  addArc(up, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 0, v: 10 });
+  assert.ok(Math.abs(sweepOf(up) - 90) < 1e-6); // pointer moved counterclockwise: start stays the arc's start
+  const down = context("none");
+  addArc(down, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 0, v: -10 });
+  assert.ok(Math.abs(sweepOf(down) - 90) < 1e-6); // pointer moved clockwise: a 90 degree arc through the lower quadrant
+  const clicked = down.s.entities.find((e) => e.type === "arc");
+  assert.equal(down.s.points.find((p) => p.id === clicked.end).v, 0); // runs from the pointer's end back to the start
+  const typed = context("none");
+  addArc(typed, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 0, v: -10 }, true);
+  assert.ok(Math.abs(sweepOf(typed) - 270) < 1e-6); // typed sweeps stay counterclockwise
 });

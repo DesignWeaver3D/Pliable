@@ -217,7 +217,8 @@ export function addSlot(ctx: BuilderContext, a: Snap, b: Snap, side: Snap) {
   ctx.resolve();
 }
 
-export function addArc(ctx: BuilderContext, center: Snap, start: Snap, end: Snap) {
+/** `counterclockwise` forces the direction (typed sweeps are always counterclockwise); otherwise the arc follows the pointer from the start. */
+export function addArc(ctx: BuilderContext, center: Snap, start: Snap, end: Snap, counterclockwise = false) {
   const radius = Math.hypot(start.u - center.u, start.v - center.v);
   if (radius < 1e-6) return;
   ctx.pushUndo();
@@ -226,7 +227,8 @@ export function addArc(ctx: BuilderContext, center: Snap, start: Snap, end: Snap
   const s = ctx.pointFor(start);
   const e = ctx.pointFor({ u: center.u + radius * Math.cos(angle), v: center.v + radius * Math.sin(angle) });
   const arcId = M.nextId(ctx.s);
-  ctx.s.entities.push({ id: arcId, type: "arc", center: c, start: s, end: e });
+  const clockwise = !counterclockwise && Sh.arcSweepToward(center, start, end) < 0; // arcs are stored counterclockwise, so a clockwise one runs from the pointer's end back to the start
+  ctx.s.entities.push({ id: arcId, type: "arc", center: c, start: clockwise ? e : s, end: clockwise ? s : e });
   // An arc that starts on the end of a line, with its centre square to the line there, continues it tangentially.
   const meets = ctx.s.entities.find((x) => x.type === "line" && !x.reference && (x.a === s || x.b === s));
   if (meets && meets.type === "line") {

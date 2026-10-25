@@ -108,8 +108,8 @@ function pendingBase(ctx: PreviewContext): [number, number][][] {
     if (!second) return [[[first.u, first.v], [c.u, c.v]]];
     const radius = Math.hypot(second.u - first.u, second.v - first.v);
     const a0 = Math.atan2(second.v - first.v, second.u - first.u);
-    let sweep = Math.atan2(c.v - first.v, c.u - first.u) - a0;
-    if (sweep <= 0) sweep += 2 * Math.PI;
+    let sweep = Sh.arcSweepToward(first, second, c); // follows the pointer: clockwise or counterclockwise from the start
+    if (ctx.typed && sweep <= 0) sweep += 2 * Math.PI; // a typed sweep is always counterclockwise
     return [Array.from({ length: 49 }, (_, i) => [first.u + radius * Math.cos(a0 + (sweep * i) / 48), first.v + radius * Math.sin(a0 + (sweep * i) / 48)] as [number, number])];
   }
   return [];
