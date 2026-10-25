@@ -1,5 +1,5 @@
 /** The sketches kept in the document: a list under the bodies (show or hide, open, rename, delete) and their curves drawn in the view. Open paths are kept like closed outlines. */
-import { openRowMenu } from "./rowmenu";
+import { openRowMenuItems } from "./rowmenu";
 import * as THREE from "three";
 import type { CoreClient } from "./client";
 import { uiIcon } from "./icons";
@@ -25,6 +25,9 @@ export interface KeptHost {
 }
 
 const CURVE_COLOR = 0x9bb7d4;
+/** A sketch under the pointer (its row or its curves) and a picked one: the same colours as the model's hover and selection. */
+const HOVER_COLOR = 0xffffff;
+const PICKED_COLOR = 0xff8a1f;
 /** Closed regions are drawn as tinted faces that belong to no model: this colour is used for nothing else. */
 const PROFILE_COLOR = 0x2fd4c0;
 
@@ -36,6 +39,9 @@ export class KeptSketches {
   private readonly profiles = new Map<number, { rev: number; meshes: { positions: number[]; indices: number[] }[] }>();
   private editing: number | null = null;
   private picked: number | null = null;
+  private hovered: number | null = null;
+  private hoveredRegion: { id: number; region: number } | null = null;
+  private readonly rows = new Map<number, HTMLElement>();
   private readonly group = new THREE.Group();
   private syncing = false;
   private again = false;
@@ -45,6 +51,7 @@ export class KeptSketches {
     this.host = host;
     this.group.renderOrder = 4;
     host.scene.add(this.group);
+    host.list.addEventListener("pointerleave", () => this.setHovered(null));
     this.render();
   }
 
@@ -60,7 +67,39 @@ export class KeptSketches {
   /** Highlight the row the Delete key would remove (null for none). */
   setPicked(id: number | null) {
     this.picked = id;
-    this.render();
+    this.paint();
+  }
+
+  /** The sketch under the pointer, from its row or from the view (null for none): its row and its curves light up. */
+  setHovered(id: number | null) {
+    if (this.hovered === id) return;
+    this.hovered = id;
+    this.paint();
+  }
+
+  /** The tinted region under the pointer in the view (null for none) is drawn stronger. */
+  setHoveredRegion(at: { id: number; region: number } | null) {
+    if (this.hoveredRegion?.id === at?.id && this.hoveredRegion?.region === at?.region) return;
+    this.hoveredRegion = at;
+    this.paint();
+  }
+
+  /** Colour the rows and the drawn curves for the hovered and picked sketch without rebuilding anything (a rebuilt row would break a double-click). */
+  private paint() {
+    for (const [id, row] of this.rows) {
+      row.classList.toggle("selected", this.picked === id);
+      row.classList.toggle("hovered", this.hovered === id);
+    }
+    for (const [id, c] of this.curves) {
+      const color = this.picked === id ? PICKED_COLOR : this.hovered === id ? HOVER_COLOR : CURVE_COLOR;
+      (c.lines.material as THREE.LineBasicMaterial).color.setHex(color);
+      c.fills.forEach((fill, region) => ((fill.material as THREE.MeshBasicMaterial).opacity = this.hoveredRegion?.id === id && this.hoveredRegion.region === region ? 0.5 : 0.28));
+    }
+  }
+
+  /** The curves (not the tinted regions) of the visible sketches, for a double-click in the view to find the sketch under the pointer. */
+  curveTargets(): { id: number; object: THREE.LineSegments }[] {
+    return [...this.curves].map(([id, c]) => ({ id, object: c.lines }));
   }
 
   /** The sketch being edited is drawn by the sketch editor; its kept copy is hidden meanwhile. */
@@ -73,6 +112,7 @@ export class KeptSketches {
     const { list, count } = this.host;
     count.textContent = String(this.list.length);
     list.replaceChildren();
+    this.rows.clear();
     for (const k of this.list) {
       const row = document.createElement("div");
       row.className = "bodyrow keptrow";
@@ -89,8 +129,6 @@ export class KeptSketches {
       const name = document.createElement("span");
       name.className = "bodyname";
       name.textContent = k.name;
-      name.title = "Double-click to rename";
-      name.addEventListener("dblclick", () => this.rename(k, name));
       const edit = document.createElement("button");
       edit.className = "rowbtn";
       edit.title = "Edit this sketch";
@@ -103,15 +141,26 @@ export class KeptSketches {
       del.addEventListener("click", () => this.host.remove(k.id));
       row.append(eye, name, edit, del);
       row.classList.toggle("selected", this.picked === k.id);
+      row.classList.toggle("hovered", this.hovered === k.id);
+      row.title = "Double-click to edit this sketch";
+      row.addEventListener("pointerenter", () => this.setHovered(k.id));
       row.addEventListener("click", (e) => {
         if ((e.target as HTMLElement).closest("button, input")) return;
         this.host.pick?.(k.id);
       });
+      row.addEventListener("dblclick", (e) => {
+        if ((e.target as HTMLElement).closest("button, input")) return;
+        this.host.open(k.id);
+      });
       row.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         this.host.pick?.(k.id);
-        openRowMenu(e.clientX, e.clientY, "Delete", () => this.host.remove(k.id), "Delete this sketch (Undo brings it back)");
+        openRowMenuItems(e.clientX, e.clientY, [
+          { label: "Rename", run: () => this.rename(k, row.querySelector<HTMLElement>(".bodyname")!), title: "Rename this sketch" },
+          { label: "Delete", run: () => this.host.remove(k.id), title: "Delete this sketch (Undo brings it back)" },
+        ]);
       });
+      this.rows.set(k.id, row);
       list.append(row);
     }
     if (!this.list.length) {
@@ -195,6 +244,7 @@ export class KeptSketches {
           const fills = (this.profiles.get(k.id)?.meshes ?? []).map((m) => this.fill(m));
           this.group.add(lines, ...fills);
           this.curves.set(k.id, { rev: cached.rev, lines, fills });
+          this.paint();
         }
         for (const id of [...this.cache.keys()]) if (!this.list.some((k) => k.id === id)) this.cache.delete(id);
         for (const id of [...this.profiles.keys()]) if (!this.list.some((k) => k.id === id)) this.profiles.delete(id);

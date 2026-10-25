@@ -157,6 +157,11 @@ export class Viewport {
   /** The tinted profile regions of kept sketches that a click can pick as if they were faces (they belong to no model). */
   profileTargets: () => { id: number; region: number; object: THREE.Object3D }[] = () => [];
   onProfileClick: (sketchId: number, region: number, additive: boolean) => void = () => {};
+  /** The tinted region under the pointer (null for none), and a double-click on a sketch's curves or regions (its id). */
+  onProfileHover: (at: { id: number; region: number } | null, curve: number | null) => void = () => {};
+  onSketchDouble: (sketchId: number) => void = () => {};
+  /** The drawn curves of the kept sketches, for the double-click to find the sketch under the pointer. */
+  curveTargets: () => { id: number; object: THREE.LineSegments }[] = () => [];
   /** Double-click on an edge: the host selects the whole smooth chain it belongs to (Ctrl adds to the selection). */
   onEdgeLoop: (edgeId: number, additive: boolean) => void = () => {};
   /** Double-click on a face: select its whole body (same as clicking its row in the body list). */
@@ -473,7 +478,9 @@ export class Viewport {
       down = { x: e.clientX, y: e.clientY };
       if (e.button !== 0 || this.measureMode || this.eyedropper) return;
       if (this.startCentreDrag(e) || this.startDivideDrag(e)) return;
-      const hit = this.pickHit(e);
+      const reached = this.pickHit(e);
+      // A tinted sketch region over a face of the model comes first: pressing it is a click on the region, not the start of a drag of the face under it (unless that face is already selected).
+      const hit = reached?.kind === "face" && !this.isSelected(reached) && this.profileUnder(e) ? null : reached;
       this.box = null;
       // A chosen push/pull direction replaces the normal of the selected face being pressed (the arrow handle already carries it).
       const chosen = hit?.kind === "face" && this.pullDirection.dir && this.isSelected(hit) ? new THREE.Vector3(...this.pullDirection.dir) : null;
@@ -537,7 +544,14 @@ export class Viewport {
           this.drawMeasures(distance);
           this.onItemDrag(this.drag.sels, distance, "move", e.clientX, e.clientY);
         }
-      } else if (e.buttons === 0) this.setHover(this.pick(e));
+      } else if (e.buttons === 0) {
+        // A sketch region drawn over a face of the model has the priority: the face is not lit then.
+        const sel = this.pick(e);
+        const region = !sel || sel.kind === "face" ? this.profileUnder(e) : null;
+        this.setHover(region ? null : sel);
+        if (region) this.renderer.domElement.style.cursor = "pointer";
+        this.onProfileHover(region, !sel || sel.kind === "face" ? this.curveUnder(e) : null);
+      }
     });
     dom.addEventListener("pointerdown", (e) => {
       if (e.button === 2) this.rightDown = { x: e.clientX, y: e.clientY };
@@ -578,11 +592,16 @@ export class Viewport {
       line.renderOrder = 3;
       this.scene.add(line);
     }
-    dom.addEventListener("pointerleave", () => this.setHover(null));
+    dom.addEventListener("pointerleave", () => {
+      this.setHover(null);
+      this.onProfileHover(null, null);
+    });
     dom.addEventListener("dblclick", (e) => {
       if (this.interceptor) return;
       const hit = this.pickHit(e as PointerEvent);
       if (hit?.kind === "edge") this.onEdgeLoop(hit.id, e.ctrlKey || e.metaKey);
+      const sketchId = !hit || hit.kind === "face" ? (this.curveUnder(e) ?? this.profileUnder(e as PointerEvent)?.id ?? null) : null;
+      if (sketchId !== null) return this.onSketchDouble(sketchId); // the whole sketch, whatever lies behind it
       const body = doubleClickBody(hit, (id) => this.data?.faces.find((f) => f.id === id)?.body);
       if (body !== null) this.onFaceBody(body);
     });
@@ -1416,6 +1435,36 @@ export class Viewport {
     const profile = !picked || picked.kind === "face" ? this.profileUnder(e) : null;
     if (profile) this.onProfileClick(profile.id, profile.region, additive);
     else this.clickSelect(picked, additive);
+  }
+
+  /** The kept sketch whose drawn curve passes within a few pixels of the pointer and is not hidden behind the model. */
+  private curveUnder(e: MouseEvent): number | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    this.camera.updateMatrixWorld();
+    let best: number | null = null;
+    let bestD = 6; // pixels
+    const point = (x: number, y: number, z: number) => {
+      const n = new THREE.Vector3(x, y, z).project(this.camera);
+      return { x: ((n.x + 1) / 2) * rect.width, y: ((1 - n.y) / 2) * rect.height, behind: n.z > 1 };
+    };
+    for (const { id, object } of this.curveTargets()) {
+      const p = object.geometry.getAttribute("position");
+      for (let i = 0; i + 1 < p.count; i += 2) {
+        const a = point(p.getX(i), p.getY(i), p.getZ(i));
+        const b = point(p.getX(i + 1), p.getY(i + 1), p.getZ(i + 1));
+        if (a.behind || b.behind) continue;
+        const [dx, dy] = [b.x - a.x, b.y - a.y];
+        const t = Math.max(0, Math.min(1, ((px - a.x) * dx + (py - a.y) * dy) / (dx * dx + dy * dy || 1)));
+        const d = Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
+        if (d < bestD) {
+          best = id;
+          bestD = d;
+        }
+      }
+    }
+    return best;
   }
 
   private profileUnder(e: PointerEvent): { id: number; region: number } | null {

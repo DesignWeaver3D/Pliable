@@ -303,7 +303,13 @@ function armTool(tool: ToolInfo, surface: Surface) {
 let pendingProfile: { mesh: MeshData; faces: number[]; sketchId: number; regions: number[] } | null = null;
 
 /** A sketch region picked in the view becomes a temporary face of the model, selected so the usual tools work on it. */
-async function pickProfile(sketchId: number, region: number, additive = false) {
+let profilePicking: Promise<void> | null = null;
+function pickProfile(sketchId: number, region: number, additive = false) {
+  const run = pickProfileNow(sketchId, region, additive);
+  profilePicking = run.finally(() => { if (profilePicking === run) profilePicking = null; });
+  return run;
+}
+async function pickProfileNow(sketchId: number, region: number, additive: boolean) {
   // Shift or Ctrl adds another region of the same sketch (or takes a picked one out again): all the picked regions become faces together.
   const before = additive && pendingProfile && pendingProfile.sketchId === sketchId && committed === pendingProfile.mesh ? pendingProfile.regions : [];
   const regions = before.includes(region) ? before.filter((r) => r !== region) : [...before, region];
@@ -1165,6 +1171,13 @@ function addDatum(args: Record<string, unknown>) {
 }
 viewport.profileTargets = () => (sketch.active ? [] : keptSketches.fillTargets());
 viewport.onProfileClick = (id, region, additive) => void pickProfile(id, region, additive);
+viewport.curveTargets = () => keptSketches.curveTargets();
+viewport.onProfileHover = (at, curve) => {
+  keptSketches.setHoveredRegion(at);
+  keptSketches.setHovered(curve ?? at?.id ?? null);
+};
+// Double-clicking a sketch in the view selects the whole sketch (the same pick as its row in the list, so Delete removes it).
+viewport.onSketchDouble = (id) => void (profilePicking ?? Promise.resolve()).then(() => pickRow({ list: "sketch", id }));
 sketch.onEditing = (id) => keptSketches.setEditing(id);
 $("keptsketchhead").addEventListener("click", () => {
   const head = $("keptsketchhead");
