@@ -553,6 +553,7 @@ function setCommitted(mesh: MeshData, frame = false, sels: Sel[] = []) {
   lastOp = null; // callers that commit a tool run set it again afterwards
   editLastButton.disabled = true;
   if (frame) { // a newly opened model: its body ids restart at 1, so the old model's hidden, see-through and focus state would hit its bodies
+    sketch.exit(); // an open sketch belongs to the old model: left open it kept its curves and projected edges over the new one
     bodyView.hidden = new Set();
     bodyView.ghost = new Set();
     bodyView.focus = null;
@@ -997,7 +998,7 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 installFileOpening(
-  { core, status, hasEdits: () => modelHistory.undo, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame) },
+  { core, status, hasEdits: () => modelHistory.undo || sketch.active, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame) },
   { open: $("open"), openAsNew: $("openasnew"), openProject: $("openproject"), newProject: $("newproject") },
   { step: fileInput, project: $("projectfile") as HTMLInputElement },
 );

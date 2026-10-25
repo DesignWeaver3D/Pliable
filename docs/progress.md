@@ -34,6 +34,7 @@ Owner batch (2026-10-25), one row each, in this order:
   - [ ] Selecting a body shows its mass in the measurement card (owner: the project has a default material and other materials; use the default material's density. If it cannot be found, ask the owner).
 - **New project leaves stale projection geometry (bug).** Owner: "Creating a new project left behind projection geometry from a sketch that no longer exists."
   - Owner note: refreshing the browser tab removed the stale projected construction lines, so the leftover state is held in the frontend (not saved by the core). Look for projection state the new-project reset in the app does not clear.
+  - In progress (agent kernel-b): the kept-sketch drawing clears its cache for ids not in the new list, so the likely leftover was an open sketch (its curves and projected edges) staying active over the new project; the replace paths now close it. Not reproduced in the app (Chrome stuck on a leave-site prompt). Hand test: project edges in a sketch, leave it open, Menu > New Project.
   - [ ] Find how to reproduce it (project edges in a sketch, then create a new project) and add a test if it can run without a browser.
   - [ ] Creating a new project clears all projection geometry, so nothing from the old sketches remains.
 - **Sketch trim tool does not work (bug).** Owner: "Sketch trim tool doesn't work."
