@@ -625,6 +625,17 @@ def test_an_ellipse_with_axis_ends_keeps_them_square_and_takes_widths():
     assert sketch.profile_face(sketch.apply_solution(sk, result)).area == pytest.approx(math.pi * 20 * 6, rel=1e-6)
 
 
+def test_an_ellipse_axis_line_is_a_construction_line_that_takes_a_dimension():
+    sk = _ellipse_with_ends()
+    sk["entities"] += [{"id": 12, "type": "line", "a": 2, "b": 4, "construction": True}, {"id": 13, "type": "line", "a": 5, "b": 6, "construction": True}]
+    sk["constraints"] = [{"id": 8, "type": "fixed", "point": 1}, {"id": 11, "type": "horizontal", "points": [1, 2]}, {"id": 9, "type": "distance", "entity": 12, "value": 40}, {"id": 10, "type": "distance", "entity": 13, "value": 12}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok" and result["dof"] == 0
+    assert result["radii"][3] == pytest.approx(6)
+    # the construction lines are not part of the profile
+    assert sketch.profile_face(sketch.apply_solution(sk, result)).area == pytest.approx(math.pi * 20 * 6, rel=1e-6)
+
+
 def test_a_point_can_be_put_on_an_ellipse_and_follows_it():
     sk = _ellipse_with_ends()
     sk["points"].append({"id": 7, "u": 6.5, "v": 4.5})  # near the rim, not on it

@@ -157,6 +157,9 @@ export function addEllipse(ctx: BuilderContext, center: Snap, major: Snap, side:
   const minor1 = end(center.u + nu, center.v + nv);
   const minor2 = end(center.u - nu, center.v - nv);
   ctx.s.entities.push({ id: M.nextId(ctx.s), type: "ellipse", center: c, major: m, major2, minor1, minor2, minor });
+  // Each axis is also a construction line between its two ends, so its length can be dimensioned by selecting the line alone.
+  ctx.s.entities.push({ id: M.nextId(ctx.s), type: "line", a: m, b: major2, construction: true });
+  ctx.s.entities.push({ id: M.nextId(ctx.s), type: "line", a: minor1, b: minor2, construction: true });
   ctx.resolve();
 }
 

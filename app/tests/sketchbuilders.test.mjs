@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addArc, addRectangle, addPolygon, addCircle, addSlot, polygonCorners } from "../src/sketchbuilders.ts";
+import { addArc, addEllipse, addRectangle, addPolygon, addCircle, addSlot, polygonCorners } from "../src/sketchbuilders.ts";
 
 // A stand-in for the sketch mode: the same rules as SketchMode.pointFor and addConstraintRaw, with undo and solving as counters.
 function context(auto = "shape") {
@@ -102,4 +102,15 @@ test("an arc by centre follows the pointer: counterclockwise or clockwise from t
   const typed = context("none");
   addArc(typed, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 0, v: -10 }, true);
   assert.ok(Math.abs(sweepOf(typed) - 270) < 1e-6); // typed sweeps stay counterclockwise
+});
+
+test("an ellipse gets two construction lines joining the opposite ends of its axes", () => {
+  const ctx = context("none");
+  addEllipse(ctx, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 0, v: 4 });
+  const ellipse = ctx.s.entities.find((e) => e.type === "ellipse");
+  const lines = ctx.s.entities.filter((e) => e.type === "line");
+  assert.equal(lines.length, 2);
+  assert.ok(lines.every((l) => l.construction));
+  const ends = lines.map((l) => [l.a, l.b].sort((x, y) => x - y)).sort();
+  assert.deepEqual(ends, [[ellipse.major, ellipse.major2].sort((x, y) => x - y), [ellipse.minor1, ellipse.minor2].sort((x, y) => x - y)].sort());
 });
