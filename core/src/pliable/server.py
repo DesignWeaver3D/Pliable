@@ -163,7 +163,7 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             topology = self._require_document().current
             try:
                 selection = Selection.from_json(request.get("selection"))
-                result = measure(topology, selection, request.get("density"))
+                result = measure(topology, selection, request.get("density"), request.get("densities"))
                 dimedit.annotate(topology, selection, result)
                 return result
             except KeyError as e:
@@ -311,6 +311,17 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
                 raise RequestError("A body needs a name")
             try:
                 target = document.rename_body(int(request["body"]), name)
+            except (KeyError, ValueError, TypeError) as e:
+                raise RequestError("Unknown body") from e
+            self._autosave()
+            return self._mesh_reply(target, {})
+        if kind == "set_body_material":
+            document = self._require_document()
+            material = request.get("material")
+            if material is not None and not (isinstance(material, str) and 0 < len(material) <= 40):
+                raise RequestError("Unknown material")
+            try:
+                target = document.set_body_material(int(request["body"]), material)
             except (KeyError, ValueError, TypeError) as e:
                 raise RequestError("Unknown body") from e
             self._autosave()

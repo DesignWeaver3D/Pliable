@@ -103,6 +103,12 @@ export function installBodyActions(d: BodyActionDeps) {
         .then((mesh) => d.setCommitted(mesh, false, []))
         .catch(fail);
     },
+    setMaterial(id, material) {
+      d.core
+        .request<MeshData>("set_body_material", { body: id, material })
+        .then((mesh) => d.setCommitted(mesh, false, d.selection()))
+        .catch(fail);
+    },
     rename(id, name) {
       d.core
         .request<MeshData>("rename_body", { body: id, name })

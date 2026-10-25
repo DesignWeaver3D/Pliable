@@ -34,6 +34,7 @@ class Body:
     name: str
     recipe: dict | None = None  # the primitive that made the body while it is still that shape (see recipes.py)
     lost: str | None = None  # what ended the recipe ("Fillet/Chamfer"), for the reason shown to the user
+    material: str | None = None  # the app's material id chosen for this body; None follows the app's default material
 
 
 @dataclass(frozen=True)
@@ -48,11 +49,11 @@ class BodyState:
         return next((i for i, b in enumerate(self.bodies) if b.id == body_id), None)
 
     def to_json(self) -> dict:
-        return {"bodies": [[b.id, b.name, b.recipe, b.lost] for b in self.bodies], "next": self.next_id, "counts": dict(self.counts)}
+        return {"bodies": [[b.id, b.name, b.recipe, b.lost, b.material] for b in self.bodies], "next": self.next_id, "counts": dict(self.counts)}
 
     @classmethod
     def from_json(cls, data: dict) -> "BodyState":
-        return cls(tuple(Body(int(row[0]), str(row[1]), row[2] if len(row) > 2 else None, row[3] if len(row) > 3 else None) for row in data["bodies"]), int(data["next"]), dict(data["counts"]))
+        return cls(tuple(Body(int(row[0]), str(row[1]), row[2] if len(row) > 2 else None, row[3] if len(row) > 3 else None, row[4] if len(row) > 4 else None) for row in data["bodies"]), int(data["next"]), dict(data["counts"]))
 
 
 def box_of(shape: TopoDS_Shape) -> list[float]:
@@ -181,6 +182,15 @@ def renamed(state: BodyState, body_id: int, name: str) -> BodyState:
         raise KeyError(body_id)
     bodies = list(state.bodies)
     bodies[index] = replace(bodies[index], name=name)
+    return BodyState(tuple(bodies), state.next_id, state.counts)
+
+
+def with_material(state: BodyState, body_id: int, material: str | None) -> BodyState:
+    index = state.find(body_id)
+    if index is None:
+        raise KeyError(body_id)
+    bodies = list(state.bodies)
+    bodies[index] = replace(bodies[index], material=material)
     return BodyState(tuple(bodies), state.next_id, state.counts)
 
 

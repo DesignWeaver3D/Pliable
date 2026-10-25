@@ -210,6 +210,10 @@ class Document:
         bodies = BodyState(tuple(state.bodies[i] for i in keep), state.next_id, state.counts)
         return self._push(_compound([solids[i] for i in keep]), bodies)
 
+    def set_body_material(self, body_id: int, material: str | None) -> Topology:
+        """Choose the material of one body (None = the app's default) as an undoable step (the shape is unchanged)."""
+        return self._push(self.current.shape, body_ids.with_material(self.current.bodies, body_id, material))
+
     def duplicate_body(self, body_id: int) -> tuple[Topology, int]:
         """Add a copy of one body, in the same place, named after it; returns the new state and the copy's id."""
         state = self.current.bodies
@@ -219,7 +223,7 @@ class Document:
             raise KeyError(body_id)
         twin = BRepBuilderAPI_Copy(solids[index], True).Shape()
         name = f"{state.bodies[index].name} copy"[:80]
-        bodies = BodyState(state.bodies + (body_ids.Body(state.next_id, name),), state.next_id + 1, state.counts)
+        bodies = BodyState(state.bodies + (body_ids.Body(state.next_id, name, material=state.bodies[index].material),), state.next_id + 1, state.counts)
         return self._push(_compound(solids + [twin]), bodies), state.next_id
 
     def _push(self, shape: TopoDS_Shape, bodies: BodyState, sketches: list[dict] | None = None, datums: list[dict] | None = None, mirror: dict | None = None, set_mirror: bool = False) -> Topology:
