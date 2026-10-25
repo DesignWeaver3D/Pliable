@@ -64,3 +64,27 @@ def test_usage_ignores_bad_names():
     session.handle({"type": "usage_event", "tool": "push_pull", "event": "dance"})
     session.handle({"type": "usage_event", "tool": 5, "event": "start"})
     assert session.handle({"type": "diagnostics"})["report"]["usage"] == {}
+
+
+def test_version_is_the_same_everywhere():
+    import re
+    import tomllib
+    from pathlib import Path
+
+    from pliable import __version__
+
+    root = Path(__file__).resolve().parents[2]
+    assert tomllib.loads((root / "core" / "pyproject.toml").read_text(encoding="utf8"))["project"]["version"] == __version__
+    cargo = tomllib.loads((root / "desktop" / "src-tauri" / "Cargo.toml").read_text(encoding="utf8"))
+    assert cargo["package"]["version"] == __version__
+    conf = json.loads((root / "desktop" / "src-tauri" / "tauri.conf.json").read_text(encoding="utf8"))
+    assert conf["version"] == __version__
+    assert re.fullmatch(r"\d+\.\d+\.\d+", __version__)
+
+
+def test_report_describes_the_installation():
+    report = Session().handle({"type": "diagnostics"})["report"]
+    assert report["machine"] and report["uptimeSeconds"] >= 0 and isinstance(report["packaged"], bool)
+    session = Session()
+    session.handle({"type": "open_demo", "name": "bracket"})
+    assert session.handle({"type": "diagnostics"})["report"]["model"]["bodies"] >= 1

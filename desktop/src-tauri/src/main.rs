@@ -57,6 +57,7 @@ fn start_core(dir: &Path, port: u16) -> Result<Child, String> {
     let mut command = Command::new(&program);
     command
         .args(["--no-browser", "--host", HOST, "--port", &port.to_string()])
+        .env("PLIABLE_SHELL", env!("CARGO_PKG_VERSION")) // the diagnostics report says it runs in the desktop window
         .env("PLIABLE_DATA", data.join("core")) // autosave and other saved files stay with the portable folder
         .current_dir(program.parent().unwrap_or(dir))
         .stdin(Stdio::null())
@@ -131,7 +132,7 @@ fn main() {
             let dir = program_dir();
             let port = pick_port();
             let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                .title("Pliable")
+                .title(concat!("Pliable ", env!("CARGO_PKG_VERSION"), " (alpha)"))
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(900.0, 600.0);
             #[cfg(not(target_os = "macos"))]

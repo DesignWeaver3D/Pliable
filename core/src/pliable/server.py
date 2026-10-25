@@ -60,6 +60,15 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
         self.unclean = autosaver.available(unclean_only=True) if autosaver else None  # a dead instance's session, offered until restored
         self._autosave_due = 0  # 1: snapshot wanted, 2: snapshot of a newly opened document
 
+    def _model_summary(self) -> dict:
+        """Counts only, for the diagnostics report (no names or geometry)."""
+        if self.document is None:
+            return {}
+        try:
+            return {"bodies": len(solids_of(self.document.current.shape))}
+        except Exception:
+            return {}
+
     def _autosave(self, fresh: bool = False):
         """Ask for a snapshot; it is queued once the reply is built, so the writer thread does not compete with meshing."""
         if self.autosaver and self.document:
@@ -136,7 +145,7 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             self._autosave(fresh=True)
             return self._mesh_reply(self.document.current, {"importMs": _ms(start)}, name=self.document.name, warnings=warnings, solids=len(solids_of(shape)))
         if kind == "diagnostics":
-            return {"report": diagnostics.core_report(self.last_tool, self.import_warnings, self.usage.report())}
+            return {"report": diagnostics.core_report(self.last_tool, self.import_warnings, self.usage.report(), self._model_summary())}
         if kind == "usage_event":
             self.usage.record(request.get("tool"), request.get("event"), request.get("surface"))
             return {}
