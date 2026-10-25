@@ -63,6 +63,7 @@ const SOLIDS = {
   add_cylinder: '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12a7 3 0 0 0 14 0V6" fill="currentColor" fill-opacity=".16"/>',
   add_sphere: '<circle cx="12" cy="12" r="8.5" fill="currentColor" fill-opacity=".16"/><ellipse cx="12" cy="12" rx="8.5" ry="3"/>',
   add_cone: '<path d="M12 3l7.5 15a7.5 3 0 0 1-15 0z" fill="currentColor" fill-opacity=".16"/>',
+  add_prism: '<path d="M12 3L3.5 17 12 21l8.5-4z" fill="currentColor" fill-opacity=".16"/><path d="M12 3v18"/>',
   add_torus: '<ellipse cx="12" cy="12" rx="9" ry="6" fill="currentColor" fill-opacity=".16"/><ellipse cx="12" cy="12" rx="3.5" ry="1.8"/>',
 };
 
@@ -87,6 +88,7 @@ export const TOOL_ICONS: Record<string, Spec> = {
   add_boss: spec("face", "plus"),
   edit_hole: spec("hole", "scale"),
   convert_to_countersink: spec("hole", "cone"),
+  convert_to_counterbore: spec("hole", "step"),
   resize_hole: spec("hole", "scale"),
   move_hole: spec("hole", "move"),
   center_between: spec("hole", "equal"),
@@ -171,6 +173,11 @@ export const UI_ICONS: Record<string, string> = {
   grid: '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 9.3h16M4 14.7h16M9.3 4v16M14.7 4v16"/>',
   gridSnap: '<path d="M4 8h16M4 16h16M8 4v16M16 4v16" opacity=".5"/><circle cx="16" cy="16" r="2.6" fill="currentColor"/><path d="M5 5l7.5 7.5" />',
   lookAt: '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 9h16" opacity=".4"/><path d="M12 9v11" opacity=".4"/><circle cx="12" cy="12" r="2"/>',
+  gizmos: '<path d="M6 18V5M3.5 7.5L6 5l2.5 2.5"/><path d="M6 18h13M16.5 15.5L19 18l-2.5 2.5"/><circle cx="6" cy="18" r="1.6" fill="currentColor"/>',
+  pickBase: '<circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>',
+  pickTarget: '<circle cx="9" cy="15" r="2.2" fill="currentColor"/><path d="M11 13l8-8M13.5 5H19v5.5"/>',
+  drivingDim: '<path d="M4 7v10M20 7v10"/><path d="M4 12h16M7 9.5L4 12l3 2.5M17 9.5L20 12l-3 2.5"/>',
+  referenceDim: '<path d="M9 5q-5 7 0 14M15 5q5 7 0 14"/><path d="M9 12h6"/>',
   keys: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 11h.01M11 11h.01M15 11h.01M8 14h8"/>',
 };
 
@@ -202,6 +209,30 @@ function element(inner: string, size: number, className: string): HTMLSpanElemen
 /** Icon on the Tools handle (left edge). The owner chose the toolbox; change this one name to swap it. */
 export const TOOLS_HANDLE_ICON = "toolsBox";
 
+/** Icons for the constraint buttons of the sketch strip, by button label (same 24 px stroke style as the rest). */
+export const CONSTRAINT_ICONS: Record<string, string> = {
+  Dimension: '<path d="M4 7v10M20 7v10"/><path d="M4 12h16M7 9.5L4 12l3 2.5M17 9.5L20 12l-3 2.5"/>',
+  "Horizontal distance": '<path d="M4 6v12M20 6v12"/><path d="M4 12h16M7 9.5L4 12l3 2.5M17 9.5L20 12l-3 2.5"/>',
+  "Vertical distance": '<path d="M6 4h12M6 20h12"/><path d="M12 4v16M9.5 7L12 4l2.5 3M9.5 17L12 20l2.5-3"/>',
+  "Horizontal / vertical": '<path d="M3 9h11"/><path d="M18 5v14"/>',
+  Horizontal: '<path d="M4 12h16"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="20" cy="12" r="1.5" fill="currentColor"/>',
+  Vertical: '<path d="M12 4v16"/><circle cx="12" cy="4" r="1.5" fill="currentColor"/><circle cx="12" cy="20" r="1.5" fill="currentColor"/>',
+  Coincident: '<circle cx="12" cy="12" r="2.2" fill="currentColor"/><path d="M4 20l8-8M20 4l-8 8"/>',
+  Fixed: '<circle cx="12" cy="8" r="2.2" fill="currentColor"/><path d="M12 10v6M7 16h10M8 20l2-4M12 20l2-4M16 20l-2-4"/>',
+  Parallel: '<path d="M7 20L13 4M13 20L19 4"/>',
+  Perpendicular: '<path d="M12 4v16M12 20h8"/><path d="M12 16h4v4"/>',
+  Equal: '<path d="M5 9h14M5 15h14"/>',
+  Symmetric: '<path d="M12 3v18" stroke-dasharray="2 2.5"/><circle cx="6" cy="8" r="1.8" fill="currentColor"/><circle cx="18" cy="8" r="1.8" fill="currentColor"/><circle cx="6" cy="16" r="1.8" fill="currentColor"/><circle cx="18" cy="16" r="1.8" fill="currentColor"/>',
+  "Tangent / collinear": '<circle cx="12" cy="14" r="6"/><path d="M3 8h18"/>',
+  "Point on": '<path d="M3 17L21 7"/><circle cx="12" cy="12" r="2" fill="currentColor"/>',
+  Midpoint: '<path d="M4 15h16"/><circle cx="4" cy="15" r="1.4" fill="currentColor"/><circle cx="20" cy="15" r="1.4" fill="currentColor"/><path d="M12 6v9"/><circle cx="12" cy="15" r="2" fill="currentColor"/>',
+  Lock: '<rect x="6" y="11" width="12" height="9" rx="1.5"/><path d="M9 11V8a3 3 0 0 1 6 0v3"/>',
+  "Angle to horizontal axis": '<path d="M4 18h16M4 18L16 8"/><path d="M11 18a7 7 0 0 0-2.5-5.3"/>',
+  Radius: '<circle cx="12" cy="12" r="8"/><path d="M12 12l5.7-5.7"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/>',
+  Diameter: '<circle cx="12" cy="12" r="8"/><path d="M6.3 17.7L17.7 6.3"/>',
+  Angle: '<path d="M3 18L12 6M3 18l17-3"/><path d="M9 15.5a6 6 0 0 1 2.5-4"/>',
+};
+export const constraintIcon = (label: string, size = 14) => element(CONSTRAINT_ICONS[label] ?? initialsIcon(label), size, "icon");
 export const sketchIcon = (id: string, size = 16) => element(SKETCH_ICONS[id] ?? initialsIcon(id), size, "icon");
 export const toolIcon = (id: string, label = id, size = 16) => element(toolIconInner(id, label), size, "icon");
 export const uiIcon = (name: string, size = 16) => element(UI_ICONS[name] ?? "", size, "icon");

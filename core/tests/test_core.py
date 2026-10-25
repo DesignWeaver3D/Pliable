@@ -340,6 +340,22 @@ def test_resume_session_returns_the_dropped_connections_model():
         Session().handle({"type": "resume_session"})
 
 
+def test_hello_offers_the_dropped_model_instead_of_a_crash_restore():
+    from pliable import server
+
+    first = Session()
+    first.handle({"type": "open_demo", "name": next(iter(DEMOS))})
+    second = Session()
+    second.unclean = {"name": "old", "steps": 3, "clean": False}
+    server._parked["document"] = first.document
+    try:
+        hello = second.handle({"type": "hello"})
+    finally:
+        server._parked["document"] = None
+    assert hello["resume"]["name"] == first.document.name and "restore" not in hello
+    assert second.handle({"type": "hello"})["restore"]["name"] == "old"
+
+
 @pytest.mark.parametrize("kind", ["tool_preview", "tool_commit"])
 @pytest.mark.parametrize("distance", [-20, -35, -1000])
 def test_pushing_the_whole_top_through_a_block_is_refused_cleanly(kind, distance):

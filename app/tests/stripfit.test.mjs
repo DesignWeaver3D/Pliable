@@ -2,22 +2,27 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { fitStripCount, stripRoom } from "../src/stripfit.ts";
 
-const w = (tools, over = {}) => ({ tools, helpers: 0, more: 80, gap: 6, chrome: 14, ...over });
+const w = (tools, over = {}) => ({ tools, helpers: [], more: 80, gap: 6, chrome: 14, ...over });
 
-test("as many tools as fit are shown, with no fixed count", () => {
-  const tools = Array(20).fill(90);
-  assert.equal(fitStripCount(w(tools), 14 + 80 + 3 * 96), 3);
-  assert.equal(fitStripCount(w(tools), 14 + 80 + 12 * 96), 12);
-  assert.equal(fitStripCount(w(tools), 5000), 20);
+test("everything is shown, with no More button, while it fits in two rows", () => {
+  const tools = Array(10).fill(90); // 96 per button with its gap
+  assert.equal(fitStripCount(w(tools), 14 + 5 * 96), 10); // five per row, two full rows
+  assert.equal(fitStripCount(w(tools), 5000), 10);
 });
 
-test("helpers keep their room and shrink the tool count", () => {
-  const tools = Array(20).fill(90);
-  assert.equal(fitStripCount(w(tools, { helpers: 100 }), 14 + 80 + 106 + 4 * 96), 4);
+test("past two rows the list is cut so that the More button fits in the second row", () => {
+  const tools = Array(12).fill(90);
+  const limit = 5 * 96 - 6; // five buttons per row
+  const count = fitStripCount(w(tools), 14 + limit);
+  assert.ok(count < 12 && count >= 5);
+  assert.equal(count, 9); // 5 + 4 buttons, then More (80) still fits beside them
 });
 
-test("one tool stays even in a narrow strip, and none gives zero", () => {
-  assert.equal(fitStripCount(w([90, 90]), 50), 1);
+test("helpers keep their room, and one tool stays even in a very narrow strip", () => {
+  const tools = Array(12).fill(90);
+  const wide = fitStripCount(w(tools, { helpers: [100] }), 14 + 5 * 96 - 6);
+  assert.ok(wide < fitStripCount(w(tools), 14 + 5 * 96 - 6));
+  assert.equal(fitStripCount(w([90, 90, 90]), 50), 1);
   assert.equal(fitStripCount(w([]), 500), 0);
 });
 

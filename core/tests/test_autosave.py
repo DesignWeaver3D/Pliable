@@ -48,6 +48,7 @@ def test_save_restore_round_trip(tmp_path):
     assert Autosaver(tmp_path).available() is None  # the writer is still alive
     die(saver)
     info = Autosaver(tmp_path).available()
+    assert info.pop("saved") > 0
     assert info == {"name": "part", "steps": 4, "clean": False}
     restored = Autosaver(tmp_path).restore()
     assert restored.name == "part"
@@ -63,9 +64,9 @@ def test_rotation_removes_files_of_forgotten_states(tmp_path):
         commit_boxes(document, 1)
         saver.save(document)
     saver.flush()
-    files = list(saver.folder.glob("state_*.brep"))
+    files = list(saver.folder.glob("state_*.plbl"))
     assert len(files) == MAX_HISTORY
-    assert not (saver.folder / "state_0.brep").exists()
+    assert not (saver.folder / "state_0.plbl").exists()
 
 
 def test_clean_marker(tmp_path):
@@ -122,6 +123,17 @@ def make_session(root, name: str, steps: int = 2) -> Autosaver:
     saver.save(document, fresh=True)
     saver.flush()
     return saver
+
+
+def as_first_format(folder) -> None:
+    """Make a session look like one written before project files: bare BREP file names."""
+    for p in folder.glob("state_*.plbl"):
+        os.replace(p, p.with_suffix(".brep"))
+    meta_path = folder / "session.json"
+    meta = json.loads(meta_path.read_text())
+    if meta.get("format", 1) >= 2:
+        meta["format"] = 1
+        meta_path.write_text(json.dumps(meta))
 
 
 def snapshot(folder) -> dict:
@@ -202,6 +214,7 @@ def test_session_without_a_format_is_offered(tmp_path):
     meta = json.loads(saver._meta_path.read_text())
     del meta["format"]
     saver._meta_path.write_text(json.dumps(meta))
+    as_first_format(saver.folder)
     assert Autosaver(tmp_path).available()["name"] == "old release"
 
 
@@ -209,6 +222,7 @@ def test_flat_layout_from_an_older_release_is_adopted(tmp_path):
     donor = make_session(tmp_path, "flat")
     die(donor)
     root = tmp_path / "autosave"
+    as_first_format(donor.folder)
     for p in donor.folder.iterdir():
         if p.name != "lock.json":
             os.replace(p, root / p.name)

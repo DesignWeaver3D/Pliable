@@ -138,3 +138,32 @@ def test_body_selection_availability():
     assert session.handle({"type": "available_tools", "selection": {"bodies": [99]}})["tools"] == []
     handles = session.handle({"type": "tool_handles", "tool": "rotate_body", "selection": {"bodies": [2]}, "params": {}})["handles"]
     assert handles and abs(handles[0]["anchor"][0] - 105) < 30
+
+
+def test_deleting_the_only_body_leaves_an_empty_model_that_can_be_undone():
+    session = make()
+    only = bodies(decode_binary(session._mesh_reply(session.document.current, {}))[0])[0][0]
+    header = decode_binary(session.handle({"type": "delete_body", "body": only}))[0]
+    assert header["bodies"] == [] and header["bounds"] == [0.0] * 6
+    assert len(decode_binary(session.handle({"type": "undo"}))[0]["bodies"]) == 1
+
+
+def test_new_project_is_empty_and_accepts_a_first_body():
+    session = make()
+    header = decode_binary(session.handle({"type": "new_project"}))[0]
+    assert header["bodies"] == [] and header["name"] == "Untitled"
+    header = commit(session, "add_box", {"width": 10, "depth": 10, "height": 10, "new_body": 1})
+    assert len(header["bodies"]) == 1
+
+
+def test_deleting_several_bodies_is_one_undo_step():
+    session = make()
+    commit(session, "add_box", {"width": 10, "depth": 10, "height": 10, "x": 100, "new_body": 1})
+    commit(session, "add_box", {"width": 10, "depth": 10, "height": 10, "x": 200, "new_body": 1})
+    ids = [b[0] for b in bodies(decode_binary(session._mesh_reply(session.document.current, {}))[0])]
+    assert len(ids) == 3
+    header = decode_binary(session.handle({"type": "delete_body", "bodies": ids[:2]}))[0]
+    assert [b[0] for b in bodies(header)] == ids[2:]
+    assert [b[0] for b in bodies(decode_binary(session.handle({"type": "undo"}))[0])] == ids
+    with pytest.raises(Exception):
+        session.handle({"type": "delete_body", "bodies": [ids[0], 99]})

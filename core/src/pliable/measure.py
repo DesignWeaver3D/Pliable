@@ -35,6 +35,7 @@ from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS, TopoDS_Face
 
 from .holes import find_hole
+from .measurebody import measure_body
 from .ops import OperationError, edge_outward_normal, planar_normal
 from .tools import Selection
 from .topology import Topology
@@ -114,7 +115,7 @@ def measure_edge(edge_id: int, edge, topology: Topology | None = None) -> dict:
         first = curve.Value(curve.FirstParameter())
         if full:
             far = circle.Location().Translated(gp_Vec(first, circle.Location()))
-            dims.append(_dim("diameter", "⌀" + _fmt(2 * circle.Radius()), [first, far]))
+            dims.append(_dim("diameter", "Ø" + _fmt(2 * circle.Radius()), [first, far]))
         else:
             dims.append(_dim("radius", "R" + _fmt(circle.Radius()), [circle.Location(), curve.Value((curve.FirstParameter() + curve.LastParameter()) / 2)]))
         if not full:
@@ -189,7 +190,7 @@ def _cylinder_dims(surface, cylinder, fillet: bool, u0, u1, v0, v1) -> list[dict
     first, opposite = at(u0, v0), at(u0 + math.pi, v0)
     outward = gp_Vec(opposite, first).Normalized()  # away from the axis, on the side of `first`
     return [
-        _dim("diameter", "⌀" + _fmt(2 * radius), [first, opposite]),
+        _dim("diameter", "Ø" + _fmt(2 * radius), [first, opposite]),
         _dim("linear", _fmt(v1 - v0), [first, at(u0, v1)], [outward.X(), outward.Y(), outward.Z()]),
     ]
 
@@ -299,10 +300,12 @@ def _pair_rows(topology: Topology, a: tuple, b: tuple) -> tuple[list[dict], list
     return rows, dims
 
 
-def measure(topology: Topology, selection: Selection) -> dict:
-    """Per-item measurements plus a summary (count and totals, or the pair distance and angle)."""
+def measure(topology: Topology, selection: Selection, density: float | None = None, densities: dict | None = None) -> dict:
+    """Per-item measurements plus a summary (count and totals, or the pair distance and angle). `density` (kg/m3) gives bodies a mass;
+    `densities` (body id -> kg/m3) overrides it for bodies with their own material."""
     items = (
-        [measure_face(topology, i, topology.face(i)) for i in selection.faces]
+        [measure_body(topology, i, (densities or {}).get(str(i), density)) for i in selection.bodies if not (selection.faces or selection.edges or selection.vertices)]  # bodies alongside faces or edges stay unmeasured, as before
+        + [measure_face(topology, i, topology.face(i)) for i in selection.faces]
         + [measure_edge(i, topology.edge(i), topology) for i in selection.edges]
         + [measure_vertex(i, topology.vertex(i)) for i in selection.vertices]
     )
@@ -311,21 +314,25 @@ def measure(topology: Topology, selection: Selection) -> dict:
     summary, dims = [], []
     if len(items) > 1:
         summary.append(_row("Selected", len(items)))
-        for label in ("Length", "Area"):
+        for label in ("Length", "Area", "Volume", "Mass"):
             values = [r["value"] for item in items for r in item["rows"] if r["label"] == label]
             if len(values) == len(items):
-                summary.append(_row(f"Total {label.lower()}", sum(values)))
-                centroid = [sum(item["anchor"][k] for item in items) / len(items) for k in range(3)]
-                dims = [_dim("tag", f"Σ {_fmt(sum(values))}", [centroid])]
-    if len(items) == 2:
+                unit = next(r["unit"] for r in items[0]["rows"] if r["label"] == label)
+                summary.append(_row(f"Total {label.lower()}", sum(values), unit))
+                if items[0]["kind"] != "body":  # bodies show their totals in the card only
+                    centroid = [sum(item["anchor"][k] for item in items) / len(items) for k in range(3)]
+                    dims = [_dim("tag", f"Σ {_fmt(sum(values))}", [centroid])]
+    if len(items) == 2 and items[0]["kind"] != "body":
         rows, pair_dims = _pair_rows(topology, *[(item["kind"], item["id"]) for item in items])
         summary += rows
         dims = pair_dims or dims
     return {"items": items, "summary": summary, "dimensions": dims if len(items) > 1 else [d for item in items for d in item["dimensions"]]}
 
 
-def model_info(topology: Topology) -> dict:
-    """Whole-model facts and a validity check, as rows in the same shape as an item's `rows`."""
+def model_info(topology: Topology, body: int | None = None) -> dict:
+    """Whole-model facts and a validity check, as rows in the same shape as an item's `rows`.
+    With a body id, the same facts for that body alone."""
+    from .ops import solids_of
     from OCP.BRepBndLib import BRepBndLib
     from OCP.BRepCheck import BRepCheck_Analyzer
     from OCP.Bnd import Bnd_Box
@@ -333,6 +340,13 @@ def model_info(topology: Topology) -> dict:
     from OCP.TopExp import TopExp
     from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher
 
+    title = "Model"
+    if body is not None:
+        index = topology.bodies.find(body)
+        if index is None:
+            raise ValueError(f"no body {body}")
+        title = topology.bodies.bodies[index].name
+        topology = Topology(solids_of(topology.shape)[index])
     shape = topology.shape
     solids = IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher()
     TopExp.MapShapes_s(shape, TopAbs_SOLID, solids)
@@ -355,4 +369,4 @@ def model_info(topology: Topology) -> dict:
         _row("Surface area", area.Mass()),
         _row("Size (X, Y, Z)", [hi.X() - lo.X(), hi.Y() - lo.Y(), hi.Z() - lo.Z()]),
     ]
-    return {"items": [{"kind": "model", "id": 0, "title": "Model", "rows": rows, "anchor": [0, 0, 0], "dimensions": []}], "summary": [], "dimensions": []}
+    return {"items": [{"kind": "model", "id": 0, "title": title, "rows": rows, "anchor": [0, 0, 0], "dimensions": []}], "summary": [], "dimensions": []}

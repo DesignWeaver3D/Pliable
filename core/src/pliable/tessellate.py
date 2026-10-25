@@ -15,9 +15,10 @@ from OCP.BRepBndLib import BRepBndLib
 from OCP.BRepMesh import BRepMesh_IncrementalMesh
 from OCP.GCPnts import GCPnts_TangentialDeflection
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID, TopAbs_VERTEX
-from OCP.TopExp import TopExp_Explorer
+from OCP.TopExp import TopExp, TopExp_Explorer
 from OCP.TopLoc import TopLoc_Location
-from OCP.TopoDS import TopoDS_Shape
+from OCP.TopoDS import TopoDS, TopoDS_Shape
+from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as IndexedMap
 from OCP.gp import gp_Vec
 
 from . import recipes
@@ -35,7 +36,7 @@ class Mesh:
     edge_positions: np.ndarray  # float32, (k, 3), consecutive pairs form segments
     # Per face: id, first index into `indices`, index count, planar normal or None, centroid
     faces: list[dict] = field(default_factory=list)
-    # Per edge: id, first vertex into `edge_positions`, vertex count
+    # Per edge: id, first vertex into `edge_positions`, vertex count, and `centre` for a circle or ellipse (arcs too)
     edges: list[dict] = field(default_factory=list)
     # Per vertex: id and position
     vertices: list[dict] = field(default_factory=list)
@@ -44,9 +45,31 @@ class Mesh:
     bounds: list[float] = field(default_factory=list)  # xmin, ymin, zmin, xmax, ymax, zmax
 
 
+def _edge_centre(edge) -> list[float] | None:
+    """The centre of a circular or elliptical edge (a full curve or an arc), else None. A hole cut at an angle has an
+    elliptical mouth whose centre is where the hole's axis meets the face."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Ellipse
+
+    try:
+        curve = BRepAdaptor_Curve(edge)
+        kind = curve.GetType()
+        if kind == GeomAbs_Circle:
+            p = curve.Circle().Location()
+        elif kind == GeomAbs_Ellipse:
+            p = curve.Ellipse().Location()
+        else:
+            return None
+    except Exception:  # a degenerate edge has no curve
+        return None
+    return [p.X(), p.Y(), p.Z()]
+
+
 def bounds(shape: TopoDS_Shape) -> list[float]:
     box = Bnd_Box()
     BRepBndLib.Add_s(shape, box)
+    if box.IsVoid():  # an empty model (the last body was deleted) has no extent
+        return [0.0] * 6
     low, high = box.CornerMin(), box.CornerMax()
     return [low.X(), low.Y(), low.Z(), high.X(), high.Y(), high.Z()]
 
@@ -63,7 +86,7 @@ def linear_deflection(shape: TopoDS_Shape) -> float:
 
 def _join(parts: list[np.ndarray], dtype, shape) -> np.ndarray:
     if not parts:
-        return np.empty(shape if len(shape) == 1 else (0, shape[1]), dtype=dtype)
+        return np.empty(0 if len(shape) == 1 else (0, shape[1]), dtype=dtype)
     return np.concatenate(parts).astype(dtype, copy=False)
 
 
@@ -239,8 +262,42 @@ def _face_arrays(face):
     return pos, nrm, idx.reshape(-1), centroid
 
 
+def _needs_mesh(solid, deflection: float) -> bool:
+    """True when a face of the solid has no triangulation at this deflection (a changed or new face)."""
+    explorer = TopExp_Explorer(solid, TopAbs_FACE)
+    while explorer.More():
+        triangulation = BRep_Tool.Triangulation_s(TopoDS.Face(explorer.Current()), TopLoc_Location())
+        if triangulation is None or triangulation.Deflection() > deflection * 1.0000001:
+            return True
+        explorer.Next()
+    return False
+
+
 def _solid_indices(topology: Topology) -> tuple[dict, dict, dict]:
-    """Solid number of each face, edge and vertex id (shared sub-shapes keep the first solid)."""
+    """Solid number of each face, edge and vertex id (shared sub-shapes keep the first solid).
+
+    Ids are positions in indexed maps filled in traversal order, so a solid owns the ids its sub-shapes add to a
+    running map: one map pass per solid instead of an id lookup per sub-shape. Falls back to the lookup when the
+    model holds shapes outside any solid (their ids would shift the ranges)."""
+    maps = (IndexedMap(), IndexedMap(), IndexedMap())
+    kinds = (TopAbs_FACE, TopAbs_EDGE, TopAbs_VERTEX)
+    owner = ({}, {}, {})
+    solids = TopExp_Explorer(topology.shape, TopAbs_SOLID)
+    number = 0
+    while solids.More():
+        for table, indexed, kind in zip(owner, maps, kinds):
+            before = indexed.Extent()
+            TopExp.MapShapes_s(solids.Current(), kind, indexed)
+            table.update(dict.fromkeys(range(before, indexed.Extent()), number))
+        number += 1
+        solids.Next()
+    if (maps[0].Extent(), maps[1].Extent(), maps[2].Extent()) != (topology.face_count, topology.edge_count, topology.vertex_count):
+        return _solid_indices_by_lookup(topology)
+    return owner
+
+
+def _solid_indices_by_lookup(topology: Topology) -> tuple[dict, dict, dict]:
+    """Reference version of `_solid_indices`: looks up the id of every sub-shape of every solid."""
     owner = ({}, {}, {})
     lookups = (topology.face_id, topology.edge_id, topology.vertex_id)
     kinds = (TopAbs_FACE, TopAbs_EDGE, TopAbs_VERTEX)
@@ -269,7 +326,9 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
     deflection = linear_deflection(shape)
     # Faces unchanged from a previous shape keep their triangulation, so
     # re-meshing after an operation only meshes the faces that changed.
-    BRepMesh_IncrementalMesh(shape, deflection, False, ANGULAR_DEFLECTION, True)
+    for solid in solid_shapes:
+        if _needs_mesh(solid, deflection):
+            BRepMesh_IncrementalMesh(solid, deflection, False, ANGULAR_DEFLECTION, True)
 
     positions: list[np.ndarray] = []
     normals: list[np.ndarray] = []
@@ -321,6 +380,7 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
                 "normal": None if preview else _edge_normal(edge, adjacent.get(edge_id, ())),
                 "solid": edge_solid.get(edge_id, 0),
                 "body": body_of(edge_solid, edge_id),
+                "centre": _edge_centre(edge),
             }
         )
 
@@ -338,6 +398,6 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
         edges=edges,
         vertices=vertices,
         centres=centres,
-        bodies=[{"id": b.id, "name": b.name, "solid": n, "bounds": bounds(solid_shapes[n]), **recipes.info(b)} for n, b in enumerate(owners) if n < len(solid_shapes)],
+        bodies=[{"id": b.id, "name": b.name, "solid": n, "bounds": bounds(solid_shapes[n]), "material": b.material, **recipes.info(b)} for n, b in enumerate(owners) if n < len(solid_shapes)],
         bounds=bounds(shape),
     )

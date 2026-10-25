@@ -18,7 +18,9 @@ import math
 from dataclasses import dataclass
 from typing import Callable
 
+from OCP.Bnd import Bnd_Box
 from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
+from OCP.BRepBndLib import BRepBndLib
 from OCP.BRepTools import BRepTools
 from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Cylinder, GeomAbs_Line
 from OCP.TopAbs import TopAbs_VERTEX
@@ -183,6 +185,14 @@ def _hole_distance_plan(topology: Topology, selection: Selection, flip: bool) ->
     return Plan("move_hole", {"faces": [selection.faces[mover]]}, distance, params, True, minimum=0.0)
 
 
+def _tag_point(face, anchor) -> list[float]:
+    """Where a wall's draft angle tag sits: near the top of the face, so it stays off the push/pull arrow that stands on the face's centre."""
+    box = Bnd_Box()
+    BRepBndLib.AddOptimal_s(face, box, False, False)
+    z_low, z_high = box.CornerMin().Z(), box.CornerMax().Z()
+    return [anchor[0], anchor[1], z_high - 0.2 * (z_high - z_low)]
+
+
 def draft_angle(face) -> float | None:
     """Signed draft angle of an upright flat face about the Z pull, in degrees (positive: the wall leans so the part narrows going up)."""
     normal = planar_normal(face)
@@ -196,7 +206,7 @@ def _face_angle_plan(topology: Topology, selection: Selection) -> Plan:
     angle = draft_angle(topology.face(selection.faces[0]))
     if angle is None:
         raise OperationError("only an upright wall (within 45 degrees of vertical) has a draft angle")
-    return Plan("draft", {"faces": selection.faces[:1]}, angle, lambda v: {"angle": v, "pull_x": 0, "pull_y": 0, "pull_z": 1}, minimum=-MAX_DRAFT_TILT)
+    return Plan("draft", {"faces": selection.faces[:1]}, angle, lambda v: {"angle": v, "pull_x": 0, "pull_y": 0, "pull_z": 1, "axis": 2}, minimum=-MAX_DRAFT_TILT)
 
 
 def plan(topology: Topology, selection: Selection, kind: str, flip: bool = False) -> Plan:
@@ -256,7 +266,7 @@ def annotate(topology: Topology, selection: Selection, result: dict) -> None:
                     d["editNote"] = "A face's size is set by its edges: select an edge and edit its length"
                 angle = draft_angle(face)
                 if angle is not None:
-                    dim = {"kind": "tag", "text": f"∠{angle:.3g}°", "points": [item["anchor"]]}
+                    dim = {"kind": "tag", "text": f"∠{angle:.3g}°", "points": [_tag_point(face, item["anchor"])]}
                     dim.update(_entry(topology, selection, "face_angle"))
                     dims.append(dim)
         elif item["kind"] == "edge" and dims:

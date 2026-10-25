@@ -597,6 +597,66 @@ def test_an_ellipse_is_a_profile_and_its_points_take_constraints():
         sketch.solve({**sk, "constraints": [{"id": 6, "type": "radius", "entity": 3, "value": 2}]})
 
 
+def _ellipse_with_ends(major=10.0, minor=5.0):
+    return {
+        "plane": sketch.STANDARD_PLANES["XY"],
+        "points": [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": major, "v": 0}, {"id": 4, "u": -major, "v": 0}, {"id": 5, "u": 0, "v": minor}, {"id": 6, "u": 0, "v": -minor}],
+        "entities": [{"id": 3, "type": "ellipse", "center": 1, "major": 2, "major2": 4, "minor1": 5, "minor2": 6, "minor": minor}],
+        "constraints": [],
+    }
+
+
+def _on_ellipse(result):
+    at = coords(result)
+    a, b = math.dist(at[1], at[2]), math.dist(at[1], at[5]) if 5 in at else result["radii"].get(3, 5)
+    (cu, cv), (mu, mv), (pu, pv) = at[1], at[2], at[7]
+    along = math.atan2(mv - cv, mu - cu)
+    x = (pu - cu) * math.cos(along) + (pv - cv) * math.sin(along)
+    y = -(pu - cu) * math.sin(along) + (pv - cv) * math.cos(along)
+    return (x / a) ** 2 + (y / b) ** 2
+
+
+def test_an_ellipse_with_axis_ends_keeps_them_square_and_takes_widths():
+    sk = _ellipse_with_ends()
+    sk["constraints"] = [{"id": 8, "type": "fixed", "point": 1}, {"id": 9, "type": "distance", "points": [2, 4], "value": 40}, {"id": 10, "type": "distance", "points": [5, 6], "value": 12}, {"id": 11, "type": "horizontal", "points": [1, 2]}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok" and result["dof"] == 0
+    assert result["radii"][3] == pytest.approx(6)
+    assert sketch.profile_face(sketch.apply_solution(sk, result)).area == pytest.approx(math.pi * 20 * 6, rel=1e-6)
+
+
+def test_an_ellipse_axis_line_is_a_construction_line_that_takes_a_dimension():
+    sk = _ellipse_with_ends()
+    sk["entities"] += [{"id": 12, "type": "line", "a": 2, "b": 4, "construction": True}, {"id": 13, "type": "line", "a": 5, "b": 6, "construction": True}]
+    sk["constraints"] = [{"id": 8, "type": "fixed", "point": 1}, {"id": 11, "type": "horizontal", "points": [1, 2]}, {"id": 9, "type": "distance", "entity": 12, "value": 40}, {"id": 10, "type": "distance", "entity": 13, "value": 12}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok" and result["dof"] == 0
+    assert result["radii"][3] == pytest.approx(6)
+    # the construction lines are not part of the profile
+    assert sketch.profile_face(sketch.apply_solution(sk, result)).area == pytest.approx(math.pi * 20 * 6, rel=1e-6)
+
+
+def test_a_point_can_be_put_on_an_ellipse_and_follows_it():
+    sk = _ellipse_with_ends()
+    sk["points"].append({"id": 7, "u": 6.5, "v": 4.5})  # near the rim, not on it
+    sk["constraints"] = [{"id": 8, "type": "fixed", "point": 1}, {"id": 9, "type": "point_on", "point": 7, "entity": 3}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok"
+    assert _on_ellipse(result) == pytest.approx(1, abs=1e-6)
+    # widening the ellipse carries the point along with it
+    sk["constraints"].append({"id": 10, "type": "distance", "points": [5, 6], "value": 14})
+    wider = sketch.solve(sk)
+    assert wider["status"] == "ok" and _on_ellipse(wider) == pytest.approx(1, abs=1e-6)
+
+
+def test_a_point_can_be_put_on_an_ellipse_without_axis_ends():
+    sk = _ellipse_sketch()
+    sk["points"].append({"id": 7, "u": 6.5, "v": 4.5})
+    sk["constraints"] = [{"id": 8, "type": "fixed", "point": 1}, {"id": 9, "type": "point_on", "point": 7, "entity": 3}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok" and _on_ellipse(result) == pytest.approx(1, abs=1e-6)
+
+
 def test_a_closed_spline_is_a_profile_and_dragging_its_point_moves_only_it():
     sk = {
         "plane": sketch.STANDARD_PLANES["XY"],
@@ -716,6 +776,15 @@ def test_collinear_lines_share_a_line():
     assert c[3][1] == pytest.approx(0, abs=1e-6) and c[4][1] == pytest.approx(0, abs=1e-6)
 
 
+def test_collinear_on_lines_sharing_an_end_is_not_a_conflict():
+    """What the split tool leaves behind: two lines with a shared end point and an automatic collinear constraint."""
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 5, "v": 0}, {"id": 3, "u": 10, "v": 0}]
+    lines = [{"id": 10, "type": "line", "a": 1, "b": 2}, {"id": 11, "type": "line", "a": 2, "b": 3}]
+    constraints = [{"id": 5, "type": "collinear", "entities": [10, 11], "auto": True}]
+    result = sketch.solve(sketch_of(points, lines, constraints))
+    assert result["status"] == "ok" and not result.get("conflicts")
+
+
 @pytest.mark.parametrize("v", [7.0, -7.0])
 def test_point_line_distance_keeps_the_side(v):
     points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 4, "v": v * 0.5}]
@@ -759,6 +828,21 @@ def test_slot_made_of_two_lines_and_two_tangent_arcs_solves_and_extrudes():
     solved = sketch.apply_solution(sk, result)
     face = sketch.profile_face(solved)
     assert face.area == pytest.approx(10 * 4 + math.pi * 4, rel=1e-6)
+
+
+def test_slot_can_be_fully_constrained_with_ordinary_dimensions():
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 0, "v": 2}, {"id": 4, "u": 0, "v": -2}, {"id": 5, "u": 10, "v": 2}, {"id": 6, "u": 10, "v": -2}]
+    entities = [
+        {"id": 20, "type": "line", "a": 3, "b": 5},
+        {"id": 21, "type": "line", "a": 6, "b": 4},
+        {"id": 22, "type": "arc", "center": 2, "start": 6, "end": 5},
+        {"id": 23, "type": "arc", "center": 1, "start": 3, "end": 4},
+    ]
+    shape = [{"type": "tangent", "entities": [a, b]} for a, b in ((22, 20), (22, 21), (23, 20), (23, 21))] + [{"type": "equal", "entities": [22, 23]}]
+    dimensions = [{"type": "fixed", "point": 1}, {"type": "horizontal", "points": [1, 2]}, {"type": "distance", "points": [1, 2], "value": 12}, {"type": "radius", "entity": 22, "value": 3}]
+    result = sketch.solve(sketch_of(points, entities, shape + dimensions), detail=True)
+    assert result["status"] == "ok" and result["dof"] == 0
+    assert math.dist(coords(result)[1], coords(result)[2]) == pytest.approx(12, abs=1e-6)
 
 
 def test_long_drag_is_solved_in_steps_and_matches_a_short_one():
@@ -808,6 +892,35 @@ def test_plane_through_three_vertices_and_through_an_edge_and_a_vertex():
         sketch.plane_through((0, 0, 0), (1, 0, 0), (2, 0, 0))
     edge_plane = session.handle({"type": "sketch_plane", "edge": 0, "vertex": bottom[2]})["plane"]
     assert math.sqrt(sum(c * c for c in edge_plane["normal"])) == pytest.approx(1)
+
+
+def test_offset_and_angled_planes_from_a_face_and_tangent_plane_at_a_vertex():
+    from OCP.BRep import BRep_Tool
+
+    from pliable.server import RequestError, Session
+
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})  # a box from z = -10 to 10
+    topology = session.document.current
+    top = next(i for i, f in topology.faces() if sketch.face_plane(f)["normal"][2] > 0.99)
+    moved = session.handle({"type": "sketch_plane", "face": top, "offset": 5})
+    assert moved["plane"]["origin"][2] == pytest.approx(15) and "reference" not in moved  # its outline would not lie on the plane
+    tilted = session.handle({"type": "sketch_plane", "face": top, "angle": 90})["plane"]
+    assert abs(tilted["normal"][2]) < 1e-9 and tilted["origin"][2] == pytest.approx(10)
+    assert math.sqrt(sum(c * c for c in tilted["normal"])) == pytest.approx(1)
+    assert "reference" in session.handle({"type": "sketch_plane", "face": top})
+    corner = next(i for i in range(topology.vertex_count) if BRep_Tool.Pnt_s(topology.vertex(i)).Z() > 9)
+    touching = session.handle({"type": "sketch_plane", "tangent_face": top, "vertex": corner})["plane"]
+    assert touching["normal"] == pytest.approx([0, 0, 1], abs=1e-9) and touching["origin"][2] == pytest.approx(10)
+    with pytest.raises(RequestError):
+        session.handle({"type": "sketch_plane", "tangent_face": 9999, "vertex": corner})
+
+
+def test_rotating_a_plane_about_a_line_turns_its_origin_and_axes_together():
+    plane = {"origin": [0, 0, 5], "normal": [0, 0, 1], "xdir": [1, 0, 0]}
+    turned = sketch.rotate_plane(plane, [0, 0, 0], [0, 1, 0], 90)  # a quarter turn about the Y axis
+    assert turned["origin"] == pytest.approx([5, 0, 0], abs=1e-9)
+    assert turned["normal"] == pytest.approx([1, 0, 0], abs=1e-9) and turned["xdir"] == pytest.approx([0, 0, -1], abs=1e-9)
 
 
 @pytest.mark.parametrize("preview", [True, False])
@@ -861,3 +974,283 @@ def test_plane_square_to_an_edge_at_a_fraction_along_it():
         length = math.sqrt(sum(c * c for c in direction))
         assert abs(sum(n * d / length for n, d in zip(plane["normal"], direction))) == pytest.approx(1, abs=1e-9)
         assert sum(x * n for x, n in zip(plane["xdir"], plane["normal"])) == pytest.approx(0, abs=1e-9)
+
+
+def test_dimensioned_horizontal_line_drags_by_its_body():
+    """Holding both ends of a horizontal or dimensioned line used to be reported as a conflict, so it could not move."""
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 10, "v": 8}, {"id": 4, "u": 0, "v": 8}]
+    lines = [{"id": 10 + k, "type": "line", "a": a, "b": b} for k, (a, b) in enumerate([(1, 2), (2, 3), (3, 4), (4, 1)])]
+    drag = {"points": [{"point": 1, "u": 3, "v": 2}, {"point": 2, "u": 13, "v": 2}]}
+    for constraints in (
+        [{"id": 1, "type": "horizontal", "entity": 10}],
+        [{"id": 1, "type": "horizontal", "entity": 10}, {"id": 2, "type": "distance", "entity": 10, "value": 10}],
+        [{"id": 1, "type": "horizontal", "entity": 10}, {"id": 2, "type": "horizontal_distance", "entity": 10, "value": 10}],
+    ):
+        result = sketch.solve(sketch_of(points, lines, constraints), drag)
+        assert result["status"] == "ok"
+        moved = {p["id"]: (p["u"], p["v"]) for p in result["points"]}
+        assert moved[1] == pytest.approx((3, 2)) and moved[2] == pytest.approx((13, 2))
+        assert moved[3] == pytest.approx((10, 8)) and moved[4] == pytest.approx((0, 8))
+
+
+def _areas(sk):
+    return sorted(round(z.area, 3) for z in sketch.regions(sk))
+
+
+def _free_line(entities, points, a, b, line_id):
+    points += [{"id": 900 + line_id * 2, "u": a[0], "v": a[1]}, {"id": 901 + line_id * 2, "u": b[0], "v": b[1]}]
+    entities.append({"id": line_id, "type": "line", "a": 900 + line_id * 2, "b": 901 + line_id * 2})
+
+
+def test_divider_not_touching_the_corners_makes_two_faces():
+    points, lines = rectangle(20, 20)
+    _free_line(lines, points, (0, 8), (20, 8), 50)  # ends on the two side edges, shares none of the corner points
+    assert _areas(sketch_of(points, lines)) == [160.0, 240.0]
+
+
+def test_lines_attached_to_a_side_enclose_a_new_face():
+    points, lines = rectangle(20, 20)
+    for k, (a, b) in enumerate([((20, 5), (30, 5)), ((30, 5), (30, 15)), ((30, 15), (20, 15))]):
+        _free_line(lines, points, a, b, 60 + k)
+    # the three lines meet each other only at their ends and touch the side at their outer ends
+    sk = sketch_of(points, lines)
+    zones = sketch.regions(sk)
+    assert _areas(sk) == [100.0, 400.0]
+    assert all(z.normal_at().Z > 0 for z in zones)
+
+
+def test_nested_loops_and_dangling_lines():
+    points, lines = rectangle(20, 20)
+    inner_points, inner = rectangle(6, 6, x0=5, y0=5, first_id=11)
+    _free_line(inner, inner_points, (0, 0), (-5, -5), 70)  # a loose line that closes nothing
+    sk = sketch_of(points + inner_points, lines + inner)
+    assert _areas(sk) == [36.0, 364.0]  # the inner loop is a hole in the outer face and a face of its own
+    open_sk = sketch_of(points[:2], [lines[0]])
+    assert sketch.regions(open_sk) == []
+
+
+def test_regions_can_be_extruded_from_a_split_rectangle():
+    points, lines = rectangle(20, 20)
+    _free_line(lines, points, (0, 8), (20, 8), 50)
+    shape, count = sketch.add_regions(load_demo("block"), sketch_of(points, lines, plane=sketch.STANDARD_PLANES["XY"]), only=1)
+    assert count == 1
+
+
+def test_regions_of_a_blank_document_become_loose_faces():
+    from OCP.TopoDS import TopoDS_Compound
+
+    points, lines = rectangle(20, 20)
+    shape, count = sketch.add_regions(TopoDS_Compound(), sketch_of(points, lines, plane=sketch.STANDARD_PLANES["XY"]))
+    assert count == 1 and not shape.IsNull()
+
+
+def _circle_with(*constraints):
+    return sketch_of([{"id": 1, "u": 0, "v": 0}], [{"id": 10, "type": "circle", "center": 1, "radius": 5}], list(constraints))
+
+
+@pytest.mark.parametrize("second", [
+    {"id": 21, "type": "diameter", "entity": 10, "value": 10},  # redundant
+    {"id": 21, "type": "diameter", "entity": 10, "value": 14},  # conflicting
+    {"id": 21, "type": "radius", "entity": 10, "value": 7},
+    {"id": 21, "type": "block", "entity": 10},
+])
+def test_redundant_or_conflicting_diameter_edits_are_reported_not_fatal(second):
+    from pliable.server import Session
+
+    session = Session()
+    for detail in (True, False):
+        reply = session.handle({"type": "sketch_solve", "sketch": _circle_with({"id": 20, "type": "diameter", "entity": 10, "value": 10}, second), "detail": detail})
+        assert reply["status"] in ("ok", "failed")
+    # editing the value afterwards (the in-place editor) still answers
+    edited = session.handle({"type": "sketch_solve", "sketch": _circle_with({"id": 20, "type": "diameter", "entity": 10, "value": 12}), "detail": True})
+    assert edited["status"] == "ok" and edited["radii"][10] == pytest.approx(6)
+
+
+@pytest.mark.parametrize("value", [0, -4, float("nan"), float("inf"), None])
+def test_a_circle_of_no_size_is_refused_by_the_dimension(value):
+    from pliable.server import RequestError, Session
+
+    session = Session()
+    with pytest.raises((RequestError, OperationError)):
+        session.handle({"type": "sketch_solve", "sketch": _circle_with({"id": 20, "type": "diameter", "entity": 10, "value": value})})
+    # a circle already drawn with no size gives no regions instead of an error
+    flat = sketch_of([{"id": 1, "u": 0, "v": 0}], [{"id": 10, "type": "circle", "center": 1, "radius": 0}])
+    assert session.handle({"type": "sketch_profiles", "sketch": flat}) == {"profiles": []}
+
+
+def _divided_square(plane=XY, x0=0.0, y0=0.0):
+    points, lines = rectangle(20, 20, x0=x0, y0=y0)
+    _free_line(lines, points, (x0, y0 + 8), (x0 + 20, y0 + 8), 50)  # a divider that shares none of the corner points
+    return sketch_of(points, lines, plane=plane)
+
+
+@pytest.mark.parametrize("height", [30, 10])  # clear of the block (loose face) and on its top face (imprinted)
+def test_each_face_of_a_divided_rectangle_pushes_and_pulls(height):
+    from pliable.ops import push_pull
+    from pliable.topology import Topology
+
+    shape = load_demo("block")
+    plane = {"origin": [0, 0, height], "normal": [0, 0, 1], "xdir": [1, 0, 0]}
+    sk = _divided_square(plane, x0=-10, y0=-10)
+    for area in (160.0, 240.0):
+        index = next(i for i, z in enumerate(sketch.regions(sk)) if z.area == pytest.approx(area))
+        result, _ = sketch.add_regions(shape, sk, only=index)
+        face = next(f for _, f in Topology(result).faces() if _face_area(f) == pytest.approx(area, rel=1e-3))
+        pulled = push_pull(result, face, 4)
+        assert _solid_volume(pulled.shape) == pytest.approx(volume(shape) + area * 4, rel=1e-3)
+
+
+def test_sketch_extrude_of_a_divided_rectangle_and_of_attached_lines():
+    shape = load_demo("block")
+    far = {"origin": [0, 0, 30], "normal": [0, 0, 1], "xdir": [1, 0, 0]}
+    result = sketch.extrude(shape, _divided_square(far, x0=-10, y0=-10), 5, "new")
+    assert _solid_volume(result.shape) == pytest.approx(volume(shape) + 20 * 20 * 5, rel=1e-3)
+    points, lines = rectangle(20, 20, x0=-10, y0=-10)
+    for k, (a, b) in enumerate([((10, -5), (20, -5)), ((20, -5), (20, 5)), ((20, 5), (10, 5))]):
+        _free_line(lines, points, a, b, 60 + k)
+    result = sketch.extrude(shape, sketch_of(points, lines, plane=far), 5, "new")
+    assert _solid_volume(result.shape) == pytest.approx(volume(shape) + (400 + 100) * 5, rel=1e-3)
+
+
+def test_a_redundant_dimension_marked_reference_solves_and_drives_nothing():
+    driving = {"id": 20, "type": "diameter", "entity": 10, "value": 10}
+    redundant = {"id": 21, "type": "diameter", "entity": 10, "value": 14}
+    assert sketch.solve(_circle_with(driving, redundant))["status"] == "failed"
+    result = sketch.solve(_circle_with(driving, {**redundant, "reference": True}))
+    assert result["status"] == "ok" and result["radii"][10] == pytest.approx(5)
+
+
+def _two_lines():
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 0, "v": 0.0}, {"id": 4, "u": 5, "v": 6}]
+    return points, [{"id": 10, "type": "line", "a": 1, "b": 2}, {"id": 11, "type": "line", "a": 3, "b": 4}]
+
+
+@pytest.mark.parametrize("outside,expected", [(False, 60.0), (True, 120.0)])
+def test_angle_between_lines_can_be_the_inside_or_the_outside_value(outside, expected):
+    points, lines = _two_lines()
+    cons = [{"id": 30, "type": "coincident", "points": [1, 3]}, {"id": 31, "type": "horizontal", "entity": 10}, {"id": 32, "type": "angle", "entities": [10, 11], "value": 60, "outside": outside}]
+    result = sketch.solve(sketch_of(points, lines, cons))
+    assert result["status"] == "ok"
+    p = coords(result)
+    angle = math.degrees(math.atan2(p[4][1] - p[3][1], p[4][0] - p[3][0]))
+    a = (p[2][0] - p[1][0], p[2][1] - p[1][1])
+    b = (p[4][0] - p[3][0], p[4][1] - p[3][1])
+    between = math.degrees(math.acos((a[0] * b[0] + a[1] * b[1]) / math.hypot(*a) / math.hypot(*b)))
+    assert between == pytest.approx(60.0 if not outside else 120.0, abs=1e-4)
+
+
+def _polygon_with_circles(n=6, r=5.0):
+    """The structure the frontend builds for the polygon tool: sides, a major construction circle through the corners and a minor one tangent to a side."""
+    points = [{"id": 1, "u": 0.0, "v": 0.0}]
+    for k in range(n):
+        a = 2 * math.pi * k / n + 0.03 * k  # slightly off, the solver corrects it
+        points.append({"id": 2 + k, "u": r * math.cos(a), "v": r * math.sin(a)})
+    ents = [{"id": 20 + k, "type": "line", "a": 2 + k, "b": 2 + (k + 1) % n} for k in range(n)]
+    ents += [{"id": 50, "type": "circle", "center": 1, "radius": r, "construction": True}, {"id": 51, "type": "circle", "center": 1, "radius": r * math.cos(math.pi / n), "construction": True}]
+    cons = [{"id": 60 + k, "type": "equal", "entities": [20, 20 + k]} for k in range(1, n)]
+    cons += [{"id": 70 + k, "type": "point_on", "point": 2 + k, "entity": 50} for k in range(n)]
+    cons.append({"id": 80, "type": "tangent", "entities": [51, 20]})
+    return sketch_of(points, ents, cons)
+
+
+@pytest.mark.parametrize("n", [3, 5, 6, 8])
+def test_polygon_with_two_construction_circles_solves_and_is_regular(n):
+    sk = _polygon_with_circles(n)
+    result = sketch.solve(sk, detail=True)
+    assert result["status"] == "ok", result
+    solved = sketch.apply_solution(sk, result)
+    # dimensioning the minor circle (or a side) sets the whole polygon
+    sized = sketch.solve({**solved, "constraints": solved["constraints"] + [{"id": 90, "type": "diameter", "entity": 51, "value": 20}]})
+    assert sized["status"] == "ok"
+    final = sketch.apply_solution(solved, sized)
+    p = {q["id"]: (q["u"], q["v"]) for q in final["points"]}
+    sides = [math.dist(p[2 + k], p[2 + (k + 1) % n]) for k in range(n)]
+    assert max(sides) - min(sides) < 1e-6
+    assert sides[0] == pytest.approx(2 * 10 * math.tan(math.pi / n), rel=1e-5)  # incircle radius 10
+    (zone,) = sketch.regions(final)  # the construction circles make no faces
+    assert zone.area == pytest.approx(n * 100 * math.tan(math.pi / n), rel=1e-5)
+
+
+def test_symmetric_about_a_point():
+    points = [{"id": 1, "u": 0, "v": 0, "fixed": True}, {"id": 2, "u": -4, "v": 1}, {"id": 3, "u": 5, "v": 2, "fixed": True}]
+    constraints = [{"id": 1, "type": "symmetric_point", "points": [2, 3], "point": 1}]
+    result = sketch.solve(sketch_of(points, [], constraints))
+    assert result["status"] == "ok"
+    p2 = next(p for p in result["points"] if p["id"] == 2)
+    assert (p2["u"], p2["v"]) == pytest.approx((-5, -2), abs=1e-6)
+
+
+def test_freedom_stops_at_its_time_budget():
+    points = [{"id": 1, "u": 0, "v": 0, "fixed": True}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 10, "v": 5}]
+    lines = [{"id": 10, "type": "line", "a": 1, "b": 2}, {"id": 11, "type": "line", "a": 2, "b": 3}]
+    s = sketch_of(points, lines, [])
+    assert set(sketch.point_freedom(s)) == {1, 2, 3}
+    assert sketch.point_freedom(s, budget=-1) == {}  # no time left: nothing is worked out
+
+
+def test_dimension_to_a_sketch_axis_sent_as_a_fixed_line():
+    # the app sends an axis a constraint refers to as a fixed reference line with ids below zero
+    points = [{"id": -11, "u": -1e4, "v": 0, "fixed": True}, {"id": -12, "u": 1e4, "v": 0, "fixed": True}, {"id": 1, "u": 3, "v": 4, "fixed": True}, {"id": 2, "u": 9, "v": 6}]
+    lines = [{"id": -1, "type": "line", "a": -11, "b": -12, "reference": True, "axis": True}, {"id": 10, "type": "line", "a": 1, "b": 2}]
+    constraints = [{"id": 1, "type": "point_line_distance", "point": 2, "entity": -1, "value": 10}]
+    result = sketch.solve(sketch_of(points, lines, constraints))
+    assert result["status"] == "ok"
+    assert next(p for p in result["points"] if p["id"] == 2)["v"] == pytest.approx(10, abs=1e-5)
+
+
+def test_gap_between_two_circles_and_two_arcs():
+    sizes = [{"id": 2, "type": "radius", "entity": 10, "value": 3}, {"id": 3, "type": "radius", "entity": 11, "value": 4}]
+    points = [{"id": 1, "u": 0, "v": 0, "fixed": True}, {"id": 2, "u": 20, "v": 0}]
+    circles = [{"id": 10, "type": "circle", "center": 1, "radius": 3}, {"id": 11, "type": "circle", "center": 2, "radius": 4}]
+    result = sketch.solve(sketch_of(points, circles, [{"id": 1, "type": "round_gap", "entities": [10, 11], "value": 6}, *sizes]))
+    assert result["status"] == "ok"
+    assert next(p for p in result["points"] if p["id"] == 2)["u"] == pytest.approx(3 + 6 + 4, abs=1e-5)
+    # an arc and a circle: the arc's radius is the distance from its centre to its start
+    arc_points = [{"id": 1, "u": 30, "v": 0}, {"id": 3, "u": 40, "v": 0, "fixed": True}, {"id": 4, "u": 40, "v": 5, "fixed": True}, {"id": 5, "u": 35, "v": 0}]
+    arc = {"id": 12, "type": "arc", "center": 3, "start": 5, "end": 4}
+    result = sketch.solve(sketch_of(arc_points, [circles[0], arc], [{"id": 1, "type": "round_gap", "entities": [10, 12], "value": 2}, sizes[0]]))
+    assert result["status"] == "ok"
+    assert next(p for p in result["points"] if p["id"] == 1)["u"] == pytest.approx(40 - 5 - 2 - 3, abs=1e-5)
+
+
+def test_gap_between_concentric_circles():
+    points = [{"id": 1, "u": 5, "v": 5, "fixed": True}]
+    circles = [{"id": 10, "type": "circle", "center": 1, "radius": 3}, {"id": 11, "type": "circle", "center": 1, "radius": 5}]
+    sizes = [{"id": 2, "type": "radius", "entity": 10, "value": 3}]
+    result = sketch.solve(sketch_of(points, circles, [{"id": 1, "type": "round_gap", "entities": [10, 11], "value": 4}, *sizes]))
+    assert result["status"] == "ok"
+    assert result["radii"][11] == pytest.approx(7, abs=1e-5)
+
+
+def test_a_centre_rectangle_centre_point_stays_in_the_middle():
+    """What the centre rectangle tool makes: the shape's four constraints and a centre point symmetric about two opposite corners."""
+    points, lines = rectangle()
+    points.append({"id": 9, "u": 5, "v": 5})  # clicked off-centre, the solver puts it back
+    constraints = [{"type": "horizontal", "entity": 101}, {"type": "vertical", "entity": 102}, {"type": "horizontal", "entity": 103}, {"type": "vertical", "entity": 104},
+                   {"type": "symmetric_point", "points": [1, 3], "point": 9}, {"type": "fixed", "point": 9}]
+    result = sketch.solve(sketch_of(points, lines, constraints))
+    assert result["status"] == "ok"
+    at = coords(result)
+    assert at[9] == pytest.approx(((at[1][0] + at[3][0]) / 2, (at[1][1] + at[3][1]) / 2), abs=1e-6)
+
+
+def test_projected_ellipse_edge_stays_a_true_ellipse():
+    from build123d import Axis, Edge
+
+    part = Edge.make_ellipse(8, 4).rotate(Axis.X, 40).rotate(Axis.Z, 25)
+    plane = sketch.STANDARD_PLANES["XY"]
+    ref = sketch.face_reference(part.wrapped, plane, project=True)
+    ellipses = [e for e in ref["entities"] if e["type"] == "ellipse"]
+    assert len(ellipses) == 1 and not [e for e in ref["entities"] if e["type"] == "spline"]
+    pts = {p["id"]: p for p in ref["points"]}
+    e = ellipses[0]
+    c, m = pts[e["center"]], pts[e["major"]]
+    a = math.dist((c["u"], c["v"]), (m["u"], m["v"]))
+    ux, uy = (m["u"] - c["u"]) / a, (m["v"] - c["v"]) / a
+    # every sampled point of the real curve lies on the flattened ellipse
+    for i in range(0, 360, 15):
+        p = part.position_at(i / 360)
+        du, dv = p.X - c["u"], p.Y - c["v"]
+        along, across = du * ux + dv * uy, -du * uy + dv * ux
+        assert (along / a) ** 2 + (across / e["minor"]) ** 2 == pytest.approx(1, abs=1e-6)
+    assert a >= e["minor"]

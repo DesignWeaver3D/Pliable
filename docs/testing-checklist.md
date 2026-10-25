@@ -65,6 +65,7 @@ Test on: a simple block, a part with holes (the bracket), and an imported STEP f
 - [ ] add_sphere
 - [ ] add_cone
 - [ ] add_torus
+- [ ] add_prism
 - [ ] linear_array
 - [ ] circular_array
 - [ ] path_array — over connected edges
@@ -122,15 +123,15 @@ Anything not tied to one tool (crashes, lag on large parts, confusing messages) 
 - [ ] Box select, window (left to right): only items fully inside; crossing (right to left): everything touched; Box selects kind switch in settings
 - [ ] Alt+click cycles through the faces under the pointer, with see-through off and on
 - [ ] Edge ring, Edge loops and Sharp edges with one edge selected: result highlighted, tooltip explains each; sharp-edge angle slider
-- [ ] Inset face outline: outer loop and loop 1 on a face with holes (face count goes up)
+- [ ] Inset face edges: outer loop and loop 1 on a face with holes (face count goes up)
 - [ ] Divide face: typed form, and placing the divide edge by dragging in the view
 - [ ] Fillet per edge on all top-face edges: 0 open edges after applying
 - [ ] Add box creates its own body; Move body, Rotate body, Scale body and Offset body act on the selected body only; a group of faces from two bodies moves both; nothing selected moves everything
-- [ ] Combine bodies joins two bodies into one solid
+- [ ] Boolean joins two bodies into one solid
 - [ ] Emboss/Cut along surface on a cylinder face and on a wrapped sketch region; unrolled sketch plane sits beside the model
 - [ ] Unrolled sketch: cone (not a pointed cone), a chain of flat, fillet and flat faces, a region across the seam of a closed cylinder
 - [ ] Sketch: a free line and circle drag by their body without anything else moving; tangent arc and line; snap to an in-plane axis line
-- [ ] Hole centre dots: they show on every hole all the time (known, see S48); dragging one moves the hole
+- [ ] Hole centre dots: they show on every hole all the time (known); dragging one moves the hole
 - [ ] Per-tool applies-to chip: Resize hole also resizes same-size holes by default, other tools only the selected feature
 - [ ] Unsaved-work warning when leaving the page with edits or an open sketch
 - [ ] Keys window lists the see-through key (X) and the sketch keys; keys act only while the pointer is over the view

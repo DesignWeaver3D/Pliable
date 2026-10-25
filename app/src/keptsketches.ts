@@ -1,4 +1,5 @@
 /** The sketches kept in the document: a list under the bodies (show or hide, open, rename, delete) and their curves drawn in the view. Open paths are kept like closed outlines. */
+import { openRowMenuItems } from "./rowmenu";
 import * as THREE from "three";
 import type { CoreClient } from "./client";
 import { uiIcon } from "./icons";
@@ -19,11 +20,14 @@ export interface KeptHost {
   open(id: number): void;
   remove(id: number): void;
   rename(id: number, name: string): void;
-  /** Extrude the sketch's closed regions; with commit false only a preview is shown. */
-  extrude(id: number, params: { distance: number; mode: string; symmetric: boolean }, commit: boolean): void;
+  /** A row was clicked: the Delete key then removes it (see listdelete.ts). */
+  pick?(id: number): void;
 }
 
 const CURVE_COLOR = 0x9bb7d4;
+/** A sketch under the pointer (its row or its curves) and a picked one: the same colours as the model's hover and selection. */
+const HOVER_COLOR = 0xffffff;
+const PICKED_COLOR = 0xff8a1f;
 /** Closed regions are drawn as tinted faces that belong to no model: this colour is used for nothing else. */
 const PROFILE_COLOR = 0x2fd4c0;
 
@@ -34,6 +38,10 @@ export class KeptSketches {
   private readonly curves = new Map<number, { rev: number; lines: THREE.LineSegments; fills: THREE.Mesh[] }>();
   private readonly profiles = new Map<number, { rev: number; meshes: { positions: number[]; indices: number[] }[] }>();
   private editing: number | null = null;
+  private picked: number | null = null;
+  private hovered: number | null = null;
+  private hoveredRegion: { id: number; region: number } | null = null;
+  private readonly rows = new Map<number, HTMLElement>();
   private readonly group = new THREE.Group();
   private syncing = false;
   private again = false;
@@ -43,6 +51,7 @@ export class KeptSketches {
     this.host = host;
     this.group.renderOrder = 4;
     host.scene.add(this.group);
+    host.list.addEventListener("pointerleave", () => this.setHovered(null));
     this.render();
   }
 
@@ -55,6 +64,61 @@ export class KeptSketches {
     void this.sync();
   }
 
+  /** Highlight the row the Delete key would remove (null for none). */
+  setPicked(id: number | null) {
+    this.picked = id;
+    this.paint();
+  }
+
+  /** The sketch under the pointer, from its row or from the view (null for none): its row and its curves light up. */
+  setHovered(id: number | null) {
+    if (this.hovered === id) return;
+    this.hovered = id;
+    this.paint();
+  }
+
+  /** The tinted region under the pointer in the view (null for none) is drawn stronger. */
+  setHoveredRegion(at: { id: number; region: number } | null) {
+    if (this.hoveredRegion?.id === at?.id && this.hoveredRegion?.region === at?.region) return;
+    this.hoveredRegion = at;
+    this.paint();
+  }
+
+  /** Colour the rows and the drawn curves for the hovered and picked sketch without rebuilding anything (a rebuilt row would break a double-click). */
+  private paint() {
+    for (const [id, row] of this.rows) {
+      row.classList.toggle("selected", this.picked === id);
+      row.classList.toggle("hovered", this.hovered === id);
+    }
+    for (const [id, c] of this.curves) {
+      const color = this.picked === id ? PICKED_COLOR : this.hovered === id ? HOVER_COLOR : CURVE_COLOR;
+      (c.lines.material as THREE.LineBasicMaterial).color.setHex(color);
+      c.fills.forEach((fill, region) => ((fill.material as THREE.MeshBasicMaterial).opacity = this.hoveredRegion?.id === id && this.hoveredRegion.region === region ? 0.5 : 0.28));
+    }
+  }
+
+  /** The curves (not the tinted regions) of the visible sketches, for a double-click in the view to find the sketch under the pointer. */
+  curveTargets(): { id: number; object: THREE.LineSegments }[] {
+    return [...this.curves].map(([id, c]) => ({ id, object: c.lines }));
+  }
+
+  /** Show a sketch moved to `plane` (null puts it back) without changing anything stored: its drawn curves and regions are carried along. */
+  previewPlane(id: number, plane: M.PlaneData | null) {
+    const drawn = this.curves.get(id);
+    const data = this.cache.get(id)?.data;
+    if (!drawn || !data) return;
+    const basis = (p: M.PlaneData) => {
+      const f = M.frame(p);
+      return new THREE.Matrix4().makeBasis(new THREE.Vector3(...f.x), new THREE.Vector3(...f.y), new THREE.Vector3(...f.n)).setPosition(...f.origin);
+    };
+    const carry = plane ? basis(plane).multiply(basis(data.plane).invert()) : new THREE.Matrix4();
+    for (const o of [drawn.lines, ...drawn.fills]) {
+      o.matrixAutoUpdate = false;
+      o.matrix.copy(carry);
+      o.matrixWorldNeedsUpdate = true;
+    }
+  }
+
   /** The sketch being edited is drawn by the sketch editor; its kept copy is hidden meanwhile. */
   setEditing(id: number | null) {
     this.editing = id;
@@ -65,6 +129,7 @@ export class KeptSketches {
     const { list, count } = this.host;
     count.textContent = String(this.list.length);
     list.replaceChildren();
+    this.rows.clear();
     for (const k of this.list) {
       const row = document.createElement("div");
       row.className = "bodyrow keptrow";
@@ -81,24 +146,38 @@ export class KeptSketches {
       const name = document.createElement("span");
       name.className = "bodyname";
       name.textContent = k.name;
-      name.title = "Double-click to rename";
-      name.addEventListener("dblclick", () => this.rename(k, name));
       const edit = document.createElement("button");
       edit.className = "rowbtn";
       edit.title = "Edit this sketch";
       edit.append(uiIcon("edit", 14));
       edit.addEventListener("click", () => this.host.open(k.id));
-      const extrude = document.createElement("button");
-      extrude.className = "rowbtn";
-      extrude.title = "Extrude the closed regions of this sketch (adds, cuts or makes a new body)";
-      extrude.append(uiIcon("extrude", 14));
-      extrude.addEventListener("click", () => this.extrudeDialog(k));
       const del = document.createElement("button");
       del.className = "rowbtn";
       del.title = "Delete this sketch (Undo brings it back)";
       del.append(uiIcon("close", 14));
       del.addEventListener("click", () => this.host.remove(k.id));
-      row.append(eye, name, extrude, edit, del);
+      row.append(eye, name, edit, del);
+      row.classList.toggle("selected", this.picked === k.id);
+      row.classList.toggle("hovered", this.hovered === k.id);
+      row.title = "Double-click to edit this sketch";
+      row.addEventListener("pointerenter", () => this.setHovered(k.id));
+      row.addEventListener("click", (e) => {
+        if ((e.target as HTMLElement).closest("button, input")) return;
+        this.host.pick?.(k.id);
+      });
+      row.addEventListener("dblclick", (e) => {
+        if ((e.target as HTMLElement).closest("button, input")) return;
+        this.host.open(k.id);
+      });
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        this.host.pick?.(k.id);
+        openRowMenuItems(e.clientX, e.clientY, [
+          { label: "Rename", run: () => this.rename(k, row.querySelector<HTMLElement>(".bodyname")!), title: "Rename this sketch" },
+          { label: "Delete", run: () => this.host.remove(k.id), title: "Delete this sketch (Undo brings it back)" },
+        ]);
+      });
+      this.rows.set(k.id, row);
       list.append(row);
     }
     if (!this.list.length) {
@@ -109,56 +188,9 @@ export class KeptSketches {
     }
   }
 
-  /** Distance, mode and direction for extruding a kept sketch's regions; Preview shows it, Extrude commits. */
-  private extrudeDialog(k: KeptInfo) {
-    const dialog = document.createElement("dialog");
-    dialog.className = "sketchsettings";
-    dialog.addEventListener("keydown", (e) => e.stopPropagation());
-    const field = (label: string, input: HTMLElement, unit = "") => {
-      const row = document.createElement("label");
-      const text = document.createElement("span");
-      text.textContent = label;
-      const tail = document.createElement("span");
-      tail.className = "unit";
-      tail.textContent = unit;
-      row.append(text, input, tail);
-      return row;
-    };
-    const distance = document.createElement("input");
-    distance.type = "number";
-    distance.step = "any";
-    distance.value = "10";
-    const mode = document.createElement("select");
-    for (const [value, label] of [["join", "Join (add material)"], ["cut", "Cut (remove material)"], ["new", "New body"]]) mode.append(new Option(label, value));
-    const both = document.createElement("input");
-    both.type = "checkbox";
-    const title = document.createElement("h3");
-    title.textContent = `Extrude ${k.name}`;
-    const values = () => ({ distance: Number(distance.value), mode: mode.value, symmetric: both.checked });
-    const usable = () => Number.isFinite(values().distance) && values().distance !== 0;
-    const button = (label: string, on: () => void) => {
-      const b = document.createElement("button");
-      b.textContent = label;
-      b.addEventListener("click", on);
-      return b;
-    };
-    const buttons = document.createElement("div");
-    buttons.append(
-      button("Cancel", () => dialog.close()),
-      button("Extrude", () => {
-        if (usable()) this.host.extrude(k.id, values(), true);
-        dialog.close();
-      }),
-      button("Preview", () => {
-        if (usable()) this.host.extrude(k.id, values(), false);
-      }),
-    );
-    dialog.append(title, field("Distance", distance, "mm"), field("Mode", mode), field("Both directions", both), buttons);
-    dialog.addEventListener("close", () => dialog.remove());
-    document.body.append(dialog);
-    dialog.showModal();
-    distance.focus();
-    distance.select();
+  /** The drawn profile regions, so a click in the view can pick them like faces. */
+  fillTargets(): { id: number; region: number; object: THREE.Object3D }[] {
+    return [...this.curves].flatMap(([id, c]) => c.fills.map((object, region) => ({ id, region, object })));
   }
 
   private rename(k: KeptInfo, label: HTMLElement) {
@@ -229,6 +261,7 @@ export class KeptSketches {
           const fills = (this.profiles.get(k.id)?.meshes ?? []).map((m) => this.fill(m));
           this.group.add(lines, ...fills);
           this.curves.set(k.id, { rev: cached.rev, lines, fills });
+          this.paint();
         }
         for (const id of [...this.cache.keys()]) if (!this.list.some((k) => k.id === id)) this.cache.delete(id);
         for (const id of [...this.profiles.keys()]) if (!this.list.some((k) => k.id === id)) this.profiles.delete(id);
@@ -238,7 +271,7 @@ export class KeptSketches {
     }
   }
 
-  /** One closed region as a tinted view-only face (it is not part of the model and cannot be picked as one). */
+  /** One closed region as a tinted face that belongs to no model; a click on it makes it a temporary face of the model (see pickProfile in main.ts). */
   private fill(mesh: { positions: number[]; indices: number[] }): THREE.Mesh {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(mesh.positions, 3));

@@ -1,4 +1,4 @@
-"""Sketching on unrolled faces (S33).
+"""Sketching on unrolled faces.
 
 Some surfaces unroll onto a plane without stretching, so a sketch drawn on the flat result maps back exactly.
 Two kinds are supported:

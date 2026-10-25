@@ -1,0 +1,3364 @@
+[
+ {
+  "id": "push_pull",
+  "label": "Push/Pull",
+  "description": "Moves flat faces in or out along their normal, adding or removing material. Select one or more flat faces, then drag or type a distance. Hold Shift while dragging to push/pull symmetrically: a sketch face about its plane, two parallel faces about their mid-plane, or one face with its mirror counterpart about the origin plane or a datum plane. Alt+click cycles through faces under the cursor.",
+  "accepts": {
+   "faces": [
+    1,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "distance",
+    "kind": "length",
+    "default": 0.0,
+    "drag": true,
+    "options": []
+   }
+  ],
+  "related": [
+   "coplanar",
+   "parallel"
+  ],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "push_pull_surface",
+  "label": "Emboss/Cut along surface",
+  "description": "Raises or cuts curved faces along their surface normal, for example a pattern drawn on unrolled faces. Select curved faces and type a distance; positive raises, negative cuts.",
+  "accepts": {
+   "faces": [
+    1,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "distance",
+    "kind": "length",
+    "default": 1.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "fillet_chamfer",
+  "label": "Fillet/Chamfer",
+  "description": "Rounds or bevels the selected edges. Select edges, then drag outward to round (fillet) or inward to bevel (chamfer), or type a distance.",
+  "accepts": {
+   "faces": [
+    0,
+    0
+   ],
+   "edges": [
+    1,
+    null
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "distance",
+    "kind": "length",
+    "default": 0.0,
+    "drag": true,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "delete_face",
+  "label": "Defeature",
+  "description": "Removes a feature (a pocket, boss, hole, slot or round) by deleting its faces and extending the neighbouring faces to close the gap. Select one or more faces of the feature; if the faces cannot be closed over, it says why.",
+  "accepts": {
+   "faces": [
+    1,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "remove_round",
+  "label": "Remove fillet/chamfer",
+  "description": "Takes away a rounded or beveled edge and restores the sharp corner. Select the rounded or beveled face.",
+  "accepts": {
+   "faces": [
+    1,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "fill_hole",
+  "label": "Fill hole / remove boss",
+  "description": "Fills a hole with material, or cuts a boss back flush. Select the round face of the hole or boss.",
+  "accepts": {
+   "faces": [
+    1,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [],
+  "related": [
+   "equal_radius"
+  ],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "resize_hole",
+  "label": "Resize hole / boss",
+  "description": "Changes the diameter of a hole or boss, keeping its axis and depth. Select its round face; a diameter of 0 leaves it unchanged.",
+  "accepts": {
+   "faces": [
+    1,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "diameter",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [
+   "equal_radius"
+  ],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "move_hole",
+  "label": "Move hole / boss",
+  "description": "Moves a hole or boss by the given distances along X, Y and Z. Select its round face.",
+  "accepts": {
+   "faces": [
+    1,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "dx",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dy",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dz",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [
+   "equal_radius"
+  ],
+  "placement": null,
+  "move_vector": [
+   "dx",
+   "dy",
+   "dz"
+  ],
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "pattern_hole",
+  "label": "Pattern hole / boss",
+  "description": "Makes copies of a hole or boss in a straight line. Select its round face, then set the total count and the step between copies along X, Y and Z.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "count",
+    "kind": "number",
+    "default": 3,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dx",
+    "kind": "length",
+    "default": 10,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dy",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dz",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": [
+   "dx",
+   "dy",
+   "dz"
+  ],
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "pattern_hole_circular",
+  "label": "Circular pattern",
+  "description": "Makes copies of a hole or boss around an axis. Select its round face, set the count and the angle to spread them over (360 = full circle); the axis defaults to Z through the origin.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "count",
+    "kind": "number",
+    "default": 6,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "angle",
+    "kind": "angle",
+    "default": 360,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "px",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "py",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "pz",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "ax",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "ay",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "az",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": [
+   "px",
+   "py",
+   "pz"
+  ],
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "add_hole",
+  "label": "Add hole",
+  "description": "Drills a round hole into a flat face, placed from the face centre. Select one flat face; depth 0 = through.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "diameter",
+    "kind": "length",
+    "default": 6,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "depth",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "offset_u",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "offset_v",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "add_counterbore",
+  "label": "Add counterbore",
+  "description": "Drills a stepped hole with a wider, flat-bottomed top part for a screw head. Select one flat face; depth 0 = through.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "diameter",
+    "kind": "length",
+    "default": 6,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "depth",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "offset_u",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "offset_v",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "bore_diameter",
+    "kind": "length",
+    "default": 11,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "bore_depth",
+    "kind": "length",
+    "default": 4,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "add_countersink",
+  "label": "Add countersink",
+  "description": "Drills a hole with a cone-shaped opening for a flat-head screw. Select one flat face; depth 0 = through.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "diameter",
+    "kind": "length",
+    "default": 6,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "depth",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "offset_u",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "offset_v",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "sink_diameter",
+    "kind": "length",
+    "default": 12,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "sink_angle",
+    "kind": "angle",
+    "default": 90,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "align_holes",
+  "label": "Align holes / bosses",
+  "description": "Lines up holes or bosses so their centres match the first one you selected, along the chosen axis (0 = X, 1 = Y, 2 = Z). Select two or more round faces.",
+  "accepts": {
+   "faces": [
+    2,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "axis",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "distribute_holes",
+  "label": "Distribute holes / bosses",
+  "description": "Spaces holes or bosses evenly between the two outermost ones, along the chosen axis (0 = X, 1 = Y, 2 = Z). Select three or more round faces.",
+  "accepts": {
+   "faces": [
+    3,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "axis",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "add_boss",
+  "label": "Add boss",
+  "description": "Adds a round post standing on a flat face, placed from the face centre. Select one flat face.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "diameter",
+    "kind": "length",
+    "default": 10,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "height",
+    "kind": "length",
+    "default": 5,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "offset_u",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "offset_v",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "add_slot",
+  "label": "Add slot",
+  "description": "Cuts a slot with rounded ends into a flat face, placed from the face centre. Select one flat face; angle turns the slot.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "length",
+    "kind": "length",
+    "default": 20,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "width",
+    "kind": "length",
+    "default": 6,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "depth",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "angle",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "offset_u",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "offset_v",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "center_between",
+  "label": "Center between faces",
+  "description": "Centers a hole or boss between two parallel flat faces. Select the round face and the two flat faces, in any order; or the round face and one flat face, and the opposite side is found for you.",
+  "accepts": {
+   "faces": [
+    2,
+    3
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "add_box",
+  "label": "Add box",
+  "description": "Adds a box, given by its corner and size. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model.",
+  "accepts": {
+   "faces": [
+    0,
+    0
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "width",
+    "kind": "length",
+    "default": 10,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "depth",
+    "kind": "length",
+    "default": 10,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "height",
+    "kind": "length",
+    "default": 10,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "x",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "y",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "z",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rx",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "ry",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rz",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "new_body",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": [
+   "x",
+   "y",
+   "z"
+  ],
+  "move_vector": null,
+  "starts_from": "tool",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Box",
+  "keeps_body_order": false
+ },
+ {
+  "id": "add_cylinder",
+  "label": "Add cylinder",
+  "description": "Adds a cylinder standing on the XY plane at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model.",
+  "accepts": {
+   "faces": [
+    0,
+    0
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "diameter",
+    "kind": "length",
+    "default": 10,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "height",
+    "kind": "length",
+    "default": 10,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "x",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "y",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "z",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rx",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "ry",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rz",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "new_body",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": [
+   "x",
+   "y",
+   "z"
+  ],
+  "move_vector": null,
+  "starts_from": "tool",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Cylinder",
+  "keeps_body_order": false
+ },
+ {
+  "id": "shell",
+  "label": "Shell",
+  "description": "Hollows out the solid, leaving the selected faces open. Select the faces to open; the wall thickness grows inward.",
+  "accepts": {
+   "faces": [
+    1,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "thickness",
+    "kind": "length",
+    "default": 2,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "mirror",
+  "label": "Mirror",
+  "description": "Mirrors the whole model across the plane of a flat face and joins the copy. Select one flat face; offset moves the mirror plane.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "offset",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "patch_fill",
+  "label": "Patch fill",
+  "description": "Closes a gap bounded by selected edges with a smooth filled surface. Select three or more edges; continuity 1 = tangent to neighbours, 0 = just touching.",
+  "accepts": {
+   "faces": [
+    0,
+    0
+   ],
+   "edges": [
+    3,
+    null
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "continuity",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "bridge",
+  "label": "Bridge edges",
+  "description": "Joins two edges with a straight-ruled surface. Select two edges.",
+  "accepts": {
+   "faces": [
+    0,
+    0
+   ],
+   "edges": [
+    2,
+    2
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "unify",
+  "label": "Refine bodies",
+  "description": "Merges neighbouring faces that lie on the same surface, for example after opening a file made of many small faces. Select bodies (or any face of them) to refine only those, which is much faster on a model with many bodies; with nothing selected every body is refined.",
+  "accepts": {
+   "faces": [
+    0,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    null
+   ],
+   "any_of": false
+  },
+  "params": [],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "draft",
+  "label": "Draft",
+  "description": "Tilts flat faces by an angle so they release from a mold, pivoting about the face centroid (or a picked axis point, or the model's lowest point) along the pull direction (default Z). Select one or more flat faces.",
+  "accepts": {
+   "faces": [
+    1,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "angle",
+    "kind": "angle",
+    "default": 3,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "pull_x",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "pull_y",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "pull_z",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "axis",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Face centroid",
+     "Picked point",
+     "Model base"
+    ]
+   },
+   {
+    "name": "axis_x",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "axis_y",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "axis_z",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "align_face",
+  "label": "Align face",
+  "description": "Moves the first selected flat face until it is flush with the second, plus an optional offset. Needs exactly two parallel flat faces selected, the one to move first; it stays unavailable until both are selected.",
+  "accepts": {
+   "faces": [
+    2,
+    2
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "offset",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "stretch",
+  "label": "Stretch",
+  "description": "Moves the end faces you select by a distance and re-fits the faces joined to them, so the part gets longer or shorter without cutting. Select the faces at one end; mode 0 re-fits the sides, mode 1 extrudes the end's section.",
+  "accepts": {
+   "faces": [
+    1,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "dx",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dy",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dz",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "mode",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "move_body",
+  "label": "Move/Rotate",
+  "description": "Moves and turns a whole solid in one step. Drag the arrows (or type distances) to move along X, Y and Z, and drag the rings (or type degrees) to turn about X, Y and Z through the body's centre; the turn is applied first, then the move. Select bodies from the list, any face of the solid, or nothing to move the whole model. With edges selected it moves only the edges (the faces beside them follow): the gizmo sits at the edge middle with two arrows square to the edge and one arc between them that turns the arrows about the edge (Rotate X, which never moves the edge), snapping square to the faces beside the edge. Move X, Y and Z are the edge's world move; Rotate Y and Z are not used.",
+  "accepts": {
+   "faces": [
+    0,
+    null
+   ],
+   "edges": [
+    0,
+    null
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    null
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "dx",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dy",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dz",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rx",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "ry",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rz",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": [
+   "dx",
+   "dy",
+   "dz"
+  ],
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": true,
+  "body_kind": "Body",
+  "keeps_body_order": true
+ },
+ {
+  "id": "rotate_body",
+  "label": "Rotate body",
+  "description": "Rotates a whole solid about the X, Y or Z axis (0 = X, 1 = Y, 2 = Z): through the origin, or through the body's centre when you select bodies from the list. Select bodies, any face of a solid, or nothing for the whole model.",
+  "accepts": {
+   "faces": [
+    0,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    null
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "axis",
+    "kind": "number",
+    "default": 2,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "angle",
+    "kind": "angle",
+    "default": 90,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": true,
+  "whole_model_needs_one_body": true,
+  "body_kind": "Body",
+  "keeps_body_order": true
+ },
+ {
+  "id": "scale_body",
+  "label": "Scale body",
+  "description": "Scales a whole solid evenly, about the origin or about the body's centre when you select bodies from the list. Select bodies, any face of a solid, or nothing for the whole model; 2 doubles the size.",
+  "accepts": {
+   "faces": [
+    0,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    null
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "factor",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": true,
+  "body_kind": "Body",
+  "keeps_body_order": true
+ },
+ {
+  "id": "add_sphere",
+  "label": "Add sphere",
+  "description": "Adds a sphere at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model.",
+  "accepts": {
+   "faces": [
+    0,
+    0
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "diameter",
+    "kind": "length",
+    "default": 10,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "x",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "y",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "z",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rx",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "ry",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rz",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "new_body",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": [
+   "x",
+   "y",
+   "z"
+  ],
+  "move_vector": null,
+  "starts_from": "tool",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Sphere",
+  "keeps_body_order": false
+ },
+ {
+  "id": "add_cone",
+  "label": "Add cone",
+  "description": "Adds a cone or truncated cone (set a top diameter of 0 for a point) at the given position. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model.",
+  "accepts": {
+   "faces": [
+    0,
+    0
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "bottom_diameter",
+    "kind": "length",
+    "default": 10,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "top_diameter",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "height",
+    "kind": "length",
+    "default": 10,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "x",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "y",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "z",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rx",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "ry",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rz",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "new_body",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": [
+   "x",
+   "y",
+   "z"
+  ],
+  "move_vector": null,
+  "starts_from": "tool",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Cone",
+  "keeps_body_order": false
+ },
+ {
+  "id": "add_torus",
+  "label": "Add torus",
+  "description": "Adds a ring shape (donut) at the given position, from the ring radius and the tube radius. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model.",
+  "accepts": {
+   "faces": [
+    0,
+    0
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "major",
+    "kind": "length",
+    "default": 20,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "minor",
+    "kind": "length",
+    "default": 5,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "x",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "y",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "z",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rx",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "ry",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rz",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "new_body",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": [
+   "x",
+   "y",
+   "z"
+  ],
+  "move_vector": null,
+  "starts_from": "tool",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Torus",
+  "keeps_body_order": false
+ },
+ {
+  "id": "add_prism",
+  "label": "Add prism",
+  "description": "Adds a prism: a regular polygon (6 sides by default, a hexagon) with a bottom and a top corner-to-corner diameter, standing on the XY plane at the given position. A top diameter of 0 makes a pyramid. Nothing needs to be selected; new_body 1 keeps it separate, 0 joins it to the model.",
+  "accepts": {
+   "faces": [
+    0,
+    0
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "sides",
+    "kind": "number",
+    "default": 6,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "bottom_diameter",
+    "kind": "length",
+    "default": 10,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "top_diameter",
+    "kind": "length",
+    "default": 10,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "height",
+    "kind": "length",
+    "default": 10,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "x",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "y",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "z",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rx",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "ry",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rz",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "new_body",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": [
+   "x",
+   "y",
+   "z"
+  ],
+  "move_vector": null,
+  "starts_from": "tool",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Prism",
+  "keeps_body_order": false
+ },
+ {
+  "id": "linear_array",
+  "label": "Linear array",
+  "description": "Makes copies of a body in a grid of columns and rows and fuses them. Select any face of the body, or nothing for the whole model; the counts include the original. Set rows to 1 for a single line.",
+  "accepts": {
+   "faces": [
+    0,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "count",
+    "kind": "number",
+    "default": 3,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rows",
+    "kind": "number",
+    "default": 3,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dx",
+    "kind": "length",
+    "default": 20,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dy",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dz",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dx2",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dy2",
+    "kind": "length",
+    "default": 20,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dz2",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": [
+   "dx",
+   "dy",
+   "dz"
+  ],
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": true,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "circular_array",
+  "label": "Circular array",
+  "description": "Makes copies of a body (select any of its faces, or nothing for the whole model) around the X, Y or Z axis through the origin (0 = X, 1 = Y, 2 = Z) and fuses them. The count includes the original; 360 spreads them round a full circle.",
+  "accepts": {
+   "faces": [
+    0,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "count",
+    "kind": "number",
+    "default": 4,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "axis",
+    "kind": "number",
+    "default": 2,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "angle",
+    "kind": "angle",
+    "default": 360,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": true,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "revolve_face",
+  "label": "Revolve face",
+  "description": "Spins a face around a straight edge to add or cut a round shape. Select one face and one straight edge as the axis; mode 0 adds material, 1 cuts.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    1,
+    1
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "angle",
+    "kind": "angle",
+    "default": 360,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "mode",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "chamfer_two_distances",
+  "label": "Chamfer (two distances)",
+  "description": "Bevels edges with a different distance on each side. Select one face (it sets which side is first) and one or more of its edges.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    1,
+    null
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "first",
+    "kind": "length",
+    "default": 2,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "second",
+    "kind": "length",
+    "default": 1,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "swap",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "chamfer_distance_angle",
+  "label": "Chamfer (distance and angle)",
+  "description": "Bevels edges with a distance on one face and an angle. Select one face (it sets the side the distance is measured on) and one or more of its edges.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    1,
+    null
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "distance",
+    "kind": "length",
+    "default": 2,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "angle",
+    "kind": "angle",
+    "default": 45,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "body_boolean",
+  "label": "Boolean",
+  "description": "Combines solids: Union joins them, Subtract removes the later ones from the first, Intersect keeps only the overlap. Select two or more bodies, or faces of them; the first selected is the target.",
+  "accepts": {
+   "faces": [
+    0,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    null
+   ],
+   "any_of": true
+  },
+  "params": [
+   {
+    "name": "mode",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Union",
+     "Subtract",
+     "Intersect"
+    ]
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "variable_fillet",
+  "label": "Variable fillet",
+  "description": "Rounds edges with a radius that changes along the edge, from the start value at its first end to the end value at its last. Select one or more edges.",
+  "accepts": {
+   "faces": [
+    0,
+    0
+   ],
+   "edges": [
+    1,
+    null
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "start",
+    "kind": "length",
+    "default": 1,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "end",
+    "kind": "length",
+    "default": 3,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "reverse",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "middle",
+    "kind": "length",
+    "default": 0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "middle_at",
+    "kind": "number",
+    "default": 0.5,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "fillet_per_edge",
+  "label": "Fillet per edge",
+  "description": "Rounds several edges, each with its own radius. Select edges; the form lists one start and end radius per edge, and 0 leaves an edge sharp.",
+  "accepts": {
+   "faces": [
+    0,
+    0
+   ],
+   "edges": [
+    1,
+    null
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "radii",
+    "kind": "per_edge",
+    "default": 2,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "loft_faces",
+  "label": "Loft between faces",
+  "description": "Joins two faces with a solid that blends from one outline to the other. Select two faces; ruled 1 gives straight sides, 0 a smooth blend.",
+  "accepts": {
+   "faces": [
+    2,
+    2
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "ruled",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "sweep_face",
+  "label": "Sweep face along edge",
+  "description": "Pulls a face along an edge to make a solid. Select one face and the edge to follow; mode 0 adds the solid, 1 cuts it.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    1,
+    1
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "mode",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "path_array",
+  "label": "Array along path",
+  "description": "Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model); the count includes the original.",
+  "accepts": {
+   "faces": [
+    0,
+    null
+   ],
+   "edges": [
+    1,
+    null
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "count",
+    "kind": "number",
+    "default": 4,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "resize_fillet",
+  "label": "Resize fillet",
+  "description": "Changes the radius of an existing fillet. Select the fillet face; an end radius of 0 keeps the radius constant.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "radius",
+    "kind": "length",
+    "default": 2,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "end_radius",
+    "kind": "length",
+    "default": 0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "resize_chamfer",
+  "label": "Resize chamfer",
+  "description": "Changes the size of an existing chamfer, each distance on its own. Select the chamfer face.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "first",
+    "kind": "length",
+    "default": 2,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "second",
+    "kind": "length",
+    "default": 2,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "cut_plane",
+  "label": "Cut with plane",
+  "description": "Cuts the model with a plane and keeps one side or both. Drag the arrow to slide the plane and the two rings to tilt it (tilt_u, tilt_v). Axis 0, 1, 2 is X, Y, Z; axis 3 uses the direction nx, ny, nz. Position is the plane's distance from the origin along its direction. Remove side +1 removes the part on the direction's side, -1 the other part, 0 keeps both as two separate bodies. Select bodies to cut only those; with nothing selected every body is cut.",
+  "accepts": {
+   "faces": [
+    0,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    null
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "axis",
+    "kind": "number",
+    "default": 2,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "position",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "remove_side",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "nx",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "ny",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "nz",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "tilt_u",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "tilt_v",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "split_plane",
+  "label": "Split with plane",
+  "description": "Splits the model into two solids along a plane (axis 0, 1, 2 = X, Y, Z or 3 for the direction nx, ny, nz). Cut with plane does the same with its keep-both choice. Select bodies to cut only those; with nothing selected every body is cut.",
+  "accepts": {
+   "faces": [
+    0,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    null
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "axis",
+    "kind": "number",
+    "default": 2,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "position",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "nx",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "ny",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "nz",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "tilt_u",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "tilt_v",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": true,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "offset_body",
+  "label": "Offset body",
+  "description": "Grows (positive) or shrinks (negative) a solid evenly in all directions. Select bodies, any face of the solid, or nothing for the whole model.",
+  "accepts": {
+   "faces": [
+    0,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    null
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "distance",
+    "kind": "length",
+    "default": 1,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": true,
+  "body_kind": "Body",
+  "keeps_body_order": true
+ },
+ {
+  "id": "round_face",
+  "label": "Round face edges",
+  "description": "Rounds (positive) or bevels (negative) every edge around the selected faces in one step. Select one or more faces.",
+  "accepts": {
+   "faces": [
+    1,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "distance",
+    "kind": "length",
+    "default": 1,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "inset_face",
+  "label": "Inset face edges",
+  "description": "Draws an inner outline on a flat face, a set distance in from its edges, so that inner area can be pushed, pulled or cut on its own. Select one flat face. Set all_loops to 1 to inset the outer perimeter and every inner profile together; otherwise loop picks one (0 is the outer perimeter).",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "distance",
+    "kind": "length",
+    "default": 2,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "loop",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "all_loops",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "divide_face",
+  "label": "Divide face",
+  "description": "Adds a dividing line straight across a flat face so each side can be moved on its own. Select one flat face; across picks the direction (0 or 1) and offset the position from the centre.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "across",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "offset",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "edit_hole",
+  "label": "Edit hole",
+  "description": "Changes a round hole's diameter or depth and moves it, keeping counterbore or countersink steps. Select a face of the hole or the circle at its opening; 0 leaves a size unchanged, and a depth as long as the body is through.",
+  "accepts": {
+   "faces": [
+    0,
+    1
+   ],
+   "edges": [
+    0,
+    1
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": true
+  },
+  "params": [
+   {
+    "name": "diameter",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "depth",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "start",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dx",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dy",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dz",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": [
+   "dx",
+   "dy",
+   "dz"
+  ],
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "convert_to_countersink",
+  "label": "Add countersink to hole",
+  "description": "Adds a countersink to an existing round hole: turns its opening into a cone for a flat-head screw, set by the cone's diameter at the surface and its included angle. Select a face of the hole or the circle at its opening. End 0 is the opening, end 1 the far end of a through hole. This is not the same as an edge chamfer, which is a plain edge break.",
+  "accepts": {
+   "faces": [
+    0,
+    1
+   ],
+   "edges": [
+    0,
+    1
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": true
+  },
+  "params": [
+   {
+    "name": "sink_diameter",
+    "kind": "length",
+    "default": 12,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "sink_angle",
+    "kind": "angle",
+    "default": 90,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "end",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "convert_to_counterbore",
+  "label": "Add counterbore to hole",
+  "description": "Adds a counterbore to an existing round hole: widens its opening into a flat-bottomed step for a bolt head, set by the step's diameter and depth. Select a face of the hole or the circle at its opening. End 0 is the opening, end 1 the far end of a through hole.",
+  "accepts": {
+   "faces": [
+    0,
+    1
+   ],
+   "edges": [
+    0,
+    1
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": true
+  },
+  "params": [
+   {
+    "name": "bore_diameter",
+    "kind": "length",
+    "default": 12,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "bore_depth",
+    "kind": "length",
+    "default": 4,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "end",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ }
+]

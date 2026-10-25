@@ -1,0 +1,159 @@
+an empty scene gets the minimum length
+axes extend past a large box
+the longest extent of all boxes decides, not the first
+a box far from the origin still reaches it and beyond
+non-finite boxes are ignored
+positionsBox
+the model box is the core bounds, which still cover hidden bodies
+without usable bounds the edge positions give the box
+every colour is readable on the dark background (contrast at least 7:1)
+colours stay muted: saturation and lightness inside the bounds
+the first twelve ids have clearly different hues
+the same id always gives the same colour
+the eye toggles one body
+isolate hides the others and toggles back to all
+hidden ids of vanished bodies are dropped
+row clicks replace, toggle and take ranges
+hiding a body removes its triangles and edges but keeps ids
+double-click on a face selects its body; edges, vertices and empty space do not
+window needs every end inside; crossing needs any touch
+a polyline edge is judged segment by segment
+a face is taken by crossing when it overlaps the box without a corner inside it
+window takes a face only when all its triangles are inside
+a polyline is selected by a window only when wholly inside, by a crossing box when touched
+sketch items in a box: points by position, curves by the window and crossing rules
+a datum plane is drawn as a square about its origin, in its own plane
+typed dimension values parse numbers only
+shown values drop trailing zeros
+the X toggles one body between solid and see-through
+focus on a body ghosts every other body
+focus again restores
+a body ghosted by hand stays ghosted when focus is turned off
+ghosting by hand during focus survives the end of focus
+focus on another body moves the focus
+a focused body that was ghosted by hand becomes solid
+removed bodies are pruned and focus ends with its body
+draw ranges merge into solid and see-through runs
+a drag shows the measure pick key
+idle shows no static legend
+held modifiers change the line
+tips: measure during a drag, see-through at a selection, never after dismissal or when off
+preferences round-trip and survive bad storage
+getting started lists six items and shows once while hints are on
+the sketch key hint stays hidden once dismissed, in the sketch only
+each sketch plane button names the axes along its bottom and left edges
+a hole offers its middle and both axis ends as snap points
+a centre without a length has no end points
+every tool in the layout groups has a drawn icon
+a tool without an icon falls back to its initials
+the Tools button uses the left-sidebar icon: a frame, a divider and a filled left pane
+the view controls have drawn icons, and axes is drawn with three axis lines
+the tools handle candidates are drawn as valid, currentColor-based SVG
+default keymap is sound: parseable, valid, no duplicate chords
+a duplicate binding is reported
+view digits match the physical key, with or without shift
+letters match the printed character
+undo and redo need Ctrl; bare z does nothing
+text fields, composing input and an unfocused page swallow everything
+bare keys need an engaged viewport, modified keys do not
+value entry owns the keyboard, including undo
+held keys fire once, except where repeat is allowed
+sketch mode swaps undo and hide for the sketch's own keys and keeps view keys
+sketch keys obey the guards: text fields, engagement, repeat; Escape needs no engagement
+sketch keys are fixed and may share Ctrl+Z with the app undo
+the single-key switch turns off bare keys only
+sequences and bad chords are rejected
+browser-reserved and app-reserved keys are rejected
+any combination of Ctrl, Alt and Shift is a valid modifier set
+model and setting commands cannot take a bare key; view and arm commands can
+a conflicting assignment names the owner
+user rebinding takes effect and the old key stops working
+saved keymaps drop invalid or conflicting entries
+hints show the first non-numpad chord
+engagement: pointer, grace period, click and blur
+measure key runs during a tool drag and can be rebound
+the shortcuts dialog opens with ? (Shift+/) on any layout and passes the key policy
+only the newest request waits while one runs, and runs never overlap
+cancelling drops the waiting request and marks the running one stale
+a run that throws does not stop the next one
+travel changes the value by scale times the distance, never below the minimum
+a maximum caps the value
+travelFor is the inverse of handleValue
+a ray finds the closest point along the handle line
+a ray along the line has no defined position
+labels show at most three decimals
+move arrows take the origin-axis colour of their direction and resize grips are neutral
+a low face handle moves the origin the opposite way so the far face stays put
+a clamped size keeps the linked origin consistent
+a typed number is the size for a resize grip, in either direction of its scale
+a typed number is the distance along the axis for a move arrow, negative going back
+a typed number is the value of a radius or distance handle
+nothing usable typed gives no travel, and entry keys build the text
+typing a handle value changes nothing until Enter applies it
+Escape while typing a handle value restores the start without applying
+a move arrow has a fixed screen length of about 80 px
+a move arrowhead beats a resize grip under the same pixel, but its start does not
+a radius handle on a diameter parameter types a radius, a diameter handle types the diameter
+typing on a handle pushed to a negative value keeps the negative sign
+a rotation ring handle wears its axis colour and a typed number is the angle in degrees
+refitRing keeps the grip's angle and turns degrees per unit with the new radius
+the default material exists in the registry
+every material has a positive density and render values in range
+the requested materials exist
+metals have metalness 1 and no clearcoat, plastics and resins 0
+lustre order: silver and gold are the smoothest, titanium the dullest
+the move vector is destination minus base
+the origin puts the chosen anchor at the destination
+point text is short
+a picked base becomes an offset from the placement point and lands on the destination
+move arrows relocate to the picked base point, other handles stay
+every hole centre is a snap candidate unless hidden
+a hole axis is carried onto the face around its mouth
+hole mouth centres come from the nearest square planes on each side
+scope prefixes
+keywords find tools by other names
+label start beats keyword and loose letters
+scope limits results
+recents come first when empty
+recents list is newest first, unique and capped
+long queries need a real match
+see-through opacity defaults to 12 percent and updates live
+face area and edge length
+similar faces by direction and by area
+similar edges by length
+the sheet lists every command with its key and escapes markup
+nearly touching points are found and joined, dropping the constraint that tied them
+an end that meets nothing is open; one tied by a coincident constraint is not
+joining points that coincide already removes the redundant constraint and zero-length lines
+moving shapes shifts their points and leaves fixed reference points alone
+rotating a quarter turn about the middle
+scaling a copy scales its circle radius and leaves the original
+a mirrored copy flips its arc and is tied to the axis by symmetric constraints
+a linear array adds count minus one spaced copies
+splitting a line keeps its direction constraints on both pieces, or ties them together
+axes in the plane, parallel to it, and square to it
+ellipses and splines are drawn from their points
+reference dimensions read the current geometry and the new constraint buttons fit their selections
+constraint marks sit on the geometry they hold
+an ellipse offers a short radius dimension that reads its minor axis
+the sketch's own axes pass through its origin and take the colour of the nearest model axis
+forSolver leaves out reference curves and fixed points nothing uses
+horizontal and vertical apply to several selected lines, each as detected
+coincident joins several points, and puts points on an edge
+tangent / collinear picks the constraint from the selection
+the smart dimension picks the dimension from the selection
+every dimension drawn on the sketch names its constraint, so it can be edited there
+the circle through three points
+a three-point arc runs counterclockwise from whichever end comes first that way
+slot corners lie either side of the axis between the end centres
+a mesh splits into the bodies that slide and the rest
+bodies that shifted along the arrow are the moving ones
+a body whose hole moves is not slid with the hole
+everything is shown, with no More button, while it fits in two rows
+past two rows the list is cut so that the More button fits in the second row
+helpers keep their room, and one tool stays even in a very narrow strip
+the strip is centred in the room between the left and right sides
+tooltip has the label, the description and the selection needs on a second line
+a shortcut is shown after the description
+a tool that needs no selection says so
+a missing description still gives a readable tooltip

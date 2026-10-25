@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from OCP.BRepAdaptor import BRepAdaptor_Surface
 from OCP.BOPAlgo import BOPAlgo_GlueShift
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
-from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
+from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy, BRepBuilderAPI_Transform
 from OCP.BRep import BRep_Tool
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer, BRepFilletAPI_MakeFillet
@@ -15,7 +15,7 @@ from OCP.BRepOffset import BRepOffset_MakeOffset, BRepOffset_Skin
 from OCP.GeomAbs import GeomAbs_Arc
 from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.GeomAbs import GeomAbs_Plane
-from OCP.gp import gp_Dir, gp_Pnt, gp_Vec
+from OCP.gp import gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
 from OCP.TopAbs import TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID
 from OCP.TopExp import TopExp_Explorer
@@ -39,6 +39,24 @@ def planar_normal(face: TopoDS_Face) -> gp_Dir | None:
     if face.Orientation() == TopAbs_REVERSED:
         normal = normal.Reversed()
     return normal
+
+
+MIN_PULL_COSINE = 0.05  # a pull direction within about 3 degrees of a face's own plane would make a sliver, not an extrusion
+
+
+def pull_direction(normal: gp_Dir, direction=None) -> gp_Vec:
+    """The unit direction a face is pushed or pulled along: its normal, or the chosen `direction` (x, y, z) turned to point
+    out of the face (a picked edge has no sign of its own). A direction along the face itself is refused."""
+    if direction is None:
+        return gp_Vec(normal)
+    vector = gp_Vec(*direction)
+    if vector.Magnitude() < 1e-9:
+        return gp_Vec(normal)
+    vector.Normalize()
+    cosine = vector.Dot(gp_Vec(normal))
+    if abs(cosine) < MIN_PULL_COSINE:
+        raise OperationError("That direction lies along the face; pick one that points out of it")
+    return vector if cosine > 0 else vector.Reversed()
 
 
 def edge_curve(edge: TopoDS_Edge):
@@ -156,6 +174,8 @@ def push_pull(
     preview: bool = False,
     follow_edges: list[TopoDS_Shape] | None = None,
     follow_vertices: list[TopoDS_Shape] | None = None,
+    symmetric: bool = False,
+    direction=None,
 ) -> OpResult:
     """Push/pull acting only on the solid that contains the face(s).
 
@@ -167,11 +187,11 @@ def push_pull(
     faces = face if isinstance(face, list) else [face]
     sheets = [f for f in faces if not any(_contains(solid, f) for solid in solids)] if solids or _is_sheet_model(shape, faces) else []
     if sheets and len(sheets) == len(faces):
-        return _push_pull_sheets(shape, faces, distance)
+        return _push_pull_sheets(shape, faces, distance, symmetric, direction)
     if sheets:
         raise OperationError("Select either faces of a solid or loose faces made from a sketch, not both")
     if len(solids) < 2 or not faces:
-        return _push_pull(shape, face, distance, preview, follow_edges, follow_vertices)
+        return _push_pull(shape, face, distance, preview, follow_edges, follow_vertices, direction)
     owners = set()
     for f in faces:
         for i, solid in enumerate(solids):
@@ -183,7 +203,7 @@ def push_pull(
     if len(owners) != 1:
         raise OperationError("The selected faces belong to different solids; select faces of one solid")
     index = owners.pop()
-    result = _push_pull(solids[index], face, distance, preview, follow_edges, follow_vertices)
+    result = _push_pull(solids[index], face, distance, preview, follow_edges, follow_vertices, direction)
     compound, builder = TopoDS_Compound(), BRep_Builder()
     builder.MakeCompound(compound)
     for i, solid in enumerate(solids):
@@ -213,10 +233,11 @@ def _volume_of(shape: TopoDS_Shape) -> float:
     return props.Mass()
 
 
-def _push_pull_sheets(shape: TopoDS_Shape, faces: list[TopoDS_Face], distance: float) -> OpResult:
+def _push_pull_sheets(shape: TopoDS_Shape, faces: list[TopoDS_Face], distance: float, symmetric: bool = False, direction=None) -> OpResult:
     """Push/pull on loose faces (regions of a closed sketch): extrude them along their normal into solids.
     A negative distance cuts into the model where the face overlaps it; otherwise (and for positive
-    distances) the new solid is fused with what it touches or stands on its own."""
+    distances) the new solid is fused with what it touches or stands on its own. Symmetric: the face's own plane is the
+    middle and it is pushed `distance` to each side (the cap that follows the pointer is on the normal's side)."""
     if abs(distance) < MIN_DISTANCE:
         return OpResult(shape, list(faces), unified=True)
     prisms, caps = [], []
@@ -224,7 +245,12 @@ def _push_pull_sheets(shape: TopoDS_Shape, faces: list[TopoDS_Face], distance: f
         normal = planar_normal(f)
         if normal is None:
             raise OperationError("Push/pull currently supports planar faces only")
-        prism = BRepPrimAPI_MakePrism(f, gp_Vec(normal).Multiplied(distance))
+        start, vector = f, pull_direction(normal, direction).Multiplied(distance)
+        if symmetric:
+            trsf = gp_Trsf()
+            trsf.SetTranslation(gp_Vec(normal).Multiplied(-distance))
+            start, vector = BRepBuilderAPI_Transform(f, trsf, True).Shape(), gp_Vec(normal).Multiplied(2 * distance)
+        prism = BRepPrimAPI_MakePrism(start, vector)
         prism.Build()
         if not prism.IsDone():
             raise OperationError("Could not build extrusion")
@@ -321,8 +347,9 @@ def _push_pull(
     preview: bool = False,
     follow_edges: list[TopoDS_Shape] | None = None,
     follow_vertices: list[TopoDS_Shape] | None = None,
+    direction=None,
 ) -> OpResult:
-    """Extrude a planar face along its outward normal.
+    """Extrude a planar face along its outward normal (or along `direction`, see pull_direction).
 
     Positive distances add material, negative distances remove it.
 
@@ -347,7 +374,7 @@ def _push_pull(
             prisms.append(solid)
             moved_faces.append(moved)
             continue
-        prism = BRepPrimAPI_MakePrism(f, gp_Vec(normal).Multiplied(distance))
+        prism = BRepPrimAPI_MakePrism(f, pull_direction(normal, direction).Multiplied(distance))
         prism.Build()
         if not prism.IsDone():
             raise OperationError("Could not build extrusion")

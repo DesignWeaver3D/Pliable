@@ -5,6 +5,7 @@ import { clickRows, isIsolated } from "./bodylogic";
 import { uiIcon } from "./icons";
 import { bodyColor } from "./bodycolors";
 import { onSettingsChange, settings } from "./settings";
+import { appendMaterialChoices, materialMenuLabel } from "./bodymaterialmenu";
 
 export interface BodyInfo {
   id: number;
@@ -14,6 +15,8 @@ export interface BodyInfo {
   /** True while the body is still the primitive that made it; `why` says what ended that. */
   editable?: boolean;
   why?: string | null;
+  /** The material id chosen for this body; null or missing follows the default material setting. */
+  material?: string | null;
   recipe?: { tool: string; params: Record<string, number>; rotated: boolean };
 }
 
@@ -23,6 +26,12 @@ export interface BodyListHost {
   toggleGhost(id: number): void;
   toggleFocus(id: number): void;
   rename(id: number, name: string): void;
+  /** Give one body its own material (null: follow the default material). */
+  setMaterial(id: number, material: string | null): void;
+  duplicate(id: number): void;
+  remove(id: number): void;
+  /** Several bodies at once, one undo step. */
+  removeMany(ids: number[]): void;
   /** The rows the user selected (empty when cleared). */
   select(ids: number[]): void;
   hover(id: number | null): void;
@@ -72,6 +81,11 @@ export class BodyList {
     this.selected = ids;
     if (ids.length === 1) this.anchor = ids[0];
     this.paint();
+    // A body picked in the 3D view may be below the list's fold: bring the newest picked row into sight.
+    if (ids.length) {
+      const row = [...this.list.children].find((el) => Number((el as HTMLElement).dataset.id) === ids[ids.length - 1]);
+      row?.scrollIntoView({ block: "nearest" });
+    }
   }
 
   setHovered(id: number | null) {
@@ -201,10 +215,28 @@ export class BodyList {
       body.editable ? () => this.host.edit(body.id) : null,
       body.editable ? "Reopen the form and handles this body was made with" : (body.why ?? "This body is not a primitive"),
     );
-    item("Duplicate", null); // later actions: the places are here so the menu does not move when they arrive
-    item("Delete", null);
+    item(materialMenuLabel(body.material), () => this.openMaterialMenu(body, x, y), "Choose the material of this body (its mass follows it)");
+    item("Duplicate", () => this.host.duplicate(body.id), "Add a copy of this body in the same place");
+    const several = this.selected.length > 1 && this.selected.includes(body.id); // right-click on one of several selected rows deletes them all
+    item(several ? `Delete ${this.selected.length} bodies` : "Delete", () => (several ? this.host.removeMany(this.selected) : this.host.remove(body.id)), "Delete this body (undo brings it back)");
     menu.style.left = `${Math.min(x, window.innerWidth - 150)}px`;
     menu.style.top = `${Math.min(y, window.innerHeight - 140)}px`;
+    document.body.append(menu);
+    this.menu = menu;
+  }
+
+  /** The material choices for one body, in the same menu style. */
+  private openMaterialMenu(body: BodyInfo, x: number, y: number) {
+    this.closeMenu();
+    const menu = document.createElement("div");
+    menu.className = "bodymenu";
+    menu.setAttribute("role", "menu");
+    appendMaterialChoices(menu, body.material ?? null, (material) => {
+      this.closeMenu();
+      this.host.setMaterial(body.id, material);
+    });
+    menu.style.left = `${Math.min(x, window.innerWidth - 170)}px`;
+    menu.style.top = `${Math.max(0, Math.min(y, window.innerHeight - 420))}px`;
     document.body.append(menu);
     this.menu = menu;
   }

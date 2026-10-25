@@ -83,7 +83,7 @@ export function transform(s: SketchData, sel: SketchSel[], map: Map2, o: { copy:
     if (e.type === "line") copy = { ...base, type: "line", a: at(e.a), b: at(e.b) };
     else if (e.type === "circle") copy = { ...base, type: "circle", center: at(e.center), radius: e.radius * scale };
     else if (e.type === "arc") copy = { ...base, type: "arc", center: at(e.center), start: at(o.mirror ? e.end : e.start), end: at(o.mirror ? e.start : e.end) };
-    else if (e.type === "ellipse") copy = { ...base, type: "ellipse", center: at(e.center), major: at(e.major), minor: e.minor * scale };
+    else if (e.type === "ellipse") copy = { ...base, type: "ellipse", center: at(e.center), major: at(e.major), ...(e.minor1 !== undefined ? { major2: at(e.major2!), minor1: at(e.minor1), minor2: at(e.minor2!) } : {}), minor: e.minor * scale };
     else copy = { ...base, type: "spline", points: e.points.map(at), ...(e.closed ? { closed: true } : {}) };
     sketch.entities.push(copy);
     created.push({ kind: "entity", id: copy.id });
@@ -121,7 +121,7 @@ export function repeat(s: SketchData, sel: SketchSel[], count: number, step: (k:
  * the direction constraints (horizontal, vertical, parallel, perpendicular, angle), and a line with none stays
  * straight through a collinear constraint. Other constraints on the old line (lengths, equal, tangent) go.
  */
-export function splitLine(s: SketchData, lineId: number, u: number, v: number): EditResult | null {
+export function splitLine(s: SketchData, lineId: number, u: number, v: number, margin = 0.02): EditResult | null {
   const line = s.entities.find((e) => e.id === lineId);
   if (!line || line.type !== "line" || line.reference) return null;
   const [a, b] = [pointOf(s, line.a), pointOf(s, line.b)];
@@ -129,13 +129,13 @@ export function splitLine(s: SketchData, lineId: number, u: number, v: number): 
   const length2 = du * du + dv * dv;
   if (length2 < 1e-12) return null;
   const t = ((u - a.u) * du + (v - a.v) * dv) / length2;
-  if (t < 0.02 || t > 0.98) return null; // too near an end to cut
+  if (t < margin || t > 1 - margin) return null; // too near an end to cut
   let id = nextId(s);
   const middle = id++;
   const second = id++;
   const points = [...s.points, { id: middle, u: a.u + t * du, v: a.v + t * dv }];
   const entities = s.entities.flatMap((e) =>
-    e.id === lineId ? [{ ...e, b: middle } as SketchEntity, { id: second, type: "line", a: middle, b: line.b } as SketchEntity] : [e],
+    e.id === lineId ? [{ ...e, b: middle } as SketchEntity, { id: second, type: "line", a: middle, b: line.b, ...(line.construction ? { construction: true } : {}) } as SketchEntity] : [e],
   );
   const directional = new Set(["horizontal", "vertical", "parallel", "perpendicular", "angle"]);
   const constraints: SketchData["constraints"] = [];

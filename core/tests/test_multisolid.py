@@ -118,6 +118,7 @@ def count_solids(shape) -> int:
         ("add_sphere", {}),
         ("add_cone", {"top_diameter": 3}),
         ("add_torus", {}),
+        ("add_prism", {}),
     ],
 )
 def test_primitives_are_separate_bodies_by_default(tool, params):

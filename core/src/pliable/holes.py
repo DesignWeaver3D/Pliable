@@ -1,4 +1,4 @@
-﻿"""What a hole is, and how to find and rebuild one in a model that has no history.
+"""What a hole is, and how to find and rebuild one in a model that has no history.
 
 A hole is a cut around one axis made of full cylinders and cones (plain, counterbore, countersink, stepped) and flat
 shoulders, entering from a face and either running through the body or ending at a flat or conical bottom. Anything
@@ -57,10 +57,11 @@ class HoleInfo:
     stages: list[dict] = field(default_factory=list)  # near the opening first: counterbore or countersink
     rim_edges: list[int] = field(default_factory=list)  # circular edges at the opening
     pass_length: float = 0.0  # opening to the far side of the body along the axis (the depth that means "through")
+    end_stages: list[dict] = field(default_factory=list)  # a through hole's far end: counterbore or countersink, `depth` measured from the far end
 
     @property
     def kind(self) -> str:
-        names = [s["type"] for s in self.stages]
+        names = [s["type"] for s in self.stages + self.end_stages]
         return "counterbore" if "counterbore" in names else "countersink" if "countersink" in names else "plain"
 
     def point(self, s: float) -> gp_Pnt:
@@ -93,6 +94,7 @@ class HoleInfo:
             "tipAngle": self.tip_angle,
             "stages": self.stages,
             "passLength": self.pass_length,
+            "endStages": self.end_stages,
         }
 
 
@@ -294,7 +296,7 @@ def find_hole(topology, face_id: int | None = None, edge_id: int | None = None, 
         ordered.append(_Segment(seg.kind, seg.face, min(a, b), ra, max(a, b), rb))
     ordered.sort(key=lambda s: (s.s0, s.s1))
     cylinders = [s for s in ordered if s.kind == "cylinder"]
-    main = cylinders[-1]
+    main = min(cylinders[::-1], key=lambda s: s.r0)  # the narrowest bore (the deepest one when two match); wider ones are counterbores
     stages = []
     for seg in ordered:
         if seg is not main and seg.kind != "plane" and seg.s1 <= main.s0 + TOL:
@@ -304,12 +306,24 @@ def find_hole(topology, face_id: int | None = None, edge_id: int | None = None, 
                 dr, ds = abs(seg.r1 - seg.r0), seg.s1 - seg.s0
                 stages.append({"type": "countersink", "diameter": 2 * max(seg.r0, seg.r1), "angle": math.degrees(2 * math.atan2(dr, ds)), "depth": seg.s1})
     through = not disks and not tips
+    total = max(s.s1 for s in ordered)
+    end_stages = []
+    if through:  # past the main bore a through hole may widen again at the far end
+        for seg in ordered:
+            if seg is main or seg.kind == "plane" or seg.s0 < main.s1 - TOL:
+                continue
+            if seg.kind == "cylinder" and seg.r0 > main.r0 + TOL:
+                end_stages.append({"type": "counterbore", "diameter": 2 * seg.r0, "depth": total - seg.s0})
+            elif seg.kind == "cone":
+                dr, ds = abs(seg.r1 - seg.r0), seg.s1 - seg.s0
+                end_stages.append({"type": "countersink", "diameter": 2 * max(seg.r0, seg.r1), "angle": math.degrees(2 * math.atan2(dr, ds)), "depth": total - seg.s0})
+        end_stages.sort(key=lambda s: -s["depth"])
     bottom = "through" if through else "cone" if tips else "flat"
     tip_angle = 0.0
     if tips:
         cone = tips[0]
         tip_angle = math.degrees(2 * math.atan2(abs(cone.r1 - cone.r0), cone.s1 - cone.s0))
-    depth = main.s1
+    depth = total if through else main.s1
     rims = []
     for seg_face in members:
         explorer = TopExp_Explorer(topology.face(seg_face), TopAbs_EDGE)
@@ -322,6 +336,7 @@ def find_hole(topology, face_id: int | None = None, edge_id: int | None = None, 
                     rims.append(eid)
             explorer.Next()
     info = HoleInfo(sorted(members), entry, direction, 2 * main.r0, depth, through, bottom, tip_angle, stages, sorted(rims))
+    info.end_stages = end_stages
     info.pass_length = depth if through or not reach else max(depth, _pass_length(topology.shape, entry, direction, max(s.s1 for s in ordered)))
     return info
 
@@ -330,13 +345,15 @@ def find_hole(topology, face_id: int | None = None, edge_id: int | None = None, 
 
 
 def hole_profile(info: HoleInfo, margin: float = 0.0, diameter: float | None = None, depth: float | None = None,
-                 through: bool | None = None, stages: list[dict] | None = None, start: float = 0.0) -> list[tuple[float, float]]:
+                 through: bool | None = None, stages: list[dict] | None = None, start: float = 0.0,
+                 end_stages: list[dict] | None = None) -> list[tuple[float, float]]:
     """The cross-section of a hole as (s, r) points from the axis at the opening round to the axis at the far end,
     `margin` longer than the opening (and, for a through hole, than the far end) so booleans cut cleanly."""
     radius = (info.diameter if diameter is None else diameter) / 2
     is_through = info.through if through is None else through
     length = info.depth if depth is None else depth
     steps = info.stages if stages is None else stages
+    far = info.end_stages if end_stages is None else end_stages
     if start > 0:
         steps = []  # a skin of material over the bore covers the opening, so no step is cut there
     points: list[tuple[float, float]] = []
@@ -374,6 +391,19 @@ def hole_profile(info: HoleInfo, margin: float = 0.0, diameter: float | None = N
         add(-margin, r_top)
         add(bore_depth, r_top)
         add(bore_depth, radius)
+    if is_through and far:
+        st = far[0]
+        wide = st["diameter"] / 2
+        if st["type"] == "countersink":
+            half = math.radians(st["angle"]) / 2
+            add(length - (wide - radius) / math.tan(half), radius)
+            add(end, wide + margin * math.tan(half))
+        else:
+            add(length - st["depth"], radius)
+            add(length - st["depth"], wide)
+            add(end, wide)
+        add(end, 0.0)
+        return points
     add(end, radius)
     if not is_through and info.bottom == "cone" and info.tip_angle > 0:
         add(end + radius / math.tan(math.radians(info.tip_angle) / 2), 0.0)
@@ -404,7 +434,7 @@ def hole_solid(info: HoleInfo, offset: gp_Vec | None = None, **changes):
 def rebuild_hole(shape, info: HoleInfo, offset: gp_Vec | None = None, **changes):
     """The model with this hole filled and cut again with changes (`diameter`, `depth`, `through`, `stages`, `start`) and moved
     by `offset`. Returns the new shape (not yet unified)."""
-    from .features import _combine
+    from .shared.solids import _combine
 
     size = max(info.pass_length, info.depth, info.diameter)
     margin = 0.01 * size + 1e-3

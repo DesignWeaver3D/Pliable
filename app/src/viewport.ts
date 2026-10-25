@@ -11,8 +11,13 @@ import type { CentreInfo, FaceRange, MeshData } from "./client";
 import { splitDrawLists } from "./slide";
 import { ghostRuns } from "./visibility";
 import { Manipulator } from "./manipulator";
+import { PullGizmo } from "./pullgizmo";
+import { PullDirection, edgeVector, type Vec } from "./pulldir";
+import type { HandleInfo } from "./tools";
 import { onSettingsChange, settings, updateSettings } from "./settings";
+import { parentBodies, similarTo, type SimilarKind } from "./selfilter";
 import { bodyColorArray } from "./bodycolorarray";
+import { fitBoxOf } from "./sketchfit";
 
 /** A "body" selection is a whole solid (every face of the body), chosen from the body list. */
 export type Kind = "face" | "edge" | "vertex" | "body";
@@ -140,17 +145,32 @@ export class Viewport {
   /** Box selection in progress (screen coordinates); active once the pointer moved past the click threshold. */
   private box: { x0: number; y0: number; x1: number; y1: number; active: boolean; additive: boolean } | null = null;
   private boxEl: HTMLDivElement | null = null;
+  /** Kind of item a box drag selects while F (faces), E (edges) or V (vertices) is held; null when no key is held. */
+  private heldKind: Kind | null = null;
+  private filterBadge: HTMLDivElement | null = null;
+  private rightDown: { x: number; y: number } | null = null;
+  private similarMenu: HTMLDivElement | null = null;
   /** Last see-through click, so clicking the same spot again picks the next face behind. */
   private lastClick = { x: -99, y: -99, n: 0 };
   private drag: { sels: Sel[]; normal: THREE.Vector3; point: THREE.Vector3; x: number; y: number; moved: boolean } | null = null;
   /** Called when the user changes the selection by clicking. */
   onSelect: (selection: Sel[]) => void = () => {};
+  /** The tinted profile regions of kept sketches that a click can pick as if they were faces (they belong to no model). */
+  profileTargets: () => { id: number; region: number; object: THREE.Object3D }[] = () => [];
+  onProfileClick: (sketchId: number, region: number, additive: boolean) => void = () => {};
+  /** The tinted region under the pointer (null for none), and a double-click on a sketch's curves or regions (its id). */
+  onProfileHover: (at: { id: number; region: number } | null, curve: number | null) => void = () => {};
+  onSketchDouble: (sketchId: number) => void = () => {};
+  /** The drawn curves of the kept sketches, for the double-click to find the sketch under the pointer. */
+  curveTargets: () => { id: number; object: THREE.LineSegments }[] = () => [];
   /** Double-click on an edge: the host selects the whole smooth chain it belongs to (Ctrl adds to the selection). */
   onEdgeLoop: (edgeId: number, additive: boolean) => void = () => {};
   /** Double-click on a face: select its whole body (same as clicking its row in the body list). */
   onFaceBody: (bodyId: number) => void = () => {};
   /** Dragging a selected face or edge drives its tool on the whole selection. distance is in model units along the dragged item's outward direction. */
   onItemDrag: (sels: Sel[], distance: number, phase: "move" | "end" | "cancel", x?: number, y?: number) => void = () => {};
+  /** Whether this handle of the selection starts the selection's tool drag (set by main.ts: the drag tool's own value handle). */
+  handleStartsItemDrag: (info: HandleInfo) => boolean = () => false;
   /** While true (typed value entry or measure mode), pointer movement does not change the drag distance. */
   holdDrag = false;
   /** Set when the button was let go while a typed value held the drag; Escape then cancels instead of resuming the mouse. */
@@ -186,6 +206,9 @@ export class Viewport {
 
   /** The handles a tool declares for its parameters, drawn over the model and dragged with the left button. */
   readonly manipulator: Manipulator;
+  /** The push/pull direction (see pulldir.ts) and the gizmo that sets it. */
+  readonly pullDirection = new PullDirection();
+  readonly pullGizmo: PullGizmo;
 
   /** While set (sketch mode), left-button pointer events go here instead of selection and tool drags. */
   interceptor: { down(e: PointerEvent): void; move(e: PointerEvent): void; up(e: PointerEvent): void } | null = null;
@@ -287,6 +310,19 @@ export class Viewport {
   private toPixels(p: THREE.Vector3, rect: DOMRect) {
     const n = p.clone().project(this.camera);
     return new THREE.Vector2(((n.x + 1) / 2) * rect.width, ((1 - n.y) / 2) * rect.height);
+  }
+
+  /** Starts the tool drag of the selection: the one path behind both a direct face press and the face's arrow handle. */
+  private beginItemDrag(e: PointerEvent, direction: THREE.Vector3, point: THREE.Vector3, faceId: number | null) {
+    this.dragReleased = false;
+    this.drag = { sels: [...this.selected], normal: direction, point, x: e.clientX, y: e.clientY, moved: false };
+    // The edges come from the face pressed, also when companion faces (the "With parallel face" chips) are selected with it.
+    this.measures = faceId !== null ? this.findMeasures({ kind: "face", id: faceId }, direction, point) : [];
+    this.primaryMeasure = this.measures.reduce<Measure | null>(
+      (best, m) => (best === null || m.anchor.distanceTo(point) < best.anchor.distanceTo(point) ? m : best),
+      null,
+    );
+    this.drawMeasures(0);
   }
 
   /** Straight edges parallel to the face normal with exactly one end on the face (and inside it). */
@@ -402,16 +438,38 @@ export class Viewport {
     this.scene.add(this.camera);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
+    this.controls.addEventListener("change", () => this.returnFromSketchView());
     // Navigation: left selects (and drags tools), right orbits,
     // middle pans, the wheel zooms toward the cursor.
     this.controls.mouseButtons = { LEFT: null as unknown as THREE.MOUSE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
     this.controls.zoomToCursor = true;
     const dom = this.renderer.domElement;
     this.manipulator = new Manipulator(this.scene, () => this.camera, dom, (p) => this.pixelSizeAt(p));
+    this.pullGizmo = new PullGizmo(this.scene, () => this.camera, dom, (p) => this.pixelSizeAt(p), this.manipulator, this.pullDirection);
     let down: { x: number; y: number } | null = null;
     dom.addEventListener("pointerdown", (e) => {
       if (this.interceptor && e.button === 0) {
+        // A sketch's plane handles are grabbed before the sketch tools see the press.
+        if (this.manipulator.count && this.manipulator.down(e)) {
+          dom.setPointerCapture(e.pointerId);
+          return;
+        }
         this.interceptor.down(e);
+        return;
+      }
+      // The direction gizmo past the push/pull arrow: its pick icon and tilt arcs.
+      if (e.button === 0 && !this.measureMode && !this.eyedropper && this.pullGizmo.down(e)) {
+        dom.setPointerCapture(e.pointerId);
+        return;
+      }
+      // The arrow handle of the selection's drag tool is a start point for the same drag as pressing the face itself.
+      const handle = e.button === 0 && !this.measureMode ? this.manipulator.hit(e)?.info : undefined;
+      if (handle && this.handleStartsItemDrag(handle)) {
+        const anchor = new THREE.Vector3(...handle.anchor);
+        const face = this.selected.find((s) => s.kind === "face");
+        down = { x: e.clientX, y: e.clientY };
+        this.beginItemDrag(e, new THREE.Vector3(...handle.direction), anchor, face ? face.id : null);
+        dom.setPointerCapture(e.pointerId);
         return;
       }
       if (e.button === 0 && this.manipulator.down(e)) {
@@ -421,26 +479,24 @@ export class Viewport {
       down = { x: e.clientX, y: e.clientY };
       if (e.button !== 0 || this.measureMode || this.eyedropper) return;
       if (this.startCentreDrag(e) || this.startDivideDrag(e)) return;
-      const hit = this.pickHit(e);
+      const reached = this.pickHit(e);
+      // A tinted sketch region over a face of the model comes first: pressing it is a click on the region, not the start of a drag of the face under it (unless that face is already selected).
+      const hit = reached?.kind === "face" && !this.isSelected(reached) && this.profileUnder(e) ? null : reached;
       this.box = null;
-      const direction = hit && this.dragDirection(hit);
+      // A chosen push/pull direction replaces the normal of the selected face being pressed (the arrow handle already carries it).
+      const chosen = hit?.kind === "face" && this.pullDirection.dir && this.isSelected(hit) ? new THREE.Vector3(...this.pullDirection.dir) : null;
+      const direction = chosen ?? (hit && this.dragDirection(hit));
       // Dragging the selected face or edge starts its tool instead of orbiting.
       const additive = e.ctrlKey || e.metaKey || e.shiftKey;
-      if (hit && direction && !additive) {
+      const shiftOnly = e.shiftKey && !e.ctrlKey && !e.metaKey; // Shift keeps the selection and drags symmetrically (push/pull)
+      if (hit && direction && (!additive || shiftOnly)) {
         // Pressing on an item selects it and starts its tool drag in one motion.
         if (!this.isSelected(hit)) {
           const sel = { kind: hit.kind, id: hit.id };
-          this.selectItems([sel]);
+          this.selectItems(shiftOnly ? [...this.selected, sel] : [sel]);
           this.onSelect([sel]);
         }
-        this.dragReleased = false;
-        this.drag = { sels: [...this.selected], normal: direction, point: hit.point, x: e.clientX, y: e.clientY, moved: false };
-        this.measures = this.drag.sels.length === 1 && hit.kind === "face" ? this.findMeasures(this.drag.sels[0], direction, hit.point) : [];
-        this.primaryMeasure = this.measures.reduce<Measure | null>(
-          (best, m) => (best === null || m.anchor.distanceTo(hit.point) < best.anchor.distanceTo(hit.point) ? m : best),
-          null,
-        );
-        this.drawMeasures(0);
+        this.beginItemDrag(e, direction, hit.point, hit.kind === "face" ? hit.id : null);
         // Controls stay enabled: the left button is unmapped, so right-drag orbits and
         // middle-drag pans while the tool drag continues.
         dom.setPointerCapture(e.pointerId);
@@ -463,15 +519,20 @@ export class Viewport {
         this.updateBox(e);
         return;
       }
-      if (this.interceptor) {
-        this.interceptor.move(e);
+      if (this.pullGizmo.dragging) {
+        this.pullGizmo.move(e);
         return;
       }
       if (this.manipulator.dragging) {
         this.manipulator.move(e);
         return;
       }
-      if (e.buttons === 0 && !this.drag) this.manipulator.hover(e);
+      if (this.interceptor) {
+        this.interceptor.move(e);
+        if (e.buttons === 0 && this.manipulator.count) this.manipulator.hover(e);
+        return;
+      }
+      if (e.buttons === 0 && !this.drag && !this.pullGizmo.hover(e)) this.manipulator.hover(e);
       if (this.drag) {
         if (this.measureMode) {
           this.measureHover = this.nearestMeasure(e);
@@ -484,29 +545,78 @@ export class Viewport {
           this.drawMeasures(distance);
           this.onItemDrag(this.drag.sels, distance, "move", e.clientX, e.clientY);
         }
-      } else if (e.buttons === 0) this.setHover(this.pick(e));
+      } else if (e.buttons === 0) {
+        // A sketch region drawn over a face of the model has the priority: the face is not lit then.
+        const sel = this.pick(e);
+        const region = !sel || sel.kind === "face" ? this.profileUnder(e) : null;
+        this.setHover(region ? null : sel);
+        if (region) this.renderer.domElement.style.cursor = "pointer";
+        this.onProfileHover(region, !sel || sel.kind === "face" ? this.curveUnder(e) : null);
+      }
     });
-    dom.addEventListener("contextmenu", (e) => e.preventDefault());
+    dom.addEventListener("pointerdown", (e) => {
+      if (e.button === 2) this.rightDown = { x: e.clientX, y: e.clientY };
+    });
+    dom.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      // A right click that did not orbit or pan, with one face or edge selected, offers to select its likes.
+      const down = this.rightDown;
+      this.rightDown = null;
+      if (!this.interceptor && down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4) this.openSimilarMenu(e.clientX, e.clientY);
+    });
+    const heldKey = (e: KeyboardEvent) => ({ f: "face", e: "edge", v: "vertex" } as Record<string, Kind>)[e.key.toLowerCase()];
+    window.addEventListener(
+      "keydown",
+      (e) => {
+        const kind = heldKey(e);
+        if (!kind || !this.box || e.ctrlKey || e.metaKey || e.altKey) return;
+        e.stopImmediatePropagation(); // while a box is being dragged these keys choose what it selects, not a tool shortcut
+        this.heldKind = kind;
+        this.updateFilterBadge();
+      },
+      true,
+    );
+    window.addEventListener(
+      "keyup",
+      (e) => {
+        if (!heldKey(e) || !this.heldKind) return;
+        this.heldKind = null;
+        this.updateFilterBadge();
+      },
+      true,
+    );
+    window.addEventListener("pointerdown", (e) => {
+      if (this.similarMenu && !this.similarMenu.contains(e.target as Node)) this.closeSimilarMenu();
+    });
     for (const line of [this.measureAll, this.measureHot]) {
       line.visible = false;
       line.renderOrder = 3;
       this.scene.add(line);
     }
-    dom.addEventListener("pointerleave", () => this.setHover(null));
+    dom.addEventListener("pointerleave", () => {
+      this.setHover(null);
+      this.onProfileHover(null, null);
+    });
     dom.addEventListener("dblclick", (e) => {
       if (this.interceptor) return;
       const hit = this.pickHit(e as PointerEvent);
       if (hit?.kind === "edge") this.onEdgeLoop(hit.id, e.ctrlKey || e.metaKey);
+      const sketchId = !hit || hit.kind === "face" ? (this.curveUnder(e) ?? this.profileUnder(e as PointerEvent)?.id ?? null) : null;
+      if (sketchId !== null) return this.onSketchDouble(sketchId); // the whole sketch, whatever lies behind it
       const body = doubleClickBody(hit, (id) => this.data?.faces.find((f) => f.id === id)?.body);
       if (body !== null) this.onFaceBody(body);
     });
     dom.addEventListener("pointerup", (e) => {
-      if (this.interceptor && e.button === 0) {
-        this.interceptor.up(e);
+      if (this.pullGizmo.dragging && e.button === 0) {
+        this.pullGizmo.up();
         return;
       }
       if (this.manipulator.dragging && e.button === 0) {
         this.manipulator.up(e);
+        return;
+      }
+      if (this.interceptor && e.button === 0) {
+        this.interceptor.up(e);
         return;
       }
       if (this.drag && e.button !== 0) return; // right/middle release ends an orbit or pan, not the tool drag
@@ -568,11 +678,12 @@ export class Viewport {
       }
       // A click, not the end of an orbit/pan drag.
       if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4 && e.button === 0) {
-        this.clickSelect(this.pickCycling(e), e.ctrlKey || e.metaKey || e.shiftKey);
+        this.clickOrProfile(e, e.ctrlKey || e.metaKey || e.shiftKey);
       }
       down = null;
     });
     window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && this.similarMenu) this.closeSimilarMenu();
       if (e.key === "Escape" && this.box) this.cancelBox();
       if (e.key === "Escape" && this.divideDrag) this.divideDrag = null;
       if (e.key === "Escape" && this.centreDrag) {
@@ -593,16 +704,48 @@ export class Viewport {
     onSettingsChange(() => {
       this.applySeeThrough();
       this.applyBodyColors();
+      this.updateFilterBadge();
     });
+    this.updateFilterBadge();
     this.resize();
+    // A frame that throws must not end the loop (three.js stops calling it after a throw, which left the view blank): each part is guarded.
+    const parts: [string, () => void][] = [
+      ["controls", () => this.controls.update()],
+      ["clipping", () => this.fitClipping()],
+      ["render", () => this.renderer.render(this.scene, this.camera)],
+      ["manipulator", () => this.manipulator.update()],
+      ["pull gizmo", () => this.pullGizmo.update()],
+      ["frame hook", () => this.onFrame()],
+      ["sketch frame hook", () => this.onFrame2?.()],
+    ];
     this.renderer.setAnimationLoop(() => {
-      this.controls.update();
-      this.fitClipping();
-      this.renderer.render(this.scene, this.camera);
-      this.manipulator.update();
-      this.onFrame();
-      this.onFrame2?.();
+      for (const [name, part] of parts) {
+        try {
+          part();
+        } catch (e) {
+          this.reportFrameError(name, e);
+        }
+      }
     });
+    const canvas = this.renderer.domElement;
+    canvas.addEventListener("webglcontextlost", (e) => {
+      e.preventDefault(); // lets the browser give the context back
+      this.reportFrameError("WebGL context", new Error("The 3D view lost its graphics context; waiting for it to return"));
+    });
+    canvas.addEventListener("webglcontextrestored", () => this.onFrameError("The 3D view recovered"));
+  }
+
+  /** Called with a message when a part of the frame fails (shown in the status line); the console gets each kind once. */
+  onFrameError: (message: string) => void = () => {};
+  private reportedFrameErrors = new Set<string>();
+
+  private reportFrameError(part: string, e: unknown) {
+    const message = (e as Error)?.message ?? String(e);
+    const key = `${part}: ${message}`;
+    if (this.reportedFrameErrors.has(key)) return; // a failure repeating every frame is reported once
+    this.reportedFrameErrors.add(key);
+    console.error(`Pliable 3D view: ${part} failed (drawing continues):`, e);
+    this.onFrameError(`3D view ${part} failed: ${message}`);
   }
 
   get orthographic(): boolean {
@@ -612,6 +755,7 @@ export class Viewport {
   /** Switch between perspective and orthographic, keeping what is framed the same size. */
   setOrthographic(on: boolean) {
     if (on === this.orthographic) return;
+    this.sketchViewReturn = null; // a projection chosen by hand ends any pending return
     const target = this.controls.target;
     const from = this.camera;
     const to = on ? this.orthoCamera : this.perspectiveCamera;
@@ -635,6 +779,28 @@ export class Viewport {
     this.lastClip = 0;
     this.fitClipping(true);
     this.controls.update();
+    this.onProjectionChange();
+  }
+
+  /** Set while a sketch view switched to orthographic: the view direction it looked along, to go back to perspective when the camera is turned away. */
+  private sketchViewReturn: THREE.Vector3 | null = null;
+  /** The projection changed (the nav cube's button follows it). */
+  onProjectionChange: () => void = () => {};
+
+  /** Look straight down a direction in orthographic projection, remembering a perspective view so that turning the camera brings it back. */
+  lookFromOrthographic(direction: THREE.Vector3) {
+    const remember = !this.orthographic || this.sketchViewReturn !== null; // pressed again in the same switched view: still remembered
+    this.setOrthographic(true);
+    this.sketchViewReturn = null; // turning to the sketch must not count as turning away
+    this.lookFrom(direction);
+    if (remember) this.sketchViewReturn = this.camera.position.clone().sub(this.controls.target).normalize();
+  }
+
+  private returnFromSketchView() {
+    if (!this.sketchViewReturn) return;
+    const now = this.camera.position.clone().sub(this.controls.target).normalize();
+    if (now.dot(this.sketchViewReturn) > 0.99985) return; // still looking along the sketch (zoom and pan keep it)
+    this.setOrthographic(false);
   }
 
   /** Look at the model from a standard direction (a key of STANDARD_VIEWS), keeping target and distance. */
@@ -819,7 +985,7 @@ export class Viewport {
     this.refreshCentres();
     this.applySeeThrough();
 
-    if (frame) this.frame(mesh.bounds);
+    if (frame) this.frame(mesh.bounds.every((n) => n === 0) ? [-50, -50, 0, 50, 50, 50] : mesh.bounds); // an empty project looks at the origin from a useful distance
   }
 
   /**
@@ -1106,6 +1272,79 @@ export class Viewport {
     this.box = null;
     this.boxEl?.remove();
     this.boxEl = null;
+    this.heldKind = null;
+    this.updateFilterBadge();
+  }
+
+  /** A small badge says what a box drag will select whenever a key is held or the setting fixes the kind; its button clears the setting. */
+  private updateFilterBadge() {
+    const fixed = settings.boxKind !== "auto" ? settings.boxKind : null;
+    const shown = this.heldKind ?? fixed;
+    if (!shown || shown === "body") {
+      this.filterBadge?.remove();
+      this.filterBadge = null;
+      return;
+    }
+    if (!this.filterBadge) {
+      const badge = document.createElement("div");
+      badge.style.cssText = "position:fixed;left:50%;bottom:60px;transform:translateX(-50%);z-index:5;display:flex;gap:8px;align-items:center;padding:4px 10px;border-radius:12px;background:#2b2b2b;color:#eee;font:12px sans-serif;border:1px solid #4fc3f7";
+      document.body.appendChild(badge);
+      this.filterBadge = badge;
+    }
+    const badge = this.filterBadge;
+    badge.replaceChildren();
+    const label = document.createElement("span");
+    label.textContent = `Box selects ${shown}s only${this.heldKind ? " (key held)" : " (set in Settings)"}`;
+    badge.append(label);
+    if (!this.heldKind && fixed) {
+      const reset = document.createElement("button");
+      reset.textContent = "Reset";
+      reset.title = "Go back to choosing the kind from what is selected";
+      reset.onclick = () => updateSettings({ boxKind: "auto" });
+      badge.append(reset);
+    }
+  }
+
+  private closeSimilarMenu() {
+    this.similarMenu?.remove();
+    this.similarMenu = null;
+  }
+
+  /** Right click with one face or edge selected: a small menu of "select similar" choices. */
+  private openSimilarMenu(x: number, y: number) {
+    this.closeSimilarMenu();
+    const data = this.data;
+    const only = this.selected.length === 1 ? this.selected[0] : null;
+    const owned = this.selected.length > 0 && this.selected.every((s) => s.kind !== "body");
+    if (!data || !owned) return;
+    const choices: [string, SimilarKind][] = !only ? [] : only.kind === "face" ? [["Select faces facing the same way", "faceDirection"], ["Select faces of the same area", "faceArea"]] : only.kind === "edge" ? [["Select edges of the same length", "edgeLength"]] : [];
+    const menu = document.createElement("div");
+    menu.style.cssText = `position:fixed;left:${x}px;top:${y}px;z-index:20;display:flex;flex-direction:column;background:#2b2b2b;color:#eee;font:13px sans-serif;border:1px solid #555;border-radius:6px;padding:4px`;
+    for (const [label, kind] of choices) {
+      const button = document.createElement("button");
+      button.textContent = label;
+      button.style.cssText = "text-align:left;background:none;color:inherit;border:0;padding:5px 10px;cursor:pointer";
+      button.onclick = () => {
+        const ids = similarTo(data, kind, only!.id);
+        this.closeSimilarMenu();
+        const next: Sel[] = ids.map((id) => ({ kind: only!.kind, id }));
+        this.selectItems(next);
+        this.onSelect(next);
+      };
+      menu.append(button);
+    }
+    const parents = document.createElement("button");
+    parents.textContent = "Select parent bodies";
+    parents.style.cssText = "text-align:left;background:none;color:inherit;border:0;padding:5px 10px;cursor:pointer";
+    parents.onclick = () => {
+      const next: Sel[] = parentBodies(data, this.selected).map((id) => ({ kind: "body", id }));
+      this.closeSimilarMenu();
+      this.selectItems(next);
+      this.onSelect(next);
+    };
+    menu.append(parents);
+    document.body.appendChild(menu);
+    this.similarMenu = menu;
   }
 
   private finishBox(e: PointerEvent) {
@@ -1113,7 +1352,7 @@ export class Viewport {
     this.cancelBox();
     if (!b.active) {
       // Plain click on empty space or a ctrl-click: ordinary pick.
-      this.clickSelect(this.pickCycling(e), b.additive);
+      this.clickOrProfile(e, b.additive);
       return;
     }
     const rect = this.renderer.domElement.getBoundingClientRect();
@@ -1124,12 +1363,14 @@ export class Viewport {
       y1: Math.max(b.y0, b.y1) - rect.top,
     };
     const crossing = b.x1 < b.x0; // right-to-left touches; left-to-right must enclose
-    const kind: Kind = settings.boxKind === "auto" ? (this.selected[0]?.kind ?? "edge") : settings.boxKind;
-    const found = this.itemsInBox(kind, r, crossing, rect);
+    // With no filter (no key held, the setting on All) the box takes faces, edges and vertices together.
+    const only: Kind | null = this.heldKind ?? (settings.boxKind === "auto" ? null : settings.boxKind);
+    const kinds: Kind[] = only ? [only] : ["vertex", "edge", "face"];
+    const found = kinds.flatMap((kind) => this.itemsInBox(kind, r, crossing, rect));
     let next = found;
     if (b.additive) {
-      const same = this.selected.filter((s) => s.kind === kind);
-      next = [...same, ...found.filter((f) => !same.some((s) => s.id === f.id))];
+      const same = this.selected.filter((s) => kinds.includes(s.kind as Kind));
+      next = [...same, ...found.filter((f) => !same.some((s) => s.kind === f.kind && s.id === f.id))];
     }
     this.selectItems(next);
     this.onSelect(next);
@@ -1218,9 +1459,72 @@ export class Viewport {
     return out;
   }
 
+  /** A click: a profile region of a kept sketch that is not behind the model counts as a face; otherwise the usual pick. */
+  private clickOrProfile(e: PointerEvent, additive: boolean) {
+    const picked = this.pickCycling(e);
+    const profile = !picked || picked.kind === "face" ? this.profileUnder(e) : null;
+    if (profile) this.onProfileClick(profile.id, profile.region, additive);
+    else this.clickSelect(picked, additive);
+  }
+
+  /** The kept sketch whose drawn curve passes within a few pixels of the pointer and is not hidden behind the model. */
+  private curveUnder(e: MouseEvent): number | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    this.camera.updateMatrixWorld();
+    let best: number | null = null;
+    let bestD = 6; // pixels
+    const point = (x: number, y: number, z: number) => {
+      const n = new THREE.Vector3(x, y, z).project(this.camera);
+      return { x: ((n.x + 1) / 2) * rect.width, y: ((1 - n.y) / 2) * rect.height, behind: n.z > 1 };
+    };
+    for (const { id, object } of this.curveTargets()) {
+      const p = object.geometry.getAttribute("position");
+      for (let i = 0; i + 1 < p.count; i += 2) {
+        const a = point(p.getX(i), p.getY(i), p.getZ(i));
+        const b = point(p.getX(i + 1), p.getY(i + 1), p.getZ(i + 1));
+        if (a.behind || b.behind) continue;
+        const [dx, dy] = [b.x - a.x, b.y - a.y];
+        const t = Math.max(0, Math.min(1, ((px - a.x) * dx + (py - a.y) * dy) / (dx * dx + dy * dy || 1)));
+        const d = Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
+        if (d < bestD) {
+          best = id;
+          bestD = d;
+        }
+      }
+    }
+    return best;
+  }
+
+  private profileUnder(e: PointerEvent): { id: number; region: number } | null {
+    const targets = this.profileTargets();
+    if (!targets.length) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), this.camera);
+    const hit = this.raycaster.intersectObjects(targets.map((t) => t.object), false)[0];
+    if (!hit) return null;
+    const model = this.mesh ? this.raycaster.intersectObject(this.mesh)[0] : undefined;
+    if (model && !settings.seeThrough && hit.distance > model.distance * 1.001 + 1e-3) return null; // behind the model
+    const target = targets.find((t) => t.object === hit.object);
+    return target ? { id: target.id, region: target.region } : null;
+  }
+
   private pick(e: PointerEvent): Sel | null {
     const hit = this.pickHit(e);
     return hit && { kind: hit.kind, id: hit.id };
+  }
+
+  /** The direction a picked edge (its straight line) or face (its normal) gives, or null for a curved edge or an unknown item. */
+  directionOf(sel: Sel): Vec | null {
+    const data = this.data;
+    if (!data) return null;
+    if (sel.kind === "face") return data.faces.find((f) => f.id === sel.id)?.normal ?? null;
+    if (sel.kind !== "edge") return null;
+    const edge = data.edges.find((e) => e.id === sel.id);
+    if (!edge || edge.count !== 2) return null;
+    const at = (i: number): Vec => [data.edgePositions[i * 3], data.edgePositions[i * 3 + 1], data.edgePositions[i * 3 + 2]];
+    return edgeVector(at(edge.start), at(edge.start + 1));
   }
 
   /** Axis a picked item is dragged along (faces: normal, edges: outward bisector), or null if it has none. */
@@ -1254,6 +1558,12 @@ export class Viewport {
   }
 
   /** What is under the pointer: a vertex, else an edge, else a face (vertices and edges only if not hidden behind a face). */
+  /** The face or edge of the model under the pointer (for the sketch's project picking), or null. */
+  pickModelItem(e: PointerEvent): Sel | null {
+    const hit = this.pickHit(e);
+    return hit && (hit.kind === "face" || hit.kind === "edge") ? { kind: hit.kind, id: hit.id } : null;
+  }
+
   private pickHit(e: PointerEvent): Hit | null {
     if (!this.mesh || !this.data) return null;
     const rect = this.renderer.domElement.getBoundingClientRect();
@@ -1582,16 +1892,34 @@ export class Viewport {
     this.onSelect(next);
   }
 
+  /** While a sketch is open the zoom-to-fit buttons use the sketch's geometry: the world points to fit (all of it, or the selection), null when it has none. */
+  fitSource: { all(): number[][] | null; selected(): number[][] | null; /** Screen pixels of room to leave around the fitted points (dimension text and lines). */ pad?: number } | null = null;
+
+  /** Pixels at each edge of the view that overlays cover (the top toolbar): the zoom-to-fit buttons fit inside what is left. */
+  fitInsets: (() => { top: number; right: number; bottom: number; left: number }) | null = null;
+
+  /** Zoom to the given world points exactly (no minimum size, except for a lone point), without turning the view. */
+  private fitPoints(points: number[][]) {
+    this.frame(fitBoxOf(points), true, true, this.fitSource?.pad ?? 0);
+  }
+
   /** Zoom so the whole visible model fills the view, without turning it. */
   fitAll() {
+    const sketch = this.fitSource?.all();
+    if (sketch) return this.fitPoints(sketch);
     if (!this.mesh) return;
     this.mesh.geometry.computeBoundingBox();
     const box = this.mesh.geometry.boundingBox;
-    if (box && !box.isEmpty()) this.frame([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], true);
+    if (box && !box.isEmpty()) this.frame([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], true, true);
   }
 
   /** Zoom to the selected body, face, edge or vertex (the selection together, if several), without turning the view. Returns false when nothing is selected. */
   fitSelected(): boolean {
+    if (this.fitSource) {
+      const sketch = this.fitSource.selected();
+      if (sketch) this.fitPoints(sketch);
+      return !!sketch;
+    }
     const data = this.data;
     const box = new THREE.Box3();
     if (!data || !this.mesh || !this.selected.length) return false;
@@ -1624,14 +1952,25 @@ export class Viewport {
     const size = box.getSize(new THREE.Vector3());
     const minimum = (this.mesh.geometry.boundingBox ?? new THREE.Box3()).getSize(new THREE.Vector3()).length() * 0.05 || 1;
     if (size.length() < minimum) box.expandByVector(new THREE.Vector3().setScalar((minimum - size.length()) / 2));
-    this.frame([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], true);
+    this.frame([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], true, true);
     return true;
   }
 
-  private frame([x0, y0, z0, x1, y1, z1]: number[], keepDirection = false) {
+  /** Put the box in view. `inside`: fit it in the part of the view the overlays leave free (see `fitInsets`), with `padPx` of room around it. */
+  private frame([x0, y0, z0, x1, y1, z1]: number[], keepDirection = false, inside = false, padPx = 0) {
     const center = new THREE.Vector3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
     const radius = Math.max(Math.hypot(x1 - x0, y1 - y0, z1 - z0) / 2, 1e-3);
-    const distance = radius / Math.sin((PERSPECTIVE_FOV * Math.PI) / 360);
+    let distance = radius / Math.sin((PERSPECTIVE_FOV * Math.PI) / 360);
+    // The box sphere fills the view's height; shrink it into the free area and move its centre to that area's middle.
+    let shift = { x: 0, y: 0 };
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (inside && rect.height > 0 && rect.width > 0) {
+      const gap = this.fitInsets?.() ?? { top: 0, right: 0, bottom: 0, left: 0 };
+      const freeH = Math.max(rect.height * 0.2, rect.height - gap.top - gap.bottom - 2 * padPx);
+      const freeW = Math.max(rect.width * 0.2, rect.width - gap.left - gap.right - 2 * padPx);
+      distance *= Math.max(1, rect.height / Math.min(freeH, freeW));
+      shift = { x: (gap.left - gap.right) / 2, y: (gap.top - gap.bottom) / 2 };
+    }
     this.orthoHalf = distance * Math.tan((PERSPECTIVE_FOV * Math.PI) / 360);
     this.orthoCamera.zoom = 1;
     this.syncOrtho();
@@ -1640,11 +1979,23 @@ export class Viewport {
       const current = this.camera.position.clone().sub(this.controls.target);
       if (current.lengthSq() > 1e-12) direction.copy(current);
     }
-    this.camera.position.copy(center).add(direction.normalize().multiplyScalar(distance));
+    direction.normalize();
+    const focus = center.clone();
+    if (shift.x || shift.y) {
+      // Move the looked-at point so the box's centre lands on the middle of the free area (screen y runs down).
+      const toward = direction.clone().negate();
+      const right = toward.clone().cross(new THREE.Vector3(0, 0, 1));
+      if (right.lengthSq() < 1e-12) right.set(1, 0, 0);
+      right.normalize();
+      const up = right.clone().cross(toward).normalize();
+      const px = (2 * distance * Math.tan((PERSPECTIVE_FOV * Math.PI) / 360)) / rect.height;
+      focus.addScaledVector(right, -shift.x * px).addScaledVector(up, shift.y * px);
+    }
+    this.camera.position.copy(focus).add(direction.multiplyScalar(distance));
     this.camera.near = distance / 100;
     this.camera.far = distance * 100;
     this.camera.updateProjectionMatrix();
-    this.controls.target.copy(center);
+    this.controls.target.copy(focus);
     this.controls.update();
   }
 }

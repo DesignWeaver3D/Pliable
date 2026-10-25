@@ -4,6 +4,8 @@
 import * as THREE from "three";
 import { AXIS_COLORS } from "./axes.ts";
 import type { HandleInfo } from "./tools";
+import { gridCounts, gridShift, planePoint } from "./gridgrip.ts";
+import { TypedFields, typedCounts } from "./typedentry.ts";
 
 /** Length of a handle's arm and the radius of its grab target, in screen pixels. */
 export const ARM_PX = 34;
@@ -15,6 +17,7 @@ const COLOR_HOT = 0xffffff;
 const COLOR_TOGGLE = 0x6fd3ff;
 /** The line a hole's axis handle draws from its opening to its far grip. */
 const AXIS_LINE = 0xffb347;
+const HANDLE_OUTLINE = 0x1b1d22; // the dark outline under grips, as under the dimension lines
 /** Resize grips are neutral squares (orange on hover) so they never read as the coloured move arrows. */
 const COLOR_RESIZE = 0xc8ccd4;
 const COLOR_RESIZE_HOT = 0xffb347;
@@ -26,6 +29,15 @@ const COLOR_RESIZE_HOT = 0xffb347;
 export function pickScore(distPx: number, kind: string | undefined, t: number): number {
   if (kind === "move") return t >= 0.5 ? distPx - 6 : distPx;
   return t === 0 ? distPx - 2 : distPx;
+}
+
+/** Where along a handle (0 at its tail, 1 at its head) the grabbable end shape sits, or null when the whole arm can be
+ *  grabbed. A resize grip is grabbed by its cube and a move arrow by its arrowhead, never by the line between them. */
+export function grabFraction(kind: string | undefined, toggle: boolean | undefined): number | null {
+  if (toggle) return null;
+  if (kind === "resize") return 0;
+  if (kind === "move") return (MOVE_ARM_PX / ARM_PX - 0.21) / (MOVE_ARM_PX / ARM_PX);
+  return null;
 }
 
 /** The origin-axis colour of a direction (its largest component), or white-ish for none. */
@@ -50,6 +62,23 @@ export function handleValue(h: Pick<HandleInfo, "value" | "scale" | "min"> & { m
   if (h.min !== null && v < h.min) return h.min;
   if (h.max != null && v > h.max) return h.max;
   return v;
+}
+
+/** How close (degrees) a turn ring's drag must pass to a snap angle to land on it. */
+export const SNAP_DEGREES = 3;
+
+/** The value a turn ring drag lands on: the nearest of the handle's snap angles within SNAP_DEGREES (angles repeat every 360), else the value itself. */
+export function snapValue(value: number, snaps: readonly number[] | undefined): number {
+  let best = value;
+  let bestD = SNAP_DEGREES;
+  for (const snap of snaps ?? []) {
+    const target = snap + 360 * Math.round((value - snap) / 360);
+    if (Math.abs(target - value) < bestD) {
+      bestD = Math.abs(target - value);
+      best = target;
+    }
+  }
+  return best;
 }
 
 /** The values of a handle's linked parameters after travelling `travel`. */
@@ -99,16 +128,56 @@ export function formatValue(v: number): string {
   return String(Math.round(v * 1000) / 1000);
 }
 
+/** A turn arc (see HandleInfo.arc) runs this many pixels from its centre, 120 degrees of it, beyond the move arrows' tips. */
+export const ARC_RADIUS_PX = 110;
+const ARC_HALF_SPAN = Math.PI / 3;
+const ARC_STEPS = 24;
+const ARC_REST_OPACITY = 0.9;
+/** A turn arc whose value is this close (degrees) to a snap angle counts as sitting on it; it is drawn in this colour then. */
+export const SNAPPED_DEGREES = 0.5;
+const COLOR_SNAPPED = 0x6be36b;
+
+/** The index of the snap angle (degrees, repeating every 360) that `value` sits on, or -1. */
+export function snappedIndex(value: number, snaps: readonly number[] | undefined): number {
+  return (snaps ?? []).findIndex((snap) => Math.abs(value - snap - 360 * Math.round((value - snap) / 360)) < SNAPPED_DEGREES);
+}
+
+/** A rotation ring's diameter is this fraction of the shortest side of the 3D view, so it never runs off screen. */
+export const RING_VIEW_FRACTION = 0.5;
+
+/** A rotation handle moved onto a ring of another radius about the same centre: its grip keeps its angle round the ring,
+ *  and its degrees per unit of travel follow the new radius. `ring` is [cx, cy, cz, radius]. */
+export function refitRing(
+  ring: readonly number[],
+  anchor: readonly number[],
+  scale: number,
+  radius: number,
+): { ring: number[]; anchor: number[]; scale: number } {
+  const k = radius / ring[3];
+  return {
+    ring: [ring[0], ring[1], ring[2], radius],
+    anchor: [0, 1, 2].map((i) => ring[i] + (anchor[i] - ring[i]) * k),
+    scale: scale / k,
+  };
+}
+
 interface Item {
   info: HandleInfo;
+  /** A rotation handle as the tool declared it, before its ring was fitted to the view. */
+  declared?: HandleInfo;
   group: THREE.Group;
   tip: THREE.Mesh;
   arm: THREE.Line;
   /** An axis handle's line from its far end back to `info.axisFrom`, with a dot at that end (not grabbable). */
   axis?: THREE.Group;
   label: HTMLElement;
+  /** An arrow another handle turns: the direction it was built with. */
+  baseDirection?: THREE.Vector3;
   /** Travel from the declared anchor while this handle is being dragged. */
   travel: number;
+  /** A grid grip: how far the drag moved it from its anchor, and the counts it now asks for. */
+  shift: THREE.Vector3;
+  grid?: { columns: number; rows: number };
 }
 
 interface Active {
@@ -127,6 +196,10 @@ interface Active {
   /** The button was let go while a typed value held the handle. */
   released?: boolean;
   negative: boolean;
+  /** A grid grip: where the pointer first met the plane of the steps. */
+  p0?: THREE.Vector3;
+  /** A grid grip's typed entry: columns, then rows (Tab switches); null while the mouse sets them. */
+  fields?: TypedFields | null;
 }
 
 function dispose(o: THREE.Object3D) {
@@ -177,6 +250,12 @@ export class Manipulator {
     return this.items.length;
   }
 
+  /** The push/pull arrow as it stands now (where it starts and which way it points), for the direction gizmo that sits past its head. */
+  pushPullHandle(): { anchor: [number, number, number]; direction: [number, number, number]; frame: [[number, number, number], [number, number, number]] | null } | null {
+    const item = this.items.find((i) => i.info.param === "distance" && i.info.label === "Push/pull");
+    return item ? { anchor: item.info.anchor, direction: item.info.direction, frame: item.info.frame ?? null } : null;
+  }
+
   /** The handles now shown; a handle being dragged keeps its own position until the drag ends. */
   setHandles(handles: HandleInfo[]) {
     if (this.active) return;
@@ -214,6 +293,11 @@ export class Manipulator {
     const geometry = info.toggle ? new THREE.SphereGeometry(0.17, 16, 12) : resize ? new THREE.BoxGeometry(0.3, 0.3, 0.3) : new THREE.ConeGeometry(0.16, 0.42, 16);
     const tip = new THREE.Mesh(geometry, material());
     tip.renderOrder = 11;
+    // A dark outline so the grip stays visible against light surfaces: a slightly larger back-facing copy drawn just beneath it.
+    const outline = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: HANDLE_OUTLINE, side: THREE.BackSide, depthTest: false, transparent: true, opacity: 0.6 }));
+    outline.scale.setScalar(1.2);
+    outline.renderOrder = 10;
+    tip.add(outline);
     if (resize) {
       tip.position.copy(dir).multiplyScalar(-0.15); // the grip sits on the anchor, with a thin stem back to the model
     } else if (!info.toggle) {
@@ -222,8 +306,10 @@ export class Manipulator {
       // whole arrow stands outside the surface it moves, like an axis gizmo.
       tip.position.copy(dir).multiplyScalar(0.79);
     }
+    // A resize grip's stem runs from the cube back into the model; every other arm points away from its anchor.
+    const armEnd = resize ? dir.clone().multiplyScalar(-1) : dir.clone();
     const arm = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), info.toggle ? new THREE.Vector3() : dir.clone()]),
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), info.toggle ? new THREE.Vector3() : armEnd]),
       new THREE.LineBasicMaterial({ color: handleColors(info).rest, depthTest: false, transparent: true }),
     );
     arm.renderOrder = 10;
@@ -236,12 +322,28 @@ export class Manipulator {
       axis.renderOrder = 9;
       const [cx, cy, cz, radius] = info.ring;
       const normal = new THREE.Vector3(...info.axis);
-      const points = Array.from({ length: 65 }, (_, i) => new THREE.Vector3(Math.cos((i / 64) * Math.PI * 2), Math.sin((i / 64) * Math.PI * 2), 0).multiplyScalar(radius));
-      const circle = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: handleColors(info).rest, depthTest: false, transparent: true, opacity: 0.55 }));
+      const points = info.arc
+        ? Array.from({ length: ARC_STEPS + 1 }, (_, i) => {
+            const a = -ARC_HALF_SPAN + (2 * ARC_HALF_SPAN * i) / ARC_STEPS;
+            return new THREE.Vector3(Math.cos(a), Math.sin(a), 0).multiplyScalar(radius);
+          })
+        : Array.from({ length: 65 }, (_, i) => new THREE.Vector3(Math.cos((i / 64) * Math.PI * 2), Math.sin((i / 64) * Math.PI * 2), 0).multiplyScalar(radius));
+      const circle = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: handleColors(info).rest, depthTest: false, transparent: true, opacity: info.arc ? ARC_REST_OPACITY : 0.55 }));
       circle.renderOrder = 9;
       circle.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+      circle.userData.base = circle.quaternion.clone();
+      if (info.arc) {
+        tip.visible = false; // the arc itself is the handle: no cone and no arm
+        arm.visible = false;
+      }
       axis.position.set(cx, cy, cz);
       axis.add(circle);
+      if (info.arc && info.snaps?.length) {
+        const ticks = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: COLOR_SNAPPED, depthTest: false, transparent: true, opacity: 0.9 }));
+        ticks.renderOrder = 9;
+        ticks.quaternion.copy(circle.userData.base);
+        axis.add(ticks);
+      }
       this.root.add(axis);
     } else if (info.axisFrom) {
       axis = new THREE.Group();
@@ -256,15 +358,81 @@ export class Manipulator {
     const label = document.createElement("div");
     label.style.cssText = "position:absolute;padding:1px 5px;border-radius:3px;background:rgba(20,20,24,.85);color:#ffd9a0;font:11px sans-serif;white-space:nowrap;transform:translate(10px,-50%)";
     this.layer.append(label);
-    return { info, group, tip, arm, axis, label, travel: 0 };
+    return { info: { ...info }, declared: info.ring ? info : undefined, baseDirection: info.turnedBy ? dir.clone() : undefined, group, tip, arm, axis, label, travel: 0, shift: new THREE.Vector3() };
+  }
+
+  /** Swing a turn arc round its ring so that it stays centred on the handle: where the tool declared the grip, plus the turn made since. */
+  private turnArc(item: Item) {
+    const declared = item.declared!;
+    const circle = item.axis!.children[0] as THREE.Line;
+    const base = circle.userData.base as THREE.Quaternion;
+    const [cx, cy, cz] = declared.ring!;
+    const local = new THREE.Vector3(...declared.anchor).sub(new THREE.Vector3(cx, cy, cz)).applyQuaternion(base.clone().invert());
+    const turned = ((handleValue(item.info, item.travel) - declared.value) * Math.PI) / 180;
+    const here = Math.atan2(local.y, local.x);
+    circle.quaternion.copy(base).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), here + turned));
+    // Tick marks at the snap angles that fall under the arc, fixed on the ring while the arc slides past them.
+    const ticks = item.axis!.children[1] as THREE.LineSegments | undefined;
+    if (ticks) {
+      const value = handleValue(item.info, item.travel);
+      const zero = here - ((45 + declared.value) * Math.PI) / 180; // the ring angle of the arrows' starting direction
+      const points: THREE.Vector3[] = [];
+      for (const snap of declared.snaps ?? []) {
+        const off = snap + 360 * Math.round((value - snap) / 360) - value;
+        if (Math.abs(off) > 60) continue;
+        const a = zero + ((45 + snap + 360 * Math.round((value - snap) / 360)) * Math.PI) / 180;
+        points.push(new THREE.Vector3(Math.cos(a) * 0.93, Math.sin(a) * 0.93, 0).multiplyScalar(declared.ring![3]), new THREE.Vector3(Math.cos(a) * 1.07, Math.sin(a) * 1.07, 0).multiplyScalar(declared.ring![3]));
+      }
+      ticks.geometry.setFromPoints(points);
+    }
+  }
+
+  /** Swing an arrow with the arc that turns it: its built direction turned about the arc's axis by the arc's drag so far. */
+  private reaim(item: Item, arc: Item) {
+    const axis = new THREE.Vector3(...arc.info.axis!).normalize();
+    const angle = ((handleValue(arc.info, arc.travel) - arc.info.value) * Math.PI) / 180;
+    const base = item.baseDirection!;
+    const dir = base.clone().applyAxisAngle(axis, angle);
+    item.info.direction = [dir.x, dir.y, dir.z];
+    item.tip.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    item.arm.geometry.setFromPoints([new THREE.Vector3(), dir]);
+  }
+
+  /** Pixels from a point to a turn arc on screen. */
+  private arcDistance(item: Item, pointer: THREE.Vector2): number {
+    const circle = item.axis!.children[0] as THREE.Line;
+    circle.updateWorldMatrix(true, false);
+    const position = circle.geometry.getAttribute("position");
+    const points = Array.from({ length: position.count }, (_, i) => this.screen(circle.localToWorld(new THREE.Vector3().fromBufferAttribute(position, i))));
+    let best = Infinity;
+    for (let i = 0; i + 1 < points.length; i++) {
+      const segment = new THREE.Line3(new THREE.Vector3(points[i].x, points[i].y, 0), new THREE.Vector3(points[i + 1].x, points[i + 1].y, 0));
+      best = Math.min(best, segment.closestPointToPoint(new THREE.Vector3(pointer.x, pointer.y, 0), true, new THREE.Vector3()).distanceTo(new THREE.Vector3(pointer.x, pointer.y, 0)));
+    }
+    return best;
   }
 
   /** Per frame: keep handles a constant size on screen and put the value labels beside them. */
   update() {
     const rect = this.dom.getBoundingClientRect();
     for (const item of this.items) {
+      if (item.declared?.ring && item.axis && item !== this.active?.item) {
+        // A rotation ring is a fixed share of the view's short side, whatever the zoom; the grip stays on it.
+        const [cx, cy, cz] = item.declared.ring;
+        const centre = new THREE.Vector3(cx, cy, cz);
+        const radius = item.declared.arc ? this.pixelSizeAt(centre) * ARC_RADIUS_PX : (this.pixelSizeAt(centre) * Math.min(rect.width, rect.height) * RING_VIEW_FRACTION) / 2;
+        if (radius > 0) {
+          const fit = refitRing(item.declared.ring, item.declared.anchor, item.declared.scale, radius);
+          item.info.ring = fit.ring as typeof item.info.ring;
+          item.info.anchor = fit.anchor as typeof item.info.anchor;
+          item.info.scale = fit.scale;
+          item.axis.scale.setScalar(radius / item.declared.ring[3]);
+        }
+      }
+      if (item.declared?.arc && item.axis) this.turnArc(item);
+      if (item.baseDirection && this.active?.item.info.arc && this.active.item.info.param === item.info.turnedBy) this.reaim(item, this.active.item);
       const { info, group } = item;
-      const pos = new THREE.Vector3(...info.anchor).addScaledVector(new THREE.Vector3(...info.direction), item.travel);
+      const pos = new THREE.Vector3(...info.anchor).addScaledVector(new THREE.Vector3(...info.direction), item.travel).add(item.shift);
       group.position.copy(pos);
       if (item.axis && info.axisFrom) {
         const from = new THREE.Vector3(...info.axisFrom);
@@ -286,6 +454,12 @@ export class Manipulator {
       const color = hot ? colors.hot : colors.rest;
       (item.tip.material as THREE.MeshBasicMaterial).color.setHex(color);
       (item.arm.material as THREE.LineBasicMaterial).color.setHex(color);
+      const snapped = info.arc ? snappedIndex(handleValue(info, item.travel), info.snaps) : -1;
+      if (info.arc && item.axis) {
+        const arc = item.axis.children[0] as THREE.Line;
+        (arc.material as THREE.LineBasicMaterial).color.setHex(snapped >= 0 ? COLOR_SNAPPED : color);
+        (arc.material as THREE.LineBasicMaterial).opacity = hot ? 1 : ARC_REST_OPACITY;
+      }
       group.scale.multiplyScalar(item === this.active?.item ? 1.3 : hot ? 1.15 : 1); // hovered and dragged handles grow
       const value = handleValue(info, item.travel);
       const p = pos.clone().project(this.camera());
@@ -296,9 +470,13 @@ export class Manipulator {
       const unit = info.unit === "Â°" || !info.unit ? info.unit : " " + info.unit;
       const typing = item === this.active?.item && this.active.typed !== null;
       const symbol = info.symbol ?? "";
-      const shown = symbol + (typing ? `${this.active!.negative ? "-" : ""}${this.active!.typed}|` : formatValue(value * (info.factor || 1)));
-      item.label.textContent = info.toggle ? info.label : `${info.label} ${shown}${unit}`;
-      item.label.style.outline = typing ? "1px solid #ffb347" : "";
+      const shown = symbol + (typing ? `${this.active!.negative ? "-" : ""}${this.active!.typed}|` : formatValue(info.along ? item.travel : value * (info.factor || 1)));
+      const fields = item === this.active?.item ? this.active.fields : null;
+      const grid = info.plane && (item.grid || fields) ? { ...this.gridStart(info), ...item.grid } : null;
+      const gridText = grid ? (fields ? `${fields.shown(0, String(grid.columns))} × ${fields.shown(1, String(grid.rows))}` : `${grid.columns} × ${grid.rows}`) : "";
+      const snapText = snapped < 0 ? "" : info.snapNames?.[snapped] === "face" ? " - square to a face" : " - square to the global axes";
+      item.label.textContent = info.toggle ? info.label : grid ? `${info.label} ${gridText}` : `${info.label} ${shown}${unit}${snapText}`;
+      item.label.style.outline = typing || fields ? "1px solid #ffb347" : "";
       item.label.style.fontWeight = hot ? "bold" : "normal";
     }
   }
@@ -312,7 +490,7 @@ export class Manipulator {
   }
 
   private tipPoint(item: Item): THREE.Vector3 {
-    return new THREE.Vector3(...item.info.anchor).addScaledVector(new THREE.Vector3(...item.info.direction), item.travel);
+    return new THREE.Vector3(...item.info.anchor).addScaledVector(new THREE.Vector3(...item.info.direction), item.travel).add(item.shift);
   }
 
   /** The handle under the pointer: the nearest one whose arm or tip is within the grab range. */
@@ -321,6 +499,14 @@ export class Manipulator {
     let best: Item | null = null;
     let bestD = GRAB_PX;
     for (const item of this.items) {
+      if (item.info.arc && item.axis) {
+        const d = this.arcDistance(item, pointer);
+        if (d < bestD) {
+          bestD = d;
+          best = item;
+        }
+        continue;
+      }
       const tip = this.tipPoint(item);
       const dir = new THREE.Vector3(...item.info.direction);
       const move = item.info.kind === "move";
@@ -331,7 +517,8 @@ export class Manipulator {
       const a = this.screen(tip);
       const b = end;
       const ab = b.clone().sub(a);
-      const t = ab.lengthSq() < 1e-6 ? 0 : Math.max(0, Math.min(1, pointer.clone().sub(a).dot(ab) / ab.lengthSq()));
+      const only = grabFraction(item.info.kind, item.info.toggle);
+      const t = only !== null ? only : ab.lengthSq() < 1e-6 ? 0 : Math.max(0, Math.min(1, pointer.clone().sub(a).dot(ab) / ab.lengthSq()));
       const d = pickScore(pointer.distanceTo(a.clone().addScaledVector(ab, t)), item.info.kind, t);
       if (d < bestD) {
         bestD = d;
@@ -368,6 +555,11 @@ export class Manipulator {
     const tip = this.tipPoint(item);
     const axisPx = this.screen(tip.clone().addScaledVector(dir, this.pixelSizeAt(tip) * ARM_PX)).sub(this.screen(tip));
     this.active = { item, t0: t0 - item.travel, x: e.clientX, y: e.clientY, axisPx, travel0: item.travel, moved: false, typed: null, negative: false };
+    if (item.info.plane) {
+      const [u, v] = item.info.plane;
+      const p = planePoint(ray.origin.toArray(), ray.direction.toArray(), item.info.anchor, u, v);
+      this.active.p0 = p ? new THREE.Vector3(...p) : undefined;
+    }
     this.dom.style.cursor = "grabbing";
     (document.activeElement as HTMLElement | null)?.blur?.(); // typed digits belong to the handle, not to a form field that had focus
     return true;
@@ -392,10 +584,38 @@ export class Manipulator {
     a.lastX = e.clientX;
     a.lastY = e.clientY;
     if (a.typed !== null) return; // a typed value holds the handle; the mouse is ignored
+    if (a.item.info.plane) {
+      this.moveGrid(a, e);
+      return;
+    }
     a.moved = true;
-    const value = handleValue(a.item.info, this.travelAt(a, e));
+    const value = snapValue(handleValue(a.item.info, this.travelAt(a, e)), a.item.info.snaps);
     a.item.travel = travelFor(a.item.info, value);
     this.onDrag(a.item.info.param, Math.round(value * 1000) / 1000, "move", e.clientX, e.clientY, linkedValues(a.item.info, a.item.travel));
+  }
+
+  /** The counts of a grid grip (its parameter and its first linked one) as the grip was computed. */
+  private gridStart(info: HandleInfo): { columns: number; rows: number } {
+    return { columns: info.value, rows: info.links?.[0]?.value ?? 1 };
+  }
+
+  /** A grid grip follows the pointer in the plane of the steps and asks for whole columns and rows, independently. */
+  private moveGrid(a: Active, e: { clientX: number; clientY: number }) {
+    const { item } = a;
+    const { info } = item;
+    if (!info.plane || !a.p0) return;
+    const ray = this.ray(e);
+    const p = planePoint(ray.origin.toArray(), ray.direction.toArray(), info.anchor, info.plane[0], info.plane[1]);
+    if (!p) return;
+    const [u, v] = info.plane;
+    const start = this.gridStart(info);
+    const delta = new THREE.Vector3(...p).sub(a.p0);
+    const now = gridCounts(delta.toArray(), u, v, start.columns, start.rows, info.min ?? 1);
+    a.moved = true;
+    item.grid = now;
+    item.shift.set(...gridShift(u, v, now.columns, now.rows, start.columns, start.rows));
+    const rowsParam = info.links?.[0]?.param;
+    this.onDrag(info.param, now.columns, "move", e.clientX, e.clientY, rowsParam ? { [rowsParam]: now.rows } : {});
   }
 
   /** Whether a number is being typed for the handle being dragged. */
@@ -408,6 +628,7 @@ export class Manipulator {
   key(e: { key: string }): boolean {
     const a = this.active;
     if (!a || a.item.info.toggle) return false;
+    if (a.item.info.plane) return this.gridKey(a, e);
     if (e.key === "Enter") {
       // The typed value is applied only now; while typing, only the label shows it and the shape stays put.
       const travel = a.typed === null ? null : typedTravel(a.item.info, a.typed, a.negative);
@@ -439,6 +660,45 @@ export class Manipulator {
     return true;
   }
 
+  /** Typed entry for a grid grip: digits set the columns, Tab moves to the rows, Enter commits (whole numbers, at least 1), Escape goes back to the mouse, then cancels. */
+  private gridKey(a: Active, e: { key: string }): boolean {
+    const item = a.item;
+    if (e.key === "Enter") {
+      if (a.fields) {
+        item.grid = typedCounts(a.fields, item.grid ?? this.gridStart(item.info));
+        this.applyGrid(item);
+        a.moved = true;
+      }
+      this.finish();
+      return true;
+    }
+    if (e.key === "Escape") {
+      if (a.fields && !a.released) {
+        a.fields = null; // button still held: back to dragging
+        a.typed = null;
+        return true;
+      }
+      this.cancel();
+      return true;
+    }
+    const fields = a.fields ?? new TypedFields(2, true);
+    if (!fields.key(e.key)) return false;
+    a.fields = fields;
+    a.typed = ""; // the mouse is ignored while the numbers are typed (see move)
+    return true;
+  }
+
+  /** Put a grid grip where its counts say, and tell the form. */
+  private applyGrid(item: Item) {
+    const info = item.info;
+    const now = item.grid;
+    if (!info.plane || !now) return;
+    const start = this.gridStart(info);
+    item.shift.set(...gridShift(info.plane[0], info.plane[1], now.columns, now.rows, start.columns, start.rows));
+    const rowsParam = info.links?.[0]?.param;
+    this.onDrag(info.param, now.columns, "move", this.active?.lastX ?? 0, this.active?.lastY ?? 0, rowsParam ? { [rowsParam]: now.rows } : {});
+  }
+
   private setTravel(a: Active, travel: number) {
     a.item.travel = travel;
     const { info } = a.item;
@@ -460,6 +720,14 @@ export class Manipulator {
     this.dom.style.cursor = "";
     const { info } = a.item;
     a.item.travel = a.travel0;
+    if (info.plane) {
+      a.item.shift.set(0, 0, 0);
+      a.item.grid = undefined;
+      const start = this.gridStart(info);
+      const rowsParam = info.links?.[0]?.param;
+      if (a.moved) this.onDrag(info.param, start.columns, "cancel", a.lastX ?? a.x, a.lastY ?? a.y, rowsParam ? { [rowsParam]: start.rows } : {});
+      return;
+    }
     if (a.moved) this.onDrag(info.param, Math.round(handleValue(info, a.travel0) * 1000) / 1000, "cancel", a.lastX ?? a.x, a.lastY ?? a.y, linkedValues(info, a.travel0));
   }
 
@@ -480,6 +748,12 @@ export class Manipulator {
     const e = { clientX: x, clientY: y };
     if (info.toggle) {
       this.onDrag(info.param, info.value >= 0.5 ? 0 : 1, "end", e.clientX, e.clientY, {});
+      return;
+    }
+    if (info.plane) {
+      const now = a.item.grid;
+      const rowsParam = info.links?.[0]?.param;
+      if (a.moved && now) this.onDrag(info.param, now.columns, "end", e.clientX, e.clientY, rowsParam ? { [rowsParam]: now.rows } : {});
       return;
     }
     if (a.moved) this.onDrag(info.param, Math.round(handleValue(info, travel) * 1000) / 1000, "end", e.clientX, e.clientY, linkedValues(info, travel));

@@ -23,22 +23,30 @@ export interface ToolPanelHost {
   cancelEyedrop(): void;
   /** Let the user click a reference snap in the view; null if cancelled. */
   pickPoint?(options?: PickOptions): Promise<number[] | null>;
+  /** Wait for a click on an edge anywhere on the model and give back a point on it; null if cancelled. */
+  pickEdgePoint?(): Promise<number[] | null>;
   /** Keep a marker at the picked base point (null removes it). */
   showBase?(point: number[] | null): void;
   /** The points of a new shape that can be put at the destination (primitives), for the current values. */
   anchors?(tool: ToolInfo, values: Record<string, ParamValue>): Promise<AnchorInfo[]>;
+  /** Called before another tool's form replaces the open one: may ask what to do with it (an unapplied array). */
+  settleOpenForm?(): Promise<void>;
   /** The open form changed (opened or closed). */
   changed?(): void;
 }
 
 const PREVIEW_DELAY_MS = 150;
 const UNITS: Record<string, string> = { length: "mm", angle: "°", number: "" };
+/** Form fields whose bare name is unclear: a fuller label and a tooltip. */
+const PARAM_HELP: Record<string, { label: string; title: string }> = {
+  new_body: { label: "new body (1 = separate, 0 = join)", title: "1 keeps the new solid as its own body. 0 fuses it into the bodies it touches, which only shows when it overlaps or touches one." },
+};
 
 export class ToolPanel {
   private open: ToolInfo | null = null;
   private editBody: number | undefined; // set while an existing primitive body is being edited (its id)
   private timer = 0;
-  private inputs: Record<string, HTMLInputElement> = {};
+  private inputs: Record<string, HTMLInputElement | HTMLSelectElement> = {};
   /** Where the picked base point is now (the move arrows are drawn there); null until a base is picked. */
   private baseNow: (() => Vec3 | null) | null = null;
   private pairInputs: Record<string, HTMLInputElement[][]> = {}; // per_edge parameters: [start, end] inputs per edge
@@ -79,13 +87,17 @@ export class ToolPanel {
           button.append(toolIcon(tool.id, tool.label), tool.label);
           button.disabled = !this.host.usable(tool);
           button.title = toolTooltip(tool);
-          button.addEventListener("click", () => this.openForm(tool, {}, "drawer"));
+          button.addEventListener("click", () => void (this.host.settleOpenForm?.() ?? Promise.resolve()).then(() => this.openForm(tool, {}, "drawer")));
           this.listButtons.set(tool.id, button);
           box.append(button);
         }
         return box;
       }),
     );
+  }
+
+  get openToolLabel(): string {
+    return this.open?.label ?? "";
   }
 
   get openToolId(): string | null {
@@ -124,7 +136,7 @@ export class ToolPanel {
     this.open = tool;
     this.editBody = editBody;
     this.baseNow = null;
-    const inputs: Record<string, HTMLInputElement> = {};
+    const inputs: Record<string, HTMLInputElement | HTMLSelectElement> = {};
     const title = document.createElement("div");
     title.className = "title";
     title.textContent = editBody === undefined ? tool.label : `Edit ${tool.label.replace(/^Add /, "").toLowerCase()}`;
@@ -134,7 +146,23 @@ export class ToolPanel {
       const row = document.createElement("label");
       row.className = "row";
       const name = document.createElement("span");
-      name.textContent = `${p.name.replace(/_/g, " ")}${UNITS[p.kind] ? ` (${UNITS[p.kind]})` : ""}`;
+      const help = PARAM_HELP[p.name];
+      name.textContent = help?.label ?? `${p.name.replace(/_/g, " ")}${UNITS[p.kind] ? ` (${UNITS[p.kind]})` : ""}`;
+      if (help) row.title = help.title;
+      if (p.options) {
+        const list = document.createElement("select");
+        p.options.forEach((label, i) => list.append(new Option(label, String(i))));
+        list.value = String(typeof initial[p.name] === "number" ? initial[p.name] : p.default);
+        list.addEventListener("change", () => this.schedulePreview(0));
+        list.addEventListener("keydown", (e) => {
+          e.stopPropagation(); // typing must not trigger view shortcuts or tools
+          if (e.key === "Enter") this.apply();
+          else if (e.key === "Escape") this.close();
+        });
+        inputs[p.name] = list;
+        row.append(name, list);
+        return row;
+      }
       const input = document.createElement("input");
       input.type = "number";
       input.step = "any";
@@ -283,6 +311,20 @@ export class ToolPanel {
       for (const name of vector) inputs[name].addEventListener("input", () => ((destination = null), show()));
       buttons.before(pickBase, pickDest, note);
     }
+    const axis = tool.pickAxis;
+    if (axis && axis.length === 4 && (this.host.pickEdgePoint || this.host.pickPoint)) {
+      const pickAxis = document.createElement("button");
+      pickAxis.textContent = "Pick axis";
+      pickAxis.title = "Click an edge anywhere on the model (the face's own edge or another): the face pivots about the plane through that edge, square to the pull direction (the default is the face's own centroid)";
+      pickAxis.addEventListener("click", async () => {
+        const point = await (this.host.pickEdgePoint ?? this.host.pickPoint)!();
+        if (!point || this.open !== tool) return;
+        axis.slice(0, 3).forEach((name, i) => (inputs[name].value = String(parseFloat(point[i].toFixed(4)))));
+        inputs[axis[3]].value = "1"; // the choice list: picked point
+        this.schedulePreview(0);
+      });
+      buttons.before(pickAxis);
+    }
     this.formEl.hidden = false;
     this.inputs = inputs;
     this.pairInputs = pairInputs;
@@ -348,7 +390,8 @@ export class ToolPanel {
     this.timer = window.setTimeout(() => this.host.preview(tool, this.values(), this.editBody), delay);
   }
 
-  private async apply() {
+  /** Applies the open form (the same as its Apply button). */
+  async apply() {
     const tool = this.open;
     if (!tool) return;
     const values = this.values();

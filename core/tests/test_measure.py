@@ -122,7 +122,7 @@ def test_line_edge_dimension_is_offset_away_from_part(block):
 def test_hole_wall_shows_diameter_and_depth(bracket):
     (wall,) = find(bracket, "face", title="Cylinder", Radius=7)
     texts = {d["kind"]: d["text"] for d in dims(measure(bracket, Selection(faces=[wall])))}
-    assert texts == {"diameter": "⌀14", "linear": "10"}
+    assert texts == {"diameter": "Ø14", "linear": "10"}
 
 
 def test_circle_rim_diameter_points_are_opposite(bracket):
@@ -178,3 +178,39 @@ def test_hole_centre_and_centre_distances(bracket):
     distances = {round(r["value"], 3) for r in pair["summary"] if r["label"] == "Centre distance"}
     assert distances and distances <= {28.0, 35.0, round(math.hypot(35, 28), 3)}
     assert pair["dimensions"][0]["kind"] == "linear"
+
+
+def test_model_info_for_one_body_of_two():
+    from build123d import Box, Compound, Pos
+
+    from pliable import bodies as body_ids
+    from pliable.measure import model_info
+    from pliable.topology import Topology
+
+    shape = Compound([Box(10, 10, 10), Pos(30, 0, 0) * Box(20, 20, 20)]).wrapped
+    state = body_ids.fresh(shape, body_ids.namer({}))
+    topology = Topology(shape, state)
+    both = {r["label"]: r["value"] for r in model_info(topology)["items"][0]["rows"]}
+    assert both["Solids"] == 2 and both["Faces"] == 12
+    second = state.bodies[1]
+    item = model_info(topology, second.id)["items"][0]
+    rows = {r["label"]: r["value"] for r in item["rows"]}
+    assert item["title"] == second.name and rows["Solids"] == 1 and rows["Faces"] == 6
+    assert rows["Volume"] != pytest.approx(both["Volume"]) and rows["Volume"] == pytest.approx(rows["Size (X, Y, Z)"][0] ** 3)
+    with pytest.raises(ValueError):
+        model_info(topology, 999)
+
+
+def test_selected_body_reports_volume_and_mass_through_the_server():
+    from pliable.server import Session
+
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})  # 40 x 30 x 20 mm
+    reply = session.handle({"type": "measure", "selection": {"bodies": [1]}, "density": 1050})
+    (item,) = reply["items"]
+    assert item["kind"] == "body"
+    assert value(item, "Volume") == pytest.approx(24000)
+    assert value(item, "Mass") == pytest.approx(25.2)  # 24 cm3 of 1.05 g/cm3
+    assert next(r["unit"] for r in item["rows"] if r["label"] == "Mass") == " g"
+    both = session.handle({"type": "measure", "selection": {"bodies": [1]}})  # no density: no mass row
+    assert [r["label"] for r in both["items"][0]["rows"]] == ["Volume"]

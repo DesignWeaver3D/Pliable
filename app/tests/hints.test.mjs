@@ -1,15 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { hintItems, loadPrefs, nextTip, savePrefs } from "../src/hints.ts";
+import { hintItems, loadPrefs, nextTip, savePrefs, stickyTip } from "../src/hints.ts";
 
 const none = { ctrl: false, alt: false, shift: false };
 const key = (id) => ({ "display.seeThrough": "X", "display.hide": "H", "view.lookAtFace": "V" })[id] ?? "";
 const idle = { dragging: false, sketch: false, hasSelection: false };
 
-test("a drag shows the measure pick key", () => {
-  const items = hintItems({ ...idle, dragging: true }, none, key);
-  assert.ok(items.some((i) => i.keys === "M" && /measure/.test(i.text)));
-});
 
 test("idle shows no static legend", () => {
   assert.deepEqual(hintItems({ ...idle, hasSelection: true }, none, key), []);
@@ -47,4 +43,25 @@ test("getting started lists six items and shows once while hints are on", async 
   assert.equal(shouldAutoShowGettingStarted({ on: true, dismissed: [] }), true);
   assert.equal(shouldAutoShowGettingStarted({ on: true, dismissed: [GETTING_STARTED_ID] }), false);
   assert.equal(shouldAutoShowGettingStarted({ on: false, dismissed: [] }), false);
+});
+
+
+test("each sketch plane button names the axes along its bottom and left edges", async () => {
+  const { SKETCH_PLANES, SKETCH_PLANE_AXES } = await import("../src/layout.ts");
+  assert.deepEqual(SKETCH_PLANES.map((p) => [SKETCH_PLANE_AXES[p].bottom, SKETCH_PLANE_AXES[p].left]), [["x", "y"], ["x", "z"], ["y", "z"]]);
+});
+
+test("a drag hint line has no measure item (the tip covers it) and the sketch has no key hint line", () => {
+  assert.ok(!hintItems({ ...idle, dragging: true }, none, key).some((i) => /measure/.test(i.text)));
+  assert.deepEqual(hintItems({ ...idle, sketch: true }, none, key), []);
+});
+
+test("a tip stays after its context ends, until it is dismissed or hints go off", () => {
+  const prefs = { on: true, dismissed: [] };
+  const tip = nextTip({ ...idle, dragging: true }, prefs);
+  assert.equal(stickyTip(tip, idle, prefs)?.id, "measure");
+  assert.equal(stickyTip(tip, idle, { on: true, dismissed: ["measure"] }), null);
+  assert.equal(stickyTip(tip, idle, { on: false, dismissed: [] }), null);
+  assert.equal(stickyTip(tip, { ...idle, sketch: true }, prefs), null);
+  assert.equal(stickyTip(null, { ...idle, hasSelection: true }, prefs)?.id, "seethrough");
 });

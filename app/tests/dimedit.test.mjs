@@ -16,3 +16,9 @@ test("shown values drop trailing zeros", () => {
   assert.equal(formatValue(2.50004), "2.5");
   assert.equal(formatValue(1 / 3), "0.3333");
 });
+
+test("the draft angle tag of a wall is dropped from the shown dimensions, other dimensions stay", async () => {
+  const { withoutDraftTag } = await import("../src/dimedit.ts");
+  const dims = [{ kind: "linear", edit: { kind: "edge_length" } }, { kind: "tag", edit: { kind: "face_angle" } }, { kind: "tag" }];
+  assert.deepEqual(withoutDraftTag(dims), [dims[0], dims[2]]);
+});

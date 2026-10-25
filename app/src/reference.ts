@@ -159,6 +159,12 @@ export class ReferenceView {
         if (visible(point)) candidates.push({ point, label: "Hole centre" });
       }
     }
+    // The centre of every circular or elliptical edge, so an arc or a slanted hole's mouth has its centre to snap to.
+    for (const e of data?.edges ?? []) {
+      if (!e.centre) continue;
+      const p = new THREE.Vector3(...e.centre);
+      if (visible(p)) candidates.push({ point: p, label: "Centre" });
+    }
     for (const v of data?.vertices ?? []) {
       const p = new THREE.Vector3(...v.position);
       if (visible(p)) candidates.push({ point: p, label: "Vertex" });

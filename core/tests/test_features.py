@@ -130,6 +130,56 @@ def test_add_box_and_cylinder(block):
     assert Topology(box.shape).face_count == 6 + 5  # box top and four walls; the block's top face stays
 
 
+def test_add_prism_is_a_regular_polygon_extruded(block):
+    hexagon = run("add_prism", block, bottom_diameter=10, top_diameter=10, height=10, x=0, y=0, z=10, new_body=0)  # defaults to 6 sides
+    assert volume(hexagon.shape) == pytest.approx(24000 + 1.5 * math.sqrt(3) * 25 * 10, rel=1e-4)  # side = circumradius = 5
+    assert Topology(hexagon.shape).face_count == 6 + 7  # the block's six faces, the six walls and the prism's top
+    square = run("add_prism", block, sides=4, bottom_diameter=10, top_diameter=10, height=10, x=0, y=0, z=10, new_body=0)
+    assert volume(square.shape) == pytest.approx(24000 + 2 * 25 * 10, rel=1e-4)  # a square of diagonal 10 has area 50
+    assert volume(run("add_prism", block, sides=4.4, bottom_diameter=10, top_diameter=10, height=10, x=0, y=0, z=10, new_body=0).shape) == pytest.approx(volume(square.shape))  # rounds to 4
+    for bad in (2, 65):
+        with pytest.raises(OperationError):
+            run("add_prism", block, sides=bad)
+
+
+def _polygon_area(sides, radius):
+    return 0.5 * sides * radius * radius * math.sin(2 * math.pi / sides)
+
+
+def _faces(shape):
+    return Topology(shape).face_count
+
+
+@pytest.mark.parametrize("sides", [3, 4, 6])
+def test_add_prism_with_two_diameters_is_a_frustum_with_flat_sides(sides):
+    from OCP.BRepCheck import BRepCheck_Analyzer
+    from OCP.TopoDS import TopoDS_Compound
+
+    from pliable.ops import planar_normal
+
+    empty = Topology(TopoDS_Compound())
+    frustum = run("add_prism", empty, sides=sides, bottom_diameter=12, top_diameter=6, height=9, new_body=1).shape
+    a1, a2 = _polygon_area(sides, 6), _polygon_area(sides, 3)
+    assert volume(frustum) == pytest.approx(9 / 3 * (a1 + a2 + math.sqrt(a1 * a2)), rel=1e-6)
+    assert BRepCheck_Analyzer(frustum).IsValid() and _faces(frustum) == sides + 2  # flat sides plus the two polygons
+    assert all(planar_normal(f) is not None for _, f in Topology(frustum).faces())
+
+
+def test_add_prism_pyramid_and_inverted_pyramid():
+    from OCP.BRepCheck import BRepCheck_Analyzer
+    from OCP.TopoDS import TopoDS_Compound
+
+    empty = Topology(TopoDS_Compound())
+    pyramid = run("add_prism", empty, sides=4, bottom_diameter=10, top_diameter=0, height=6, new_body=1).shape
+    assert volume(pyramid) == pytest.approx(_polygon_area(4, 5) * 6 / 3, rel=1e-6)  # base area times height over three
+    assert BRepCheck_Analyzer(pyramid).IsValid() and _faces(pyramid) == 5  # four triangles and the base
+    upside_down = run("add_prism", empty, sides=4, bottom_diameter=0, top_diameter=10, height=6, new_body=1).shape
+    assert volume(upside_down) == pytest.approx(volume(pyramid), rel=1e-6) and BRepCheck_Analyzer(upside_down).IsValid()
+    for bad in ({"bottom_diameter": 0, "top_diameter": 0}, {"bottom_diameter": -1}, {"top_diameter": -1}):
+        with pytest.raises(OperationError):
+            run("add_prism", empty, **bad)
+
+
 def test_shell_leaves_walls(block):
     result = run("shell", block, faces=[top_of(block)], thickness=2)
     assert volume(result.shape) == pytest.approx(24000 - 36 * 26 * 18, rel=1e-4)
@@ -148,7 +198,12 @@ def test_mirror_doubles_across_a_face(block):
 def test_draft_tilts_side_faces(block):
     side = next(i for i in range(6) if abs(measure(block, Selection(faces=[i]))["items"][0]["rows"][3]["value"][0]) == 1)
     result = run("draft", block, faces=[side], angle=5)
-    assert volume(result.shape) != pytest.approx(24000, rel=1e-4)
+    assert volume(result.shape) == pytest.approx(24000, rel=1e-3)  # about the face centroid: as much leans out below as in above
+    base = run("draft", block, faces=[side], angle=5, axis=2)  # the model's lowest point, the old default
+    assert volume(base.shape) != pytest.approx(24000, rel=1e-3)
+    top = run("draft", block, faces=[side], angle=5, axis=1, axis_x=0, axis_y=0, axis_z=10)  # a picked point on the top plane
+    assert volume(top.shape) != pytest.approx(volume(result.shape), rel=1e-3)
+    assert volume(top.shape) != pytest.approx(volume(base.shape), rel=1e-3)
 
 
 def test_align_face_moves_first_to_second(bracket):
@@ -238,11 +293,45 @@ def test_torus(block):
 
 
 def test_linear_array_fuses_touching_copies(block):
-    result = run("linear_array", block, count=3, dx=40, dy=0, dz=0)  # block is 40 wide: copies touch
+    result = run("linear_array", block, count=3, rows=1, dx=40, dy=0, dz=0)  # block is 40 wide: copies touch
     assert volume(result.shape) == pytest.approx(3 * 24000, rel=1e-6)
     assert Topology(result.shape).face_count == 6  # one long block after merging coplanar faces
     with pytest.raises(OperationError):
-        run("linear_array", block, count=3, dx=0)
+        run("linear_array", block, count=3, rows=1, dx=0)
+
+
+def test_linear_array_makes_a_grid_of_rows_and_columns(block):
+    result = run("linear_array", block, count=3, rows=2, dx=40, dy=0, dz=0, dx2=0, dy2=30, dz2=0)  # block is 40 by 30: cells touch
+    assert volume(result.shape) == pytest.approx(6 * 24000, rel=1e-6)
+    assert Topology(result.shape).face_count == 6  # one large block after merging
+    default = get_tool("linear_array").bind({})
+    assert (default["count"], default["rows"]) == (3, 3)
+    with pytest.raises(OperationError):
+        run("linear_array", block, count=1, rows=1)
+    with pytest.raises(OperationError):
+        run("linear_array", block, count=3, rows=2, dx=40, dx2=0, dy2=0)
+
+
+def test_linear_array_grips_set_spacing_and_counts(block):
+    tool = get_tool("linear_array")
+    values = tool.bind({"count": 3, "rows": 2, "dx": 40, "dy": 0, "dz": 0, "dx2": 0, "dy2": 30, "dz2": 0})
+    handles = {h.label: h for h in tool.handles(block, Selection(faces=[], edges=[]), values)}
+    assert set(handles) == {"Column spacing", "Row spacing", "Columns and rows"}
+    column = handles["Column spacing"]
+    assert column.param == "dx" and column.direction == (1.0, 0.0, 0.0) and column.scale == pytest.approx(0.5)  # the last copy is 2 steps out
+    assert {name for name, _ in column.links} == {"dy", "dz"}
+    both = handles["Columns and rows"]
+    assert both.param == "count" and both.links == (("rows", both.scale),)
+    assert both.scale == pytest.approx(1 / 50)  # one more column and row adds a 40 + 30 step diagonal of length 50
+    assert both.kind == "resize" and both.plane == ((40, 0, 0), (0, 30, 0))  # a cube grip dragged in the plane of the two steps
+    assert both.to_json(3, values)["plane"] == [[40.0, 0.0, 0.0], [0.0, 30.0, 0.0]]
+
+
+def test_linear_array_corner_grip_is_an_arrow_when_the_steps_are_parallel(block):
+    tool = get_tool("linear_array")
+    values = tool.bind({"count": 3, "rows": 2, "dx": 40, "dy": 0, "dz": 0, "dx2": 20, "dy2": 0, "dz2": 0})
+    both = next(h for h in tool.handles(block, Selection(faces=[], edges=[]), values) if h.label == "Columns and rows")
+    assert both.kind == "arrow" and both.plane is None
 
 
 def test_circular_array(block):
@@ -294,7 +383,7 @@ def test_distance_angle_chamfer(block):
 def _two_blocks(offset):
     from OCP.BRep import BRep_Builder
     from OCP.TopoDS import TopoDS_Compound
-    from pliable.features import _moved
+    from pliable.shared.solids import _moved
 
     a = load_demo("block")
     compound, builder = TopoDS_Compound(), BRep_Builder()
@@ -321,6 +410,21 @@ def test_body_boolean(mode, expected):
         run("body_boolean", two, faces=[faces[0], faces[0] + 0], mode=mode)
 
 
+def test_body_boolean_takes_bodies_and_a_body_with_faces():
+    from pliable.tools.base import Selection
+    from pliable.tools import get_tool
+
+    two = _two_blocks(20)
+    tool = get_tool("body_boolean")
+    ids = [b.id for b in two.bodies.bodies]
+    assert tool.available(two, Selection(bodies=ids))
+    assert tool.available(two, Selection(bodies=[ids[0]], faces=[_face_in_solid(two, 1)]))
+    assert not tool.available(two, Selection(bodies=[ids[0]]))
+    assert not tool.available(two, Selection(bodies=[ids[0]], faces=[_face_in_solid(two, 0)]))
+    result = tool.execute(two, Selection(bodies=ids), {"mode": 2}, preview=False)
+    assert volume(result.shape) == pytest.approx(20 * 30 * 20, rel=1e-3)
+
+
 def test_split_plane_makes_two_solids(block):
     from pliable.ops import solids_of
 
@@ -340,7 +444,7 @@ def test_variable_fillet_removes_material(block):
 
 
 def test_loft_between_faces_fills_the_gap():
-    from pliable.features import _moved
+    from pliable.shared.solids import _moved
 
     a = load_demo("block")
     from OCP.BRep import BRep_Builder
@@ -479,7 +583,7 @@ def test_path_array_needs_a_connected_path(block):
 def test_placement_tools_declare_their_point_parameters():
     from pliable.tools import TOOLS
 
-    for tool_id in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus", "pattern_hole_circular"):
+    for tool_id in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus", "add_prism", "pattern_hole_circular"):
         info = TOOLS[tool_id].describe()
         assert info["placement"] is not None
         assert all(name in {p["name"] for p in info["params"]} for name in info["placement"])
@@ -539,10 +643,10 @@ def test_arrays_copy_only_the_chosen_body(block):
 
     two = _two_bodies(block)
     face = next(i for i in range(two.face_count) if _box_x(two, i) > 90)
-    result = run("linear_array", two, faces=[face], count=3, dx=0, dy=0, dz=30)
+    result = run("linear_array", two, faces=[face], count=3, rows=1, dx=0, dy=0, dz=30)
     assert volume(result.shape) == pytest.approx(24000 + 3 * 1000 + 0, rel=1e-6)
     assert len(solids_of(result.shape)) == 4  # the block, the small box and its two copies (30 apart, so not touching)
-    whole = run("linear_array", two, count=3, dx=0, dy=0, dz=60)
+    whole = run("linear_array", two, count=3, rows=1, dx=0, dy=0, dz=60)
     assert volume(whole.shape) == pytest.approx(3 * 25000, rel=1e-6)
     ring = run("circular_array", two, faces=[face], count=2, axis=2, angle=180)
     assert volume(ring.shape) == pytest.approx(24000 + 2000, rel=1e-6)
@@ -610,3 +714,101 @@ def test_align_face_flush_and_draft_messages(bracket):
         run("draft", bracket, faces=[7], angle=3)  # a top face cannot be drafted about Z
     with pytest.raises(OperationError, match="smaller angle"):
         run("draft", bracket, faces=[12], angle=3)
+
+
+def test_cut_plane_tilts_and_offers_move_and_tilt_handles(block):
+    from pliable.bodies import box_of
+    from pliable.tools import Selection
+
+    for tool_id in ("cut_plane", "split_plane"):
+        tool = get_tool(tool_id)
+        values = {"axis": 2, "position": 0.0, "remove_side": 0.0}
+        handles = tool.handles(block, Selection(), {**values, "tilt_u": 0.0, "tilt_v": 0.0, "nx": 0, "ny": 0, "nz": 1})
+        assert [h.param for h in handles] == ["position", "tilt_u", "tilt_v"]
+        assert handles[0].kind == "move" and handles[1].ring is not None
+    flat = run("cut_plane", block, axis=2, position=0.0, remove_side=1.0)
+    tilted = run("cut_plane", block, axis=2, position=0.0, remove_side=1.0, tilt_u=20.0)
+    # A tilted plane through the middle leaves a different shape than the level one.
+    assert box_of(tilted.shape) != box_of(flat.shape)
+    assert volume(tilted.shape) == pytest.approx(volume(flat.shape), rel=0.2)
+
+
+def test_cut_plane_affects_only_the_selected_body():
+    from pliable.server import Session
+
+    s = Session()
+    s.handle({"type": "open_demo", "name": "block"})
+    s.handle({"type": "tool_commit", "tool": "add_box", "params": {"width": 10, "depth": 10, "height": 10, "x": 100, "new_body": 1}})
+    topology = s._require_document().current
+    ids = [b.id for b in topology.bodies.bodies]
+    assert len(ids) == 2
+    tool = get_tool("cut_plane")
+    values = {"axis": 2, "position": 5.0, "remove_side": 1.0}
+    one = tool.execute(topology, Selection(bodies=[ids[1]]), values, preview=False)
+    both = tool.execute(topology, Selection(), values, preview=False)
+    first = volume(__import__("pliable.ops", fromlist=["solids_of"]).solids_of(topology.shape)[0])
+    from pliable.ops import solids_of
+
+    assert len(solids_of(one.shape)) == 2 and len(solids_of(both.shape)) == 2
+    assert volume(solids_of(one.shape)[0]) == pytest.approx(first)  # the unselected block is untouched
+    assert volume(both.shape) < volume(one.shape)
+
+
+def test_refine_bodies_touches_only_the_selected_body():
+    from pliable.ops import solids_of
+    from pliable.server import Session
+
+    s = Session()
+    s.handle({"type": "open_demo", "name": "block"})
+    s.handle({"type": "tool_commit", "tool": "add_box", "params": {"width": 10, "depth": 10, "height": 10, "x": 100, "new_body": 1}})
+    topology = s._require_document().current
+    ids = [b.id for b in topology.bodies.bodies]
+    tool = get_tool("unify")
+    one = tool.execute(topology, Selection(bodies=[ids[1]]), {}, preview=False)
+    assert len(solids_of(one.shape)) == 2
+    assert volume(one.shape) == pytest.approx(volume(topology.shape))
+    assert tool.execute(topology, Selection(), {}, preview=False).shape is not None
+
+
+def test_sketch_project_takes_only_the_picked_faces_and_edges():
+    from pliable.server import Session
+
+    s = Session()
+    s.handle({"type": "open_demo", "name": "block"})
+    plane = {"origin": [0, 0, 0], "normal": [0, 0, 1], "xdir": [1, 0, 0]}
+    everything = s.handle({"type": "sketch_project", "plane": plane})
+    one_face = s.handle({"type": "sketch_project", "plane": plane, "faces": [0]})
+    one_edge = s.handle({"type": "sketch_project", "plane": plane, "edges": [0]})
+    assert len(everything["entities"]) > len(one_face["entities"]) >= 1
+    assert 1 <= len(one_edge["entities"]) + len(one_edge["points"]) < len(everything["entities"]) + len(everything["points"])
+    from pliable.server import RequestError
+
+    with pytest.raises(RequestError):
+        s.handle({"type": "sketch_project", "plane": plane, "faces": [9999]})
+
+
+def test_push_pull_along_a_chosen_direction(block):
+    top = top_of(block)
+    slant = 2 ** -0.5
+    result = run("push_pull", block, faces=[top], distance=10, ux=slant, uy=0, uz=slant)  # 45 degrees off the normal
+    assert volume(result.shape) == pytest.approx(24000 + 1200 * 10 * slant, rel=1e-6)  # the slanted prism has the base area and a height of 10 cos 45
+    flipped = run("push_pull", block, faces=[top], distance=10, ux=-slant, uy=0, uz=-slant)  # an edge has no sign: it is turned to point out of the face
+    assert volume(flipped.shape) == pytest.approx(volume(result.shape) + 0, rel=1e-6)
+    handle = get_tool("push_pull").handles(block, Selection(faces=[top]), get_tool("push_pull").bind({"distance": 10, "ux": slant, "uy": 0, "uz": slant}))[0]
+    assert handle.direction == pytest.approx((slant, 0, slant))
+    with pytest.raises(OperationError):
+        run("push_pull", block, faces=[top], distance=10, ux=1, uy=0, uz=0)  # along the face
+    with pytest.raises(OperationError):
+        run("push_pull", block, faces=[top], distance=10, ux=slant, uy=0, uz=slant, symmetric=1)
+    assert volume(run("push_pull", block, faces=[top], distance=10, ux=0, uy=0, uz=1).shape) == pytest.approx(24000 + 12000)  # the normal itself
+
+
+def test_push_pull_handle_carries_the_sketch_axes_of_its_face(block):
+    top = top_of(block)
+    tool = get_tool("push_pull")
+    handle = tool.handle_list(block, Selection(faces=[top]), {"distance": 0})[0]
+    x_axis, y_axis = handle["frame"]
+    normal = handle["direction"]
+    for a, b in ((x_axis, y_axis), (x_axis, normal), (y_axis, normal)):
+        assert sum(p * q for p, q in zip(a, b)) == pytest.approx(0, abs=1e-9)  # square to each other and to the normal
+    assert math.hypot(*x_axis) == pytest.approx(1) and math.hypot(*y_axis) == pytest.approx(1)

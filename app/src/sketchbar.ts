@@ -4,7 +4,7 @@
  * world planes. A face that cannot be sketched on says why in the message bar at the top.
  */
 import type { CoreClient } from "./client";
-import { SKETCH_PLANES } from "./layout";
+import { SKETCH_PLANES, SKETCH_PLANE_AXES } from "./layout";
 import type { SketchMode } from "./sketch";
 import type { Sel } from "./viewport";
 
@@ -28,7 +28,6 @@ export interface SketchBarDeps {
 export class SketchBar {
   /** True after the button was pressed with no face selected: the next face selected starts the sketch. */
   armed = false;
-  private offset = 0; // distance of the next standard-plane sketch from the plane, along its normal
   private problem: string | null = null;
   private key = "";
 
@@ -61,7 +60,7 @@ export class SketchBar {
     this.render();
   }
 
-  /** Start a sketch on a plane the core builds from selected vertices, or from an edge and a vertex. */
+  /** Start a sketch on a plane the core builds from selected vertices, an edge and a vertex, or a face moved, turned or touched at a point. */
   private async beginThrough(request: Record<string, unknown>) {
     const { core, sketch } = this.d;
     this.problem = null;
@@ -96,11 +95,13 @@ export class SketchBar {
     const vertices = selected.filter((s) => s.kind === "vertex").map((s) => s.id);
     const edges = selected.filter((s) => s.kind === "edge").map((s) => s.id);
     // The other ways to place a sketch plane, from what is selected: [label, tooltip, request].
-    const ways: [string, string, Record<string, unknown>][] = [];
-    if (!faces && vertices.length === 3 && !edges.length) ways.push(["Through 3 Points", "Sketch on the plane through the three selected vertices", { vertices }]);
-    if (!faces && vertices.length === 1 && edges.length === 1) ways.push(["Through Edge And Point", "Sketch on the plane through the selected straight edge and vertex", { edge: edges[0], vertex: vertices[0] }]);
-    const key = `${faces}|${sketch.active}|${this.armed}|${this.problem}|${JSON.stringify(ways)}`;
-    if (key === this.key) return; // keep the buttons (and the offset box focus) when nothing relevant changed
+    const ways: [string, string, () => Record<string, unknown>][] = [];
+    const faceIds = selected.filter((s) => s.kind === "face").map((s) => s.id);
+    if (!faces && vertices.length === 3 && !edges.length) ways.push(["Through 3 Points", "Sketch on the plane through the three selected vertices", () => ({ vertices })]);
+    if (!faces && vertices.length === 1 && edges.length === 1) ways.push(["Through Edge And Point", "Sketch on the plane through the selected straight edge and vertex", () => ({ edge: edges[0], vertex: vertices[0] })]);
+    if (faceIds.length === 1 && vertices.length === 1 && !edges.length) ways.push(["Tangent At Point", "Sketch on the plane touching the selected face at the selected vertex (a vertex on the face)", () => ({ tangent_face: faceIds[0], vertex: vertices[0] })]);
+    const key = `${faces}|${sketch.active}|${this.armed}|${this.problem}|${ways.map((w) => w[0]).join()}|${faceIds}|${vertices}`;
+    if (key === this.key) return; // keep the buttons when nothing relevant changed
     this.key = key;
     const onFace = document.createElement("button");
     onFace.textContent = this.armed ? "Sketch On Geometry: pick a face" : "Sketch On Geometry";
@@ -114,38 +115,32 @@ export class SketchBar {
         const here = document.createElement("button");
         here.textContent = `Sketch ${label}`;
         here.title = tip;
-        here.addEventListener("click", () => void this.beginThrough(request));
+        here.addEventListener("click", () => void this.beginThrough(request()));
         parts.push(here);
       }
     }
     const label = document.createElement("span");
     label.textContent = "or on";
-    const offset = document.createElement("input");
-    offset.type = "number";
-    offset.step = "any";
-    offset.value = String(this.offset);
-    offset.title = "Offset of the sketch plane from XY, XZ or YZ along its normal";
-    offset.style.width = "56px";
-    offset.addEventListener("keydown", (e) => e.stopPropagation());
-    offset.addEventListener("input", () => (this.offset = Number(offset.value) || 0));
     bar.replaceChildren(
       ...parts,
       label,
       ...SKETCH_PLANES.map((name) => {
         const b = document.createElement("button");
         b.textContent = name;
-        b.title = `Start a 2D sketch on the ${name} plane through the origin (the offset box moves the plane)`;
+        const axes = SKETCH_PLANE_AXES[name];
+        b.style.borderBottom = `3px solid var(--axis-${axes.bottom})`;
+        b.style.borderLeft = `3px solid var(--axis-${axes.left})`;
+        b.title = `Start a 2D sketch on the ${name} plane through the origin (move or turn it afterwards with the plane handles)`;
         b.disabled = sketch.active;
         b.addEventListener("click", async () => {
           this.armed = false;
-          const reply = await this.d.core.request<{ plane: any }>("sketch_plane", { plane: name, offset: this.offset });
+          const reply = await this.d.core.request<{ plane: any }>("sketch_plane", { plane: name });
           sketch.start(reply.plane);
           this.key = "";
           this.render();
         });
         return b;
       }),
-      offset,
     );
   }
 }

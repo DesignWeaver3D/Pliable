@@ -94,3 +94,19 @@ def test_cache_is_bounded(monkeypatch):
     tessellate(Topology(blocks(20)))
     assert display_cache.weight <= 200 + 100
     assert np.array_equal(tessellate(Topology(blocks(2))).bounds, fresh(Topology(blocks(2))).bounds)
+
+
+def test_solid_indices_match_the_lookup_version():
+    from build123d import Face, Sphere
+
+    box = Box(10, 10, 10)
+    shapes = {
+        "one block": blocks(1),
+        "many blocks": blocks(12),
+        "sphere": Sphere(5).wrapped,
+        "moved copies": Compound([box, Pos(30, 0, 0) * box, Pos(60, 0, 0) * box]).wrapped,
+        "loose face between solids": Compound([box, Face.make_rect(5, 5), Pos(30, 0, 0) * box]).wrapped,
+    }
+    for name, shape in shapes.items():
+        topology = Topology(shape)
+        assert tess._solid_indices(topology) == tess._solid_indices_by_lookup(topology), name

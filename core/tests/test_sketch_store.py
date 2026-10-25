@@ -1,7 +1,7 @@
 import json
 
 from pliable import sketch
-from pliable.autosave import Autosaver
+from pliable.autosave import Autosaver, _write_brep
 from pliable.protocol import decode_binary
 from pliable.server import RequestError, Session
 
@@ -125,9 +125,15 @@ def test_old_autosave_without_sketch_keys_loads(tmp_path):
     first.handle({"type": "open_demo", "name": "block"})
     first.handle({"type": "sketch_keep", "sketch": make(first)})
     die(first.autosaver)
+    # rewrite the session the way the first autosave format did: bare BREP files, no sketch keys
     meta_path = next(tmp_path.rglob("session.json"))
     meta = json.loads(meta_path.read_text())
-    del meta["sketches"], meta["sketch_next"]
+    document = first.document
+    for state_id in meta["ids"]:
+        _write_brep(document.shape_of(state_id), meta_path.parent / f"state_{state_id}.brep")
+        (meta_path.parent / f"state_{state_id}.plbl").unlink()
+    meta["format"] = 1
+    meta["bodies"] = [b.to_json() for b in document.body_states]
     meta_path.write_text(json.dumps(meta))
     second = Session(Autosaver(tmp_path))
     second.handle({"type": "restore_session"})
@@ -219,3 +225,102 @@ def test_extrude_a_stored_sketch_by_id_and_keep_in_the_same_step():
     assert [s["id"] for s in header_after["sketches"]] == [1, 2] and header_after["sketchId"] == 2
     undone = header(session.handle({"type": "undo"}))
     assert [s["id"] for s in undone["sketches"]] == [1]  # the extrusion and the kept sketch went together
+
+
+def test_picking_one_region_adds_its_face_and_selects_it():
+    session = open_session()
+    sk = make(session, 10)
+    session.handle({"type": "sketch_keep", "sketch": sk, "regions": False})
+    before = faces(session)
+    h = header(session.handle({"type": "sketch_regions", "sketch_id": 1, "region": 0}))
+    assert faces(session) == before + 1
+    selected = h["selection"]["faces"]
+    assert len(selected) == 1
+    assert sketch.Face(session.document.current.face(selected[0])).area == pytest.approx(100, rel=1e-6)
+    session.handle({"type": "undo"})
+    assert faces(session) == before
+    with pytest.raises(RequestError):
+        session.handle({"type": "sketch_regions", "sketch_id": 1, "region": 5})
+
+
+def test_every_region_stays_pickable_after_a_neighbour_is_extruded_or_its_body_deleted():
+    from test_sketch import _free_line
+
+    session = open_session()
+    plane = session.handle({"type": "sketch_plane", "plane": "XY"})["plane"]
+    points, lines = rectangle(20, 20, x0=30)
+    _free_line(lines, points, (30, 8), (50, 8), 50)
+    header(session.handle({"type": "sketch_keep", "sketch": sketch_of(points, lines, plane=plane)}))
+
+    def pick(region):
+        return header(session.handle({"type": "sketch_regions", "sketch_id": 1, "region": region}))["selection"]["faces"]
+
+    (face,) = pick(0)
+    extruded = decode_binary(session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": [face]}, "params": {"distance": 5}}))[0]
+    assert len(pick(1)) == 1  # the neighbour of the extruded region
+    session.handle({"type": "undo"})
+    body = max(b["id"] for b in extruded["bodies"])
+    deleted = decode_binary(session.handle({"type": "delete_body", "body": body}))[0]
+    assert body not in [b["id"] for b in deleted["bodies"]]
+    assert len(pick(0)) == 1 and len(pick(1)) == 1
+
+
+def test_extruding_a_picked_region_is_one_undo_step():
+    session = open_session()
+    session.handle({"type": "sketch_keep", "sketch": make(session, 10), "regions": False})
+    before = faces(session)
+    picked = header(session.handle({"type": "sketch_regions", "sketch_id": 1, "region": 0}))["selection"]["faces"]
+    pull = {"type": "tool_commit", "tool": "push_pull", "selection": {"faces": picked}, "params": {"distance": 5}, "foldPick": True}
+    after = header(session.handle(pull))
+    pulled = faces(session)
+    assert after["canUndo"] and len(session.document.ids) == 3  # open, keep, pull
+    undone = header(session.handle({"type": "undo"}))
+    assert faces(session) == before and undone["canRedo"]
+    session.handle({"type": "redo"})
+    assert faces(session) == pulled
+
+
+def test_a_picked_region_can_be_pulled_along_a_chosen_direction():
+    session = open_session()
+    session.handle({"type": "sketch_keep", "sketch": make(session, 10, x0=500), "regions": False})
+    picked = header(session.handle({"type": "sketch_regions", "sketch_id": 1, "region": 0}))["selection"]["faces"]
+    slant = 2 ** -0.5
+    params = {"distance": 10, "ux": slant, "uy": 0, "uz": slant}
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+
+    def volume():
+        props = GProp_GProps()
+        BRepGProp.VolumeProperties_s(session.document.current.shape, props)
+        return props.Mass()
+
+    before = volume()
+    header(session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": picked}, "params": params}))
+    assert volume() == pytest.approx(before + 100 * 10 * slant, rel=1e-6)  # a 10 by 10 region pulled 10 along a 45 degree direction
+
+
+def test_picking_several_regions_selects_all_their_faces():
+    session = open_session()
+    plane = session.handle({"type": "sketch_plane", "plane": "XY"})["plane"]
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 30, "v": 0}]
+    circles = [{"id": 10, "type": "circle", "center": 1, "radius": 5}, {"id": 11, "type": "circle", "center": 2, "radius": 4}]
+    session.handle({"type": "sketch_keep", "sketch": sketch_of(points, circles, plane=plane), "regions": False})
+    before = faces(session)
+    h = header(session.handle({"type": "sketch_regions", "sketch_id": 1, "picked_regions": [0, 1]}))
+    assert faces(session) == before + 2
+    areas = sorted(round(sketch.Face(session.document.current.face(i)).area, 3) for i in h["selection"]["faces"])
+    assert len(areas) == 2 and areas[0] == pytest.approx(3.14159265 * 16, abs=0.01) and areas[1] == pytest.approx(3.14159265 * 25, abs=0.01)
+
+
+def test_a_kept_sketch_moves_and_turns_as_a_whole_and_the_move_undoes():
+    session = open_session()
+    session.handle({"type": "sketch_keep", "sketch": make(session)})
+    shown = session.handle({"type": "sketch_move", "sketch_id": 1, "params": {"dx": 5, "dz": 2, "rz": 90}})
+    assert shown["handles"] and session.handle({"type": "sketch_get", "sketch_id": 1})["rev"] == 1  # a preview changes nothing
+    h = header(session.handle({"type": "sketch_move", "sketch_id": 1, "commit": True, "params": {"dx": 5, "dz": 2, "rz": 90}}))
+    assert h["sketches"][0]["rev"] == 2
+    plane = session.handle({"type": "sketch_get", "sketch_id": 1})["sketch"]["plane"]
+    assert plane["origin"] == pytest.approx([15, 0, 2])  # the corner (0, 0) turns a quarter about the middle (5, 5) to (10, 0), then the shift adds (5, 0, 2)
+    assert plane["xdir"] == pytest.approx([0, 1, 0], abs=1e-9) and plane["normal"] == pytest.approx([0, 0, 1], abs=1e-9)
+    session.handle({"type": "undo"})
+    assert session.handle({"type": "sketch_get", "sketch_id": 1})["sketch"]["plane"]["origin"] == pytest.approx([0, 0, 0])

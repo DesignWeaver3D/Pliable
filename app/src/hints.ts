@@ -27,15 +27,9 @@ export function hintItems(ctx: HintContext, mods: Modifiers, keyText: (id: strin
   const k = (id: string, fallback: string) => keyText(id) || fallback;
   let items: HintItem[];
   if (ctx.sketch) {
-    items = [
-      { keys: "Enter", text: "finish the line chain" },
-      { keys: "Esc", text: "cancel the step, then leave" },
-      { keys: k("sketch.undo", "Ctrl+Z"), text: "undo" },
-      { keys: "Delete", text: "delete the selection" },
-    ];
+    items = []; // the sketch tools explain themselves in the status line; no second set of key tips
   } else if (ctx.dragging) {
     items = [
-      { keys: k("measure", "M"), text: "measure pick (while dragging)" },
       { keys: "0-9", text: "type an exact value" },
       { keys: "Esc", text: "cancel" },
     ];
@@ -131,12 +125,20 @@ export function nextTip(ctx: HintContext, prefs: HintPrefs): Tip | null {
   return tip && !prefs.dismissed.includes(tip.id) ? tip : null;
 }
 
+/** The tip to show: one already on screen stays until the user closes it (or hints go off); otherwise the one the context asks for. */
+export function stickyTip(shown: Tip | null, ctx: HintContext, prefs: HintPrefs): Tip | null {
+  if (!prefs.on) return null;
+  if (shown && !prefs.dismissed.includes(shown.id)) return ctx.sketch ? null : shown;
+  return nextTip(ctx, prefs);
+}
+
 export class HintLine {
   readonly prefs = loadPrefs();
   private readonly line = document.createElement("div");
   private readonly tip = document.createElement("div");
   private mods: Modifiers = { ctrl: false, alt: false, shift: false };
   private shown = "";
+  private tipShown: Tip | null = null;
   private card: HTMLElement | null = null;
   private readonly host: HTMLElement;
 
@@ -221,7 +223,9 @@ export class HintLine {
   refresh() {
     const ctx = this.context();
     const items = this.prefs.on ? hintItems(ctx, this.mods, this.keyText) : [];
-    const tip = nextTip(ctx, this.prefs);
+    const tip = stickyTip(this.tipShown, ctx, this.prefs);
+    if (tip) this.tipShown = tip;
+    else if (!this.prefs.on || (this.tipShown && this.prefs.dismissed.includes(this.tipShown.id))) this.tipShown = null;
     const sig = JSON.stringify([items, tip?.id]);
     if (sig === this.shown) return;
     this.shown = sig;

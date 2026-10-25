@@ -1,6 +1,9 @@
-/** Sketch data and the rules that need no DOM or WebGL: types, plane math, which constraints fit a selection. */
+/** Sketch data and the rules that need no DOM or WebGL: types, plane math, dimensions, trimming and snapping. Which constraints fit a selection lives in sketchconstraints.ts (re-exported here). */
 import type { Dimension } from "./dimensions";
 import { pointInRect, polylineInBox, type Rect } from "./boxselect.ts";
+import { measure, radiusOf } from "./sketchconstraints.ts";
+export * from "./sketchconstraints.ts";
+export * from "./sketchsmartdim.ts";
 
 export interface PlaneData {
   origin: number[];
@@ -15,11 +18,12 @@ export interface SketchPoint {
   fixed?: boolean;
 }
 export type SketchEntity =
-  | { id: number; type: "line"; a: number; b: number; construction?: boolean; reference?: boolean }
+  | { id: number; type: "line"; a: number; b: number; construction?: boolean; reference?: boolean; axis?: boolean }
   | { id: number; type: "circle"; center: number; radius: number; construction?: boolean; reference?: boolean }
   | { id: number; type: "arc"; center: number; start: number; end: number; construction?: boolean; reference?: boolean }
-  /** Centre, the end of the major semi-axis, and the minor radius. Only its two points take constraints. */
-  | { id: number; type: "ellipse"; center: number; major: number; minor: number; construction?: boolean; reference?: boolean }
+  /** Centre, the ends of the major axis (`major`, `major2`) and of the minor axis (`minor1`, `minor2`, four points the solver keeps square about the centre), and the minor radius
+   *  (follows the minor ends). An older ellipse has only the centre, `major` and `minor`. */
+  | { id: number; type: "ellipse"; center: number; major: number; major2?: number; minor1?: number; minor2?: number; minor: number; construction?: boolean; reference?: boolean }
   /** A smooth curve through its points in order (a closed one joins last to first). Only its points take constraints. */
   | { id: number; type: "spline"; points: number[]; closed?: boolean; construction?: boolean; reference?: boolean };
 export interface SketchConstraint {
@@ -32,8 +36,12 @@ export interface SketchConstraint {
   value?: number;
   /** A dimension that only reports the current measurement (shown in brackets); the solver ignores it. */
   reference?: boolean;
+  /** Angle between two lines: the value is the outside angle (180 degrees minus the one between the line directions). */
+  outside?: boolean;
   /** Added by a drawing tool rather than chosen by the user; shown as such and removable with one click. */
   auto?: boolean;
+  /** Where the user dragged this dimension's text to, in sketch coordinates (display only; the solver ignores it). */
+  place?: [number, number];
 }
 export interface SketchData {
   plane: PlaneData;
@@ -72,9 +80,29 @@ export function toPlane(plane: PlaneData, p: number[]): [number, number] {
 }
 
 export function pointOf(s: SketchData, id: number): SketchPoint {
-  const p = s.points.find((q) => q.id === id);
+  const p = s.points.find((q) => q.id === id) ?? AXIS_POINTS.find((q) => q.id === id);
   if (!p) throw new Error(`no point ${id}`);
   return p;
+}
+
+/** The sketch's own horizontal (u) and vertical (v) axes, which can be picked and constrained to like lines. They are not stored in `entities`: they have these fixed ids below zero and are built on demand. */
+export const AXIS_U = -1;
+export const AXIS_V = -2;
+const AXIS_REACH = 1e4;
+const AXIS_POINTS: SketchPoint[] = [
+  { id: -11, u: -AXIS_REACH, v: 0, fixed: true },
+  { id: -12, u: AXIS_REACH, v: 0, fixed: true },
+  { id: -21, u: 0, v: -AXIS_REACH, fixed: true },
+  { id: -22, u: 0, v: AXIS_REACH, fixed: true },
+];
+const AXIS_LINES: SketchEntity[] = [
+  { id: AXIS_U, type: "line", a: -11, b: -12, reference: true, axis: true },
+  { id: AXIS_V, type: "line", a: -21, b: -22, reference: true, axis: true },
+];
+
+/** The entity with this id: a stored one, or one of the sketch's axes. */
+export function entityOf(s: SketchData, id: number | undefined): SketchEntity | undefined {
+  return s.entities.find((e) => e.id === id) ?? AXIS_LINES.find((e) => e.id === id);
 }
 
 export function nextId(s: SketchData): number {
@@ -83,7 +111,7 @@ export function nextId(s: SketchData): number {
 
 /** Points an entity is made of (line ends; circle and arc: center first). */
 export function entityPoints(e: SketchEntity): number[] {
-  return e.type === "line" ? [e.a, e.b] : e.type === "circle" ? [e.center] : e.type === "ellipse" ? [e.center, e.major] : e.type === "spline" ? [...e.points] : [e.center, e.start, e.end];
+  return e.type === "line" ? [e.a, e.b] : e.type === "circle" ? [e.center] : e.type === "ellipse" ? [e.center, e.major, ...(e.minor1 !== undefined ? [e.major2!, e.minor1, e.minor2!] : [])] : e.type === "spline" ? [...e.points] : [e.center, e.start, e.end];
 }
 
 /** Remove a point or entity with everything that depends on it; points no entity uses any more go too. */
@@ -105,261 +133,6 @@ export function remove(s: SketchData, sel: SketchSel): SketchData {
 
 // Constraint rules ------------------------------------------------------------------------------------
 
-export interface ConstraintOption {
-  label: string;
-  /** Builds the constraint from the selection, or null if this option does not fit it. */
-  build(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id"> | null;
-  /** For dimensions: the value the dialog starts with, from the current geometry. */
-  initial?(s: SketchData, sel: SketchSel[]): number;
-  dimension?: boolean;
-}
-
-const entities = (s: SketchData, sel: SketchSel[]) => sel.filter((x) => x.kind === "entity").map((x) => s.entities.find((e) => e.id === x.id)!);
-const pts = (sel: SketchSel[]) => sel.filter((x) => x.kind === "point").map((x) => x.id);
-const only = (list: SketchEntity[], ...types: string[]) => list.length > 0 && list.every((e) => types.includes(e.type));
-const dist = (s: SketchData, a: number, b: number) => Math.hypot(pointOf(s, a).u - pointOf(s, b).u, pointOf(s, a).v - pointOf(s, b).v);
-const radiusOf = (s: SketchData, e: SketchEntity) => (e.type === "circle" ? e.radius : e.type === "arc" ? dist(s, e.center, e.start) : 0);
-
-/** The two points a selection measures between: a line's ends, or two selected points. */
-function ends(s: SketchData, sel: SketchSel[]): [number, number] {
-  const line = entities(s, sel)[0];
-  return line && line.type === "line" ? [line.a, line.b] : [pts(sel)[0], pts(sel)[1]];
-}
-
-/** Perpendicular distance from a point to the infinite line through a line entity. */
-function pointLineDistance(s: SketchData, pointId: number, line: Extract<SketchEntity, { type: "line" }>): number {
-  const [a, b, p] = [pointOf(s, line.a), pointOf(s, line.b), pointOf(s, pointId)];
-  const length = Math.hypot(b.u - a.u, b.v - a.v) || 1;
-  return Math.abs((b.u - a.u) * (p.v - a.v) - (b.v - a.v) * (p.u - a.u)) / length;
-}
-
-/** The current value of a dimensional constraint, read from the geometry (what a reference dimension shows). */
-export function measure(s: SketchData, c: SketchConstraint): number | null {
-  const entity = s.entities.find((e) => e.id === c.entity);
-  const line = entity && entity.type === "line" ? entity : null;
-  const ends = line ? [line.a, line.b] : c.points;
-  switch (c.type) {
-    case "distance":
-      return ends ? dist(s, ends[0], ends[1]) : null;
-    case "horizontal_distance":
-      return ends ? Math.abs(pointOf(s, ends[0]).u - pointOf(s, ends[1]).u) : null;
-    case "vertical_distance":
-      return ends ? Math.abs(pointOf(s, ends[0]).v - pointOf(s, ends[1]).v) : null;
-    case "radius":
-      return entity ? radiusOf(s, entity) : null;
-    case "minor_radius":
-      return entity && entity.type === "ellipse" ? entity.minor : null;
-    case "diameter":
-      return entity ? 2 * radiusOf(s, entity) : null;
-    case "point_line_distance":
-      return line && c.point !== undefined ? pointLineDistance(s, c.point, line) : null;
-    case "angle": {
-      const [a, b] = (c.entities ?? []).map((id) => s.entities.find((e) => e.id === id));
-      if (!a || !b || a.type !== "line" || b.type !== "line") return null;
-      const d = (l: typeof a) => [pointOf(s, l.b).u - pointOf(s, l.a).u, pointOf(s, l.b).v - pointOf(s, l.a).v];
-      const [da, db] = [d(a), d(b)];
-      return (Math.acos((da[0] * db[0] + da[1] * db[1]) / Math.hypot(...da) / Math.hypot(...db)) * 180) / Math.PI;
-    }
-  }
-  return null;
-}
-
-/** The table that decides which constraint buttons appear for a selection. Edit here to add or reorder. */
-export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
-  {
-    label: "Horizontal",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      if (es.length === 1 && only(es, "line") && !pts(sel).length) return { type: "horizontal", entity: es[0].id };
-      const p = pts(sel);
-      return p.length === 2 && !es.length ? { type: "horizontal", points: p } : null;
-    },
-  },
-  {
-    label: "Vertical",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      if (es.length === 1 && only(es, "line") && !pts(sel).length) return { type: "vertical", entity: es[0].id };
-      const p = pts(sel);
-      return p.length === 2 && !es.length ? { type: "vertical", points: p } : null;
-    },
-  },
-  {
-    label: "Coincident",
-    build: (s, sel) => (pts(sel).length === 2 && !entities(s, sel).length ? { type: "coincident", points: pts(sel) } : null),
-  },
-  {
-    label: "Fixed",
-    build: (s, sel) => (pts(sel).length === 1 && !entities(s, sel).length ? { type: "fixed", point: pts(sel)[0] } : null),
-  },
-  {
-    label: "Parallel",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      return es.length === 2 && only(es, "line") && !pts(sel).length ? { type: "parallel", entities: es.map((e) => e.id) } : null;
-    },
-  },
-  {
-    label: "Perpendicular",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      return es.length === 2 && only(es, "line") && !pts(sel).length ? { type: "perpendicular", entities: es.map((e) => e.id) } : null;
-    },
-  },
-  {
-    label: "Equal",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      if (es.length !== 2 || pts(sel).length) return null;
-      const lines = es.filter((e) => e.type === "line").length;
-      return lines === 2 || lines === 0 ? { type: "equal", entities: es.map((e) => e.id) } : null;
-    },
-  },
-  {
-    label: "Tangent",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      if (es.length !== 2 || pts(sel).length) return null;
-      const round = es.filter((e) => e.type === "arc" || e.type === "circle").length;
-      const lines = es.filter((e) => e.type === "line").length;
-      return (round === 1 && lines === 1) || round === 2 ? { type: "tangent", entities: es.map((e) => e.id) } : null;
-    },
-  },
-  {
-    label: "Point on",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      return es.length === 1 && pts(sel).length === 1 ? { type: "point_on", point: pts(sel)[0], entity: es[0].id } : null;
-    },
-  },
-  {
-    label: "Midpoint",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      return es.length === 1 && only(es, "line") && pts(sel).length === 1 ? { type: "midpoint", point: pts(sel)[0], entity: es[0].id } : null;
-    },
-  },
-  {
-    label: "Collinear",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      return es.length === 2 && only(es, "line") && !pts(sel).length ? { type: "collinear", entities: es.map((e) => e.id) } : null;
-    },
-  },
-  {
-    label: "Lock",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      return es.length === 1 && !pts(sel).length && !es[0].reference ? { type: "block", entity: es[0].id } : null;
-    },
-  },
-  {
-    label: "Symmetric",
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      return es.length === 1 && only(es, "line") && pts(sel).length === 2 ? { type: "symmetric", points: pts(sel), entity: es[0].id } : null;
-    },
-  },
-  {
-    label: "Length / distance",
-    dimension: true,
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      if (es.length === 1 && only(es, "line") && !pts(sel).length) return { type: "distance", entity: es[0].id };
-      return pts(sel).length === 2 && !es.length ? { type: "distance", points: pts(sel) } : null;
-    },
-    initial: (s, sel) => {
-      const es = entities(s, sel);
-      const line = es[0];
-      return line && line.type === "line" ? dist(s, line.a, line.b) : dist(s, pts(sel)[0], pts(sel)[1]);
-    },
-  },
-  {
-    label: "Point to line distance",
-    dimension: true,
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      return es.length === 1 && only(es, "line") && pts(sel).length === 1 ? { type: "point_line_distance", point: pts(sel)[0], entity: es[0].id } : null;
-    },
-    initial: (s, sel) => {
-      const line = entities(s, sel)[0] as Extract<SketchEntity, { type: "line" }>;
-      return pointLineDistance(s, pts(sel)[0], line);
-    },
-  },
-  {
-    label: "Horizontal distance",
-    dimension: true,
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      if (es.length === 1 && only(es, "line") && !pts(sel).length) return { type: "horizontal_distance", entity: es[0].id };
-      return pts(sel).length === 2 && !es.length ? { type: "horizontal_distance", points: pts(sel) } : null;
-    },
-    initial: (s, sel) => {
-      const [a, b] = ends(s, sel);
-      return Math.abs(pointOf(s, a).u - pointOf(s, b).u);
-    },
-  },
-  {
-    label: "Vertical distance",
-    dimension: true,
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      if (es.length === 1 && only(es, "line") && !pts(sel).length) return { type: "vertical_distance", entity: es[0].id };
-      return pts(sel).length === 2 && !es.length ? { type: "vertical_distance", points: pts(sel) } : null;
-    },
-    initial: (s, sel) => {
-      const [a, b] = ends(s, sel);
-      return Math.abs(pointOf(s, a).v - pointOf(s, b).v);
-    },
-  },
-  {
-    label: "Short radius",
-    dimension: true,
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      return es.length === 1 && only(es, "ellipse") && !pts(sel).length ? { type: "minor_radius", entity: es[0].id } : null;
-    },
-    initial: (s, sel) => (entities(s, sel)[0] as Extract<SketchEntity, { type: "ellipse" }>).minor,
-  },
-  {
-    label: "Radius",
-    dimension: true,
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      return es.length === 1 && only(es, "circle", "arc") && !pts(sel).length ? { type: "radius", entity: es[0].id } : null;
-    },
-    initial: (s, sel) => radiusOf(s, entities(s, sel)[0]),
-  },
-  {
-    label: "Diameter",
-    dimension: true,
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      return es.length === 1 && only(es, "circle", "arc") && !pts(sel).length ? { type: "diameter", entity: es[0].id } : null;
-    },
-    initial: (s, sel) => 2 * radiusOf(s, entities(s, sel)[0]),
-  },
-  {
-    label: "Angle",
-    dimension: true,
-    build: (s, sel) => {
-      const es = entities(s, sel);
-      return es.length === 2 && only(es, "line") && !pts(sel).length ? { type: "angle", entities: es.map((e) => e.id) } : null;
-    },
-    initial: (s, sel) => {
-      const [a, b] = entities(s, sel) as Extract<SketchEntity, { type: "line" }>[];
-      const d = (l: typeof a) => [pointOf(s, l.b).u - pointOf(s, l.a).u, pointOf(s, l.b).v - pointOf(s, l.a).v];
-      const [da, db] = [d(a), d(b)];
-      const angle = (Math.acos((da[0] * db[0] + da[1] * db[1]) / Math.hypot(...da) / Math.hypot(...db)) * 180) / Math.PI;
-      return Math.round(angle * 1000) / 1000;
-    },
-  },
-];
-
-/** Constraint options that fit a selection. */
-export function optionsFor(s: SketchData, sel: SketchSel[]): ConstraintOption[] {
-  return sel.length === 0 ? [] : CONSTRAINT_OPTIONS.filter((o) => o.build(s, sel) !== null);
-}
 
 export function describeConstraint(s: SketchData, c: SketchConstraint): string {
   const names: Record<string, string> = {
@@ -374,6 +147,7 @@ export function describeConstraint(s: SketchData, c: SketchConstraint): string {
     point_on: "Point on",
     midpoint: "Midpoint",
     symmetric: "Symmetric",
+    symmetric_point: "Symmetric about a point",
     collinear: "Collinear",
     block: "Lock",
     minor_radius: "Short radius",
@@ -384,28 +158,54 @@ export function describeConstraint(s: SketchData, c: SketchConstraint): string {
     radius: "Radius",
     diameter: "Diameter",
     angle: "Angle",
+    round_gap: "Gap between",
   };
-  const refs = [...(c.points ?? []).map((p) => `p${p}`), ...(c.point !== undefined ? [`p${c.point}`] : []), ...(c.entity !== undefined ? [`#${c.entity}`] : []), ...(c.entities ?? []).map((e) => `#${e}`)];
+  const entityName = (e: number) => (e === AXIS_U ? "horizontal axis" : e === AXIS_V ? "vertical axis" : `#${e}`);
+  const refs = [...(c.points ?? []).map((p) => `p${p}`), ...(c.point !== undefined ? [`p${c.point}`] : []), ...(c.entity !== undefined ? [entityName(c.entity)] : []), ...(c.entities ?? []).map(entityName)];
   void s;
   const value = c.reference ? measure(s, c) : c.value;
   return `${c.reference ? "Reference " : ""}${names[c.type] ?? c.type} ${refs.join(" ")}${value != null ? ` = ${parseFloat(value.toFixed(3))}` : ""}`;
 }
 
+/** What dimension placement knows about the closed regions: whether a sketch point lies inside one, and how far from the geometry to look. */
+export interface Outside {
+  inside(u: number, v: number): boolean;
+  probe: number;
+}
+
 /** Dimension annotations (drawn by DimensionOverlay) for the sketch's dimensional constraints. */
-export function dimensionsOf(s: SketchData): Dimension[] {
+export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
   const f = frame(s.plane);
   const out: Dimension[] = [];
   const world = (id: number) => toWorld(s.plane, pointOf(s, id).u, pointOf(s, id).v);
+  /** A linear dimension on the side of its points that lies outside the closed regions, or where the user dragged it. */
+  const linear = (c: SketchConstraint, text: string, a: number[], b: number[], direction: number[]): Dimension => {
+    let o = direction;
+    if (outside) {
+      const mid = [0, 1, 2].map((k) => (a[k] + b[k]) / 2);
+      const probe = (sign: number) => toPlane(s.plane, mid.map((x, k) => x + sign * o[k] * outside.probe));
+      if (outside.inside(...probe(1)) && !outside.inside(...probe(-1))) o = o.map((x) => -x);
+    }
+    const made: Dimension = { kind: "linear", text, points: [a, b], offsetDirection: o };
+    if (c.place) {
+      const at = toWorld(s.plane, c.place[0], c.place[1]);
+      made.offset = dot(sub(at, a), norm(o));
+      made.slide = dot(sub(at, a.map((x, k) => (x + b[k]) / 2)), norm(sub(b, a)));
+    }
+    return made;
+  };
+  const placed = (c: SketchConstraint, fallback: number[]) => (c.place ? toWorld(s.plane, c.place[0], c.place[1]) : fallback);
   for (const c of s.constraints) {
     const value = c.reference ? measure(s, c) : c.value;
     if (value === undefined || value === null) continue;
+    const first = out.length;
     const text = c.reference ? `(${parseFloat(value.toFixed(3))})` : parseFloat(value.toFixed(3)).toString();
-    const entity = s.entities.find((e) => e.id === c.entity);
+    const entity = entityOf(s, c.entity);
     if (c.type === "distance") {
       const ends = entity && entity.type === "line" ? [entity.a, entity.b] : c.points!;
       const [a, b] = [world(ends[0]), world(ends[1])];
       const along = norm(sub(b, a));
-      out.push({ kind: "linear", text, points: [a, b], offsetDirection: cross(f.n, along) });
+      out.push(linear(c, text, a, b, cross(f.n, along)));
     } else if ((c.type === "horizontal_distance" || c.type === "vertical_distance") && true) {
       const horizontal = c.type === "horizontal_distance";
       const ids = entity && entity.type === "line" ? [entity.a, entity.b] : c.points!;
@@ -415,27 +215,93 @@ export function dimensionsOf(s: SketchData): Dimension[] {
       const side = horizontal ? f.y : f.x;
       // The dimension runs along the projected leg (a to corner) and sits on the side away from the other point.
       const away = horizontal ? (pb.v >= pa.v ? -1 : 1) : pb.u >= pa.u ? -1 : 1;
-      out.push({ kind: "linear", text, points: [a, corner], offsetDirection: side.map((x) => x * away) });
+      out.push(linear(c, text, a, corner, side.map((x) => x * away)));
+    } else if (c.type === "angle" && c.entities?.length === 2) {
+      const lines = c.entities.map((id) => entityOf(s, id));
+      if (lines.every((l) => l?.type === "line")) {
+        const mids = (lines as Extract<SketchEntity, { type: "line" }>[]).map((l) => [(pointOf(s, l.a).u + pointOf(s, l.b).u) / 2, (pointOf(s, l.a).v + pointOf(s, l.b).v) / 2]);
+        const arc = angleArc(s, c, lines as Extract<SketchEntity, { type: "line" }>[], mids, `∠${text}°`);
+        out.push(arc ?? { kind: "tag", text: `∠${text}°`, points: [placed(c, toWorld(s.plane, (mids[0][0] + mids[1][0]) / 2, (mids[0][1] + mids[1][1]) / 2))] });
+      }
+    } else if (c.type === "round_gap" && c.entities?.length === 2) {
+      const [ea, eb] = c.entities.map((id) => entityOf(s, id));
+      if (ea && eb && (ea.type === "circle" || ea.type === "arc") && (eb.type === "circle" || eb.type === "arc")) {
+        const [ca, cb] = [world(ea.center), world(eb.center)];
+        const [ra, rb] = [radiusOf(s, ea), radiusOf(s, eb)];
+        const apart = Math.hypot(...sub(cb, ca));
+        // The spacing runs along the line of the centres, from rim to rim; concentric circles use the sketch's horizontal direction.
+        const along = apart > 1e-9 ? norm(sub(cb, ca)) : f.x;
+        const nested = apart <= Math.abs(ra - rb);
+        const [outer, inner] = ra >= rb ? [[ca, ra], [cb, rb]] : [[cb, rb], [ca, ra]];
+        const way = nested ? (ra >= rb ? along : along.map((x) => -x)) : along; // nested: from the outer centre toward the inner one
+        const [pa, pb] = nested
+          ? [(outer[0] as number[]).map((x, k) => x + way[k] * (outer[1] as number)), (inner[0] as number[]).map((x, k) => x + way[k] * (inner[1] as number))]
+          : [ca.map((x, k) => x + along[k] * ra), cb.map((x, k) => x - along[k] * rb)];
+        out.push(linear(c, text, pa, pb, cross(f.n, along)));
+      }
     } else if (c.type === "minor_radius" && entity && entity.type === "ellipse") {
       const [m, o] = [pointOf(s, entity.center), pointOf(s, entity.major)];
       const length = Math.hypot(o.u - m.u, o.v - m.v) || 1;
-      out.push({ kind: "tag", text: `r${text}`, points: [toWorld(s.plane, m.u - ((o.v - m.v) / length) * entity.minor, m.v + ((o.u - m.u) / length) * entity.minor)] });
+      out.push({ kind: "tag", text: `r${text}`, points: [placed(c, toWorld(s.plane, m.u - ((o.v - m.v) / length) * entity.minor, m.v + ((o.u - m.u) / length) * entity.minor))] });
     } else if (c.type === "point_line_distance" && entity && entity.type === "line" && c.point !== undefined) {
       const [la, lb, p] = [pointOf(s, entity.a), pointOf(s, entity.b), pointOf(s, c.point)];
       const length = Math.hypot(lb.u - la.u, lb.v - la.v) || 1;
       const t = ((p.u - la.u) * (lb.u - la.u) + (p.v - la.v) * (lb.v - la.v)) / (length * length);
       const foot = toWorld(s.plane, la.u + t * (lb.u - la.u), la.v + t * (lb.v - la.v));
       const at = world(c.point);
-      out.push({ kind: "linear", text, points: [foot, at], offsetDirection: norm(sub(at, foot)).map((x) => -x) });
+      // The dimension line runs from the line to the point (square to the line); its extension lines run along the line's direction.
+      out.push(linear(c, text, foot, at, norm(sub(world(entity.b), world(entity.a)))));
     } else if ((c.type === "radius" || c.type === "diameter") && entity && (entity.type === "circle" || entity.type === "arc")) {
       const center = world(entity.center);
       const r = radiusOf(s, entity);
-      const rim = entity.type === "circle" ? [0, 1, 2].map((k) => center[k] + r * f.x[k]) : world(entity.start);
-      if (c.type === "radius") out.push({ kind: "radius", text: `R${text}`, points: [center, rim] });
-      else out.push({ kind: "diameter", text: `⌀${text}`, points: [[0, 1, 2].map((k) => 2 * center[k] - rim[k]), rim] });
+      let way: number[] = f.x; // the way a circle's leader leaves it: toward where it was dragged, else the first way that ends outside the closed regions
+      if (c.place) way = norm(sub(toWorld(s.plane, c.place[0], c.place[1]), center));
+      else if (outside) {
+        const ways = [f.x, f.x.map((x) => -x), f.y, f.y.map((x) => -x)];
+        way = ways.find((w) => !outside.inside(...toPlane(s.plane, center.map((x, k) => x + w[k] * (r + outside.probe))))) ?? f.x;
+      }
+      const rim = entity.type === "circle" ? [0, 1, 2].map((k) => center[k] + r * way[k]) : world(entity.start);
+      const leader: Dimension = c.type === "radius" ? { kind: "radius", text: `R${text}`, points: [center, rim] } : { kind: "diameter", text: `Ø${text}`, points: [[0, 1, 2].map((k) => 2 * center[k] - rim[k]), rim] };
+      if (c.place) leader.labelAt = toWorld(s.plane, c.place[0], c.place[1]);
+      out.push(leader);
     }
+    for (const made of out.slice(first)) made.constraint = c.id;
   }
   return out;
+}
+
+const ARC_STEPS = 24;
+
+/** An angle dimension drawn as an arc about the point where the two lines meet, in the sector the value sits in (where it was dragged, else toward the lines' middles). Null when the lines are parallel. */
+function angleArc(s: SketchData, c: SketchConstraint, lines: Extract<SketchEntity, { type: "line" }>[], mids: number[][], text: string): Dimension | null {
+  const [a0, a1, b0, b1] = [pointOf(s, lines[0].a), pointOf(s, lines[0].b), pointOf(s, lines[1].a), pointOf(s, lines[1].b)];
+  const da = [a1.u - a0.u, a1.v - a0.v];
+  const db = [b1.u - b0.u, b1.v - b0.v];
+  const crossUV = (p: number[], q: number[]) => p[0] * q[1] - p[1] * q[0];
+  const det = crossUV(da, db);
+  if (Math.abs(det) < 1e-12 * (Math.hypot(...da) * Math.hypot(...db) || 1)) return null;
+  const t = crossUV([b0.u - a0.u, b0.v - a0.v], db) / det;
+  const apex = [a0.u + t * da[0], a0.v + t * da[1]];
+  const unitUV = (p: number[]) => p.map((x) => x / (Math.hypot(...p) || 1));
+  const [ua, ub] = [unitUV(da), unitUV(db)];
+  const neg = (p: number[]) => p.map((x) => -x);
+  // The two opposite sectors that hold this angle; the one the value was placed in (or faces the lines' middles) is drawn.
+  const pair = c.outside ? [[ua, neg(ub)], [neg(ua), ub]] : [[ua, ub], [neg(ua), neg(ub)]];
+  const toward = c.place ? [c.place[0] - apex[0], c.place[1] - apex[1]] : [(mids[0][0] + mids[1][0]) / 2 - apex[0], (mids[0][1] + mids[1][1]) / 2 - apex[1]];
+  const score = ([r1, r2]: number[][]) => toward[0] * (r1[0] + r2[0]) + toward[1] * (r1[1] + r2[1]);
+  const [r1, r2] = score(pair[1]) > score(pair[0]) ? pair[1] : pair[0];
+  const radius = Math.max(Math.hypot(...toward) * (c.place ? 1 : 0.6), 1e-3);
+  const start = Math.atan2(r1[1], r1[0]);
+  const sweep = Math.atan2(crossUV(r1, r2), r1[0] * r2[0] + r1[1] * r2[1]);
+  const at = (angle: number, r: number) => toWorld(s.plane, apex[0] + r * Math.cos(angle), apex[1] + r * Math.sin(angle));
+  const points = [toWorld(s.plane, apex[0], apex[1]), ...Array.from({ length: ARC_STEPS + 1 }, (_, i) => at(start + (sweep * i) / ARC_STEPS, radius))];
+  // Extension lines carry a short line out to the arc.
+  const extend: number[][][] = [];
+  for (const [ray, l] of [[r1, lines[0]], [r2, lines[1]]] as const) {
+    const reach = Math.max(...[l.a, l.b].map((id) => (pointOf(s, id).u - apex[0]) * ray[0] + (pointOf(s, id).v - apex[1]) * ray[1]), 0);
+    if (reach < radius) extend.push([toWorld(s.plane, apex[0] + ray[0] * reach, apex[1] + ray[1] * reach), toWorld(s.plane, apex[0] + ray[0] * radius, apex[1] + ray[1] * radius)]);
+  }
+  return { kind: "angle", text, points, extend };
 }
 
 const MARKS: Record<string, string> = {
@@ -450,6 +316,7 @@ const MARKS: Record<string, string> = {
   point_on: "On",
   midpoint: "Mid",
   symmetric: "Sym",
+  symmetric_point: "Sym",
   collinear: "Col",
 };
 
@@ -470,12 +337,12 @@ export function constraintMarks(s: SketchData): Dimension[] {
       if (p) anchors.push([p.u, p.v]);
     }
     for (const id of [...(c.entities ?? []), ...(c.entity !== undefined ? [c.entity] : [])]) {
-      const e = s.entities.find((x) => x.id === id);
+      const e = entityOf(s, id);
       if (e) anchors.push(centre(e));
     }
     if (!anchors.length) continue;
     const [u, v] = [anchors.reduce((a, q) => a + q[0], 0) / anchors.length, anchors.reduce((a, q) => a + q[1], 0) / anchors.length];
-    out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)] });
+    out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true });
   }
   return out;
 }
@@ -511,10 +378,11 @@ export function polyline(s: SketchData, e: SketchEntity, segments = 48): [number
     const m = pointOf(s, e.major);
     const a = Math.hypot(m.u - c.u, m.v - c.v) || 1e-9;
     const [ux, uy] = [(m.u - c.u) / a, (m.v - c.v) / a];
+    const b = e.minor1 !== undefined ? Math.hypot(pointOf(s, e.minor1).u - c.u, pointOf(s, e.minor1).v - c.v) : e.minor; // the minor end sets the short radius while it is dragged
     return Array.from({ length: segments + 1 }, (_, i) => {
       const t = (2 * Math.PI * i) / segments;
       const x = a * Math.cos(t);
-      const y = e.minor * Math.sin(t);
+      const y = b * Math.sin(t);
       return [c.u + x * ux - y * uy, c.v + x * uy + y * ux];
     });
   }
@@ -683,7 +551,7 @@ export function sketchAxes(plane: PlaneData): { u: number; v: number; du: number
 // Trim ------------------------------------------------------------------------------------------------
 
 /** Parameters t along line `e` (0 at its start, 1 at its end, unbounded) where it meets other lines and circles. */
-function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line" }>): number[] {
+export function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line" }>): number[] {
   const a = pointOf(s, e.a);
   const b = pointOf(s, e.b);
   const dx = b.u - a.u;
@@ -715,40 +583,6 @@ function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line" }>): n
     }
   }
   return ts.sort((x, y) => x - y);
-}
-
-/**
- * Trim the part of a line under (u, v) that lies between its nearest crossings with other curves.
- * A piece at an end shortens the line; a piece in the middle splits it in two. Constraints on the
- * trimmed line are dropped (its end points may have moved); with no crossing the whole line goes.
- */
-export function trimLine(s: SketchData, entityId: number, u: number, v: number): SketchData {
-  const e = s.entities.find((x) => x.id === entityId);
-  if (!e || e.type !== "line" || e.reference) return s;
-  const a = pointOf(s, e.a);
-  const b = pointOf(s, e.b);
-  const len2 = (b.u - a.u) ** 2 + (b.v - a.v) ** 2;
-  if (len2 < 1e-12) return s;
-  const click = Math.min(1, Math.max(0, ((u - a.u) * (b.u - a.u) + (v - a.v) * (b.v - a.v)) / len2));
-  const ts = crossings(s, e).filter((t) => t > 1e-6 && t < 1 - 1e-6);
-  const lo = [...ts].reverse().find((t) => t <= click);
-  const hi = ts.find((t) => t >= click);
-  if (lo === undefined && hi === undefined) return remove(s, { kind: "entity", id: entityId });
-
-  let id = nextId(s);
-  const points = [...s.points];
-  const at = (t: number) => {
-    const p = { id: id++, u: a.u + t * (b.u - a.u), v: a.v + t * (b.v - a.v) };
-    points.push(p);
-    return p.id;
-  };
-  const kept = s.entities.filter((x) => x.id !== entityId);
-  const entities: SketchEntity[] = [...kept];
-  const flags = { construction: e.construction };
-  if (lo !== undefined) entities.push({ id: id++, type: "line", a: e.a, b: at(lo), ...flags });
-  if (hi !== undefined) entities.push({ id: id++, type: "line", a: at(hi), b: e.b, ...flags });
-  const constraints = s.constraints.filter((c) => c.entity !== entityId && !c.entities?.includes(entityId));
-  return dropOrphans({ ...s, points, entities, constraints });
 }
 
 /**
@@ -856,7 +690,7 @@ export function itemsInBox(s: SketchData, toScreen: (u: number, v: number) => { 
  * nothing is tied to; sending them all can exceed the solver's limit on unknowns, which made every solve fail
  * (nothing could be dragged or constrained). Reference curves and fixed points no constraint or kept curve uses are left out.
  */
-export function forSolver(s: SketchData): SketchData {
+export function forSolver(s: SketchData, withAxes = true): SketchData {
   const usedPoints = new Set<number>();
   const usedEntities = new Set<number>();
   for (const c of s.constraints) {
@@ -868,5 +702,8 @@ export function forSolver(s: SketchData): SketchData {
   const entities = s.entities.filter((e) => !e.reference || usedEntities.has(e.id));
   for (const e of entities) for (const id of entityPoints(e)) usedPoints.add(id);
   const points = s.points.filter((p) => !p.fixed || usedPoints.has(p.id));
-  return entities.length === s.entities.length && points.length === s.points.length ? s : { ...s, points, entities };
+  // An axis a constraint refers to is sent as a fixed line (never to the region search: it would cut every face it crosses).
+  const axes = withAxes ? AXIS_LINES.filter((e) => usedEntities.has(e.id)) : [];
+  if (axes.length) points.push(...AXIS_POINTS.filter((p) => axes.some((e) => e.type === "line" && (e.a === p.id || e.b === p.id))));
+  return entities.length === s.entities.length && points.length === s.points.length && !axes.length ? s : { ...s, points, entities: [...entities, ...axes] };
 }

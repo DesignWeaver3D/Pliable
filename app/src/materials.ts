@@ -1,8 +1,9 @@
 /**
  * Materials for model bodies. A material has a name, a group, a density and the numbers the 3D view uses
  * to draw it. `render` feeds the viewport directly, so a new material only needs new numbers.
- * `density` (kg per cubic metre) is for a later mass calculation and is NOT used anywhere yet.
- * One material is chosen globally in the settings; there are no per-body materials yet.
+ * `density` (kg per cubic metre) gives a selected body its mass in the measurement card (the chosen material's density).
+ * The Default material setting applies to every body without its own choice; a body can be given its own material
+ * from the body list menu (stored with the body in the project). The 3D view draws every body with the default material's look.
  */
 export type MaterialGroup = "Plastic" | "Resin" | "Metal";
 
@@ -10,7 +11,7 @@ export interface Material {
   id: string;
   name: string;
   group: MaterialGroup;
-  /** Kilograms per cubic metre; not used yet (reserved for mass). */
+  /** Kilograms per cubic metre; the measurement card's mass for a body. */
   density: number;
   /** Where the density comes from and how much it varies. */
   note?: string;
@@ -72,7 +73,7 @@ export const MATERIALS: Material[] = [
   metal("cobalt", "Cobalt", 8900, "Pure cobalt, 8900", 0x8e9aa6, 0.3),
 ];
 
-export const DEFAULT_MATERIAL_ID = "abs";
+export const DEFAULT_MATERIAL_ID = "pla";
 
 export function getMaterial(id: string): Material | undefined {
   return MATERIALS.find((m) => m.id === id);
@@ -90,4 +91,14 @@ export function materialOrDefault(id: string): Material {
 /** Metals show their own colour; plastics and resins take the per-body tint. */
 export function usesBodyColors(m: Material): boolean {
   return m.group !== "Metal";
+}
+
+/** Body id -> density for the bodies that have a material of their own (the rest follow the default material). */
+export function ownDensities(bodies: { id: number; material?: string | null }[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const b of bodies) {
+    const m = b.material ? getMaterial(b.material) : undefined;
+    if (m) out[String(b.id)] = m.density;
+  }
+  return out;
 }

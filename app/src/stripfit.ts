@@ -1,10 +1,10 @@
-/** How many tool buttons of the context strip fit in a given width. Widths are measured in pixels. */
+/** Widths of the context strip's parts, in pixels. */
 export interface StripWidths {
   /** Width of each tool button, in strip order. */
   tools: number[];
-  /** Total width of the selection helper buttons that always stay (0 when none). */
-  helpers: number;
-  /** Width of the trailing "N more / All tools" button. */
+  /** Width of each selection helper button; these always stay, after the tools. */
+  helpers: number[];
+  /** Width of the trailing "... More" button. */
   more: number;
   /** Gap between neighbouring items. */
   gap: number;
@@ -12,20 +12,34 @@ export interface StripWidths {
   chrome: number;
 }
 
-/** The largest number of tool buttons that fits in `available` pixels together with the helpers and the more button.
- *  At least one button is kept when there is one, so the strip never turns into only "All tools". */
-export function fitStripCount(w: StripWidths, available: number): number {
+/** Whether items of these widths, laid out left to right and wrapped, fit in `rows` rows of `limit` pixels. */
+function fitsRows(items: number[], gap: number, limit: number, rows: number): boolean {
+  let row = 1;
+  let used = 0;
+  for (const w of items) {
+    const next = used > 0 ? used + gap + w : w;
+    if (next > limit && used > 0) {
+      row++;
+      used = w;
+    } else {
+      used = next;
+    }
+  }
+  return row <= rows;
+}
+
+/** How many tool buttons are shown: all of them when they (with the helpers) fit in `maxRows` rows of the available width,
+ *  otherwise as many as fit in `maxRows` rows together with the helpers and the "... More" button (at least one). */
+export function fitStripCount(w: StripWidths, available: number, maxRows = 2): number {
   const n = w.tools.length;
   if (n === 0) return 0;
-  let used = w.chrome + w.more + (w.helpers > 0 ? w.helpers + w.gap : 0);
-  let count = 0;
-  for (let i = 0; i < n; i++) {
-    const next = used + w.tools[i] + w.gap;
-    if (next > available && count >= 1) break;
-    used = next;
-    count++;
+  const limit = available - w.chrome;
+  if (fitsRows([...w.tools, ...w.helpers], w.gap, limit, maxRows)) return n;
+  let count = 1;
+  for (let i = 2; i <= n; i++) {
+    if (!fitsRows([...w.tools.slice(0, i), ...w.helpers, w.more], w.gap, limit, maxRows)) break;
+    count = i;
   }
-  // Everything fits without the more button squeezing: the "All tools" button still needs its place, already counted.
   return count;
 }
 

@@ -18,7 +18,7 @@ export interface Settings {
   randomBodyColors: boolean;
   /** Draw bodies as semi-gloss plastic with studio reflections; off gives the previous flat look. */
   glossyLook: boolean;
-  /** Id of the material all bodies are drawn with (see materials.ts); only the look is used for now. */
+  /** Id of the default material: the look of the bodies and the mass of bodies that have no material of their own (see materials.ts). */
   material: string;
 }
 
@@ -73,7 +73,7 @@ export const SETTING_ENTRIES: { id: string; label: string; keywords: string[] }[
   { id: "seeThroughOpacity", label: "See-through opacity", keywords: ["transparency", "alpha", "faces"] },
   { id: "randomBodyColors", label: "Random body colours", keywords: ["colour", "color", "muted", "bodies", "solids", "names", "tint"] },
   { id: "glossyLook", label: "Glossy plastic look", keywords: ["material", "shiny", "gloss", "realistic", "reflection", "flat", "graphics", "slow"] },
-  { id: "material", label: "Material", keywords: ["plastic", "pla", "petg", "abs", "asa", "resin", "metal", "steel", "aluminium", "copper", "gold", "silver", "titanium", "cobalt", "look", "density"] },
+  { id: "material", label: "Default material", keywords: ["body", "plastic", "pla", "petg", "abs", "asa", "resin", "metal", "steel", "aluminium", "copper", "gold", "silver", "titanium", "cobalt", "look", "density"] },
   { id: "hints", label: "Hints", keywords: ["tips", "help line", "learning", "turn off"] },
   { id: "keys", label: "Keyboard shortcuts", keywords: ["hotkeys", "bindings", "rebind"] },
 ];
@@ -152,11 +152,11 @@ export function createSettingsWindow(host: HTMLElement) {
   seeThrough.append(check, " See-through");
   onSettingsChange(() => (check.checked = settings.seeThrough));
   const boxRow = document.createElement("label");
-  boxRow.title = "What dragging a box selects. Auto keeps the kind already selected, or edges if nothing is.";
+  boxRow.title = "What dragging a box selects. All takes faces, edges and vertices together; holding F, E or V while dragging restricts it to one kind.";
   const boxText = document.createElement("span");
   boxText.textContent = "Box selects";
   const boxSelect = document.createElement("select");
-  for (const [value, name] of [["auto", "Auto (current kind)"], ["edge", "Edges"], ["face", "Faces"], ["vertex", "Vertices"]]) {
+  for (const [value, name] of [["auto", "All (faces, edges, vertices)"], ["edge", "Edges"], ["face", "Faces"], ["vertex", "Vertices"]]) {
     const o = document.createElement("option");
     o.value = value;
     o.textContent = name;
@@ -185,9 +185,9 @@ export function createSettingsWindow(host: HTMLElement) {
   glossRow.append(glossCheck, " Glossy plastic look");
   onSettingsChange(() => (glossCheck.checked = settings.glossyLook));
   const matRow = document.createElement("label");
-  matRow.title = "What the bodies look like. Plastics and resins keep the random body colours; metals show their own colour and ignore them. Needs the glossy plastic look (off gives the flat look for every material)";
+  matRow.title = "The material of every body that has none of its own (right-click a body in the body list to give it one) and what the bodies look like. Plastics and resins keep the random body colours; metals show their own colour and ignore them. Needs the glossy plastic look (off gives the flat look for every material)";
   const matText = document.createElement("span");
-  matText.textContent = "Material ";
+  matText.textContent = "Default material ";
   const matSelect = document.createElement("select");
   for (const group of ["Plastic", "Resin", "Metal"]) {
     const og = document.createElement("optgroup");

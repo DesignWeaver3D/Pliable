@@ -10,13 +10,15 @@ export interface ToolInfo {
   /** Plain-language sentence(s) on what the tool does and what to select; shown in tooltips. */
   description?: string;
   accepts: { faces: Range; edges: Range; vertices?: Range; bodies?: Range; anyOf?: boolean };
-  params: { name: string; kind: string; default: number; drag: boolean }[];
+  params: { name: string; kind: string; default: number; drag: boolean; options?: string[] }[];
   /** Relationship rules whose matching faces join the selection when switched on. */
   related?: string[];
   /** Names of three length parameters that form a point; the form offers to fill them from a reference snap. */
   placement?: string[] | null;
   /** Names of three length parameters that form a displacement; the form offers a base and a destination pick. */
   moveVector?: string[] | null;
+  /** Names of the x, y, z parameters of a picked axis point and of the choice list that selects it; the form offers a Pick axis button (Draft). */
+  pickAxis?: string[] | null;
   /** "tool": the tool is chosen first and places something new; "selection": it acts on a selection. */
   startsFrom?: "selection" | "tool";
   hasHandles?: boolean;
@@ -44,6 +46,20 @@ export interface HandleInfo {
   /** A rotation handle: the axis it turns about (it is drawn in that axis's colour) and the ring it runs on: centre and radius. */
   axis?: [number, number, number] | null;
   ring?: [number, number, number, number] | null;
+  /** A rotation handle: the angles (degrees) the drag snaps to when it passes close to one. */
+  snaps?: number[];
+  /** A rotation handle drawn as a short arc about the thing it turns (like the push/pull direction arcs) instead of a whole ring with a grip. */
+  arc?: boolean;
+  /** A move arrow whose label shows the distance moved along it, not its parameter. */
+  along?: boolean;
+  /** What each snap angle is ("face", "global axes"), in the order of `snaps`. */
+  snapNames?: string[];
+  /** The parameter of the arc that turns this handle: the view swings it while that arc is dragged. */
+  turnedBy?: string;
+  /** A grid grip: the grid's two step vectors. Dragged in their plane it sets this parameter (whole steps along the first) and the first linked parameter (along the second) independently. */
+  plane?: [[number, number, number], [number, number, number]] | null;
+  /** The x and y axes of the sketch plane on the handle's face (push/pull's direction gizmo swings about them). */
+  frame?: [[number, number, number], [number, number, number]] | null;
   /** The number shown and typed is the parameter times `factor` (0.5: a diameter parameter shown as a radius), after `symbol`. */
   factor?: number;
   symbol?: string;

@@ -1,5 +1,6 @@
 /** Alpha-release UI: the ALPHA tag, the launch notice and the Copy diagnostics dialog. */
 
+import { recentMessages } from "./messagelog";
 import { usage, usageLines, type UsageRow } from "./usage";
 
 export const ALPHA_NOTICE = "Alpha software. Not for serious work. Data can be lost. The interface and behaviour will change rapidly without notice.";
@@ -94,7 +95,7 @@ export function showImportNotice(core: Requester, solids: number, warnings: stri
   card.append(title);
   if (solids > 1) {
     const text = document.createElement("p");
-    text.textContent = `${solids} solids. Edits apply to one solid at a time and solids can't be hidden yet, so covered features are out of reach. Operations may fail.`;
+    text.textContent = `${solids} solids. Edits apply to one solid at a time. Use See-through or Focus on a body in the bodies list to reach features that other solids cover. Operations may fail on stacked or overlapping solids.`;
     card.append(text);
   }
   if (warnings.length) {
@@ -119,7 +120,7 @@ export function showImportNotice(core: Requester, solids: number, warnings: stri
 }
 
 /** The text a bug report needs. Browser details are added here; the core adds everything else. */
-export function formatDiagnostics(report: CoreReport, browser: string): string {
+export function formatDiagnostics(report: CoreReport, browser: string, messages: readonly string[] = []): string {
   const last = report.lastTool;
   const lines = [
     `Pliable ${report.pliable}`,
@@ -129,6 +130,7 @@ export function formatDiagnostics(report: CoreReport, browser: string): string {
     `Last tool: ${last ? `${last.tool} (${last.commit ? "commit" : "preview"}) ${last.ok ? "ok" : `failed: ${last.error}`}` : "none"}`,
   ];
   if (report.importWarnings.length) lines.push("", "Import warnings:", ...report.importWarnings);
+  lines.push("", `Recent error and warning messages (${messages.length}, oldest first):`, ...(messages.length ? messages : ["none"]));
   lines.push("", "Tool usage (counts only, since the core started):", ...usageLines(report.usage));
   lines.push("", `Core log (last ${report.log.length} lines):`, ...report.log);
   return lines.join("\n");
@@ -161,9 +163,9 @@ export async function showDiagnostics(core: Requester): Promise<void> {
   const collect = async () => {
     try {
       const { report: coreReport } = await core.request<{ report: CoreReport }>("diagnostics");
-      area.value = formatDiagnostics(coreReport, navigator.userAgent);
+      area.value = formatDiagnostics(coreReport, navigator.userAgent, recentMessages());
     } catch (e) {
-      area.value = `Could not reach the core: ${(e as Error).message} (Browser: ${navigator.userAgent})`;
+      area.value = ["Could not reach the core: " + (e as Error).message + " (Browser: " + navigator.userAgent + ")", "", "Recent error and warning messages:", ...(recentMessages().length ? recentMessages() : ["none"])].join("\n");
     }
   };
   const clear = button("Clear usage counts", async () => {
@@ -174,6 +176,30 @@ export async function showDiagnostics(core: Requester): Promise<void> {
   row.append(report, clear, copy, button("Close", () => box.remove()));
   card.append(title, note, area, row);
   await collect();
+}
+
+/** A window with one long message in full, selectable, with a Copy button. */
+export function showMessage(text: string): void {
+  const { box, card } = overlay();
+  const area = document.createElement("textarea");
+  area.readOnly = true;
+  area.value = text;
+  area.style.cssText = "width:100%;height:30vh;box-sizing:border-box;background:#1b1d22;color:#ddd;border:1px solid #444;font:12px monospace";
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex;gap:8px;justify-content:flex-end;margin-top:8px";
+  const copy = button("Copy", async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      copy.textContent = "Copied";
+    } catch {
+      area.select();
+      copy.textContent = "Select and copy by hand";
+    }
+  });
+  row.append(copy, button("Close", () => box.remove()));
+  card.style.width = "min(640px,92vw)";
+  card.append(area, row);
+  area.select();
 }
 
 /** Adds the ALPHA tag and the diagnostics button to the top bar. */

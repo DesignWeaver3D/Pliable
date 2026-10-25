@@ -87,6 +87,7 @@ PRIMITIVES = {
     "add_sphere": {"diameter": 9, "x": 3, "y": -2, "z": 1},
     "add_cone": {"bottom_diameter": 10, "top_diameter": 4, "height": 7, "x": 3, "y": -2, "z": 1},
     "add_torus": {"major": 20, "minor": 5, "x": 3, "y": -2, "z": 1},
+    "add_prism": {"sides": 5, "bottom_diameter": 10, "top_diameter": 4, "height": 7, "x": 3, "y": -2, "z": 1},
 }
 
 
@@ -125,6 +126,8 @@ def test_handles_follow_their_parameter(tool_id):
     """Dragging a handle by t along its direction sets value + scale * t, and the handle then sits t further along."""
     params = PRIMITIVES[tool_id]
     for h in _handles(tool_id, params):
+        if h["param"] in ("rx", "ry", "rz"):
+            continue  # a rotation grip runs round its ring, not along a line
         t = 1.5
         new = max(h["value"] + h["scale"] * t, h["min"] if h["min"] is not None else -1e9)
         travel = (new - h["value"]) / h["scale"]
@@ -150,7 +153,7 @@ def test_size_handles_sit_on_the_solid_and_resizing_moves_its_extent(tool_id):
 
     base, base_volume = solid(params)
     for h in _handles(tool_id, params):
-        if h["param"] in ("x", "y", "z"):
+        if h["param"] in ("x", "y", "z", "rx", "ry", "rz", "sides"):  # a count of sides is not an extent
             continue
         axis = max(range(3), key=lambda i: abs(h["direction"][i]))
         # The anchor lies on the solid's outer extent along its axis (the tip of the top diameter sits just outside).
@@ -256,7 +259,7 @@ def test_push_pull_handle_follows_the_distance_and_skips_hole_walls():
 
 
 def _is_whole_cylinder(face):
-    from pliable.tools import _all_round_walls
+    from pliable.tools.push_pull import _all_round_walls
 
     class _T:
         def face(self, i):
@@ -271,7 +274,7 @@ from OCP.BRepClass3d import BRepClass3d_SolidClassifier  # noqa: E402
 from OCP.TopAbs import TopAbs_OUT  # noqa: E402
 from OCP.gp import gp_Pnt as _Pnt  # noqa: E402
 
-from pliable.features import solids_of  # noqa: E402
+from pliable.ops import solids_of  # noqa: E402
 from pliable.ops import edge_curve, edge_outward_normal  # noqa: E402
 
 
@@ -395,18 +398,18 @@ def test_chamfer_two_distances_handles_mark_the_leg_on_each_side_and_follow_the_
 
 
 def test_primitive_move_arrows_point_the_positive_way_and_resize_grips_are_marked(session):
-    for tool in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus"):
+    for tool in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus", "add_prism"):
         handles = session.handle({"type": "tool_handles", "tool": tool, "params": {"x": 5, "y": 6, "z": 7}})["handles"]
         moves = {h["param"]: h for h in handles if h["kind"] == "move"}
         assert set(moves) == {"x", "y", "z"}
         for param, i in (("x", 0), ("y", 1), ("z", 2)):
             h = moves[param]
             assert h["direction"][i] == 1.0 and h["scale"] == 1.0 and h["value"] == (5, 6, 7)[i]
-        assert all(h["kind"] == "resize" for h in handles if h["kind"] != "move")
+    assert all(h["kind"] == "resize" for h in handles if h["kind"] != "move" and h["param"] not in ("rx", "ry", "rz"))
 
 
 def test_primitives_offer_anchor_points_with_the_default_at_the_placement_point(session):
-    for tool in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus"):
+    for tool in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus", "add_prism"):
         anchors = session.handle({"type": "tool_handles", "tool": tool})["anchors"]
         assert anchors and anchors[0]["offset"] == [0.0, 0.0, 0.0]
         assert len({a["label"] for a in anchors}) == len(anchors)

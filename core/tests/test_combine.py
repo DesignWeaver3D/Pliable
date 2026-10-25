@@ -6,7 +6,7 @@ from OCP.GProp import GProp_GProps
 from OCP.gp import gp_Vec
 
 from pliable.demos import load_demo
-from pliable.features import combine
+from pliable.shared.solids import combine
 from pliable.files import write_step
 from pliable.ops import OperationError
 from pliable.server import Session
