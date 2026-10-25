@@ -39,6 +39,7 @@ Owner batch (2026-10-25), one row each, in this order:
 - **Sketch trim tool does not work (bug).** Owner: "Sketch trim tool doesn't work."
   - [ ] Reproduce it (which curves, what the tool does or fails to do) and ask the owner for details if it cannot be reproduced; read the trim entries in `docs/behavior.md` first.
   - [ ] Trim removes the picked segment up to the nearest intersections, as `docs/behavior.md` describes.
+  - [ ] Owner change (2026-10-25): "Sketch trim tool I want the first click to split the edge at intersections and make the trim candidate turn into construction then second click on that same segment deletes it." So: first click splits the picked curve at its intersections and turns the picked segment into construction geometry; a second click on that same segment deletes it. Replaces the trim entries in `docs/behavior.md`; update them.
   - [ ] Add a test for the fixed case if it can run without a browser.
 - **Sketch split tool does not work (bug).** Owner: "Sketch split tool also doesn't work."
   - [ ] Reproduce it, and check whether it shares a cause with the trim tool row above (both may fail in the same shared code).
@@ -62,6 +63,9 @@ Owner batch (2026-10-25), one row each, in this order:
   - [ ] Owner decision (2026-10-25): these two constraints are always made for this tool, whatever the automatic-constraints setting. Read the rectangle entries in `docs/behavior.md` first.
 - **Automatic sketch constraints on by default.** Owner (2026-10-25): "we will change the default to on for automatic constraints which has been working well in my latest testing."
   - [ ] The automatic-constraints setting defaults to on for new users and projects (replaces the earlier owner decision "off by default"); update `docs/behavior.md`, the State line above and the decisions log.
+- **Zoom all in a sketch (bug).** Owner: "Zoom all while in sketch editing appears to have some arbitrary minimum zoom level and is not zooming appropriately to the sketch geometry."
+  - [ ] Zoom all while editing a sketch frames the sketch geometry (fits it to the view) with no arbitrary minimum zoom level.
+  - [ ] Check the zoom-all entries in `docs/behavior.md` first; add a test for the fit calculation if it can run without a browser.
 - **Clear selection after applying a constraint.** Owner: "Sketch, when a constraint is applied the geometry selection should be cleared."
   - [ ] After a constraint is applied in a sketch, the geometry selection is cleared.
   - [ ] Check `docs/behavior.md` for any approved selection-keeping behavior after constraints (and dimensions) and settle it with the owner if it conflicts.
