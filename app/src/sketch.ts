@@ -17,6 +17,7 @@ import * as Pv from "./sketchpreview";
 import * as T from "./sketchtyped";
 import * as F from "./sketchfit";
 import * as Co from "./sketchcoincident";
+import { trimClick } from "./sketchtrim";
 import { chooseAtCursor } from "./sketchmenu";
 import { buildConstraintList, buildToolOptions, button, el, type PanelContext } from "./sketchpanelparts";
 import { openSketchSettings } from "./sketchsettings";
@@ -47,7 +48,7 @@ export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "point", label: "Point", hint: "Click to place a point; it can be snapped to and constrained" },
   { id: "ellipse", label: "Ellipse", hint: "Click the centre, the end of the long axis, then a point for the short radius" },
   { id: "spline", label: "Spline", hint: "Click points the curve passes through; Enter or right-click ends it, clicking the first point closes it" },
-  { id: "trim", label: "Trim", hint: "Click the part of a line to remove, up to the nearest crossing curves" },
+  { id: "trim", label: "Trim", hint: "Click a line to cut it at its crossings and mark that piece; click the marked piece again to delete it" },
   { id: "split", label: "Split", hint: "Click a line where it should be cut in two" },
   { id: "extend", label: "Extend", hint: "Click near the end of a line to stretch it to the next curve" },
   { id: "polygon", label: "Polygon", hint: "Click the centre, then a corner; the number of sides is set in the sketch card (3 to 64)" },
@@ -722,9 +723,17 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
             this.s = cut.sketch;
             this.resolve();
           } else this.host.status("Click along the line, away from its ends, to cut it", true);
+        } else if (this.tool === "trim") {
+          const trimmed = trimClick(this.s, line.id, uv[0], uv[1], this.trimCandidates);
+          if (trimmed) {
+            this.pushUndo();
+            this.s = trimmed.sketch;
+            this.trimCandidates = trimmed.candidates;
+            this.resolve();
+          }
         } else {
           this.pushUndo();
-          this.s = (this.tool === "trim" ? M.trimLine : M.extendLine)(this.s, line.id, uv[0], uv[1]);
+          this.s = M.extendLine(this.s, line.id, uv[0], uv[1]);
           this.resolve();
         }
       }
@@ -935,6 +944,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const to = kind === "undo" ? this.redoStack : this.undoStack;
     const next = from.pop();
     if (!next) return;
+    this.trimCandidates.clear();
     to.push(JSON.stringify(this.s));
     this.s = JSON.parse(next);
     this.selection = [];
@@ -998,10 +1008,13 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
 
   /** The drawing tool used last in this sketch; Enter with no tool active starts it again. */
   private lastDrawTool: Tool | null = null;
+  /** Lines the Trim tool has marked for removal; a second click on one deletes it. */
+  private trimCandidates = new Set<number>();
 
   private setTool(tool: Tool) {
     if (tool !== "select") this.lastDrawTool = tool;
     if (tool !== "select") usage.record(`sketch_${tool}`.toLowerCase().replace(/[^a-z0-9_]/g, "_"), "start", "other");
+    this.trimCandidates.clear();
     this.tool = tool;
     this.typed = "";
     this.chain = [];

@@ -551,7 +551,7 @@ export function sketchAxes(plane: PlaneData): { u: number; v: number; du: number
 // Trim ------------------------------------------------------------------------------------------------
 
 /** Parameters t along line `e` (0 at its start, 1 at its end, unbounded) where it meets other lines and circles. */
-function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line" }>): number[] {
+export function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line" }>): number[] {
   const a = pointOf(s, e.a);
   const b = pointOf(s, e.b);
   const dx = b.u - a.u;
@@ -583,40 +583,6 @@ function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line" }>): n
     }
   }
   return ts.sort((x, y) => x - y);
-}
-
-/**
- * Trim the part of a line under (u, v) that lies between its nearest crossings with other curves.
- * A piece at an end shortens the line; a piece in the middle splits it in two. Constraints on the
- * trimmed line are dropped (its end points may have moved); with no crossing the whole line goes.
- */
-export function trimLine(s: SketchData, entityId: number, u: number, v: number): SketchData {
-  const e = s.entities.find((x) => x.id === entityId);
-  if (!e || e.type !== "line" || e.reference) return s;
-  const a = pointOf(s, e.a);
-  const b = pointOf(s, e.b);
-  const len2 = (b.u - a.u) ** 2 + (b.v - a.v) ** 2;
-  if (len2 < 1e-12) return s;
-  const click = Math.min(1, Math.max(0, ((u - a.u) * (b.u - a.u) + (v - a.v) * (b.v - a.v)) / len2));
-  const ts = crossings(s, e).filter((t) => t > 1e-6 && t < 1 - 1e-6);
-  const lo = [...ts].reverse().find((t) => t <= click);
-  const hi = ts.find((t) => t >= click);
-  if (lo === undefined && hi === undefined) return remove(s, { kind: "entity", id: entityId });
-
-  let id = nextId(s);
-  const points = [...s.points];
-  const at = (t: number) => {
-    const p = { id: id++, u: a.u + t * (b.u - a.u), v: a.v + t * (b.v - a.v) };
-    points.push(p);
-    return p.id;
-  };
-  const kept = s.entities.filter((x) => x.id !== entityId);
-  const entities: SketchEntity[] = [...kept];
-  const flags = { construction: e.construction };
-  if (lo !== undefined) entities.push({ id: id++, type: "line", a: e.a, b: at(lo), ...flags });
-  if (hi !== undefined) entities.push({ id: id++, type: "line", a: at(hi), b: e.b, ...flags });
-  const constraints = s.constraints.filter((c) => c.entity !== entityId && !c.entities?.includes(entityId));
-  return dropOrphans({ ...s, points, entities, constraints });
 }
 
 /**

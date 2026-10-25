@@ -765,6 +765,15 @@ def test_collinear_lines_share_a_line():
     assert c[3][1] == pytest.approx(0, abs=1e-6) and c[4][1] == pytest.approx(0, abs=1e-6)
 
 
+def test_collinear_on_lines_sharing_an_end_is_not_a_conflict():
+    """What the split tool leaves behind: two lines with a shared end point and an automatic collinear constraint."""
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 5, "v": 0}, {"id": 3, "u": 10, "v": 0}]
+    lines = [{"id": 10, "type": "line", "a": 1, "b": 2}, {"id": 11, "type": "line", "a": 2, "b": 3}]
+    constraints = [{"id": 5, "type": "collinear", "entities": [10, 11], "auto": True}]
+    result = sketch.solve(sketch_of(points, lines, constraints))
+    assert result["status"] == "ok" and not result.get("conflicts")
+
+
 @pytest.mark.parametrize("v", [7.0, -7.0])
 def test_point_line_distance_keeps_the_side(v):
     points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 4, "v": v * 0.5}]

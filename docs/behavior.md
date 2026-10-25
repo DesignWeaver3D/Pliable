@@ -110,4 +110,6 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - The smart dimension on two separated points is the length between them (no menu); horizontal distance and vertical distance are separate buttons on the constraint strip.
 - In a sketch, Enter with no drawing tool active (the Select tool, nothing being typed) starts the drawing tool used last again; Enter while a line chain is open still ends the chain (owner, 2026-10-24).
 - Concentric and nested circles or arcs selected together offer the gap between their rims as a dimension; clicking a dimension's leader or extension line selects it like clicking its value.
+- Trim takes two clicks on a line (owner, 2026-10-25): the first cuts the line at every crossing with other lines and circles and turns the piece under the click into construction geometry; a second click on that piece deletes it. Changing tool or stepping undo or redo forgets the marked pieces. The cutting is the Split tool's, so direction constraints stay on the pieces.
+- Split adds an automatic Collinear constraint to a line with no direction constraint; two lines that share an end point are collinear by making them parallel, with no conflict reported.
 - Diameter dimension values start with the capital Ø (full capital height, like the R of a radius), in sketches, the typed-size dimensions and the 3D measurements.
