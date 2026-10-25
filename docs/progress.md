@@ -14,6 +14,63 @@ Sketch requests (owner, 2026-10-24, third batch), one row each, in this order:
 
 Owner batch (2026-10-24, fourth), one row each, in this order:
 
+Owner batch (2026-10-25), one row each, in this order:
+
+- **Resize chamfer gizmos.** Owner: "Selecting resize chamfer should provide dual chamfer distance gizmos."
+  - [ ] Selecting a chamfer for resizing shows two distance gizmos, one per chamfer distance.
+  - [ ] Dragging each gizmo changes only its own distance.
+- **Face Draft pick axis.** Owner: "Face Draft needs to have a pick axis button, default axis should be the face centroid."
+  - [ ] Face Draft has a pick axis button.
+  - [ ] Without a pick, the default axis is the face centroid.
+- **Project edges uses the real curve.** Owner: "Sketch Projecting edges should project the real curve of the brep solid instead of tessellated representation from  the view mesh."
+  - [ ] Projected edges come from the B-rep edge curve (exact line, arc, circle, spline), not the view mesh polyline.
+  - [ ] Projected circles and arcs stay true circles and arcs in the sketch.
+- **Ellipse construction axes.** Owner: "In [another CAD program]'s sketcher construction lines are drawn automatically connecting the opposite quadrant points of an ellipse which allows the user to dimension just the two construction lines instead of have to select the two opposing quandrant points and dimension those, which takes more clicks. I want our sketch ellipses to have the same construction lines drawn."
+  - [ ] A sketch ellipse gets two construction lines drawn automatically, one joining each pair of opposite quadrant points (major and minor axis).
+  - [ ] Each line can be dimensioned directly by selecting it alone.
+  - [ ] The lines follow the ellipse when it is edited, and are construction geometry (not profile).
+- **Body volume and mass in the measurement card.** Owner: "Selecting a body should display its volume and mass in the measurement card."
+  - [ ] Selecting a body shows its volume in the measurement card.
+  - [ ] Selecting a body shows its mass in the measurement card (owner: the project has a default material and other materials; use the default material's density. If it cannot be found, ask the owner).
+- **New project leaves stale projection geometry (bug).** Owner: "Creating a new project left behind projection geometry from a sketch that no longer exists."
+  - Owner note: refreshing the browser tab removed the stale projected construction lines, so the leftover state is held in the frontend (not saved by the core). Look for projection state the new-project reset in the app does not clear.
+  - [ ] Find how to reproduce it (project edges in a sketch, then create a new project) and add a test if it can run without a browser.
+  - [ ] Creating a new project clears all projection geometry, so nothing from the old sketches remains.
+- **Sketch trim tool does not work (bug).** Owner: "Sketch trim tool doesn't work."
+  - [ ] Reproduce it (which curves, what the tool does or fails to do) and ask the owner for details if it cannot be reproduced; read the trim entries in `docs/behavior.md` first.
+  - [ ] Trim removes the picked segment up to the nearest intersections, as `docs/behavior.md` describes.
+  - [ ] Add a test for the fixed case if it can run without a browser.
+- **Sketch split tool does not work (bug).** Owner: "Sketch split tool also doesn't work."
+  - [ ] Reproduce it, and check whether it shares a cause with the trim tool row above (both may fail in the same shared code).
+  - [ ] Split cuts the picked curve at the picked point, as `docs/behavior.md` describes (read its split entries first).
+  - [ ] Add a test for the fixed case if it can run without a browser.
+- **Arc by center cannot be drawn clockwise (bug).** Owner: "Sketch arc by center tool drawing doesn't allow drawing clockwise. Appears to default to CCW instead of following cursor relative to first arc point."
+  - [ ] While drawing, the arc direction follows the cursor relative to the first arc point (start point), so moving the cursor clockwise gives a clockwise arc and counter-clockwise gives a counter-clockwise arc.
+  - [ ] The preview and the committed arc agree.
+  - [ ] Add a test for the direction choice if it can run without a browser.
+- **Arc by 3 points click order.** Owner: "Sketch Arc by 3 points has user click the pass-through point before end point which works grerat but is different than [another CAD program]'s arc by three points where user selects start, end, passthrough. Industry standard ([other CAD programs] all default to or only support) appears to be Start point -> End point -> Through point, so we need to switch to that."
+  - [ ] Click order becomes start point, then end point, then through point.
+  - [ ] The preview after the second click shows the arc's chord and updates with the cursor as the through point.
+  - [ ] This replaces approved behavior: update the arc-by-3-points entry in `docs/behavior.md` (and any test or on-screen prompt text that names the old order) in the same commit.
+- **Construction geometry dashed and drawn below.** Owner: "Sketch construction geometry should be dashed and always drawn below normal sketch geometry."
+  - [ ] Construction curves are drawn dashed (check what the current construction style is in `docs/behavior.md` first).
+  - [ ] Construction geometry is always drawn beneath normal geometry, so profile curves cover it where they overlap.
+  - [ ] Applies to every construction curve, including auto-drawn ones such as projected edges and the ellipse axes.
+- **Center rectangle gets a constrained center point.** Owner: "Sketch rectangle drawn by center should have a construction center point that is already symmetric constrained to two opposing corners. And if that point is drawn starting on a line, axis, or point then it should get automatic coincident constraint there."
+  - [ ] A rectangle drawn by center creates a construction point at the center, symmetric-constrained about two opposing corners.
+  - [ ] If the center is clicked on a line, axis or point, the center point gets a coincident constraint to it.
+  - [ ] Owner decision (2026-10-25): these two constraints are always made for this tool, whatever the automatic-constraints setting. Read the rectangle entries in `docs/behavior.md` first.
+- **Automatic sketch constraints on by default.** Owner (2026-10-25): "we will change the default to on for automatic constraints which has been working well in my latest testing."
+  - [ ] The automatic-constraints setting defaults to on for new users and projects (replaces the earlier owner decision "off by default"); update `docs/behavior.md`, the State line above and the decisions log.
+- **Clear selection after applying a constraint.** Owner: "Sketch, when a constraint is applied the geometry selection should be cleared."
+  - [ ] After a constraint is applied in a sketch, the geometry selection is cleared.
+  - [ ] Check `docs/behavior.md` for any approved selection-keeping behavior after constraints (and dimensions) and settle it with the owner if it conflicts.
+- **White viewport after a symmetry constraint (bug, high priority: risk of lost work).** Owner: "While sketching I made a symmetry constraint and the entire background turned white and sketch axis origin and sketch geometry cannot be seen but dimensions are still visible. No error reported and otherwise the UI elements are there and allow editing. Clicking finish sketch did not resolve the issue. Refreshing the browser tab fixed, but we cannot rely on refreshing the browser tab which always poses a lost work risk becuase sometimes the project state doesn't restore to latest."
+  - [ ] Find the cause. Likely a render failure in the 3D view (for example a NaN or invalid value in the symmetry constraint's geometry, or a lost WebGL context) while the HTML dimension labels keep working; check the browser console and the symmetry constraint code path.
+  - [ ] Symmetry constraint no longer blanks the viewport; add a test for any bad value found if it can run without a browser.
+  - [ ] The render loop survives a failed frame: catch the error, log it visibly, and keep drawing (or recover) instead of leaving a blank view with no message.
+  - [ ] Separate row if confirmed: the project state does not always restore to the latest after a refresh (owner: "sometimes the project state doesn't restore to latest"). Reproduce and investigate the autosave and restore path.
+
 
 - **Stored array parameters (long term, needs owner feedback).** Store array parameters like primitives (editable later); today arrays make separate solids. Consider an option for the array to be a compound with its source object.
 
