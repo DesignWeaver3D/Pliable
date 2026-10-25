@@ -49,9 +49,6 @@ Owner batch (2026-10-25), one row each, in this order:
 - **Zoom all in a sketch (bug).** Owner: "Zoom all while in sketch editing appears to have some arbitrary minimum zoom level and is not zooming appropriately to the sketch geometry."
   - [ ] Zoom all while editing a sketch frames the sketch geometry (fits it to the view) with no arbitrary minimum zoom level.
   - [ ] Check the zoom-all entries in `docs/behavior.md` first; add a test for the fit calculation if it can run without a browser.
-- **Clear selection after applying a constraint.** Owner: "Sketch, when a constraint is applied the geometry selection should be cleared."
-  - [ ] After a constraint is applied in a sketch, the geometry selection is cleared.
-  - [ ] Check `docs/behavior.md` for any approved selection-keeping behavior after constraints (and dimensions) and settle it with the owner if it conflicts.
 - **White viewport after a symmetry constraint (bug, high priority: risk of lost work).** Owner: "While sketching I made a symmetry constraint and the entire background turned white and sketch axis origin and sketch geometry cannot be seen but dimensions are still visible. No error reported and otherwise the UI elements are there and allow editing. Clicking finish sketch did not resolve the issue. Refreshing the browser tab fixed, but we cannot rely on refreshing the browser tab which always poses a lost work risk becuase sometimes the project state doesn't restore to latest."
   - [ ] Find the cause. Likely a render failure in the 3D view (for example a NaN or invalid value in the symmetry constraint's geometry, or a lost WebGL context) while the HTML dimension labels keep working; check the browser console and the symmetry constraint code path.
   - [ ] Symmetry constraint no longer blanks the viewport; add a test for any bad value found if it can run without a browser.

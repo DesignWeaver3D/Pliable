@@ -1081,6 +1081,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       addedIds.add(added.id);
     }
     const ok = await this.resolve();
+    if (ok) this.selection = []; // an applied constraint ends the selection it was made from
     if (ok && option.dimension) {
       this.render();
       const id = [...addedIds][0];
@@ -1093,6 +1094,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       // A redundant (or clashing) dimension is kept as a reference dimension: it shows the measurement and drives nothing.
       for (const c of this.s.constraints) if (addedIds.has(c.id)) c.reference = true;
       if (await this.resolve()) {
+        this.selection = [];
         this.host.status("That dimension is redundant with the existing constraints, so it was added as a reference dimension (in parentheses). Make it driving from the constraint list or the right-click menu", "warn");
         this.render();
         return;
