@@ -27,7 +27,8 @@
     "name": "distance",
     "kind": "length",
     "default": 0.0,
-    "drag": true
+    "drag": true,
+    "options": []
    }
   ],
   "related": [
@@ -70,7 +71,8 @@
     "name": "distance",
     "kind": "length",
     "default": 1.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -110,7 +112,8 @@
     "name": "distance",
     "kind": "length",
     "default": 0.0,
-    "drag": true
+    "drag": true,
+    "options": []
    }
   ],
   "related": [],
@@ -251,7 +254,8 @@
     "name": "diameter",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [
@@ -293,19 +297,22 @@
     "name": "dx",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dy",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dz",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [
@@ -351,25 +358,29 @@
     "name": "count",
     "kind": "number",
     "default": 3,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dx",
     "kind": "length",
     "default": 10,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dy",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dz",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -413,49 +424,57 @@
     "name": "count",
     "kind": "number",
     "default": 6,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "angle",
     "kind": "angle",
     "default": 360,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "px",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "py",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "pz",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "ax",
     "kind": "number",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "ay",
     "kind": "number",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "az",
     "kind": "number",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -499,25 +518,29 @@
     "name": "diameter",
     "kind": "length",
     "default": 6,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "depth",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "offset_u",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "offset_v",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -557,37 +580,43 @@
     "name": "diameter",
     "kind": "length",
     "default": 6,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "depth",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "offset_u",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "offset_v",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "bore_diameter",
     "kind": "length",
     "default": 11,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "bore_depth",
     "kind": "length",
     "default": 4,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -627,37 +656,43 @@
     "name": "diameter",
     "kind": "length",
     "default": 6,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "depth",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "offset_u",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "offset_v",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "sink_diameter",
     "kind": "length",
     "default": 12,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "sink_angle",
     "kind": "angle",
     "default": 90,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -697,7 +732,8 @@
     "name": "axis",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -737,7 +773,8 @@
     "name": "axis",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -777,25 +814,29 @@
     "name": "diameter",
     "kind": "length",
     "default": 10,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "height",
     "kind": "length",
     "default": 5,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "offset_u",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "offset_v",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -835,37 +876,43 @@
     "name": "length",
     "kind": "length",
     "default": 20,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "width",
     "kind": "length",
     "default": 6,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "depth",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "angle",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "offset_u",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "offset_v",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -938,61 +985,71 @@
     "name": "width",
     "kind": "length",
     "default": 10,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "depth",
     "kind": "length",
     "default": 10,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "height",
     "kind": "length",
     "default": 10,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "x",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "y",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "z",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "rx",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "ry",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "rz",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "new_body",
     "kind": "number",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -1036,55 +1093,64 @@
     "name": "diameter",
     "kind": "length",
     "default": 10,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "height",
     "kind": "length",
     "default": 10,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "x",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "y",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "z",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "rx",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "ry",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "rz",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "new_body",
     "kind": "number",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -1128,7 +1194,8 @@
     "name": "thickness",
     "kind": "length",
     "default": 2,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -1168,7 +1235,8 @@
     "name": "offset",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -1208,7 +1276,8 @@
     "name": "continuity",
     "kind": "number",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -1314,25 +1383,29 @@
     "name": "angle",
     "kind": "angle",
     "default": 3,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "pull_x",
     "kind": "number",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "pull_y",
     "kind": "number",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "pull_z",
     "kind": "number",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -1372,7 +1445,8 @@
     "name": "offset",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -1412,37 +1486,43 @@
     "name": "dx",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dy",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dz",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "rx",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "ry",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "rz",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -1486,13 +1566,15 @@
     "name": "axis",
     "kind": "number",
     "default": 2,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "angle",
     "kind": "angle",
     "default": 90,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -1532,7 +1614,8 @@
     "name": "factor",
     "kind": "number",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -1572,49 +1655,57 @@
     "name": "diameter",
     "kind": "length",
     "default": 10,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "x",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "y",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "z",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "rx",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "ry",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "rz",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "new_body",
     "kind": "number",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -1658,61 +1749,71 @@
     "name": "bottom_diameter",
     "kind": "length",
     "default": 10,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "top_diameter",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "height",
     "kind": "length",
     "default": 10,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "x",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "y",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "z",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "rx",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "ry",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "rz",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "new_body",
     "kind": "number",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -1756,55 +1857,64 @@
     "name": "major",
     "kind": "length",
     "default": 20,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "minor",
     "kind": "length",
     "default": 5,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "x",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "y",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "z",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "rx",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "ry",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "rz",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "new_body",
     "kind": "number",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -1848,67 +1958,78 @@
     "name": "sides",
     "kind": "number",
     "default": 6,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "bottom_diameter",
     "kind": "length",
     "default": 10,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "top_diameter",
     "kind": "length",
     "default": 10,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "height",
     "kind": "length",
     "default": 10,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "x",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "y",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "z",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "rx",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "ry",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "rz",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "new_body",
     "kind": "number",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -1952,49 +2073,57 @@
     "name": "count",
     "kind": "number",
     "default": 3,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "rows",
     "kind": "number",
     "default": 3,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dx",
     "kind": "length",
     "default": 20,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dy",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dz",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dx2",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dy2",
     "kind": "length",
     "default": 20,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dz2",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2038,19 +2167,22 @@
     "name": "count",
     "kind": "number",
     "default": 4,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "axis",
     "kind": "number",
     "default": 2,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "angle",
     "kind": "angle",
     "default": 360,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2090,13 +2222,15 @@
     "name": "angle",
     "kind": "angle",
     "default": 360,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "mode",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2136,19 +2270,22 @@
     "name": "first",
     "kind": "length",
     "default": 2,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "second",
     "kind": "length",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "swap",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2188,13 +2325,15 @@
     "name": "distance",
     "kind": "length",
     "default": 2,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "angle",
     "kind": "angle",
     "default": 45,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2208,12 +2347,12 @@
  },
  {
   "id": "body_boolean",
-  "label": "Combine bodies",
-  "description": "Combines two solids: mode 0 unites them, 1 subtracts the second from the first, 2 keeps only the overlap. Select a face of the first solid, then a face of the second.",
+  "label": "Boolean",
+  "description": "Combines solids: Union joins them, Subtract removes the later ones from the first, Intersect keeps only the overlap. Select two or more bodies, or faces of them; the first selected is the target.",
   "accepts": {
    "faces": [
-    2,
-    2
+    0,
+    null
    ],
    "edges": [
     0,
@@ -2225,16 +2364,21 @@
    ],
    "bodies": [
     0,
-    0
+    null
    ],
-   "any_of": false
+   "any_of": true
   },
   "params": [
    {
     "name": "mode",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": [
+     "Union",
+     "Subtract",
+     "Intersect"
+    ]
    }
   ],
   "related": [],
@@ -2274,31 +2418,36 @@
     "name": "start",
     "kind": "length",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "end",
     "kind": "length",
     "default": 3,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "reverse",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "middle",
     "kind": "length",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "middle_at",
     "kind": "number",
     "default": 0.5,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2338,7 +2487,8 @@
     "name": "radii",
     "kind": "per_edge",
     "default": 2,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2378,7 +2528,8 @@
     "name": "ruled",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2418,7 +2569,8 @@
     "name": "mode",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2458,7 +2610,8 @@
     "name": "count",
     "kind": "number",
     "default": 4,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2498,13 +2651,15 @@
     "name": "radius",
     "kind": "length",
     "default": 2,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "end_radius",
     "kind": "length",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2544,7 +2699,8 @@
     "name": "size",
     "kind": "length",
     "default": 2,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2584,49 +2740,57 @@
     "name": "axis",
     "kind": "number",
     "default": 2,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "position",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "remove_side",
     "kind": "number",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "nx",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "ny",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "nz",
     "kind": "number",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "tilt_u",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "tilt_v",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2666,43 +2830,50 @@
     "name": "axis",
     "kind": "number",
     "default": 2,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "position",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "nx",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "ny",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "nz",
     "kind": "number",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "tilt_u",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "tilt_v",
     "kind": "angle",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2742,7 +2913,8 @@
     "name": "distance",
     "kind": "length",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2782,7 +2954,8 @@
     "name": "distance",
     "kind": "length",
     "default": 1,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2822,19 +2995,22 @@
     "name": "distance",
     "kind": "length",
     "default": 2,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "loop",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "all_loops",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2874,13 +3050,15 @@
     "name": "across",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "offset",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2920,37 +3098,43 @@
     "name": "diameter",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "depth",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "start",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dx",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dy",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dz",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -2994,19 +3178,22 @@
     "name": "sink_diameter",
     "kind": "length",
     "default": 12,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "sink_angle",
     "kind": "angle",
     "default": 90,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "end",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -3046,19 +3233,22 @@
     "name": "bore_diameter",
     "kind": "length",
     "default": 12,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "bore_depth",
     "kind": "length",
     "default": 4,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "end",
     "kind": "number",
     "default": 0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -3098,25 +3288,29 @@
     "name": "dx",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dy",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "dz",
     "kind": "length",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    },
    {
     "name": "mode",
     "kind": "number",
     "default": 0.0,
-    "drag": false
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],

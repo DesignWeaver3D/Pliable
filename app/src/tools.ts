@@ -10,7 +10,7 @@ export interface ToolInfo {
   /** Plain-language sentence(s) on what the tool does and what to select; shown in tooltips. */
   description?: string;
   accepts: { faces: Range; edges: Range; vertices?: Range; bodies?: Range; anyOf?: boolean };
-  params: { name: string; kind: string; default: number; drag: boolean }[];
+  params: { name: string; kind: string; default: number; drag: boolean; options?: string[] }[];
   /** Relationship rules whose matching faces join the selection when switched on. */
   related?: string[];
   /** Names of three length parameters that form a point; the form offers to fill them from a reference snap. */

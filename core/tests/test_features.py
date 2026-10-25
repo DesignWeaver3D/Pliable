@@ -405,6 +405,21 @@ def test_body_boolean(mode, expected):
         run("body_boolean", two, faces=[faces[0], faces[0] + 0], mode=mode)
 
 
+def test_body_boolean_takes_bodies_and_a_body_with_faces():
+    from pliable.tools.base import Selection
+    from pliable.tools import get_tool
+
+    two = _two_blocks(20)
+    tool = get_tool("body_boolean")
+    ids = [b.id for b in two.bodies.bodies]
+    assert tool.available(two, Selection(bodies=ids))
+    assert tool.available(two, Selection(bodies=[ids[0]], faces=[_face_in_solid(two, 1)]))
+    assert not tool.available(two, Selection(bodies=[ids[0]]))
+    assert not tool.available(two, Selection(bodies=[ids[0]], faces=[_face_in_solid(two, 0)]))
+    result = tool.execute(two, Selection(bodies=ids), {"mode": 2}, preview=False)
+    assert volume(result.shape) == pytest.approx(20 * 30 * 20, rel=1e-3)
+
+
 def test_split_plane_makes_two_solids(block):
     from pliable.ops import solids_of
 

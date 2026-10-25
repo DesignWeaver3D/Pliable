@@ -127,7 +127,7 @@ Anything not tied to one tool (crashes, lag on large parts, confusing messages) 
 - [ ] Divide face: typed form, and placing the divide edge by dragging in the view
 - [ ] Fillet per edge on all top-face edges: 0 open edges after applying
 - [ ] Add box creates its own body; Move body, Rotate body, Scale body and Offset body act on the selected body only; a group of faces from two bodies moves both; nothing selected moves everything
-- [ ] Combine bodies joins two bodies into one solid
+- [ ] Boolean joins two bodies into one solid
 - [ ] Emboss/Cut along surface on a cylinder face and on a wrapped sketch region; unrolled sketch plane sits beside the model
 - [ ] Unrolled sketch: cone (not a pointed cone), a chain of flat, fillet and flat faces, a region across the seam of a closed cylinder
 - [ ] Sketch: a free line and circle drag by their body without anything else moving; tangent arc and line; snap to an in-plane axis line

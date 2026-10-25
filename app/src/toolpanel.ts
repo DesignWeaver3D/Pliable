@@ -44,7 +44,7 @@ export class ToolPanel {
   private open: ToolInfo | null = null;
   private editBody: number | undefined; // set while an existing primitive body is being edited (its id)
   private timer = 0;
-  private inputs: Record<string, HTMLInputElement> = {};
+  private inputs: Record<string, HTMLInputElement | HTMLSelectElement> = {};
   /** Where the picked base point is now (the move arrows are drawn there); null until a base is picked. */
   private baseNow: (() => Vec3 | null) | null = null;
   private pairInputs: Record<string, HTMLInputElement[][]> = {}; // per_edge parameters: [start, end] inputs per edge
@@ -134,7 +134,7 @@ export class ToolPanel {
     this.open = tool;
     this.editBody = editBody;
     this.baseNow = null;
-    const inputs: Record<string, HTMLInputElement> = {};
+    const inputs: Record<string, HTMLInputElement | HTMLSelectElement> = {};
     const title = document.createElement("div");
     title.className = "title";
     title.textContent = editBody === undefined ? tool.label : `Edit ${tool.label.replace(/^Add /, "").toLowerCase()}`;
@@ -147,6 +147,20 @@ export class ToolPanel {
       const help = PARAM_HELP[p.name];
       name.textContent = help?.label ?? `${p.name.replace(/_/g, " ")}${UNITS[p.kind] ? ` (${UNITS[p.kind]})` : ""}`;
       if (help) row.title = help.title;
+      if (p.options) {
+        const list = document.createElement("select");
+        p.options.forEach((label, i) => list.append(new Option(label, String(i))));
+        list.value = String(typeof initial[p.name] === "number" ? initial[p.name] : p.default);
+        list.addEventListener("change", () => this.schedulePreview(0));
+        list.addEventListener("keydown", (e) => {
+          e.stopPropagation(); // typing must not trigger view shortcuts or tools
+          if (e.key === "Enter") this.apply();
+          else if (e.key === "Escape") this.close();
+        });
+        inputs[p.name] = list;
+        row.append(name, list);
+        return row;
+      }
       const input = document.createElement("input");
       input.type = "number";
       input.step = "any";

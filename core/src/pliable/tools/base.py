@@ -109,13 +109,17 @@ class Param:
     kind: str  # one of PARAM_KINDS; length is in model units, angle in degrees
     default: float = 0.0
     drag: bool = False
+    options: tuple[str, ...] = ()  # names of the allowed values (the value is the index); the form offers a list instead of a number
 
     def __post_init__(self):
         if self.kind not in PARAM_KINDS:
             raise ValueError(f"Unknown parameter kind {self.kind!r}")
 
     def to_json(self) -> dict:
-        return {"name": self.name, "kind": self.kind, "default": self.default, "drag": self.drag}
+        out = {"name": self.name, "kind": self.kind, "default": self.default, "drag": self.drag}
+        if self.options:
+            out["options"] = list(self.options)
+        return out
 
 
 @dataclass(frozen=True)

@@ -99,7 +99,7 @@ def test_union_drops_the_recipe_even_when_the_shape_is_unchanged():
     header = commit(session, "add_box", inside)  # body 3, wholly inside body 2
     faces = [next(f["id"] for f in header["faces"] if f["body"] == b) for b in (2, 3)]
     header = commit(session, "body_boolean", {"mode": 0}, {"faces": faces})
-    assert not info(header, 2)["editable"] and "Combine bodies" in info(header, 2)["why"]
+    assert not info(header, 2)["editable"] and "Boolean" in info(header, 2)["why"]
 
 
 def test_joined_primitive_is_an_ordinary_solid():

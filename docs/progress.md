@@ -10,12 +10,26 @@ State (2026-10-24): `dev` is many local commits ahead of `origin/dev`, nothing p
 
 Sketch requests (owner, 2026-10-24, third batch), one row each, in this order:
 
+Owner batch (2026-10-24, fourth), one row each, in this order:
+
+- **Project menu.** "In the Menu, add an option for New Project which should be completely emtpy. The order under Model (Should be renamed Project) should be New Project, Open Project, Open Step as New Project, Import..., Export.... The Model Info button does nothign and should be removed." Needs: [ ] New Project (empty); [ ] Model renamed Project with that order; [ ] Model Info button removed.
+- **Sample models list.** "Menu Sample models list bracket first but bracket is not immediately selectable when you click the list and choose bracket because its already shown as selected, therefore doesn't work." Needs: [ ] choosing the first sample works at once.
+- **Prism icon.** "Add prism button icon: change to a pyramid." Needs: [ ] pyramid icon.
+- **Ellipse.** "Sketch ellipse needs quadrant points and to be defined by major and minor widths with ability to enter widths during creation." Needs: [ ] quadrant points; [ ] major and minor widths; [ ] typed widths while drawing.
+- **Line across ellipse error.** "I drew lines across an ellipse and received this error: "Malformed sketch: TypeError("Wrong number or type of arguments for overloaded function 'System_addPointOnCircle'. ..." the rest seems cut off and not selectable for copying." Needs: [ ] no error; [ ] long error text selectable and complete.
+- **Coincident to ellipse.** "Sketch coincident constraint tool reports "Coincident does not fit the current selection" when trying to point on edge from a line end point to an ellipse edge." Needs: [ ] point on ellipse works.
+- **Copy Diagnostics.** "Copy Diagnostics is not keeping a record of error or warning messages. When I click copy diagnostics, not even the most recent error text is shown." Needs: [ ] errors and warnings recorded and copied.
+- **Symmetric about line.** "Symmetric constraint must allow selecting lines, including the sketch axes, as the third selection item (the symmetrical about entity)." Needs: [ ] works with lines and axes as third item.
+- **Origin on top.** "Sketch origin must always be drawn on top and selectable for constraining to." Needs: [ ] drawn on top; [ ] selectable.
+- **Move sketches.** "I tried to select a sketch area in 3d view and use Move/Rotate tool to relocate the sketch in 3D space. No gizmos appeared and thie error: "The selected faces do not belong to a solid". I need to be able to move sketches using the same gizmos for moving solids." Needs: [ ] gizmos appear for a sketch; [ ] sketch moves and rotates.
+
 - **Stored array parameters (long term, needs owner feedback).** Store array parameters like primitives (editable later); today arrays make separate solids. Consider an option for the array to be a compound with its source object.
 
 ## Awaiting the owner's hand test
 
 Built, unit tested, not hand-checked in the app unless noted. Delete a line once the owner has tested it.
 
+- Boolean (owner, 2026-10-24): the tool is named Boolean, is offered for two or more bodies or faces on two bodies (a body plus faces of another works), and the form has a Union, Subtract, Intersect list (first selected is the target). Not checked in the app; restart the core first.
 - Sketch batch (owner, 2026-10-24): angle to horizontal axis removed everywhere; three far-apart points (two centres and the origin) now offer Symmetric about the third (the fixed one, else the one nearest the others' middle) instead of Coincident; the smart dimension accepts projected edges together with other geometry or a point; a value too wide for the room between its arrows goes past the far extension line with the line run on to it; two quick taps on a dimension's value or lines open the editor even when the drawing was rebuilt between them; after a solve the shape and dimensions update first and the point colours follow (the core's per-point freedom work was the lag, now a separate request limited to 0.4 s, so the colours of very big sketches may be partly missing). Not checked in the app; restart the core first (new request, new constraint). Leaders already keep text upright; check long decimals on a diameter or radius leader.
 - Repeat last sketch tool (owner, 2026-10-24: "hit enter and the last drawing tool is reactivated"): Enter in a sketch with the Select tool active restarts the last drawing tool; Enter during a line chain still ends it. Not checked in the app.
 - Smart dimension and region pick (owner, 2026-10-24): two separated points give the length at once; Horizontal distance and Vertical distance are strip buttons again (new icons). Picking a tinted sketch region sends the single region too, so a core started before the multi-region change still works; restart the core to get Shift/Ctrl multi-pick. Not checked in the app.
