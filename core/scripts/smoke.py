@@ -3,7 +3,7 @@ over the websocket like the browser does. Exits non-zero on any failure.
 
 Usage: python scripts/smoke.py PATH_TO_LAUNCHER [more launcher args]   (use the packaged executable)
        uv run python scripts/smoke.py source                             (runs `python -m pliable.launcher`)
-       uv run python scripts/smoke.py desktop:PATH_TO_SHELL              (the Tauri shell, which starts its own core)
+       uv run python scripts/smoke.py desktop PATH_TO_SHELL              (the Tauri shell, which starts its own core)
 """
 import base64, json, os, socket, subprocess, sys, time, urllib.request
 
@@ -46,9 +46,9 @@ def main():
     target = sys.argv[1]
     extra = sys.argv[2:]
     port = free_port()
-    if target.startswith("desktop:"):
+    if target == "desktop":
         # the shell takes no arguments; PLIABLE_PORT tells it which port its core must use
-        process = subprocess.Popen([target[len("desktop:"):]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        process = subprocess.Popen([extra[0]],stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                                    env={**os.environ, "PLIABLE_PORT": str(port)})
     else:
         command = [sys.executable, "-m", "pliable.launcher"] if target == "source" else [target]

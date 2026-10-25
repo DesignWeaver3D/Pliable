@@ -55,7 +55,7 @@ jobs:
           unzip -q ../desktop/dist/pliable-desktop-${{ matrix.label }}.zip
           EXE="$(pwd)/pliable-desktop-${{ matrix.label }}/Pliable"; [ -f "$EXE.exe" ] && EXE="$EXE.exe"
           cd ../core
-          if [ "$RUNNER_OS" = "Linux" ]; then xvfb-run -a uv run python scripts/smoke.py "desktop:$EXE"; else uv run python scripts/smoke.py "desktop:$EXE"; fi
+          if [ "$RUNNER_OS" = "Linux" ]; then xvfb-run -a uv run python scripts/smoke.py desktop "$EXE"; else uv run python scripts/smoke.py desktop "$EXE"; fi
       - uses: actions/upload-artifact@v4
         with:
           name: pliable-desktop-${{ matrix.label }}
