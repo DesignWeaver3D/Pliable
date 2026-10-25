@@ -12,8 +12,6 @@ Sketch requests (owner, 2026-10-24, third batch), one row each, in this order:
 
 Owner batch (2026-10-24, fourth), one row each, in this order:
 
-- **Long error text.** "the rest seems cut off and not selectable for copying." Needs: [ ] long error text selectable and complete.
-- **Copy Diagnostics.** "Copy Diagnostics is not keeping a record of error or warning messages. When I click copy diagnostics, not even the most recent error text is shown." Needs: [ ] errors and warnings recorded and copied.
 - **Symmetric about line.** "Symmetric constraint must allow selecting lines, including the sketch axes, as the third selection item (the symmetrical about entity)." Needs: [ ] works with lines and axes as third item.
 - **Origin on top.** "Sketch origin must always be drawn on top and selectable for constraining to." Needs: [ ] drawn on top; [ ] selectable.
 - **Move sketches.** "I tried to select a sketch area in 3d view and use Move/Rotate tool to relocate the sketch in 3D space. No gizmos appeared and thie error: "The selected faces do not belong to a solid". I need to be able to move sketches using the same gizmos for moving solids." Needs: [ ] gizmos appear for a sketch; [ ] sketch moves and rotates.
@@ -24,6 +22,7 @@ Owner batch (2026-10-24, fourth), one row each, in this order:
 
 Built, unit tested, not hand-checked in the app unless noted. Delete a line once the owner has tested it.
 
+- Error messages and Copy diagnostics (owner, 2026-10-24): every error and warning shown in the top bar's status line is recorded (last 50, with the time) and listed in the diagnostics report; clicking a status message that is cut short, or an error, opens it whole in a window you can select and copy. Not checked in the app.
 - Ellipse (owner, 2026-10-24): a new ellipse has four axis-end points (quadrant points) as well as the centre; typed sizes are the major and minor widths; the Dimension button on an ellipse offers Major width and Minor width (distances between the opposite ends); a point can be put on an ellipse (Coincident, Point on, or snapping a line end to it), solved with hidden focus points, so the TypeError is gone. Older ellipses without the four ends still take a point on them. Not checked in the app; restart the core first.
 - Prism icon (owner, 2026-10-24): Add prism now shows a square pyramid. Not checked in the app.
 - Project menu and samples (owner, 2026-10-24): the Menu group is Project: New Project (completely empty, "Untitled", the camera looks at the origin), Open Project, Save Project, Open STEP as New Project, Import STEP..., Export STEP, Export mesh...; Model info button removed; the sample list shows "Choose a sample..." so the first sample (bracket) can be chosen at once. I kept Save Project (not in your list) after Open Project. Not checked in the app; restart the core first (new request).

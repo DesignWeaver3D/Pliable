@@ -2,7 +2,8 @@ import * as THREE from "three";
 import { moveHandlesAt } from "./placepick";
 import { bodyCentres, movedBodies } from "./slide";
 import { PointPicker, ReferenceView } from "./reference";
-import { installAlphaUi, showDiagnostics, showImportNotice, showLaunchNotice } from "./alpha";
+import { installAlphaUi, showDiagnostics, showImportNotice, showLaunchNotice, showMessage } from "./alpha";
+import { installMessageLog } from "./messagelog";
 import { CoreClient, type MeshData } from "./client";
 import { SketchMode } from "./sketch";
 import type { Tool as SketchTool } from "./sketch";
@@ -60,6 +61,7 @@ const viewport = new Viewport($("viewport"));
 const core = new CoreClient();
 usage.attach(core);
 installAlphaUi($("bar"), core);
+installMessageLog(status, showMessage); // errors and warnings are kept for Copy diagnostics; a click on a cut-short message shows it whole
 
 const BUSY_LABELS: Record<string, string> = {
   import_step: "Importing", combine_step: "Combining", export_step: "Exporting", save_project: "Saving", open_project: "Opening", open_demo: "Opening",
