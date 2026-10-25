@@ -117,6 +117,11 @@ def stretch_solid(solid, selected: list, offset: gp_Vec):
         own = _vertex_set(face)
         for k in range(1, own.Extent() + 1):
             moved_vertices.Add(own.FindKey(k))
+    return shift_vertices(solid, moved_vertices, offset)
+
+
+def shift_vertices(solid, moved_vertices: ShapeIndexedMap, offset: gp_Vec):
+    """The solid with the given corners moved by `offset`: a face with all its corners moved moves, a face with some is re-fitted through its corners."""
     faces = [TopoDS.Face(f) for f in _shapes(solid, TopAbs_FACE)]
     sewing = BRepBuilderAPI_Sewing(1e-6)
     moving = 0

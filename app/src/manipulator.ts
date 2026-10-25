@@ -64,6 +64,23 @@ export function handleValue(h: Pick<HandleInfo, "value" | "scale" | "min"> & { m
   return v;
 }
 
+/** How close (degrees) a turn ring's drag must pass to a snap angle to land on it. */
+export const SNAP_DEGREES = 3;
+
+/** The value a turn ring drag lands on: the nearest of the handle's snap angles within SNAP_DEGREES (angles repeat every 360), else the value itself. */
+export function snapValue(value: number, snaps: readonly number[] | undefined): number {
+  let best = value;
+  let bestD = SNAP_DEGREES;
+  for (const snap of snaps ?? []) {
+    const target = snap + 360 * Math.round((value - snap) / 360);
+    if (Math.abs(target - value) < bestD) {
+      bestD = Math.abs(target - value);
+      best = target;
+    }
+  }
+  return best;
+}
+
 /** The values of a handle's linked parameters after travelling `travel`. */
 export function linkedValues(h: Pick<HandleInfo, "links">, travel: number): Record<string, number> {
   const out: Record<string, number> = {};
@@ -471,7 +488,7 @@ export class Manipulator {
       return;
     }
     a.moved = true;
-    const value = handleValue(a.item.info, this.travelAt(a, e));
+    const value = snapValue(handleValue(a.item.info, this.travelAt(a, e)), a.item.info.snaps);
     a.item.travel = travelFor(a.item.info, value);
     this.onDrag(a.item.info.param, Math.round(value * 1000) / 1000, "move", e.clientX, e.clientY, linkedValues(a.item.info, a.item.travel));
   }

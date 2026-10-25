@@ -1,8 +1,8 @@
-// Run with: node --test app/tests
+﻿// Run with: node --test app/tests
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { Manipulator, linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep, pickScore, grabFraction, MOVE_ARM_PX, refitRing } from "../src/manipulator.ts";
+import { Manipulator, linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep, pickScore, grabFraction, MOVE_ARM_PX, refitRing, snapValue } from "../src/manipulator.ts";
 
 const h = { value: 10, scale: 1, min: 1 };
 
@@ -193,4 +193,11 @@ test("only the cube of a resize grip and the head of a move arrow can be grabbed
   assert.ok(head > 0.85 && head < 1);
   assert.equal(grabFraction("arrow", false), null);
   assert.equal(grabFraction("resize", true), null);
+});
+
+test("a turn ring drag lands on a snap angle within three degrees, wrapping every 360", () => {
+  assert.equal(snapValue(43.5, [45, 90]), 45);
+  assert.equal(snapValue(40, [45, 90]), 40);
+  assert.equal(snapValue(-312, [46]), -314); // the same angle one turn round
+  assert.equal(snapValue(12.3, undefined), 12.3);
 });

@@ -44,6 +44,8 @@ export interface HandleInfo {
   /** A rotation handle: the axis it turns about (it is drawn in that axis's colour) and the ring it runs on: centre and radius. */
   axis?: [number, number, number] | null;
   ring?: [number, number, number, number] | null;
+  /** A rotation handle: the angles (degrees) the drag snaps to when it passes close to one. */
+  snaps?: number[];
   /** A grid grip: the grid's two step vectors. Dragged in their plane it sets this parameter (whole steps along the first) and the first linked parameter (along the second) independently. */
   plane?: [[number, number, number], [number, number, number]] | null;
   /** The x and y axes of the sketch plane on the handle's face (push/pull's direction gizmo swings about them). */

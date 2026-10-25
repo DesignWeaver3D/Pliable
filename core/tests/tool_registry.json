@@ -3321,5 +3321,81 @@
   "whole_model_needs_one_body": false,
   "body_kind": "Body",
   "keeps_body_order": false
+ },
+ {
+  "id": "move_edge",
+  "label": "Move edge",
+  "description": "Moves the selected edges and re-fits the faces beside them, so the shape changes. The gizmo sits at the middle of the edge, square to the global axes; drag its rings (or type degrees) to turn it, and it snaps square to the global axes and to the faces next to the edge (their normals and the lines across them). Then drag the arrows (or type distances) to move the edge along the gizmo's axes.",
+  "accepts": {
+   "faces": [
+    0,
+    0
+   ],
+   "edges": [
+    1,
+    null
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "dx",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dy",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dz",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "gx",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "gy",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "gz",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
  }
 ]
