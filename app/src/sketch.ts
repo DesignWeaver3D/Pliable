@@ -43,7 +43,7 @@ export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "circle", label: "Circle", hint: "Click the centre, then a point on the circle" },
   { id: "circle3", label: "Circle by 3 points", hint: "Click three points the circle passes through" },
   { id: "arc", label: "Arc", hint: "Click the centre, the start, then the end; the arc runs the way the pointer moves from the start" },
-  { id: "arc3", label: "Arc by 3 points", hint: "Click the start, a point the arc passes through, then the end" },
+  { id: "arc3", label: "Arc by 3 points", hint: "Click the start, the end, then a point the arc passes through" },
   { id: "slot", label: "Slot", hint: "Click the centre of one end, the centre of the other end, then a point for the width" },
   { id: "point", label: "Point", hint: "Click to place a point; it can be snapped to and constrained" },
   { id: "ellipse", label: "Ellipse", hint: "Click the centre, the end of the long axis, then a point for the short radius" },
@@ -784,7 +784,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.addArc(this.chain[0], this.chain[1], this.chain[2]);
       this.shapeDone();
     } else if (this.tool === "arc3" && this.chain.length === 3) {
-      this.addArcThrough(this.chain[0], this.chain[1], this.chain[2]);
+      this.addArcThrough(this.chain[0], this.chain[2], this.chain[1]); // clicked start, end, then the point it passes through
       this.shapeDone();
     } else if (this.tool === "circle3" && this.chain.length === 3) {
       this.addCircleThrough(this.chain[0], this.chain[1], this.chain[2]);

@@ -39,3 +39,13 @@ test("typed sizes are drawn as dimensions holding the typed values", async () =>
   assert.deepEqual(kinds("7", "polygon"), [["radius", "R7|"]]);
   assert.deepEqual(kinds("9", "line"), [["linear", "9|"]]);
 });
+
+test("an arc by 3 points previews the chord after the first click, then the arc through the pointer to the second click", () => {
+  assert.deepEqual(pendingShapes(context("arc3", [{ u: 10, v: 0 }], { u: -10, v: 0 })), [[[10, 0], [-10, 0]]]);
+  const [arc] = pendingShapes(context("arc3", [{ u: 10, v: 0 }, { u: -10, v: 0 }], { u: 0, v: 10 }));
+  const near = (p, u, v) => assert.ok(Math.hypot(p[0] - u, p[1] - v) < 1e-9, `${p} != ${u},${v}`);
+  near(arc[0], 10, 0); // starts at the first click
+  near(arc[24], 0, 10); // passes through the pointer
+  near(arc[48], -10, 0); // ends at the second click
+  assert.deepEqual(pendingShapes(context("arc3", [{ u: 10, v: 0 }, { u: -10, v: 0 }], { u: 0, v: 0 })), [[[10, 0], [-10, 0]]]); // in a line: just the chord
+});
