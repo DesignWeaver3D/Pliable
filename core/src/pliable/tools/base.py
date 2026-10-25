@@ -252,6 +252,7 @@ class Tool:
     # Names of three length parameters that are a displacement (move, copy step); the view offers to pick a base point
     # and a destination point and fills them with destination minus base.
     move_vector: tuple[str, str, str] | None = None
+    pick_axis: tuple[str, str, str, str] | None = None  # parameters a form's Pick axis button fills: x, y, z of the picked point and the choice list set to "picked point"
     # Where the tool starts: "selection" (the user selects something, then the tool acts on it) or "tool" (the tool is
     # chosen first and places something new, like a primitive); the view shows `handles` accordingly.
     starts_from: str = "selection"
@@ -366,6 +367,7 @@ class Tool:
             "related": list(self.related),
             "placement": list(self.placement) if self.placement else None,
             "moveVector": list(self.move_vector) if self.move_vector else None,
+            "pickAxis": list(self.pick_axis) if self.pick_axis else None,
             "startsFrom": self.starts_from,
             "hidden": self.hidden,
             "hasHandles": type(self).handles is not Tool.handles,

@@ -206,7 +206,7 @@ def _face_angle_plan(topology: Topology, selection: Selection) -> Plan:
     angle = draft_angle(topology.face(selection.faces[0]))
     if angle is None:
         raise OperationError("only an upright wall (within 45 degrees of vertical) has a draft angle")
-    return Plan("draft", {"faces": selection.faces[:1]}, angle, lambda v: {"angle": v, "pull_x": 0, "pull_y": 0, "pull_z": 1}, minimum=-MAX_DRAFT_TILT)
+    return Plan("draft", {"faces": selection.faces[:1]}, angle, lambda v: {"angle": v, "pull_x": 0, "pull_y": 0, "pull_z": 1, "axis": 2}, minimum=-MAX_DRAFT_TILT)
 
 
 def plan(topology: Topology, selection: Selection, kind: str, flip: bool = False) -> Plan:

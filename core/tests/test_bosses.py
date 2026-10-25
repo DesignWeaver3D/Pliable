@@ -89,7 +89,7 @@ def test_center_hole_between_two_faces():
 
 
 def test_resize_chamfer():
-    from pliable.ops import fillet_chamfer
+    from pliable.ops import OperationError, fillet_chamfer
 
     block = Topology(load_demo("block"))
     edge = max(range(12), key=lambda i: measure(block, Selection(edges=[i]))["items"][0]["rows"][0]["value"])  # a 40 mm edge
@@ -100,10 +100,33 @@ def test_resize_chamfer():
         return sum(abs(c) > 1e-9 for c in normal) == 2
 
     face = next(i for i in range(chamfered.face_count) if diagonal(i))
-    bigger = run("resize_chamfer", chamfered, faces=[face], size=5)
+    bigger = run("resize_chamfer", chamfered, faces=[face], first=5, second=5)
     assert volume(block.shape) - volume(bigger.shape) == pytest.approx(0.5 * 25 * 40, rel=1e-3)
-    sharp = run("resize_chamfer", chamfered, faces=[face], size=0)
+    sharp = run("resize_chamfer", chamfered, faces=[face], first=0, second=0)
     assert volume(sharp.shape) == pytest.approx(volume(block.shape), rel=1e-4)
+    # two distances: each leg changes only its own side
+    uneven = run("resize_chamfer", chamfered, faces=[face], first=5, second=3)
+    assert volume(block.shape) - volume(uneven.shape) == pytest.approx(0.5 * 5 * 3 * 40, rel=1e-3)
+    only_first = run("resize_chamfer", chamfered, faces=[face], first=6, second=3)
+    assert volume(block.shape) - volume(only_first.shape) == pytest.approx(0.5 * 6 * 3 * 40, rel=1e-3)
+    with pytest.raises(OperationError):
+        run("resize_chamfer", chamfered, faces=[face], first=0, second=3)
+    # a gizmo for each distance, each on the neighbour face it is measured along and moving only its own value
+    handles = {h["param"]: h for h in get_tool("resize_chamfer").handle_list(chamfered, Selection(faces=[face]), {"first": 5, "second": 3})}
+    assert set(handles) == {"first", "second"}
+    first, second = handles["first"], handles["second"]
+    # the legs run along the block's two faces (square to each other) from one point of the sharp edge
+    assert sum(a * b for a, b in zip(first["direction"], second["direction"])) == pytest.approx(0, abs=1e-6)
+    assert math.dist(first["anchor"], second["anchor"]) == pytest.approx(math.hypot(5, 3), rel=1e-6)
+    # each handle sits on the chamfer's edge on its own face, at its own distance
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+    from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+    from OCP.gp import gp_Pnt
+
+    for h in (first, second):
+        gap = BRepExtrema_DistShapeShape(BRepBuilderAPI_MakeVertex(gp_Pnt(*h["anchor"])).Vertex(), uneven.shape)
+        gap.Perform()
+        assert gap.Value() == pytest.approx(0, abs=1e-6)
 
 
 def test_cut_plane_with_a_tilted_plane_and_keep_both():

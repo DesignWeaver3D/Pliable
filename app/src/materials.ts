@@ -1,7 +1,7 @@
 /**
  * Materials for model bodies. A material has a name, a group, a density and the numbers the 3D view uses
  * to draw it. `render` feeds the viewport directly, so a new material only needs new numbers.
- * `density` (kg per cubic metre) is for a later mass calculation and is NOT used anywhere yet.
+ * `density` (kg per cubic metre) gives a selected body its mass in the measurement card (the chosen material's density).
  * One material is chosen globally in the settings; there are no per-body materials yet.
  */
 export type MaterialGroup = "Plastic" | "Resin" | "Metal";
@@ -10,7 +10,7 @@ export interface Material {
   id: string;
   name: string;
   group: MaterialGroup;
-  /** Kilograms per cubic metre; not used yet (reserved for mass). */
+  /** Kilograms per cubic metre; the measurement card's mass for a body. */
   density: number;
   /** Where the density comes from and how much it varies. */
   note?: string;

@@ -20,6 +20,7 @@ import { DatumPlanes } from "./datumplanes";
 import type { DatumPlane, MirrorMode } from "./datumcorners";
 import { LatestWins } from "./latestwins";
 import { LENGTH_UNIT } from "./units";
+import { materialOrDefault } from "./materials";
 import { SETTING_ENTRIES, createSettingsWindow, onSettingsChange, openSettings, setHintsBinding, setKeysOpener, settingValue, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
@@ -119,6 +120,7 @@ viewport.onFrame = () => {
     }
   }
 };
+viewport.onFrameError = (message) => showError(new Error(message));
 const loggedErrors = new Set<string>();
 /** Console-log an error once per kind, so a failure repeating every frame does not flood the console. */
 function logOnce(kind: string, e: unknown) {
@@ -458,7 +460,7 @@ function setSelection(sels: Sel[]) {
     renderSketchBar();
   });
   core
-    .request<MeasureReply>("measure", { selection: selectionPayload(sels) })
+    .request<MeasureReply>("measure", { selection: selectionPayload(sels), density: materialOrDefault(settings.material).density }) // the density gives a selected body its mass
     .then((reply) => {
       // Not while a drag is live (the panel is hidden then); never on a stale dragSels left by a drag that failed to end.
       if (currentSels === sels && !viewport.dragging) {
@@ -552,6 +554,7 @@ function setCommitted(mesh: MeshData, frame = false, sels: Sel[] = []) {
   lastOp = null; // callers that commit a tool run set it again afterwards
   editLastButton.disabled = true;
   if (frame) { // a newly opened model: its body ids restart at 1, so the old model's hidden, see-through and focus state would hit its bodies
+    sketch.exit(); // an open sketch belongs to the old model: left open it kept its curves and projected edges over the new one
     bodyView.hidden = new Set();
     bodyView.ghost = new Set();
     bodyView.focus = null;
@@ -996,7 +999,7 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 installFileOpening(
-  { core, status, hasEdits: () => modelHistory.undo, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame) },
+  { core, status, hasEdits: () => modelHistory.undo || sketch.active, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame) },
   { open: $("open"), openAsNew: $("openasnew"), openProject: $("openproject"), newProject: $("newproject") },
   { step: fileInput, project: $("projectfile") as HTMLInputElement },
 );

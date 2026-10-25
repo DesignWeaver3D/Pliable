@@ -49,10 +49,11 @@ def _chamfer_with_face(topology, selection, add) -> OpResult:
     return OpResult(maker.Shape(), generated)
 
 
-def _rebuild_round(topology, face, neighbours: list, size: float, chamfer: bool, end_size: float = 0.0) -> OpResult:
+def _rebuild_round(topology, face, neighbours: list, size: float, chamfer: bool, end_size: float = 0.0, second_size: float | None = None) -> OpResult:
     """Remove a fillet or chamfer face (its two neighbours extend back to a sharp edge), then round that edge
     again with `size` (a fillet radius or chamfer leg); size 0 leaves the sharp edge. A fillet with `end_size`
-    above 0 is variable: `size` at the edge's first vertex growing or shrinking to `end_size` at its last."""
+    above 0 is variable: `size` at the edge's first vertex growing or shrinking to `end_size` at its last.
+    A chamfer with `second_size` has two legs: `size` along the first neighbour face and `second_size` along the second."""
     from ..ops import _follow, fillet_chamfer
     from ..topology import Topology
 
@@ -64,8 +65,10 @@ def _rebuild_round(topology, face, neighbours: list, size: float, chamfer: bool,
     if not operation.IsDone() or operation.Shape().IsNull():
         raise OperationError("Could not remove this round to resize it")
     sharp = operation.Shape()
-    if size < MIN_DISTANCE:
+    if size < MIN_DISTANCE and (second_size is None or second_size < MIN_DISTANCE):
         return finish(sharp)
+    if second_size is not None and (size < MIN_DISTANCE or second_size < MIN_DISTANCE):
+        raise OperationError("Both distances must be positive (both 0 leaves the sharp edge)")
     rebuilt = Topology(sharp)
     modified = []
     for n in neighbours:
@@ -87,6 +90,19 @@ def _rebuild_round(topology, face, neighbours: list, size: float, chamfer: bool,
             raise OperationError(f"Could not round: {e}") from None
         if not maker.IsDone() or maker.Shape().IsNull() or not BRepCheck_Analyzer(maker.Shape()).IsValid():
             raise OperationError("Could not round this edge with these radii")
+        return finish(maker.Shape())
+    if chamfer and second_size is not None and abs(second_size - size) > MIN_DISTANCE:
+        from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer
+        from OCP.TopoDS import TopoDS
+
+        maker = BRepFilletAPI_MakeChamfer(sharp)
+        maker.Add(size, second_size, TopoDS.Edge(shared[0]), TopoDS.Face(modified[0]))  # `size` is measured on the first neighbour's face
+        try:
+            maker.Build()
+        except Exception as e:  # OCCT raises Standard_Failure for impossible sizes
+            raise OperationError(f"Could not chamfer: {e}") from None
+        if not maker.IsDone() or maker.Shape().IsNull() or not BRepCheck_Analyzer(maker.Shape()).IsValid():
+            raise OperationError("Could not chamfer this edge at these distances")
         return finish(maker.Shape())
     return finish(fillet_chamfer(sharp, shared, -size if chamfer else size).shape)
 

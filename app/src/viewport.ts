@@ -17,6 +17,7 @@ import type { HandleInfo } from "./tools";
 import { onSettingsChange, settings, updateSettings } from "./settings";
 import { parentBodies, similarTo, type SimilarKind } from "./selfilter";
 import { bodyColorArray } from "./bodycolorarray";
+import { fitBoxOf } from "./sketchfit";
 
 /** A "body" selection is a whole solid (every face of the body), chosen from the body list. */
 export type Kind = "face" | "edge" | "vertex" | "body";
@@ -707,15 +708,44 @@ export class Viewport {
     });
     this.updateFilterBadge();
     this.resize();
+    // A frame that throws must not end the loop (three.js stops calling it after a throw, which left the view blank): each part is guarded.
+    const parts: [string, () => void][] = [
+      ["controls", () => this.controls.update()],
+      ["clipping", () => this.fitClipping()],
+      ["render", () => this.renderer.render(this.scene, this.camera)],
+      ["manipulator", () => this.manipulator.update()],
+      ["pull gizmo", () => this.pullGizmo.update()],
+      ["frame hook", () => this.onFrame()],
+      ["sketch frame hook", () => this.onFrame2?.()],
+    ];
     this.renderer.setAnimationLoop(() => {
-      this.controls.update();
-      this.fitClipping();
-      this.renderer.render(this.scene, this.camera);
-      this.manipulator.update();
-      this.pullGizmo.update();
-      this.onFrame();
-      this.onFrame2?.();
+      for (const [name, part] of parts) {
+        try {
+          part();
+        } catch (e) {
+          this.reportFrameError(name, e);
+        }
+      }
     });
+    const canvas = this.renderer.domElement;
+    canvas.addEventListener("webglcontextlost", (e) => {
+      e.preventDefault(); // lets the browser give the context back
+      this.reportFrameError("WebGL context", new Error("The 3D view lost its graphics context; waiting for it to return"));
+    });
+    canvas.addEventListener("webglcontextrestored", () => this.onFrameError("The 3D view recovered"));
+  }
+
+  /** Called with a message when a part of the frame fails (shown in the status line); the console gets each kind once. */
+  onFrameError: (message: string) => void = () => {};
+  private reportedFrameErrors = new Set<string>();
+
+  private reportFrameError(part: string, e: unknown) {
+    const message = (e as Error)?.message ?? String(e);
+    const key = `${part}: ${message}`;
+    if (this.reportedFrameErrors.has(key)) return; // a failure repeating every frame is reported once
+    this.reportedFrameErrors.add(key);
+    console.error(`Pliable 3D view: ${part} failed (drawing continues):`, e);
+    this.onFrameError(`3D view ${part} failed: ${message}`);
   }
 
   get orthographic(): boolean {
@@ -1868,12 +1898,9 @@ export class Viewport {
   /** Pixels at each edge of the view that overlays cover (the top toolbar): the zoom-to-fit buttons fit inside what is left. */
   fitInsets: (() => { top: number; right: number; bottom: number; left: number }) | null = null;
 
-  /** Zoom to the given world points (a minimum size keeps a lone point from zooming in absurdly far), without turning the view. */
+  /** Zoom to the given world points exactly (no minimum size, except for a lone point), without turning the view. */
   private fitPoints(points: number[][]) {
-    const box = new THREE.Box3().setFromPoints(points.map((p) => new THREE.Vector3(...p)));
-    const size = box.getSize(new THREE.Vector3());
-    if (size.length() < 10) box.expandByVector(new THREE.Vector3().setScalar((10 - size.length()) / 2));
-    this.frame([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], true, true, this.fitSource?.pad ?? 0);
+    this.frame(fitBoxOf(points), true, true, this.fitSource?.pad ?? 0);
   }
 
   /** Zoom so the whole visible model fills the view, without turning it. */

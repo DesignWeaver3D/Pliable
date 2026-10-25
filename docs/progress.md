@@ -17,11 +17,9 @@ Owner batch (2026-10-24, fourth), one row each, in this order:
 Owner batch (2026-10-25), one row each, in this order:
 
 - **Resize chamfer gizmos.** Owner: "Selecting resize chamfer should provide dual chamfer distance gizmos."
-  - [ ] Selecting a chamfer for resizing shows two distance gizmos, one per chamfer distance.
-  - [ ] Dragging each gizmo changes only its own distance.
+  - [x] Built in the core (two handles from `resize_chamfer`, tested: positions, each leg alone, volumes). Not looked at in the app: hand test, select a chamfer face, Resize chamfer, drag each arrow; which neighbour is "first" is not labelled in the view.
 - **Face Draft pick axis.** Owner: "Face Draft needs to have a pick axis button, default axis should be the face centroid."
-  - [ ] Face Draft has a pick axis button.
-  - [ ] Without a pick, the default axis is the face centroid.
+  - [x] Built: Pick axis button and an Axis list (Face centroid default, Picked point, Model base); core tested, the button not looked at in the app. Interpretation to confirm with the owner: "axis" = the plane the face pivots about (see decisions log); if they meant the pull direction, say so.
 - **Project edges uses the real curve.** Owner: "Sketch Projecting edges should project the real curve of the brep solid instead of tessellated representation from  the view mesh."
   - [ ] Projected edges come from the B-rep edge curve (exact line, arc, circle, spline), not the view mesh polyline.
   - [ ] Projected circles and arcs stay true circles and arcs in the sketch.
@@ -30,10 +28,10 @@ Owner batch (2026-10-25), one row each, in this order:
   - [ ] Each line can be dimensioned directly by selecting it alone.
   - [ ] The lines follow the ellipse when it is edited, and are construction geometry (not profile).
 - **Body volume and mass in the measurement card.** Owner: "Selecting a body should display its volume and mass in the measurement card."
-  - [ ] Selecting a body shows its volume in the measurement card.
-  - [ ] Selecting a body shows its mass in the measurement card (owner: the project has a default material and other materials; use the default material's density. If it cannot be found, ask the owner).
+  - [x] Done in the core and tested through the server (Volume mm3, Mass g from the chosen material density, totals for several bodies). Not checked in the app: hand test, select a body and read the card, change Material in settings and see the mass change.
 - **New project leaves stale projection geometry (bug).** Owner: "Creating a new project left behind projection geometry from a sketch that no longer exists."
   - Owner note: refreshing the browser tab removed the stale projected construction lines, so the leftover state is held in the frontend (not saved by the core). Look for projection state the new-project reset in the app does not clear.
+  - In progress (agent kernel-b): the kept-sketch drawing clears its cache for ids not in the new list, so the likely leftover was an open sketch (its curves and projected edges) staying active over the new project; the replace paths now close it. Not reproduced in the app (Chrome stuck on a leave-site prompt). Hand test: project edges in a sketch, leave it open, Menu > New Project.
   - [ ] Find how to reproduce it (project edges in a sketch, then create a new project) and add a test if it can run without a browser.
   - [ ] Creating a new project clears all projection geometry, so nothing from the old sketches remains.
 - **Construction geometry dashed and drawn below.** Owner: "Sketch construction geometry should be dashed and always drawn below normal sketch geometry."
@@ -44,13 +42,20 @@ Owner batch (2026-10-25), one row each, in this order:
   - [ ] A rectangle drawn by center creates a construction point at the center, symmetric-constrained about two opposing corners.
   - [ ] If the center is clicked on a line, axis or point, the center point gets a coincident constraint to it.
   - [ ] Owner decision (2026-10-25): these two constraints are always made for this tool, whatever the automatic-constraints setting. Read the rectangle entries in `docs/behavior.md` first.
+<<<<<<< HEAD
 - **Zoom all in a sketch (bug).** Owner: "Zoom all while in sketch editing appears to have some arbitrary minimum zoom level and is not zooming appropriately to the sketch geometry."
   - [ ] Zoom all while editing a sketch frames the sketch geometry (fits it to the view) with no arbitrary minimum zoom level.
   - [ ] Check the zoom-all entries in `docs/behavior.md` first; add a test for the fit calculation if it can run without a browser.
+=======
+- **Automatic sketch constraints on by default.** Owner (2026-10-25): "we will change the default to on for automatic constraints which has been working well in my latest testing."
+  - [ ] The automatic-constraints setting defaults to on for new users and projects (replaces the earlier owner decision "off by default"); update `docs/behavior.md`, the State line above and the decisions log.
+- **Clear selection after applying a constraint.** Owner: "Sketch, when a constraint is applied the geometry selection should be cleared."
+  - [ ] After a constraint is applied in a sketch, the geometry selection is cleared.
+  - [ ] Check `docs/behavior.md` for any approved selection-keeping behavior after constraints (and dimensions) and settle it with the owner if it conflicts.
+>>>>>>> agent/kernel-b
 - **White viewport after a symmetry constraint (bug, high priority: risk of lost work).** Owner: "While sketching I made a symmetry constraint and the entire background turned white and sketch axis origin and sketch geometry cannot be seen but dimensions are still visible. No error reported and otherwise the UI elements are there and allow editing. Clicking finish sketch did not resolve the issue. Refreshing the browser tab fixed, but we cannot rely on refreshing the browser tab which always poses a lost work risk becuase sometimes the project state doesn't restore to latest."
-  - [ ] Find the cause. Likely a render failure in the 3D view (for example a NaN or invalid value in the symmetry constraint's geometry, or a lost WebGL context) while the HTML dimension labels keep working; check the browser console and the symmetry constraint code path.
+  - [ ] (In progress: not reproduced with two lines about a line or point, a core fuzz of 1500 symmetric sketches gave no NaN; the loop is now guarded and shows a status error if a frame part throws, so the next occurrence names the cause.) Find the cause. Likely a render failure in the 3D view (for example a NaN or invalid value in the symmetry constraint's geometry, or a lost WebGL context) while the HTML dimension labels keep working; check the browser console and the symmetry constraint code path.
   - [ ] Symmetry constraint no longer blanks the viewport; add a test for any bad value found if it can run without a browser.
-  - [ ] The render loop survives a failed frame: catch the error, log it visibly, and keep drawing (or recover) instead of leaving a blank view with no message.
   - [ ] Separate row if confirmed: the project state does not always restore to the latest after a refresh (owner: "sometimes the project state doesn't restore to latest"). Reproduce and investigate the autosave and restore path.
 
 

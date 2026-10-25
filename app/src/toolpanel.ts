@@ -309,6 +309,20 @@ export class ToolPanel {
       for (const name of vector) inputs[name].addEventListener("input", () => ((destination = null), show()));
       buttons.before(pickBase, pickDest, note);
     }
+    const axis = tool.pickAxis;
+    if (axis && axis.length === 4 && this.host.pickPoint) {
+      const pickAxis = document.createElement("button");
+      pickAxis.textContent = "Pick axis";
+      pickAxis.title = "Click a vertex, edge, face centre, hole centre, axis or the origin: the face pivots about the plane through that point (the default is the face's own centroid)";
+      pickAxis.addEventListener("click", async () => {
+        const point = await this.host.pickPoint!();
+        if (!point || this.open !== tool) return;
+        axis.slice(0, 3).forEach((name, i) => (inputs[name].value = String(parseFloat(point[i].toFixed(4)))));
+        inputs[axis[3]].value = "1"; // the choice list: picked point
+        this.schedulePreview(0);
+      });
+      buttons.before(pickAxis);
+    }
     this.formEl.hidden = false;
     this.inputs = inputs;
     this.pairInputs = pairInputs;

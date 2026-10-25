@@ -1358,7 +1358,7 @@
  {
   "id": "draft",
   "label": "Draft",
-  "description": "Tilts flat faces by an angle so they release from a mold, pivoting about the lowest point along the pull direction (default Z). Select one or more flat faces.",
+  "description": "Tilts flat faces by an angle so they release from a mold, pivoting about the face centroid (or a picked axis point, or the model's lowest point) along the pull direction (default Z). Select one or more flat faces.",
   "accepts": {
    "faces": [
     1,
@@ -1404,6 +1404,38 @@
     "name": "pull_z",
     "kind": "number",
     "default": 1,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "axis",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Face centroid",
+     "Picked point",
+     "Model base"
+    ]
+   },
+   {
+    "name": "axis_x",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "axis_y",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "axis_z",
+    "kind": "number",
+    "default": 0.0,
     "drag": false,
     "options": []
    }
@@ -2736,7 +2768,7 @@
  {
   "id": "resize_chamfer",
   "label": "Resize chamfer",
-  "description": "Changes the size of an existing chamfer. Select the chamfer face.",
+  "description": "Changes the size of an existing chamfer, each distance on its own. Select the chamfer face.",
   "accepts": {
    "faces": [
     1,
@@ -2758,7 +2790,14 @@
   },
   "params": [
    {
-    "name": "size",
+    "name": "first",
+    "kind": "length",
+    "default": 2,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "second",
     "kind": "length",
     "default": 2,
     "drag": false,
