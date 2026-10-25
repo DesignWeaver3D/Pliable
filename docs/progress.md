@@ -20,17 +20,15 @@ Owner batch (2026-10-25), one row each, in this order:
   - [ ] Projected edges come from the B-rep edge curve (exact line, arc, circle, spline), not the view mesh polyline.
   - [ ] Projected circles and arcs stay true circles and arcs in the sketch.
 - **White viewport after a symmetry constraint (bug, high priority: risk of lost work).** Owner: "While sketching I made a symmetry constraint and the entire background turned white and sketch axis origin and sketch geometry cannot be seen but dimensions are still visible. No error reported and otherwise the UI elements are there and allow editing. Clicking finish sketch did not resolve the issue. Refreshing the browser tab fixed, but we cannot rely on refreshing the browser tab which always poses a lost work risk becuase sometimes the project state doesn't restore to latest."
+  - [ ] (In progress: not reproduced with two lines about a line or point, a core fuzz of 1500 symmetric sketches gave no NaN; the loop is now guarded and shows a status error if a frame part throws, so the next occurrence names the cause.) Find the cause. Likely a render failure in the 3D view (for example a NaN or invalid value in the symmetry constraint's geometry, or a lost WebGL context) while the HTML dimension labels keep working; check the browser console and the symmetry constraint code path.
+  - [ ] Symmetry constraint no longer blanks the viewport; add a test for any bad value found if it can run without a browser.
   - [ ] Separate row if confirmed: the project state does not always restore to the latest after a refresh (owner: "sometimes the project state doesn't restore to latest"). Reproduce and investigate the autosave and restore path.
-
-
 - **Material per body and default material.** Owner (2026-10-25): "I thought I defined the default as PLA, so now there must be a global setting that allows the user to change the default and how does user apply material to a body now? I think these were future plans that were never realized. Material application per body makes most sense to change using right-click menu on the body list."
   - [ ] Find what exists (the Material setting, `DEFAULT_MATERIAL_ID` in `materials.ts`, ABS 1050 kg/m3 today) and the decisions-log entry where PLA was chosen; make PLA the default as the owner defined it.
   - [ ] A global setting changes the default material for new bodies.
   - [ ] Right-click a body in the body list offers a material choice that applies to that body only; its mass in the measurement card follows its own material.
 - **Face Draft picks a face edge as the pivot.** Owner (2026-10-25): "Generally, user will want to select a face edge that the drafted face will pivot around... Sometimes that axis could need to be an edge elsewhere on the model rather than its own face edge which is why we need pick ability."
   - [ ] The Pick axis button picks an edge anywhere on the model (its own face's edge or another edge); the face pivots about that edge. Today it picks a point; check what is there first.
-  - [ ] (In progress: not reproduced with two lines about a line or point, a core fuzz of 1500 symmetric sketches gave no NaN; the loop is now guarded and shows a status error if a frame part throws, so the next occurrence names the cause.) Find the cause. Likely a render failure in the 3D view (for example a NaN or invalid value in the symmetry constraint's geometry, or a lost WebGL context) while the HTML dimension labels keep working; check the browser console and the symmetry constraint code path.
-  - [ ] Symmetry constraint no longer blanks the viewport; add a test for any bad value found if it can run without a browser.
 - **Stored array parameters (long term, needs owner feedback).** Store array parameters like primitives (editable later); today arrays make separate solids. Consider an option for the array to be a compound with its source object.
 
 ## Awaiting the owner's hand test
