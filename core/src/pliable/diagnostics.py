@@ -6,9 +6,11 @@ Nothing here may carry model data, file paths, user names or other personal data
 import collections
 import getpass
 import logging
+import os
 import platform
 import re
 import sys
+import time
 
 import build123d
 import OCP
@@ -16,6 +18,7 @@ import OCP
 from . import __version__
 
 LOG_LINES = 50
+STARTED = time.time()
 _PATH = re.compile(r"(?:[A-Za-z]:)?(?:[\\/][^\\/\s'\x22]+)+[\\/]([^\\/\s'\x22]+)")
 
 
@@ -56,9 +59,15 @@ def install():
         root.setLevel(logging.INFO)
 
 
-def core_report(last_tool: dict | None, import_warnings: list[str], usage: dict | None = None) -> dict:
+def core_report(last_tool: dict | None, import_warnings: list[str], usage: dict | None = None, model: dict | None = None) -> dict:
     return {
         "pliable": __version__,
+        "packaged": bool(getattr(sys, "frozen", False)),
+        "shell": os.environ.get("PLIABLE_SHELL") or None,  # set by the desktop window; none when run from a browser
+        "machine": platform.machine(),
+        "cpus": os.cpu_count(),
+        "uptimeSeconds": int(time.time() - STARTED),
+        "model": model or {},
         "python": sys.version.split()[0],
         "os": f"{platform.system()} {platform.release()} ({platform.version()})",
         "opencascade": getattr(OCP, "__version__", "unknown"),
