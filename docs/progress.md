@@ -4,7 +4,7 @@ Open work only, for the rebuild in [ROADMAP.md](../ROADMAP.md). Read this first 
 
 New rows quote the owner's request in their own words, then list what it needs as a checklist. A row is deleted only when every checklist item is verified against the quote.
 
-State (2026-10-24): `dev` is many local commits ahead of `origin/dev`, nothing pushed. Run the tests first (`uv run pytest` in `core/`, `npm test`, `npx tsc --noEmit`, `npm run build` in `app/`). The owner's core on 8770 needs a restart (core files changed). Owner decisions in force: first alpha release deferred (no tag); sketch automatic constraints on by default (owner, 2026-10-25); grid off by default; sketch geometry stays separate from the model (Finish sketch adds no faces); kept sketches persist (see `decisions-log.md`). Do not invent work; ask the owner for hand-test results or new requests.
+State (2026-10-25): `dev` is many local commits ahead of `origin/dev`, nothing pushed; all agent branches are merged and no agent is running. Run the tests first (`uv run pytest` in `core/`, `npm test`, `npx tsc --noEmit`, `npm run build` in `app/`). Owner decisions in force: first alpha release deferred (no tag); sketch automatic constraints on by default (owner, 2026-10-25); grid off by default; sketch geometry stays separate from the model (Finish sketch adds no faces); kept sketches persist (see `decisions-log.md`). Do not invent work; ask the owner for hand-test results or new requests.
 
 ## Planned (not started; discuss before coding)
 
@@ -101,7 +101,6 @@ More ideas, with their status, are in [future-ideas.md](future-ideas.md); the qu
 
 - Mouse-modifier shortcuts (owner, 2026-10-24): direct manipulation such as dragging a face is a shortcut for a tool the arrow handle or the tool strip also starts, with the same options; more shortcuts using mouse modifiers are expected, with the modifiers not decided yet.
 - Merge Cut with plane and Split with plane into one tool with a keep option, and let the plane come from a selected face (owner question pending).
-- Materials: a per-body material picker and a mass display (density is stored in `app/src/materials.ts`, unused); materials are one global setting now.
 - Sweep along a rail and arrays along a path using kept sketch curves.
 - Imperial units: lengths are millimetres through `LENGTH_UNIT` in `app/src/units.ts`; grid spacing and dimensions should follow a unit setting later.
 - Per-body see-through is view-only per session; it is not saved with the document.
