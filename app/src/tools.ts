@@ -50,6 +50,10 @@ export interface HandleInfo {
   arc?: boolean;
   /** A move arrow whose label shows the distance moved along it, not its parameter. */
   along?: boolean;
+  /** What each snap angle is ("face", "global axes"), in the order of `snaps`. */
+  snapNames?: string[];
+  /** The parameter of the arc that turns this handle: the view swings it while that arc is dragged. */
+  turnedBy?: string;
   /** A grid grip: the grid's two step vectors. Dragged in their plane it sets this parameter (whole steps along the first) and the first linked parameter (along the second) independently. */
   plane?: [[number, number, number], [number, number, number]] | null;
   /** The x and y axes of the sketch plane on the handle's face (push/pull's direction gizmo swings about them). */

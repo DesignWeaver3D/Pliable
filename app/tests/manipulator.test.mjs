@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { Manipulator, linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep, pickScore, grabFraction, MOVE_ARM_PX, refitRing, snapValue } from "../src/manipulator.ts";
+import { Manipulator, linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep, pickScore, grabFraction, MOVE_ARM_PX, refitRing, snapValue, snappedIndex } from "../src/manipulator.ts";
 
 const h = { value: 10, scale: 1, min: 1 };
 
@@ -200,4 +200,11 @@ test("a turn ring drag lands on a snap angle within three degrees, wrapping ever
   assert.equal(snapValue(40, [45, 90]), 40);
   assert.equal(snapValue(-312, [46]), -314); // the same angle one turn round
   assert.equal(snapValue(12.3, undefined), 12.3);
+});
+
+test("a turn arc counts as sitting on a snap angle within half a degree, wrapping every 360", () => {
+  assert.equal(snappedIndex(45.3, [0, 45, 90]), 1);
+  assert.equal(snappedIndex(46, [0, 45, 90]), -1);
+  assert.equal(snappedIndex(-315.2, [45]), 0);
+  assert.equal(snappedIndex(10, undefined), -1);
 });

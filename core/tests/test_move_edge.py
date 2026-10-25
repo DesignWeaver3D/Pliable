@@ -53,13 +53,16 @@ def test_a_ring_snaps_to_the_chamfer_beside_the_edge():
     handles = get_tool("move_body").handles(topology, Selection(edges=[edge]), {"dx": 0, "dy": 0, "dz": 0, "rx": 0, "ry": 0, "rz": 0})
     assert [h.param for h in handles] == ["dy", "dz", "rx"]  # two arrows square to the edge and the one arc; nothing along the edge
     snaps = handles[2].snaps
+    assert dict(zip(snaps, handles[2].snap_names))[0.0] == "face"  # the top face is square to the global axes too
     assert handles[2].arc and any(abs(abs(a) - 45) < 1e-3 for a in snaps)  # an arrow lines up with the 45 degree face's normal
     assert any(abs(a - 90) < 1e-3 for a in snaps) and 0.0 in snaps
 
 
 def test_snap_angles_find_an_arrow_square_to_a_normal():
     snaps = snap_angles((1, 0, 0), [(0.0, -math.sqrt(0.5), math.sqrt(0.5))])
-    assert any(abs(a - 135) < 1e-6 for a in snaps) and any(abs(a - 45) < 1e-6 for a in snaps)
+    angles = [a for a, _ in snaps]
+    assert any(abs(a - 135) < 1e-6 for a in angles) and any(abs(a - 45) < 1e-6 for a in angles)
+    assert dict(snaps)[0.0] == "global axes" and dict(snaps)[45.0] == "face"
 
 
 def test_turning_the_gizmo_never_moves_the_edge():

@@ -56,7 +56,8 @@ def edge_handles(topology, selection, values) -> list:
     tangent = tuple(-math.sin(theta) * u0[k] + math.cos(theta) * v0[k] for k in range(3))
     radius = max(max(line[2] for line in lines) * 0.6, 8.0)
     anchor = tuple(here[k] + radius * radial[k] for k in range(3))
-    out.append(Handle("rx", "Turn gizmo about the edge", anchor, tangent, scale=math.degrees(1 / radius), unit="°", axis=t, ring=(*here, radius), snaps=tuple(snap_angles(lines[0][1], _normals(topology, edges))), arc=True))
+    snaps = snap_angles(lines[0][1], _normals(topology, edges))
+    out.append(Handle("rx", "Turn gizmo about the edge", anchor, tangent, scale=math.degrees(1 / radius), unit="°", axis=t, ring=(*here, radius), snaps=tuple(a for a, _ in snaps), snap_names=tuple(n for _, n in snaps), arc=True))
     return out
 
 
@@ -65,7 +66,7 @@ def _arrow(label, here, direction) -> Handle:
     names = ("dx", "dy", "dz")
     main = max(range(3), key=lambda k: abs(direction[k]))
     links = tuple((names[k], direction[k]) for k in range(3) if k != main)
-    return Handle(names[main], label, here, direction, scale=direction[main], kind="move", links=links, along=True)
+    return Handle(names[main], label, here, direction, scale=direction[main], kind="move", links=links, along=True, turned_by="rx")
 
 
 def edge_run(topology, selection, values) -> OpResult:

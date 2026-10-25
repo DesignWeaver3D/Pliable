@@ -38,15 +38,18 @@ def turned_axes(direction: Vec, degrees: float) -> tuple[Vec, Vec, Vec]:
     return t, u, v  # type: ignore[return-value]
 
 
-def snap_angles(direction: Vec, normals: list[Vec]) -> list[float]:
-    """Turn angles (degrees, -180..180) at which one cross axis lies along a face normal (either way): that axis or the other one is then square to
-    the face. Includes 0, the global alignment."""
+def snap_angles(direction: Vec, normals: list[Vec]) -> list[tuple[float, str]]:
+    """(angle, what) pairs, sorted by angle (degrees, -180..180): the turns at which one cross axis lies along a face normal (either way), so one
+    arrow is square to that face and the other lies in it ("face"), and 0, the global alignment ("global axes", unless a face is square there too)."""
     _, u0, v0 = base_frame(direction)
-    found = [0.0]
+    found: dict[float, str] = {0.0: "global axes"}
     for n in normals:
         base = math.degrees(math.atan2(_dot(n, v0), _dot(n, u0)))
         for extra in (0.0, 90.0, 180.0, -90.0):
-            angle = (base + extra + 180.0) % 360.0 - 180.0
-            if all(abs(((angle - f) + 180.0) % 360.0 - 180.0) > 1e-3 for f in found):
-                found.append(round(angle, 4))
-    return sorted(found)
+            angle = round((base + extra + 180.0) % 360.0 - 180.0, 4)
+            same = next((f for f in found if abs(((angle - f) + 180.0) % 360.0 - 180.0) < 1e-3), None)
+            if same is None:
+                found[angle] = "face"
+            else:
+                found[same] = "face"
+    return sorted(found.items())

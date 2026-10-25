@@ -170,6 +170,9 @@ class Handle:
     arc: bool = False
     # A move arrow whose label shows the distance moved along it in the drag, not the parameter (its parameter and links are world components of that line).
     along: bool = False
+    # What each snap angle is ("face", "global axes"), in the order of `snaps`, for the label; and, for a handle that another handle turns, that handle's parameter (the view swings it as the other is dragged).
+    snap_names: tuple[str, ...] = ()
+    turned_by: str = ""
 
     def to_json(self, value: float, values: dict | None = None) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
@@ -183,6 +186,8 @@ class Handle:
             "snaps": list(self.snaps),
             "arc": self.arc,
             "along": self.along,
+            "snapNames": list(self.snap_names),
+            "turnedBy": self.turned_by,
             "axisFrom": [float(c) for c in self.axis_from] if self.axis_from else None,
             "param": self.param,
             "label": self.label,

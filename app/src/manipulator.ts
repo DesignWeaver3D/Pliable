@@ -133,6 +133,14 @@ export const ARC_RADIUS_PX = 110;
 const ARC_HALF_SPAN = Math.PI / 3;
 const ARC_STEPS = 24;
 const ARC_REST_OPACITY = 0.9;
+/** A turn arc whose value is this close (degrees) to a snap angle counts as sitting on it; it is drawn in this colour then. */
+export const SNAPPED_DEGREES = 0.5;
+const COLOR_SNAPPED = 0x6be36b;
+
+/** The index of the snap angle (degrees, repeating every 360) that `value` sits on, or -1. */
+export function snappedIndex(value: number, snaps: readonly number[] | undefined): number {
+  return (snaps ?? []).findIndex((snap) => Math.abs(value - snap - 360 * Math.round((value - snap) / 360)) < SNAPPED_DEGREES);
+}
 
 /** A rotation ring's diameter is this fraction of the shortest side of the 3D view, so it never runs off screen. */
 export const RING_VIEW_FRACTION = 0.5;
@@ -163,6 +171,8 @@ interface Item {
   /** An axis handle's line from its far end back to `info.axisFrom`, with a dot at that end (not grabbable). */
   axis?: THREE.Group;
   label: HTMLElement;
+  /** An arrow another handle turns: the direction it was built with. */
+  baseDirection?: THREE.Vector3;
   /** Travel from the declared anchor while this handle is being dragged. */
   travel: number;
   /** A grid grip: how far the drag moved it from its anchor, and the counts it now asks for. */
@@ -328,6 +338,12 @@ export class Manipulator {
       }
       axis.position.set(cx, cy, cz);
       axis.add(circle);
+      if (info.arc && info.snaps?.length) {
+        const ticks = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: COLOR_SNAPPED, depthTest: false, transparent: true, opacity: 0.9 }));
+        ticks.renderOrder = 9;
+        ticks.quaternion.copy(circle.userData.base);
+        axis.add(ticks);
+      }
       this.root.add(axis);
     } else if (info.axisFrom) {
       axis = new THREE.Group();
@@ -342,7 +358,7 @@ export class Manipulator {
     const label = document.createElement("div");
     label.style.cssText = "position:absolute;padding:1px 5px;border-radius:3px;background:rgba(20,20,24,.85);color:#ffd9a0;font:11px sans-serif;white-space:nowrap;transform:translate(10px,-50%)";
     this.layer.append(label);
-    return { info: { ...info }, declared: info.ring ? info : undefined, group, tip, arm, axis, label, travel: 0, shift: new THREE.Vector3() };
+    return { info: { ...info }, declared: info.ring ? info : undefined, baseDirection: info.turnedBy ? dir.clone() : undefined, group, tip, arm, axis, label, travel: 0, shift: new THREE.Vector3() };
   }
 
   /** Swing a turn arc round its ring so that it stays centred on the handle: where the tool declared the grip, plus the turn made since. */
@@ -353,7 +369,33 @@ export class Manipulator {
     const [cx, cy, cz] = declared.ring!;
     const local = new THREE.Vector3(...declared.anchor).sub(new THREE.Vector3(cx, cy, cz)).applyQuaternion(base.clone().invert());
     const turned = ((handleValue(item.info, item.travel) - declared.value) * Math.PI) / 180;
-    circle.quaternion.copy(base).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.atan2(local.y, local.x) + turned));
+    const here = Math.atan2(local.y, local.x);
+    circle.quaternion.copy(base).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), here + turned));
+    // Tick marks at the snap angles that fall under the arc, fixed on the ring while the arc slides past them.
+    const ticks = item.axis!.children[1] as THREE.LineSegments | undefined;
+    if (ticks) {
+      const value = handleValue(item.info, item.travel);
+      const zero = here - ((45 + declared.value) * Math.PI) / 180; // the ring angle of the arrows' starting direction
+      const points: THREE.Vector3[] = [];
+      for (const snap of declared.snaps ?? []) {
+        const off = snap + 360 * Math.round((value - snap) / 360) - value;
+        if (Math.abs(off) > 60) continue;
+        const a = zero + ((45 + snap + 360 * Math.round((value - snap) / 360)) * Math.PI) / 180;
+        points.push(new THREE.Vector3(Math.cos(a) * 0.93, Math.sin(a) * 0.93, 0).multiplyScalar(declared.ring![3]), new THREE.Vector3(Math.cos(a) * 1.07, Math.sin(a) * 1.07, 0).multiplyScalar(declared.ring![3]));
+      }
+      ticks.geometry.setFromPoints(points);
+    }
+  }
+
+  /** Swing an arrow with the arc that turns it: its built direction turned about the arc's axis by the arc's drag so far. */
+  private reaim(item: Item, arc: Item) {
+    const axis = new THREE.Vector3(...arc.info.axis!).normalize();
+    const angle = ((handleValue(arc.info, arc.travel) - arc.info.value) * Math.PI) / 180;
+    const base = item.baseDirection!;
+    const dir = base.clone().applyAxisAngle(axis, angle);
+    item.info.direction = [dir.x, dir.y, dir.z];
+    item.tip.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    item.arm.geometry.setFromPoints([new THREE.Vector3(), dir]);
   }
 
   /** Pixels from a point to a turn arc on screen. */
@@ -388,6 +430,7 @@ export class Manipulator {
         }
       }
       if (item.declared?.arc && item.axis) this.turnArc(item);
+      if (item.baseDirection && this.active?.item.info.arc && this.active.item.info.param === item.info.turnedBy) this.reaim(item, this.active.item);
       const { info, group } = item;
       const pos = new THREE.Vector3(...info.anchor).addScaledVector(new THREE.Vector3(...info.direction), item.travel).add(item.shift);
       group.position.copy(pos);
@@ -411,9 +454,10 @@ export class Manipulator {
       const color = hot ? colors.hot : colors.rest;
       (item.tip.material as THREE.MeshBasicMaterial).color.setHex(color);
       (item.arm.material as THREE.LineBasicMaterial).color.setHex(color);
+      const snapped = info.arc ? snappedIndex(handleValue(info, item.travel), info.snaps) : -1;
       if (info.arc && item.axis) {
         const arc = item.axis.children[0] as THREE.Line;
-        (arc.material as THREE.LineBasicMaterial).color.setHex(color);
+        (arc.material as THREE.LineBasicMaterial).color.setHex(snapped >= 0 ? COLOR_SNAPPED : color);
         (arc.material as THREE.LineBasicMaterial).opacity = hot ? 1 : ARC_REST_OPACITY;
       }
       group.scale.multiplyScalar(item === this.active?.item ? 1.3 : hot ? 1.15 : 1); // hovered and dragged handles grow
@@ -430,7 +474,8 @@ export class Manipulator {
       const fields = item === this.active?.item ? this.active.fields : null;
       const grid = info.plane && (item.grid || fields) ? { ...this.gridStart(info), ...item.grid } : null;
       const gridText = grid ? (fields ? `${fields.shown(0, String(grid.columns))} × ${fields.shown(1, String(grid.rows))}` : `${grid.columns} × ${grid.rows}`) : "";
-      item.label.textContent = info.toggle ? info.label : grid ? `${info.label} ${gridText}` : `${info.label} ${shown}${unit}`;
+      const snapText = snapped < 0 ? "" : info.snapNames?.[snapped] === "face" ? " - square to a face" : " - square to the global axes";
+      item.label.textContent = info.toggle ? info.label : grid ? `${info.label} ${gridText}` : `${info.label} ${shown}${unit}${snapText}`;
       item.label.style.outline = typing || fields ? "1px solid #ffb347" : "";
       item.label.style.fontWeight = hot ? "bold" : "normal";
     }
