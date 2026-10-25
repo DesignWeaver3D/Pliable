@@ -1,9 +1,11 @@
 # Desktop shell (Tauri): freeze the core, build the shell, assemble the portable archive and smoke-test it.
-# Manual only for now; the release workflow keeps building the browser-launcher archives until v0.4.0 switches over.
+# Manual (or a push to desktop-build) only for now; the release workflow keeps building the browser-launcher archives until v0.4.0 switches over.
 name: desktop
 
 on:
   workflow_dispatch: {}
+  push:
+    branches: [desktop-build]   # scratch branch: push dev to it to run this before the file is on the default branch
 
 permissions:
   contents: read
