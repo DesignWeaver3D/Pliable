@@ -5,6 +5,7 @@ import * as B from "./sketchbuilders.ts";
 import * as M from "./sketchmodel.ts";
 import * as Sh from "./sketchshapes.ts";
 import type { Snap, Tool } from "./sketch.ts";
+import { typedLabels, typedTag } from "./sketchtyped.ts";
 
 export interface PreviewContext {
   s: M.SketchData;
@@ -25,7 +26,7 @@ export function liveDimensions(ctx: PreviewContext): Dimension[] {
   const tag = (u: number, v: number, text: string): Dimension[] => [{ kind: "tag", text, points: [M.toWorld(ctx.s.plane, u, v)], mark: true }];
   const du = c.u - a.u;
   const dv = c.v - a.v;
-  if (ctx.typed) return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `${ctx.typed}|`);
+  if (ctx.typed) return tag((a.u + c.u) / 2, (a.v + c.v) / 2, typedTag(typedLabels(ctx.tool, ctx.chain.length, !!ctx.sidesOf(ctx.tool)), ctx.typed));
   if (ctx.tool === "line") return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `${n(Math.hypot(du, dv))} at ${n((Math.atan2(dv, du) * 180) / Math.PI)}°`);
   if (ctx.tool === "rectangle") return tag((a.u + c.u) / 2, c.v, `${n(Math.abs(du))} × ${n(Math.abs(dv))}`);
   if (ctx.tool === "rectcentre") return tag(a.u, c.v, `${n(Math.abs(du) * 2)} × ${n(Math.abs(dv) * 2)}`);

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseTyped, typedKey, typedLabels, typedTargets } from "../src/sketchtyped.ts";
+import { parseTyped, typedKey, typedLabels, typedTag, typedTargets } from "../src/sketchtyped.ts";
 
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} != ${b}`);
 
@@ -58,4 +58,13 @@ test("an arc takes its radius then the sweep in degrees", () => {
   near(end.u, 0); near(end.v, 10);
   const [only] = typedTargets("arc", [{ u: 0, v: 0 }, { u: 10, v: 0 }], null, [180]);
   near(only.u, -10);
+});
+
+test("the typed tag names each number and marks the one being typed", () => {
+  assert.equal(typedTag(["width", "height"], "25"), "Width 25|   Height");
+  assert.equal(typedTag(["width", "height"], "25 "), "Width 25   Height |");
+  assert.equal(typedTag(["width", "height"], "25 10"), "Width 25   Height 10|");
+  assert.equal(typedTag(["radius"], "5"), "Radius 5|");
+  assert.equal(typedTag(["long radius", "short radius"], "8 "), "Long radius 8   Short radius |");
+  assert.equal(typedTag([], "4"), "4|");
 });

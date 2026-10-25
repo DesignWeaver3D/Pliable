@@ -30,6 +30,15 @@ export function typedKey(text: string, key: string, fields: number): string | nu
   return null;
 }
 
+/** The text shown next to the pointer while numbers are typed: every number the shape takes with its name, the one being typed marked with a caret
+ *  ("Width 25|  Height", then "Width 25  Height 10|"). Without names (a tool that takes none) just the text. */
+export function typedTag(labels: string[], text: string): string {
+  if (!labels.length) return `${text}|`;
+  const values = text.trim() ? text.trim().split(/\s+/) : [];
+  const active = Math.min(labels.length - 1, Math.max(0, values.length - (text.endsWith(" ") ? 0 : 1)));
+  return labels.map((label, i) => `${label[0].toUpperCase()}${label.slice(1)} ${values[i] ?? ""}${i === active ? "|" : ""}`.trimEnd()).join("   ");
+}
+
 /** The typed numbers, or null when any is not a positive number. */
 export function parseTyped(text: string): number[] | null {
   const numbers = text.trim().split(/\s+/).map(Number);

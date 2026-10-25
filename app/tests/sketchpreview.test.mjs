@@ -27,6 +27,6 @@ test("size tags show the length and angle, the box size, a radius, or the typed 
   assert.equal(text(context("line", [{ u: 0, v: 0 }], { u: 3, v: 4 })), "5 at 53.13°");
   assert.equal(text(context("rectangle", [{ u: 0, v: 0 }], { u: 4, v: 3 })), "4 × 3");
   assert.equal(text(context("circle", [{ u: 0, v: 0 }], { u: 3, v: 4 })), "R5");
-  assert.equal(text(context("rectangle", [{ u: 0, v: 0 }], { u: 4, v: 3 }, { typed: "12" })), "12|");
+  assert.equal(text(context("rectangle", [{ u: 0, v: 0 }], { u: 4, v: 3 }, { typed: "12" })), "Width 12|   Height");
   assert.deepEqual(liveDimensions(context("line", [], { u: 1, v: 1 })), []);
 });
