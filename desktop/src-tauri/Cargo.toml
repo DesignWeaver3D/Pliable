@@ -1,0 +1,21 @@
+[package]
+name = "pliable-desktop"
+version = "0.4.0"
+description = "Pliable desktop shell: runs the geometry core and shows the app in a native window"
+license = "AGPL-3.0-or-later"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[features]
+# Set by the Tauri command line tool for builds; plain `cargo build` needs it to embed the loading page.
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
