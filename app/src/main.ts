@@ -320,6 +320,12 @@ async function pickProfileNow(sketchId: number, region: number, additive: boolea
     const faces: number[] = mesh.header.selection?.faces ?? [];
     setCommitted(mesh, false, faces.map((id) => ({ kind: "face" as const, id })));
     if (faces.length) pendingProfile = { mesh, faces, sketchId, regions };
+    else {
+      // Nothing came back selected (a core that was not restarted adds every region): take the faces out again so none stay in the model.
+      await history("undo");
+      status.textContent = "That region could not be picked; restart the core and try again";
+      status.classList.add("error");
+    }
   } catch (e) {
     status.textContent = (e as Error).message;
     status.classList.add("error");
