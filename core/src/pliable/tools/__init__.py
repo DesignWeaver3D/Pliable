@@ -63,4 +63,3 @@ from . import edit_hole  # noqa: F401
 from . import convert_to_countersink  # noqa: F401
 from . import convert_to_counterbore  # noqa: F401
 from . import stretch  # noqa: F401
-from . import move_edge  # noqa: F401

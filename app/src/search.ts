@@ -107,7 +107,7 @@ const TOOL_WORDS: [RegExp, string[]][] = [
   [/chamfer/, ["chamfer", "bevel", "break edge"]],
   [/convert_to_countersink|convert_to_counterbore/, ["convert", "existing", "change", "both ends", "far end"]],
   [/hole|boss|counter|countersink|slot/, ["hole", "drill", "bore", "boss", "pin", "peg"]],
-  [/^move_|move_body|move_hole|move_edge/, ["move", "translate", "shift", "position"]],
+  [/^move_|move_body|move_hole/, ["move", "translate", "shift", "position"]],
   [/move_body/, ["rotate", "turn", "spin", "orient", "angle"]],
   [/rotate/, ["rotate", "turn", "spin", "angle"]],
   [/scale/, ["scale", "resize", "size", "grow", "shrink"]],

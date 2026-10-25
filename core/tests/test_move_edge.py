@@ -47,10 +47,10 @@ def test_the_gizmo_starts_square_to_the_global_axes():
 def test_a_ring_snaps_to_the_chamfer_beside_the_edge():
     topology = _chamfered_box()
     edge = _chamfer_top_edge(topology)
-    handles = get_tool("move_edge").handles(topology, Selection(edges=[edge]), {"dx": 0, "dy": 0, "dz": 0, "gx": 0, "gy": 0, "gz": 0})
-    rings = {h.param: h for h in handles if h.param.startswith("g")}
-    assert any(abs(abs(a) - 45) < 1e-3 for a in rings["gx"].snaps)  # about the edge: z lines up with the 45 degree face's normal
-    assert any(abs(a - 90) < 1e-3 for a in rings["gx"].snaps)
+    handles = get_tool("move_body").handles(topology, Selection(edges=[edge]), {"dx": 0, "dy": 0, "dz": 0, "rx": 0, "ry": 0, "rz": 0})
+    rings = {h.param: h for h in handles if h.param.startswith("r")}
+    assert any(abs(abs(a) - 45) < 1e-3 for a in rings["rx"].snaps)  # about the edge: z lines up with the 45 degree face's normal
+    assert any(abs(a - 90) < 1e-3 for a in rings["rx"].snaps)
 
 
 def test_snap_angles_find_an_axis_square_to_a_target():
@@ -61,9 +61,9 @@ def test_snap_angles_find_an_axis_square_to_a_target():
 def test_moving_the_chamfer_edge_along_the_turned_gizmo_refits_the_faces():
     topology = _chamfered_box()
     edge = _chamfer_top_edge(topology)
-    tool = get_tool("move_edge")
+    tool = get_tool("move_body")
     before = volume(topology.shape)
     # Gizmo turned 45 degrees about X (z now along the chamfer normal), edge pulled 1 mm along it, out of the chamfer face
-    result = tool.execute(topology, Selection(edges=[edge]), {"dx": 0, "dy": 0, "dz": 1, "gx": 45, "gy": 0, "gz": 0}, preview=False)
+    result = tool.execute(topology, Selection(edges=[edge]), {"dx": 0, "dy": 0, "dz": 1, "rx": 45, "ry": 0, "rz": 0}, preview=False)
     assert volume(result.shape) != pytest.approx(before)
     assert volume(result.shape) > 0

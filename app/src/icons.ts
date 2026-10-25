@@ -113,7 +113,6 @@ export const TOOL_ICONS: Record<string, Spec> = {
   cut_plane: spec("body", "cut"),
   split_plane: spec("body", "cut"),
   move_body: spec("body", "move"),
-  move_edge: spec("edge", "move"),
   rotate_body: spec("body", "rotate"),
   scale_body: spec("body", "scale"),
 };

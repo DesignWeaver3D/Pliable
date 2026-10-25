@@ -9,6 +9,7 @@ from ..ops import MIN_DISTANCE, OpResult
 from ..shared.bodies import _body_bounds, _body_centre, _on_bodies
 from ..shared.solids import finish
 from ..tools import Accepts, Handle, Param, register, Tool
+from .move_edge import edge_handles, edge_run
 
 
 def turn_and_shift(centre, offset, angles) -> gp_Trsf:
@@ -61,19 +62,24 @@ class MoveBody(Tool):
     label = "Move/Rotate"
     description = (
         "Moves and turns a whole solid in one step. Drag the arrows (or type distances) to move along X, Y and Z, and drag the rings (or type degrees) "
-        "to turn about X, Y and Z through the body's centre; the turn is applied first, then the move. Select bodies from the list, any face of the solid, or nothing to move the whole model."
+        "to turn about X, Y and Z through the body's centre; the turn is applied first, then the move. Select bodies from the list, any face of the solid, or nothing to move the whole model. "
+        "With edges selected it moves only the edges (the faces beside them follow): the gizmo sits at the edge middle, the rings turn it and snap square to the global axes and to the faces beside the edge, and the arrows move along its axes."
     )
-    accepts = Accepts(faces=(0, None), bodies=(0, None))
+    accepts = Accepts(faces=(0, None), edges=(0, None), bodies=(0, None))
     params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length"), Param("rx", "angle"), Param("ry", "angle"), Param("rz", "angle")]
     move_vector = ("dx", "dy", "dz")
 
     starts_from = "selection"
 
     def handles(self, topology, selection, values):
+        if selection.edges:
+            return edge_handles(topology, selection, values)
         lo, hi = _body_bounds(topology, selection)
         return move_handles(lo, hi, values)
 
     def run(self, topology, selection, values, preview):
+        if selection.edges:
+            return edge_run(topology, selection, values)  # the turn angles turn the gizmo, not the geometry
         offset = gp_Vec(values["dx"], values["dy"], values["dz"])
         angles = [values[n] for n in ("rx", "ry", "rz")]
         if offset.Magnitude() < MIN_DISTANCE and all(abs(a) < 1e-9 for a in angles):
