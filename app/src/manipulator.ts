@@ -128,6 +128,12 @@ export function formatValue(v: number): string {
   return String(Math.round(v * 1000) / 1000);
 }
 
+/** A turn arc (see HandleInfo.arc) runs this many pixels from its centre, 120 degrees of it, beyond the move arrows' tips. */
+export const ARC_RADIUS_PX = 110;
+const ARC_HALF_SPAN = Math.PI / 3;
+const ARC_STEPS = 24;
+const ARC_REST_OPACITY = 0.9;
+
 /** A rotation ring's diameter is this fraction of the shortest side of the 3D view, so it never runs off screen. */
 export const RING_VIEW_FRACTION = 0.5;
 
@@ -306,10 +312,20 @@ export class Manipulator {
       axis.renderOrder = 9;
       const [cx, cy, cz, radius] = info.ring;
       const normal = new THREE.Vector3(...info.axis);
-      const points = Array.from({ length: 65 }, (_, i) => new THREE.Vector3(Math.cos((i / 64) * Math.PI * 2), Math.sin((i / 64) * Math.PI * 2), 0).multiplyScalar(radius));
-      const circle = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: handleColors(info).rest, depthTest: false, transparent: true, opacity: 0.55 }));
+      const points = info.arc
+        ? Array.from({ length: ARC_STEPS + 1 }, (_, i) => {
+            const a = -ARC_HALF_SPAN + (2 * ARC_HALF_SPAN * i) / ARC_STEPS;
+            return new THREE.Vector3(Math.cos(a), Math.sin(a), 0).multiplyScalar(radius);
+          })
+        : Array.from({ length: 65 }, (_, i) => new THREE.Vector3(Math.cos((i / 64) * Math.PI * 2), Math.sin((i / 64) * Math.PI * 2), 0).multiplyScalar(radius));
+      const circle = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: handleColors(info).rest, depthTest: false, transparent: true, opacity: info.arc ? ARC_REST_OPACITY : 0.55 }));
       circle.renderOrder = 9;
       circle.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+      circle.userData.base = circle.quaternion.clone();
+      if (info.arc) {
+        tip.visible = false; // the arc itself is the handle: no cone and no arm
+        arm.visible = false;
+      }
       axis.position.set(cx, cy, cz);
       axis.add(circle);
       this.root.add(axis);
@@ -329,6 +345,31 @@ export class Manipulator {
     return { info: { ...info }, declared: info.ring ? info : undefined, group, tip, arm, axis, label, travel: 0, shift: new THREE.Vector3() };
   }
 
+  /** Swing a turn arc round its ring so that it stays centred on the handle: where the tool declared the grip, plus the turn made since. */
+  private turnArc(item: Item) {
+    const declared = item.declared!;
+    const circle = item.axis!.children[0] as THREE.Line;
+    const base = circle.userData.base as THREE.Quaternion;
+    const [cx, cy, cz] = declared.ring!;
+    const local = new THREE.Vector3(...declared.anchor).sub(new THREE.Vector3(cx, cy, cz)).applyQuaternion(base.clone().invert());
+    const turned = ((handleValue(item.info, item.travel) - declared.value) * Math.PI) / 180;
+    circle.quaternion.copy(base).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.atan2(local.y, local.x) + turned));
+  }
+
+  /** Pixels from a point to a turn arc on screen. */
+  private arcDistance(item: Item, pointer: THREE.Vector2): number {
+    const circle = item.axis!.children[0] as THREE.Line;
+    circle.updateWorldMatrix(true, false);
+    const position = circle.geometry.getAttribute("position");
+    const points = Array.from({ length: position.count }, (_, i) => this.screen(circle.localToWorld(new THREE.Vector3().fromBufferAttribute(position, i))));
+    let best = Infinity;
+    for (let i = 0; i + 1 < points.length; i++) {
+      const segment = new THREE.Line3(new THREE.Vector3(points[i].x, points[i].y, 0), new THREE.Vector3(points[i + 1].x, points[i + 1].y, 0));
+      best = Math.min(best, segment.closestPointToPoint(new THREE.Vector3(pointer.x, pointer.y, 0), true, new THREE.Vector3()).distanceTo(new THREE.Vector3(pointer.x, pointer.y, 0)));
+    }
+    return best;
+  }
+
   /** Per frame: keep handles a constant size on screen and put the value labels beside them. */
   update() {
     const rect = this.dom.getBoundingClientRect();
@@ -336,7 +377,8 @@ export class Manipulator {
       if (item.declared?.ring && item.axis && item !== this.active?.item) {
         // A rotation ring is a fixed share of the view's short side, whatever the zoom; the grip stays on it.
         const [cx, cy, cz] = item.declared.ring;
-        const radius = (this.pixelSizeAt(new THREE.Vector3(cx, cy, cz)) * Math.min(rect.width, rect.height) * RING_VIEW_FRACTION) / 2;
+        const centre = new THREE.Vector3(cx, cy, cz);
+        const radius = item.declared.arc ? this.pixelSizeAt(centre) * ARC_RADIUS_PX : (this.pixelSizeAt(centre) * Math.min(rect.width, rect.height) * RING_VIEW_FRACTION) / 2;
         if (radius > 0) {
           const fit = refitRing(item.declared.ring, item.declared.anchor, item.declared.scale, radius);
           item.info.ring = fit.ring as typeof item.info.ring;
@@ -345,6 +387,7 @@ export class Manipulator {
           item.axis.scale.setScalar(radius / item.declared.ring[3]);
         }
       }
+      if (item.declared?.arc && item.axis) this.turnArc(item);
       const { info, group } = item;
       const pos = new THREE.Vector3(...info.anchor).addScaledVector(new THREE.Vector3(...info.direction), item.travel).add(item.shift);
       group.position.copy(pos);
@@ -368,6 +411,11 @@ export class Manipulator {
       const color = hot ? colors.hot : colors.rest;
       (item.tip.material as THREE.MeshBasicMaterial).color.setHex(color);
       (item.arm.material as THREE.LineBasicMaterial).color.setHex(color);
+      if (info.arc && item.axis) {
+        const arc = item.axis.children[0] as THREE.Line;
+        (arc.material as THREE.LineBasicMaterial).color.setHex(color);
+        (arc.material as THREE.LineBasicMaterial).opacity = hot ? 1 : ARC_REST_OPACITY;
+      }
       group.scale.multiplyScalar(item === this.active?.item ? 1.3 : hot ? 1.15 : 1); // hovered and dragged handles grow
       const value = handleValue(info, item.travel);
       const p = pos.clone().project(this.camera());
@@ -406,6 +454,14 @@ export class Manipulator {
     let best: Item | null = null;
     let bestD = GRAB_PX;
     for (const item of this.items) {
+      if (item.info.arc && item.axis) {
+        const d = this.arcDistance(item, pointer);
+        if (d < bestD) {
+          bestD = d;
+          best = item;
+        }
+        continue;
+      }
       const tip = this.tipPoint(item);
       const dir = new THREE.Vector3(...item.info.direction);
       const move = item.info.kind === "move";

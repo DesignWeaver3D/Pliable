@@ -93,9 +93,9 @@ def _polygon(points: list[gp_Pnt]):
     return maker.Wire()
 
 
-def _refit(face, moved_vertices: ShapeIndexedMap, offset: gp_Vec):
-    """A flat face with straight edges, rebuilt through its corners after the moved ones have shifted."""
-    rings = [[p.Translated(offset) if moved_vertices.Contains(v) else p for v, p in ring] for ring in _polygon_wires(face)]
+def _refit(face, shift):
+    """A flat face with straight edges, rebuilt through its corners after the moved ones have shifted (`shift` gives a corner's offset, or None)."""
+    rings = [[p.Translated(shift(v)) if shift(v) is not None else p for v, p in ring] for ring in _polygon_wires(face)]
     normal = _newell(rings[0])
     if normal.Magnitude() < MIN_DISTANCE:
         raise OperationError("A face next to the moved end would collapse to a line.")
@@ -120,20 +120,22 @@ def stretch_solid(solid, selected: list, offset: gp_Vec):
     return shift_vertices(solid, moved_vertices, offset)
 
 
-def shift_vertices(solid, moved_vertices: ShapeIndexedMap, offset: gp_Vec):
-    """The solid with the given corners moved by `offset`: a face with all its corners moved moves, a face with some is re-fitted through its corners."""
+def shift_vertices(solid, moved_vertices: ShapeIndexedMap, offset):
+    """The solid with the given corners moved by `offset` (one vector, or a function giving each corner's own vector): a face with all its corners
+    moved by one vector moves, a face with some is re-fitted through its corners."""
+    shift = offset if callable(offset) else (lambda v: offset if moved_vertices.Contains(v) else None)
     faces = [TopoDS.Face(f) for f in _shapes(solid, TopAbs_FACE)]
     sewing = BRepBuilderAPI_Sewing(1e-6)
     moving = 0
     for face in faces:
         any_moved, all_moved = _touches(face, moved_vertices)
-        if all_moved:
+        if all_moved and not callable(offset):
             moving += 1
             transform = gp_Trsf()
             transform.SetTranslation(offset)
             sewing.Add(BRepBuilderAPI_Transform(face, transform, True).Shape())
         elif any_moved:
-            sewing.Add(_refit(face, moved_vertices, offset))
+            sewing.Add(_refit(face, shift))
         else:
             sewing.Add(face)
     if moving == len(faces):

@@ -4,9 +4,9 @@ import math
 
 from OCP.BRep import BRep_Builder
 from OCP.BRepAdaptor import BRepAdaptor_Curve
-from OCP.TopAbs import TopAbs_EDGE, TopAbs_VERTEX
+from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_VERTEX
 from OCP.TopExp import TopExp
-from OCP.TopoDS import TopoDS_Compound
+from OCP.TopoDS import TopoDS, TopoDS_Compound
 from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as ShapeIndexedMap
 from OCP.gp import gp_Vec
 
@@ -67,7 +67,7 @@ def edge_handles(topology, selection, values) -> list:
         radial = tuple(math.cos(theta) * b1[k] + math.sin(theta) * b2[k] for k in range(3))
         tangent = tuple(-math.sin(theta) * b1[k] + math.cos(theta) * b2[k] for k in range(3))
         anchor = tuple(here[k] + radius * radial[k] for k in range(3))
-        out.append(Handle(name, f"Turn gizmo about {'XYZ'[i]}", anchor, tangent, scale=math.degrees(1 / radius), unit="°", axis=axis, ring=(*here, radius), snaps=tuple(snap_angles(angles, i, targets))))
+        out.append(Handle(name, f"Turn gizmo about {'XYZ'[i]}", anchor, tangent, scale=math.degrees(1 / radius), unit="°", axis=axis, ring=(*here, radius), snaps=tuple(snap_angles(angles, i, targets)), arc=True))
     return out
 
 
@@ -82,13 +82,25 @@ def edge_run(topology, selection, values) -> OpResult:
     if body is None:
         raise OperationError("Select edges that all belong to one solid")
     moved = ShapeIndexedMap()
-    for edge in edges:
+    along: dict[int, tuple] = {}  # the direction of the (first) selected edge at each moved corner, which the corner may slide along
+    for edge, line in zip(edges, (_edge_line(e) for e in edges)):
         corners = ShapeIndexedMap()
         TopExp.MapShapes_s(edge, TopAbs_VERTEX, corners)
         for k in range(1, corners.Extent() + 1):
-            moved.Add(corners.FindKey(k))
+            index = moved.Add(corners.FindKey(k))
+            along.setdefault(index, line[1])
+    flexible = [f for e in edges for f in topology.edge_faces(e)]  # the faces beside the edges tilt; the others keep their planes
+    fixed_planes = [f for f in (TopoDS.Face(x) for x in _shapes(body, TopAbs_FACE)) if not any(f.IsSame(o) for o in flexible) and planar_normal(f) is not None]
+    slides = {}
+    for index in range(1, moved.Extent() + 1):
+        slides[index] = _slide(moved.FindKey(index), along[index], offset, fixed_planes)
+
+    def shift(vertex):
+        index = moved.FindIndex(vertex)
+        return slides[index] if index else None
+
     try:
-        changed = shift_vertices(body, moved, offset)
+        changed = shift_vertices(body, moved, shift)
     except OperationError as error:
         raise OperationError(str(error).replace(REFUSED, "")) from None
     compound, builder = TopoDS_Compound(), BRep_Builder()
@@ -96,6 +108,24 @@ def edge_run(topology, selection, values) -> OpResult:
     for solid in solids:
         builder.Add(compound, changed if solid.IsSame(body) else solid)
     return finish(compound)
+
+
+def _slide(vertex, t, offset: gp_Vec, fixed_planes) -> gp_Vec:
+    """Where a moved corner goes: the offset, plus a slide along the edge until it is back on every face that stays where it is."""
+    slide = 0.0
+    planes = [(planar_normal(f), f) for f in fixed_planes if any(v.IsSame(vertex) for v in _shapes(f, TopAbs_VERTEX))]
+    for normal, _ in planes:
+        n = (normal.X(), normal.Y(), normal.Z())
+        along = sum(n[k] * t[k] for k in range(3))
+        push = n[0] * offset.X() + n[1] * offset.Y() + n[2] * offset.Z()
+        if abs(along) > 1e-6:
+            slide = -push / along
+            break
+    result = gp_Vec(offset.X() + slide * t[0], offset.Y() + slide * t[1], offset.Z() + slide * t[2])
+    for normal, _ in planes:
+        if abs(normal.X() * result.X() + normal.Y() * result.Y() + normal.Z() * result.Z()) > 1e-6:
+            raise OperationError("That move would pull a corner off a face that stays in place")
+    return result
 
 
 def _edges(topology, selection):

@@ -166,6 +166,8 @@ class Handle:
     frame: tuple[tuple[float, float, float], tuple[float, float, float]] | None = None
     # A rotation handle: the parameter values (degrees) the drag snaps to when it passes close to one.
     snaps: tuple[float, ...] = ()
+    # A rotation handle drawn as a short arc beside the thing it turns (like the push/pull direction arcs) rather than a whole ring.
+    arc: bool = False
 
     def to_json(self, value: float, values: dict | None = None) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
@@ -177,6 +179,7 @@ class Handle:
             "plane": [[float(c) for c in self.plane[0]], [float(c) for c in self.plane[1]]] if self.plane else None,
             "frame": [[float(c) for c in self.frame[0]], [float(c) for c in self.frame[1]]] if self.frame else None,
             "snaps": list(self.snaps),
+            "arc": self.arc,
             "axisFrom": [float(c) for c in self.axis_from] if self.axis_from else None,
             "param": self.param,
             "label": self.label,

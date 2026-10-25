@@ -67,3 +67,14 @@ def test_moving_the_chamfer_edge_along_the_turned_gizmo_refits_the_faces():
     result = tool.execute(topology, Selection(edges=[edge]), {"dx": 0, "dy": 0, "dz": 1, "rx": 45, "ry": 0, "rz": 0}, preview=False)
     assert volume(result.shape) != pytest.approx(before)
     assert volume(result.shape) > 0
+
+
+def test_a_slanted_edge_moves_in_its_face_with_its_corners_sliding_along_the_faces_that_stay():
+    topology = _chamfered_box()
+    tool = get_tool("move_body")
+    from pliable.tools.move_edge import _edge_line
+
+    slanted = next(i for i in range(topology.edge_count) if abs(_edge_line(topology.edge(i))[1][1]) > 0.7 and _edge_line(topology.edge(i))[0][0] > 9.9)
+    before = volume(topology.shape)
+    result = tool.execute(topology, Selection(edges=[slanted]), {"dx": 0, "dy": 1, "dz": 0, "rx": 0, "ry": 0, "rz": 0}, preview=False)
+    assert volume(result.shape) > 0 and volume(result.shape) != pytest.approx(before)
