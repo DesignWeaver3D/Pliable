@@ -94,3 +94,15 @@ def test_a_slanted_edge_moves_in_its_face_with_its_corners_sliding_along_the_fac
     before = volume(topology.shape)
     result = tool.execute(topology, Selection(edges=[slanted]), {"dx": 0, "dy": 1, "dz": 0, "rx": 0, "ry": 0, "rz": 0}, preview=False)
     assert volume(result.shape) > 0 and volume(result.shape) != pytest.approx(before)
+
+
+def test_the_snaps_follow_the_faces_as_the_edge_has_moved():
+    topology = _chamfered_box()
+    edge = _chamfer_top_edge(topology)
+    tool = get_tool("move_body")
+    still = tool.handles(topology, Selection(edges=[edge]), {"dx": 0, "dy": 0, "dz": 0, "rx": 0, "ry": 0, "rz": 0})[2]
+    moved = tool.handles(topology, Selection(edges=[edge]), {"dx": 0, "dy": 1, "dz": 0, "rx": 0, "ry": 0, "rz": 0})[2]
+    assert any(abs(abs(a) - 45) < 1e-3 for a in still.snaps)
+    # the chamfer now rises 2 over 3, so it is square to the gizmo at atan(2/3) = 33.69 degrees, not 45
+    assert any(abs(a - 33.6901) < 1e-3 for a in moved.snaps) and not any(abs(abs(a) - 45) < 1e-3 for a in moved.snaps)
+    assert moved.anchor != still.anchor
