@@ -101,6 +101,7 @@ These need investigation before the milestones that depend on them:
 - Additional import/export formats
 - Performance pass
 - Exporting a model's edit history as a build123d script
+- Build123D scripting (very long term, undecided): a Python console or "run script" that accepts Build123D syntax to create new solids (complex arrays, parametric parts) and adds them as bodies, so Pliable needs no scripting language of its own to document. Open questions: whether it is worth building when users can already export STEP from Build123D and import it, how much of the API needs wrappers, assigning stable ids to script-made shapes, and the safety of running user code in the core.
 
 ## Get Involved
 

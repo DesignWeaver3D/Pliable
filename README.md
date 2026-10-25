@@ -2,6 +2,9 @@
 
 **A free, open-source direct modeler for hobbyists, makers, and students**
 
+> ⚠️ **Alpha software. Not for serious work. Data can be lost. The interface and behaviour will change rapidly without notice.**
+> Sketching is incomplete and unsupported; Chrome is the only tested browser. See [known limitations](docs/known-limitations.md). Report problems with the [bug report template](https://github.com/DesignWeaver3D/Pliable/issues/new?template=bug_report.md) (use **Copy diagnostics** in the app). Third-party licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ⚠️ **Status: Being rebuilt. The MVP is feature-complete on the `rebuild` branch; expect rough edges.**
 
 Pliable lets you shape solid geometry directly: push and pull faces, fillet and chamfer edges, and export to STEP or for 3D printing. There's no feature tree or parametric constraints to manage. It is designed for people who don't want to memorize dozens of keyboard shortcuts: tools appear based on what you've selected, every tool has a visible label and icon, and you can always search for a command by name.
@@ -51,7 +54,12 @@ Open the page, pick a demo or import a STEP file, and try:
 - **Push/pull a face:** drag it. **Fillet/chamfer an edge:** drag it outward (fillet) or inward (chamfer).
 - **Exact values:** type a number during a drag, Enter to commit, Escape to cancel.
 - **Tools:** the toolbar shows what applies to the selection; Ctrl+K searches all commands.
-- **Navigate:** wheel zooms, right-drag orbits, middle-drag pans.
+- **Navigate:** wheel zooms, right-drag orbits, middle-drag pans. The cube at the top right (or keys **0** iso, **1** front, **2** top, **3** right, **4** rear, **5** bottom, **6** left) sets the view; **P** toggles perspective/orthographic; **V** looks straight at the selected flat face.
+- **All tools:** the list at the left holds every tool (grouped in `app/src/layout.ts`); tools without a drag open a form with live preview. **Edit last** undoes the newest operation and reopens its form.
+- **Related faces:** selecting a face highlights related ones (coplanar, equal radius, coaxial); the chips at the bottom switch each rule on or off. Push/pull and the hole tools act on the matches too.
+- **Sketch:** "Sketch on selected face" or on XY/XZ/YZ (bottom bar). Draw lines, rectangles, circles and arcs; select items to add constraints and dimensions (solved by SolveSpace); then extrude (join or cut, one or both directions) or revolve about a line.
+- **Model info:** validity, counts, volume and size. **Combine STEP:** union, cut or intersect with another file.
+- **Developer metrics:** add `?dev=1` to the page address to show triangle counts and timings.
 - **Undo/redo:** Ctrl+Z / Ctrl+Y. **Export:** STEP button.
 
 ## Running the Prototype

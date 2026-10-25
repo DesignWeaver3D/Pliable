@@ -6,11 +6,13 @@ license = "AGPL-3.0-or-later"
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "build123d>=0.13",
+    "py-slvs>=1.0.6",
     "websockets>=15",
 ]
 
 [project.scripts]
 pliable-server = "pliable.server:main"
+pliable-app = "pliable.launcher:main"
 
 [dependency-groups]
 dev = ["pytest>=8"]

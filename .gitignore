@@ -208,3 +208,7 @@ __marimo__/
 
 # Node / frontend
 node_modules/
+
+# Local-only reference notes (never commit)
+docs/research/
+.claude/scheduled_tasks.lock

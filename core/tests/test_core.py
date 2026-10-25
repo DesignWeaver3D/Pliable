@@ -65,12 +65,16 @@ def test_push_pull_tracks_moved_face(box_topology):
 
 
 def test_push_pull_rejects_curved_faces():
-    from build123d import Cylinder
+    from build123d import Sphere
 
-    topology = Topology(Cylinder(5, 10).wrapped)
-    curved = next(face for _, face in topology.faces() if planar_normal(face) is None)
+    topology = Topology(Sphere(5).wrapped)
+    from pliable.tools import Selection, get_tool
+
+    curved = next(i for i, face in topology.faces() if planar_normal(face) is None)
+    tool = get_tool("push_pull")  # curved faces have their own tool, Emboss/Cut along surface
+    assert not tool.available(topology, Selection(faces=[curved]))
     with pytest.raises(OperationError):
-        push_pull(topology.shape, curved, 2)
+        tool.execute(topology, Selection(faces=[curved]), {"distance": 2}, preview=False)
 
 
 def test_tessellation_covers_every_face(box_topology):
@@ -135,7 +139,7 @@ def test_session_push_pull_flow():
     assert header["preview"] and not session.document.can_undo
     commit = session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": [face]}, "params": {"distance": 3}})
     header, _ = decode_binary(commit)
-    assert header["canUndo"] and header["selection"] == {"faces": [top_face(session.document.current)], "edges": [], "vertices": []}
+    assert header["canUndo"] and header["selection"] == {"faces": [top_face(session.document.current)], "edges": [], "vertices": [], "bodies": []}
     exported = session.handle({"type": "export_step"})
     assert volume(read_step(base64.b64decode(exported["data"]))) == pytest.approx(40 * 30 * 23)
     json.dumps(exported)
@@ -155,7 +159,7 @@ def test_push_pull_leaves_source_shape_untouched(preview):
 def test_tool_registry_describes_push_pull():
     reply = Session().handle({"type": "list_tools"})
     (tool,) = [t for t in reply["tools"] if t["id"] == "push_pull"]
-    assert tool["accepts"] == {"faces": [1, 1], "edges": [0, 0], "vertices": [0, 0]}
+    assert tool["accepts"] == {"faces": [1, None], "edges": [0, 0], "vertices": [0, 0], "bodies": [0, 0]}
     assert tool["params"] == [{"name": "distance", "kind": "length", "default": 0.0, "drag": True}]
     json.dumps(reply)
 
@@ -170,11 +174,24 @@ def test_available_tools_follow_selection():
     def available(selection):
         return session.handle({"type": "available_tools", "selection": selection})["tools"]
 
-    assert available({"faces": [planar]}) == ["push_pull"]
-    assert available({"faces": [curved]}) == []
-    assert available({"faces": [planar, planar]}) == []
-    assert available({}) == []
+    assert {"push_pull", "add_hole", "delete_face"} <= set(available({"faces": [planar]}))
+    assert not {"resize_hole", "fillet_chamfer"} & set(available({"faces": [planar]}))
+    assert "push_pull" not in available({"faces": [curved]})
+    assert "delete_face" in available({"faces": [curved]})
+    assert "push_pull" not in available({"faces": [planar, curved]})
+    assert "push_pull" not in available({})
     assert available({"faces": [9999]}) == []
+
+
+def test_measure_request():
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    reply = session.handle({"type": "measure", "selection": {"edges": [0, 1]}})
+    assert len(reply["items"]) == 2 and reply["items"][0]["kind"] == "edge"
+    assert reply["summary"][0] == {"label": "Selected", "value": 2, "unit": ""}
+    json.dumps(reply)  # must be plain JSON data
+    with pytest.raises(Exception):
+        session.handle({"type": "measure", "selection": {"edges": [9999]}})
 
 
 def test_tool_rejects_bad_requests():
@@ -265,10 +282,129 @@ def test_fillet_chamfer_tool_through_session():
     session.handle({"type": "open_demo", "name": "bracket"})
     topology = session.document.current
     reply = session.handle({"type": "available_tools", "selection": {"edges": [0]}})
-    assert reply["tools"] == ["fillet_chamfer"]
+    assert {"fillet_chamfer", "variable_fillet"} <= set(reply["tools"])  # edge tools; others may be added over time
     frame = session.handle(
         {"type": "tool_commit", "tool": "fillet_chamfer", "selection": {"edges": [27]}, "params": {"distance": 1}}
     )
     header, _ = decode_binary(frame)
     assert header["canUndo"] and len(header["faces"]) > topology.face_count
     assert header["edges"][0]["normal"] is None or len(header["edges"][0]["normal"]) == 3
+
+
+@pytest.mark.parametrize("fmt, marker", [("stl", None), ("obj", b"v "), ("3mf", b"PK")])
+def test_export_mesh_formats(fmt, marker):
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    data = base64.b64decode(session.handle({"type": "export_mesh", "format": fmt})["data"])
+    assert len(data) > 200
+    if marker:
+        assert marker in data[:2000] or data.startswith(marker)
+    with pytest.raises(Exception):
+        session.handle({"type": "export_mesh", "format": "dxf"})
+
+
+def test_notice_acknowledgement_is_per_user_and_survives_instances(tmp_path, monkeypatch):
+    from pliable import notice
+    from pliable.autosave import Autosaver
+
+    monkeypatch.setenv("PLIABLE_DATA", str(tmp_path))
+    first = Session(Autosaver(tmp_path))
+    assert first.handle({"type": "notice_get"}) == {"acknowledged": False, "epoch": notice.NOTICE_EPOCH}
+    first.handle({"type": "notice_ack"})
+    other = Session(Autosaver(tmp_path))  # another instance reads the same user-level file
+    assert other.handle({"type": "notice_get"})["acknowledged"] is True
+    assert (tmp_path / "notice.json").exists() and not list(tmp_path.glob("*.tmp"))
+    monkeypatch.setattr(notice, "NOTICE_EPOCH", notice.NOTICE_EPOCH + 1)  # risks changed: ask again
+    assert other.handle({"type": "notice_get"})["acknowledged"] is False
+
+
+def test_notice_survives_a_corrupt_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("PLIABLE_DATA", str(tmp_path))
+    (tmp_path / "notice.json").write_text("{not json")
+    session = Session()
+    assert session.handle({"type": "notice_get"})["acknowledged"] is False
+    session.handle({"type": "notice_ack"})
+    assert session.handle({"type": "notice_get"})["acknowledged"] is True
+
+
+def test_resume_session_returns_the_dropped_connections_model():
+    from pliable import server
+
+    first = Session()
+    first.handle({"type": "open_demo", "name": next(iter(DEMOS))})
+    server._parked["document"] = first.document  # what a dropped connection leaves behind
+    second = Session()
+    reply = second.handle({"type": "resume_session"})
+    assert isinstance(reply, bytes) and second.document is first.document
+    with pytest.raises(server.RequestError):
+        Session().handle({"type": "resume_session"})
+
+
+def test_hello_offers_the_dropped_model_instead_of_a_crash_restore():
+    from pliable import server
+
+    first = Session()
+    first.handle({"type": "open_demo", "name": next(iter(DEMOS))})
+    second = Session()
+    second.unclean = {"name": "old", "steps": 3, "clean": False}
+    server._parked["document"] = first.document
+    try:
+        hello = second.handle({"type": "hello"})
+    finally:
+        server._parked["document"] = None
+    assert hello["resume"]["name"] == first.document.name and "restore" not in hello
+    assert second.handle({"type": "hello"})["restore"]["name"] == "old"
+
+
+@pytest.mark.parametrize("kind", ["tool_preview", "tool_commit"])
+@pytest.mark.parametrize("distance", [-20, -35, -1000])
+def test_pushing_the_whole_top_through_a_block_is_refused_cleanly(kind, distance):
+    from pliable.ops import OperationError
+
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    face = top_face(session.document.current)
+    with pytest.raises(OperationError, match="whole solid"):
+        session.handle({"type": kind, "tool": "push_pull", "selection": {"faces": [face]}, "params": {"distance": distance}})
+
+
+@pytest.mark.parametrize("preview", [True, False])
+@pytest.mark.parametrize("distance", [-19, -20, -20.5, -35, -1000])
+def test_pushing_a_smaller_face_past_the_bottom_cuts_all_the_way_through(preview, distance):
+    """A cut that reaches or passes the far side stays a through-pocket of the same size, however far it is pushed."""
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Fuse
+    from OCP.BRepCheck import BRepCheck_Analyzer
+    from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
+    from OCP.gp import gp_Pnt
+
+    from pliable.tools import TOOLS, Selection
+
+    box = BRepPrimAPI_MakeBox(gp_Pnt(-5, -5, 10), 10, 10, 5).Shape()  # a boss on the block's top face (z=10)
+    fused = BRepAlgoAPI_Fuse(load_demo("block"), box).Shape()
+    topology = Topology(fused)
+    boss_top = max(((planar_normal(f).Z(), i) for i, f in topology.faces() if planar_normal(f) is not None and Bnd(f)[2] > 14.9))[1]
+    result = TOOLS["push_pull"].execute(topology, Selection(faces=[boss_top]), {"distance": distance}, preview)
+    assert BRepCheck_Analyzer(result.shape).IsValid()
+    assert volume(result.shape) == pytest.approx(volume(fused) - 100 * min(-distance, 25))
+
+
+def Bnd(face):
+    box = Bnd_Box()
+    BRepBndLib.Add_s(face, box)
+    return box.CornerMin().X(), box.CornerMin().Y(), box.CornerMin().Z()
+
+
+def test_through_cut_commits_through_the_session():
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Fuse
+    from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
+    from OCP.gp import gp_Pnt
+
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    box = BRepPrimAPI_MakeBox(gp_Pnt(-5, -5, 10), 10, 10, 5).Shape()
+    topology = session.document.commit(BRepAlgoAPI_Fuse(session.document.current.shape, box).Shape())
+    boss_top = max(((planar_normal(f).Z(), i) for i, f in topology.faces() if planar_normal(f) is not None and Bnd(f)[2] > 14.9))[1]
+    before = volume(topology.shape)
+    session.handle({"type": "tool_preview", "tool": "push_pull", "selection": {"faces": [boss_top]}, "params": {"distance": -500}})
+    session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": [boss_top]}, "params": {"distance": -500}})
+    assert volume(session.document.current.shape) == pytest.approx(before - 100 * 25)

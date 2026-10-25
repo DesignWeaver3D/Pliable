@@ -1,0 +1,341 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { axisLines, polyline, distanceTo, entityPoints, measure, optionsFor, describeConstraint, dimensionsOf, constraintMarks, sketchAxes, allConstraintOptions, constraintsToAdd, angleSideOutside } from "../src/sketchmodel.ts";
+
+const plane = (origin, normal, xdir) => ({ origin, normal, xdir });
+
+test("axes in the plane, parallel to it, and square to it", () => {
+  // XY plane lifted by 5: the x and y axes appear as lines under it, the z axis as a point (no line)
+  const lifted = axisLines(plane([0, 0, 5], [0, 0, 1], [1, 0, 0]));
+  assert.deepEqual(lifted.map((a) => a.axis), [0, 1]);
+  assert.ok(lifted.every((a) => Math.abs(a.u) < 1e-9 && Math.abs(a.v) < 1e-9));
+  // a plane tilted 45 degrees about y: the x axis projects with a shortened but unit direction
+  const s = Math.SQRT1_2;
+  const tilted = axisLines(plane([0, 0, 0], [s, 0, s], [s, 0, -s]));
+  assert.deepEqual(tilted.map((a) => a.axis), [0, 1, 2]);
+  for (const a of tilted) assert.ok(Math.abs(Math.hypot(a.du, a.dv) - 1) < 1e-9);
+});
+
+test("ellipses and splines are drawn from their points", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 0, v: 10 }, { id: 3, u: 10, v: 0 }, { id: 4, u: 20, v: 5 }],
+    entities: [],
+    constraints: [],
+  };
+  // major axis along v (10 long), minor 4 along u
+  const ellipse = { id: 5, type: "ellipse", center: 1, major: 2, minor: 4 };
+  const ring = polyline(s, ellipse, 48);
+  assert.ok(ring.every(([u, v]) => Math.abs((u / 4) ** 2 + (v / 10) ** 2 - 1) < 1e-9));
+  assert.ok(distanceTo(s, ellipse, 4, 0) < 1e-9);
+  assert.deepEqual(entityPoints(ellipse), [1, 2]);
+  // a spline passes through every one of its points, open or closed
+  const spline = { id: 6, type: "spline", points: [1, 3, 4] };
+  for (const id of spline.points) assert.ok(distanceTo(s, spline, s.points[id - 1].u, s.points[id - 1].v) < 1e-9);
+  const closed = polyline(s, { ...spline, closed: true }, 48);
+  assert.deepEqual(closed[0], closed[closed.length - 1]);
+  assert.deepEqual(entityPoints(spline), [1, 3, 4]);
+});
+
+test("reference dimensions read the current geometry and the new constraint buttons fit their selections", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 4, v: 3 }, { id: 4, u: 0, v: 5 }, { id: 5, u: 10, v: 5 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 4, b: 5 }],
+    constraints: [],
+  };
+  assert.equal(measure(s, { id: 1, type: "point_line_distance", point: 3, entity: 10 }), 3);
+  assert.equal(measure(s, { id: 2, type: "distance", entity: 10 }), 10);
+  const labels = (sel) => optionsFor(s, sel).map((o) => o.label);
+  assert.ok(labels([{ kind: "entity", id: 10 }, { kind: "entity", id: 11 }]).includes("Tangent / collinear"));
+  assert.ok(labels([{ kind: "point", id: 3 }, { kind: "entity", id: 10 }]).includes("Point to line distance"));
+  assert.ok(labels([{ kind: "entity", id: 10 }]).includes("Lock"));
+  const reference = { id: 3, type: "distance", points: [1, 3], value: 99, reference: true };
+  assert.match(describeConstraint(s, reference), /Reference .* = 5$/);
+  const [dimension] = dimensionsOf({ ...s, constraints: [reference] });
+  assert.equal(dimension.text, "(5)");
+});
+
+test("constraint marks sit on the geometry they hold", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }],
+    constraints: [{ id: 1, type: "horizontal", entity: 10 }, { id: 2, type: "distance", entity: 10, value: 10 }, { id: 3, type: "fixed", point: 1 }],
+  };
+  const marks = constraintMarks(s);
+  assert.deepEqual(marks.map((m) => m.text), ["H", "Fix"]); // dimensions are drawn as dimensions, not marks
+  assert.deepEqual(marks[0].points[0], [5, 0, 0]);
+  assert.deepEqual(marks[1].points[0], [0, 0, 0]);
+});
+
+test("an ellipse offers a short radius dimension that reads its minor axis", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }],
+    entities: [{ id: 10, type: "ellipse", center: 1, major: 2, minor: 3 }],
+    constraints: [],
+  };
+  assert.ok(optionsFor(s, [{ kind: "entity", id: 10 }]).some((o) => o.label === "Short radius"));
+  assert.equal(measure(s, { id: 1, type: "minor_radius", entity: 10 }), 3);
+  const [tag] = dimensionsOf({ ...s, constraints: [{ id: 1, type: "minor_radius", entity: 10, value: 3 }] });
+  assert.deepEqual(tag.points[0].map((x) => Math.round(x * 1e6) / 1e6), [0, 3, 0]);
+});
+
+test("the sketch's own axes pass through its origin and take the colour of the nearest model axis", () => {
+  // a plane on a face of a part standing on its side: u runs along model y, v along model z
+  const axes = sketchAxes(plane([30, 5, 8], [1, 0, 0], [0, 1, 0]));
+  assert.deepEqual(axes.map((a) => [a.u, a.v, a.du, a.dv]), [[0, 0, 1, 0], [0, 0, 0, 1]]);
+  assert.deepEqual(axes.map((a) => a.axis), [1, 2]);
+});
+
+import { forSolver } from "../src/sketchmodel.ts";
+
+test("forSolver leaves out reference curves and fixed points nothing uses", () => {
+  const s = {
+    plane: {},
+    points: [{ id: 1, u: 0, v: 0, fixed: true }, { id: 2, u: 5, v: 0 }, { id: 3, u: 5, v: 5 }, { id: 4, u: 9, v: 9, fixed: true }, { id: 5, u: 9, v: 0, fixed: true }, { id: 6, u: 1, v: 1, fixed: true }],
+    entities: [{ id: 10, type: "line", a: 2, b: 3 }, { id: 11, type: "line", a: 4, b: 5, reference: true }, { id: 12, type: "line", a: 5, b: 6, reference: true }],
+    constraints: [{ id: 20, type: "coincident", points: [3, 1] }, { id: 21, type: "parallel", entities: [10, 12] }],
+  };
+  const out = forSolver(s);
+  assert.deepEqual(out.points.map((p) => p.id), [1, 2, 3, 5, 6]);
+  assert.deepEqual(out.entities.map((e) => e.id), [10, 12]);
+});
+
+test("horizontal and vertical apply to several selected lines, each as detected", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 1 }, { id: 3, u: 12, v: 0 }, { id: 4, u: 11, v: 9 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 3, b: 4 }],
+    constraints: [],
+  };
+  const sel = [{ kind: "entity", id: 10 }, { kind: "entity", id: 11 }];
+  const labels = optionsFor(s, sel).map((o) => o.label);
+  assert.deepEqual(labels.slice(0, 4), ["Dimension", "Horizontal / vertical", "Horizontal", "Vertical"]);
+  const byLabel = (l) => optionsFor(s, sel).find((o) => o.label === l);
+  assert.deepEqual(byLabel("Horizontal / vertical").buildMany(s, sel), [{ type: "horizontal", entity: 10 }, { type: "vertical", entity: 11 }]);
+  assert.deepEqual(byLabel("Vertical").buildMany(s, sel), [{ type: "vertical", entity: 10 }, { type: "vertical", entity: 11 }]);
+  // one line keeps the old single button and no combined one
+  assert.ok(!optionsFor(s, [sel[0]]).some((o) => o.label === "Horizontal / vertical"));
+  // a line that already has one is left out
+  const held = { ...s, constraints: [{ id: 5, type: "horizontal", entity: 10 }] };
+  assert.deepEqual(optionsFor(held, sel).find((o) => o.label === "Vertical").buildMany(held, sel), [{ type: "vertical", entity: 11 }]);
+});
+
+test("coincident joins several points, and puts points on an edge", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 1, v: 1 }, { id: 4, u: 2, v: 2 }, { id: 5, u: 5, v: 3 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }],
+    constraints: [],
+  };
+  const co = (sel, state = s) => optionsFor(state, sel).find((o) => o.label === "Coincident")?.buildMany(state, sel);
+  const P = (...ids) => ids.map((id) => ({ kind: "point", id }));
+  assert.deepEqual(co(P(3, 4, 5)), [{ type: "coincident", points: [3, 4] }, { type: "coincident", points: [3, 5] }]);
+  // points already joined are not joined again
+  const joined = { ...s, constraints: [{ id: 9, type: "coincident", points: [3, 4] }] };
+  assert.deepEqual(co(P(3, 4, 5), joined), [{ type: "coincident", points: [3, 5] }]);
+  // points with an edge: each point goes on the edge, except its own end points
+  assert.deepEqual(co([...P(1, 3, 4), { kind: "entity", id: 10 }]), [{ type: "point_on", point: 3, entity: 10 }, { type: "point_on", point: 4, entity: 10 }]);
+  assert.equal(co(P(3)), undefined);
+});
+
+test("tangent / collinear picks the constraint from the selection", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 20, v: 0 }, { id: 4, u: 30, v: 0 }, { id: 5, u: 10, v: 10 }, { id: 6, u: 20, v: 10 }, { id: 7, u: 10, v: 5 }, { id: 8, u: 0, v: 20 }, { id: 9, u: 5, v: 20 }],
+    entities: [
+      { id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 3, b: 4 }, { id: 12, type: "arc", center: 7, start: 2, end: 5 },
+      { id: 13, type: "line", a: 5, b: 6 }, { id: 14, type: "line", a: 8, b: 9 },
+    ],
+    constraints: [],
+  };
+  const E = (...ids) => ids.map((id) => ({ kind: "entity", id }));
+  const many = (sel) => optionsFor(s, sel).find((o) => o.label === "Tangent / collinear")?.buildMany(s, sel);
+  assert.deepEqual(many(E(10, 11)), [{ type: "collinear", entities: [10, 11] }]);
+  assert.deepEqual(many(E(10, 11, 14)), [{ type: "collinear", entities: [10, 11] }, { type: "collinear", entities: [10, 14] }]);
+  assert.deepEqual(many(E(10, 12)), [{ type: "tangent", entities: [10, 12] }]);
+  // a chain line-arc-line: only the pairs that meet are made tangent
+  assert.deepEqual(many(E(10, 12, 13)), [{ type: "tangent", entities: [10, 12] }, { type: "tangent", entities: [12, 13] }]);
+  assert.equal(many(E(10)), undefined);
+});
+
+test("the smart dimension picks the dimension from the selection", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 0, v: 10 }, { id: 4, u: 5, v: 5 }, { id: 5, u: 8, v: 5 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 1, b: 3 }, { id: 12, type: "circle", center: 4, radius: 2 }, { id: 13, type: "arc", center: 4, start: 5, end: 3 }],
+    constraints: [],
+  };
+  const smart = (sel) => optionsFor(s, sel).find((o) => o.label === "Dimension")?.pick(s, sel)?.build(s, sel);
+  const E = (...ids) => ids.map((id) => ({ kind: "entity", id }));
+  assert.deepEqual(smart(E(10)), { type: "distance", entity: 10 });
+  assert.deepEqual(smart([{ kind: "point", id: 1 }, { kind: "point", id: 4 }]), { type: "distance", points: [1, 4] });
+  assert.deepEqual(smart(E(12)), { type: "diameter", entity: 12 });
+  assert.deepEqual(smart(E(13)), { type: "radius", entity: 13 });
+  assert.deepEqual(smart(E(10, 11)), { type: "angle", entities: [10, 11] });
+  assert.deepEqual(smart([{ kind: "point", id: 4 }, ...E(10)]), { type: "point_line_distance", point: 4, entity: 10 });
+  assert.deepEqual(smart(E(12, 13)), { type: "round_gap", entities: [12, 13] }); // already concentric: the spacing between them
+  // a lone line has no angle option: an angle is always between two lines
+  assert.equal(optionsFor(s, E(11)).some((o) => o.label.startsWith("Angle")), false);
+});
+
+test("every dimension drawn on the sketch names its constraint, so it can be edited there", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 5, v: 5 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "circle", center: 3, radius: 2 }],
+    constraints: [
+      { id: 20, type: "distance", entity: 10, value: 10 }, { id: 21, type: "diameter", entity: 11, value: 4 },
+      { id: 22, type: "horizontal_distance", entity: 10, value: 10 },
+    ],
+  };
+  assert.deepEqual(dimensionsOf(s).map((d) => d.constraint), [20, 21, 22]);
+});
+
+test("constraints that only apply to edges ignore selected vertices", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 4, v: 3 }, { id: 4, u: 0, v: 5 }, { id: 5, u: 10, v: 5 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 4, b: 5 }],
+    constraints: [],
+  };
+  const labels = (sel) => optionsFor(s, sel).map((o) => o.label);
+  const lines = [{ kind: "entity", id: 10 }, { kind: "entity", id: 11 }];
+  const stray = [...lines, { kind: "point", id: 3 }];
+  for (const label of ["Horizontal", "Vertical", "Parallel", "Perpendicular", "Equal"]) assert.equal(labels(stray).includes(label), labels(lines).includes(label), label);
+  assert.ok(labels(stray).includes("Horizontal"));
+  assert.ok(labels([{ kind: "entity", id: 10 }, { kind: "point", id: 3 }]).includes("Horizontal"));
+});
+
+test("a length dimension sits outside the closed regions and follows where it was dragged", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }],
+    constraints: [{ id: 20, type: "distance", entity: 10, value: 10 }],
+  };
+  const regionAbove = { inside: (u, v) => v > 0, probe: 2 };
+  const regionBelow = { inside: (u, v) => v < 0, probe: 2 };
+  assert.ok(dimensionsOf(s, regionAbove)[0].offsetDirection[1] < 0, "region above: the dimension goes below");
+  assert.ok(dimensionsOf(s, regionBelow)[0].offsetDirection[1] > 0, "region below: the dimension goes above");
+  // dragged: the line sits at the dropped distance, the text slid along it
+  s.constraints[0].place = [7, 4];
+  const placed = dimensionsOf(s)[0];
+  assert.ok(Math.abs(Math.abs(placed.offset) - 4) < 1e-9);
+  assert.ok(Math.abs(placed.slide - 2) < 1e-9);
+});
+
+test("every kind of dimensional constraint is drawn as a dimension that points back to its constraint (so it can be double-clicked)", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 2 }, { id: 3, u: 10, v: 8 }, { id: 4, u: 5, v: 5 }, { id: 5, u: 20, v: 20 }, { id: 6, u: 25, v: 20 }, { id: 7, u: 40, v: 0 }, { id: 8, u: 44, v: 0 }, { id: 9, u: 40, v: 3 }],
+    entities: [
+      { id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 2, b: 3 }, { id: 12, type: "circle", center: 4, radius: 2 },
+      { id: 13, type: "ellipse", center: 5, major: 6, minor: 2 }, { id: 14, type: "arc", center: 7, start: 8, end: 9 },
+    ],
+    constraints: [],
+  };
+  const cases = [
+    { type: "distance", entity: 10 }, { type: "distance", points: [1, 3] }, { type: "horizontal_distance", entity: 10 }, { type: "vertical_distance", points: [1, 3] },
+    { type: "angle", entities: [10, 11] }, { type: "radius", entity: 12 }, { type: "diameter", entity: 12 },
+    { type: "radius", entity: 14 }, { type: "diameter", entity: 14 }, { type: "minor_radius", entity: 13 }, { type: "point_line_distance", point: 4, entity: 10 },
+  ];
+  cases.forEach((c, k) => {
+    const made = dimensionsOf({ ...s, constraints: [{ id: 100 + k, value: 5, ...c }] });
+    assert.ok(made.length > 0 && made.every((d) => d.constraint === 100 + k), `${c.type} on ${c.entity ?? c.points ?? c.entities}`);
+  });
+});
+
+test("Horizontal on one nearly horizontal line adds its constraint", () => {
+  const s = { plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]), points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0.5 }], entities: [{ id: 10, type: "line", a: 1, b: 2 }], constraints: [] };
+  const sel = [{ kind: "entity", id: 10 }];
+  const horizontal = allConstraintOptions(s, sel).find((c) => c.option.label === "Horizontal").option;
+  assert.deepEqual(constraintsToAdd(horizontal, s, sel), [{ type: "horizontal", entity: 10 }]);
+  const two = { ...s, points: [...s.points, { id: 3, u: 0, v: 5 }, { id: 4, u: 1, v: 9 }], entities: [...s.entities, { id: 11, type: "line", a: 3, b: 4 }] };
+  assert.equal(constraintsToAdd(horizontal, two, [...sel, { kind: "entity", id: 11 }]).length, 2);
+});
+
+test("an angle value dragged across the lines switches between the inside and the outside angle", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 0, v: 0 }, { id: 4, u: 5, v: 5 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 3, b: 4 }],
+    constraints: [],
+  };
+  assert.equal(angleSideOutside(s, [10, 11], [8, 2]), false); // between the two directions (45 degrees)
+  assert.equal(angleSideOutside(s, [10, 11], [-8, -2]), false); // the opposite sector has the same angle
+  assert.equal(angleSideOutside(s, [10, 11], [-3, 4]), true); // across the second line: 135 degrees
+  assert.equal(angleSideOutside(s, [10, 11], [3, -4]), true);
+  const c = { id: 1, type: "angle", entities: [10, 11] };
+  assert.ok(Math.abs(measure(s, c) - 45) < 1e-9);
+  assert.ok(Math.abs(measure(s, { ...c, outside: true }) - 135) < 1e-9);
+  assert.equal(angleSideOutside({ ...s, points: [...s.points.slice(0, 3), { id: 4, u: 5, v: 0 }] }, [10, 11], [1, 1]), null);
+});
+
+test("a point to line dimension runs square to the line with its extension lines along the line", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 10 }, { id: 3, u: 8, v: 2 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }],
+    constraints: [],
+  };
+  const c = { id: 5, type: "point_line_distance", point: 3, entity: 10, value: 4 };
+  const [d] = dimensionsOf({ ...s, constraints: [c] });
+  const [a, b] = d.points;
+  const along = [b[0] - a[0], b[1] - a[1]];
+  assert.ok(Math.abs(along[0] + along[1]) < 1e-9, "the measured segment is square to the line"); // the line runs along (1, 1)
+  const o = d.offsetDirection;
+  assert.ok(Math.abs(o[0] - o[1]) < 1e-9 && Math.abs(Math.hypot(o[0], o[1]) - 1) < 1e-9, "extension lines run along the line");
+  assert.ok(Math.abs(o[0] * along[0] + o[1] * along[1]) < 1e-9, "the dimension line is offset sideways from the measured segment");
+  // dragged out: the stored place moves the dimension line along the line's direction
+  const [dragged] = dimensionsOf({ ...s, constraints: [{ ...c, place: [12, 12] }] });
+  assert.ok(Math.abs(dragged.offset) > 1);
+});
+
+test("constraint tags are marks (no value patch) and dimension values are not", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }],
+    constraints: [{ id: 1, type: "horizontal", entity: 10 }, { id: 2, type: "distance", entity: 10, value: 10 }],
+  };
+  assert.ok(constraintMarks(s).every((m) => m.mark === true));
+  assert.ok(dimensionsOf(s).every((d) => !d.mark));
+});
+
+test("an angle dimension is an arc in the sector it was placed in", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 0, v: 10 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 1, b: 3 }],
+    constraints: [],
+  };
+  const arc = (extra) => dimensionsOf({ ...s, constraints: [{ id: 20, type: "angle", entities: [10, 11], value: 90, ...extra }] })[0];
+  const first = arc({});
+  assert.equal(first.kind, "angle");
+  assert.equal(first.points.length, 26);
+  // the arc runs from one line to the other, in the quadrant between the line middles
+  assert.ok(first.points.slice(1).every((p) => p[0] > -1e-9 && p[1] > -1e-9));
+  // placed in the opposite quadrant, the same inside angle is drawn there
+  const opposite = arc({ place: [-3, -3] });
+  assert.ok(opposite.points.slice(1).every((p) => p[0] < 1e-9 && p[1] < 1e-9));
+  // the outside angle sits across the lines, in the quadrant the value was placed in
+  const across = arc({ place: [-3, 3], outside: true });
+  assert.ok(across.points.slice(1).every((p) => p[0] < 1e-9 && p[1] > -1e-9));
+});
+
+test("symmetric takes a line or an axis as the item the others are mirrored about", async () => {
+  const { symmetries } = await import("../src/sketchconstraints.ts");
+  const plane = { origin: [0, 0, 0], normal: [0, 0, 1], xdir: [1, 0, 0] };
+  const s = {
+    plane,
+    points: [{ id: 1, u: -5, v: 3 }, { id: 2, u: 5, v: 3 }, { id: 5, u: -6, v: 10 }, { id: 6, u: 6, v: 10 }],
+    entities: [{ id: 14, type: "line", a: 1, b: 2 }, { id: 12, type: "circle", center: 5, radius: 1 }, { id: 13, type: "circle", center: 6, radius: 1 }],
+    constraints: [],
+  };
+  const e = (...ids) => ids.map((id) => ({ kind: "entity", id }));
+  assert.deepEqual(symmetries(s, e(14, -2)), [{ type: "symmetric", points: [1, 2], entity: -2 }]);
+  assert.deepEqual(symmetries(s, e(12, 13, -2)), [{ type: "symmetric", points: [5, 6], entity: -2 }]);
+});

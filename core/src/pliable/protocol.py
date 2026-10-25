@@ -53,7 +53,7 @@ def decode_binary(frame: bytes) -> tuple[dict, dict[str, np.ndarray]]:
 
 def encode_mesh(header: dict, mesh: Mesh) -> bytes:
     return encode_binary(
-        {**header, "faces": mesh.faces, "edges": mesh.edges, "vertices": mesh.vertices, "bounds": mesh.bounds},
+        {**header, "faces": mesh.faces, "edges": mesh.edges, "vertices": mesh.vertices, "centres": mesh.centres, "bodies": mesh.bodies, "bounds": mesh.bounds},
         {
             "positions": mesh.positions,
             "normals": mesh.normals,

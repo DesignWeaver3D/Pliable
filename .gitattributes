@@ -1,0 +1,5 @@
+.githooks/* text eol=lf
+*.sh text eol=lf
+
+# Append-only log: keep lines from both sides when merging agent branches, no conflict markers.
+docs/watchlist.md merge=union

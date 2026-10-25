@@ -1,0 +1,29 @@
+# Rejects pushes and pull requests whose commit messages break the rules in
+# scripts/check_commit_message.py and file contents against scripts/check_content.py
+# (no product names, clear subject, body for big changes).
+name: commit-lint
+
+on:
+  push:
+    branches: [main, rebuild, dev]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check commit messages
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            range="origin/${{ github.base_ref }}..HEAD"
+          elif git cat-file -e "${{ github.event.before }}^{commit}" 2>/dev/null; then
+            range="${{ github.event.before }}..${{ github.sha }}"
+          else
+            range="${{ github.sha }}~1..${{ github.sha }}"
+          fi
+          python scripts/check_commit_message.py --range "$range"
+      - name: Check file contents
+        run: python scripts/check_content.py --all
