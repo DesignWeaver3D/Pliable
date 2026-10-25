@@ -242,6 +242,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const f = M.frame(this.s.plane);
     this.plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(...f.n), new THREE.Vector3(...f.origin));
     this.tool = "select";
+    this.lastDrawTool = null;
     this.selection = [];
     this.selectedDimensions.clear();
     this.chain = [];
@@ -875,6 +876,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       else void this.leave(); // nothing left to cancel: leave the sketch (asking first if it holds work)
     } else if (e.key === "Enter" && this.chain.length) {
       this.endChain();
+    } else if (e.key === "Enter" && this.tool === "select" && this.lastDrawTool && !this.typed) {
+      // Enter with no tool active starts the drawing tool used last again (as in other CAD programs).
+      this.setTool(this.lastDrawTool);
     } else if ((e.key === "Delete" || e.key === "Backspace") && this.selectedDimensions.size) {
       // Dimensions picked in the view (a click on a value) are deleted; the geometry they held stays, free of them.
       e.preventDefault();
@@ -990,7 +994,11 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     B.addArc(this, center, start, end);
   }
 
+  /** The drawing tool used last in this sketch; Enter with no tool active starts it again. */
+  private lastDrawTool: Tool | null = null;
+
   private setTool(tool: Tool) {
+    if (tool !== "select") this.lastDrawTool = tool;
     if (tool !== "select") usage.record(`sketch_${tool}`.toLowerCase().replace(/[^a-z0-9_]/g, "_"), "start", "other");
     this.tool = tool;
     this.typed = "";
