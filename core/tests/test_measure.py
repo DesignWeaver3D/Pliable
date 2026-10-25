@@ -199,3 +199,18 @@ def test_model_info_for_one_body_of_two():
     assert rows["Volume"] != pytest.approx(both["Volume"]) and rows["Volume"] == pytest.approx(rows["Size (X, Y, Z)"][0] ** 3)
     with pytest.raises(ValueError):
         model_info(topology, 999)
+
+
+def test_selected_body_reports_volume_and_mass_through_the_server():
+    from pliable.server import Session
+
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})  # 40 x 30 x 20 mm
+    reply = session.handle({"type": "measure", "selection": {"bodies": [1]}, "density": 1050})
+    (item,) = reply["items"]
+    assert item["kind"] == "body"
+    assert value(item, "Volume") == pytest.approx(24000)
+    assert value(item, "Mass") == pytest.approx(25.2)  # 24 cm3 of 1.05 g/cm3
+    assert next(r["unit"] for r in item["rows"] if r["label"] == "Mass") == " g"
+    both = session.handle({"type": "measure", "selection": {"bodies": [1]}})  # no density: no mass row
+    assert [r["label"] for r in both["items"][0]["rows"]] == ["Volume"]

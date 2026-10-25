@@ -35,6 +35,7 @@ from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS, TopoDS_Face
 
 from .holes import find_hole
+from .measurebody import measure_body
 from .ops import OperationError, edge_outward_normal, planar_normal
 from .tools import Selection
 from .topology import Topology
@@ -299,10 +300,11 @@ def _pair_rows(topology: Topology, a: tuple, b: tuple) -> tuple[list[dict], list
     return rows, dims
 
 
-def measure(topology: Topology, selection: Selection) -> dict:
-    """Per-item measurements plus a summary (count and totals, or the pair distance and angle)."""
+def measure(topology: Topology, selection: Selection, density: float | None = None) -> dict:
+    """Per-item measurements plus a summary (count and totals, or the pair distance and angle). `density` (kg/m3) gives bodies a mass."""
     items = (
-        [measure_face(topology, i, topology.face(i)) for i in selection.faces]
+        [measure_body(topology, i, density) for i in selection.bodies if not (selection.faces or selection.edges or selection.vertices)]  # bodies alongside faces or edges stay unmeasured, as before
+        + [measure_face(topology, i, topology.face(i)) for i in selection.faces]
         + [measure_edge(i, topology.edge(i), topology) for i in selection.edges]
         + [measure_vertex(i, topology.vertex(i)) for i in selection.vertices]
     )
@@ -311,13 +313,15 @@ def measure(topology: Topology, selection: Selection) -> dict:
     summary, dims = [], []
     if len(items) > 1:
         summary.append(_row("Selected", len(items)))
-        for label in ("Length", "Area"):
+        for label in ("Length", "Area", "Volume", "Mass"):
             values = [r["value"] for item in items for r in item["rows"] if r["label"] == label]
             if len(values) == len(items):
-                summary.append(_row(f"Total {label.lower()}", sum(values)))
-                centroid = [sum(item["anchor"][k] for item in items) / len(items) for k in range(3)]
-                dims = [_dim("tag", f"Σ {_fmt(sum(values))}", [centroid])]
-    if len(items) == 2:
+                unit = next(r["unit"] for r in items[0]["rows"] if r["label"] == label)
+                summary.append(_row(f"Total {label.lower()}", sum(values), unit))
+                if items[0]["kind"] != "body":  # bodies show their totals in the card only
+                    centroid = [sum(item["anchor"][k] for item in items) / len(items) for k in range(3)]
+                    dims = [_dim("tag", f"Σ {_fmt(sum(values))}", [centroid])]
+    if len(items) == 2 and items[0]["kind"] != "body":
         rows, pair_dims = _pair_rows(topology, *[(item["kind"], item["id"]) for item in items])
         summary += rows
         dims = pair_dims or dims

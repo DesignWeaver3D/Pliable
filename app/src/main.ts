@@ -20,6 +20,7 @@ import { DatumPlanes } from "./datumplanes";
 import type { DatumPlane, MirrorMode } from "./datumcorners";
 import { LatestWins } from "./latestwins";
 import { LENGTH_UNIT } from "./units";
+import { materialOrDefault } from "./materials";
 import { SETTING_ENTRIES, createSettingsWindow, onSettingsChange, openSettings, setHintsBinding, setKeysOpener, settingValue, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
@@ -459,7 +460,7 @@ function setSelection(sels: Sel[]) {
     renderSketchBar();
   });
   core
-    .request<MeasureReply>("measure", { selection: selectionPayload(sels) })
+    .request<MeasureReply>("measure", { selection: selectionPayload(sels), density: materialOrDefault(settings.material).density }) // the density gives a selected body its mass
     .then((reply) => {
       // Not while a drag is live (the panel is hidden then); never on a stale dragSels left by a drag that failed to end.
       if (currentSels === sels && !viewport.dragging) {

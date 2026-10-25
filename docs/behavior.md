@@ -111,3 +111,4 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - In a sketch, Enter with no drawing tool active (the Select tool, nothing being typed) starts the drawing tool used last again; Enter while a line chain is open still ends the chain (owner, 2026-10-24).
 - Concentric and nested circles or arcs selected together offer the gap between their rims as a dimension; clicking a dimension's leader or extension line selects it like clicking its value.
 - Diameter dimension values start with the capital Ø (full capital height, like the R of a radius), in sketches, the typed-size dimensions and the 3D measurements.
+- Selecting a body shows its volume (mm³) and its mass (g) in the measurement card; the mass uses the density of the chosen material (the Material setting, ABS by default). Several bodies also show totals.

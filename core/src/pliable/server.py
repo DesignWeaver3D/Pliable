@@ -163,7 +163,7 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             topology = self._require_document().current
             try:
                 selection = Selection.from_json(request.get("selection"))
-                result = measure(topology, selection)
+                result = measure(topology, selection, request.get("density"))
                 dimedit.annotate(topology, selection, result)
                 return result
             except KeyError as e:
