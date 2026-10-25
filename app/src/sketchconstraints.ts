@@ -171,7 +171,7 @@ export function coincidences(s: SketchData, sel: SketchSel[]): Omit<SketchConstr
     const groups = coincidentGroups(s);
     return p.slice(1).filter((q) => groups.get(q) !== groups.get(p[0])).map((q) => ({ type: "coincident", points: [p[0], q] }));
   }
-  if (!p.length || !only(es, "line", "circle", "arc")) return [];
+  if (!p.length || !only(es, "line", "circle", "arc", "ellipse")) return [];
   return es.flatMap((e) => p.filter((q) => !entityPoints(e).includes(q) && !s.constraints.some((c) => c.type === "point_on" && c.point === q && c.entity === e.id)).map((q) => ({ type: "point_on", point: q, entity: e.id })));
 }
 

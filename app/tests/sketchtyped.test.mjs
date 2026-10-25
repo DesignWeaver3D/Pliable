@@ -46,10 +46,10 @@ test("a slot takes length then width, or only its width when the second end is p
   assert.deepEqual(width, [{ u: 0, v: -5 }]);
 });
 
-test("an ellipse takes the long radius then the short radius", () => {
+test("an ellipse takes the major width then the minor width", () => {
   const [major, side] = typedTargets("ellipse", [{ u: 0, v: 0 }], { u: 1, v: 0 }, [20, 8]);
-  near(major.u, 20);
-  near(Math.abs(side.v), 8);
+  near(major.u, 10); // the typed numbers are full widths, the points sit half of each from the centre
+  near(Math.abs(side.v), 4);
 });
 
 test("an arc takes its radius then the sweep in degrees", () => {

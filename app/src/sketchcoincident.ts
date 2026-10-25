@@ -34,7 +34,7 @@ export function splitPoint(s: SketchData, pointId: number): SketchData {
     const swap = (id: number) => (id === pointId ? copy : id);
     const m = e as Record<string, unknown>;
     const changed: Record<string, unknown> = { ...m };
-    for (const key of ["a", "b", "center", "start", "end", "major"]) if (typeof m[key] === "number") changed[key] = swap(m[key] as number);
+    for (const key of ["a", "b", "center", "start", "end", "major", "major2", "minor1", "minor2"]) if (typeof m[key] === "number") changed[key] = swap(m[key] as number);
     if (Array.isArray(m.points)) changed.points = (m.points as number[]).map(swap);
     return changed as unknown as typeof e;
   });

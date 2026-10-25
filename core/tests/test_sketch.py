@@ -597,6 +597,55 @@ def test_an_ellipse_is_a_profile_and_its_points_take_constraints():
         sketch.solve({**sk, "constraints": [{"id": 6, "type": "radius", "entity": 3, "value": 2}]})
 
 
+def _ellipse_with_ends(major=10.0, minor=5.0):
+    return {
+        "plane": sketch.STANDARD_PLANES["XY"],
+        "points": [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": major, "v": 0}, {"id": 4, "u": -major, "v": 0}, {"id": 5, "u": 0, "v": minor}, {"id": 6, "u": 0, "v": -minor}],
+        "entities": [{"id": 3, "type": "ellipse", "center": 1, "major": 2, "major2": 4, "minor1": 5, "minor2": 6, "minor": minor}],
+        "constraints": [],
+    }
+
+
+def _on_ellipse(result):
+    at = coords(result)
+    a, b = math.dist(at[1], at[2]), math.dist(at[1], at[5]) if 5 in at else result["radii"].get(3, 5)
+    (cu, cv), (mu, mv), (pu, pv) = at[1], at[2], at[7]
+    along = math.atan2(mv - cv, mu - cu)
+    x = (pu - cu) * math.cos(along) + (pv - cv) * math.sin(along)
+    y = -(pu - cu) * math.sin(along) + (pv - cv) * math.cos(along)
+    return (x / a) ** 2 + (y / b) ** 2
+
+
+def test_an_ellipse_with_axis_ends_keeps_them_square_and_takes_widths():
+    sk = _ellipse_with_ends()
+    sk["constraints"] = [{"id": 8, "type": "fixed", "point": 1}, {"id": 9, "type": "distance", "points": [2, 4], "value": 40}, {"id": 10, "type": "distance", "points": [5, 6], "value": 12}, {"id": 11, "type": "horizontal", "points": [1, 2]}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok" and result["dof"] == 0
+    assert result["radii"][3] == pytest.approx(6)
+    assert sketch.profile_face(sketch.apply_solution(sk, result)).area == pytest.approx(math.pi * 20 * 6, rel=1e-6)
+
+
+def test_a_point_can_be_put_on_an_ellipse_and_follows_it():
+    sk = _ellipse_with_ends()
+    sk["points"].append({"id": 7, "u": 6.5, "v": 4.5})  # near the rim, not on it
+    sk["constraints"] = [{"id": 8, "type": "fixed", "point": 1}, {"id": 9, "type": "point_on", "point": 7, "entity": 3}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok"
+    assert _on_ellipse(result) == pytest.approx(1, abs=1e-6)
+    # widening the ellipse carries the point along with it
+    sk["constraints"].append({"id": 10, "type": "distance", "points": [5, 6], "value": 14})
+    wider = sketch.solve(sk)
+    assert wider["status"] == "ok" and _on_ellipse(wider) == pytest.approx(1, abs=1e-6)
+
+
+def test_a_point_can_be_put_on_an_ellipse_without_axis_ends():
+    sk = _ellipse_sketch()
+    sk["points"].append({"id": 7, "u": 6.5, "v": 4.5})
+    sk["constraints"] = [{"id": 8, "type": "fixed", "point": 1}, {"id": 9, "type": "point_on", "point": 7, "entity": 3}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok" and _on_ellipse(result) == pytest.approx(1, abs=1e-6)
+
+
 def test_a_closed_spline_is_a_profile_and_dragging_its_point_moves_only_it():
     sk = {
         "plane": sketch.STANDARD_PLANES["XY"],

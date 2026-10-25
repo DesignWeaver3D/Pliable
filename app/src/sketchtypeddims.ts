@@ -74,9 +74,14 @@ export function typedDimensions(ctx: PreviewContext): Dimension[] {
     }
   } else if (ctx.tool === "ellipse") {
     const major = ctx.chain.length === 2 ? ctx.chain[1] : target;
-    if (ctx.chain.length === 1) radius(0, first, major);
+    const [mu, mv] = [major.u - first.u, major.v - first.v];
+    // The major width runs across the whole long axis and the minor width across the short one; each is drawn beside its axis.
+    if (ctx.chain.length === 1) linear(0, { u: first.u - mu, v: first.v - mv }, { u: first.u + mu, v: first.v + mv }, [-mv, mu], 2 * Math.hypot(mu, mv));
     const minor = ctx.chain.length === 2 ? target : targets[1];
-    if (minor) radius(ctx.chain.length === 2 ? 0 : 1, first, minor);
+    if (minor) {
+      const [nu, nv] = [minor.u - first.u, minor.v - first.v];
+      linear(ctx.chain.length === 2 ? 0 : 1, { u: first.u - nu, v: first.v - nv }, { u: first.u + nu, v: first.v + nv }, [mu, mv], 2 * Math.hypot(nu, nv));
+    }
   } else if (ctx.tool === "arc") {
     const start = ctx.chain.length === 2 ? ctx.chain[1] : target;
     if (ctx.chain.length === 1) radius(0, first, start);

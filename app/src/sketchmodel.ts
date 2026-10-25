@@ -21,8 +21,9 @@ export type SketchEntity =
   | { id: number; type: "line"; a: number; b: number; construction?: boolean; reference?: boolean; axis?: boolean }
   | { id: number; type: "circle"; center: number; radius: number; construction?: boolean; reference?: boolean }
   | { id: number; type: "arc"; center: number; start: number; end: number; construction?: boolean; reference?: boolean }
-  /** Centre, the end of the major semi-axis, and the minor radius. Only its two points take constraints. */
-  | { id: number; type: "ellipse"; center: number; major: number; minor: number; construction?: boolean; reference?: boolean }
+  /** Centre, the ends of the major axis (`major`, `major2`) and of the minor axis (`minor1`, `minor2`, four points the solver keeps square about the centre), and the minor radius
+   *  (follows the minor ends). An older ellipse has only the centre, `major` and `minor`. */
+  | { id: number; type: "ellipse"; center: number; major: number; major2?: number; minor1?: number; minor2?: number; minor: number; construction?: boolean; reference?: boolean }
   /** A smooth curve through its points in order (a closed one joins last to first). Only its points take constraints. */
   | { id: number; type: "spline"; points: number[]; closed?: boolean; construction?: boolean; reference?: boolean };
 export interface SketchConstraint {
@@ -110,7 +111,7 @@ export function nextId(s: SketchData): number {
 
 /** Points an entity is made of (line ends; circle and arc: center first). */
 export function entityPoints(e: SketchEntity): number[] {
-  return e.type === "line" ? [e.a, e.b] : e.type === "circle" ? [e.center] : e.type === "ellipse" ? [e.center, e.major] : e.type === "spline" ? [...e.points] : [e.center, e.start, e.end];
+  return e.type === "line" ? [e.a, e.b] : e.type === "circle" ? [e.center] : e.type === "ellipse" ? [e.center, e.major, ...(e.minor1 !== undefined ? [e.major2!, e.minor1, e.minor2!] : [])] : e.type === "spline" ? [...e.points] : [e.center, e.start, e.end];
 }
 
 /** Remove a point or entity with everything that depends on it; points no entity uses any more go too. */
@@ -377,10 +378,11 @@ export function polyline(s: SketchData, e: SketchEntity, segments = 48): [number
     const m = pointOf(s, e.major);
     const a = Math.hypot(m.u - c.u, m.v - c.v) || 1e-9;
     const [ux, uy] = [(m.u - c.u) / a, (m.v - c.v) / a];
+    const b = e.minor1 !== undefined ? Math.hypot(pointOf(s, e.minor1).u - c.u, pointOf(s, e.minor1).v - c.v) : e.minor; // the minor end sets the short radius while it is dragged
     return Array.from({ length: segments + 1 }, (_, i) => {
       const t = (2 * Math.PI * i) / segments;
       const x = a * Math.cos(t);
-      const y = e.minor * Math.sin(t);
+      const y = b * Math.sin(t);
       return [c.u + x * ux - y * uy, c.v + x * uy + y * ux];
     });
   }

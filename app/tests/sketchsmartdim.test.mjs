@@ -154,3 +154,14 @@ test("concentric and nested circles offer the gap between their rims", () => {
   assert.equal(smartChoices(e, ent(10, 11), 0.5).find((o) => o.label === "Gap between the rims").initial(e, ent(10, 11)), 2);
   assert.deepEqual(labels(e, ent(11, 12)), ["Distance between the centres", "Gap between the rims"]); // 12 sits inside 11: 5 - 1 - 1
 });
+
+test("an ellipse with axis ends offers its two widths, and a point near its rim can be put on it", () => {
+  const e = sketch(
+    [P(1, 0, 0), P(2, 10, 0), P(3, -10, 0), P(4, 0, 5), P(5, 0, -5), P(6, 8.6, 2.6)],
+    [{ id: 20, type: "ellipse", center: 1, major: 2, major2: 3, minor1: 4, minor2: 5, minor: 5 }],
+  );
+  assert.deepEqual(labels(e, ent(20)), ["Major width", "Minor width"]);
+  assert.deepEqual(built(e, ent(20), "Major width"), [{ type: "distance", points: [2, 3] }]);
+  assert.deepEqual(built(e, ent(20), "Minor width"), [{ type: "distance", points: [4, 5] }]);
+  assert.deepEqual(labels(e, [...ent(20), ...pt(6)], 0.5), ["Point on"]);
+});

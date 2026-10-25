@@ -83,7 +83,7 @@ export function transform(s: SketchData, sel: SketchSel[], map: Map2, o: { copy:
     if (e.type === "line") copy = { ...base, type: "line", a: at(e.a), b: at(e.b) };
     else if (e.type === "circle") copy = { ...base, type: "circle", center: at(e.center), radius: e.radius * scale };
     else if (e.type === "arc") copy = { ...base, type: "arc", center: at(e.center), start: at(o.mirror ? e.end : e.start), end: at(o.mirror ? e.start : e.end) };
-    else if (e.type === "ellipse") copy = { ...base, type: "ellipse", center: at(e.center), major: at(e.major), minor: e.minor * scale };
+    else if (e.type === "ellipse") copy = { ...base, type: "ellipse", center: at(e.center), major: at(e.major), ...(e.minor1 !== undefined ? { major2: at(e.major2!), minor1: at(e.minor1), minor2: at(e.minor2!) } : {}), minor: e.minor * scale };
     else copy = { ...base, type: "spline", points: e.points.map(at), ...(e.closed ? { closed: true } : {}) };
     sketch.entities.push(copy);
     created.push({ kind: "entity", id: copy.id });

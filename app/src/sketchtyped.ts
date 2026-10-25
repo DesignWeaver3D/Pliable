@@ -12,7 +12,7 @@ export function typedLabels(tool: Tool, chainLength: number, polygon: boolean): 
   if (polygon) return first ? ["radius"] : [];
   if (tool === "rectangle" || tool === "rectcentre") return first ? ["width", "height"] : [];
   if (tool === "slot") return first ? ["length", "width"] : second ? ["width"] : [];
-  if (tool === "ellipse") return first ? ["long radius", "short radius"] : second ? ["short radius"] : [];
+  if (tool === "ellipse") return first ? ["major width", "minor width"] : second ? ["minor width"] : [];
   if (tool === "arc") return first ? ["radius", "sweep degrees"] : second ? ["sweep degrees"] : [];
   return [];
 }
@@ -77,9 +77,9 @@ export function typedTargets(tool: Tool, chain: UV[], cursor: UV | null, numbers
     return h === undefined ? [end] : [end, beside(first, end, h / 2)];
   }
   if (tool === "ellipse") {
-    if (chain.length === 2) return [beside(chain[0], chain[1], w)];
-    const end = along(first, w);
-    return h === undefined ? [end] : [end, beside(first, end, h)];
+    if (chain.length === 2) return [beside(chain[0], chain[1], w / 2)]; // the typed numbers are the full widths of the axes
+    const end = along(first, w / 2);
+    return h === undefined ? [end] : [end, beside(first, end, h / 2)];
   }
   if (tool === "arc") {
     if (chain.length === 2) return [turned(first, chain[1], w)];

@@ -14,7 +14,7 @@ SOLVE_GROUP = 2  # entities in group 1 (the workplane) stay fixed; group 2 is so
 
 def _entity_point_ids(e: dict) -> list[int]:
     """Every point an entity is built from."""
-    ids = [e[k] for k in ("a", "b", "center", "start", "end", "major") if k in e]
+    ids = [e[k] for k in ("a", "b", "center", "start", "end", "major", "major2", "minor1", "minor2") if k in e]
     return ids + list(e.get("points", []))
 
 
@@ -33,6 +33,8 @@ class _Solver:
         self.entities: dict[int, tuple[str, int]] = {}
         self.radii: dict[int, int] = {}
         self.minors: dict[int, float] = {}  # ellipse id -> short semi-axis set by a minor_radius dimension
+        self.frames: dict[int, tuple] = {}  # ellipse id -> (centre, major end, opposite major end, minor end, opposite minor end) point handles
+        self.foci: dict[int, tuple] = {}  # ellipse id -> its two focus points and the major axis (made when a point is put on the ellipse)
         for e in sketch.get("entities", []):
             self._add_entity(e)
         self.held: set[int] = set()  # points already pinned: pinning one twice is reported as a redundancy
@@ -58,11 +60,74 @@ class _Solver:
         elif kind == "arc":
             self.entities[e["id"]] = (kind, s.addArcOfCircle(self.workplane, self._point(e["center"]), self._point(e["start"]), self._point(e["end"]), g))
         elif kind in ("ellipse", "spline"):
-            for pid in ([e["center"], e["major"]] if kind == "ellipse" else e["points"]):
+            for pid in (_entity_point_ids(e) if kind == "ellipse" else e["points"]):
                 self._point(pid)
             self.entities[e["id"]] = (kind, None)  # drawn from its points; only those points take part in constraints
+            if kind == "ellipse" and "minor1" in e:  # four axis ends: the centre is the middle of both axes, which are square to each other
+                self._ellipse_frame(e)
         else:
             raise SketchError(f"Unknown entity type {kind!r}")
+
+    def _coords_of(self, handle) -> tuple[float, float]:
+        s = self.system
+        return tuple(s.getParam(s.getEntityParam(handle, k)).val for k in range(2))
+
+    def _ellipse_frame(self, e: dict) -> tuple:
+        """The ellipse's centre, major end, opposite major end, minor end and opposite minor end as slvs points. An ellipse
+        drawn with its four ends has them as sketch points; an older one (a centre, a major end and a minor radius) gets
+        hidden ones. Either way the ends are held square to each other about the centre."""
+        if e["id"] in self.frames:
+            return self.frames[e["id"]]
+        s, wp, g = self.system, self.workplane, SOLVE_GROUP
+        centre, major = self._point(e["center"]), self._point(e["major"])
+        if "minor1" in e:
+            major2, minor1, minor2 = self._point(e["major2"]), self._point(e["minor1"]), self._point(e["minor2"])
+        else:
+            (cu, cv), (mu, mv) = self._coords(e["center"]), self._coords(e["major"])
+            length = math.hypot(mu - cu, mv - cv) or 1.0
+            b = self.minors.get(e["id"], e.get("minor", length))
+            nu, nv = cu - (mv - cv) / length * b, cv + (mu - cu) / length * b
+            major2 = s.addPoint2dV(wp, 2 * cu - mu, 2 * cv - mv, g)
+            minor1, minor2 = s.addPoint2dV(wp, nu, nv, g), s.addPoint2dV(wp, 2 * cu - nu, 2 * cv - nv, g)
+            s.addPointsDistance(b, centre, minor1, wp, g)
+        major_axis, minor_axis = s.addLineSegment(major, major2, g), s.addLineSegment(minor1, minor2, g)
+        s.addMidPoint(centre, major_axis, wp, g)
+        s.addMidPoint(centre, minor_axis, wp, g)
+        s.addPerpendicular(major_axis, minor_axis, wp, g)
+        self.frames[e["id"]] = (centre, major, major2, minor1, minor2)
+        return self.frames[e["id"]]
+
+    def _point_on_ellipse(self, point, e: dict) -> int:
+        """Put a point on an ellipse through its foci: the distances from the point to the two foci add up to the major
+        width. A helper point q sits on the ray from the first focus through the point, as far from the point as the
+        second focus is, and is held one major width from the first focus."""
+        s, wp, g = self.system, self.workplane, SOLVE_GROUP
+        centre, major, major2, minor1, minor2 = self._ellipse_frame(e)
+        if e["id"] not in self.foci:
+            (cu, cv), (mu, mv), (nu, nv) = self._coords_of(centre), self._coords_of(major), self._coords_of(minor1)
+            a, b = math.hypot(mu - cu, mv - cv), math.hypot(nu - cu, nv - cv)
+            # the foci lie on the longer axis, as far from the centre as the square root of the difference of the squares of the semi-axes
+            if a >= b:
+                far, far2, near, (du, dv) = major, major2, minor1, ((mu - cu) / (a or 1), (mv - cv) / (a or 1))
+            else:
+                far, far2, near, (du, dv) = minor1, minor2, major, ((nu - cu) / b, (nv - cv) / b)
+            focal = math.sqrt(abs(a * a - b * b))
+            f1 = s.addPoint2dV(wp, cu + du * focal, cv + dv * focal, g)
+            f2 = s.addPoint2dV(wp, cu - du * focal, cv - dv * focal, g)
+            long_axis = s.addLineSegment(far, far2, g)
+            s.addPointOnLine(f1, long_axis, wp, g)
+            s.addMidPoint(centre, s.addLineSegment(f1, f2, g), wp, g)
+            # an end of the shorter axis is one semi-major length from each focus
+            s.addEqualLength(s.addLineSegment(f1, near, g), s.addLineSegment(centre, far, g), wp, g)
+            self.foci[e["id"]] = (f1, f2, long_axis)
+        f1, f2, long_axis = self.foci[e["id"]]
+        (pu, pv), (fu, fv), (gu, gv) = self._coords_of(point), self._coords_of(f1), self._coords_of(f2)
+        reach = math.hypot(pu - fu, pv - fv) or 1.0
+        beyond = math.hypot(pu - gu, pv - gv)
+        q = s.addPoint2dV(wp, pu + (pu - fu) / reach * beyond, pv + (pv - fv) / reach * beyond, g)
+        s.addPointOnLine(q, s.addLineSegment(f1, point, g), wp, g)
+        s.addEqualLength(s.addLineSegment(point, q, g), s.addLineSegment(point, f2, g), wp, g)
+        return s.addEqualLength(s.addLineSegment(f1, q, g), long_axis, wp, g)
 
     def _entity(self, eid, *kinds):
         try:
@@ -102,7 +167,12 @@ class _Solver:
             h = s.addPointsCoincident(points[0], points[1], wp, g)
         elif kind == "point_on":
             target, handle = self.entities[c["entity"]]
-            h = s.addPointOnLine(self._point(c["point"]), handle, wp, g) if target == "line" else s.addPointOnCircle(self._point(c["point"]), handle, g)
+            if target == "ellipse":
+                h = self._point_on_ellipse(self._point(c["point"]), next(e for e in self.sketch["entities"] if e["id"] == c["entity"]))
+            elif target == "spline":
+                raise SketchError("A point cannot be put on a spline")
+            else:
+                h = s.addPointOnLine(self._point(c["point"]), handle, wp, g) if target == "line" else s.addPointOnCircle(self._point(c["point"]), handle, g)
         elif kind in ("horizontal", "vertical"):
             if "entity" in c:
                 line = self._entity(c["entity"], "line")
@@ -178,8 +248,12 @@ class _Solver:
             h = s.addSymmetricLine(points[0], points[1], self._entity(c["entity"], "line"), wp, g)
         elif kind == "minor_radius":
             self._entity_kind(c["entity"], "ellipse")
-            self.minors[c["entity"]] = float(value)
-            return
+            ellipse = next(e for e in self.sketch["entities"] if e["id"] == c["entity"])
+            if "minor1" in ellipse:  # the minor end is a point: the short radius is its distance from the centre
+                h = s.addPointsDistance(float(value), self._point(ellipse["center"]), self._point(ellipse["minor1"]), wp, g)
+            else:
+                self.minors[c["entity"]] = float(value)
+                return
         elif kind == "collinear":
             a, b = (self.sketch_line(e) for e in c["entities"])
             handles = [s.addParallel(self._entity(a["id"], "line"), self._entity(b["id"], "line"), wp, g)]
@@ -340,6 +414,9 @@ class _Solver:
         radii = {eid: self.system.getParam(param).val for eid, param in self.radii.items()} if ok else {}
         if ok:
             radii.update(self.minors)  # an ellipse's short semi-axis travels with the radii
+            for e in self.sketch.get("entities", []):
+                if e["type"] == "ellipse" and "minor1" in e:
+                    radii[e["id"]] = math.dist(self._coords(e["center"]), self._coords(e["minor1"]))
         return {"status": "ok" if ok else "failed", "code": code, "dof": self.system.Dof if ok else None, "failed": failed, "points": points, "radii": radii}
 
 

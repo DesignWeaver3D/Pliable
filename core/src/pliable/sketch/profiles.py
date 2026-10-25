@@ -42,7 +42,8 @@ def _edges(sketch: dict, skip: int | None = None) -> list[Edge]:
             elif e["type"] == "circle":
                 shape = BRepBuilderAPI_MakeEdge(circle(points[e["center"]], e["radius"])).Edge()
             elif e["type"] == "ellipse":
-                shape = _ellipse_edge(points[e["center"]], points[e["major"]], e["minor"], normal)
+                minor = points[e["center"]].Distance(points[e["minor1"]]) if "minor1" in e else e["minor"]  # drawn with its four ends: they set the short radius
+                shape = _ellipse_edge(points[e["center"]], points[e["major"]], minor, normal)
             elif e["type"] == "spline":
                 through = [points[i] for i in e["points"]]
                 if len(through) < 2:

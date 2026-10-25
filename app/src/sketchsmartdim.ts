@@ -1,9 +1,10 @@
 /** The smart dimension: one button (and the D key) that offers every constraint or dimension that fits whatever is selected.
  *  One fit is applied at once; several are chosen from a small menu next to the cursor. Rules and answers: docs/smart-dimension-plan.md. No DOM. */
 import { CONSTRAINT_OPTIONS, coincidences, dist, entities, measure, only, pointLineDistance, pts, radiusOf, type ConstraintOption } from "./sketchconstraints.ts";
-import { pointOf, type SketchConstraint, type SketchData, type SketchEntity, type SketchSel } from "./sketchmodel.ts";
+import { distanceTo, entityPoints, pointOf, type SketchConstraint, type SketchData, type SketchEntity, type SketchSel } from "./sketchmodel.ts";
 
 type Line = Extract<SketchEntity, { type: "line" }>;
+type Ellipse = Extract<SketchEntity, { type: "ellipse" }>;
 type Build = Omit<SketchConstraint, "id">;
 
 const named = (label: string) => CONSTRAINT_OPTIONS.find((o) => o.label === label)!;
@@ -59,7 +60,12 @@ export function smartChoices(s: SketchData, sel: SketchSel[], near: number): Con
     if (e.type === "line") add(named("Length / distance"));
     else if (e.type === "circle") add(named("Diameter"));
     else if (e.type === "arc") add(named("Radius"));
-    else if (e.type === "ellipse") add(named("Short radius"));
+    else if (e.type === "ellipse" && e.minor1 === undefined) add(named("Short radius"));
+    else if (e.type === "ellipse") {
+      // the widths are the distances between the opposite ends of the two axes
+      add(dimension("Major width", (s2, sel2) => ({ type: "distance", points: [(entities(s2, sel2)[0] as Ellipse).major, (entities(s2, sel2)[0] as Ellipse).major2!] }), (s2, sel2) => dist(s2, (entities(s2, sel2)[0] as Ellipse).major, (entities(s2, sel2)[0] as Ellipse).major2!)));
+      add(dimension("Minor width", (s2, sel2) => ({ type: "distance", points: [(entities(s2, sel2)[0] as Ellipse).minor1!, (entities(s2, sel2)[0] as Ellipse).minor2!] }), (s2, sel2) => dist(s2, (entities(s2, sel2)[0] as Ellipse).minor1!, (entities(s2, sel2)[0] as Ellipse).minor2!)));
+    }
     return out;
   }
 
@@ -98,6 +104,8 @@ export function smartChoices(s: SketchData, sel: SketchSel[], near: number): Con
         if (dist(s, p, centre) <= near) add(constraint("Coincident with the centre", () => [{ type: "coincident", points: [p, centre] }]));
         else add(dimension("Distance to the centre", () => ({ type: "distance", points: [p, centre] }), () => dist(s, p, centre)));
         if (Math.abs(dist(s, p, centre) - radiusOf(s, e)) <= near) add(named("Point on"));
+      } else if (e.type === "ellipse" && !entityPoints(e).includes(p) && distanceTo(s, e, pointOf(s, p).u, pointOf(s, p).v) <= near) {
+        add(named("Point on"));
       }
     }
     return out;

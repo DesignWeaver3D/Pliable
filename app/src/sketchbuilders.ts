@@ -149,7 +149,14 @@ export function addEllipse(ctx: BuilderContext, center: Snap, major: Snap, side:
   ctx.pushUndo();
   const c = ctx.pointFor(center);
   const m = ctx.pointFor(major);
-  ctx.s.entities.push({ id: M.nextId(ctx.s), type: "ellipse", center: c, major: m, minor });
+  // the other three ends of the axes are points of their own, so they can be dimensioned and constrained to; the third click's side takes the minor end
+  const side1 = ((side.u - center.u) * (major.v - center.v) - (side.v - center.v) * (major.u - center.u)) / a > 0 ? -1 : 1;
+  const [nu, nv] = [(-(major.v - center.v) / a) * minor * side1, ((major.u - center.u) / a) * minor * side1];
+  const end = (u: number, v: number) => ctx.pointFor({ u, v } as Snap);
+  const major2 = end(2 * center.u - major.u, 2 * center.v - major.v);
+  const minor1 = end(center.u + nu, center.v + nv);
+  const minor2 = end(center.u - nu, center.v - nv);
+  ctx.s.entities.push({ id: M.nextId(ctx.s), type: "ellipse", center: c, major: m, major2, minor1, minor2, minor });
   ctx.resolve();
 }
 

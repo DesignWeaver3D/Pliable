@@ -12,9 +12,7 @@ Sketch requests (owner, 2026-10-24, third batch), one row each, in this order:
 
 Owner batch (2026-10-24, fourth), one row each, in this order:
 
-- **Ellipse.** "Sketch ellipse needs quadrant points and to be defined by major and minor widths with ability to enter widths during creation." Needs: [ ] quadrant points; [ ] major and minor widths; [ ] typed widths while drawing.
-- **Line across ellipse error.** "I drew lines across an ellipse and received this error: "Malformed sketch: TypeError("Wrong number or type of arguments for overloaded function 'System_addPointOnCircle'. ..." the rest seems cut off and not selectable for copying." Needs: [ ] no error; [ ] long error text selectable and complete.
-- **Coincident to ellipse.** "Sketch coincident constraint tool reports "Coincident does not fit the current selection" when trying to point on edge from a line end point to an ellipse edge." Needs: [ ] point on ellipse works.
+- **Long error text.** "the rest seems cut off and not selectable for copying." Needs: [ ] long error text selectable and complete.
 - **Copy Diagnostics.** "Copy Diagnostics is not keeping a record of error or warning messages. When I click copy diagnostics, not even the most recent error text is shown." Needs: [ ] errors and warnings recorded and copied.
 - **Symmetric about line.** "Symmetric constraint must allow selecting lines, including the sketch axes, as the third selection item (the symmetrical about entity)." Needs: [ ] works with lines and axes as third item.
 - **Origin on top.** "Sketch origin must always be drawn on top and selectable for constraining to." Needs: [ ] drawn on top; [ ] selectable.
@@ -26,6 +24,7 @@ Owner batch (2026-10-24, fourth), one row each, in this order:
 
 Built, unit tested, not hand-checked in the app unless noted. Delete a line once the owner has tested it.
 
+- Ellipse (owner, 2026-10-24): a new ellipse has four axis-end points (quadrant points) as well as the centre; typed sizes are the major and minor widths; the Dimension button on an ellipse offers Major width and Minor width (distances between the opposite ends); a point can be put on an ellipse (Coincident, Point on, or snapping a line end to it), solved with hidden focus points, so the TypeError is gone. Older ellipses without the four ends still take a point on them. Not checked in the app; restart the core first.
 - Prism icon (owner, 2026-10-24): Add prism now shows a square pyramid. Not checked in the app.
 - Project menu and samples (owner, 2026-10-24): the Menu group is Project: New Project (completely empty, "Untitled", the camera looks at the origin), Open Project, Save Project, Open STEP as New Project, Import STEP..., Export STEP, Export mesh...; Model info button removed; the sample list shows "Choose a sample..." so the first sample (bracket) can be chosen at once. I kept Save Project (not in your list) after Open Project. Not checked in the app; restart the core first (new request).
 - Boolean (owner, 2026-10-24): the tool is named Boolean, is offered for two or more bodies or faces on two bodies (a body plus faces of another works), and the form has a Union, Subtract, Intersect list (first selected is the target). Not checked in the app; restart the core first.
