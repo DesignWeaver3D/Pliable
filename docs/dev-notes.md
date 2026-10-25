@@ -38,7 +38,7 @@ Lasting technical notes moved out of `progress.md` so the plan stays short. Read
 - Alternatives measured: `BRepFeat_MakePrism` (no face history), per-face `BRepOffset_MakeOffset` (clean but 2.5 s on the stress model; candidate for stretch).
 - Performance: bracket preview 43 ms; the 410-face perforated plate stays about 1.5 s to mesh (per-face meshing overhead, not triangle count). Tessellation is per-face numpy arrays with power-of-two deflection. A commit on a many-body model costs about 300 ms at 150 bodies (finding each face's owning body 65 ms, OCCT meshing 60 ms, building ids and ranges about 100 ms) and sends the whole mesh to the browser.
 - Body ids after an operation are matched by shape and volume (see the watchlist); the draft-angle dimension assumes a Z pull direction.
-- Prototype preserved at tag `v0.1.0-poc`. Closest open-source competitor is Ductile (Rust, MIT, young); Chili3D is AGPL-3.0 so its code may be reused (`docs/research/landscape.md`).
+- Prototype preserved at tag `v0.1.0`. Closest open-source competitor is Ductile (Rust, MIT, young); Chili3D is AGPL-3.0 so its code may be reused (`docs/research/landscape.md`).
 
 ## How to run
 

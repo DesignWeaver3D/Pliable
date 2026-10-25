@@ -10,7 +10,7 @@ You push, pull, fillet, and reshape solids directly. There's no feature tree or 
 
 ## Where We Are
 
-The original proof of concept (PyQt6 + pythonocc) is preserved as release [v0.1.0-poc](https://github.com/DesignWeaver3D/Pliable/releases/tag/v0.1.0-poc). It proved that face push/pull, fillet/chamfer, and STEP round-tripping work on OpenCASCADE. It wasn't built to scale.
+The original proof of concept (PyQt6 + pythonocc) is preserved as release [v0.1.0](https://github.com/DesignWeaver3D/Pliable/releases/tag/v0.1.0). It proved that face push/pull, fillet/chamfer, and STEP round-tripping work on OpenCASCADE. It wasn't built to scale.
 
 Pliable is now being rebuilt on the architecture below. Geometry logic from the prototype will be carried over where it's useful, but the UI and interaction code are being replaced.
 
@@ -96,7 +96,7 @@ These need investigation before the milestones that depend on them:
 
 ## Future Ideas (unordered)
 
-- User settings (post-MVP): pick radii (vertex/edge hit distance), drag threshold, highlight line widths and point sizes, navigation button mapping, and the modifier-key tool bundles. Pixel-based behavior feels different on high-DPI and large monitors, so these need to be adjustable and ideally scale with the display's pixel density.
+- User settings (later): pick radii (vertex/edge hit distance), drag threshold, highlight line widths and point sizes, navigation button mapping, and the modifier-key tool bundles. Pixel-based behavior feels different on high-DPI and large monitors, so these need to be adjustable and ideally scale with the display's pixel density.
 - Plugin system (Python packages that register new tools)
 - Additional import/export formats
 - Performance pass

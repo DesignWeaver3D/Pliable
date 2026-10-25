@@ -5,7 +5,7 @@
 > ⚠️ **Alpha software. Not for serious work. Data can be lost. The interface and behaviour will change rapidly without notice.**
 > Sketching is incomplete and unsupported; Chrome is the only tested browser. See [known limitations](docs/known-limitations.md). Report problems with the [bug report template](https://github.com/DesignWeaver3D/Pliable/issues/new?template=bug_report.md) (use **Copy diagnostics** in the app). Third-party licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-⚠️ **Status: Being rebuilt. The MVP is feature-complete on the `rebuild` branch; expect rough edges.**
+⚠️ **Status: Being rebuilt. Alpha software on the `rebuild` branch; expect rough edges.**
 
 Pliable lets you shape solid geometry directly: push and pull faces, fillet and chamfer edges, and export to STEP or for 3D printing. There's no feature tree or parametric constraints to manage. It is designed for people who don't want to memorize dozens of keyboard shortcuts: tools appear based on what you've selected, every tool has a visible label and icon, and you can always search for a command by name.
 
@@ -15,9 +15,9 @@ Pliable started as a proof of concept built with PyQt6 and pythonocc:
 
 ![PliableDemo01](https://github.com/user-attachments/assets/d6a42c9b-c637-44f6-a5e1-b62476e6638c)
 
-It proved that face push/pull, fillet/chamfer, and STEP round-tripping work on OpenCASCADE, but it wasn't built to scale. The project is now being rebuilt on a new architecture. The prototype is preserved as release [v0.1.0-poc](https://github.com/DesignWeaver3D/Pliable/releases/tag/v0.1.0-poc).
+It proved that face push/pull, fillet/chamfer, and STEP round-tripping work on OpenCASCADE, but it wasn't built to scale. The project is now being rebuilt on a new architecture. The prototype is preserved as release [v0.1.0](https://github.com/DesignWeaver3D/Pliable/releases/tag/v0.1.0).
 
-`main` now holds the rebuild. The prototype lives on at the `v0.1.0-poc` tag.
+`main` now holds the rebuild. The prototype lives on at the `v0.1.0` tag.
 
 ## Roadmap
 
@@ -66,7 +66,7 @@ Open the page, pick a demo or import a STEP file, and try:
 
 To try the original prototype, check out the release tag and use either Conda or standard Python:
 
-    git checkout v0.1.0-poc
+    git checkout v0.1.0
 
 **Option A: Conda (recommended on Windows/macOS).** This is the most reliable way to install `pythonocc-core`.
 
@@ -89,4 +89,4 @@ To try the original prototype, check out the release tag and use either Conda or
 
 GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later). See [LICENSE](LICENSE).
 
-The v0.1.0-poc prototype release was published under LGPL-2.1.
+The v0.1.0 prototype release was published under LGPL-2.1.
