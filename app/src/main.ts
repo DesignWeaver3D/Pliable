@@ -410,6 +410,10 @@ function setSelection(sels: Sel[]) {
     if (committed === pendingProfile.mesh && !toolPanel.isOpen) void dropPendingProfile(); // clicked away from the picked region: it was only a pick
     else pendingProfile = null; // a tool used it, or the history moved on
   }
+  if (toolPanel.isPrimitiveOpen) { // clicking away from a primitive being created applies it; the click itself is not carried over
+    void toolPanel.apply();
+    return;
+  }
   viewport.pullDirection.reset(); // a chosen push/pull direction belongs to the face it was chosen for
   if (sels.length && pickedRow) pickRow(null); // a body or face was picked: the Delete key leaves the sketch and datum rows
   if (toolPanel.isOpen) toolPanel.close(false); // the selection changed under an open tool form

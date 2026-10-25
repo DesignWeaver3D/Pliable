@@ -40,6 +40,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - When the push/pull arrow handle on a selected face is dragged, it starts the same drag as pressing the face: measure pick (M or right-click), typed value, Shift symmetric and companion faces all work the same.
 - Move and rotate are one tool (Move/Rotate). Rotate and scale pivot about each the current move base point.
 - Primitives are separate bodies by default. Sketch extrude are Join if intersecting a body or separate bodies if no intersection with any body.
+- When a primitive's creation card is open and you click away (empty space or another item), the primitive is applied as a body; the click itself is not carried over.
 - Dimensions are edited in place by double-clicking the text; an edit runs the ordinary tool as one undo step. Impossible edits show the reason in red and change nothing.
 - Warnings show in orange; red is for errors.
 - Dimension values, leaders and arrowheads are off-white, and they and the handle grips sit on a thin, 60% opaque dark outline (approved), so they stay readable over light bodies without looking hard-edged.
