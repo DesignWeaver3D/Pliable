@@ -12,7 +12,6 @@ Sketch requests (owner, 2026-10-24, third batch), one row each, in this order:
 
 Owner batch (2026-10-24, fourth), one row each, in this order:
 
-- **Prism icon.** "Add prism button icon: change to a pyramid." Needs: [ ] pyramid icon.
 - **Ellipse.** "Sketch ellipse needs quadrant points and to be defined by major and minor widths with ability to enter widths during creation." Needs: [ ] quadrant points; [ ] major and minor widths; [ ] typed widths while drawing.
 - **Line across ellipse error.** "I drew lines across an ellipse and received this error: "Malformed sketch: TypeError("Wrong number or type of arguments for overloaded function 'System_addPointOnCircle'. ..." the rest seems cut off and not selectable for copying." Needs: [ ] no error; [ ] long error text selectable and complete.
 - **Coincident to ellipse.** "Sketch coincident constraint tool reports "Coincident does not fit the current selection" when trying to point on edge from a line end point to an ellipse edge." Needs: [ ] point on ellipse works.
@@ -27,6 +26,7 @@ Owner batch (2026-10-24, fourth), one row each, in this order:
 
 Built, unit tested, not hand-checked in the app unless noted. Delete a line once the owner has tested it.
 
+- Prism icon (owner, 2026-10-24): Add prism now shows a square pyramid. Not checked in the app.
 - Project menu and samples (owner, 2026-10-24): the Menu group is Project: New Project (completely empty, "Untitled", the camera looks at the origin), Open Project, Save Project, Open STEP as New Project, Import STEP..., Export STEP, Export mesh...; Model info button removed; the sample list shows "Choose a sample..." so the first sample (bracket) can be chosen at once. I kept Save Project (not in your list) after Open Project. Not checked in the app; restart the core first (new request).
 - Boolean (owner, 2026-10-24): the tool is named Boolean, is offered for two or more bodies or faces on two bodies (a body plus faces of another works), and the form has a Union, Subtract, Intersect list (first selected is the target). Not checked in the app; restart the core first.
 - Sketch batch (owner, 2026-10-24): angle to horizontal axis removed everywhere; three far-apart points (two centres and the origin) now offer Symmetric about the third (the fixed one, else the one nearest the others' middle) instead of Coincident; the smart dimension accepts projected edges together with other geometry or a point; a value too wide for the room between its arrows goes past the far extension line with the line run on to it; two quick taps on a dimension's value or lines open the editor even when the drawing was rebuilt between them; after a solve the shape and dimensions update first and the point colours follow (the core's per-point freedom work was the lag, now a separate request limited to 0.4 s, so the colours of very big sketches may be partly missing). Not checked in the app; restart the core first (new request, new constraint). Leaders already keep text upright; check long decimals on a diameter or radius leader.

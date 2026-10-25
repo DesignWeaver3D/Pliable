@@ -63,7 +63,7 @@ const SOLIDS = {
   add_cylinder: '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12a7 3 0 0 0 14 0V6" fill="currentColor" fill-opacity=".16"/>',
   add_sphere: '<circle cx="12" cy="12" r="8.5" fill="currentColor" fill-opacity=".16"/><ellipse cx="12" cy="12" rx="8.5" ry="3"/>',
   add_cone: '<path d="M12 3l7.5 15a7.5 3 0 0 1-15 0z" fill="currentColor" fill-opacity=".16"/>',
-  add_prism: '<path d="M8 4h8l4.5 8L16 20H8l-4.5-8z" fill="currentColor" fill-opacity=".16"/>',
+  add_prism: '<path d="M12 3L3.5 17 12 21l8.5-4z" fill="currentColor" fill-opacity=".16"/><path d="M12 3v18"/>',
   add_torus: '<ellipse cx="12" cy="12" rx="9" ry="6" fill="currentColor" fill-opacity=".16"/><ellipse cx="12" cy="12" rx="3.5" ry="1.8"/>',
 };
 
