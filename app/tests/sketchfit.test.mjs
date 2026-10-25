@@ -29,3 +29,9 @@ test("fitting everything in a sketch includes where its dimensions reach", async
   assert.equal(dimensionPad(s), 0);
   assert.equal(dimensionPad(dimensioned), 70);
 });
+
+test("a small sketch is fitted at its own size, with no minimum", async () => {
+  const { fitBoxOf } = await import("../src/sketchfit.ts");
+  assert.deepEqual(fitBoxOf([[0, 0, 5], [0.5, 0.2, 5]]), [0, 0, 5, 0.5, 0.2, 5]);
+  assert.deepEqual(fitBoxOf([[1, 1, 0]]), [-4, -4, -5, 6, 6, 5]); // a lone point has no extent: only then is the box widened
+});

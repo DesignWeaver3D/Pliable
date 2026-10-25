@@ -42,3 +42,12 @@ export function fitPointsSelected(s: M.SketchData, selection: M.SketchSel[]): nu
   }
   return uv.length ? uv.map(([u, v]) => M.toWorld(s.plane, u, v)) : null;
 }
+
+/** The box [minx, miny, minz, maxx, maxy, maxz] a sketch fit zooms to: exactly the points' extent. Only a box of no size at all (a lone point) is widened, so there is something to frame; a small sketch is never padded out. */
+export function fitBoxOf(points: number[][]): number[] {
+  const lo = [Infinity, Infinity, Infinity];
+  const hi = [-Infinity, -Infinity, -Infinity];
+  for (const p of points) for (let k = 0; k < 3; k++) (lo[k] = Math.min(lo[k], p[k]), (hi[k] = Math.max(hi[k], p[k])));
+  if (Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) < 1e-9) for (let k = 0; k < 3; k++) (lo[k] -= 5, (hi[k] += 5));
+  return [...lo, ...hi];
+}

@@ -17,6 +17,7 @@ import type { HandleInfo } from "./tools";
 import { onSettingsChange, settings, updateSettings } from "./settings";
 import { parentBodies, similarTo, type SimilarKind } from "./selfilter";
 import { bodyColorArray } from "./bodycolorarray";
+import { fitBoxOf } from "./sketchfit";
 
 /** A "body" selection is a whole solid (every face of the body), chosen from the body list. */
 export type Kind = "face" | "edge" | "vertex" | "body";
@@ -1868,12 +1869,9 @@ export class Viewport {
   /** Pixels at each edge of the view that overlays cover (the top toolbar): the zoom-to-fit buttons fit inside what is left. */
   fitInsets: (() => { top: number; right: number; bottom: number; left: number }) | null = null;
 
-  /** Zoom to the given world points (a minimum size keeps a lone point from zooming in absurdly far), without turning the view. */
+  /** Zoom to the given world points exactly (no minimum size, except for a lone point), without turning the view. */
   private fitPoints(points: number[][]) {
-    const box = new THREE.Box3().setFromPoints(points.map((p) => new THREE.Vector3(...p)));
-    const size = box.getSize(new THREE.Vector3());
-    if (size.length() < 10) box.expandByVector(new THREE.Vector3().setScalar((10 - size.length()) / 2));
-    this.frame([box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z], true, true, this.fitSource?.pad ?? 0);
+    this.frame(fitBoxOf(points), true, true, this.fitSource?.pad ?? 0);
   }
 
   /** Zoom so the whole visible model fills the view, without turning it. */
