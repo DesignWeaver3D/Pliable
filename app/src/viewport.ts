@@ -708,15 +708,44 @@ export class Viewport {
     });
     this.updateFilterBadge();
     this.resize();
+    // A frame that throws must not end the loop (three.js stops calling it after a throw, which left the view blank): each part is guarded.
+    const parts: [string, () => void][] = [
+      ["controls", () => this.controls.update()],
+      ["clipping", () => this.fitClipping()],
+      ["render", () => this.renderer.render(this.scene, this.camera)],
+      ["manipulator", () => this.manipulator.update()],
+      ["pull gizmo", () => this.pullGizmo.update()],
+      ["frame hook", () => this.onFrame()],
+      ["sketch frame hook", () => this.onFrame2?.()],
+    ];
     this.renderer.setAnimationLoop(() => {
-      this.controls.update();
-      this.fitClipping();
-      this.renderer.render(this.scene, this.camera);
-      this.manipulator.update();
-      this.pullGizmo.update();
-      this.onFrame();
-      this.onFrame2?.();
+      for (const [name, part] of parts) {
+        try {
+          part();
+        } catch (e) {
+          this.reportFrameError(name, e);
+        }
+      }
     });
+    const canvas = this.renderer.domElement;
+    canvas.addEventListener("webglcontextlost", (e) => {
+      e.preventDefault(); // lets the browser give the context back
+      this.reportFrameError("WebGL context", new Error("The 3D view lost its graphics context; waiting for it to return"));
+    });
+    canvas.addEventListener("webglcontextrestored", () => this.onFrameError("The 3D view recovered"));
+  }
+
+  /** Called with a message when a part of the frame fails (shown in the status line); the console gets each kind once. */
+  onFrameError: (message: string) => void = () => {};
+  private reportedFrameErrors = new Set<string>();
+
+  private reportFrameError(part: string, e: unknown) {
+    const message = (e as Error)?.message ?? String(e);
+    const key = `${part}: ${message}`;
+    if (this.reportedFrameErrors.has(key)) return; // a failure repeating every frame is reported once
+    this.reportedFrameErrors.add(key);
+    console.error(`Pliable 3D view: ${part} failed (drawing continues):`, e);
+    this.onFrameError(`3D view ${part} failed: ${message}`);
   }
 
   get orthographic(): boolean {

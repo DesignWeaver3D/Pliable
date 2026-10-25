@@ -119,6 +119,7 @@ viewport.onFrame = () => {
     }
   }
 };
+viewport.onFrameError = (message) => showError(new Error(message));
 const loggedErrors = new Set<string>();
 /** Console-log an error once per kind, so a failure repeating every frame does not flood the console. */
 function logOnce(kind: string, e: unknown) {
