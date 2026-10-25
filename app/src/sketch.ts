@@ -30,6 +30,8 @@ import type { Sel, Viewport } from "./viewport";
 
 const DRAG_START_PX = 3;
 const POINT_SIZE_PX = 8;
+const CONSTRUCTION_DASH_PX = 8;
+const CONSTRUCTION_GAP_PX = 5;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
 export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "polygon" | "ellipse" | "spline" | "trim" | "extend" | "split" | "triangle" | "pentagon" | "hexagon" | "octagon";
@@ -147,7 +149,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private undoStack: string[] = [];
   private group = new THREE.Group();
   private normal = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.line, linewidth: 2, depthTest: false, transparent: true }));
-  private construction = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.construction, linewidth: 2, depthTest: false, transparent: true }));
+  private construction = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.construction, linewidth: 2, depthTest: false, transparent: true, dashed: true, dashSize: 1, gapSize: 1 })); // dash lengths are set per frame, in screen pixels
   private placed = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.placed, linewidth: 2, depthTest: false, transparent: true }));
   private marked = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.selected, linewidth: 3, depthTest: false, transparent: true }));
   /** The model's principal axes as they project onto the sketch plane (red x, green y, blue z). */
@@ -190,6 +192,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.group.add(o);
     }
     this.axes.renderOrder = 4; // the sketch axes are drawn over the grid (order 1) and under the sketch shapes (5)
+    this.construction.renderOrder = 4.5; // construction curves are dashed and always under the normal curves (5), over the axes
     this.points.renderOrder = 6; // the points, the origin among them, are drawn over every curve
     // Keys reach onKey through the key router (keyrouter.ts), which applies the shortcut policy first.
     // A right-click (not a right-drag, which orbits) ends the line being drawn and leaves the drawing tool, back to Select.
@@ -1749,6 +1752,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private onFrame() {
     const size = this.viewport.renderer.getSize(new THREE.Vector2());
     for (const l of [this.axes, this.normal, this.placed, this.construction, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
+    const pixel = this.pixelAt(0, 0); // dashes keep their screen size as the view zooms
+    this.construction.material.dashSize = CONSTRUCTION_DASH_PX * pixel;
+    this.construction.material.gapSize = CONSTRUCTION_GAP_PX * pixel;
   }
 
   private world(u: number, v: number): THREE.Vector3 {
@@ -1840,6 +1846,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     // A fresh geometry each time: reusing one whose segment count grows left it drawing only the first segments.
     line.geometry.dispose();
     line.geometry = new LineSegmentsGeometry().setPositions(positions);
+    if (line.material.dashed) line.computeLineDistances();
   }
 
   /** Size tags next to the cursor while a shape is being placed: length and angle, width by height, or radius. */
