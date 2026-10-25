@@ -440,6 +440,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     if (phase !== "move") {
       this.planeBase = null;
       this.showPlaneHandles();
+      void this.refreshProfiles(); // the tinted regions are drawn in model space: they follow the plane
     }
     return true;
   }
