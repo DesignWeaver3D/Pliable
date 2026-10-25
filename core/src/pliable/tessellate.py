@@ -398,6 +398,6 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
         edges=edges,
         vertices=vertices,
         centres=centres,
-        bodies=[{"id": b.id, "name": b.name, "solid": n, "bounds": bounds(solid_shapes[n]), **recipes.info(b)} for n, b in enumerate(owners) if n < len(solid_shapes)],
+        bodies=[{"id": b.id, "name": b.name, "solid": n, "bounds": bounds(solid_shapes[n]), "material": b.material, **recipes.info(b)} for n, b in enumerate(owners) if n < len(solid_shapes)],
         bounds=bounds(shape),
     )

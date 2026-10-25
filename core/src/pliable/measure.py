@@ -300,10 +300,11 @@ def _pair_rows(topology: Topology, a: tuple, b: tuple) -> tuple[list[dict], list
     return rows, dims
 
 
-def measure(topology: Topology, selection: Selection, density: float | None = None) -> dict:
-    """Per-item measurements plus a summary (count and totals, or the pair distance and angle). `density` (kg/m3) gives bodies a mass."""
+def measure(topology: Topology, selection: Selection, density: float | None = None, densities: dict | None = None) -> dict:
+    """Per-item measurements plus a summary (count and totals, or the pair distance and angle). `density` (kg/m3) gives bodies a mass;
+    `densities` (body id -> kg/m3) overrides it for bodies with their own material."""
     items = (
-        [measure_body(topology, i, density) for i in selection.bodies if not (selection.faces or selection.edges or selection.vertices)]  # bodies alongside faces or edges stay unmeasured, as before
+        [measure_body(topology, i, (densities or {}).get(str(i), density)) for i in selection.bodies if not (selection.faces or selection.edges or selection.vertices)]  # bodies alongside faces or edges stay unmeasured, as before
         + [measure_face(topology, i, topology.face(i)) for i in selection.faces]
         + [measure_edge(i, topology.edge(i), topology) for i in selection.edges]
         + [measure_vertex(i, topology.vertex(i)) for i in selection.vertices]

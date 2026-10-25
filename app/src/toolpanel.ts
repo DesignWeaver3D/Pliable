@@ -23,6 +23,8 @@ export interface ToolPanelHost {
   cancelEyedrop(): void;
   /** Let the user click a reference snap in the view; null if cancelled. */
   pickPoint?(options?: PickOptions): Promise<number[] | null>;
+  /** Wait for a click on an edge anywhere on the model and give back a point on it; null if cancelled. */
+  pickEdgePoint?(): Promise<number[] | null>;
   /** Keep a marker at the picked base point (null removes it). */
   showBase?(point: number[] | null): void;
   /** The points of a new shape that can be put at the destination (primitives), for the current values. */
@@ -310,12 +312,12 @@ export class ToolPanel {
       buttons.before(pickBase, pickDest, note);
     }
     const axis = tool.pickAxis;
-    if (axis && axis.length === 4 && this.host.pickPoint) {
+    if (axis && axis.length === 4 && (this.host.pickEdgePoint || this.host.pickPoint)) {
       const pickAxis = document.createElement("button");
       pickAxis.textContent = "Pick axis";
-      pickAxis.title = "Click a vertex, edge, face centre, hole centre, axis or the origin: the face pivots about the plane through that point (the default is the face's own centroid)";
+      pickAxis.title = "Click an edge anywhere on the model (the face's own edge or another): the face pivots about the plane through that edge, square to the pull direction (the default is the face's own centroid)";
       pickAxis.addEventListener("click", async () => {
-        const point = await this.host.pickPoint!();
+        const point = await (this.host.pickEdgePoint ?? this.host.pickPoint)!();
         if (!point || this.open !== tool) return;
         axis.slice(0, 3).forEach((name, i) => (inputs[name].value = String(parseFloat(point[i].toFixed(4)))));
         inputs[axis[3]].value = "1"; // the choice list: picked point

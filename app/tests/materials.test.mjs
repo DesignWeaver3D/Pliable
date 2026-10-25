@@ -52,3 +52,9 @@ test("lustre order: silver and gold are the smoothest, titanium the dullest", ()
   assert.ok(rough("petg") < rough("abs") && rough("abs") <= rough("asa"));
   assert.ok(rough("resin-standard") < rough("petg"));
 });
+
+test("the default material is PLA and bodies with their own material get their own density", async () => {
+  assert.equal(defaultMaterial().id, "pla");
+  const { ownDensities } = await import("../src/materials.ts");
+  assert.deepEqual(ownDensities([{ id: 1 }, { id: 2, material: "steel" }, { id: 3, material: null }, { id: 4, material: "unknown" }]), { 2: 7850 });
+});

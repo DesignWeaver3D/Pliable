@@ -16,11 +16,12 @@ import { DimensionEditor, withoutDraftTag } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
 import { deleteAction, isTyping, type RowRef } from "./listdelete";
 import { resolvePick } from "./pulldir";
+import { edgeMiddle } from "./edgepick";
 import { DatumPlanes } from "./datumplanes";
 import type { DatumPlane, MirrorMode } from "./datumcorners";
 import { LatestWins } from "./latestwins";
 import { LENGTH_UNIT } from "./units";
-import { materialOrDefault } from "./materials";
+import { materialOrDefault, ownDensities } from "./materials";
 import { SETTING_ENTRIES, createSettingsWindow, onSettingsChange, openSettings, setHintsBinding, setKeysOpener, settingValue, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
@@ -460,7 +461,7 @@ function setSelection(sels: Sel[]) {
     renderSketchBar();
   });
   core
-    .request<MeasureReply>("measure", { selection: selectionPayload(sels), density: materialOrDefault(settings.material).density }) // the density gives a selected body its mass
+    .request<MeasureReply>("measure", { selection: selectionPayload(sels), density: materialOrDefault(settings.material).density, densities: ownDensities(committed ? bodiesOf(committed) : []) }) // the density gives a selected body its mass
     .then((reply) => {
       // Not while a drag is live (the panel is hidden then); never on a stale dragSels left by a drag that failed to end.
       if (currentSels === sels && !viewport.dragging) {
@@ -1421,6 +1422,28 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
           status.textContent = (e as Error).message;
           resolve(null);
         }
+      };
+    });
+  },
+  pickEdgePoint() {
+    return new Promise((resolve) => {
+      cancelEyedrop();
+      if (committed) show(committed); // pick against the committed model, whose edges the core knows
+      status.classList.remove("error");
+      status.textContent = "Pick the edge the face pivots about (any edge of the model; Esc cancels)";
+      eyedropResolve = () => resolve(null);
+      viewport.eyedropper = (sel) => {
+        const data = committed;
+        const point = sel.kind === "edge" && data ? edgeMiddle(data.edges, data.edgePositions, sel.id) : null;
+        if (!point) {
+          status.textContent = "Pick an edge (Esc cancels)";
+          status.classList.add("error");
+          return; // stays armed
+        }
+        viewport.eyedropper = null;
+        eyedropResolve = null;
+        status.textContent = "Pivot edge picked";
+        resolve(point);
       };
     });
   },
