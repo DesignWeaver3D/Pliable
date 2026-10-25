@@ -7,7 +7,7 @@ from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer
 from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
 
 from pliable.ops import planar_normal
-from pliable.shared.edge_frame import frame_axes, ring_axes, snap_angles
+from pliable.shared.edge_frame import base_frame, snap_angles, turned_axes
 from pliable.tools import Selection, get_tool
 from pliable.topology import Topology
 from test_features import volume
@@ -40,22 +40,26 @@ def _chamfer_top_edge(topology):
 
 
 def test_the_gizmo_starts_square_to_the_global_axes():
-    assert frame_axes((0, 0, 0)) == [(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)]
-    assert ring_axes((0, 0, 0)) == [(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)]
+    assert base_frame((1, 0, 0)) == ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+    t, u, v = base_frame((0, 0, -1))  # the edge's sign does not matter
+    assert (t, u, v) == ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
+    _, u, v = turned_axes((1, 0, 0), 90)
+    assert u == pytest.approx((0, 0, 1), abs=1e-9) and v == pytest.approx((0, -1, 0), abs=1e-9)
 
 
 def test_a_ring_snaps_to_the_chamfer_beside_the_edge():
     topology = _chamfered_box()
     edge = _chamfer_top_edge(topology)
     handles = get_tool("move_body").handles(topology, Selection(edges=[edge]), {"dx": 0, "dy": 0, "dz": 0, "rx": 0, "ry": 0, "rz": 0})
-    rings = {h.param: h for h in handles if h.param.startswith("r")}
-    assert any(abs(abs(a) - 45) < 1e-3 for a in rings["rx"].snaps)  # about the edge: z lines up with the 45 degree face's normal
-    assert any(abs(a - 90) < 1e-3 for a in rings["rx"].snaps)
+    assert [h.param for h in handles] == ["dy", "dz", "rx"]  # two arrows square to the edge and the one arc; nothing along the edge
+    snaps = handles[2].snaps
+    assert handles[2].arc and any(abs(abs(a) - 45) < 1e-3 for a in snaps)  # an arrow lines up with the 45 degree face's normal
+    assert any(abs(a - 90) < 1e-3 for a in snaps) and 0.0 in snaps
 
 
-def test_snap_angles_find_an_axis_square_to_a_target():
-    snaps = snap_angles((0, 0, 0), 0, [(0.0, -math.sqrt(0.5), math.sqrt(0.5))])
-    assert any(abs(a - 45) < 1e-6 for a in snaps)
+def test_snap_angles_find_an_arrow_square_to_a_normal():
+    snaps = snap_angles((1, 0, 0), [(0.0, -math.sqrt(0.5), math.sqrt(0.5))])
+    assert any(abs(a - 135) < 1e-6 for a in snaps) and any(abs(a - 45) < 1e-6 for a in snaps)
 
 
 def test_moving_the_chamfer_edge_along_the_turned_gizmo_refits_the_faces():

@@ -1,4 +1,6 @@
-"""Move/Rotate on edges: the gizmo, its snaps and the edge move."""
+"""Move/Rotate on edges: the gizmo (two arrows square to the edge and one turn arc, with snaps square to the faces beside it) and the edge move.
+
+In edge mode dx, dy and dz are distances along the gizmo's X (the edge itself), Y and Z, and rx turns the gizmo about the edge; ry and rz are not used."""
 
 import math
 
@@ -11,7 +13,7 @@ from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as S
 from OCP.gp import gp_Vec
 
 from ..ops import MIN_DISTANCE, OperationError, OpResult, planar_normal, solids_of
-from ..shared.edge_frame import frame_axes, ring_axes, rotate_vector, snap_angles
+from ..shared.edge_frame import base_frame, snap_angles, turned_axes
 from ..shared.solids import finish
 from ..tools import Handle
 from .stretch import REFUSED, _shapes, _straight, shift_vertices
@@ -29,52 +31,46 @@ def _edge_line(edge):
     return (mid.X(), mid.Y(), mid.Z()), ((along.X() / length, along.Y() / length, along.Z() / length) if length > 1e-12 else (1.0, 0.0, 0.0)), length
 
 
-def _snap_targets(topology, edges) -> list:
-    """The directions the gizmo can line up with: the global axes, and for each flat face beside the edges its normal and the line across
-    it from the edge."""
-    targets = list(GIZMO_AXES)
+def _normals(topology, edges) -> list:
+    """The unit normals of the flat faces beside the edges."""
+    out = []
     for edge in edges:
-        _, t, _ = _edge_line(edge)
-        targets.append(t)
         for face in topology.edge_faces(edge):
             n = planar_normal(face)
-            if n is None:
-                continue
-            normal = (n.X(), n.Y(), n.Z())
-            across = (normal[1] * t[2] - normal[2] * t[1], normal[2] * t[0] - normal[0] * t[2], normal[0] * t[1] - normal[1] * t[0])
-            targets += [normal, across]
-    return targets
+            if n is not None:
+                out.append((n.X(), n.Y(), n.Z()))
+    return out
 
 
 def edge_handles(topology, selection, values) -> list:
-    """The gizmo for moving edges: arrows along the gizmo's axes at the middle of the edges, and one turn ring per gizmo angle (rx, ry, rz)."""
+    """The gizmo for moving edges: two arrows square to the first edge (and each other) at the middle of the edges, and one turn arc between them
+    that swings them about the edge (rx)."""
     edges = _edges(topology, selection)
     lines = [_edge_line(e) for e in edges]
-    angles = (values["rx"], values["ry"], values["rz"])
-    shift = rotate_vector(angles, (values["dx"], values["dy"], values["dz"]))
+    t, u, v = turned_axes(lines[0][1], values["rx"])
+    shift = _shift(lines[0][1], values)
     here = tuple(sum(line[0][k] for line in lines) / len(lines) + shift[k] for k in range(3))
-    out = [
-        Handle(name, f"Move along gizmo {label}", here, axis, kind="move")
-        for (name, label), axis in zip((("dx", "X"), ("dy", "Y"), ("dz", "Z")), frame_axes(angles))
-    ]
+    out = [Handle("dy", "Move along gizmo Y", here, u, kind="move"), Handle("dz", "Move along gizmo Z", here, v, kind="move")]
+    _, u0, v0 = base_frame(lines[0][1])
+    theta = math.radians(45 + values["rx"])  # the arc sits between the arrows, centred 45 degrees round from the first
+    radial = tuple(math.cos(theta) * u0[k] + math.sin(theta) * v0[k] for k in range(3))
+    tangent = tuple(-math.sin(theta) * u0[k] + math.cos(theta) * v0[k] for k in range(3))
     radius = max(max(line[2] for line in lines) * 0.6, 8.0)
-    targets = _snap_targets(topology, edges)
-    for i, (name, axis) in enumerate(zip(("rx", "ry", "rz"), ring_axes(angles))):
-        seed = (1.0, 0.0, 0.0) if abs(axis[0]) < 0.9 else (0.0, 1.0, 0.0)
-        b1 = _unit(_cross(axis, seed))
-        b2 = _cross(axis, b1)  # axis x b1: with b1 these turn right-handed about the axis
-        theta = math.radians(45 + values[name])
-        radial = tuple(math.cos(theta) * b1[k] + math.sin(theta) * b2[k] for k in range(3))
-        tangent = tuple(-math.sin(theta) * b1[k] + math.cos(theta) * b2[k] for k in range(3))
-        anchor = tuple(here[k] + radius * radial[k] for k in range(3))
-        out.append(Handle(name, f"Turn gizmo about {'XYZ'[i]}", anchor, tangent, scale=math.degrees(1 / radius), unit="°", axis=axis, ring=(*here, radius), snaps=tuple(snap_angles(angles, i, targets)), arc=True))
+    anchor = tuple(here[k] + radius * radial[k] for k in range(3))
+    out.append(Handle("rx", "Turn gizmo about the edge", anchor, tangent, scale=math.degrees(1 / radius), unit="°", axis=t, ring=(*here, radius), snaps=tuple(snap_angles(lines[0][1], _normals(topology, edges))), arc=True))
     return out
+
+
+def _shift(direction, values) -> tuple:
+    """The world offset of the edge: dx along it, dy and dz along the two cross axes of the gizmo (turned by rx)."""
+    t, u, v = turned_axes(direction, values["rx"])
+    return tuple(values["dx"] * t[k] + values["dy"] * u[k] + values["dz"] * v[k] for k in range(3))
 
 
 def edge_run(topology, selection, values) -> OpResult:
     """Move the selected edges by (dx, dy, dz) along the gizmo turned by rx, ry, rz degrees, re-fitting the faces beside them."""
     edges = _edges(topology, selection)
-    offset = gp_Vec(*rotate_vector((values["rx"], values["ry"], values["rz"]), (values["dx"], values["dy"], values["dz"])))
+    offset = gp_Vec(*_shift(_edge_line(edges[0])[1], values))
     if offset.Magnitude() < MIN_DISTANCE:
         return OpResult(topology.shape, [])
     solids = solids_of(topology.shape)
@@ -136,11 +132,3 @@ def _edges(topology, selection):
         raise OperationError("Moving edges needs straight edges")
     return edges
 
-
-def _cross(a, b):
-    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
-
-
-def _unit(v):
-    length = math.sqrt(sum(c * c for c in v))
-    return tuple(c / length for c in v)
