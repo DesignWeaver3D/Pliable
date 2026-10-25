@@ -1232,3 +1232,25 @@ def test_a_centre_rectangle_centre_point_stays_in_the_middle():
     assert result["status"] == "ok"
     at = coords(result)
     assert at[9] == pytest.approx(((at[1][0] + at[3][0]) / 2, (at[1][1] + at[3][1]) / 2), abs=1e-6)
+
+
+def test_projected_ellipse_edge_stays_a_true_ellipse():
+    from build123d import Axis, Edge
+
+    part = Edge.make_ellipse(8, 4).rotate(Axis.X, 40).rotate(Axis.Z, 25)
+    plane = sketch.STANDARD_PLANES["XY"]
+    ref = sketch.face_reference(part.wrapped, plane, project=True)
+    ellipses = [e for e in ref["entities"] if e["type"] == "ellipse"]
+    assert len(ellipses) == 1 and not [e for e in ref["entities"] if e["type"] == "spline"]
+    pts = {p["id"]: p for p in ref["points"]}
+    e = ellipses[0]
+    c, m = pts[e["center"]], pts[e["major"]]
+    a = math.dist((c["u"], c["v"]), (m["u"], m["v"]))
+    ux, uy = (m["u"] - c["u"]) / a, (m["v"] - c["v"]) / a
+    # every sampled point of the real curve lies on the flattened ellipse
+    for i in range(0, 360, 15):
+        p = part.position_at(i / 360)
+        du, dv = p.X - c["u"], p.Y - c["v"]
+        along, across = du * ux + dv * uy, -du * uy + dv * ux
+        assert (along / a) ** 2 + (across / e["minor"]) ** 2 == pytest.approx(1, abs=1e-6)
+    assert a >= e["minor"]

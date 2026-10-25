@@ -145,7 +145,8 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
     and edge-on circles become points or segments; a circle seen at an angle becomes an ellipse and other
     curves (tilted arcs, B-splines) become splines through sample points."""
     from OCP.BRepAdaptor import BRepAdaptor_Curve
-    from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Line
+    from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Ellipse, GeomAbs_Line
+    from .projectellipse import ellipse_vectors, flattened_ellipse
     from OCP.BRep import BRep_Tool
     from OCP.TopAbs import TopAbs_EDGE, TopAbs_VERTEX
     from OCP.TopExp import TopExp_Explorer
@@ -195,6 +196,22 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
             return False
         add({"type": "spline", "points": ids, **({"closed": True} if closed else {})})
         drawn["splines"] += 1
+        return True
+
+    def ellipse_edge(curve) -> bool:
+        """Add the flattened true ellipse of a whole ellipse edge; False if it is seen edge-on."""
+        ellipse = curve.Ellipse()
+        major_vec, minor_vec = ellipse_vectors(ellipse)
+        c = ellipse.Location()
+        flat = flattened_ellipse((0.0, 0.0), major_vec, minor_vec, x, y)
+        if flat is None:
+            return False
+        _, _, mu, mv, minor = flat
+        cu, cv = uv(c)
+        centre_id = point(c)
+        tip = gp_Pnt(*(origin[i] + (cu + mu) * x[i] + (cv + mv) * y[i] for i in range(3)))
+        add({"type": "ellipse", "center": centre_id, "major": point(tip), "minor": minor})
+        drawn["ellipses"] += 1
         return True
 
     explorer = TopExp_Explorer(face_shape, TopAbs_EDGE)
@@ -250,6 +267,8 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
                 if turn < 0:  # the edge runs clockwise in the sketch: swap so the arc is counterclockwise
                     start, end = end, start
                 add({"type": "arc", "center": centre, "start": point(start), "end": point(end)})
+        elif project and curve.GetType() == GeomAbs_Ellipse and abs((last - first) - 2 * math.pi) < 1e-6 and ellipse_edge(curve):
+            pass  # a whole ellipse edge stays an ellipse
         elif project and spline(curve, first, last, 33):  # any other curve is sampled into a spline
             pass
         else:
