@@ -20,7 +20,8 @@ export interface BuilderContext {
   resolve(drag?: Drag): Promise<boolean>;
   /** The id of an existing or new point for a clicked position. */
   pointFor(snap: Snap): number;
-  addConstraintRaw(c: Omit<M.SketchConstraint, "id">, kind?: "snap" | "shape"): void;
+  /** "always" constraints are added whatever the automatic-constraints option says (the centre rectangle's centre point). */
+  addConstraintRaw(c: Omit<M.SketchConstraint, "id">, kind?: "snap" | "shape" | "always"): void;
   status(text: string, error?: boolean | "warn"): void;
 }
 
@@ -57,6 +58,7 @@ export function addRectangle(ctx: BuilderContext, a: Snap, b: Snap, centred = fa
     const p = corners.map((c) => ctx.pointFor(c));
     const ids = p.map((_, k) => addLineBetween(ctx, p[k], p[(k + 1) % 4]));
     ids.forEach((id, k) => ctx.addConstraintRaw({ type: k % 2 === 0 ? "horizontal" : "vertical", entity: id }));
+    if (centred) addCentrePoint(ctx, a, p[0], p[2]);
     ctx.resolve();
     return;
   }
@@ -86,7 +88,28 @@ export function addRectangle(ctx: BuilderContext, a: Snap, b: Snap, centred = fa
     ctx.addConstraintRaw({ type: "tangent", entities: [arc, sides[k]] });
     ctx.addConstraintRaw({ type: "tangent", entities: [arc, sides[(k + 1) % 4]] });
   }
+  if (centred) addCentrePoint(ctx, a, pts[0][0], pts[2][0]);
   ctx.resolve();
+}
+
+/**
+ * The centre of a rectangle drawn from its centre is a point of its own, held halfway between two opposite corners (symmetric about it).
+ * If it was clicked on a point it is that point; if on a curve or a sketch axis it is also made coincident with it. These constraints are
+ * always made, whatever the automatic-constraints option says (owner, 2026-10-25).
+ */
+function addCentrePoint(ctx: BuilderContext, centre: Snap, cornerA: number, cornerB: number) {
+  const clickedOnPoint = centre.id !== undefined;
+  const id = ctx.pointFor(centre);
+  const has = (type: string) => ctx.s.constraints.some((c) => c.type === type && c.point === id);
+  if (!clickedOnPoint) {
+    if (centre.on) {
+      if (!has(centre.on.midpoint ? "midpoint" : "point_on")) ctx.addConstraintRaw(centre.on.midpoint ? { type: "midpoint", point: id, entity: centre.on.entity } : { type: "point_on", point: id, entity: centre.on.entity }, "always");
+    } else {
+      const axis = M.sketchAxes(ctx.s.plane).findIndex((x) => Math.abs((centre.u - x.u) * -x.dv + (centre.v - x.v) * x.du) < 1e-9);
+      if (axis >= 0) ctx.addConstraintRaw({ type: "point_on", point: id, entity: axis === 0 ? M.AXIS_U : M.AXIS_V }, "always");
+    }
+  }
+  ctx.addConstraintRaw({ type: "symmetric_point", points: [cornerA, cornerB], point: id }, "always");
 }
 
 export function addLineBetween(ctx: BuilderContext, a: number, b: number): number {

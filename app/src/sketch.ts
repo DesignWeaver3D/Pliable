@@ -974,8 +974,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   }
 
   /** A constraint a drawing tool adds on its own: "snap" ones follow from where you clicked, "shape" ones keep a rectangle, polygon or slot its shape. Whether either is added is the sketch option `auto`. */
-  addConstraintRaw(c: Omit<M.SketchConstraint, "id">, kind: "snap" | "shape" = "shape") {
-    if (this.options.auto === "none" || (this.options.auto === "snaps" && kind === "shape")) return;
+  addConstraintRaw(c: Omit<M.SketchConstraint, "id">, kind: "snap" | "shape" | "always" = "shape") {
+    if (kind !== "always" && (this.options.auto === "none" || (this.options.auto === "snaps" && kind === "shape"))) return;
     this.s.constraints.push({ id: M.nextId(this.s), ...c, auto: true }); // every caller is a drawing tool, not the user
   }
 

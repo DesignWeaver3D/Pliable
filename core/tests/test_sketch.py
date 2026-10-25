@@ -1220,3 +1220,15 @@ def test_gap_between_concentric_circles():
     result = sketch.solve(sketch_of(points, circles, [{"id": 1, "type": "round_gap", "entities": [10, 11], "value": 4}, *sizes]))
     assert result["status"] == "ok"
     assert result["radii"][11] == pytest.approx(7, abs=1e-5)
+
+
+def test_a_centre_rectangle_centre_point_stays_in_the_middle():
+    """What the centre rectangle tool makes: the shape's four constraints and a centre point symmetric about two opposite corners."""
+    points, lines = rectangle()
+    points.append({"id": 9, "u": 5, "v": 5})  # clicked off-centre, the solver puts it back
+    constraints = [{"type": "horizontal", "entity": 101}, {"type": "vertical", "entity": 102}, {"type": "horizontal", "entity": 103}, {"type": "vertical", "entity": 104},
+                   {"type": "symmetric_point", "points": [1, 3], "point": 9}, {"type": "fixed", "point": 9}]
+    result = sketch.solve(sketch_of(points, lines, constraints))
+    assert result["status"] == "ok"
+    at = coords(result)
+    assert at[9] == pytest.approx(((at[1][0] + at[3][0]) / 2, (at[1][1] + at[3][1]) / 2), abs=1e-6)
