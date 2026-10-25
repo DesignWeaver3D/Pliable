@@ -4,7 +4,7 @@ Open work only, for the rebuild in [ROADMAP.md](../ROADMAP.md). Read this first 
 
 New rows quote the owner's request in their own words, then list what it needs as a checklist. A row is deleted only when every checklist item is verified against the quote.
 
-State (2026-10-24): `dev` is many local commits ahead of `origin/dev`, nothing pushed. Run the tests first (`uv run pytest` in `core/`, `npm test`, `npx tsc --noEmit`, `npm run build` in `app/`). The owner's core on 8770 needs a restart (core files changed). Owner decisions in force: first alpha release deferred (no tag); sketch automatic constraints off by default; grid off by default; sketch geometry stays separate from the model (Finish sketch adds no faces); kept sketches persist (see `decisions-log.md`). Do not invent work; ask the owner for hand-test results or new requests.
+State (2026-10-24): `dev` is many local commits ahead of `origin/dev`, nothing pushed. Run the tests first (`uv run pytest` in `core/`, `npm test`, `npx tsc --noEmit`, `npm run build` in `app/`). The owner's core on 8770 needs a restart (core files changed). Owner decisions in force: first alpha release deferred (no tag); sketch automatic constraints on by default (owner, 2026-10-25); grid off by default; sketch geometry stays separate from the model (Finish sketch adds no faces); kept sketches persist (see `decisions-log.md`). Do not invent work; ask the owner for hand-test results or new requests.
 
 ## Planned (not started; discuss before coding)
 
@@ -44,8 +44,6 @@ Owner batch (2026-10-25), one row each, in this order:
   - [ ] A rectangle drawn by center creates a construction point at the center, symmetric-constrained about two opposing corners.
   - [ ] If the center is clicked on a line, axis or point, the center point gets a coincident constraint to it.
   - [ ] Owner decision (2026-10-25): these two constraints are always made for this tool, whatever the automatic-constraints setting. Read the rectangle entries in `docs/behavior.md` first.
-- **Automatic sketch constraints on by default.** Owner (2026-10-25): "we will change the default to on for automatic constraints which has been working well in my latest testing."
-  - [ ] The automatic-constraints setting defaults to on for new users and projects (replaces the earlier owner decision "off by default"); update `docs/behavior.md`, the State line above and the decisions log.
 - **Zoom all in a sketch (bug).** Owner: "Zoom all while in sketch editing appears to have some arbitrary minimum zoom level and is not zooming appropriately to the sketch geometry."
   - [ ] Zoom all while editing a sketch frames the sketch geometry (fits it to the view) with no arbitrary minimum zoom level.
   - [ ] Check the zoom-all entries in `docs/behavior.md` first; add a test for the fit calculation if it can run without a browser.
