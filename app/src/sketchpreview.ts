@@ -6,6 +6,7 @@ import * as M from "./sketchmodel.ts";
 import * as Sh from "./sketchshapes.ts";
 import type { Snap, Tool } from "./sketch.ts";
 import { typedLabels, typedTag } from "./sketchtyped.ts";
+import { typedDimensions, typedPoint } from "./sketchtypeddims.ts";
 
 export interface PreviewContext {
   s: M.SketchData;
@@ -26,7 +27,11 @@ export function liveDimensions(ctx: PreviewContext): Dimension[] {
   const tag = (u: number, v: number, text: string): Dimension[] => [{ kind: "tag", text, points: [M.toWorld(ctx.s.plane, u, v)], mark: true }];
   const du = c.u - a.u;
   const dv = c.v - a.v;
-  if (ctx.typed) return tag((a.u + c.u) / 2, (a.v + c.v) / 2, typedTag(typedLabels(ctx.tool, ctx.chain.length, !!ctx.sidesOf(ctx.tool)), ctx.typed));
+  if (ctx.typed) {
+    // Typed sizes are drawn as real dimensions (extension lines, dimension lines, leaders) holding the typed values; the labelled tag is the fallback.
+    const drawn = typedDimensions(ctx);
+    return drawn.length ? drawn : tag((a.u + c.u) / 2, (a.v + c.v) / 2, typedTag(typedLabels(ctx.tool, ctx.chain.length, !!ctx.sidesOf(ctx.tool)), ctx.typed));
+  }
   if (ctx.tool === "line") return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `${n(Math.hypot(du, dv))} at ${n((Math.atan2(dv, du) * 180) / Math.PI)}°`);
   if (ctx.tool === "rectangle") return tag((a.u + c.u) / 2, c.v, `${n(Math.abs(du))} × ${n(Math.abs(dv))}`);
   if (ctx.tool === "rectcentre") return tag(a.u, c.v, `${n(Math.abs(du) * 2)} × ${n(Math.abs(dv) * 2)}`);
@@ -36,7 +41,10 @@ export function liveDimensions(ctx: PreviewContext): Dimension[] {
 
 /** Rubber-band shapes for the drawing in progress. */
 export function pendingShapes(ctx: PreviewContext): [number, number][][] {
-  return [...pendingBase(ctx), ...(ctx.cursor?.guides ?? [])];
+  // While sizes are typed the outline follows them, not the pointer.
+  const typed = ctx.typed ? typedPoint(ctx) : null;
+  const shown: PreviewContext = typed ? Object.assign(Object.create(ctx), { cursor: { ...ctx.cursor, ...typed } }) : ctx;
+  return [...pendingBase(shown), ...(ctx.cursor?.guides ?? [])];
 }
 function pendingBase(ctx: PreviewContext): [number, number][][] {
   const c = ctx.cursor;
