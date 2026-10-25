@@ -8,6 +8,8 @@ State (2026-10-24): `dev` is many local commits ahead of `origin/dev`, nothing p
 
 ## Planned (not started; discuss before coding)
 
+- Split `app/src/manipulator.ts` (762 lines): move arrows, grid grips and the turn arcs (drawing, hit test, snap ticks) are separate jobs; the turn arcs could move to their own file. Raised after the edge gizmo work; no owner request yet.
+
 Sketch requests (owner, 2026-10-24, third batch), one row each, in this order:
 
 Owner batch (2026-10-24, fourth), one row each, in this order:
