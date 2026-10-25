@@ -114,7 +114,7 @@ def measure_edge(edge_id: int, edge, topology: Topology | None = None) -> dict:
         first = curve.Value(curve.FirstParameter())
         if full:
             far = circle.Location().Translated(gp_Vec(first, circle.Location()))
-            dims.append(_dim("diameter", "⌀" + _fmt(2 * circle.Radius()), [first, far]))
+            dims.append(_dim("diameter", "Ø" + _fmt(2 * circle.Radius()), [first, far]))
         else:
             dims.append(_dim("radius", "R" + _fmt(circle.Radius()), [circle.Location(), curve.Value((curve.FirstParameter() + curve.LastParameter()) / 2)]))
         if not full:
@@ -189,7 +189,7 @@ def _cylinder_dims(surface, cylinder, fillet: bool, u0, u1, v0, v1) -> list[dict
     first, opposite = at(u0, v0), at(u0 + math.pi, v0)
     outward = gp_Vec(opposite, first).Normalized()  # away from the axis, on the side of `first`
     return [
-        _dim("diameter", "⌀" + _fmt(2 * radius), [first, opposite]),
+        _dim("diameter", "Ø" + _fmt(2 * radius), [first, opposite]),
         _dim("linear", _fmt(v1 - v0), [first, at(u0, v1)], [outward.X(), outward.Y(), outward.Z()]),
     ]
 

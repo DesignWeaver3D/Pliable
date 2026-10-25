@@ -260,7 +260,7 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
         way = ways.find((w) => !outside.inside(...toPlane(s.plane, center.map((x, k) => x + w[k] * (r + outside.probe))))) ?? f.x;
       }
       const rim = entity.type === "circle" ? [0, 1, 2].map((k) => center[k] + r * way[k]) : world(entity.start);
-      const leader: Dimension = c.type === "radius" ? { kind: "radius", text: `R${text}`, points: [center, rim] } : { kind: "diameter", text: `⌀${text}`, points: [[0, 1, 2].map((k) => 2 * center[k] - rim[k]), rim] };
+      const leader: Dimension = c.type === "radius" ? { kind: "radius", text: `R${text}`, points: [center, rim] } : { kind: "diameter", text: `Ø${text}`, points: [[0, 1, 2].map((k) => 2 * center[k] - rim[k]), rim] };
       if (c.place) leader.labelAt = toWorld(s.plane, c.place[0], c.place[1]);
       out.push(leader);
     }

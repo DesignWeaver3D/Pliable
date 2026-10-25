@@ -57,7 +57,7 @@ export function typedDimensions(ctx: PreviewContext): Dimension[] {
     linear(1, { u: target.u, v: corner.v }, target, [sideU, 0]);
   } else if (ctx.tool === "circle") {
     // The typed number is the diameter: the line runs across the circle and the leader leaves from its far end.
-    out.push({ kind: "diameter", text: shown(0, 2 * Math.hypot(target.u - first.u, target.v - first.v), "⌀"), points: [world({ u: 2 * first.u - target.u, v: 2 * first.v - target.v }), world(target)], selected: 0 === active });
+    out.push({ kind: "diameter", text: shown(0, 2 * Math.hypot(target.u - first.u, target.v - first.v), "Ø"), points: [world({ u: 2 * first.u - target.u, v: 2 * first.v - target.v }), world(target)], selected: 0 === active });
   } else if (ctx.sidesOf(ctx.tool)) {
     radius(0, first, target);
   } else if (ctx.tool === "line") {

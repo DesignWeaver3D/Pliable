@@ -122,7 +122,7 @@ def test_line_edge_dimension_is_offset_away_from_part(block):
 def test_hole_wall_shows_diameter_and_depth(bracket):
     (wall,) = find(bracket, "face", title="Cylinder", Radius=7)
     texts = {d["kind"]: d["text"] for d in dims(measure(bracket, Selection(faces=[wall])))}
-    assert texts == {"diameter": "⌀14", "linear": "10"}
+    assert texts == {"diameter": "Ø14", "linear": "10"}
 
 
 def test_circle_rim_diameter_points_are_opposite(bracket):
