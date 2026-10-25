@@ -8,7 +8,8 @@ export function typedLabels(tool: Tool, chainLength: number, polygon: boolean): 
   const first = chainLength === 1;
   const second = chainLength === 2;
   if (tool === "line") return chainLength >= 1 ? ["length"] : [];
-  if (tool === "circle" || polygon) return first ? ["radius"] : [];
+  if (tool === "circle") return first ? ["diameter"] : [];
+  if (polygon) return first ? ["radius"] : [];
   if (tool === "rectangle" || tool === "rectcentre") return first ? ["width", "height"] : [];
   if (tool === "slot") return first ? ["length", "width"] : second ? ["width"] : [];
   if (tool === "ellipse") return first ? ["long radius", "short radius"] : second ? ["short radius"] : [];
@@ -85,5 +86,6 @@ export function typedTargets(tool: Tool, chain: UV[], cursor: UV | null, numbers
     const start = along(first, w);
     return h === undefined ? [start] : [start, turned(first, start, h)];
   }
+  if (tool === "circle") return [along(last, w / 2)]; // the typed number is the diameter
   return [along(last, w)];
 }

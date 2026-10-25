@@ -68,3 +68,9 @@ test("the typed tag names each number and marks the one being typed", () => {
   assert.equal(typedTag(["long radius", "short radius"], "8 "), "Long radius 8   Short radius |");
   assert.equal(typedTag([], "4"), "4|");
 });
+
+test("a circle takes its diameter, a polygon its radius", () => {
+  assert.deepEqual(typedLabels("circle", 1, false), ["diameter"]);
+  const [rim] = typedTargets("circle", [{ u: 0, v: 0 }], { u: 3, v: 0 }, [10]);
+  assert.ok(Math.abs(rim.u - 5) < 1e-9 && Math.abs(rim.v) < 1e-9);
+});

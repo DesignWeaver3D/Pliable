@@ -141,6 +141,10 @@ class _Solver:
                 h = s.addCurvesTangent(self._arc_end_near(ids[0], ids[1]), self._arc_end_near(ids[1], ids[0]), ha, hb, wp, g)
             else:
                 raise SketchError("Tangent needs a circle or arc with a line, circle or arc")
+        elif kind == "round_gap":
+            for h in self._round_gap(c["entities"][0], c["entities"][1], float(value)):
+                self.failed_ids[h] = c.get("id")
+            return
         elif kind == "distance":
             if "entity" in c:
                 line = self.sketch_line(c["entity"])
@@ -260,6 +264,31 @@ class _Solver:
             handles.append(s.addPointOnCircle(touch, self.entities[id_b][1], g))
             handles.append(s.addPointOnLine(touch, through, wp, g))
         return handles
+
+    def _round_gap(self, id_a: int, id_b: int, gap: float):
+        """The spacing between two circles or arcs (the shortest way across the space between them): a hidden point on each,
+        both on the line through the centres, and the distance between those points."""
+        s, wp, g = self.system, self.workplane, SOLVE_GROUP
+        entities = {e["id"]: e for e in self.sketch["entities"]}
+        a, b = entities[id_a], entities[id_b]
+        coords = {pid: self._coords(pid) for pid in self.points}
+
+        def radius(e):
+            return e["radius"] if e["type"] == "circle" else math.dist(coords[e["center"]], coords[e["start"]])
+
+        ca, cb = coords[a["center"]], coords[b["center"]]
+        d = math.dist(ca, cb) or 1.0
+        toward = ((cb[0] - ca[0]) / d, (cb[1] - ca[1]) / d)
+        near_a = s.addPoint2dV(wp, ca[0] + toward[0] * radius(a), ca[1] + toward[1] * radius(a), g)
+        near_b = s.addPoint2dV(wp, cb[0] - toward[0] * radius(b), cb[1] - toward[1] * radius(b), g)
+        through = s.addLineSegment(self._point(a["center"]), self._point(b["center"]), g)
+        return [
+            s.addPointOnCircle(near_a, self.entities[id_a][1], g),
+            s.addPointOnCircle(near_b, self.entities[id_b][1], g),
+            s.addPointOnLine(near_a, through, wp, g),
+            s.addPointOnLine(near_b, through, wp, g),
+            s.addPointsDistance(gap, near_a, near_b, wp, g),
+        ]
 
     def _axis_line(self, horizontal: bool) -> int:
         """A fixed line along the sketch's u (or v) axis, to measure projected distances against."""

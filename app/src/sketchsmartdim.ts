@@ -1,6 +1,6 @@
 /** The smart dimension: one button (and the D key) that offers every constraint or dimension that fits whatever is selected.
  *  One fit is applied at once; several are chosen from a small menu next to the cursor. Rules and answers: docs/smart-dimension-plan.md. No DOM. */
-import { CONSTRAINT_OPTIONS, coincidences, dist, entities, only, pointLineDistance, pts, radiusOf, type ConstraintOption } from "./sketchconstraints.ts";
+import { CONSTRAINT_OPTIONS, coincidences, dist, entities, measure, only, pointLineDistance, pts, radiusOf, type ConstraintOption } from "./sketchconstraints.ts";
 import { pointOf, type SketchConstraint, type SketchData, type SketchEntity, type SketchSel } from "./sketchmodel.ts";
 
 type Line = Extract<SketchEntity, { type: "line" }>;
@@ -81,6 +81,9 @@ export function smartChoices(s: SketchData, sel: SketchSel[], near: number): Con
           }));
         } else {
           add(dimension("Distance between the centres", (s2, sel2) => ({ type: "distance", points: centres(s2, sel2) }), (s2, sel2) => dist(s2, centres(s2, sel2)[0], centres(s2, sel2)[1])));
+          // The spacing between the rims, when the two do not overlap.
+          const gap = (s2: SketchData, sel2: SketchSel[]) => measure(s2, { id: 0, type: "round_gap", entities: entities(s2, sel2).map((e) => e.id) });
+          if ((gap(s, sel) ?? 0) > 1e-9) add(dimension("Gap between the rims", (s2, sel2) => ({ type: "round_gap", entities: entities(s2, sel2).map((e) => e.id) }), (s2, sel2) => Math.round((gap(s2, sel2) ?? 0) * 1000) / 1000));
         }
       } else if (es.some((e) => e.type === "line") && es.some(isRound)) {
         add(pointLine("Centre to line distance", (s2, sel2) => centreOf(entities(s2, sel2).find(isRound)!), (s2, sel2) => entities(s2, sel2).find((e) => e.type === "line") as Line));

@@ -26,7 +26,7 @@ test("size tags show the length and angle, the box size, a radius, or the typed 
   const text = (ctx) => liveDimensions(ctx)[0]?.text;
   assert.equal(text(context("line", [{ u: 0, v: 0 }], { u: 3, v: 4 })), "5 at 53.13°");
   assert.equal(text(context("rectangle", [{ u: 0, v: 0 }], { u: 4, v: 3 })), "4 × 3");
-  assert.equal(text(context("circle", [{ u: 0, v: 0 }], { u: 3, v: 4 })), "R5");
+  assert.equal(text(context("circle", [{ u: 0, v: 0 }], { u: 3, v: 4 })), "⌀10");
   assert.equal(text(context("rectangle", [{ u: 0, v: 0 }], { u: 4, v: 3 }, { typed: "12" })), "12|"); // the first real dimension holds the typed value
   assert.deepEqual(liveDimensions(context("line", [], { u: 1, v: 1 })), []);
 });
@@ -35,6 +35,7 @@ test("typed sizes are drawn as dimensions holding the typed values", async () =>
   const kinds = (typed, tool = "rectangle") => liveDimensions(context(tool, [{ u: 0, v: 0 }], { u: 4, v: 3 }, { typed })).map((d) => [d.kind, d.text]);
   assert.deepEqual(kinds("12"), [["linear", "12|"], ["linear", "12"]]); // a square until the height is typed
   assert.deepEqual(kinds("12 5"), [["linear", "12"], ["linear", "5|"]]);
-  assert.deepEqual(kinds("7", "circle"), [["radius", "R7|"]]);
+  assert.deepEqual(kinds("7", "circle"), [["diameter", "⌀7|"]]);
+  assert.deepEqual(kinds("7", "polygon"), [["radius", "R7|"]]);
   assert.deepEqual(kinds("9", "line"), [["linear", "9|"]]);
 });

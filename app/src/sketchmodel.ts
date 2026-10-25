@@ -157,6 +157,7 @@ export function describeConstraint(s: SketchData, c: SketchConstraint): string {
     radius: "Radius",
     diameter: "Diameter",
     angle: "Angle",
+    round_gap: "Gap between",
   };
   const entityName = (e: number) => (e === AXIS_U ? "horizontal axis" : e === AXIS_V ? "vertical axis" : `#${e}`);
   const refs = [...(c.points ?? []).map((p) => `p${p}`), ...(c.point !== undefined ? [`p${c.point}`] : []), ...(c.entity !== undefined ? [entityName(c.entity)] : []), ...(c.entities ?? []).map(entityName)];
@@ -220,6 +221,15 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
         const mids = (lines as Extract<SketchEntity, { type: "line" }>[]).map((l) => [(pointOf(s, l.a).u + pointOf(s, l.b).u) / 2, (pointOf(s, l.a).v + pointOf(s, l.b).v) / 2]);
         const arc = angleArc(s, c, lines as Extract<SketchEntity, { type: "line" }>[], mids, `∠${text}°`);
         out.push(arc ?? { kind: "tag", text: `∠${text}°`, points: [placed(c, toWorld(s.plane, (mids[0][0] + mids[1][0]) / 2, (mids[0][1] + mids[1][1]) / 2))] });
+      }
+    } else if (c.type === "round_gap" && c.entities?.length === 2) {
+      const [ea, eb] = c.entities.map((id) => entityOf(s, id));
+      if (ea && eb && (ea.type === "circle" || ea.type === "arc") && (eb.type === "circle" || eb.type === "arc")) {
+        const [ca, cb] = [world(ea.center), world(eb.center)];
+        const along = norm(sub(cb, ca));
+        const [ra, rb] = [radiusOf(s, ea), radiusOf(s, eb)];
+        // The spacing runs along the line of the centres, from rim to rim.
+        out.push(linear(c, text, ca.map((x, k) => x + along[k] * ra), cb.map((x, k) => x - along[k] * rb), cross(f.n, along)));
       }
     } else if (c.type === "minor_radius" && entity && entity.type === "ellipse") {
       const [m, o] = [pointOf(s, entity.center), pointOf(s, entity.major)];

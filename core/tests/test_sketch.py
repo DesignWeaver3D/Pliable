@@ -1119,3 +1119,18 @@ def test_dimension_to_a_sketch_axis_sent_as_a_fixed_line():
     result = sketch.solve(sketch_of(points, lines, constraints))
     assert result["status"] == "ok"
     assert next(p for p in result["points"] if p["id"] == 2)["v"] == pytest.approx(10, abs=1e-5)
+
+
+def test_gap_between_two_circles_and_two_arcs():
+    sizes = [{"id": 2, "type": "radius", "entity": 10, "value": 3}, {"id": 3, "type": "radius", "entity": 11, "value": 4}]
+    points = [{"id": 1, "u": 0, "v": 0, "fixed": True}, {"id": 2, "u": 20, "v": 0}]
+    circles = [{"id": 10, "type": "circle", "center": 1, "radius": 3}, {"id": 11, "type": "circle", "center": 2, "radius": 4}]
+    result = sketch.solve(sketch_of(points, circles, [{"id": 1, "type": "round_gap", "entities": [10, 11], "value": 6}, *sizes]))
+    assert result["status"] == "ok"
+    assert next(p for p in result["points"] if p["id"] == 2)["u"] == pytest.approx(3 + 6 + 4, abs=1e-5)
+    # an arc and a circle: the arc's radius is the distance from its centre to its start
+    arc_points = [{"id": 1, "u": 30, "v": 0}, {"id": 3, "u": 40, "v": 0, "fixed": True}, {"id": 4, "u": 40, "v": 5, "fixed": True}, {"id": 5, "u": 35, "v": 0}]
+    arc = {"id": 12, "type": "arc", "center": 3, "start": 5, "end": 4}
+    result = sketch.solve(sketch_of(arc_points, [circles[0], arc], [{"id": 1, "type": "round_gap", "entities": [10, 12], "value": 2}, sizes[0]]))
+    assert result["status"] == "ok"
+    assert next(p for p in result["points"] if p["id"] == 1)["u"] == pytest.approx(40 - 5 - 2 - 3, abs=1e-5)

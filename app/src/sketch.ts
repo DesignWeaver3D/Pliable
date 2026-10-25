@@ -826,7 +826,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const plain = !made.some((x) => x.type === "arc"); // a rounded rectangle's sides are not its overall size
     let dimensions: Omit<M.SketchConstraint, "id">[] = [];
     if (tool === "line" && made[0]?.type === "line") dimensions = [{ type: "distance", entity: made[0].id, value: w }];
-    else if (tool === "circle" && made[0]?.type === "circle") dimensions = [{ type: "radius", entity: made[0].id, value: w }];
+    else if (tool === "circle" && made[0]?.type === "circle") dimensions = [{ type: "diameter", entity: made[0].id, value: w }];
     else if ((tool === "rectangle" || tool === "rectcentre") && plain && made.length >= 2) {
       dimensions = [{ type: "distance", entity: made[0].id, value: w }, { type: "distance", entity: made[1].id, value: h }];
     }
@@ -875,6 +875,16 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       else void this.leave(); // nothing left to cancel: leave the sketch (asking first if it holds work)
     } else if (e.key === "Enter" && this.chain.length) {
       this.endChain();
+    } else if ((e.key === "Delete" || e.key === "Backspace") && this.selectedDimensions.size) {
+      // Dimensions picked in the view (a click on a value) are deleted; the geometry they held stays, free of them.
+      e.preventDefault();
+      const ids = new Set(this.selectedDimensions);
+      this.pushUndo();
+      this.s.constraints = this.s.constraints.filter((c) => !ids.has(c.id));
+      this.selectedDimensions.clear();
+      void this.resolve();
+      this.render();
+      this.host.status(`Deleted ${ids.size} dimension${ids.size === 1 ? "" : "s"} (Undo brings ${ids.size === 1 ? "it" : "them"} back)`);
     } else if ((e.key === "Delete" || e.key === "Backspace") && this.selection.length) {
       // Only points selected and something holds them to other geometry: Delete lets go of that (the lines stay).
       const released = this.selection.every((x) => x.kind === "point") ? Co.releasePoints(this.s, this.selection.map((x) => x.id)) : null;
@@ -1174,11 +1184,26 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.render(false);
     }
     const dims = this.s.constraints.filter((c) => ids.includes(c.id) && c.value !== undefined);
-    const items: { label: string; reference: boolean }[] = [];
+    const items: { label: string; reference?: boolean; switchRound?: boolean }[] = [];
     if (dims.some((c) => !c.reference)) items.push({ label: "Make reference (measure only)", reference: true });
     if (dims.some((c) => c.reference)) items.push({ label: "Make driving", reference: false });
+    const rounds = dims.filter((c) => c.type === "radius" || c.type === "diameter");
+    if (rounds.length) items.push({ label: rounds.every((c) => c.type === "radius") ? "Show as diameter" : rounds.every((c) => c.type === "diameter") ? "Show as radius" : "Switch radius and diameter", switchRound: true });
     const picked = items.length ? await chooseAtCursor({ x: e.clientX, y: e.clientY }, items) : null;
-    if (picked) await this.setReference(dims.map((c) => c.id), picked.reference);
+    if (picked?.switchRound) this.switchRoundDimensions(rounds.map((c) => c.id));
+    else if (picked) await this.setReference(dims.map((c) => c.id), picked.reference!);
+  }
+
+  /** Turn radius dimensions into diameter ones and the other way round, keeping the size they hold. */
+  private switchRoundDimensions(ids: number[]) {
+    this.pushUndo();
+    for (const c of this.s.constraints) {
+      if (!ids.includes(c.id) || c.value === undefined) continue;
+      if (c.type === "radius") Object.assign(c, { type: "diameter", value: c.value * 2 });
+      else if (c.type === "diameter") Object.assign(c, { type: "radius", value: c.value / 2 });
+    }
+    void this.resolve();
+    this.render();
   }
 
   /** Switch a dimension between driving the shape and only measuring it; a driving one starts from the current measurement. */

@@ -21,6 +21,7 @@ export const entities = (s: SketchData, sel: SketchSel[]) => sel.filter((x) => x
 export const pts = (sel: SketchSel[]) => sel.filter((x) => x.kind === "point").map((x) => x.id);
 export const only = (list: SketchEntity[], ...types: string[]) => list.length > 0 && list.every((e) => types.includes(e.type));
 export const dist = (s: SketchData, a: number, b: number) => Math.hypot(pointOf(s, a).u - pointOf(s, b).u, pointOf(s, a).v - pointOf(s, b).v);
+const isRoundEntity = (e: SketchEntity): e is Extract<SketchEntity, { type: "circle" | "arc" }> => e.type === "circle" || e.type === "arc";
 export const radiusOf = (s: SketchData, e: SketchEntity) => (e.type === "circle" ? e.radius : e.type === "arc" ? dist(s, e.center, e.start) : 0);
 
 /** The two points a selection measures between: a line's ends, or two selected points. */
@@ -56,6 +57,14 @@ export function measure(s: SketchData, c: SketchConstraint): number | null {
       return entity ? 2 * radiusOf(s, entity) : null;
     case "point_line_distance":
       return line && c.point !== undefined ? pointLineDistance(s, c.point, line) : null;
+    case "round_gap": {
+      const [a, b] = (c.entities ?? []).map((id) => entityOf(s, id));
+      if (!a || !b || !isRoundEntity(a) || !isRoundEntity(b)) return null;
+      const [ca, cb] = [pointOf(s, a.center), pointOf(s, b.center)];
+      const d = Math.hypot(ca.u - cb.u, ca.v - cb.v);
+      const [ra, rb] = [radiusOf(s, a), radiusOf(s, b)];
+      return d >= ra + rb ? d - ra - rb : d <= Math.abs(ra - rb) ? Math.abs(ra - rb) - d : 0;
+    }
     case "angle": {
       const [a, b] = (c.entities ?? []).map((id) => entityOf(s, id));
       if (!a || !b || a.type !== "line" || b.type !== "line") return null;

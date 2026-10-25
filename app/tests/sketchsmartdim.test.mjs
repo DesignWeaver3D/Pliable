@@ -49,7 +49,7 @@ test("a point with a line or a circle", () => {
 });
 
 test("circles and arcs: centre distances, or concentric when the centres sit together; a line and a circle", () => {
-  assert.deepEqual(labels(s, ent(13, 14)), ["Distance between the centres"]);
+  assert.deepEqual(labels(s, ent(13, 14)), ["Distance between the centres", "Gap between the rims"]);
   assert.deepEqual(built(s, ent(13, 14), "Distance between the centres"), [{ type: "distance", points: [5, 6] }]);
   assert.deepEqual(labels(s, ent(14, 16)), ["Concentric"]);
   assert.deepEqual(built(s, ent(14, 16), "Concentric"), [{ type: "coincident", points: [6, 11] }]);
@@ -133,4 +133,19 @@ test("the sketch axes can be dimensioned to", () => {
   const e = sketch([P(1, 3, 4), P(2, 8, 4)], [L(10, 1, 2)]);
   assert.equal(labels(e, [...pt(1), ...ent(-1)])[0], "Point to line distance");
   assert.equal(labels(e, ent(10, -2)).includes("Angle"), true);
+});
+
+test("two circles or arcs offer the distance between the centres and the gap between the rims", () => {
+  const e = sketch([P(1, 0, 0), P(2, 20, 0), P(3, 5, 0), P(4, 25, 0), P(5, 0, 5), P(6, 20, 4)], [
+    { id: 10, type: "circle", center: 1, radius: 3 }, { id: 11, type: "circle", center: 2, radius: 4 },
+    { id: 12, type: "arc", center: 1, start: 3, end: 5 }, { id: 13, type: "arc", center: 2, start: 4, end: 6 },
+  ]);
+  assert.deepEqual(labels(e, ent(10, 11)), ["Distance between the centres", "Gap between the rims"]);
+  assert.deepEqual(labels(e, ent(12, 13)), ["Distance between the centres", "Gap between the rims"]);
+  assert.deepEqual(built(e, ent(10, 11), "Gap between the rims"), [{ type: "round_gap", entities: [10, 11] }]);
+  const gap = smartChoices(e, ent(10, 11), 0.5).find((o) => o.label === "Gap between the rims");
+  assert.equal(gap.initial(e, ent(10, 11)), 13);
+  // overlapping circles have no gap to dimension
+  const touching = sketch([P(1, 0, 0), P(2, 5, 0)], [{ id: 10, type: "circle", center: 1, radius: 3 }, { id: 11, type: "circle", center: 2, radius: 4 }]);
+  assert.deepEqual(labels(touching, ent(10, 11)), ["Distance between the centres"]);
 });
