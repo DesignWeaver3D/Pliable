@@ -18,6 +18,7 @@ import * as T from "./sketchtyped";
 import * as F from "./sketchfit";
 import * as Co from "./sketchcoincident";
 import { trimClick } from "./sketchtrim";
+import { isFreeCircle, draggedRadius } from "./sketchcircledrag";
 import { loadSketchOptions, OPTIONS_KEY } from "./sketchoptions";
 import { chooseAtCursor } from "./sketchmenu";
 import { buildConstraintList, buildToolOptions, button, el, type PanelContext } from "./sketchpanelparts";
@@ -111,7 +112,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   highlight: M.SketchSel[] = [];
   chain: Snap[] = []; // points clicked so far for the current drawing
   cursor: Snap | null = null;
-  private drag: { id: number; startX: number; startY: number; moved: boolean; body?: { u: number; v: number; points: { id: number; u: number; v: number }[] } } | null = null;
+  private drag: { id: number; startX: number; startY: number; moved: boolean; resize?: number; body?: { u: number; v: number; points: { id: number; u: number; v: number }[] } } | null = null;
   private dof: number | null = null;
   failed = new Set<number>();
   /** Directions each point can still move in (0 = placed by the constraints); empty until the first settled solve. */
@@ -593,7 +594,12 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.drag.moved = true;
       const uv = this.planeUV(e);
       const body = this.drag.body;
-      if (uv && body) this.resolve({ points: body.points.map((p) => ({ point: p.id, u: p.u + uv[0] - body.u, v: p.v + uv[1] - body.v })) });
+      const resized = this.drag.resize !== undefined ? this.s.entities.find((x) => x.id === this.drag!.resize) : undefined;
+      if (uv && resized && resized.type === "circle") {
+        const c = this.s.points.find((p) => p.id === resized.center);
+        if (c) resized.radius = draggedRadius(c, uv[0], uv[1]); // a free circle dragged by its rim: the centre stays, the radius follows the pointer
+        this.render();
+      } else if (uv && body) this.resolve({ points: body.points.map((p) => ({ point: p.id, u: p.u + uv[0] - body.u, v: p.v + uv[1] - body.v })) });
       else if (uv) {
         const at = Sn.snapDragged(this, uv, [this.drag.id]); // onto the grid, the axes, or in line with another point
         this.cursor = at.guides ? at : null; // the guide lines show while dragging
@@ -647,6 +653,11 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.viewport.renderer.domElement.setPointerCapture(e.pointerId);
       return;
     }
+    if (items.length === 1 && items[0].kind === "entity" && isFreeCircle(this.s, items[0].id)) {
+      this.drag = { id: 0, startX: e.clientX, startY: e.clientY, moved: false, resize: items[0].id };
+      this.viewport.renderer.domElement.setPointerCapture(e.pointerId);
+      return;
+    }
     const ids = new Set<number>();
     for (const it of items) {
       if (it.kind === "point") {
@@ -655,8 +666,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       }
       const entity = this.s.entities.find((x) => x.id === it.id);
       if (!entity || entity.reference) continue;
-      const held = M.entityPoints(entity).map(point);
-      if (held.every((p) => p && !p.fixed)) for (const p of held) ids.add(p!.id);
+      // An ellipse is held by its centre and major end only: its other axis ends follow, and pinning all five over-constrains the solver (many retries, a laggy drag).
+      const held = (entity.type === "ellipse" ? [entity.center, entity.major] : M.entityPoints(entity)).map(point);
+      if (M.entityPoints(entity).every((id) => !point(id)?.fixed) && held.every((p) => p)) for (const p of held) ids.add(p!.id);
     }
     if (!ids.size) return;
     const held = [...ids].map((id) => point(id)!);

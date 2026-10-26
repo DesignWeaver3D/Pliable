@@ -1282,3 +1282,28 @@ def test_a_fully_constrained_sketch_colours_every_point_without_testing_each(mon
 
     monkeypatch.setattr(solver._Solver, "hold_axis", never)
     assert sketch.point_freedom(s, budget=0.0) == {p["id"]: 0 for p in points}
+
+
+def _ellipse_with_axis_lines():
+    sk = _ellipse_with_ends()
+    sk["entities"] += [{"id": 12, "type": "line", "a": 2, "b": 4, "construction": True}, {"id": 13, "type": "line", "a": 5, "b": 6, "construction": True}]
+    return sk
+
+
+def test_dragging_a_major_end_of_an_ellipse_moves_the_minor_axis_too():
+    sk = _ellipse_with_axis_lines()
+    at = coords(sketch.solve(sk, {"point": 2, "u": 9, "v": 4}))
+    # the minor ends turn with the major axis instead of staying where they were (the old behaviour until release)
+    assert at[5] != pytest.approx((0, 5), abs=1e-3) and at[6] != pytest.approx((0, -5), abs=1e-3)
+    along = (at[2][0] - at[4][0], at[2][1] - at[4][1])
+    across = (at[5][0] - at[6][0], at[5][1] - at[6][1])
+    assert along[0] * across[0] + along[1] * across[1] == pytest.approx(0, abs=1e-6)
+
+
+def test_moving_an_ellipse_by_its_centre_and_major_end_carries_all_its_points():
+    sk = _ellipse_with_axis_lines()
+    result = sketch.solve(sk, {"points": [{"point": 1, "u": 0.5, "v": 0.3}, {"point": 2, "u": 10.5, "v": 0.3}]})
+    at = coords(result)
+    assert result["status"] == "ok"
+    for pid, want in {4: (-9.5, 0.3), 5: (0.5, 5.3), 6: (0.5, -4.7)}.items():
+        assert at[pid] == pytest.approx(want, abs=1e-6)
