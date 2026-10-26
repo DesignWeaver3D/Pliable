@@ -79,7 +79,7 @@ class CenterBetween(Tool):
         if found is None:
             raise OperationError("Select one hole or boss and one or two flat faces")
         hole_face, a, b = found
-        hole = Hole(hole_face)
+        hole = Hole.of(topology, topology.face_id(hole_face))
         if b is None:
             b = _opposite_flat(topology, a, hole)
             if b is None:

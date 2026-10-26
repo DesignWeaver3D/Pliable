@@ -23,6 +23,7 @@ from OCP.gp import gp_Vec
 
 from . import recipes
 from .ops import face_normal_at_edge, planar_normal, solids_of
+from .splitwalls import split_centre
 from .topology import Topology
 
 ANGULAR_DEFLECTION = 0.5  # radians
@@ -340,6 +341,8 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
 
     for face_id, face in topology.faces():
         data, normal, centre = _face_display(face, deflection)
+        if centre is None:
+            centre = split_centre(topology, face_id)  # a hole wall split into several faces: one centre, on its first face
         start = index_count
         centroid = None
         if data is not None:

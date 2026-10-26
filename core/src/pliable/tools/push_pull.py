@@ -84,12 +84,14 @@ def _all_round_walls(topology, selection) -> bool:
     from OCP.GeomAbs import GeomAbs_Cylinder
     import math
 
+    from ..splitwalls import wall_chain
+
     for i in selection.faces:
         face = topology.face(i)
         if BRepAdaptor_Surface(face).GetType() != GeomAbs_Cylinder:
             return False
         u0, u1, _, _ = BRepTools.UVBounds_s(face)
-        if u1 - u0 < 2 * math.pi - 1e-6:
+        if u1 - u0 < 2 * math.pi - 1e-6 and not wall_chain(topology, i):  # a wall split into several faces still counts
             return False
     return True
 
@@ -100,7 +102,7 @@ def _push_round_walls(topology, selection, distance: float) -> OpResult:
     from ..shared.hole_groups import Hole, apply_holes
     from ..shared.solids import finish
 
-    holes = [Hole(topology.face(i)) for i in selection.faces]
+    holes = Hole.of_selection(topology, selection)
     moves = []
     for hole in holes:
         radius = hole.radius + distance if hole.boss else hole.radius - distance

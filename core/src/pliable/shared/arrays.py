@@ -63,7 +63,7 @@ def _feature_holes(topology, selection) -> list:
     if not selection.faces:
         return []
     try:
-        return [Hole(topology.face(i)) for i in selection.faces]
+        return Hole.of_selection(topology, selection)
     except OperationError:
         return []
 

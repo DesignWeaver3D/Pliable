@@ -265,6 +265,12 @@ def _is_whole_cylinder(face):
         def face(self, i):
             return face
 
+        def edge_faces(self, edge):
+            return []
+
+        def face_id(self, other):
+            return None
+
     return _all_round_walls(_T(), Selection(faces=[0]))
 
 

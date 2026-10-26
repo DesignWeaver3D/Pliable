@@ -31,6 +31,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 
 ## Tools and drags
 
+- A hole whose round wall is split into several faces behaves as one hole: pressing and dragging any part of the wall pushes or pulls the whole hole's radius, and Move hole, Resize hole and Edit hole work on it.
 - Pressing on a face or edge selects it and starts its drag in one motion; a press without movement is a click.
 - One drag sets one value. Typing digits during a drag starts value entry: Tab switches fields, Enter commits, Escape cancels. The shape moves only on Enter.
 - A failed preview keeps the last good size and shows the status in red; release commits the last good size.
