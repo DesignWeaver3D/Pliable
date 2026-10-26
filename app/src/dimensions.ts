@@ -253,6 +253,11 @@ export class DimensionOverlay {
     const side = placed ? (placed.x < rim.x ? -1 : 1) : outDir.x < 0 ? -1 : 1;
     const end = add(knee, { x: side * LANDING_PX, y: 0 });
     out.push(line(rim, knee), line(knee, end));
+    for (const [p, q] of d.extend ?? []) { // an arc's circle carried on to where the leader sits (dashed)
+      const part = line(project(p), project(q));
+      part.setAttribute("stroke-dasharray", "4 3");
+      out.push(part);
+    }
     this.label(add(end, { x: side * (d.text.length * TEXT_PX * 0.275 + 6), y: 0 }), d.text, out, false);
   }
 

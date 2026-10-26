@@ -260,14 +260,47 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
         const ways = [f.x, f.x.map((x) => -x), f.y, f.y.map((x) => -x)];
         way = ways.find((w) => !outside.inside(...toPlane(s.plane, center.map((x, k) => x + w[k] * (r + outside.probe))))) ?? f.x;
       }
-      const rim = entity.type === "circle" ? [0, 1, 2].map((k) => center[k] + r * way[k]) : world(entity.start);
+      let extend: number[][][] | undefined;
+      if (entity.type === "arc") {
+        // An arc's leader touches the arc where it was dragged (the middle of the arc until then); past either end it sits on an
+        // extension of the arc's circle, drawn dashed from that end (no geometry is added).
+        const arcWay = arcLeaderWay(s, entity, c.place ?? null);
+        way = [0, 1, 2].map((k) => arcWay.way[0] * f.x[k] + arcWay.way[1] * f.y[k]);
+        extend = arcWay.extension.map(([p, q]) => [toWorld(s.plane, ...p), toWorld(s.plane, ...q)]);
+      }
+      const rim = [0, 1, 2].map((k) => center[k] + r * way[k]);
       const leader: Dimension = c.type === "radius" ? { kind: "radius", text: `R${text}`, points: [center, rim] } : { kind: "diameter", text: `Ø${text}`, points: [[0, 1, 2].map((k) => 2 * center[k] - rim[k]), rim] };
+      if (extend?.length) leader.extend = extend;
       if (c.place) leader.labelAt = toWorld(s.plane, c.place[0], c.place[1]);
       out.push(leader);
     }
     for (const made of out.slice(first)) made.constraint = c.id;
   }
   return out;
+}
+
+/** The unit direction (in sketch coordinates) an arc's radius leader leaves the centre in, and the dashed segments that carry the arc's circle
+ *  from the nearer end to that direction when it lies outside the arc's sweep. `place` is where the leader was dragged (null: the arc's middle). */
+export function arcLeaderWay(s: SketchData, arc: Extract<SketchEntity, { type: "arc" }>, place: [number, number] | null): { way: [number, number]; extension: [[number, number], [number, number]][] } {
+  const c = pointOf(s, arc.center);
+  const r = Math.hypot(pointOf(s, arc.start).u - c.u, pointOf(s, arc.start).v - c.v);
+  const a0 = Math.atan2(pointOf(s, arc.start).v - c.v, pointOf(s, arc.start).u - c.u);
+  let sweep = Math.atan2(pointOf(s, arc.end).v - c.v, pointOf(s, arc.end).u - c.u) - a0;
+  if (sweep <= 0) sweep += 2 * Math.PI;
+  const full = 2 * Math.PI;
+  const turn = (a: number) => (((a - a0) % full) + full) % full; // counterclockwise from the start
+  const angle = place && Math.hypot(place[0] - c.u, place[1] - c.v) > 1e-9 ? Math.atan2(place[1] - c.v, place[0] - c.u) : a0 + sweep / 2;
+  const way: [number, number] = [Math.cos(angle), Math.sin(angle)];
+  const t = turn(angle);
+  if (t <= sweep) return { way, extension: [] };
+  // outside the sweep: extend from the end it is nearer to (going on past the end, or back before the start)
+  const past = t - sweep; // beyond the end
+  const before = full - t; // before the start
+  const from = past <= before ? a0 + sweep : a0;
+  const to = past <= before ? a0 + sweep + past : a0 - before;
+  const steps = Math.max(4, Math.ceil(Math.abs(to - from) / 0.15));
+  const point = (a: number): [number, number] => [c.u + r * Math.cos(a), c.v + r * Math.sin(a)];
+  return { way, extension: Array.from({ length: steps }, (_, i) => [point(from + ((to - from) * i) / steps), point(from + ((to - from) * (i + 1)) / steps)] as [[number, number], [number, number]]) };
 }
 
 const ARC_STEPS = 24;
