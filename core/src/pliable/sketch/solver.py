@@ -471,6 +471,13 @@ def point_freedom(sketch: dict, budget: float | None = None) -> dict[int, int]:
     Each point takes several solves, so a big sketch is slow: with a `budget` (seconds) the points not reached in time are left out."""
     freedom = {}
     deadline = None if budget is None else time.monotonic() + budget
+    whole = _Solver(sketch)
+    for c in sketch.get("constraints", []):
+        if not c.get("reference"):
+            whole.add_constraint(c)
+    result = whole.solve()
+    if result["status"] == "ok" and result["dof"] == 0:
+        return {p["id"]: 0 for p in sketch.get("points", [])}  # fully constrained: every point is placed, no need to test them one by one
     for p in sketch.get("points", []):
         if deadline is not None and time.monotonic() > deadline:
             break

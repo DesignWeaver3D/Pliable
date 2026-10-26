@@ -86,3 +86,4 @@ Restart the core before testing anything in the first group.
 - [ ] Sketch list, datum plane list and constraint list rows use a trash can button to delete (the X only means see-through).
 - [ ] Open a tool form (for example Add box), then Menu > New project: no tool selection error appears in the status line or the diagnostics report.
 - [ ] Sketch: put Fix, Equal or other constraint marks on circles and arcs; the tag sits just above the centre point instead of covering it, and the selected centre highlight stays visible.
+- [ ] Sketch: a larger fully constrained sketch (several dimensioned rectangles) shows all its geometry in the fully constrained colour; a circle whose radius has no dimension is a known exception (still coloured when only its centre is placed).
