@@ -57,7 +57,6 @@ Rules for keeping it:
 ### Decisions
 
 - [ ] Remove fillet/chamfer, Fill hole / remove boss and Chamfer (distance and angle) now overlap Defeature on the bracket's fillets and round holes. Remove any of them? Default: keep all three.
-- [ ] Inset face edges, when the inner and outer offset outlines start to overlap (the bracket's lower top face with its four holes): should the offsets merge into one combined outline (the inset face is the face minus the union of every edge's band, so the loops join and trim where they cross, and a band that covers the face leaves nothing), or stay separate loops as now? Default: merge them like a 2D offset does.
 - [ ] Distribute holes/bosses spaces holes along one axis only, so the four bracket base holes spread unevenly. Keep for single rows, or remove in favour of arrays on features? Default: keep, tooltip only.
 - [ ] Smart dimension menus: should they also offer Radius, Coincident, Parallel, Perpendicular and Angle so the matching buttons can go? Default: keep the buttons.
 - [ ] Dimension and Horizontal/Vertical variants under one tool (drop list under Dimension for horizontal and vertical distance; drop list under Horizontal / vertical for the strict ones). This changes the approved button row in behavior.md. Approve the layout?
