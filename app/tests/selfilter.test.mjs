@@ -41,3 +41,11 @@ test("parentBodies gives each owning body once, for mixed kinds", () => {
   assert.deepEqual(parentBodies(data, items).sort((a, b) => a - b), [7, 9, 11]);
   assert.deepEqual(parentBodies(data, []), []);
 });
+
+test("a face and an edge can be selected together (Revolve face, Sweep)", async () => {
+  const { canJoinSelection } = await import("../src/selfilter.ts");
+  assert.equal(canJoinSelection("face", "edge"), true);
+  assert.equal(canJoinSelection("edge", "face"), true);
+  assert.equal(canJoinSelection("face", "face"), true);
+  assert.equal(canJoinSelection("face", "vertex"), false);
+});

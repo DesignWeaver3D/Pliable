@@ -83,3 +83,4 @@ Restart the core before testing anything in the first group.
 - [ ] Packaged build: unzip, run, open the bracket, push/pull, export STEP (or confirm CI is green)
 - [ ] A long open shows the busy indicator and the UI stays responsive; it clears after a failed operation too
 - [ ] Open the command search (Ctrl+K or the search box) and type "unify", "patch_fill", "bridge" and "path array": each finds its tool (Refine bodies, Patch fill, Bridge edges, Array along path) and the tooltip says what selection it needs.
+- [ ] Click a face, then Ctrl+click an edge (and the other way round): both stay selected, and Revolve face and Sweep become usable. A Ctrl+click on a vertex after a face still starts a new selection.
