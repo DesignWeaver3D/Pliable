@@ -37,7 +37,7 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
   - [ ] Align face: "grayed out and i have no idea what it's supposed to do anyway."
   - Open (not reproduced or needs design): click and shift select, chips, double-click chain, measurements stopping, M mode, push/pull on a hole face. Fixed already: Open/Export STEP, Defeature naming and messages, Align face tooltip, Outline edges.
 - **Sketch fillet and chamfer on a line and an arc.** Owner: "Sketch needs 2d fillet and 2d chamfer tools." The two-line corner tools exist; the rest is open.
-  - [ ] Fillet and Chamfer for a corner between a line and an arc (needs a tangent-circle choice, inside or outside the arc, and trimming the arc end).
+  - [ ] Fillet and Chamfer for a corner between a line and an arc, and between two arcs (or arc and circle): pick the tangent circle nearest the corner side the pointer is on, trim or extend each curve to its tangent point, keep the constraints tidy. Owner (2026-10-26): these are standard in every sketcher, do not park them.
 - **Trim and Extend ignore ellipses and splines.**
   - [ ] Find crossings with ellipses and splines when trimming (behavior change: ask the owner first or decide by the hierarchy).
 - **Global display precision (discuss first).** Owner: "Global settings need a global precision to declare UI rounding. Currently, it appears the UI hides decimals when they are all zero and dynamically displays precision, which i like, but when the decimals are many the default behavior appears to be two decimals, but user should be able to select more up to 8 or the rounding limit that most functions use, if there is a limit. Discuss."
