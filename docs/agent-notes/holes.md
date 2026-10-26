@@ -5,3 +5,7 @@
 - Fix: `core/src/pliable/splitwalls.py` (`wall_chain`: the faces that close a full turn about one axis, same radius, same range). `find_hole`, `Hole.of`/`Hole.of_selection`, push/pull, array features and the mesh centre records use it. Every part of a split wall carries the same centre record, so a press on either half finds the hole. Test: `core/tests/test_split_holes.py`.
 - Not done: split cones (countersink halves) are not joined; measure's Centre rows and the centre-distance dimensions still need a whole cylinder face.
 - Real-mouse only: dragging either half of a split hole in the view (the data path is tested; no split model could be loaded in the browser without a file dialog).
+
+## Task 2: global display precision (done)
+- `roundValue` and `showNumber` (app/src/precision.ts) now drive drag rounding (manipulator, viewport, linked values), form fields after drags or picks, handle, point and status labels, and the 2-decimal drag labels. Sketch constraint/angle rounding unchanged on purpose (stored values). Node test added in precision.test.mjs.
+- Real-mouse only: set precision 1 and 6 in settings and drag a handle to see the rounding step.

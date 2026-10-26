@@ -1,4 +1,5 @@
 /** The arithmetic behind picking a base point and a destination point (kept free of the DOM for tests). */
+import { showNumber } from "./precision.ts";
 
 export type Vec3 = readonly [number, number, number];
 
@@ -17,9 +18,9 @@ export function offsetOf(base: Vec3, origin: Vec3): [number, number, number] {
   return [base[0] - origin[0], base[1] - origin[1], base[2] - origin[2]];
 }
 
-/** A point for a label: at most three decimals. */
+/** A point for a label: at most the global number of decimals. */
 export function pointText(p: Vec3): string {
-  return p.map((c) => String(Math.round(c * 1000) / 1000)).join(", ");
+  return p.map((c) => showNumber(c)).join(", ");
 }
 
 export interface AnchorInfo {

@@ -47,6 +47,7 @@ import { Viewport, type Sel } from "./viewport";
 import { usage, type Surface } from "./usage";
 import { pruneGhost, pruneHidden } from "./bodylogic";
 import { bodiesOf, filterHidden } from "./visibility";
+import { showNumber } from "./precision.ts";
 
 const $ = (id: string) => document.getElementById(id)!;
 const status = $("status");
@@ -693,7 +694,7 @@ const centrePreviews = new LatestWins<CentreMove>(async ({ face, offset }, curre
     if (!current()) return; // released or cancelled while this was computed
     show(mesh);
     status.classList.remove("error");
-    status.textContent = `Move hole: ${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)}`;
+    status.textContent = `Move hole: ${showNumber(offset.x)}, ${showNumber(offset.y)}, ${showNumber(offset.z)}`;
   } catch (e) {
     if (!current()) return;
     status.textContent = (e as Error).message;
@@ -766,7 +767,7 @@ viewport.onEdgeLoop = async (edgeId, additive) => {
 // Dimension label: follows the pointer during a drag; typing digits turns it into the value entry.
 const dimLabel = $("dim");
 const DIM_OFFSET_PX = 16; // label offset from the pointer
-const len = (n: number) => `${n.toFixed(2)} ${LENGTH_UNIT}`;
+const len = (n: number) => `${showNumber(n)} ${LENGTH_UNIT}`;
 let typed: string | null = null; // text typed so far, null while the mouse sets the value
 let dragValue = 0; // value from the mouse (model units)
 let typedNegative = false; // sign of the typed value: starts as the drag direction, "-" flips it

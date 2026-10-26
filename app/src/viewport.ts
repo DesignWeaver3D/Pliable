@@ -18,6 +18,7 @@ import { onSettingsChange, settings, updateSettings } from "./settings";
 import { canJoinSelection, parentBodies, similarTo, type SimilarKind } from "./selfilter";
 import { bodyColorArray } from "./bodycolorarray";
 import { fitBoxOf } from "./sketchfit";
+import { roundValue } from "./precision.ts";
 
 /** A "body" selection is a whole solid (every face of the body), chosen from the body list. */
 export type Kind = "face" | "edge" | "vertex" | "body";
@@ -1571,7 +1572,7 @@ export class Viewport {
     let axis = toPixels(drag.point.clone().addScaledVector(drag.normal, length)).sub(p0);
     if (axis.length() < 2) axis = new THREE.Vector2(0, -100); // looking along the normal
     const delta = new THREE.Vector2(e.clientX - drag.x, e.clientY - drag.y);
-    return Math.round((delta.dot(axis) / axis.lengthSq()) * length * 1000) / 1000;
+    return roundValue((delta.dot(axis) / axis.lengthSq()) * length);
   }
 
   /** What is under the pointer: a vertex, else an edge, else a face (vertices and edges only if not hidden behind a face). */
@@ -1684,7 +1685,7 @@ export class Viewport {
       d.across = Math.abs(moved.dot(f.v)) >= Math.abs(moved.dot(f.u)) ? 0 : 1;
     }
     const step = d.across === 0 ? f.v : f.u;
-    d.offset = Math.round(at.clone().sub(f.centre).dot(step) * 1000) / 1000;
+    d.offset = roundValue(at.clone().sub(f.centre).dot(step));
     this.onDivideDrag(d.across, d.offset, false);
   }
 
