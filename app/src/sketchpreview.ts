@@ -6,6 +6,7 @@ import * as M from "./sketchmodel.ts";
 import * as Ell from "./sketchellipse.ts";
 import * as Sh from "./sketchshapes.ts";
 import type { Snap, Tool } from "./sketch.ts";
+import { tangentArcFor, tangentArcPoints } from "./sketchtangentarc.ts";
 import { typedLabels, typedTag } from "./sketchtyped.ts";
 import { typedDimensions, typedPoint } from "./sketchtypeddims.ts";
 
@@ -89,6 +90,10 @@ function pendingBase(ctx: PreviewContext): [number, number][][] {
     let sweep = Ell.ellipseSweepToward(from, Ell.ellipseAngle(f, c.u, c.v)); // follows the pointer: clockwise or counterclockwise from the start
     if (ctx.typed && sweep <= 0) sweep += 2 * Math.PI; // a typed sweep is always counterclockwise
     return [Ell.ellipseArcPoints(f, from, sweep, 48)];
+  }
+  if (ctx.tool === "arctan") {
+    const arc = tangentArcFor(ctx.s, first, c);
+    return [arc ? tangentArcPoints(arc) : [[first.u, first.v], [c.u, c.v]]];
   }
   const second = ctx.chain[1];
   if (ctx.tool === "slot") {
