@@ -405,8 +405,17 @@ export class Viewport {
   }
 
   /** Measure mode on or off; only meaningful during a tool drag. Bound to the "measure" key action in keys.ts. */
-  toggleMeasureKey() {
-    if (this.drag?.moved) this.toggleMeasure();
+  toggleMeasureKey(): string | null {
+    const drag = this.drag;
+    if (!drag) return "Measure pick works while a face is being dragged: press and hold a face, then press the measure key";
+    if (!this.measureMode && this.measures.length === 0) return "Nothing to measure to: this face has no straight edge running along its push/pull direction";
+    if (!drag.moved) {
+      // Pressed before the pointer left the click threshold: the drag starts here, as if it had moved by zero.
+      drag.moved = true;
+      this.onItemDrag(drag.sels, 0, "move", drag.x, drag.y);
+    }
+    this.toggleMeasure();
+    return null;
   }
 
   private toggleMeasure() {
@@ -535,6 +544,12 @@ export class Viewport {
         return;
       }
       if (e.buttons === 0 && !this.drag && !this.pullGizmo.hover(e)) this.manipulator.hover(e);
+      if (this.drag && e.buttons === 0 && !this.holdDrag && !this.measureMode) {
+        // The button went up without this view seeing it (released in measure mode, then left with Escape): the drag is dead.
+        // Left set, it blocks the measurement card and the other keys until the page is reloaded.
+        this.cancelDrag();
+        return;
+      }
       if (this.drag) {
         if (this.measureMode) {
           this.measureHover = this.nearestMeasure(e);

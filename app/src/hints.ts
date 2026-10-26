@@ -40,7 +40,10 @@ export function hintItems(ctx: HintContext, mods: Modifiers, keyText: (id: strin
       { keys: k("history.undo", "Ctrl+Z"), text: "undo" },
     ];
   } else if (mods.shift && ctx.hasSelection) {
-    items = [{ keys: k("display.isolate", "Shift+H"), text: "isolate the selected body" }];
+    items = [
+      { keys: "Shift+click", text: "add to the selection; then pick a tool or a chip" },
+      { keys: k("display.isolate", "Shift+H"), text: "isolate the selected body" },
+    ];
   } else if (mods.alt) {
     items = [{ keys: k("display.showAll", "Alt+H"), text: "show all bodies" }];
   } else {

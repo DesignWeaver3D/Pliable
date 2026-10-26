@@ -104,7 +104,10 @@ def _defeature(topology, selection, what: str) -> OpResult:
     for i in selection.faces:
         operation.AddFaceToRemove(topology.face(i))
     operation.SetRunParallel(True)
-    operation.Build()
+    try:
+        operation.Build()
+    except Exception as e:  # the kernel can raise instead of reporting a failed run
+        raise OperationError(f"Could not {what}: the kernel refused ({e})") from e
     if not operation.IsDone() or operation.Shape().IsNull():
         raise OperationError(f"Could not {what}: the neighbouring faces cannot be extended to close the gap")
     from ..topology import Topology

@@ -15,6 +15,7 @@ test("idle shows no static legend", () => {
 test("held modifiers change the line", () => {
   assert.ok(hintItems(idle, { ...none, ctrl: true }, key).some((i) => /Ctrl\+click/.test(i.keys)));
   assert.ok(hintItems({ ...idle, hasSelection: true }, { ...none, shift: true }, key).some((i) => /isolate/.test(i.text)));
+  assert.ok(hintItems({ ...idle, hasSelection: true }, { ...none, shift: true }, key).some((i) => /pick a tool/.test(i.text)));
 });
 
 test("tips: measure during a drag, see-through at a selection, never after dismissal or when off", () => {
