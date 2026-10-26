@@ -35,6 +35,16 @@ export function trimClick(s: SketchData, lineId: number, u: number, v: number, c
     sketch = made.sketch;
     beyond.set(i, (made.selection[1] as { id: number }).id);
   }
+  // Cutting from the far end leaves collinear constraints between pieces that are not neighbours, which repeat the ones between them and make
+  // the solver refuse the sketch; join each piece to the next one instead.
+  const ordered = [lineId, ...cuts.map((_, i) => beyond.get(i)).filter((id): id is number => id !== undefined)];
+  const old = new Set(s.constraints.map((c) => c.id));
+  if (sketch.constraints.some((c) => c.type === "collinear" && !old.has(c.id))) {
+    let id = Math.max(0, ...sketch.constraints.map((c) => c.id)) + 1;
+    const kept = sketch.constraints.filter((c) => !(c.type === "collinear" && !old.has(c.id)));
+    for (let i = 0; i + 1 < ordered.length; i++) kept.push({ id: id++, type: "collinear", entities: [ordered[i], ordered[i + 1]], auto: true });
+    sketch = { ...sketch, constraints: kept };
+  }
   let piece = lineId; // the piece under the click: after the last cut before it
   for (let i = 0; i < cuts.length; i++) if (beyond.has(i) && click >= cuts[i]) piece = beyond.get(i)!;
   sketch = { ...sketch, entities: sketch.entities.map((e) => (e.id === piece && e.type === "line" ? { ...e, construction: true } : e)) };
