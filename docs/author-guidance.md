@@ -49,6 +49,7 @@ Rules for keeping it:
 ### Sketch: tools
 
 - [ ] Fillet and Chamfer sketch tools, Trim (piece between a line end and an arc), Split at a point on a line, Rectangle corner styles (Square, Rounded, Bevelled), sketch-only keys C E S H T L R.
+- [ ] Symmetric about an axis (line ends above and below the x-axis stay mirrored; Sym marks sit at each point) and Fixed/Lock (a Fixed circle centre cannot be dragged; the degrees of freedom count matches; tooltips say what they do). On an ellipse's construction line, Symmetric about the axis the line lies along is a real conflict and now says so; the quadrant points could not be clicked apart from the ellipse in the browser test. Try your original steps and tell me if it still looks wrong.
 - [ ] Newest user constraint wins: a constraint that repeats an automatic one removes the automatic row with a warning naming it.
 - [ ] Drag of a free line, circle or point (snaps, guides, nothing else moves).
 - [ ] Free circle: dragging its rim resizes it with the centre fixed, dragging its centre moves it; ellipse quadrant vertex rotates it with both construction lines live, and moving an ellipse feels smooth (checked only with synthetic pointer events).
