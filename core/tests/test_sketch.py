@@ -1350,3 +1350,26 @@ def test_a_circle_with_a_placed_centre_still_reports_its_free_radius():
     assert session.handle({"type": "sketch_freedom", "sketch": fixed})["free_sizes"] == [10]
     sized = _circle_sketch([{"id": 5, "type": "fixed", "point": 1}, {"id": 6, "type": "radius", "entity": 10, "value": 5}])
     assert session.handle({"type": "sketch_freedom", "sketch": sized})["free_sizes"] == []
+
+
+def _ellipse_with_quadrant_copies(pair, horizontal):
+    sk = _ellipse_with_ends()
+    sk["points"][0].update(u=30, v=-20)
+    for p, (u, v) in zip(sk["points"][1:], [(40, -20), (20, -20), (30, -15), (30, -25)]):
+        p.update(u=u, v=v)
+    quadrants = {2: 11, 4: 12, 5: 13, 6: 14}
+    for k, copy in quadrants.items():
+        src = next(p for p in sk["points"] if p["id"] == k)
+        sk["points"].append({"id": copy, "u": src["u"], "v": src["v"]})
+    axis_points, axis_line = _axis(-1 if horizontal else -2, horizontal)
+    sk["points"] += axis_points
+    sk["entities"] += [{"id": 20, "type": "line", "a": 2, "b": 4, "construction": True}, {"id": 21, "type": "line", "a": 5, "b": 6, "construction": True}, axis_line]
+    sk["constraints"] = [{"id": 30 + k, "type": "coincident", "points": [k, copy]} for k, copy in quadrants.items()]
+    sk["constraints"].append({"id": 9, "type": "symmetric", "points": list(pair), "entity": axis_line["id"]})
+    return sk
+
+
+def test_quadrant_points_take_symmetric_about_the_axis_they_can_mirror_about():
+    assert sketch.solve(_ellipse_with_quadrant_copies((13, 14), True))["status"] == "ok"  # the minor ends about the x-axis
+    assert sketch.solve(_ellipse_with_quadrant_copies((11, 12), False))["status"] == "ok"  # the major ends about the y-axis
+    assert sketch.solve(_ellipse_with_quadrant_copies((11, 12), True))["status"] == "failed"  # two ends of one axis line cannot mirror about a line along it

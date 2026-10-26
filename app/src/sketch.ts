@@ -1121,7 +1121,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.undoStack.pop();
       await this.resolve();
       // There are no reference geometric constraints: a redundant or clashing one is dropped.
-      const against = clash.length ? `the existing ${clash.join("; ")}` : "the fixed points and the constraints already on these items";
+      const mirror = dropped.some((d) => d.startsWith("Symmetric")) ? ", for example mirroring two ends of a line that lies along the axis, or two points already held on the mirror line" : "";
+      const against = clash.length ? `the existing ${clash.join("; ")}` : `the fixed points and the constraints already on these items${mirror}`;
       this.host.status(`Dropped ${dropped.join("; ")}: it repeats or conflicts with ${against}`, "warn");
     }
     this.render();
