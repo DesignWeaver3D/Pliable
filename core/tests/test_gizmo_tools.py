@@ -186,3 +186,24 @@ def test_cut_plane_sides_are_named_by_index_and_the_old_minus_one_still_works():
     with pytest.raises(Exception):
         tool.execute(topology, Selection(), {**base, "remove_side": 3}, preview=False)
     assert tool.describe()["pickPlane"] == ["position", "nx", "ny", "nz", "axis"]
+
+
+def test_defeature_gives_the_same_result_as_remove_round_and_fill_hole_on_the_bracket():
+    """The owner asked whether Defeature already does the work of Remove fillet/chamfer and Fill hole (docs/agent-notes/model.md)."""
+    topology = Topology(load_demo("bracket"))
+    from pliable.measure import measure as measure_item
+
+    checked = 0
+    for i in range(topology.face_count):
+        title = measure_item(topology, Selection(faces=[i]))["items"][0]["title"]
+        old = {"Fillet": "remove_round", "Cylinder": "fill_hole"}.get(title)
+        if old is None or not get_tool(old).available(topology, Selection(faces=[i])):
+            continue
+        try:
+            expected = get_tool(old).execute(topology, Selection(faces=[i]), {}, preview=False)
+        except Exception:
+            continue
+        got = get_tool("delete_face").execute(topology, Selection(faces=[i]), {}, preview=False)
+        assert volume(got.shape) == pytest.approx(volume(expected.shape), rel=1e-9)
+        checked += 1
+    assert checked >= 6

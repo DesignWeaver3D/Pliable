@@ -2461,7 +2461,7 @@
  {
   "id": "chamfer_distance_angle",
   "label": "Chamfer (distance and angle)",
-  "description": "Bevels edges with a distance on one face and an angle. Select one face (it sets the side the distance is measured on) and one or more of its edges.",
+  "description": "Bevels edges from a distance and an angle: the bevel starts that distance in from the edge along the selected face and slopes away at the angle to that face (45 degrees gives equal legs, a smaller angle a longer, shallower bevel). Select one face (it sets the side the distance is measured on) and one or more of its edges.",
   "accepts": {
    "faces": [
     1,
