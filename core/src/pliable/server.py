@@ -23,6 +23,7 @@ from websockets.datastructures import Headers
 from websockets.http11 import Response
 
 from . import __version__, sketch, unwrap
+from .sketch.freedomparts import point_freedom_by_part
 from .sketch.sizefreedom import free_circle_sizes
 from . import bodies as body_ids
 from . import dimedit, projectfile
@@ -272,7 +273,7 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             return result
         if kind == "sketch_freedom":
             try:
-                return {"freedom": sketch.point_freedom(request["sketch"], budget=1.0), "free_sizes": free_circle_sizes(request["sketch"])}
+                return {"freedom": point_freedom_by_part(request["sketch"], budget=1.0), "free_sizes": free_circle_sizes(request["sketch"])}
             except (KeyError, TypeError, ValueError) as e:
                 raise RequestError(f"Malformed sketch: {e!r}") from e
         if kind == "sketch_extrude":

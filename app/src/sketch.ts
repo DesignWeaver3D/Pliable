@@ -1836,7 +1836,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const guides: [number, number][][] = [];
     const placed: [number, number][][] = [];
     const lit: [number, number][][] = [];
-    const open = this.showFree ? freeParts(this.s, this.freedom) : null;
+    const open = this.showFree ? freeParts(this.s, this.freedom, this.freeSizes) : null;
     for (const e of this.s.entities) (this.isMarked({ kind: "entity", id: e.id }) ? marked : open?.entities.has(e.id) ? lit : e.construction ? guides : this.isPlaced(e) ? placed : normal).push(M.polyline(this.s, e));
     this.drawAxes();
     this.set(this.normal, this.segments(normal));
@@ -1961,7 +1961,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       status.title = "Click to light up (in yellow) the points and curves that still have freedom";
       status.addEventListener("click", () => {
         this.showFree = !this.showFree;
-        if (this.showFree) this.status(freeMessage(freeParts(this.s, this.freedom), this.dof));
+        if (this.showFree) this.status(freeMessage(freeParts(this.s, this.freedom, this.freeSizes), this.dof));
         this.render();
       });
     }
