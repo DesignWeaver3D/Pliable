@@ -1849,7 +1849,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private roundSelectedCorner(kind: "fillet" | "chamfer") {
     const point = this.selection.find((x) => x.kind === "point");
     if (!point) return this.host.status("Select the corner point first", true);
-    const made = M.roundCorner(this.s, point.id, kind, this.rectOptions.size);
+    const at = M.pointOf(this.s, point.id); // no pointer to pick a side: the fillet nearest the corner itself
+    const made = roundAt(this.s, point.id, kind, this.rectOptions.size, at.u, at.v);
     if (typeof made === "string") return this.host.status(made, true);
     this.pushUndo();
     this.s = made;
