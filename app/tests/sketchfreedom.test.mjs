@@ -12,6 +12,14 @@ test("free points light the curves that run through them", () => {
 
 test("the message says where the freedom is, or that it is in a size", () => {
   assert.match(freeMessage(freeParts(s, new Map([[3, 2]])), 2), /1 point and 1 curve/);
-  assert.match(freeMessage(freeParts(s, new Map([[1, 0]])), 1), /in a size/);
+  assert.match(freeMessage(freeParts(s, new Map([[1, 0], [2, 0], [3, 0]])), 1), /in a size/);
+  assert.match(freeMessage(freeParts(s, new Map([[1, 0]])), 1), /could not be checked/);
   assert.match(freeMessage(freeParts(s, new Map()), 0), /Nothing/);
+});
+
+test("a circle with a free radius lights up though none of its points can move", () => {
+  const c = { points: [{ id: 1 }], entities: [{ id: 5, type: "circle", center: 1, radius: 3 }] };
+  const parts = freeParts(c, new Map([[1, 0]]), new Set([5]));
+  assert.deepEqual([...parts.entities], [5]);
+  assert.match(freeMessage(parts, 1), /free size/);
 });

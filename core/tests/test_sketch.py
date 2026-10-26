@@ -1397,3 +1397,27 @@ def test_quadrant_points_take_symmetric_about_the_axis_they_can_mirror_about():
     assert sketch.solve(_ellipse_with_quadrant_copies((13, 14), True))["status"] == "ok"  # the minor ends about the x-axis
     assert sketch.solve(_ellipse_with_quadrant_copies((11, 12), False))["status"] == "ok"  # the major ends about the y-axis
     assert sketch.solve(_ellipse_with_quadrant_copies((11, 12), True))["status"] == "failed"  # two ends of one axis line cannot mirror about a line along it
+
+
+def test_freedom_reply_reaches_every_point_of_a_sketch_of_many_shapes():
+    from pliable.server import Session
+
+    points, lines, constraints = [], [], []
+    for k in range(40):  # 40 placed squares: tested as a whole this took longer than the time limit and left points out
+        pts, lns = rectangle(10, 10, x0=k * 20, first_id=1 + 4 * k)
+        i = 1 + 4 * k
+        points += pts
+        lines += lns
+        constraints += [{"type": "horizontal", "entity": 100 + i}, {"type": "vertical", "entity": 101 + i}, {"type": "horizontal", "entity": 102 + i}, {"type": "vertical", "entity": 103 + i}, {"type": "fixed", "point": i}, {"type": "distance", "points": [i, i + 1], "value": 10}]
+    reply = Session().handle({"type": "sketch_freedom", "sketch": sketch_of(points, lines, constraints)})
+    assert set(reply["freedom"]) == {p["id"] for p in points}
+    assert sum(1 for v in reply["freedom"].values() if v) == 80  # the far corner of each square can still turn
+
+
+def test_ellipse_without_axis_ends_has_a_free_size_until_its_minor_radius_is_dimensioned():
+    from pliable.server import Session
+
+    sk = {"plane": XY, "points": [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}], "entities": [{"id": 3, "type": "ellipse", "center": 1, "major": 2, "minor": 5}], "constraints": [{"type": "fixed", "point": 1}, {"type": "fixed", "point": 2}]}
+    assert Session().handle({"type": "sketch_freedom", "sketch": sk})["free_sizes"] == [3]
+    sk["constraints"].append({"id": 9, "type": "minor_radius", "entity": 3, "value": 5})
+    assert Session().handle({"type": "sketch_freedom", "sketch": sk})["free_sizes"] == []
