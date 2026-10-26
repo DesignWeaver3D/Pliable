@@ -1,6 +1,8 @@
 /** The strip at the top centre of the view: the tools that work with the selection (or, in a sketch, the drawing tools
  *  and a row of constraints), fitted to the room between the bodies list and the nav cube. Moved out of main.ts. */
 import { CONSTRAINT_HELP } from "./sketchconstrainthelp";
+import { stripChoices } from "./sketchconstraintgroups";
+import { chooseAtCursor } from "./sketchmenu";
 import { fitStripCount, stripRoom } from "./stripfit";
 import { constraintIcon, sketchIcon, toolIcon, uiIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
@@ -51,8 +53,8 @@ export function createToolStrip(d: StripDeps) {
     const available = Math.round(room.width);
     const centre = Math.round(room.centre);
     const tool = d.sketchTool();
-    const choices = d.sketchConstraints();
-    const key = `sketch|${tool}|${available}|${centre}|${choices.map((c) => `${c.label}${c.enabled ? 1 : 0}`).join()}`;
+    const choices = stripChoices(d.sketchConstraints());
+    const key = `sketch|${tool}|${available}|${centre}|${choices.map((c) => `${c.label}${c.enabled ? 1 : 0}${(c.menu ?? []).map((m) => m.enabled ? 1 : 0).join("")}`).join()}`;
     if (key === toolbarKey) return;
     toolbarKey = key;
     d.toolbar.classList.add("sketching");
@@ -73,7 +75,7 @@ export function createToolStrip(d: StripDeps) {
       }),
       // The second row: every constraint and dimension, always available; the title says whether the selection fits (`enabled` is kept for that).
       Object.assign(document.createElement("div"), { className: "rowbreak" }),
-      ...choices.map((c) => {
+      ...choices.flatMap((c) => {
         const button = document.createElement("button");
         const name = document.createElement("span");
         name.className = "clabel";
@@ -82,7 +84,19 @@ export function createToolStrip(d: StripDeps) {
         const help = CONSTRAINT_HELP[c.label] ? ` (${CONSTRAINT_HELP[c.label]})` : "";
         button.title = c.enabled ? `Apply ${c.label} to the selection${help}` : `${c.label}: does not fit the current selection${help}`;
         button.addEventListener("click", () => d.chooseConstraint(c.label));
-        return button;
+        if (!c.menu) return button;
+        // A drop list of the strict variants beside the smart button; the button itself keeps the smart behavior.
+        const caret = document.createElement("button");
+        caret.className = "caret";
+        caret.append(uiIcon("caret", 10));
+        caret.title = `${c.label} variants: ${c.menu.map((m) => m.label).join(", ")}`;
+        caret.setAttribute("aria-haspopup", "menu");
+        caret.addEventListener("click", async () => {
+          const r = caret.getBoundingClientRect();
+          const picked = await chooseAtCursor({ x: r.left - 8, y: r.bottom - 8 }, c.menu!);
+          if (picked) d.chooseConstraint(picked.label);
+        });
+        return [button, caret];
       }),
     );
   }
