@@ -6,6 +6,8 @@ import * as M from "./sketchmodel.ts";
 import * as Ell from "./sketchellipse.ts";
 import * as Sh from "./sketchshapes.ts";
 import type { Snap, Tool } from "./sketch.ts";
+import { arcByRadius, arcClick, radiusArcPoints, type ArcOptions } from "./sketcharcoptions.ts";
+import { tangentArcFor, tangentArcPoints } from "./sketchtangentarc.ts";
 import { typedLabels, typedTag } from "./sketchtyped.ts";
 import { typedDimensions, typedPoint } from "./sketchtypeddims.ts";
 
@@ -17,6 +19,7 @@ export interface PreviewContext {
   tool: Tool;
   /** Text typed for an exact size, "" when none. */
   typed: string;
+  arcOptions?: ArcOptions;
   sidesOf(tool: Tool): number | undefined;
 }
 
@@ -45,7 +48,8 @@ export function liveDimensions(ctx: PreviewContext): Dimension[] {
 export function pendingShapes(ctx: PreviewContext): [number, number][][] {
   // While sizes are typed the outline follows them, not the pointer.
   const typed = ctx.typed ? typedPoint(ctx) : null;
-  const shown: PreviewContext = typed ? Object.assign(Object.create(ctx), { cursor: { ...ctx.cursor, ...typed } }) : ctx;
+  const aimed = !typed && ctx.tool === "arc" && ctx.cursor && ctx.arcOptions && ctx.chain.length >= 1 && ctx.chain.length <= 2 ? arcClick(ctx.chain, ctx.cursor, ctx.arcOptions) : null;
+  const shown: PreviewContext = typed ? Object.assign(Object.create(ctx), { cursor: { ...ctx.cursor, ...typed } }) : aimed ? Object.assign(Object.create(ctx), { cursor: { ...ctx.cursor, ...aimed } }) : ctx;
   return [...pendingBase(shown), ...(ctx.cursor?.guides ?? [])];
 }
 function pendingBase(ctx: PreviewContext): [number, number][][] {
@@ -90,6 +94,16 @@ function pendingBase(ctx: PreviewContext): [number, number][][] {
     if (ctx.typed && sweep <= 0) sweep += 2 * Math.PI; // a typed sweep is always counterclockwise
     return [Ell.ellipseArcPoints(f, from, sweep, 48)];
   }
+  if (ctx.tool === "arcrad") {
+    const second = ctx.chain[1];
+    if (!second) return [[[first.u, first.v], [c.u, c.v]]];
+    const arc = arcByRadius(first, second, ctx.arcOptions?.radius ?? 0, c);
+    return [arc ? radiusArcPoints(arc) : [[first.u, first.v], [second.u, second.v]]];
+  }
+  if (ctx.tool === "arctan") {
+    const arc = tangentArcFor(ctx.s, first, c);
+    return [arc ? tangentArcPoints(arc) : [[first.u, first.v], [c.u, c.v]]];
+  }
   const second = ctx.chain[1];
   if (ctx.tool === "slot") {
     if (!second) return [[[first.u, first.v], [c.u, c.v]]];
@@ -125,7 +139,7 @@ function pendingBase(ctx: PreviewContext): [number, number][][] {
     const radius = Math.hypot(second.u - first.u, second.v - first.v);
     const a0 = Math.atan2(second.v - first.v, second.u - first.u);
     let sweep = Sh.arcSweepToward(first, second, c); // follows the pointer: clockwise or counterclockwise from the start
-    if (ctx.typed && sweep <= 0) sweep += 2 * Math.PI; // a typed sweep is always counterclockwise
+    if ((ctx.typed || ctx.arcOptions?.sweep != null) && sweep <= 0) sweep += 2 * Math.PI; // a typed sweep is always counterclockwise
     return [Array.from({ length: 49 }, (_, i) => [first.u + radius * Math.cos(a0 + (sweep * i) / 48), first.v + radius * Math.sin(a0 + (sweep * i) / 48)] as [number, number])];
   }
   return [];

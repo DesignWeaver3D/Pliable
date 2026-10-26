@@ -4,6 +4,7 @@ import { pointInRect, polylineInBox, type Rect } from "./boxselect.ts";
 import { measure, radiusOf } from "./sketchconstraints.ts";
 import { showNumber } from "./precision.ts";
 import { ellipseAngle, ellipseArcPoints, ellipseSweep } from "./sketchellipse.ts";
+import { ellipseCrossings, splineCrossings } from "./sketchcrossings.ts";
 export * from "./sketchconstraints.ts";
 export * from "./sketchsmartdim.ts";
 
@@ -604,7 +605,7 @@ function onArc(s: SketchData, arc: Extract<SketchEntity, { type: "arc" }>, u: nu
   return turn(angle(u, v)) <= sweep + 1e-9;
 }
 
-/** Parameters t along line `e` (0 at its start, 1 at its end, unbounded) where it meets other lines and circles. */
+/** Parameters t along line `e` (0 at its start, 1 at its end, unbounded) where it meets other lines, circles, arcs, ellipses and splines. */
 export function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line" }>): number[] {
   const a = pointOf(s, e.a);
   const b = pointOf(s, e.b);
@@ -623,6 +624,10 @@ export function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line"
       const t = ((c.u - a.u) * ey - (c.v - a.v) * ex) / den;
       const w = ((c.u - a.u) * dy - (c.v - a.v) * dx) / den;
       if (w >= -1e-9 && w <= 1 + 1e-9) ts.push(t);
+    } else if (o.type === "ellipse") {
+      ts.push(...ellipseCrossings(s, o, a, { u: dx, v: dy }));
+    } else if (o.type === "spline") {
+      ts.push(...splineCrossings(s, o, a, { u: dx, v: dy }));
     } else if (o.type === "circle" || o.type === "arc") {
       const c = pointOf(s, o.center);
       const radius = o.type === "circle" ? o.radius : Math.hypot(pointOf(s, o.start).u - c.u, pointOf(s, o.start).v - c.v);

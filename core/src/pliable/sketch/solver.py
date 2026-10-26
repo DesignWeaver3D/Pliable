@@ -20,6 +20,13 @@ def _entity_point_ids(e: dict) -> list[int]:
     return ids + list(e.get("points", []))
 
 
+def free_ellipse_minors(sketch: dict) -> list[int]:
+    """Ids of the ellipses that have no minor axis ends (older files) and no minor radius dimension: their short radius is outside the solver, so it is
+    a degree of freedom the solver does not report, and only that dimension fixes it (a projected ellipse is a reference and has none)."""
+    dimensioned = {c.get("entity") for c in sketch.get("constraints", []) if c["type"] == "minor_radius" and not c.get("reference")}
+    return [e["id"] for e in sketch.get("entities", []) if e["type"] == "ellipse" and "minor1" not in e and not e.get("reference") and e["id"] not in dimensioned]
+
+
 def _frame_key(e: dict):
     """What an ellipse is made of: elliptical arcs cut from one ellipse share its axis end points, so they share its hidden construction."""
     return (e["center"], e["major"], e["major2"], e["minor1"], e["minor2"]) if "minor1" in e else e["id"]
@@ -339,11 +346,23 @@ class _Solver:
                 spoke = s.addLineSegment(self._point(a["center"]), self._point(end), g)
                 handles.append(s.addPerpendicular(spoke, self.entities[id_b][1], wp, g))
                 return handles
+            if a["type"] == "arc":  # an arc end held on the line (a tangent arc drawn between two curves): its radius there is square to the line
+                held = [q for q in (a["start"], a["end"]) if any(c.get("type") == "point_on" and c.get("point") == q and c.get("entity") == id_b for c in self.sketch.get("constraints", []))]
+                if held:
+                    spoke = s.addLineSegment(self._point(a["center"]), self._point(held[0]), g)
+                    handles.append(s.addPerpendicular(spoke, self.entities[id_b][1], wp, g))
+                    return handles
             p0, p1 = coords[b["a"]], coords[b["b"]]
             dx, dy = p1[0] - p0[0], p1[1] - p0[1]
             t = ((centre[0] - p0[0]) * dx + (centre[1] - p0[1]) * dy) / (dx * dx + dy * dy or 1.0)
             guess = (p0[0] + t * dx, p0[1] + t * dy)
         else:
+            for x, idx, idy in ((a, id_a, id_b), (b, id_b, id_a)):  # an arc end held on the other round entity touches it on the line through the centres
+                held = [q for q in (x.get("start"), x.get("end")) if q is not None and any(c.get("type") == "point_on" and c.get("point") == q and c.get("entity") == idy for c in self.sketch.get("constraints", []))]
+                if x["type"] == "arc" and held:
+                    through = s.addLineSegment(self._point(a["center"]), self._point(b["center"]), g)
+                    handles.append(s.addPointOnLine(self._point(held[0]), through, wp, g))
+                    return handles
             other = coords[b["center"]]
             d = math.dist(centre, other) or 1.0
             guess = (centre[0] + (other[0] - centre[0]) * radius / d, centre[1] + (other[1] - centre[1]) * radius / d)
@@ -439,7 +458,7 @@ class _Solver:
             for e in self.sketch.get("entities", []):
                 if e["type"] == "ellipse" and "minor1" in e:
                     radii[e["id"]] = math.dist(self._coords(e["center"]), self._coords(e["minor1"]))
-        return {"status": "ok" if ok else "failed", "code": code, "dof": self.system.Dof if ok else None, "failed": failed, "points": points, "radii": radii}
+        return {"status": "ok" if ok else "failed", "code": code, "dof": self.system.Dof + len(free_ellipse_minors(self.sketch)) if ok else None, "failed": failed, "points": points, "radii": radii}
 
 
 def _solved(sketch: dict, drag: dict | None = None, skip: int | None = None) -> tuple[_Solver, dict]:
