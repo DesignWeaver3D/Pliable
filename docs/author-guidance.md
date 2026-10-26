@@ -16,7 +16,6 @@ Rules for keeping it:
 
 ### Desktop app (Windows archive)
 
-- [ ] Do you have a Mac or a Linux machine to run the v0.4.0 desktop archive on? Nobody has run those two archives; the Windows one works. Default: release them marked untested.
 
 ## Normal priority
 
@@ -56,29 +55,5 @@ Rules for keeping it:
 
 ### Decisions
 
-- [ ] Remove fillet/chamfer, Fill hole / remove boss and Chamfer (distance and angle) now overlap Defeature on the bracket's fillets and round holes. Remove any of them? Default: keep all three.
-- [ ] Distribute holes/bosses spaces holes along one axis only, so the four bracket base holes spread unevenly. Keep for single rows, or remove in favour of arrays on features? Default: keep, tooltip only.
-- [ ] Smart dimension menus: should they also offer Radius, Coincident, Parallel, Perpendicular and Angle so the matching buttons can go? Default: keep the buttons.
 - [ ] Dimension and Horizontal/Vertical variants under one tool (drop list under Dimension for horizontal and vertical distance; drop list under Horizontal / vertical for the strict ones). This changes the approved button row in behavior.md. Approve the layout?
 - [ ] Using a gizmo must not apply the tool; only a click on empty space applies it. This changes the approved rule in behavior.md that clicking another item also applies. Approve?
-- [ ] Inset face: the clickable ball that switches all edges / perimeter. Should other tools with an option use the same ball? Default: no change.
-- [ ] Wall draft angle in place: leave it to the Draft tool, show the tag only while Draft is armed, or add an angle field to the push/pull card? Default: Draft tool only.
-- [ ] Global display precision (1 to 8 decimals, default 3) covers measurements and sketch dimensions. Extend it to tool forms, manipulator labels and drag rounding? Default: yes, later.
-
-## Future
-
-### Stored recipes and arrays
-
-- [ ] Should an array keep its count and spacing for later editing (a stored recipe a "separate" command restores, or a compound with its source), or stay plain separate solids as now? Default: plain solids.
-- [ ] Edit a pattern from one of its members (needs a light pattern record; depends on the previous item).
-
-### Design intent and push/pull
-
-- [ ] Up To and Full Pull for push/pull (reference picks), or typed distances only? Default: typed distances only.
-- [ ] Soft locks on relationships (re-checked after every edit, risk of silently stale locks), or re-detect only? Default: re-detect only.
-- [ ] After editing a part with fillets, re-add the fillets automatically ("round last") or only on failure? Default: only on failure.
-
-### Formats and structure
-
-- [ ] Build IFC (IfcOpenShell, LGPL-3.0, 42 to 55 MB per platform) and .3dm (rhino3dm, MIT, about 2.5 MB, needs own trim conversion)? Default: not built.
-- [ ] Split `sketch.ts` and `main.ts` into modules now, or keep adding features? Default: keep adding features; the architecture plan holds the order.

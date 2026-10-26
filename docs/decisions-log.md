@@ -164,3 +164,12 @@ Decisions made without the owner or by the owner, grouped by topic. Each says wh
 - Symmetric that only repeats what the sketch already implies (an ellipse's minor ends about the x-axis with its centre fixed on it) is accepted without a warning; a real conflict is still dropped with the warning. (symfix)
 
 - 2026-10-26 (arc fillet agent): Fillet and Chamfer extended to line and arc, arc and arc, and circles. A corner (click the shared point or one of its curves) keeps the fillet circle whose tangent points lie on the existing arms; where several fit, the centre nearest the click wins. Curves that are not joined are picked one after the other (first click is highlighted, second click gives the side); the fillet is then any tangent circle of the typed radius, the kept part of each curve being the side the arc leaves it from. A circle is cut into an arc up to its nearest crossing with the other curve (Chamfer: up to the crossing itself); with no crossing a fillet leaves the circle whole. Chamfer needs the curves to meet (extended lines and circles count); otherwise it is refused. The fillet arc is always the shorter of the two arcs between the tangent points.
+
+## 2026-10-26: defaults adopted instead of asking the owner
+
+Each was on the author guidance list with a default that follows the decision hierarchy, so it is decided, not asked:
+- Keep Remove fillet/chamfer, Fill hole / remove boss and Chamfer (distance and angle) beside Defeature.
+- Keep Distribute holes/bosses for single rows (tooltip only); keep the smart dimension buttons; no other tools get the Inset face ball; wall draft angle stays with the Draft tool.
+- Global display precision applies to tool forms, manipulator labels and drag rounding too (tracked in the plan row).
+- Arrays stay plain separate solids; no pattern record; push/pull has typed distances only (no Up To); relationships are re-detected only (no soft locks); fillets are re-added only on failure.
+- IFC and .3dm are investigated first (plan row); `sketch.ts` and `main.ts` splits wait for the architecture plan; Mac and Linux archives are released marked untested.
