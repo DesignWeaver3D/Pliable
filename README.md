@@ -3,9 +3,9 @@
 **A free, open-source direct modeler for hobbyists, makers, and students**
 
 > ⚠️ **Alpha software. Not for serious work. Data can be lost. The interface and behaviour will change rapidly without notice.**
-> Sketching is incomplete and unsupported; Chrome is the only tested browser. See [known limitations](docs/known-limitations.md). Report problems with the [bug report template](https://github.com/DesignWeaver3D/Pliable/issues/new?template=bug_report.md) (use **Copy diagnostics** in the app). Third-party licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+> Sketching is incomplete and unsupported. See [known limitations](docs/known-limitations.md). Report problems with the [bug report template](https://github.com/DesignWeaver3D/Pliable/issues/new?template=bug_report.md) (use **Copy diagnostics** in the app). Third-party licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-⚠️ **Status: Being rebuilt. Alpha software on the `rebuild` branch; expect rough edges.**
+⚠️ **Status: Alpha software, rebuilt on a new architecture. The current alpha is v0.4.0, a portable desktop app; expect rough edges.**
 
 Pliable lets you shape solid geometry directly: push and pull faces, fillet and chamfer edges, and export to STEP or for 3D printing. There's no feature tree or parametric constraints to manage. It is designed for people who don't want to memorize dozens of keyboard shortcuts: tools appear based on what you've selected, every tool has a visible label and icon, and you can always search for a command by name.
 
@@ -17,25 +17,29 @@ Pliable started as a proof of concept built with PyQt6 and pythonocc:
 
 It proved that face push/pull, fillet/chamfer, and STEP round-tripping work on OpenCASCADE, but it wasn't built to scale. The project is now being rebuilt on a new architecture. The prototype is preserved as release [v0.1.0](https://github.com/DesignWeaver3D/Pliable/releases/tag/v0.1.0).
 
-`main` now holds the rebuild. The prototype lives on at the `v0.1.0` tag.
+`main` holds the last released rebuild. The prototype lives on at the `v0.1.0` tag.
+
+## Download and run
+
+Get the archive for your system from the [releases page](https://github.com/DesignWeaver3D/Pliable/releases), unzip it and run `Pliable` (`Pliable.exe` on Windows). A window opens with the app; there is nothing to install. Everything Pliable saves (settings, autosaves, a core log) goes in the `data` folder beside the program, so it can run from a USB drive. The builds are unsigned, so Windows and macOS will warn on first launch; the [release notes](docs/release-notes.md) say what to click. Linux needs Ubuntu 24.04, Linux Mint 22 or a similar distribution from 2024 or later, with `libwebkit2gtk-4.1`. Only Windows has been tested by a person so far; see [known limitations](docs/known-limitations.md).
 
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md) for the architecture, ordered milestones, open questions, and how to get involved.
 
-## Planned Tech Stack
+## Tech Stack
 
 - [OpenCASCADE](https://dev.opencascade.org/) BREP kernel, via [OCP](https://github.com/CadQuery/OCP) and [build123d](https://github.com/gumyr/build123d)
 - Python core for geometry, tools, and application logic
 - [Three.js](https://threejs.org/) viewport
 - React + TypeScript UI
-- [Tauri](https://tauri.app/) desktop app, with a browser version planned
+- [Tauri](https://tauri.app/) desktop shell (a native window around the app, started with the packaged Python core); a browser version is planned
 
 ## Get Involved
 
 Pliable is looking for frontend developers, Python/CAD developers, UX designers, and direct modeling users willing to share workflows. See [ROADMAP.md](ROADMAP.md#get-involved) for details, and open an issue to start a conversation.
 
-## Running the Rebuild
+## Running from source
 
 Requires [uv](https://docs.astral.sh/uv/) and Node 24.
 
@@ -48,7 +52,7 @@ Requires [uv](https://docs.astral.sh/uv/) and Node 24.
     npm install
     npm run dev                  # http://localhost:5173, needs the server running
 
-Open the page, pick a demo or import a STEP file, and try:
+Open the page (Chrome is the browser used for development), pick a demo or import a STEP file, and try:
 
 - **Select:** click a face, edge or vertex (Ctrl+click to add to the selection).
 - **Push/pull a face:** drag it. **Fillet/chamfer an edge:** drag it outward (fillet) or inward (chamfer).
@@ -61,6 +65,8 @@ Open the page, pick a demo or import a STEP file, and try:
 - **Model info:** validity, counts, volume and size. **Combine STEP:** union, cut or intersect with another file.
 - **Developer metrics:** add `?dev=1` to the page address to show triangle counts and timings.
 - **Undo/redo:** Ctrl+Z / Ctrl+Y. **Export:** STEP button.
+
+To build the desktop app yourself, see the Desktop shell section of [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Running the Prototype
 

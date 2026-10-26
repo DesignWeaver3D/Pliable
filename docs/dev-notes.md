@@ -40,6 +40,13 @@ Lasting technical notes moved out of `progress.md` so the plan stays short. Read
 - Body ids after an operation are matched by shape and volume (see the watchlist); the draft-angle dimension assumes a Z pull direction.
 - Prototype preserved at tag `v0.1.0`. Closest open-source competitor is Ductile (Rust, MIT, young); Chili3D is AGPL-3.0 so its code may be reused (`docs/research/landscape.md`).
 
+## Desktop shell (Tauri)
+
+- Layout and build steps are in the Desktop shell section of `CONTRIBUTING.md`. The shell is `desktop/src-tauri/src/main.rs`; it sets `PLIABLE_DATA` (the core's saved files go to `data/core` beside the program) and `PLIABLE_SHELL` (the version, so the diagnostics report says it runs in the window). `PLIABLE_PORT` forces the core's port (the smoke test uses it) and `PLIABLE_CORE` points at a core program to run instead of `core/pliable` (development).
+- Local Windows builds without the Visual Studio C++ build tools (installing them needs an admin prompt): install a user-level GNU toolchain (`winget install BrechtSanders.WinLibs.POSIX.UCRT`, `rustup toolchain install stable-x86_64-pc-windows-gnu`) and set `RUSTUP_TOOLCHAIN=stable-x86_64-pc-windows-gnu`. That build needs `WebView2Loader.dll` copied next to the program (the MSVC build links it in, so CI does not), and `cargo build` needs `--features custom-protocol`. Treat it as a compile check; the MSVC build from CI is the real one.
+- The shell picks port 8765 when free, else a random one. The page's saved settings are per port, so a random port starts with default settings.
+- Freezing the core takes about 3 minutes and the first shell build about 4 on a laptop; changes to the shell alone rebuild in a minute.
+
 ## How to run
 
 ```
