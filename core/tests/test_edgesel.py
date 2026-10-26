@@ -219,3 +219,64 @@ def test_inset_and_draft_offer_handles_that_follow_their_values():
     (h1,) = draft.handles(block, Selection(faces=[wall]), {**values, "angle": 10.0})
     assert h0.param == "angle" and h0.ring is not None
     assert h0.anchor != h1.anchor
+
+
+def _bracket_top_with_holes():
+    from build123d import Face
+
+    t = Topology(load_demo("bracket"))
+    face = next(i for i, _ in t.faces() if len(Face(t.face(i)).inner_wires()) == 4 and t.face(i) is not None and Face(t.face(i)).center().Z > 0)
+    return t, face
+
+
+def _solids(shape):
+    from OCP.TopAbs import TopAbs_SOLID
+    from OCP.TopExp import TopExp_Explorer
+
+    explorer, count = TopExp_Explorer(shape, TopAbs_SOLID), 0
+    while explorer.More():
+        count += 1
+        explorer.Next()
+    return count
+
+
+def _inset(t, face, distance, **extra):
+    from pliable.tools import Selection, get_tool
+
+    result = get_tool("inset_face").execute(t, Selection(faces=[face]), {"distance": distance, **extra}, False)
+    return Topology(result.shape), result
+
+
+def test_inset_without_overlap_keeps_the_ring_per_edge():
+    t, face = _bracket_top_with_holes()
+    after, result = _inset(t, face, 2.0, all_loops=1)
+    assert after.face_count == t.face_count + 5  # inner region, outer band and four hole rings
+    assert _solids(result.shape) == _solids(t.shape) == 1
+    assert _inset(t, face, 2.0)[0].face_count == t.face_count + 1
+
+
+def test_inset_hole_band_meets_the_outer_band():
+    t, face = _bracket_top_with_holes()
+    apart, _ = _inset(t, face, 3.0, all_loops=1)
+    merged, result = _inset(t, face, 4.0, all_loops=1)  # the hole rings reach the outer band here
+    assert merged.face_count < apart.face_count and merged.face_count > t.face_count
+    assert _solids(result.shape) == 1
+
+
+def test_inset_two_hole_bands_meet():
+    t, face = _bracket_top_with_holes()
+    before, _ = _inset(t, face, 9.0, all_loops=1)
+    after, result = _inset(t, face, 11.0, all_loops=1)  # the two holes 28 apart have bands that cross past 10
+    assert after.face_count != before.face_count and after.face_count > t.face_count
+    assert _solids(result.shape) == 1
+    assert after.face_count < t.face_count + 9  # merged bands, not one extra face per crossing
+
+
+def test_inset_bands_covering_everything_leave_nothing():
+    t, face = _bracket_top_with_holes()
+    with pytest.raises(OperationError):
+        _inset(t, face, 30.0, all_loops=1)
+    with pytest.raises(OperationError):
+        _inset(t, face, 30.0)
+    with pytest.raises(OperationError):
+        _inset(t, face, 80.0, loop=1)

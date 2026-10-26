@@ -9,6 +9,28 @@ from ..shared.faces import _PlanarFace
 from ..tools import Accepts, Handle, Param, register
 
 
+def _combined(face, shrunk: list, grown: list) -> list:
+    """The faces whose outlines split `face`: the inward-moved outline (when the perimeter is inset) minus every
+    growing hole region, so outlines that overlap merge and trim where they cross. Pieces cut off from each other
+    stay separate faces; slivers thinner than MIN_DISTANCE in area are dropped. Empty when the bands cover the face."""
+    from build123d import Face as F
+
+    cover = None
+    for g in grown:
+        cover = g if cover is None else cover + g
+    if shrunk:
+        base = None
+        for r in shrunk:
+            base = r if base is None else base + r
+        pieces = base - cover if cover is not None else base
+    else:
+        pieces = cover & face  # only the part of the grown holes that lies on the face
+    found = [f for f in (pieces.faces() if pieces is not None else []) if f.area >= MIN_DISTANCE]
+    if sum(f.area for f in found) >= face.area - MIN_DISTANCE:
+        return []
+    return found
+
+
 @register
 class InsetFace(_PlanarFace):
     """Offset the edges of a flat face and split the face along them, so the inner region can be pushed, pulled or cut
@@ -65,34 +87,35 @@ class InsetFace(_PlanarFace):
         if not every and not 0 <= loop <= len(holes):
             raise OperationError(f"The face has {len(holes)} inner loop(s); loop must be 0 (outline) to {len(holes)}")
 
-        def region_of(wire, grow: bool) -> Face:
+        def regions_of(wire, grow: bool) -> list:
             inner = wire.offset_2d(distance if grow else -distance, kind=Kind.INTERSECTION)
-            return Face(inner[0] if isinstance(inner, list) else inner)
+            return [Face(w) for w in (inner if isinstance(inner, list) else [inner])]
 
-        regions = []
+        shrunk, grown = [], []
         try:
             if every or loop == 0:
-                outline = region_of(face.outer_wire(), False)
-                if outline.area >= face.area:
+                shrunk = regions_of(face.outer_wire(), False)
+                if sum(r.area for r in shrunk) >= face.area:
                     raise OperationError("The inset is larger than the face")
-                regions.append(outline)
             if every:
-                regions += [region_of(h, True) for h in holes]  # a hole's loop grows outward, so the ring around it becomes its own region
+                for h in holes:  # a hole's loop grows outward, so the ring around it becomes its own region
+                    grown += regions_of(h, True)
             elif loop > 0:
-                regions.append(region_of(holes[loop - 1], True))
+                grown = regions_of(holes[loop - 1], True)
+            tools = _combined(face, shrunk, grown)
         except OperationError:
             raise
         except Exception:
             raise OperationError("The inset is larger than the face") from None
-        if any(r.area < MIN_DISTANCE for r in regions):
+        if not tools:
             raise OperationError("The inset is larger than the face")
         splitter = BRepAlgoAPI_Splitter()
-        arguments, tools = List_TopoDS_Shape(), List_TopoDS_Shape()
+        arguments, tool_shapes = List_TopoDS_Shape(), List_TopoDS_Shape()
         arguments.Append(topology.shape)
-        for r in regions:
-            tools.Append(r.wrapped)
+        for r in tools:
+            tool_shapes.Append(r.wrapped)
         splitter.SetArguments(arguments)
-        splitter.SetTools(tools)
+        splitter.SetTools(tool_shapes)
         splitter.SetNonDestructive(True)
         splitter.Build()
         if not splitter.IsDone() or splitter.Shape().IsNull():
