@@ -55,5 +55,4 @@ Rules for keeping it:
 
 ### Decisions
 
-- [ ] Dimension and Horizontal/Vertical variants under one tool (drop list under Dimension for horizontal and vertical distance; drop list under Horizontal / vertical for the strict ones). This changes the approved button row in behavior.md. Approve the layout?
 - [ ] Using a gizmo must not apply the tool; only a click on empty space applies it. This changes the approved rule in behavior.md that clicking another item also applies. Approve?
