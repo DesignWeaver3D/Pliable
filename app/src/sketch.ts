@@ -26,6 +26,7 @@ import { parseValue } from "./dimedit";
 import { uiIcon } from "./icons";
 import { LENGTH_UNIT } from "./units";
 import { usage } from "./usage";
+import { cornerAt } from "./sketchcorner";
 import { automaticInTheWay } from "./sketchautowin";
 import { FREE_COLOR, freeMessage, freeParts } from "./sketchfreedom";
 import type { HandleInfo } from "./tools";
@@ -37,7 +38,7 @@ const CONSTRUCTION_DASH_PX = 8;
 const CONSTRUCTION_GAP_PX = 5;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
-export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "polygon" | "ellipse" | "spline" | "trim" | "extend" | "split" | "triangle" | "pentagon" | "hexagon" | "octagon";
+export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "polygon" | "ellipse" | "spline" | "trim" | "extend" | "split" | "fillet" | "chamfer" | "triangle" | "pentagon" | "hexagon" | "octagon";
 /** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
 const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5, hexagon: 6, octagon: 8 };
 export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
@@ -55,6 +56,8 @@ export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "spline", label: "Spline", hint: "Click points the curve passes through; Enter or right-click ends it, clicking the first point closes it" },
   { id: "trim", label: "Trim", hint: "Click a line to cut it at its crossings and mark that piece; click the marked piece again to delete it" },
   { id: "split", label: "Split", hint: "Click a line where it should be cut in two" },
+  { id: "fillet", label: "Fillet", hint: "Click a corner where two lines meet (or one of its lines) to round it; the radius is set in the sketch card" },
+  { id: "chamfer", label: "Chamfer", hint: "Click a corner where two lines meet (or one of its lines) to bevel it; the distance is set in the sketch card" },
   { id: "extend", label: "Extend", hint: "Click near the end of a line to stretch it to the next curve" },
   { id: "polygon", label: "Polygon", hint: "Click the centre, then a corner; the number of sides is set in the sketch card (3 to 64)" },
 ];
@@ -597,7 +600,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       }
       return;
     }
-    if (this.tool === "select" || this.tool === "trim" || this.tool === "extend" || this.tool === "split") this.hover = this.pick(e);
+    if (this.tool === "select" || this.tool === "trim" || this.tool === "extend" || this.tool === "split" || this.tool === "fillet" || this.tool === "chamfer") this.hover = this.pick(e);
     else this.cursor = this.snap(e);
     this.render();
   }
@@ -686,6 +689,24 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       return;
     }
     if (this.tool === "select") return;
+    if (this.tool === "fillet" || this.tool === "chamfer") {
+      const uv = this.planeUV(e);
+      const corner = uv ? cornerAt(this.s, this.pick(e), uv[0], uv[1]) : null;
+      if (corner === null) this.host.status("Click a corner where two lines meet, or one of its lines", true);
+      else {
+        const made = M.roundCorner(this.s, corner, this.tool, this.rectOptions.size);
+        if (typeof made === "string") this.host.status(made, true);
+        else {
+          this.pushUndo();
+          this.s = made;
+          this.selection = [];
+          this.resolve();
+          this.host.status(this.tool === "fillet" ? "Rounded the corner" : "Bevelled the corner");
+        }
+      }
+      this.render();
+      return;
+    }
     if (this.tool === "trim" || this.tool === "extend" || this.tool === "split") {
       const hit = this.pick(e);
       const uv = this.planeUV(e);

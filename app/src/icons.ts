@@ -133,6 +133,8 @@ export const SKETCH_ICONS: Record<string, string> = {
   spline: '<path d="M4 17C7 5 12 21 20 7"/><circle cx="4" cy="17" r="1.4" fill="currentColor"/><circle cx="20" cy="7" r="1.4" fill="currentColor"/>',
   trim: '<path d="M4 8h16M12 4v16"/><path d="M12 8v12" stroke-width="3" opacity=".35"/>',
   split: '<path d="M4 12h6M14 12h6"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><path d="M12 5v4M12 15v4" stroke-dasharray="1.5 2"/>',
+  fillet: '<path d="M5 4v9a6 6 0 0 0 6 6h9"/><path d="M5 13a6 6 0 0 0 6 6" stroke-width="3" opacity=".35"/>',
+  chamfer: '<path d="M5 4v9l6 6h9"/><path d="M5 13l6 6" stroke-width="3" opacity=".35"/>',
   extend: '<path d="M4 12h9" /><path d="M13 12h5" stroke-dasharray="2 2"/><path d="M20 6v12"/><path d="M16 9l3 3-3 3"/>',
   polygon: '<path d="M12 3.5l7.5 5.5-2.9 8.8H7.4L4.5 9z" fill="currentColor" fill-opacity=".12"/><text x="12" y="15" text-anchor="middle" font-size="8" font-family="system-ui, sans-serif" font-weight="700" fill="currentColor" stroke="none">n</text>',
   triangle: '<path d="M12 4l8.5 15h-17z" fill="currentColor" fill-opacity=".12"/>',

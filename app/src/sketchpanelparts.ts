@@ -62,6 +62,19 @@ export function buildToolOptions(ctx: PanelContext): HTMLElement {
     row.append(sides);
     tools.append(row);
   }
+  if (ctx.tool === "fillet" || ctx.tool === "chamfer") {
+    const size = document.createElement("input");
+    size.type = "number";
+    size.step = "any";
+    size.min = "0";
+    size.value = String(ctx.rectOptions.size);
+    size.title = ctx.tool === "fillet" ? "Fillet radius" : "Chamfer distance along each side";
+    size.addEventListener("keydown", (e) => e.stopPropagation());
+    size.addEventListener("input", () => (ctx.rectOptions.size = Math.abs(Number(size.value)) || 0));
+    const row = el("label", "", ctx.tool === "fillet" ? "Radius " : "Distance ");
+    row.append(size);
+    tools.append(row);
+  }
   if (ctx.tool === "rectangle" || ctx.tool === "rectcentre") {
     const corner = document.createElement("select");
     for (const [v, label] of [["none", "Square corners"], ["fillet", "Rounded corners"], ["chamfer", "Bevelled corners"]]) corner.append(new Option(label, v, false, v === ctx.rectOptions.corner));
