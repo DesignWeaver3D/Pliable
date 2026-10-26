@@ -20,6 +20,13 @@ def _entity_point_ids(e: dict) -> list[int]:
     return ids + list(e.get("points", []))
 
 
+def free_ellipse_minors(sketch: dict) -> list[int]:
+    """Ids of the ellipses that have no minor axis ends (older files) and no minor radius dimension: their short radius is outside the solver, so it is
+    a degree of freedom the solver does not report, and only that dimension fixes it (a projected ellipse is a reference and has none)."""
+    dimensioned = {c.get("entity") for c in sketch.get("constraints", []) if c["type"] == "minor_radius" and not c.get("reference")}
+    return [e["id"] for e in sketch.get("entities", []) if e["type"] == "ellipse" and "minor1" not in e and not e.get("reference") and e["id"] not in dimensioned]
+
+
 def _frame_key(e: dict):
     """What an ellipse is made of: elliptical arcs cut from one ellipse share its axis end points, so they share its hidden construction."""
     return (e["center"], e["major"], e["major2"], e["minor1"], e["minor2"]) if "minor1" in e else e["id"]
@@ -451,7 +458,7 @@ class _Solver:
             for e in self.sketch.get("entities", []):
                 if e["type"] == "ellipse" and "minor1" in e:
                     radii[e["id"]] = math.dist(self._coords(e["center"]), self._coords(e["minor1"]))
-        return {"status": "ok" if ok else "failed", "code": code, "dof": self.system.Dof if ok else None, "failed": failed, "points": points, "radii": radii}
+        return {"status": "ok" if ok else "failed", "code": code, "dof": self.system.Dof + len(free_ellipse_minors(self.sketch)) if ok else None, "failed": failed, "points": points, "radii": radii}
 
 
 def _solved(sketch: dict, drag: dict | None = None, skip: int | None = None) -> tuple[_Solver, dict]:

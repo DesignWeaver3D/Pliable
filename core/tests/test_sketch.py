@@ -1669,3 +1669,13 @@ def test_arc_tangent_to_a_circle_with_its_end_on_it_solves():
     assert math.dist(c[1], c[5]) == pytest.approx(8, abs=1e-6)  # externally tangent: 5 + 3
     assert math.dist(c[1], c[6]) == pytest.approx(5, abs=1e-6)
     assert c[7][1] == pytest.approx(10, abs=1e-6)
+
+
+def test_old_ellipse_without_axis_ends_counts_its_short_radius_as_a_degree_of_freedom():
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}]
+    entities = [{"id": 10, "type": "ellipse", "center": 1, "major": 2, "minor": 5}]
+    fixed = [{"id": 20, "type": "fixed", "point": 1}, {"id": 21, "type": "fixed", "point": 2}]
+    free = sketch.solve(sketch_of(points, entities, fixed))
+    assert free["status"] == "ok" and free["dof"] == 1
+    sized = sketch.solve(sketch_of(points, entities, fixed + [{"id": 22, "type": "minor_radius", "entity": 10, "value": 5}]))
+    assert sized["dof"] == 0
