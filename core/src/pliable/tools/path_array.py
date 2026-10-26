@@ -15,7 +15,7 @@ class PathArray(Tool):
 
     id = "path_array"
     label = "Array along path"
-    description = "Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model); the count includes the original."
+    description = "Needs an edge selected (it does not show in the tool strip otherwise). Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model); the count includes the original."
     accepts = Accepts(faces=(0, None), edges=(1, None))
     params = [Param("count", "number", 4)]
 

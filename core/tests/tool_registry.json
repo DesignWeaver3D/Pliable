@@ -1251,7 +1251,7 @@
  {
   "id": "patch_fill",
   "label": "Patch fill",
-  "description": "Closes a gap bounded by selected edges with a smooth filled surface. Select three or more edges; continuity 1 = tangent to neighbours, 0 = just touching.",
+  "description": "Closes a gap bounded by selected edges with a smooth filled surface. Needs three or more selected edges forming a closed gap; continuity 1 = tangent to neighbours, 0 = just touching.",
   "accepts": {
    "faces": [
     0,
@@ -1292,7 +1292,7 @@
  {
   "id": "bridge",
   "label": "Bridge edges",
-  "description": "Joins two edges with a straight-ruled surface. Select two edges.",
+  "description": "Joins two edges with a straight-ruled surface. Needs exactly two selected edges.",
   "accepts": {
    "faces": [
     0,
@@ -1325,7 +1325,7 @@
  {
   "id": "unify",
   "label": "Refine bodies",
-  "description": "Merges neighbouring faces that lie on the same surface, for example after opening a file made of many small faces. Select bodies (or any face of them) to refine only those, which is much faster on a model with many bodies; with nothing selected every body is refined.",
+  "description": "Unify: merges neighbouring faces that lie on the same surface, for example after opening a file made of many small faces. Select bodies (or any face of them) to refine only those, which is much faster on a model with many bodies; with nothing selected every body is refined.",
   "accepts": {
    "faces": [
     0,
@@ -2679,7 +2679,7 @@
  {
   "id": "path_array",
   "label": "Array along path",
-  "description": "Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model); the count includes the original.",
+  "description": "Needs an edge selected (it does not show in the tool strip otherwise). Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model); the count includes the original.",
   "accepts": {
    "faces": [
     0,

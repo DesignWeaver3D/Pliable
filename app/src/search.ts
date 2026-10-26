@@ -39,12 +39,12 @@ export function subsequence(text: string, query: string): boolean {
 /** Lower is better; null means no match. Word starts in the label beat loose letters; keywords match whole words by prefix. */
 export function matchRank(item: Searchable, text: string): number | null {
   if (!text) return 0;
-  const q = text.toLowerCase();
+  const q = text.toLowerCase().replace(/_/g, " "); // tool ids such as patch_fill find "Patch fill"
   const label = item.label.toLowerCase();
   if (label.startsWith(q)) return 0;
   if (label.split(/[^a-z0-9]+/).some((w) => w.startsWith(q))) return 1;
   if (label.includes(q)) return 2;
-  if ((item.keywords ?? []).some((k) => k.toLowerCase().split(/[^a-z0-9]+/).some((w) => w.startsWith(q)))) return 3;
+  if ((item.keywords ?? []).some((k) => k.toLowerCase().startsWith(q) || k.toLowerCase().split(/[^a-z0-9]+/).some((w) => w.startsWith(q)))) return 3;
   // Loose letters only for short abbreviations like "fc"; longer words must really appear.
   return q.length <= 3 && subsequence(item.label, q) ? 4 : null;
 }
@@ -122,6 +122,10 @@ const TOOL_WORDS: [RegExp, string[]][] = [
   [/add_prism/, ["prism", "hexagon", "polygon", "hex", "pentagon", "octagon", "extruded polygon"]],
   [/add_/, ["add", "create", "new", "primitive", "make"]],
   [/delete_face|unify|fill_hole|patch/, ["delete", "remove", "defeature", "heal", "repair"]],
+  [/^unify$/, ["unify", "refine", "merge faces", "coplanar", "simplify"]],
+  [/^patch_fill$/, ["patch fill", "patch_fill", "fill gap", "cap", "close gap", "surface"]],
+  [/^bridge$/, ["bridge", "bridge edges", "join edges", "ruled surface"]],
+  [/^path_array$/, ["path array", "array along path", "along edge", "along curve", "path"]],
 ];
 
 export function toolKeywords(id: string): string[] {

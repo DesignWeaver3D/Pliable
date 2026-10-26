@@ -11,7 +11,7 @@ class Bridge(Tool):
 
     id = "bridge"
     label = "Bridge edges"
-    description = "Joins two edges with a straight-ruled surface. Select two edges."
+    description = "Joins two edges with a straight-ruled surface. Needs exactly two selected edges."
     accepts = Accepts(edges=(2, 2))
     params = []
 

@@ -13,7 +13,7 @@ class Unify(Tool):
 
     id = "unify"
     label = "Refine bodies"
-    description = "Merges neighbouring faces that lie on the same surface, for example after opening a file made of many small faces. Select bodies (or any face of them) to refine only those, which is much faster on a model with many bodies; with nothing selected every body is refined."
+    description = "Unify: merges neighbouring faces that lie on the same surface, for example after opening a file made of many small faces. Select bodies (or any face of them) to refine only those, which is much faster on a model with many bodies; with nothing selected every body is refined."
     accepts = Accepts(faces=(0, None), bodies=(0, None))
     params = []
 

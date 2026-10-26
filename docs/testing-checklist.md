@@ -82,3 +82,4 @@ Restart the core before testing anything in the first group.
 - [ ] Unsaved-work warning when leaving the page with an open sketch and nothing else changed. (Leaving with model edits was checked: the browser asked first.)
 - [ ] Packaged build: unzip, run, open the bracket, push/pull, export STEP (or confirm CI is green)
 - [ ] A long open shows the busy indicator and the UI stays responsive; it clears after a failed operation too
+- [ ] Open the command search (Ctrl+K or the search box) and type "unify", "patch_fill", "bridge" and "path array": each finds its tool (Refine bodies, Patch fill, Bridge edges, Array along path) and the tooltip says what selection it needs.
