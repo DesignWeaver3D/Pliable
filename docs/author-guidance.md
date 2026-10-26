@@ -56,4 +56,3 @@ Rules for keeping it:
 
 ### Decisions
 
-- [ ] Using a gizmo must not apply the tool; only a click on empty space applies it. This changes the approved rule in behavior.md that clicking another item also applies. Approve?
