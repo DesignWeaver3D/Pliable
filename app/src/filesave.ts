@@ -53,6 +53,8 @@ export interface OpenFileDeps {
   hasEdits(): boolean;
   /** Show a mesh the core answered with as the committed model; `frame` fits the camera to it. */
   setCommitted(mesh: unknown, frame: boolean): void;
+  /** Ends the open or armed tool without applying it (New Project does this before the state is reset). */
+  endTool(): void;
 }
 
 /** Import adds a STEP file as bodies and keeps the session; "Open as new model" starts again from the file.
@@ -88,6 +90,7 @@ export function installFileOpening(d: OpenFileDeps, buttons: { open: HTMLElement
   });
   buttons.newProject.addEventListener("click", async () => {
     if (d.hasEdits() && !window.confirm("A new project replaces the current model and its undo history. Continue?")) return;
+    d.endTool();
     try {
       d.setCommitted(await d.core.request("new_project"), true);
     } catch (e) {

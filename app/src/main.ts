@@ -1000,7 +1000,14 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 installFileOpening(
-  { core, status, hasEdits: () => modelHistory.undo || sketch.active, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame) },
+  { core, status, hasEdits: () => modelHistory.undo || sketch.active, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame),
+    endTool: () => {
+      if (toolPanel.isOpen) toolPanel.close(false); // an open tool form would be applied to the new model by the selection reset
+      armedTool = null;
+      viewport.cancelDrag();
+      viewport.manipulator.cancel();
+      viewport.pullGizmo.cancel();
+    } },
   { open: $("open"), openAsNew: $("openasnew"), openProject: $("openproject"), newProject: $("newproject") },
   { step: fileInput, project: $("projectfile") as HTMLInputElement },
 );
