@@ -13,6 +13,22 @@ Only real questions that need your answer. Each one ends with a question mark an
 6. What exact steps show "sketch face extrusion by the pull gizmo didn't get registered in undo"? Undo and redo worked in every case tried; the only gap found was that one Undo left the picked loose face behind, now fixed so a single Undo removes both. Default if unanswered: treat it as fixed.
 7. Should `sketch.ts` (about 1860 lines) and `main.ts` (about 1450 lines) be split into modules now? The commit hook flags both, and the architecture plan holds the order and risks. Options: split now with a Chrome check per slice, or keep adding features first. Default if unanswered: keep adding features, no split.
 8. Should a wall's draft angle be editable in place again? The ∠ tag on an upright wall was the only in-place way to change its draft angle, and it is hidden now so that no face angle shows over the push/pull gizmo; the Draft tool (a face selected, then Draft) still does the same edit through its card. Options: leave it to the Draft tool, show the tag only while the Draft tool is armed, or add an angle entry to the push/pull card. Default if unanswered: leave it to the Draft tool.
+9. Should P and V in a sketch apply Parallel and Vertical? That would give up the perspective toggle (P) and look at face (V) while a sketch is open; C, E, S, H, T, L and R are built as sketch-only keys already. Options: yes, or leave P and V unassigned. Default if unanswered: leave them unassigned.
+
+10. Should dragging an arc's radius leader past an arc end create a real construction arc? Today a dashed extension is drawn with the dimension and no geometry is added. Options: real construction arc, or dashed extension. Default if unanswered: dashed extension.
+
+11. Should the Fillet and Chamfer sketch tools also work on a line meeting an arc, and should a key cycle the rectangle corner style (square, rounded, bevelled) while drawing? Both are later steps. Default if unanswered: line and arc yes, as a later step; the cycling key no, the card list is enough.
+
+12. Should the export mesh angular deviation be asked in degrees instead of radians? The slicer's own dialog uses radians and the defaults (0.003 mm, 0.5 rad) match it. Default if unanswered: radians.
+
+13. What should happen to Distribute holes/bosses? Today it spaces holes along one axis between the two outermost, which looks wrong for a 2 x 2 grid like the bracket base. Options: keep for single rows and refuse grids, or remove it in favour of arrays on features. Default if unanswered: keep, tooltip only.
+
+14. Should IFC (IfcOpenShell, LGPL-3.0, 42 to 55 MB per platform) and .3dm (rhino3dm, MIT, about 2.5 MB, needs our own trim conversion) import and export be built? Default if unanswered: not built.
+
+15. Should Remove fillet/chamfer, Fill hole / remove boss and Chamfer (distance and angle) be kept now that Defeature gives the same result on the bracket's fillets and round holes? Default if unanswered: keep all three.
+
+16. Which key should switch a chamfer being created to two distances? Alt clashes with Alt+click face cycling and Tab with typed entry. Options: a "Two distances" button in the Fillet/Chamfer form, or another key. Default if unanswered: the form button (not built yet).
+
 
 The other open questions in the research notes (hotkey letters per tool, plain Delete on a selected face, a repeat-last key, drag-only versus gizmo-first, blocking versus hint for fillet order) are listed in the Ideas section of docs/progress.md; none of them blocks work.
 
