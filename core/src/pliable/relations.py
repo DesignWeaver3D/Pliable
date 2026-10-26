@@ -130,7 +130,7 @@ def find_related(topology: Topology, face_id: int) -> list[dict]:
 
 
 def _end_tangent(edge, vertex_point) -> tuple[float, float, float] | None:
-    """Unit tangent of an edge at the end that lies at `vertex_point`."""
+    """Unit tangent of an edge at the end that lies at `vertex_point`, pointing away from that vertex along the edge."""
     from OCP.BRepAdaptor import BRepAdaptor_Curve
     from OCP.gp import gp_Pnt, gp_Vec
 
@@ -142,7 +142,15 @@ def _end_tangent(edge, vertex_point) -> tuple[float, float, float] | None:
     if tangent.Magnitude() < 1e-12:
         return None
     tangent.Normalize()
+    if end == last and end != first:
+        tangent.Reverse()  # the curve runs into this vertex: turn it to point back along the edge
     return tangent.X(), tangent.Y(), tangent.Z()
+
+
+def continues_smoothly(mine, theirs) -> bool:
+    """Whether two edges leaving one vertex (tangents pointing away from it) form one smooth curve: they leave in
+    opposite directions. Two that leave the same way fold back on each other (a cusp) and are not a continuation."""
+    return sum(a * b for a, b in zip(mine, theirs)) < -(1 - 1e-6)
 
 
 def tangent_chain(topology: Topology, edge_id: int) -> list[int]:
@@ -178,7 +186,7 @@ def tangent_chain(topology: Topology, edge_id: int) -> list[int]:
                     if other == current:
                         continue
                     theirs = _end_tangent(topology.edge(other), point)
-                    if theirs is not None and abs(sum(a * b for a, b in zip(mine, theirs))) > 1 - 1e-6:
+                    if theirs is not None and continues_smoothly(mine, theirs):
                         smooth.append(other)
                 # More than one smooth continuation is a branch, not a single curve: stop there.
                 if len(smooth) == 1 and smooth[0] not in chain:

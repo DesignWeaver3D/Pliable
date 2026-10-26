@@ -72,3 +72,16 @@ def test_parallel_and_symmetric_faces():
     assert any(rules(bracket, i).get("parallel") for i in range(bracket.face_count))
     holes = faces_where(bracket, "Cylinder", Radius=4)
     assert any(rules(bracket, h).get("symmetric") for h in holes)
+
+
+def test_cusps_and_reversed_edges_are_not_smooth_continuations():
+    from build123d import Edge
+    from OCP.gp import gp_Pnt
+    from pliable.relations import _end_tangent, continues_smoothly
+
+    origin = gp_Pnt(0, 0, 0)
+    along_x = Edge.make_line((0, 0, 0), (10, 0, 0)).wrapped
+    back_along_x = Edge.make_line((-10, 0, 0), (0, 0, 0)).wrapped  # ends at the origin, so it runs into it
+    also_along_x = Edge.make_line((0, 0, 0), (5, 0, 0)).wrapped  # leaves the origin the same way as the first
+    assert continues_smoothly(_end_tangent(back_along_x, origin), _end_tangent(along_x, origin))  # one straight line through the origin
+    assert not continues_smoothly(_end_tangent(also_along_x, origin), _end_tangent(along_x, origin))  # a fold back on itself

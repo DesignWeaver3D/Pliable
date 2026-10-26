@@ -754,7 +754,7 @@ viewport.onEdgeLoop = async (edgeId, additive) => {
     // The chain follows tangent continuity only (a rim, a smooth outline); Ctrl adds it to the selection.
     const { edges } = await core.request<{ edges: number[] }>("edge_chain", { edge: edgeId });
     const picked: Sel[] = edges.map((id) => ({ kind: "edge" as const, id }));
-    const sels = additive ? [...currentSels.filter((s) => s.kind === "edge" && !edges.includes(s.id)), ...picked] : picked;
+    const sels = additive ? [...currentSels.filter((s) => !(s.kind === "edge" && edges.includes(s.id))), ...picked] : picked;
     viewport.selectItems(sels);
     setSelection(sels);
     status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} selected by double-click (edges that continue smoothly from this one; Ctrl+double-click adds them to the selection)`;
@@ -987,7 +987,10 @@ const keys = new KeyRouter({
     "view.lookAtFace": () => {
       if (currentSels.length === 1 && currentSels[0].kind === "face" && !viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: could not find a view direction for this face";
     },
-    measure: () => viewport.toggleMeasureKey(),
+    measure: () => {
+      const why = viewport.toggleMeasureKey();
+      if (why) status.textContent = why;
+    },
     "display.drawer": () => toggleDrawer(),
     "display.hide": () => setVisibility("hide"),
     "display.isolate": () => setVisibility("isolate"),

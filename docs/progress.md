@@ -28,18 +28,9 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
   - Open: old ellipses without axis end points cannot be split (refused with a message); Trim still cuts lines only (see the Trim row); spiral and conic curves; hyperbola and parabola arcs are Parked.
 - **Stored array parameters (long term, needs owner feedback).** Store array parameters like primitives (editable later); today arrays make separate solids. Consider an option for the array to be a compound with its source object.
 
-- **Problems noted on the first hand-test pass (owner, 2026-10-18; verify each still happens before working on it).** Quoted from the owner's notes:
-  - [ ] Open STEP: "does not warn that current model will be deleted. Does not offer option to add to current session (mulitple solids)." Combine STEP: "Maybe the options should just be import or exxport and work from there."
-  - [ ] Export STEP: "does not provide dialog to define export name or file type or destination."
-  - [ ] Click select: "unclear what shift select does. Appears to create selection chips but then don't know what to do next. Sometimes hard to select edges. hard to select small faces without zooming way in."
-  - [ ] Double-click chain: "sometimes adds non-tangent edges which is wrong. Ctrl+doubleclick doesn't behave as expected."
-  - [ ] Related-face chips: "unknown how to work with chips altogether."
-  - [ ] "All edges" and "Edge loops" for a selected face: "both appear to do same thing. Edge loop should be the outperimeter edges, or have a different name perhaps."
-  - [ ] Measurements: "sometimes after other tool usage stops working and need to refresh the browser tab to get it working again."
-  - [ ] Push/pull: "M mode is regression that doesn't work when right-click mode did (can't use right click because need right-drag for orbit?). Push/pull hole face does nothing at all, starts a box selection."
-  - [ ] Delete face: "works on circular holes. fails otherwise with no error or message why. This was supposed to be named Defeature. Delete face doesn't make sense in all the contexts that this is supposed to work."
-  - [ ] Align face: "grayed out and i have no idea what it's supposed to do anyway."
-  - Open (not reproduced or needs design): click and shift select, chips, double-click chain, measurements stopping, M mode, push/pull on a hole face. Fixed already: Open/Export STEP, Defeature naming and messages, Align face tooltip, Outline edges.
+- **Push/pull on a hole face starts a box selection.** Owner (2026-10-18): "Push/pull hole face does nothing at all, starts a box selection." Works on the bracket's wall hole; the likely cause is a hole whose cylinder is split into two faces: it has no centre record, so no drag direction, so a box selection starts.
+  - [ ] Reproduce with a split-cylinder hole (an imported or cut model), give such holes a centre/direction from their cylinder axis, and add a core test.
+  - Not reproduced: "Sometimes hard to select edges. hard to select small faces without zooming way in." (the pick ranges already shrink for small faces); check again if it recurs.
 - **Sketch corner tools, remaining gaps.**
   - [ ] The Round corner and Bevel corner buttons in the constraint card handle two lines only; make them work for line-arc and arc-arc corners like the Fillet and Chamfer tools.
   - [ ] A fillet between two arcs that sweeps more than 180 degrees is not produced (the shorter arc is always used); decide whether the long one is wanted.
