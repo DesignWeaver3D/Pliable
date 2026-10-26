@@ -5,5 +5,7 @@ Shared-state design: plain-field `app` object in `app/src/appstate.ts` (like `bo
 ## Done
 - Slice 1: selection state into `app`; `selection.ts` (setSelection, selectionPayload, describe, mappedSelection); `modelview.ts` (show, syncHistoryButtons, setCommitted).
 
+- Slice 2: `itemdrag.ts` (pump, toolRequest, dimension label, typed entry, onItemDrag); main.ts calls createItemDrag, itemDrag.installKeys() and assigns viewport.onItemDrag in the original places (listener order kept).
+
 ## Remaining
-- Slice 2 (drag and preview state machine), slice 3 (sketch.ts), slice 4 (viewport.ts).
+- Slice 3 (sketch.ts), slice 4 (viewport.ts).
