@@ -152,6 +152,14 @@ function renderChips() {
     renderToolbar();
     toolPanel.renderList();
   } });
+  // While Fillet/Chamfer is armed with edges selected, a chip switches to two distances (a chamfer being created).
+  if (armedTool === "fillet_chamfer" && currentSels.some((s) => s.kind === "edge")) {
+    const two = document.createElement("button");
+    two.textContent = "Two distances";
+    two.title = "Bevel with a different distance on each side: switches to Chamfer (two distances), with the first face beside the edge as the reference";
+    two.addEventListener("click", () => twoDistances(1));
+    chips.append(two);
+  }
 }
 
 /** Tools usable with the current selection: counts checked here, the core's extra checks once it replies. */
@@ -346,6 +354,7 @@ function armTool(tool: ToolInfo, surface: Surface) {
   }
   usage.record(tool.id, "start", surface);
   armedTool = tool.id;
+  renderChips();
   void refreshSelectionHandles();
   renderToolbar();
   if (!status.classList.contains("error")) status.textContent = `${tool.label}: drag the selection`;
@@ -1381,6 +1390,29 @@ async function runPreview(tool: ToolInfo, values: Record<string, ParamValue>, ed
   }
 }
 
+function twoDistances(distance: number) {
+  void switchToTwoDistances(
+    {
+      core,
+      tools: () => tools,
+      selection: () => currentSels,
+      open(tool, sels, values) {
+        toolPanel.close();
+        armedTool = null;
+        viewport.selectItems(sels);
+        setSelection(sels);
+        renderToolbar();
+        toolPanel.openForm(tool, values, "other");
+      },
+      say(text, error) {
+        status.textContent = text;
+        status.classList.toggle("error", error);
+      },
+    },
+    distance,
+  );
+}
+
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   selectedEdges: () => currentSels.filter((s) => s.kind === "edge").map((s) => s.id),
   pickPoint: (options) => pointPicker.pick(options),
@@ -1522,25 +1554,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     });
   },
   datumPlanes: () => datumPlanes.planes,
-  twoDistances: (distance) =>
-    void switchToTwoDistances(
-      {
-        core,
-        tools: () => tools,
-        selection: () => currentSels,
-        open(tool, sels, values) {
-          toolPanel.close();
-          viewport.selectItems(sels);
-          setSelection(sels);
-          toolPanel.openForm(tool, values, "other");
-        },
-        say(text, error) {
-          status.textContent = text;
-          status.classList.toggle("error", error);
-        },
-      },
-      distance,
-    ),
+  twoDistances,
   sketchList: () => keptSketches.infos,
   async sketchPlane(id) {
     try {

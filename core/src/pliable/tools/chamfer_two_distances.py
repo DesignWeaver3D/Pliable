@@ -13,7 +13,7 @@ class ChamferTwoDistances(Tool):
 
     id = "chamfer_two_distances"
     label = "Chamfer (two distances)"
-    description = "Bevels edges with a different distance on each side. Select one face (it sets which side is first) and one or more of its edges."
+    description = "Bevels edges with a different distance on each side. Select one face (it sets which side is first) and one or more edges; an edge that does not border that face is measured from its own first neighbouring face."
     accepts = Accepts(faces=(1, 1), edges=(1, None))
     params = [Param("first", "length", 2), Param("second", "length", 1), Param("swap", "number", 0)]  # swap 1 puts `first` on the other side
 
@@ -52,4 +52,4 @@ class ChamferTwoDistances(Tool):
         if values["first"] < MIN_DISTANCE or values["second"] < MIN_DISTANCE:
             raise OperationError("Both distances must be positive")
         first, second = (values["second"], values["first"]) if values["swap"] >= 0.5 else (values["first"], values["second"])
-        return _chamfer_with_face(topology, selection, lambda m, e, f: m.Add(first, second, e, f))
+        return _chamfer_with_face(topology, selection, lambda m, e, f: m.Add(first, second, e, f), per_edge_face=True)

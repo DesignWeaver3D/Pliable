@@ -2406,7 +2406,7 @@
  {
   "id": "chamfer_two_distances",
   "label": "Chamfer (two distances)",
-  "description": "Bevels edges with a different distance on each side. Select one face (it sets which side is first) and one or more of its edges.",
+  "description": "Bevels edges with a different distance on each side. Select one face (it sets which side is first) and one or more edges; an edge that does not border that face is measured from its own first neighbouring face.",
   "accepts": {
    "faces": [
     1,

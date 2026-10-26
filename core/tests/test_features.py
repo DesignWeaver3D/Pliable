@@ -812,3 +812,13 @@ def test_push_pull_handle_carries_the_sketch_axes_of_its_face(block):
     for a, b in ((x_axis, y_axis), (x_axis, normal), (y_axis, normal)):
         assert sum(p * q for p, q in zip(a, b)) == pytest.approx(0, abs=1e-9)  # square to each other and to the normal
     assert math.hypot(*x_axis) == pytest.approx(1) and math.hypot(*y_axis) == pytest.approx(1)
+
+
+def test_two_distance_chamfer_measures_a_far_edge_from_its_own_face(block):
+    from OCP.TopAbs import TopAbs_EDGE
+    from OCP.TopExp import TopExp_Explorer
+
+    top, edge = _top_face_and_edge(block)
+    far = next(i for i in range(block.edge_count) if not any(f.IsSame(block.face(top)) for f in block.edge_faces(block.edge(i))))
+    result = run("chamfer_two_distances", block, faces=[top], edges=[edge, far], first=2, second=2)
+    assert volume(result.shape) < volume(block.shape)
