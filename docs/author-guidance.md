@@ -49,6 +49,7 @@ Rules for keeping it:
 - [ ] .ifc and .3dm in the native file dialogs: export both, open them in another program, import them back (IFC needs the optional IfcOpenShell extra; exports are lossy meshes/facets).
 - [ ] New sketch arc tools with a real mouse: Tangent arc, Arc by ends and radius, Start angle and Sweep fields, Circle and Arc tangent to curves; Round / Bevel corner on line-arc and arc-arc corners; Trim and Extend at ellipse and spline crossings (the last three were not clicked in the browser).
 - [ ] Sketch parity with a real mouse: Shift/Ctrl+click a kept sketch's curve chooses the sketch; snapping to sketch ends, centres and midpoints; Array along path and Sweep face with a chosen sketch (sweep tested in the core only); the View button starts a sketch square to the camera and the plane stays fixed after orbiting.
+- [ ] After the app split (selection, drag and preview, sketch solve code moved to new files): click, Ctrl-click and double-click selection, box select, push/pull and Move drags, and a sketch session with a real mouse feel and behave as before.
 - [ ] Newest user constraint wins: a constraint that repeats an automatic one removes the automatic row with a warning naming it.
 - [ ] Drag of a free line, circle or point (snaps, guides, nothing else moves).
 - [ ] Free circle: dragging its rim resizes it with the centre fixed, dragging its centre moves it; ellipse quadrant vertex rotates it with both construction lines live, and moving an ellipse feels smooth (checked only with synthetic pointer events).
