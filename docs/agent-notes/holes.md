@@ -23,5 +23,13 @@
 - Edit hole params `step_depth` and `end_step_depth` with grips (edit_hole.py); core tests in test_holes.py. Not checked in Chrome (the bracket has no counterbore; the grip uses the same pattern as the depth grip).
 - Real-mouse only: drag the step grip on a counterbore.
 
-## Task 4c: non-round through voids (not done)
-- Needs a new tool, not a tweak: read the void's wall loop (lines and arcs parallel to one axis) into a profile, fill it, and re-cut a moved, resized or deeper profile. Resize has no settled meaning for a square or slot (uniform offset, or width and length separately), the hierarchy does not decide it, and the grips need a per-profile handle design (one per side or corner). It is a self-contained feature of several hours; start from `holes.find_hole` (walk the faces) and `rebuild_hole` (fill then cut) and generalise `hole_profile` to a polygon cross-section. Threads were excluded by the task.
+## Task 4c: non-round through voids (done)
+- New files `core/src/pliable/voids.py` (find the void, rebuild) and `core/src/pliable/tools/edit_void.py` (Edit cut tool, in the Holes group); tests in `core/tests/test_voids.py` (square and slot: found, move, resize, depth, blind then through again, boss and block walls refused, round holes refused).
+- Checked in Chrome on a square cut: the Edit cut form, live preview, grips (the resize grip dragged changed `grow`), Apply and undo.
+- Real-mouse only: dragging the depth grip of a cut and the grips on a slot (the slot is covered by tests only).
+- Not done: separate width and length resize, sloped or stepped walls, threads.
+
+## Chrome checks added after review
+- Step depth grips: on a counterbored block, dragging the step grip changed Step depth from 7 to 12.114 in the form.
+- Split hole: a split-cylinder hole imported from a file opened Edit hole with a working preview and diameter grips, so it is found as a hole from either half. The direct press on the wall for push/pull was not isolated (the grips lie over it); the data path is tested.
+- Centre dot: after pressing the dot of a hole in top view the wall lost its orange tint and the dot showed orange (11 px mark).

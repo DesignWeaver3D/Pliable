@@ -3358,6 +3358,79 @@
   "keeps_body_order": false
  },
  {
+  "id": "edit_void",
+  "label": "Edit cut",
+  "description": "Moves, resizes and sets the depth of a square, slot or other straight-walled cut that goes through the body or ends at a flat floor. Select one wall or the floor of the cut. Resize grows (or, negative, shrinks) every wall by that distance; 0 leaves a depth unchanged, and a depth as long as the body is through.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "depth",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "grow",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dx",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dy",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dz",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": [
+   "dx",
+   "dy",
+   "dz"
+  ],
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
   "id": "convert_to_countersink",
   "label": "Add countersink to hole",
   "description": "Adds a countersink to an existing round hole: turns its opening into a cone for a flat-head screw, set by the cone's diameter at the surface and its included angle. Select a face of the hole or the circle at its opening. End 0 is the opening, end 1 the far end of a through hole. This is not the same as an edge chamfer, which is a plain edge break.",

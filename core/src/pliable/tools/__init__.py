@@ -60,6 +60,7 @@ from . import round_face  # noqa: F401
 from . import inset_face  # noqa: F401
 from . import divide_face  # noqa: F401
 from . import edit_hole  # noqa: F401
+from . import edit_void  # noqa: F401
 from . import convert_to_countersink  # noqa: F401
 from . import convert_to_counterbore  # noqa: F401
 from . import stretch  # noqa: F401

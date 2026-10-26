@@ -210,10 +210,11 @@ function dragToolFor(sels: Sel[]): ToolInfo | null {
   return candidates.find((t) => t.id === armedTool) ?? candidates[0] ?? null;
 }
 
-/** The hole tool whose axis handles show for a selected hole face or rim (none while a drag tool is armed). */
+/** The hole or cut tool whose axis handles show for a selected hole face or rim (or the wall of a square or slot cut) (none while a drag tool is armed). */
 function holeHandleTool(sels: Sel[]): ToolInfo | null {
-  if (armedTool !== null || sels.length !== 1 || !refined?.includes("edit_hole")) return null;
-  return tools.find((t) => t.id === "edit_hole") ?? null;
+  if (armedTool !== null || sels.length !== 1) return null;
+  const id = refined?.includes("edit_hole") ? "edit_hole" : refined?.includes("edit_void") ? "edit_void" : null; // a round hole, else a square or slot cut
+  return id ? (tools.find((t) => t.id === id) ?? null) : null;
 }
 let selectionHandleTool: ToolInfo | null = null; // the tool the handles now shown on the selection belong to
 
