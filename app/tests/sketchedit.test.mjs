@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { centroid, reflection, repeat, rotation, scaling, splitLine, transform, translation } from "../src/sketchedit.ts";
+import { centroid, lineThroughPoint, reflection, repeat, rotation, scaling, splitLine, transform, translation } from "../src/sketchedit.ts";
 
 const sketch = () => ({
   plane: { origin: [0, 0, 0], normal: [0, 0, 1], xdir: [1, 0, 0] },
@@ -65,4 +65,20 @@ test("splitting a line keeps its direction constraints on both pieces, or ties t
   const pieces = split.entities.filter((e) => e.type === "line" && (e.id === 10 || e.id > 12));
   assert.equal(pieces.length, 2);
   assert.equal(splitLine(loose, 10, 0.01, 0), null); // too close to an end
+});
+
+test("splitting at an existing point on the line joins both pieces to that point and drops its point-on-line constraint", () => {
+  const s = sketch();
+  s.points.push({ id: 6, u: 1, v: 0 }); // an arc end sitting on the line
+  s.entities.push({ id: 13, type: "arc", center: 3, start: 6, end: 4 });
+  s.constraints = [{ id: 40, type: "point_on", point: 6, entity: 10 }];
+  assert.equal(lineThroughPoint(s, 6), 10);
+  const made = splitLine(s, 10, 1, 0, 0, 6);
+  assert.equal(made.sketch.points.length, s.points.length); // no new point
+  const first = made.sketch.entities.find((e) => e.id === 10);
+  const second = made.sketch.entities.find((e) => e.type === "line" && e.id > 13);
+  assert.deepEqual([first.a, first.b, second.a, second.b], [1, 6, 6, 2]);
+  assert.ok(!made.sketch.constraints.some((c) => c.type === "point_on"));
+  assert.equal(lineThroughPoint(made.sketch, 6), null); // it is an end of both pieces now
+  assert.equal(lineThroughPoint(s, 5), null); // a point off the line
 });

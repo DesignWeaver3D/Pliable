@@ -688,6 +688,19 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     if (this.tool === "trim" || this.tool === "extend" || this.tool === "split") {
       const hit = this.pick(e);
       const uv = this.planeUV(e);
+      if (this.tool === "split" && hit?.kind === "point") {
+        // a click on a point that lies on a line cuts the line exactly there (the point joins both pieces)
+        const through = E.lineThroughPoint(this.s, hit.id);
+        const at = this.s.points.find((x) => x.id === hit.id);
+        const cut = through !== null && at ? E.splitLine(this.s, through, at.u, at.v, 0, hit.id) : null;
+        if (cut) {
+          this.pushUndo();
+          this.s = cut.sketch;
+          this.resolve();
+        }
+        this.render();
+        return;
+      }
       const line = hit?.kind === "entity" ? this.s.entities.find((x) => x.id === hit.id) : undefined;
       if (line?.type === "line" && uv && !line.reference) {
         if (this.tool === "split") {
