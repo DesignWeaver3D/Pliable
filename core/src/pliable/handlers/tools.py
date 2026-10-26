@@ -8,6 +8,7 @@ from OCP.TopoDS import TopoDS_Compound
 from .. import diagnostics, dimedit, recipes
 from ..measure import measure
 from ..mirrormode import mirror_result
+from ..plane_sides import side_bodies
 from ..ops import solids_of
 from ..shared.solids import finish
 from ..tools import get_tool, Selection
@@ -117,6 +118,8 @@ class ToolHandlers:
             dimensions = self._preview_dimensions(request_selection, selection, target)
             if dimensions is not None:
                 extra["dimensions"] = dimensions
+            if tool.id == "cut_plane":
+                extra["sides"] = side_bodies(document, topology, request_selection, request.get("params") or {}, change)  # the form colours Side 1 and Side 2 like these bodies
         return self._mesh_reply(target, timings, preview=not commit, selection=selection.to_json(), handles=handles, **extra)
 
     @staticmethod

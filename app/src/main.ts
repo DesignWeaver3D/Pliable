@@ -42,6 +42,7 @@ import { askMeshOptions } from "./meshexportdialog";
 import { TOOLS_HANDLE_ICON, uiIcon } from "./icons";
 import type { AnchorInfo } from "./placepick";
 import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type HandleInfo, type ToolInfo } from "./tools";
+import { switchToTwoDistances } from "./twodistances";
 import { Viewport, type Sel } from "./viewport";
 import { usage, type Surface } from "./usage";
 import { pruneGhost, pruneHidden } from "./bodylogic";
@@ -151,6 +152,14 @@ function renderChips() {
     renderToolbar();
     toolPanel.renderList();
   } });
+  // While Fillet/Chamfer is armed with edges selected, a chip switches to two distances (a chamfer being created).
+  if (armedTool === "fillet_chamfer" && currentSels.some((s) => s.kind === "edge")) {
+    const two = document.createElement("button");
+    two.textContent = "Two distances";
+    two.title = "Bevel with a different distance on each side: switches to Chamfer (two distances), with the first face beside the edge as the reference";
+    two.addEventListener("click", () => twoDistances(1));
+    chips.append(two);
+  }
 }
 
 /** Tools usable with the current selection: counts checked here, the core's extra checks once it replies. */
@@ -345,6 +354,7 @@ function armTool(tool: ToolInfo, surface: Surface) {
   }
   usage.record(tool.id, "start", surface);
   armedTool = tool.id;
+  renderChips();
   void refreshSelectionHandles();
   renderToolbar();
   if (!status.classList.contains("error")) status.textContent = `${tool.label}: drag the selection`;
@@ -1360,6 +1370,7 @@ async function runPreview(tool: ToolInfo, values: Record<string, ParamValue>, ed
     const t1 = performance.now();
     if (!toolPanel.isOpen || seq !== formPreviewSeq) return; // closed or a newer preview was asked for
     show(mesh);
+    toolPanel.setSideColours(mesh.header.sides);
     if (slideLive && sentValue !== undefined) {
       // Which bodies a move arrow moves is read off two previews of the same drag (their centres shift along the arrow).
       const centres = bodyCentres(mesh.vertices);
@@ -1377,6 +1388,29 @@ async function runPreview(tool: ToolInfo, values: Record<string, ParamValue>, ed
     status.textContent = (e as Error).message;
     status.classList.add("error");
   }
+}
+
+function twoDistances(distance: number) {
+  void switchToTwoDistances(
+    {
+      core,
+      tools: () => tools,
+      selection: () => currentSels,
+      open(tool, sels, values) {
+        toolPanel.close();
+        armedTool = null;
+        viewport.selectItems(sels);
+        setSelection(sels);
+        renderToolbar();
+        toolPanel.openForm(tool, values, "other");
+      },
+      say(text, error) {
+        status.textContent = text;
+        status.classList.toggle("error", error);
+      },
+    },
+    distance,
+  );
 }
 
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
@@ -1520,6 +1554,15 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     });
   },
   datumPlanes: () => datumPlanes.planes,
+  twoDistances,
+  sketchList: () => keptSketches.infos,
+  async sketchPlane(id) {
+    try {
+      return (await core.request<{ sketch: { plane: PlaneData } }>("sketch_get", { sketch_id: id })).sketch.plane;
+    } catch {
+      return null;
+    }
+  },
   cancelEyedrop,
   changed: () => {
     if (!toolPanel.isOpen) {

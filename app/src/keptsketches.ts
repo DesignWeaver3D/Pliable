@@ -56,6 +56,11 @@ export class KeptSketches {
     this.render();
   }
 
+  /** The kept sketches, for forms that offer a sketch's plane. */
+  get infos(): readonly KeptInfo[] {
+    return this.list;
+  }
+
   /** The document's sketches changed (every committed state, so undo and redo come through here too). */
   setList(list: KeptInfo[]) {
     if (JSON.stringify(list) === JSON.stringify(this.list)) return;

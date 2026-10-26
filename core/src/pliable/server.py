@@ -220,6 +220,12 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
                 return {"edges": tangent_chain(topology, int(request["edge"]))}
             except (KeyError, ValueError, TypeError) as e:
                 raise RequestError("Unknown edge") from e
+        if kind == "edge_faces":
+            topology = self._require_document().current  # the faces beside an edge, for starting a two-distance chamfer from it
+            try:
+                return {"faces": [topology.face_id(f) for f in topology.edge_faces(topology.edge(int(request["edge"])))]}
+            except (KeyError, ValueError, TypeError) as e:
+                raise RequestError("Unknown edge") from e
         if kind == "edge_selection":
             topology = self._require_document().current
             mode = request.get("mode")

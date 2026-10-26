@@ -28,17 +28,22 @@ class _PlanarFace(Tool):
         return all(planar_normal(topology.face(i)) is not None for i in selection.faces)
 
 
-def _chamfer_with_face(topology, selection, add) -> OpResult:
-    """Chamfer the selected edges, measuring from the selected face, which every edge must border."""
+def _chamfer_with_face(topology, selection, add, per_edge_face: bool = False) -> OpResult:
+    """Chamfer the selected edges, measuring from the selected face, which every edge must border. With `per_edge_face` an edge
+    that does not border it is measured from its own first neighbouring face instead."""
     from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer
 
     face = topology.face(selection.faces[0])
     maker = BRepFilletAPI_MakeChamfer(topology.shape)
     edges = [topology.edge(i) for i in selection.edges]
     for edge in edges:
-        if not any(f.IsSame(face) for f in topology.edge_faces(edge)):
+        beside = topology.edge_faces(edge)
+        if any(f.IsSame(face) for f in beside):
+            add(maker, edge, face)
+        elif per_edge_face and beside:
+            add(maker, edge, beside[0])
+        else:
             raise OperationError("Every edge must border the selected reference face")
-        add(maker, edge, face)
     try:
         maker.Build()
     except Exception as e:  # OCCT raises Standard_Failure for impossible sizes
