@@ -174,6 +174,14 @@ function movableSketch(): number | null {
   if (pending && committed === pending.mesh && currentSels.length > 0 && currentSels.every((s) => s.kind === "face" && pending.faces.includes(s.id))) return pending.sketchId;
   return null;
 }
+/** The kept sketch chosen with Shift or Ctrl+click on its curve in the view; kept beside the face and edge selection. */
+let chosenSketch: number | null = null;
+let keepingChosen = false;
+function setChosenSketch(id: number | null) {
+  if (chosenSketch === id) return;
+  chosenSketch = id;
+  keptSketches.setChosen(id);
+}
 /** The kept sketch the open Move/Rotate form is moving (its plane moves, see sketchmove.py); null for a body move. */
 let sketchMove: number | null = null;
 
@@ -433,6 +441,7 @@ function setSelection(sels: Sel[]) {
     return;
   }
   viewport.pullDirection.reset(); // a chosen push/pull direction belongs to the face it was chosen for
+  if (sels.length === 0 && !keepingChosen) setChosenSketch(null); // a click on empty space lets the chosen sketch go
   if (sels.length && pickedRow) pickRow(null); // a body or face was picked: the Delete key leaves the sketch and datum rows
   if (toolPanel.isOpen) toolPanel.close(false); // the selection changed under an open tool form
   viewport.manipulator.clear();
@@ -567,6 +576,7 @@ function mappedSelection(mesh: MeshData): Sel[] {
 
 function setCommitted(mesh: MeshData, frame = false, sels: Sel[] = []) {
   committed = mesh;
+  setChosenSketch(null); // a sketch chosen with Shift+click was for the step just taken
   lastOp = null; // callers that commit a tool run set it again afterwards
   editLastButton.disabled = true;
   if (frame) { // a newly opened model: its body ids restart at 1, so the old model's hidden, see-through and focus state would hit its bodies
@@ -1260,6 +1270,15 @@ function addDatum(args: Record<string, unknown>) {
 viewport.profileTargets = () => (sketch.active ? [] : keptSketches.fillTargets());
 viewport.onProfileClick = (id, region, additive) => void pickProfile(id, region, additive);
 viewport.curveTargets = () => keptSketches.curveTargets();
+// Shift or Ctrl+click on a kept sketch's curve chooses the whole sketch beside the selection (click it again to let it go); the curves turn orange.
+viewport.onSketchCurveClick = (id) => {
+  if (toolPanel.isOpen) return;
+  setChosenSketch(chosenSketch === id ? null : id);
+  const name = keptSketches.infos.find((k) => k.id === id)?.name ?? `Sketch ${id}`;
+  status.classList.remove("error");
+  status.textContent = chosenSketch === null ? `${name} no longer chosen` : `${name} chosen (Shift+click its curve again to let it go)`;
+};
+reference.keptSnaps = () => keptSketches.snapData(); // point picks snap to the ends, centres, midpoints and curves of kept sketches
 viewport.onProfileHover = (at, curve) => {
   keptSketches.setHoveredRegion(at);
   keptSketches.setHovered(curve ?? at?.id ?? null);

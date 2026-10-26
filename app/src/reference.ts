@@ -6,6 +6,7 @@ import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeome
 import type { Viewport } from "./viewport";
 import { holeAxisPoints } from "./holepoints.ts";
 import { mouthPoints, snapCentres } from "./placepick";
+import { nearestOnSegments, type SketchSnapPoint } from "./keptsnap";
 import { AXIS_COLORS, axisHalfLength, modelBounds, type Box6 } from "./axes";
 
 const AXES = [
@@ -118,6 +119,9 @@ export class ReferenceView {
     }
   }
 
+  /** The kept sketches' snap points and curves (set by the page; none until then). */
+  keptSnaps: () => { points: SketchSnapPoint[]; curves: ArrayLike<number>[] } = () => ({ points: [], curves: [] });
+
   /** Reference snap nearest the pointer: origin, then a point where an axis meets the face under it, the face centre, or a point along an axis. */
   snapAt(e: PointerEvent, extra: ReferenceSnap[] = []): ReferenceSnap | null {
     const rect = this.viewport.renderer.domElement.getBoundingClientRect();
@@ -169,6 +173,8 @@ export class ReferenceView {
       const p = new THREE.Vector3(...v.position);
       if (visible(p)) candidates.push({ point: p, label: "Vertex" });
     }
+    const kept = this.keptSnaps();
+    for (const k of kept.points) candidates.push({ point: new THREE.Vector3(...k.point), label: k.label }); // the ends, centres and midpoints of kept sketches
     let best: (ReferenceSnap & { px: number }) | null = null;
     for (const c of candidates) {
       const px = this.viewport.toScreen(c.point).distanceTo(here);
@@ -194,6 +200,11 @@ export class ReferenceView {
       }
       if (best) return best;
     }
+    for (const positions of kept.curves) { // a point on a kept sketch's curve
+      const near = nearestOnSegments(positions, (p) => this.viewport.toScreen(new THREE.Vector3(...p)), here);
+      if (near && near.px < SNAP_PX / 2 && (!best || near.px < best.px)) best = { point: new THREE.Vector3(...near.point), label: "On sketch curve", px: near.px };
+    }
+    if (best) return best;
     const ray = new THREE.Raycaster();
     ray.setFromCamera(new THREE.Vector2((here.x / rect.width) * 2 - 1, -(here.y / rect.height) * 2 + 1), this.viewport.camera);
     for (const axis of AXES) {

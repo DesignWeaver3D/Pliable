@@ -5,6 +5,7 @@ import type { CoreClient } from "./client";
 import { uiIcon } from "./icons";
 import { deleteButton } from "./deletebutton";
 import * as M from "./sketchmodel";
+import { sketchSnapPoints, type SketchSnapPoint } from "./keptsnap";
 
 export interface KeptInfo {
   id: number;
@@ -41,6 +42,7 @@ export class KeptSketches {
   private editing: number | null = null;
   private picked: number | null = null;
   private hovered: number | null = null;
+  private chosen: number | null = null;
   private hoveredRegion: { id: number; region: number } | null = null;
   private readonly rows = new Map<number, HTMLElement>();
   private readonly group = new THREE.Group();
@@ -70,6 +72,12 @@ export class KeptSketches {
     void this.sync();
   }
 
+  /** The sketch chosen in the view with Shift or Ctrl+click on its curve (null for none): its curves are drawn in the selection colour. */
+  setChosen(id: number | null) {
+    this.chosen = id;
+    this.paint();
+  }
+
   /** Highlight the row the Delete key would remove (null for none). */
   setPicked(id: number | null) {
     this.picked = id;
@@ -97,10 +105,22 @@ export class KeptSketches {
       row.classList.toggle("hovered", this.hovered === id);
     }
     for (const [id, c] of this.curves) {
-      const color = this.picked === id ? PICKED_COLOR : this.hovered === id ? HOVER_COLOR : CURVE_COLOR;
+      const color = this.picked === id || this.chosen === id ? PICKED_COLOR : this.hovered === id ? HOVER_COLOR : CURVE_COLOR;
       (c.lines.material as THREE.LineBasicMaterial).color.setHex(color);
       c.fills.forEach((fill, region) => ((fill.material as THREE.MeshBasicMaterial).opacity = this.hoveredRegion?.id === id && this.hoveredRegion.region === region ? 0.5 : 0.28));
     }
+  }
+
+  /** What a 3D point pick may snap to on the visible sketches: their ends, centres and midpoints, and the world segments of their curves. */
+  snapData(): { points: SketchSnapPoint[]; curves: ArrayLike<number>[] } {
+    const points: SketchSnapPoint[] = [];
+    const curves: ArrayLike<number>[] = [];
+    for (const [id, c] of this.curves) {
+      const data = this.cache.get(id)?.data;
+      if (data) points.push(...sketchSnapPoints(data));
+      curves.push(c.lines.geometry.getAttribute("position").array);
+    }
+    return { points, curves };
   }
 
   /** The curves (not the tinted regions) of the visible sketches, for a double-click in the view to find the sketch under the pointer. */
