@@ -551,6 +551,15 @@ export function sketchAxes(plane: PlaneData): { u: number; v: number; du: number
 
 // Trim ------------------------------------------------------------------------------------------------
 
+/** Whether the point (u, v), taken to lie on the arc's circle, is within the arc's counterclockwise sweep. */
+function onArc(s: SketchData, arc: Extract<SketchEntity, { type: "arc" }>, u: number, v: number): boolean {
+  const c = pointOf(s, arc.center);
+  const angle = (x: number, y: number) => Math.atan2(y - c.v, x - c.u);
+  const turn = (to: number) => ((to - angle(pointOf(s, arc.start).u, pointOf(s, arc.start).v)) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+  const sweep = turn(angle(pointOf(s, arc.end).u, pointOf(s, arc.end).v)) || 2 * Math.PI;
+  return turn(angle(u, v)) <= sweep + 1e-9;
+}
+
 /** Parameters t along line `e` (0 at its start, 1 at its end, unbounded) where it meets other lines and circles. */
 export function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line" }>): number[] {
   const a = pointOf(s, e.a);
@@ -570,17 +579,21 @@ export function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line"
       const t = ((c.u - a.u) * ey - (c.v - a.v) * ex) / den;
       const w = ((c.u - a.u) * dy - (c.v - a.v) * dx) / den;
       if (w >= -1e-9 && w <= 1 + 1e-9) ts.push(t);
-    } else if (o.type === "circle") {
+    } else if (o.type === "circle" || o.type === "arc") {
       const c = pointOf(s, o.center);
+      const radius = o.type === "circle" ? o.radius : Math.hypot(pointOf(s, o.start).u - c.u, pointOf(s, o.start).v - c.v);
       const fx = a.u - c.u;
       const fy = a.v - c.v;
       const qa = dx * dx + dy * dy;
       const qb = 2 * (fx * dx + fy * dy);
-      const qc = fx * fx + fy * fy - o.radius * o.radius;
+      const qc = fx * fx + fy * fy - radius * radius;
       const disc = qb * qb - 4 * qa * qc;
       if (disc < 0 || qa < 1e-12) continue;
       const root = Math.sqrt(disc);
-      ts.push((-qb - root) / (2 * qa), (-qb + root) / (2 * qa));
+      for (const t of [(-qb - root) / (2 * qa), (-qb + root) / (2 * qa)]) {
+        if (o.type === "arc" && !onArc(s, o, a.u + t * dx, a.v + t * dy)) continue; // only the part of the circle the arc covers
+        ts.push(t);
+      }
     }
   }
   return ts.sort((x, y) => x - y);

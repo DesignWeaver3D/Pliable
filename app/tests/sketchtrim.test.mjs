@@ -47,3 +47,24 @@ test("a line with no crossing becomes one marked piece, then is deleted", () => 
   assert.equal(first.sketch.entities[0].construction, true);
   assert.equal(trimClick(first.sketch, 10, 5, 0, first.candidates).sketch.entities.length, 0);
 });
+
+test("an arc cuts the line where the line meets the arc's own sweep, not the rest of its circle", () => {
+  // upper half arc centred at (5,0) radius 3 (counterclockwise from (8,0) to (2,0)); a line along y=0 from 0 to 10 meets that circle at x=2 and x=8, both arc ends
+  // and a second line from (0,2) to (10,2) crosses the upper arc at two places and the lower half of the circle nowhere
+  const s = {
+    plane: { origin: [0, 0, 0], normal: [0, 0, 1], xdir: [1, 0, 0] },
+    points: [{ id: 1, u: 0, v: 2 }, { id: 2, u: 10, v: 2 }, { id: 3, u: 5, v: 0 }, { id: 4, u: 8, v: 0 }, { id: 5, u: 2, v: 0 }],
+    entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "arc", center: 3, start: 4, end: 5 }],
+    constraints: [],
+  };
+  const first = trimClick(s, 10, 1, 2, new Set());
+  const lines = first.sketch.entities.filter((e) => e.type === "line");
+  assert.equal(lines.length, 3); // cut at both crossings of the upper arc
+  const marked = lines.filter((e) => e.construction);
+  assert.equal(marked.length, 1);
+  const ends = [marked[0].a, marked[0].b].map((i) => first.sketch.points.find((p) => p.id === i).u).sort((x, y) => x - y);
+  assert.ok(Math.abs(ends[0]) < 1e-9 && Math.abs(ends[1] - (5 - Math.sqrt(5))) < 1e-6, String(ends));
+  // a line under the arc meets nothing
+  const under = { ...s, points: s.points.map((p) => (p.id === 1 || p.id === 2 ? { ...p, v: -2 } : p)) };
+  assert.equal(trimClick(under, 10, 1, -2, new Set()).sketch.entities.filter((e) => e.type === "line").length, 1);
+});
