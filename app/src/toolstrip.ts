@@ -1,5 +1,6 @@
 /** The strip at the top centre of the view: the tools that work with the selection (or, in a sketch, the drawing tools
  *  and a row of constraints), fitted to the room between the bodies list and the nav cube. Moved out of main.ts. */
+import { CONSTRAINT_HELP } from "./sketchconstrainthelp";
 import { fitStripCount, stripRoom } from "./stripfit";
 import { constraintIcon, sketchIcon, toolIcon, uiIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
@@ -78,7 +79,8 @@ export function createToolStrip(d: StripDeps) {
         name.className = "clabel";
         name.textContent = c.label;
         button.append(constraintIcon(c.label), name);
-        button.title = c.enabled ? `Apply ${c.label} to the selection` : `${c.label}: does not fit the current selection`;
+        const help = CONSTRAINT_HELP[c.label] ? ` (${CONSTRAINT_HELP[c.label]})` : "";
+        button.title = c.enabled ? `Apply ${c.label} to the selection${help}` : `${c.label}: does not fit the current selection${help}`;
         button.addEventListener("click", () => d.chooseConstraint(c.label));
         return button;
       }),

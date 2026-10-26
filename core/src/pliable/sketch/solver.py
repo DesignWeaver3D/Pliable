@@ -6,6 +6,7 @@ import time
 from py_slvs import slvs
 
 from .errors import SketchError
+from .symmetry import symmetric_about_line
 from .planes import _quaternion, frame
 
 
@@ -246,7 +247,10 @@ class _Solver:
         elif kind == "symmetric_point":  # the two points lie opposite each other about the third: it is the middle of the segment between them
             h = s.addMidPoint(self._point(c["point"]), s.addLineSegment(points[0], points[1], g), wp, g)
         elif kind == "symmetric":
-            h = s.addSymmetricLine(points[0], points[1], self._entity(c["entity"], "line"), wp, g)
+            (au, av), (bu, bv) = (self._coords(i) for i in c["points"])
+            for h in symmetric_about_line(s, points[0], points[1], self._entity(c["entity"], "line"), wp, g, ((au + bu) / 2, (av + bv) / 2)):
+                self.failed_ids[h] = c.get("id")
+            return
         elif kind == "minor_radius":
             self._entity_kind(c["entity"], "ellipse")
             ellipse = next(e for e in self.sketch["entities"] if e["id"] == c["entity"])
@@ -442,10 +446,10 @@ def _solved(sketch: dict, drag: dict | None = None, skip: int | None = None) -> 
                 solver.add_constraint(c)
         pins: dict[int, int] = {}  # slvs handle of a pin -> index in `pins_wanted`
         for k, (pid, axis, want) in enumerate(pins_wanted):
+            if pid in solver.held:
+                continue  # already fixed by a constraint: it stays put (pinning it again is a redundancy)
             entity = solver._point(pid)
             solver.system.getParam(solver.system.getEntityParam(entity, axis)).val = want
-            if pid in solver.held:
-                continue  # already fixed by a constraint: pinning it again is a redundancy
             pins[solver.pin(pid, axis, want)] = k
         result = solver.solve()
         if result["status"] == "ok" or len(pins_wanted) < 2:

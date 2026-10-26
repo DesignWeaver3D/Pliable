@@ -365,3 +365,15 @@ test("an arc's radius leader sits on the arc where it was dragged, with a dashed
   const before = arcLeaderWay(s, arc, [3, -3]); // before the start at (5,0)
   assert.ok(Math.abs(before.extension[0][0][0] - 5) < 1e-9 && Math.abs(before.extension[0][0][1]) < 1e-9);
 });
+
+test("a symmetric constraint is marked at each mirrored point, not at the axis", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 10, v: 5 }, { id: 2, u: 10, v: -5 }],
+    entities: [],
+    constraints: [{ id: 3, type: "symmetric", points: [1, 2], entity: -1 }],
+  };
+  const marks = constraintMarks(s);
+  assert.equal(marks.length, 2);
+  assert.deepEqual(marks.map((m) => m.points[0].slice(0, 2)), [[10, 5], [10, -5]]);
+});

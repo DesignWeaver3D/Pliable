@@ -1307,3 +1307,93 @@ def test_moving_an_ellipse_by_its_centre_and_major_end_carries_all_its_points():
     assert result["status"] == "ok"
     for pid, want in {4: (-9.5, 0.3), 5: (0.5, 5.3), 6: (0.5, -4.7)}.items():
         assert at[pid] == pytest.approx(want, abs=1e-6)
+
+def _axis(eid, horizontal):
+    a, b = (-11, -12) if horizontal else (-21, -22)
+    reach = 1e4
+    pts = [{"id": a, "u": -reach if horizontal else 0, "v": 0 if horizontal else -reach, "fixed": True}, {"id": b, "u": reach if horizontal else 0, "v": 0 if horizontal else reach, "fixed": True}]
+    return pts, {"id": eid, "type": "line", "a": a, "b": b, "reference": True, "axis": True}
+
+
+@pytest.mark.parametrize("horizontal", [True, False])
+def test_symmetric_about_an_axis_mirrors_about_that_axis(horizontal):
+    from pliable.server import Session
+
+    axis_points, axis_line = _axis(-1 if horizontal else -2, horizontal)
+    points = [{"id": 1, "u": -10, "v": 5}, {"id": 2, "u": 10, "v": -4}] + axis_points
+    sk = sketch_of(points, [{"id": 100, "type": "line", "a": 1, "b": 2}, axis_line], [{"id": 5, "type": "symmetric", "points": [1, 2], "entity": axis_line["id"]}])
+    result = Session().handle({"type": "sketch_solve", "sketch": sk})
+    assert result["status"] == "ok"
+    (u1, v1), (u2, v2) = coords(result)[1], coords(result)[2]
+    if horizontal:  # about the x-axis: same u, opposite v
+        assert u1 == pytest.approx(u2) and v1 == pytest.approx(-v2)
+    else:
+        assert v1 == pytest.approx(v2) and u1 == pytest.approx(-u2)
+
+
+def test_an_ellipse_axis_line_takes_symmetric_about_the_vertical_axis():
+    sk = _ellipse_with_ends()
+    sk["points"][0].update(u=3, v=2)  # the centre is free
+    axis_points, axis_line = _axis(-2, False)
+    sk["points"] += axis_points
+    sk["entities"] += [{"id": 9, "type": "line", "a": 2, "b": 4, "construction": True}, axis_line]
+    sk["constraints"] = [{"id": 5, "type": "symmetric", "points": [2, 4], "entity": -2}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok"
+    at = coords(result)
+    assert at[2][1] == pytest.approx(at[4][1], abs=1e-6) and at[2][0] == pytest.approx(-at[4][0], abs=1e-6)
+
+
+def _circle_sketch(constraints):
+    return sketch_of([{"id": 1, "u": 0, "v": 0}], [{"id": 10, "type": "circle", "center": 1, "radius": 5}], constraints)
+
+
+def test_a_fixed_point_stays_put_when_dragged():
+    from pliable.server import Session
+
+    sk = _circle_sketch([{"id": 5, "type": "fixed", "point": 1}])
+    session = Session()
+    result = session.handle({"type": "sketch_solve", "sketch": sk, "drag": {"point": 1, "u": 20, "v": 10}})
+    assert result["status"] == "ok" and result["dof"] == 1  # only the radius is left
+    assert coords(result)[1] == pytest.approx((0, 0))
+
+
+def test_a_locked_circle_does_not_move_or_resize():
+    from pliable.server import Session
+
+    sk = _circle_sketch([{"id": 5, "type": "block", "entity": 10}])
+    result = Session().handle({"type": "sketch_solve", "sketch": sk, "drag": {"point": 1, "u": 20, "v": 10}})
+    assert result["dof"] == 0 and coords(result)[1] == pytest.approx((0, 0))
+
+
+def test_a_circle_with_a_placed_centre_still_reports_its_free_radius():
+    from pliable.server import Session
+
+    session = Session()
+    fixed = _circle_sketch([{"id": 5, "type": "fixed", "point": 1}])
+    assert session.handle({"type": "sketch_freedom", "sketch": fixed})["free_sizes"] == [10]
+    sized = _circle_sketch([{"id": 5, "type": "fixed", "point": 1}, {"id": 6, "type": "radius", "entity": 10, "value": 5}])
+    assert session.handle({"type": "sketch_freedom", "sketch": sized})["free_sizes"] == []
+
+
+def _ellipse_with_quadrant_copies(pair, horizontal):
+    sk = _ellipse_with_ends()
+    sk["points"][0].update(u=30, v=-20)
+    for p, (u, v) in zip(sk["points"][1:], [(40, -20), (20, -20), (30, -15), (30, -25)]):
+        p.update(u=u, v=v)
+    quadrants = {2: 11, 4: 12, 5: 13, 6: 14}
+    for k, copy in quadrants.items():
+        src = next(p for p in sk["points"] if p["id"] == k)
+        sk["points"].append({"id": copy, "u": src["u"], "v": src["v"]})
+    axis_points, axis_line = _axis(-1 if horizontal else -2, horizontal)
+    sk["points"] += axis_points
+    sk["entities"] += [{"id": 20, "type": "line", "a": 2, "b": 4, "construction": True}, {"id": 21, "type": "line", "a": 5, "b": 6, "construction": True}, axis_line]
+    sk["constraints"] = [{"id": 30 + k, "type": "coincident", "points": [k, copy]} for k, copy in quadrants.items()]
+    sk["constraints"].append({"id": 9, "type": "symmetric", "points": list(pair), "entity": axis_line["id"]})
+    return sk
+
+
+def test_quadrant_points_take_symmetric_about_the_axis_they_can_mirror_about():
+    assert sketch.solve(_ellipse_with_quadrant_copies((13, 14), True))["status"] == "ok"  # the minor ends about the x-axis
+    assert sketch.solve(_ellipse_with_quadrant_copies((11, 12), False))["status"] == "ok"  # the major ends about the y-axis
+    assert sketch.solve(_ellipse_with_quadrant_copies((11, 12), True))["status"] == "failed"  # two ends of one axis line cannot mirror about a line along it
