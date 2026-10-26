@@ -1360,6 +1360,7 @@ async function runPreview(tool: ToolInfo, values: Record<string, ParamValue>, ed
     const t1 = performance.now();
     if (!toolPanel.isOpen || seq !== formPreviewSeq) return; // closed or a newer preview was asked for
     show(mesh);
+    toolPanel.setSideColours(mesh.header.sides);
     if (slideLive && sentValue !== undefined) {
       // Which bodies a move arrow moves is read off two previews of the same drag (their centres shift along the arrow).
       const centres = bodyCentres(mesh.vertices);
@@ -1520,6 +1521,14 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     });
   },
   datumPlanes: () => datumPlanes.planes,
+  sketchList: () => keptSketches.infos,
+  async sketchPlane(id) {
+    try {
+      return (await core.request<{ sketch: { plane: PlaneData } }>("sketch_get", { sketch_id: id })).sketch.plane;
+    } catch {
+      return null;
+    }
+  },
   cancelEyedrop,
   changed: () => {
     if (!toolPanel.isOpen) {

@@ -2883,7 +2883,7 @@
  {
   "id": "cut_plane",
   "label": "Cut with plane",
-  "description": "Cuts the model with a plane and keeps one side or both. Drag the arrow to slide the plane and the two rings to tilt it (tilt_u, tilt_v). Axis 0, 1, 2 is X, Y, Z; axis 3 uses the direction nx, ny, nz. Position is the plane's distance from the origin along its direction. Remove side picks Side 1 (the part on the direction's side), Side 2 (the other part) or None, which keeps both as two separate bodies. Pick plane (a flat face) or a datum plane button sets the plane from that object. Select bodies to cut only those; with nothing selected every body is cut.",
+  "description": "Cuts the model with a plane and keeps one side or both. Drag the arrow to slide the plane and the two rings to tilt it (tilt_u, tilt_v). Axis 0, 1, 2 is X, Y, Z; axis 3 uses the direction nx, ny, nz. Position is the plane's distance from the origin along its direction. Remove side picks Side 1 (the part on the direction's side), Side 2 (the other part) or None, which keeps both as two separate bodies. Pick plane (a flat face), a datum plane, an origin plane or a sketch button sets the plane from that object. The names of Side 1 and Side 2 take the colours of the bodies they give. Select bodies to cut only those; with nothing selected every body is cut.",
   "accepts": {
    "faces": [
     0,
@@ -2924,9 +2924,9 @@
     "default": 1,
     "drag": false,
     "options": [
-     "None (keep both)",
-     "Side 1 (the direction's side)",
-     "Side 2 (the other side)"
+     "None",
+     "Side 1",
+     "Side 2"
     ]
    },
    {

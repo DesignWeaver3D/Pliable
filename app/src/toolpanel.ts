@@ -1,4 +1,5 @@
 /** "All tools" list (grouped by layout.ts) and the parameter form for tools that are not dragged. */
+import { colourSides, planeButtons } from "./planepicks";
 import type { PickOptions } from "./reference";
 import { toolIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
@@ -31,6 +32,9 @@ export interface ToolPanelHost {
   pickPlane?(): Promise<{ origin: number[]; normal: number[] } | null>;
   /** The datum planes of the model, offered as buttons by tools that take a plane. */
   datumPlanes?(): readonly { name: string; plane: { origin: number[]; normal: number[] } }[];
+  /** The kept sketches and the plane of one, offered as buttons by tools that take a plane (see planepicks.ts). */
+  sketchList?(): readonly { id: number; name: string }[];
+  sketchPlane?(id: number): Promise<{ origin: number[]; normal: number[] } | null>;
   /** Keep a marker at the picked base point (null removes it). */
   showBase?(point: number[] | null): void;
   /** The points of a new shape that can be put at the destination (primitives), for the current values. */
@@ -109,6 +113,12 @@ export class ToolPanel {
 
   get openToolId(): string | null {
     return this.open?.id ?? null;
+  }
+
+  /** Colour the Remove side names like the bodies the open cutting plane would give (from the preview's `sides`). */
+  setSideColours(sides: readonly (number | null)[] | undefined) {
+    const list = this.inputs.remove_side;
+    if (this.open?.id === "cut_plane" && list instanceof HTMLSelectElement) colourSides(list, sides);
   }
 
   get isOpen(): boolean {
@@ -378,7 +388,7 @@ export class ToolPanel {
         button.addEventListener("click", () => usePlaneIn(d.plane.origin, d.plane.normal));
         return button;
       });
-      buttons.before(pickPlane, ...datums);
+      buttons.before(pickPlane, ...datums, ...planeButtons(this.host, usePlaneIn));
     }
     this.formEl.hidden = false;
     this.inputs = inputs;
