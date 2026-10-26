@@ -1,6 +1,7 @@
 import { pointInRect, segmentHitsRect, segmentsInBox, triangleHitsRect, trianglesInBox, type Rect } from "./boxselect";
 import { doubleClickBody } from "./bodylogic";
 import * as THREE from "three";
+import { viewPlane, type ViewPlane } from "./viewplane";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { materialOrDefault, usesBodyColors } from "./materials";
@@ -250,6 +251,13 @@ export class Viewport {
   /** Screen position (CSS pixels, relative to the viewport element) of a world point. */
   toScreen(p: THREE.Vector3): THREE.Vector2 {
     return this.toPixels(p, this.renderer.domElement.getBoundingClientRect());
+  }
+
+  /** The plane square to the camera through the point it orbits (see viewplane.ts), for a sketch "on the screen". */
+  viewPlane(): ViewPlane {
+    this.camera.updateMatrixWorld();
+    const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0);
+    return viewPlane(this.camera.position.toArray(), this.controls.target.toArray(), right.toArray());
   }
 
   /** World length of one screen pixel at a point (for snapping and handle sizes). */

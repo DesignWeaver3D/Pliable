@@ -1302,6 +1302,7 @@ const sketchBar = new SketchBar({
   sketch,
   bar: $("sketchbar"),
   selection: () => currentSels,
+  viewPlane: () => viewport.viewPlane(),
   status(text, error = false) {
     status.textContent = text;
     status.classList.toggle("error", error);

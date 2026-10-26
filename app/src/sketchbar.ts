@@ -20,6 +20,8 @@ export interface SketchBarDeps {
   sketch: SketchMode;
   bar: HTMLElement;
   selection(): Sel[];
+  /** The plane square to the camera (viewplane.ts). */
+  viewPlane(): any;
   status(text: string, error?: boolean): void;
   /** Open the diagnostics dialog (the same report as the top bar button). */
   diagnostics(): void;
@@ -43,6 +45,21 @@ export class SketchBar {
     }
     if (this.d.sketch.active) this.armed = false;
     this.render();
+  }
+
+  /** The button that starts a sketch on the plane square to the camera. */
+  private viewButton(): HTMLElement {
+    const b = document.createElement("button");
+    b.textContent = "View";
+    b.title = "Start a 2D sketch on the plane square to the camera, through the point the view turns about (the sketch stays on that plane when the view is turned afterwards)";
+    b.disabled = this.d.sketch.active;
+    b.addEventListener("click", () => {
+      this.armed = false;
+      this.d.sketch.start(this.d.viewPlane());
+      this.key = "";
+      this.render();
+    });
+    return b;
   }
 
   /** Start a sketch on the given faces: a flat face directly, anything else unrolled. */
@@ -141,6 +158,7 @@ export class SketchBar {
         });
         return b;
       }),
+      this.viewButton(),
     );
   }
 }
