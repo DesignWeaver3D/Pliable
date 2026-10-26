@@ -22,12 +22,12 @@ from .ops import solids_of
 SEWING_TOLERANCE = 1e-3  # model units (mm): gaps up to this size between surface edges are stitched shut
 
 
-CAD_EXTENSIONS = ("step", "stp", "stpz", "iges", "igs", "brep", "brp")  # the CAD formats the kernel reads and writes without extra packages
+CAD_EXTENSIONS = ("step", "stp", "stpz", "iges", "igs", "brep", "brp", "3dm")  # the CAD formats the kernel and the rhino3dm wheels read and write
 MAX_UNPACKED = 1 << 30  # bytes a compressed STEP file may unpack to
 
 
 def cad_kind(extension: str) -> str:
-    """"step", "stpz", "iges" or "brep" for a file extension (any case, with or without the dot)."""
+    """"step", "stpz", "iges", "brep" or "3dm" for a file extension (any case, with or without the dot)."""
     ext = str(extension or "step").lower().lstrip(".")
     if ext not in CAD_EXTENSIONS:
         raise ValueError(f"Unknown CAD file type {extension!r}; the supported ones are {', '.join('.' + e for e in CAD_EXTENSIONS)}")
@@ -37,6 +37,15 @@ def cad_kind(extension: str) -> str:
 def read_step_tree(data: bytes, extension: str = "step"):
     """The imported assembly as a build123d tree, which keeps the part names (STEP; IGES and BREP files have no part names)."""
     kind = cad_kind(extension)
+    if kind == "3dm":
+        from .files3dm import read_3dm
+
+        try:
+            return read_3dm(data)
+        except ValueError:
+            raise
+        except Exception as e:
+            raise ValueError("Could not read that 3dm file") from e
     if kind == "stpz":
         import zlib
 
@@ -115,10 +124,14 @@ def write_step(shape: TopoDS_Shape) -> bytes:
 
 
 def write_cad(shape: TopoDS_Shape, extension: str) -> bytes:
-    """The model as a STEP (.step, .stp), compressed STEP (.stpz), IGES (.iges, .igs) or BREP (.brep, .brp) file."""
+    """The model as a STEP (.step, .stp), compressed STEP (.stpz), IGES (.iges, .igs) or BREP (.brep, .brp) file; 3dm holds meshes."""
     kind = cad_kind(extension)
     if kind == "step":
         return write_step(shape)
+    if kind == "3dm":
+        from .files3dm import write_3dm
+
+        return write_3dm(shape)
     if kind == "stpz":
         import gzip
 
