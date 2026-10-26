@@ -82,3 +82,6 @@ Restart the core before testing anything in the first group.
 - [ ] Unsaved-work warning when leaving the page with an open sketch and nothing else changed. (Leaving with model edits was checked: the browser asked first.)
 - [ ] Packaged build: unzip, run, open the bracket, push/pull, export STEP (or confirm CI is green)
 - [ ] A long open shows the busy indicator and the UI stays responsive; it clears after a failed operation too
+- [ ] Sketch card: with a long constraint list (draw a few rectangles), the rows scroll inside the card; Finish sketch, Check sketch and the other buttons stay in place.
+- [ ] Sketch list, datum plane list and constraint list rows use a trash can button to delete (the X only means see-through).
+- [ ] Open a tool form (for example Add box), then Menu > New project: no tool selection error appears in the status line or the diagnostics report.
