@@ -18,3 +18,7 @@
 ## Task 4a: standard size tables (done)
 - `app/src/holesizes.ts`, a Sizes list in the hole forms (metric clearance, tap drill, cap screw counterbore). Checked in Chrome through the change event (the native list popup was not opened).
 - Real-mouse only: open the Sizes list and pick an entry.
+
+## Task 4b: step depth grips (done)
+- Edit hole params `step_depth` and `end_step_depth` with grips (edit_hole.py); core tests in test_holes.py. Not checked in Chrome (the bracket has no counterbore; the grip uses the same pattern as the depth grip).
+- Real-mouse only: drag the step grip on a counterbore.

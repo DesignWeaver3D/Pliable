@@ -287,3 +287,29 @@ def test_circular_and_elliptical_edges_report_their_centres():
     angled = [c for c in centres if abs(c[0] + 10) < 1e-6]  # the elliptical mouths: centre where the axis meets the face
     assert sorted(round(c[2], 6) for c in angled) == [-5, 5] and all(abs(c[1]) < 6 for c in angled)
     assert all(e["centre"] is None for e in mesh.edges if e["count"] == 2)  # straight edges have none
+
+
+def test_edit_hole_step_depth_grips(block):
+    part = drilled(block, "add_counterbore", diameter=6, depth=0, bore_diameter=12, bore_depth=4)
+    wall = faces_where(part, "Cylinder", Radius=3)[0]
+    tool = get_tool("edit_hole")
+    handles = {h["param"]: h for h in tool.handle_list(part, Selection(faces=[wall]), {})}
+    step = handles["step_depth"]
+    assert step["value"] == pytest.approx(4) and step["anchor"][2] == pytest.approx(6) and step["direction"] == pytest.approx([0, 0, -1])
+    deeper = Topology(run("edit_hole", part, faces=[wall], step_depth=7).shape)
+    hole = only_hole(deeper)
+    assert hole.stages[0]["type"] == "counterbore" and hole.stages[0]["depth"] == pytest.approx(7) and hole.through
+    assert volume(deeper.shape) < volume(part.shape)
+    with pytest.raises(OperationError, match="shallower"):
+        run("edit_hole", part, faces=[wall], step_depth=30)
+    plain = drilled(block, "add_hole", diameter=6, depth=0)
+    with pytest.raises(OperationError, match="no counterbore"):
+        run("edit_hole", plain, faces=[hole_wall(plain)], step_depth=2)
+
+
+def test_edit_countersink_step_depth_widens_the_mouth(block):
+    part = drilled(block, "add_countersink", diameter=6, depth=0, sink_diameter=12, sink_angle=90)
+    wall = faces_where(part, "Cylinder", Radius=3)[0]
+    deeper = Topology(run("edit_hole", part, faces=[wall], step_depth=5).shape)
+    hole = only_hole(deeper)
+    assert hole.stages[0]["type"] == "countersink" and hole.stages[0]["diameter"] == pytest.approx(16) and hole.stages[0]["angle"] == pytest.approx(90)

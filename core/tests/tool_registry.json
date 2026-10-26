@@ -3266,7 +3266,7 @@
  {
   "id": "edit_hole",
   "label": "Edit hole",
-  "description": "Changes a round hole's diameter or depth and moves it, keeping counterbore or countersink steps. Select a face of the hole or the circle at its opening; 0 leaves a size unchanged, and a depth as long as the body is through.",
+  "description": "Changes a round hole's diameter or depth and moves it, keeping counterbore or countersink steps. Select a face of the hole or the circle at its opening; 0 leaves a size unchanged, and a depth as long as the body is through. Step depth sets how deep the counterbore or countersink at the opening goes (the far end's has End step depth).",
   "accepts": {
    "faces": [
     0,
@@ -3324,6 +3324,20 @@
    },
    {
     "name": "dz",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "step_depth",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "end_step_depth",
     "kind": "length",
     "default": 0.0,
     "drag": false,
