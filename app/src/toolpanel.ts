@@ -7,6 +7,7 @@ import { toolTooltip, type ToolInfo } from "./tools";
 import { moveVector, offsetOf, originFor, pointText, type AnchorInfo, type Vec3 } from "./placepick";
 import { usage, type Surface } from "./usage";
 import { roundValue, showNumber } from "./precision.ts";
+import { hasSizes, holeSizes } from "./holesizes.ts";
 
 /** A parameter value: a number, or for `per_edge` parameters one [start, end] radius pair per selected edge. */
 export type ParamValue = number | number[][];
@@ -212,6 +213,22 @@ export class ToolPanel {
           }
         });
         row.append(dropper);
+      }
+      if (hasSizes(tool.id, p.name)) {
+        const sizes = document.createElement("select");
+        sizes.className = "sizes";
+        sizes.title = "Standard sizes: metric clearance and tap drill diameters";
+        sizes.append(new Option("Sizes", ""));
+        holeSizes(p.name).forEach((size, i) => sizes.append(new Option(`${size.label} (${size.diameter})`, String(i))));
+        sizes.addEventListener("change", () => {
+          const size = holeSizes(p.name)[Number(sizes.value)];
+          sizes.value = "";
+          if (!size) return;
+          input.value = String(size.diameter);
+          this.schedulePreview(0);
+        });
+        sizes.addEventListener("keydown", (e) => e.stopPropagation());
+        row.append(sizes);
       }
       return row;
     });

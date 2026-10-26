@@ -14,3 +14,7 @@
 - A dot press makes a face selection with `centre: true` (viewport.ts `Sel`); the view marks the dot only; tools see the hole's face as before. Chrome check was inconclusive with the Push/Pull handles over the dot.
 - Real-mouse only: press a hole's centre dot with no tool armed and confirm the dot lights and the wall does not; hover the dot likewise.
 - Not done: conical mouths; the flag is dropped after a tool run rebuilds the selection.
+
+## Task 4a: standard size tables (done)
+- `app/src/holesizes.ts`, a Sizes list in the hole forms (metric clearance, tap drill, cap screw counterbore). Checked in Chrome through the change event (the native list popup was not opened).
+- Real-mouse only: open the Sizes list and pick an entry.

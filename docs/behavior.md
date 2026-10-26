@@ -34,6 +34,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - A hole whose round wall is split into several faces behaves as one hole: pressing and dragging any part of the wall pushes or pulls the whole hole's radius, and Move hole, Resize hole and Edit hole work on it.
 - The display precision setting (1 to 8 decimals, default 3) sets the decimals shown in measurements, sketch dimensions, tool forms, handle labels and drag labels, and how finely mouse drags round; zeros after the last digit are never shown.
 - Pressing a hole's centre dot selects that hole and shows only the dot as selected (the wall is not tinted); every tool treats it as the hole, as when its wall is selected.
+- The hole forms have a Sizes list beside the diameter (and counterbore diameter) field: metric clearance and tap drill sizes M2 to M20, counterbore diameters for cap screws; choosing one fills the field and refreshes the preview.
 - Pressing on a face or edge selects it and starts its drag in one motion; a press without movement is a click.
 - One drag sets one value. Typing digits during a drag starts value entry: Tab switches fields, Enter commits, Escape cancels. The shape moves only on Enter.
 - A failed preview keeps the last good size and shows the status in red; release commits the last good size.
