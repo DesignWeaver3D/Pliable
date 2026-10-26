@@ -2,6 +2,7 @@
 import type { Dimension } from "./dimensions";
 import { pointInRect, polylineInBox, type Rect } from "./boxselect.ts";
 import { measure, radiusOf } from "./sketchconstraints.ts";
+import { showNumber } from "./precision.ts";
 export * from "./sketchconstraints.ts";
 export * from "./sketchsmartdim.ts";
 
@@ -164,7 +165,7 @@ export function describeConstraint(s: SketchData, c: SketchConstraint): string {
   const refs = [...(c.points ?? []).map((p) => `p${p}`), ...(c.point !== undefined ? [`p${c.point}`] : []), ...(c.entity !== undefined ? [entityName(c.entity)] : []), ...(c.entities ?? []).map(entityName)];
   void s;
   const value = c.reference ? measure(s, c) : c.value;
-  return `${c.reference ? "Reference " : ""}${names[c.type] ?? c.type} ${refs.join(" ")}${value != null ? ` = ${parseFloat(value.toFixed(3))}` : ""}`;
+  return `${c.reference ? "Reference " : ""}${names[c.type] ?? c.type} ${refs.join(" ")}${value != null ? ` = ${showNumber(value)}` : ""}`;
 }
 
 /** What dimension placement knows about the closed regions: whether a sketch point lies inside one, and how far from the geometry to look. */
@@ -199,7 +200,7 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
     const value = c.reference ? measure(s, c) : c.value;
     if (value === undefined || value === null) continue;
     const first = out.length;
-    const text = c.reference ? `(${parseFloat(value.toFixed(3))})` : parseFloat(value.toFixed(3)).toString();
+    const text = c.reference ? `(${showNumber(value)})` : showNumber(value);
     const entity = entityOf(s, c.entity);
     if (c.type === "distance") {
       const ends = entity && entity.type === "line" ? [entity.a, entity.b] : c.points!;

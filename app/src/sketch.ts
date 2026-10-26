@@ -26,6 +26,7 @@ import { parseValue } from "./dimedit";
 import { uiIcon } from "./icons";
 import { LENGTH_UNIT } from "./units";
 import { usage } from "./usage";
+import { showNumber } from "./precision";
 import { cornerAt } from "./sketchcorner";
 import { automaticInTheWay } from "./sketchautowin";
 import { FREE_COLOR, freeMessage, freeParts } from "./sketchfreedom";
@@ -1166,7 +1167,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     input.inputMode = "decimal";
     input.setAttribute("aria-label", M.describeConstraint(this.s, c).replace(/ = .*$/, ""));
     input.style.cssText = "width:78px;padding:2px 5px;font:inherit;color:#ff8a1f;background:#1b1d22;border:1px solid #ff8a1f;border-radius:3px;outline:none;text-align:center";
-    input.value = String(parseFloat(c.value.toFixed(3)));
+    input.value = showNumber(c.value);
     box.append(input);
     for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "dblclick"]) box.addEventListener(type, (e) => e.stopPropagation());
     let closed = false;
@@ -1328,7 +1329,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
         const input = document.createElement("input");
         input.type = "number";
         input.step = f.integer ? "1" : "any";
-        input.value = String(parseFloat(f.value.toFixed(3)));
+        input.value = showNumber(f.value);
         input.title = f.label;
         input.addEventListener("keydown", (e) => {
           e.stopPropagation();
@@ -1449,7 +1450,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       const input = document.createElement("input");
       input.type = "number";
       input.step = "any";
-      input.value = String(parseFloat(initial.toFixed(3)));
+      input.value = showNumber(initial);
       const reference = document.createElement("input");
       reference.type = "checkbox";
       reference.title = "Only show this measurement; it does not change the shape";

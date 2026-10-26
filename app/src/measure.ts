@@ -1,4 +1,5 @@
 import type { Dimension } from "./dimensions";
+import { showNumber } from "./precision.ts";
 
 /** Measurement panel: label/value rows for the current selection, from the core's `measure` reply. */
 
@@ -25,12 +26,11 @@ export interface MeasureReply {
 }
 
 const MAX_ITEMS_SHOWN = 3; // more items than this collapse into the summary alone
-const DECIMALS = 3;
 
 /** Numbers without trailing zeros; a vector as (x, y, z). */
 export function formatValue(value: number | number[] | string, unit: string): string {
   if (typeof value === "string") return value;
-  const one = (n: number) => String(parseFloat(n.toFixed(DECIMALS)) + 0); // + 0 turns -0 into 0
+  const one = (n: number) => showNumber(n);
   const text = Array.isArray(value) ? `(${value.map(one).join(", ")})` : one(value);
   return unit ? `${text}${unit}` : text;
 }
@@ -77,7 +77,7 @@ export class MeasurePanel {
       line.className = "row";
       const text = formatValue(r.value, r.unit);
       // Copy the bare number for scalars, the formatted text for vectors.
-      line.dataset.copy = typeof r.value === "number" ? String(parseFloat(r.value.toFixed(DECIMALS))) : text;
+      line.dataset.copy = typeof r.value === "number" ? showNumber(r.value) : text;
       line.title = "Click to copy";
       const label = document.createElement("span");
       label.textContent = r.label;
