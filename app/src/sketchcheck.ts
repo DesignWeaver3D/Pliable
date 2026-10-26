@@ -42,8 +42,8 @@ export function findGaps(s: SketchData): Gap[] {
 export function openEnds(s: SketchData): number[] {
   const count = new Map<number, number>();
   for (const e of s.entities) {
-    if (e.type !== "line" && e.type !== "arc") continue;
-    const ends = e.type === "line" ? [e.a, e.b] : [e.start, e.end];
+    if (e.type !== "line" && e.type !== "arc" && !(e.type === "ellipse" && e.start !== undefined)) continue;
+    const ends = e.type === "line" ? [e.a, e.b] : [e.start!, e.end!];
     for (const id of ends) count.set(id, (count.get(id) ?? 0) + 1);
   }
   const joined = new Set(s.constraints.filter((c) => c.type === "coincident").flatMap((c) => c.points ?? []));

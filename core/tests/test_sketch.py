@@ -711,24 +711,42 @@ def test_projected_tilted_cylinder_gives_ellipses_matching_the_analytic_axes():
         sketch.profile_face(sk)  # reference geometry is construction: nothing crashes, there is just no profile
 
 
-def test_projected_tilted_arc_becomes_a_spline_through_its_ends():
-    from build123d import Circle, Plane, extrude
-    from OCP.BRepAdaptor import BRepAdaptor_Curve
+def test_projected_tilted_arc_becomes_an_elliptical_arc_through_its_ends():
+    from build123d import Axis, Edge
 
-    arc = Circle(5).edges()[0]
-    from build123d import Edge
-    part = Edge.make_circle(5, start_angle=0, end_angle=90).rotate(__import__("build123d").Axis.X, 30)
+    part = Edge.make_circle(5, start_angle=0, end_angle=90).rotate(Axis.X, 30)
     plane = sketch.STANDARD_PLANES["XY"]
     ref = sketch.face_reference(part.wrapped, plane, project=True)
-    splines = [e for e in ref["entities"] if e["type"] == "spline"]
-    assert len(splines) == 1 and ref["drawn"]["splines"] == 1 and len(splines[0]["points"]) >= 8
+    arcs = [e for e in ref["entities"] if e["type"] == "ellipse" and "start" in e]
+    assert len(arcs) == 1 and ref["drawn"]["ellipse_arcs"] == 1 and ref["drawn"]["splines"] == 0
     pts = {p["id"]: p for p in ref["points"]}
-    start, end = pts[splines[0]["points"][0]], pts[splines[0]["points"][-1]]
-    ends = sorted([(round(start["u"], 6), round(start["v"], 6)), (round(end["u"], 6), round(end["v"], 6))])
+    ends = sorted((round(pts[arcs[0][k]]["u"], 6), round(pts[arcs[0][k]]["v"], 6)) for k in ("start", "end"))
     a = math.cos(math.radians(30))
     assert ends == sorted([(5.0, 0.0), (0.0, round(5 * a, 6))])
+    assert arcs[0]["minor"] == pytest.approx(5 * a, rel=1e-6)
     sk = _as_sketch(ref, plane)
     assert sketch.solve(sk)["status"] != "failed"
+    # the arc is counterclockwise from its start to its end: made a profile with a chord it covers the quarter ellipse's segment
+    solid = {**sk, "entities": [{**e, "construction": False, "reference": False} for e in sk["entities"]]}
+    solid["entities"].append({"id": 999, "type": "line", "a": arcs[0]["end"], "b": arcs[0]["start"]})
+    assert sketch.profile_face(solid).area == pytest.approx(math.pi * 5 * 5 * a / 4 - 5 * 5 * a / 2, rel=1e-3)
+
+
+def test_projected_elliptical_arc_edge_stays_an_elliptical_arc():
+    from build123d import Axis, Edge
+
+    part = Edge.make_ellipse(8, 4, start_angle=30, end_angle=200).rotate(Axis.X, 40).rotate(Axis.Z, 25)
+    ref = sketch.face_reference(part.wrapped, sketch.STANDARD_PLANES["XY"], project=True)
+    arcs = [e for e in ref["entities"] if e["type"] == "ellipse" and "start" in e]
+    assert len(arcs) == 1 and not [e for e in ref["entities"] if e["type"] == "spline"]
+    pts = {p["id"]: p for p in ref["points"]}
+    start, end = pts[arcs[0]["start"]], pts[arcs[0]["end"]]
+    c, m = pts[arcs[0]["center"]], pts[arcs[0]["major"]]
+    a, b = math.dist((c["u"], c["v"]), (m["u"], m["v"])), arcs[0]["minor"]
+    along = math.atan2(m["v"] - c["v"], m["u"] - c["u"])
+    for p in (start, end):  # both ends are on the flattened ellipse
+        x, y = (p["u"] - c["u"]) * math.cos(along) + (p["v"] - c["v"]) * math.sin(along), -(p["u"] - c["u"]) * math.sin(along) + (p["v"] - c["v"]) * math.cos(along)
+        assert (x / a) ** 2 + (y / b) ** 2 == pytest.approx(1, abs=1e-6)
 
 
 def test_projected_square_circle_stays_a_circle_and_end_on_edges_stay_points():
@@ -1524,3 +1542,70 @@ def test_arc_arc_fillet_corner_solves_with_tangents():
     c = coords(result)
     assert math.dist(c[15], c[3]) == pytest.approx(12, abs=1e-6)
     assert math.dist(c[15], c[5]) == pytest.approx(12, abs=1e-6)
+
+
+def _elliptical_arc(start=(10.0, 0.0), end=(0.0, 5.0)):
+    sk = _ellipse_with_ends()
+    sk["points"] += [{"id": 7, "u": start[0], "v": start[1]}, {"id": 8, "u": end[0], "v": end[1]}]
+    sk["entities"][0].update({"start": 7, "end": 8})
+    return sk
+
+
+def test_an_elliptical_arc_is_the_part_of_the_ellipse_from_start_to_end():
+    sk = _elliptical_arc()
+    (edge,) = sketch._edges(sk)
+    whole = 48.4422411  # the perimeter of an ellipse 10 by 5
+    assert edge.length == pytest.approx(whole / 4, rel=1e-5)
+    # counterclockwise from the end back to the start is the other three quarters
+    flipped = _elliptical_arc(start=(0.0, 5.0), end=(10.0, 0.0))
+    assert sketch._edges(flipped)[0].length == pytest.approx(whole * 3 / 4, rel=1e-3)
+
+
+def test_an_elliptical_arc_closed_by_a_chord_is_a_profile_and_its_ends_follow_the_ellipse():
+    sk = _elliptical_arc()
+    sk["entities"].append({"id": 9, "type": "line", "a": 8, "b": 7})
+    assert sketch.profile_face(sk).area == pytest.approx(math.pi * 50 / 4 - 25, rel=1e-6)
+    sk["constraints"] = [{"id": 10, "type": "fixed", "point": 1}, {"id": 11, "type": "horizontal", "points": [1, 2]}, {"id": 12, "type": "distance", "points": [5, 6], "value": 14}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok"
+    at = coords(result)
+    for pid in (7, 8):  # both ends stay on the widened ellipse
+        a, b = math.dist(at[1], at[2]), math.dist(at[1], at[5])
+        assert (at[pid][0] - at[1][0]) ** 2 / a**2 + (at[pid][1] - at[1][1]) ** 2 / b**2 == pytest.approx(1, abs=1e-6)
+    assert b == pytest.approx(7)
+
+
+def test_an_elliptical_arc_may_start_at_an_axis_end_and_still_solves():
+    sk = _elliptical_arc()
+    sk["entities"][0]["start"] = 2  # the end of the long axis is the start
+    sk["constraints"] = [{"id": 10, "type": "distance", "points": [5, 6], "value": 7}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok" and result["radii"][3] == pytest.approx(3.5)
+
+
+def test_halving_the_short_width_of_an_elliptical_arc_keeps_the_long_axis_about_as_long():
+    sk = _elliptical_arc()
+    c, ends = (-9.76, -24.75), {2: (15.53, -6.68), 4: (-35.06, -42.83), 5: (-21.27, -8.65), 6: (1.74, -40.86), 7: (4.85, -0.78), 8: (-37.17, -30.74)}
+    sk["points"] = [{"id": 1, "u": c[0], "v": c[1]}] + [{"id": i, "u": u, "v": v} for i, (u, v) in ends.items()]
+    sk["entities"][0]["minor"] = 19.79
+    sk["constraints"] = [{"id": 10, "type": "distance", "points": [5, 6], "value": 20}]
+    result = sketch.solve(sk)
+    at = coords(result)
+    assert result["status"] == "ok" and math.dist(at[2], at[4]) < 70 and math.dist(at[5], at[6]) == pytest.approx(20)
+
+
+def test_two_elliptical_arcs_cut_from_one_ellipse_solve_and_close_into_a_profile():
+    sk = _ellipse_with_ends()
+    sk["points"].append({"id": 7, "u": 0.0, "v": 5.0 * 1.0})
+    sk["points"][-1] = {"id": 7, "u": 10 * math.cos(1.0), "v": 5 * math.sin(1.0)}
+    sk["entities"][0].update({"start": 7, "end": 7})  # an ellipse cut open at one point is one arc that starts and ends there
+    assert sketch._edges(sk)[0].length == pytest.approx(48.44, rel=1e-3)
+    sk["points"].append({"id": 8, "u": -10 * math.cos(1.0), "v": -5 * math.sin(1.0)})
+    sk["entities"][0]["end"] = 8
+    sk["entities"].append({"id": 4, "type": "ellipse", "center": 1, "major": 2, "major2": 4, "minor1": 5, "minor2": 6, "minor": 5.0, "start": 8, "end": 7})
+    sk["constraints"] = [{"id": 10, "type": "fixed", "point": 1}, {"id": 11, "type": "distance", "points": [5, 6], "value": 12}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok"
+    solved = sketch.apply_solution(sk, result)
+    at = coords(result)
+    assert sketch.profile_face(solved).area == pytest.approx(math.pi * math.dist(at[2], at[4]) / 2 * 6, rel=1e-3)

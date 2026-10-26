@@ -129,6 +129,7 @@ export const SKETCH_ICONS: Record<string, string> = {
   arc3: '<path d="M4.5 18a9 9 0 0 1 15 0"/><circle cx="4.5" cy="18" r="1.4" fill="currentColor"/><circle cx="12" cy="9.5" r="1.4" fill="currentColor"/><circle cx="19.5" cy="18" r="1.4" fill="currentColor"/>',
   slot: '<rect x="3.5" y="8" width="17" height="8" rx="4" fill="currentColor" fill-opacity=".12"/>',
   point: '<circle cx="12" cy="12" r="2.4" fill="currentColor"/><path d="M12 4v4M12 16v4M4 12h4M16 12h4"/>',
+  ellarc: '<path d="M3 12a9 5.5 0 0 1 18 0"/><circle cx="3" cy="12" r="1.4" fill="currentColor"/><circle cx="21" cy="12" r="1.4" fill="currentColor"/>',
   ellipse: '<ellipse cx="12" cy="12" rx="9" ry="5.5" fill="currentColor" fill-opacity=".12"/>',
   spline: '<path d="M4 17C7 5 12 21 20 7"/><circle cx="4" cy="17" r="1.4" fill="currentColor"/><circle cx="20" cy="7" r="1.4" fill="currentColor"/>',
   trim: '<path d="M4 8h16M12 4v16"/><path d="M12 8v12" stroke-width="3" opacity=".35"/>',

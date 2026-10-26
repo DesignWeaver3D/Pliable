@@ -173,3 +173,5 @@ Each was on the author guidance list with a default that follows the decision hi
 - Global display precision applies to tool forms, manipulator labels and drag rounding too (tracked in the plan row).
 - Arrays stay plain separate solids; no pattern record; push/pull has typed distances only (no Up To); relationships are re-detected only (no soft locks); fillets are re-added only on failure.
 - IFC and .3dm are investigated first (plan row); `sketch.ts` and `main.ts` splits wait for the architecture plan; Mac and Linux archives are released marked untested.
+
+- 2026-10-26 (ellarc agent, provisional): an elliptical arc is an ellipse entity with optional start and end points (counterclockwise from start to end), not a new type, so every ellipse rule (axis ends, widths, snapping, copy) applies; five clicks (centre, long axis end, short radius point, start, end) because the short radius cannot come from the start point alone; its two end points are held on the ellipse by the same foci construction as a point on an ellipse (skipped for an axis end), and a size change on a sketch with an elliptical arc is solved in 8 steps so the ellipse is not stretched by one jump.

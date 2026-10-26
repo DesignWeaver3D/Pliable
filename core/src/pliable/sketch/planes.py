@@ -174,7 +174,7 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
         entities.append({"id": len(points) + len(entities) + 1000, "construction": True, "reference": True, **entity})
 
     skipped = {"square": 0, "tilted_circles": 0, "other": 0}
-    drawn = {"ellipses": 0, "splines": 0}
+    drawn = {"ellipses": 0, "splines": 0, "ellipse_arcs": 0}
 
     def spline(curve, first: float, last: float, count: int) -> bool:
         """Add a fixed spline through `count` samples of the curve; False if it projects to (almost) a point or a
@@ -198,8 +198,28 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
         drawn["splines"] += 1
         return True
 
-    def ellipse_edge(curve) -> bool:
-        """Add the flattened true ellipse of a whole ellipse edge; False if it is seen edge-on."""
+    def ellipse_arc(centre, tip, minor: float, curve, first: float, last: float) -> bool:
+        """Add the part of the flattened ellipse (centre, the tip of its major half-axis, minor radius) that the edge covers, as an elliptical arc running
+        counterclockwise in the sketch; False when the ellipse has no size."""
+        (cu, cv), (tu, tv) = uv(centre), uv(tip)
+        a = math.hypot(tu - cu, tv - cv)
+        if a < 1e-9 or minor < 1e-9:
+            return False
+        ux, uy = (tu - cu) / a, (tv - cv) / a
+
+        def angle(p) -> float:  # the angle of a point of the ellipse on the circle it is stretched from
+            pu, pv = uv(p)
+            return math.atan2((-(pu - cu) * uy + (pv - cv) * ux) / minor, ((pu - cu) * ux + (pv - cv) * uy) / a)
+
+        sweep = (angle(curve.Value(last)) - angle(curve.Value(first))) % (2 * math.pi)
+        along_mid = (angle(curve.Value((first + last) / 2)) - angle(curve.Value(first))) % (2 * math.pi)
+        start, end = (first, last) if along_mid < sweep else (last, first)  # the edge runs clockwise in the sketch: swap so the arc is counterclockwise
+        add({"type": "ellipse", "center": point(centre), "major": point(tip), "minor": minor, "start": point(curve.Value(start)), "end": point(curve.Value(end))})
+        drawn["ellipse_arcs"] += 1
+        return True
+
+    def ellipse_edge(curve, first: float | None = None, last: float | None = None) -> bool:
+        """Add the flattened true ellipse of an ellipse edge (an elliptical arc when `first` and `last` are given); False if it is seen edge-on."""
         ellipse = curve.Ellipse()
         major_vec, minor_vec = ellipse_vectors(ellipse)
         c = ellipse.Location()
@@ -210,6 +230,8 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
         cu, cv = uv(c)
         centre_id = point(c)
         tip = gp_Pnt(*(origin[i] + (cu + mu) * x[i] + (cv + mv) * y[i] for i in range(3)))
+        if first is not None:
+            return ellipse_arc(c, tip, minor, curve, first, last)
         add({"type": "ellipse", "center": centre_id, "major": point(tip), "minor": minor})
         drawn["ellipses"] += 1
         return True
@@ -251,8 +273,13 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
                     tip = gp_Pnt(*(c + circle.Radius() * a / length for c, a in zip((centre.X(), centre.Y(), centre.Z()), along)))
                     add({"type": "ellipse", "center": point(centre), "major": point(tip), "minor": circle.Radius() * cosine})
                     drawn["ellipses"] += 1
-                else:  # a tilted arc is part of an ellipse: drawn as a spline through sample points
-                    spline(curve, first, last, max(8, math.ceil(24 * (last - first) / (2 * math.pi)) + 1))
+                else:  # a tilted arc is part of an ellipse: an elliptical arc
+                    along = (axis.Y() * normal[2] - axis.Z() * normal[1], axis.Z() * normal[0] - axis.X() * normal[2], axis.X() * normal[1] - axis.Y() * normal[0])
+                    length = math.sqrt(sum(c * c for c in along))
+                    centre = circle.Location()
+                    tip = gp_Pnt(*(c + circle.Radius() * a / length for c, a in zip((centre.X(), centre.Y(), centre.Z()), along)))
+                    if not ellipse_arc(centre, tip, circle.Radius() * cosine, curve, first, last):
+                        spline(curve, first, last, max(8, math.ceil(24 * (last - first) / (2 * math.pi)) + 1))
                 explorer.Next()
                 continue
             centre = point(circle.Location())
@@ -267,8 +294,8 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
                 if turn < 0:  # the edge runs clockwise in the sketch: swap so the arc is counterclockwise
                     start, end = end, start
                 add({"type": "arc", "center": centre, "start": point(start), "end": point(end)})
-        elif project and curve.GetType() == GeomAbs_Ellipse and abs((last - first) - 2 * math.pi) < 1e-6 and ellipse_edge(curve):
-            pass  # a whole ellipse edge stays an ellipse
+        elif project and curve.GetType() == GeomAbs_Ellipse and ellipse_edge(curve, *(() if abs((last - first) - 2 * math.pi) < 1e-6 else (first, last))):
+            pass  # an ellipse edge stays an ellipse (a part of one an elliptical arc)
         elif project and spline(curve, first, last, 33):  # any other curve is sampled into a spline
             pass
         else:

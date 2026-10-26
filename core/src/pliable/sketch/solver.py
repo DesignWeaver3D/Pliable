@@ -20,6 +20,11 @@ def _entity_point_ids(e: dict) -> list[int]:
     return ids + list(e.get("points", []))
 
 
+def _frame_key(e: dict):
+    """What an ellipse is made of: elliptical arcs cut from one ellipse share its axis end points, so they share its hidden construction."""
+    return (e["center"], e["major"], e["major2"], e["minor1"], e["minor2"]) if "minor1" in e else e["id"]
+
+
 class _Solver:
     def __init__(self, sketch: dict, skip_symmetric: dict | None = None):
         self.sketch = sketch
@@ -37,6 +42,7 @@ class _Solver:
         self.radii: dict[int, int] = {}
         self.minors: dict[int, float] = {}  # ellipse id -> short semi-axis set by a minor_radius dimension
         self.frames: dict[int, tuple] = {}  # ellipse id -> (centre, major end, opposite major end, minor end, opposite minor end) point handles
+        self.held_on_ellipse: set[tuple] = set()  # (ellipse frame, point id) of the arc ends already held on their ellipse
         self.foci: dict[int, tuple] = {}  # ellipse id -> its two focus points and the major axis (made when a point is put on the ellipse)
         for e in sketch.get("entities", []):
             self._add_entity(e)
@@ -68,6 +74,11 @@ class _Solver:
             self.entities[e["id"]] = (kind, None)  # drawn from its points; only those points take part in constraints
             if kind == "ellipse" and "minor1" in e:  # four axis ends: the centre is the middle of both axes, which are square to each other
                 self._ellipse_frame(e)
+                if "start" in e:  # an elliptical arc: its two end points stay on the ellipse
+                    for end in {e["start"], e["end"]}:  # (one point can be both ends of a closed arc, and an end of two arcs cut from one ellipse)
+                        if end not in (e["major"], e["major2"], e["minor1"], e["minor2"]) and (_frame_key(e), end) not in self.held_on_ellipse:  # an axis end is on the ellipse already and cannot take the foci construction
+                            self.held_on_ellipse.add((_frame_key(e), end))
+                            self._point_on_ellipse(self._point(end), e)
         else:
             raise SketchError(f"Unknown entity type {kind!r}")
 
@@ -79,8 +90,9 @@ class _Solver:
         """The ellipse's centre, major end, opposite major end, minor end and opposite minor end as slvs points. An ellipse
         drawn with its four ends has them as sketch points; an older one (a centre, a major end and a minor radius) gets
         hidden ones. Either way the ends are held square to each other about the centre."""
-        if e["id"] in self.frames:
-            return self.frames[e["id"]]
+        key = _frame_key(e)
+        if key in self.frames:
+            return self.frames[key]
         s, wp, g = self.system, self.workplane, SOLVE_GROUP
         centre, major = self._point(e["center"]), self._point(e["major"])
         if "minor1" in e:
@@ -97,8 +109,8 @@ class _Solver:
         s.addMidPoint(centre, major_axis, wp, g)
         s.addMidPoint(centre, minor_axis, wp, g)
         s.addPerpendicular(major_axis, minor_axis, wp, g)
-        self.frames[e["id"]] = (centre, major, major2, minor1, minor2)
-        return self.frames[e["id"]]
+        self.frames[key] = (centre, major, major2, minor1, minor2)
+        return self.frames[key]
 
     def _point_on_ellipse(self, point, e: dict) -> int:
         """Put a point on an ellipse through its foci: the distances from the point to the two foci add up to the major
@@ -106,7 +118,8 @@ class _Solver:
         second focus is, and is held one major width from the first focus."""
         s, wp, g = self.system, self.workplane, SOLVE_GROUP
         centre, major, major2, minor1, minor2 = self._ellipse_frame(e)
-        if e["id"] not in self.foci:
+        key = _frame_key(e)
+        if key not in self.foci:
             (cu, cv), (mu, mv), (nu, nv) = self._coords_of(centre), self._coords_of(major), self._coords_of(minor1)
             a, b = math.hypot(mu - cu, mv - cv), math.hypot(nu - cu, nv - cv)
             # the foci lie on the longer axis, as far from the centre as the square root of the difference of the squares of the semi-axes
@@ -122,8 +135,8 @@ class _Solver:
             s.addMidPoint(centre, s.addLineSegment(f1, f2, g), wp, g)
             # an end of the shorter axis is one semi-major length from each focus
             s.addEqualLength(s.addLineSegment(f1, near, g), s.addLineSegment(centre, far, g), wp, g)
-            self.foci[e["id"]] = (f1, f2, long_axis)
-        f1, f2, long_axis = self.foci[e["id"]]
+            self.foci[key] = (f1, f2, long_axis)
+        f1, f2, long_axis = self.foci[key]
         (pu, pv), (fu, fv), (gu, gv) = self._coords_of(point), self._coords_of(f1), self._coords_of(f2)
         reach = math.hypot(pu - fu, pv - fv) or 1.0
         beyond = math.hypot(pu - gu, pv - gv)
@@ -563,6 +576,46 @@ def _drag_steps(sketch: dict, drag: dict) -> list[dict]:
     return steps
 
 
+ARC_STEPS = 8  # a size changed on a sketch with an elliptical arc is reached in this many steps
+
+
+def _measured(sketch: dict, c: dict) -> float | None:
+    """What a distance or minor radius dimension measures on the geometry now, or None for any other constraint."""
+    at = {p["id"]: (p["u"], p["v"]) for p in sketch.get("points", [])}
+    entities = {e["id"]: e for e in sketch.get("entities", [])}
+    try:
+        if c["type"] == "distance" and "points" in c:
+            return math.dist(at[c["points"][0]], at[c["points"][1]])
+        if c["type"] == "distance" and entities[c["entity"]]["type"] == "line":
+            return math.dist(at[entities[c["entity"]]["a"]], at[entities[c["entity"]]["b"]])
+        if c["type"] == "minor_radius":
+            e = entities[c["entity"]]
+            return math.dist(at[e["center"]], at[e["minor1"]]) if "minor1" in e else e["minor"]
+    except KeyError:
+        return None
+    return None
+
+
+def _in_steps(sketch: dict) -> dict | None:
+    """The sketch solved with its distance and minor radius dimensions moved from what they measure now to their values in steps, or None
+    when there is nothing to step. The points on an elliptical arc are tied to it through the foci, and one jump to a much smaller or larger
+    size can land on a solution where the ellipse itself is stretched; short steps keep the ellipse and carry the ends along it."""
+    if not any(e["type"] == "ellipse" and "start" in e for e in sketch.get("entities", [])):
+        return None
+    start = {c["id"]: _measured(sketch, c) for c in sketch.get("constraints", []) if not c.get("reference") and isinstance(c.get("value"), (int, float))}
+    moving = {i: m for i, m in start.items() if m is not None and abs(m - next(c for c in sketch["constraints"] if c["id"] == i)["value"]) > 0.02 * max(m, 1e-9)}
+    if not moving:
+        return None
+    current, result = sketch, None
+    for k in range(1, ARC_STEPS + 1):
+        step = {**current, "constraints": [{**c, "value": moving[c["id"]] + (c["value"] - moving[c["id"]]) * k / ARC_STEPS} if c["id"] in moving and k < ARC_STEPS else c for c in sketch["constraints"]]}
+        result = _solved(step)[1]
+        if result["status"] != "ok":
+            return None  # let the single solve report the failure
+        current = apply_solution(step, result)
+    return result
+
+
 def solve(sketch: dict, drag: dict | None = None, detail: bool = False) -> dict:
     """Solve the sketch's constraints. `drag` = {"point": id, "u", "v"} holds one point where the pointer is
     (it is pinned there while everything else follows the constraints); {"points": [...]} holds several. On failure the points are unchanged.
@@ -572,7 +625,7 @@ def solve(sketch: dict, drag: dict | None = None, detail: bool = False) -> dict:
     `detail` adds what the sketch editor shows when nothing is being dragged: on success `freedom` (point id ->
     directions still free), on failure `conflicts` (constraint ids to blame)."""
     if not drag:
-        result = _solved(sketch)[1]
+        result = _in_steps(sketch) or _solved(sketch)[1]
         if detail:
             if result["status"] == "ok":
                 result["freedom"] = point_freedom(sketch)

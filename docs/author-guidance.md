@@ -42,6 +42,7 @@ Rules for keeping it:
 
 - [ ] Fillet and Chamfer sketch tools, Trim (piece between a line end and an arc), Split at a point on a line, Rectangle corner styles (Square, Rounded, Bevelled), sketch-only keys C E S H T L R.
 - [ ] Symmetric about an axis (line ends above and below the x-axis stay mirrored; Sym marks sit at each point) and Fixed/Lock (a Fixed circle centre cannot be dragged; the degrees of freedom count matches; tooltips say what they do). The ellipse case (top and bottom quadrant points plus the x-axis) is a plan row again. Try your original steps and tell me if it still looks wrong.
+- [ ] Ellipse arc tool: the five clicks (centre, long-axis end, short-radius point, start, end), the start and end direction, dragging an end along its ellipse, and Split on an ellipse (the cut point is marked only when hovered).
 - [ ] Fillet and Chamfer on a line and an arc, two arcs and a circle: first click a curve, second click the side (real-mouse feel of the two-curve pick).
 - [ ] Newest user constraint wins: a constraint that repeats an automatic one removes the automatic row with a warning naming it.
 - [ ] Drag of a free line, circle or point (snaps, guides, nothing else moves).

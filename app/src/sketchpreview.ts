@@ -3,6 +3,7 @@
 import type { Dimension } from "./dimensions";
 import * as B from "./sketchbuilders.ts";
 import * as M from "./sketchmodel.ts";
+import * as Ell from "./sketchellipse.ts";
 import * as Sh from "./sketchshapes.ts";
 import type { Snap, Tool } from "./sketch.ts";
 import { typedLabels, typedTag } from "./sketchtyped.ts";
@@ -76,6 +77,18 @@ function pendingBase(ctx: PreviewContext): [number, number][][] {
     if (!ctx.chain[1] || a < 1e-9) return [[[first.u, first.v], [c.u, c.v]]];
     const minor = Math.abs(((c.u - first.u) * (probe.points[1].v - first.v) - (c.v - first.v) * (probe.points[1].u - first.u)) / a);
     return [M.polyline(probe, { id: 0, type: "ellipse", center: -1, major: -2, minor: Math.max(minor, 1e-6) }, 48)];
+  }
+  if (ctx.tool === "ellarc") {
+    const second = ctx.chain[1];
+    if (!second || Math.hypot(second.u - first.u, second.v - first.v) < 1e-9) return [[[first.u, first.v], [c.u, c.v]]];
+    const side = ctx.chain[2] ?? c;
+    const minor = Math.abs(((side.u - first.u) * (second.v - first.v) - (side.v - first.v) * (second.u - first.u)) / Math.hypot(second.u - first.u, second.v - first.v));
+    const f = Ell.ellipseFrame(first, second, Math.max(minor, 1e-6));
+    if (ctx.chain.length < 4) return [Ell.ellipseArcPoints(f, 0, 2 * Math.PI, 48)]; // the whole ellipse until the start is clicked
+    const from = Ell.ellipseAngle(f, ctx.chain[3].u, ctx.chain[3].v);
+    let sweep = Ell.ellipseSweepToward(from, Ell.ellipseAngle(f, c.u, c.v)); // follows the pointer: clockwise or counterclockwise from the start
+    if (ctx.typed && sweep <= 0) sweep += 2 * Math.PI; // a typed sweep is always counterclockwise
+    return [Ell.ellipseArcPoints(f, from, sweep, 48)];
   }
   const second = ctx.chain[1];
   if (ctx.tool === "slot") {

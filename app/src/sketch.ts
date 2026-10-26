@@ -18,6 +18,7 @@ import * as T from "./sketchtyped";
 import * as F from "./sketchfit";
 import * as Co from "./sketchcoincident";
 import { trimClick } from "./sketchtrim";
+import { ellipseThroughPoint, splitEllipse } from "./sketchsplitellipse";
 import { isFreeCircle, draggedRadius } from "./sketchcircledrag";
 import { loadSketchOptions, OPTIONS_KEY } from "./sketchoptions";
 import { chooseAtCursor } from "./sketchmenu";
@@ -40,7 +41,7 @@ const CONSTRUCTION_DASH_PX = 8;
 const CONSTRUCTION_GAP_PX = 5;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
-export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "polygon" | "ellipse" | "spline" | "trim" | "extend" | "split" | "fillet" | "chamfer" | "triangle" | "pentagon" | "hexagon" | "octagon";
+export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "polygon" | "ellipse" | "ellarc" | "spline" | "trim" | "extend" | "split" | "fillet" | "chamfer" | "triangle" | "pentagon" | "hexagon" | "octagon";
 /** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
 const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5, hexagon: 6, octagon: 8 };
 export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
@@ -55,9 +56,10 @@ export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "slot", label: "Slot", hint: "Click the centre of one end, the centre of the other end, then a point for the width" },
   { id: "point", label: "Point", hint: "Click to place a point; it can be snapped to and constrained" },
   { id: "ellipse", label: "Ellipse", hint: "Click the centre, the end of the long axis, then a point for the short radius" },
+  { id: "ellarc", label: "Ellipse arc", hint: "Click the centre, the end of the long axis, a point for the short radius, then the start and the end of the arc; the arc runs the way the pointer moves from the start" },
   { id: "spline", label: "Spline", hint: "Click points the curve passes through; Enter or right-click ends it, clicking the first point closes it" },
   { id: "trim", label: "Trim", hint: "Click a line to cut it at its crossings and mark that piece; click the marked piece again to delete it" },
-  { id: "split", label: "Split", hint: "Click a line where it should be cut in two" },
+  { id: "split", label: "Split", hint: "Click a line, an ellipse or an elliptical arc where it should be cut" },
   { id: "fillet", label: "Fillet", hint: "Click a corner where two lines or arcs meet (or one of its curves), or pick two curves, to round it; the radius is set in the sketch card" },
   { id: "chamfer", label: "Chamfer", hint: "Click a corner where two lines or arcs meet (or one of its curves), or pick two curves, to bevel it; the distance is set in the sketch card" },
   { id: "extend", label: "Extend", hint: "Click near the end of a line to stretch it to the next curve" },
@@ -670,7 +672,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       const entity = this.s.entities.find((x) => x.id === it.id);
       if (!entity || entity.reference) continue;
       // An ellipse is held by its centre and major end only: its other axis ends follow, and pinning all five over-constrains the solver (many retries, a laggy drag).
-      const held = (entity.type === "ellipse" ? [entity.center, entity.major] : M.entityPoints(entity)).map(point);
+      const held = (entity.type === "ellipse" ? [entity.center, entity.major, ...(entity.start !== undefined ? [entity.start, entity.end!] : [])] : M.entityPoints(entity)).map(point);
       if (M.entityPoints(entity).every((id) => !point(id)?.fixed) && held.every((p) => p)) for (const p of held) ids.add(p!.id);
     }
     if (!ids.size) return;
@@ -745,7 +747,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
         // a click on a point that lies on a line cuts the line exactly there (the point joins both pieces)
         const through = E.lineThroughPoint(this.s, hit.id);
         const at = this.s.points.find((x) => x.id === hit.id);
-        const cut = through !== null && at ? E.splitLine(this.s, through, at.u, at.v, 0, hit.id) : null;
+        const round = through === null ? ellipseThroughPoint(this.s, hit.id) : null;
+        const cut = through !== null && at ? E.splitLine(this.s, through, at.u, at.v, 0, hit.id) : round !== null && at ? splitEllipse(this.s, round, at.u, at.v, 0, hit.id) : null;
         if (cut) {
           this.pushUndo();
           this.s = cut.sketch;
@@ -755,7 +758,14 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
         return;
       }
       const line = hit?.kind === "entity" ? this.s.entities.find((x) => x.id === hit.id) : undefined;
-      if (line?.type === "line" && uv && !line.reference) {
+      if (this.tool === "split" && line?.type === "ellipse" && uv && !line.reference) {
+        const cut = splitEllipse(this.s, line.id, uv[0], uv[1]);
+        if (cut) {
+          this.pushUndo();
+          this.s = cut.sketch;
+          this.resolve();
+        } else this.host.status("Click along the ellipse, away from the ends of an arc, to cut it (an old ellipse without axis ends cannot be cut)", true);
+      } else if (line?.type === "line" && uv && !line.reference) {
         if (this.tool === "split") {
           const cut = E.splitLine(this.s, line.id, uv[0], uv[1]);
           if (cut) {
@@ -810,6 +820,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       }
     } else if (this.tool === "ellipse" && this.chain.length === 3) {
       this.addEllipse(this.chain[0], this.chain[1], this.chain[2]);
+      this.shapeDone();
+    } else if (this.tool === "ellarc" && this.chain.length === 5) {
+      this.addEllipseArc(this.chain[0], this.chain[1], this.chain[2], this.chain[3], this.chain[4]);
       this.shapeDone();
     } else if ((this.tool === "rectangle" || this.tool === "rectcentre") && this.chain.length === 2) {
       this.addRectangle(this.chain[0], this.chain[1], this.tool === "rectcentre");
@@ -1036,6 +1049,10 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private addCircle(center: Snap, edge: Snap) {
     B.addCircle(this, center, edge);
   }
+  private addEllipseArc(center: Snap, major: Snap, side: Snap, start: Snap, end: Snap) {
+    B.addEllipseArc(this, center, major, side, start, end, this.placingTyped);
+  }
+
   private addEllipse(center: Snap, major: Snap, side: Snap) {
     B.addEllipse(this, center, major, side);
   }
@@ -1734,7 +1751,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   /** Flatten the picked faces and edges onto the sketch plane as fixed reference geometry the sketch can snap to. */
   private async projectModel(picked: Sel[]) {
     try {
-      const ref = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[]; skipped?: { square: number; tilted_circles: number; other: number }; drawn?: { ellipses: number; splines: number } }>("sketch_project", { plane: this.s.plane, faces: picked.filter((p) => p.kind === "face").map((p) => p.id), edges: picked.filter((p) => p.kind === "edge").map((p) => p.id) });
+      const ref = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[]; skipped?: { square: number; tilted_circles: number; other: number }; drawn?: { ellipses: number; splines: number; ellipse_arcs?: number } }>("sketch_project", { plane: this.s.plane, faces: picked.filter((p) => p.kind === "face").map((p) => p.id), edges: picked.filter((p) => p.kind === "edge").map((p) => p.id) });
       if (!this.active) return; // the sketch was left while the model was being projected
       const near = (a: M.SketchPoint, b: M.SketchPoint) => Math.hypot(a.u - b.u, a.v - b.v) < 1e-5;
       const known = this.s.points.filter((p) => p.fixed);
@@ -1756,7 +1773,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
         const mapped = { ...e, id: M.nextId(this.s) } as M.SketchEntity;
         if (mapped.type === "line") (mapped.a = map.get(mapped.a)!), (mapped.b = map.get(mapped.b)!);
         else if (mapped.type === "circle") mapped.center = map.get(mapped.center)!;
-        else if (mapped.type === "ellipse") (mapped.center = map.get(mapped.center)!), (mapped.major = map.get(mapped.major)!);
+        else if (mapped.type === "ellipse") (mapped.center = map.get(mapped.center)!), (mapped.major = map.get(mapped.major)!), mapped.start !== undefined && ((mapped.start = map.get(mapped.start)!), (mapped.end = map.get(mapped.end!)!));
         else if (mapped.type === "spline") mapped.points = mapped.points.map((q) => map.get(q)!);
         else (mapped.center = map.get(mapped.center)!), (mapped.start = map.get(mapped.start)!), (mapped.end = map.get(mapped.end)!);
         if (have.has(entityKey(mapped))) continue;
@@ -1768,7 +1785,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       const sk = ref.skipped;
       const notes = [
         ref.drawn?.ellipses ? `${ref.drawn.ellipses} tilted circle${ref.drawn.ellipses === 1 ? "" : "s"} drawn as ellipses` : "",
-        ref.drawn?.splines ? `${ref.drawn.splines} tilted arc or curved edge${ref.drawn.splines === 1 ? "" : "s"} drawn as splines` : "",
+        ref.drawn?.ellipse_arcs ? `${ref.drawn.ellipse_arcs} tilted arc${ref.drawn.ellipse_arcs === 1 ? "" : "s"} drawn as elliptical arcs` : "",
+        ref.drawn?.splines ? `${ref.drawn.splines} curved edge${ref.drawn.splines === 1 ? "" : "s"} drawn as splines` : "",
         sk?.tilted_circles ? `${sk.tilted_circles} arc${sk.tilted_circles === 1 ? "" : "s"} seen edge-on not drawn, their end points are snappable` : "",
         sk?.other ? `${sk.other} curved edge${sk.other === 1 ? "" : "s"} of another kind skipped, their end points are snappable` : "",
         sk?.square ? `${sk.square} edge${sk.square === 1 ? "" : "s"} seen end-on shown as points` : "",

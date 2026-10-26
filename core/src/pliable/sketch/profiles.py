@@ -1,5 +1,7 @@
 """Closed loops of a sketch as faces: profiles, regions, offsets and the faces they sit on."""
 
+import math
+
 from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
 from OCP.gp import gp_Ax2, gp_Circ, gp_Dir, gp_Elips, gp_Pnt, gp_Vec
 from build123d import Edge, Face, Vector, Wire
@@ -11,8 +13,9 @@ from .planes import frame
 MIN_LOOP_AREA = 1e-9
 
 
-def _ellipse_edge(center: gp_Pnt, major: gp_Pnt, minor: float, normal):
-    """A whole ellipse about `center` whose major semi-axis runs to `major` and whose minor semi-axis is `minor`."""
+def _ellipse_edge(center: gp_Pnt, major: gp_Pnt, minor: float, normal, start: gp_Pnt | None = None, end: gp_Pnt | None = None):
+    """A whole ellipse about `center` whose major semi-axis runs to `major` and whose minor semi-axis is `minor`; with `start` and `end`
+    (points on or near it) only the part from `start` counterclockwise to `end`."""
     radius = center.Distance(major)
     if radius < 1e-9 or minor < 1e-9:
         raise SketchError("An ellipse needs a length on both axes")
@@ -20,7 +23,19 @@ def _ellipse_edge(center: gp_Pnt, major: gp_Pnt, minor: float, normal):
     if minor > radius:  # the longer axis is perpendicular to the one clicked
         along = gp_Vec(*normal).Crossed(along)
         radius, minor = minor, radius
-    return BRepBuilderAPI_MakeEdge(gp_Elips(gp_Ax2(center, gp_Dir(*normal), gp_Dir(along)), radius, minor)).Edge()
+    axes = gp_Ax2(center, gp_Dir(*normal), gp_Dir(along))
+    ellipse = gp_Elips(axes, radius, minor)
+    if start is None or end is None:
+        return BRepBuilderAPI_MakeEdge(ellipse).Edge()
+
+    def parameter(p: gp_Pnt) -> float:  # the angle of the point on the ellipse, measured on the circle it is stretched from
+        v = gp_Vec(center, p)
+        return math.atan2(v.Dot(gp_Vec(axes.YDirection())) / minor, v.Dot(gp_Vec(axes.XDirection())) / radius)
+
+    first, last = parameter(start), parameter(end)
+    if last <= first:
+        last += 2 * math.pi
+    return BRepBuilderAPI_MakeEdge(ellipse, first, last).Edge()
 
 
 def _edges(sketch: dict, skip: int | None = None) -> list[Edge]:
@@ -43,7 +58,8 @@ def _edges(sketch: dict, skip: int | None = None) -> list[Edge]:
                 shape = BRepBuilderAPI_MakeEdge(circle(points[e["center"]], e["radius"])).Edge()
             elif e["type"] == "ellipse":
                 minor = points[e["center"]].Distance(points[e["minor1"]]) if "minor1" in e else e["minor"]  # drawn with its four ends: they set the short radius
-                shape = _ellipse_edge(points[e["center"]], points[e["major"]], minor, normal)
+                arc = (points[e["start"]], points[e["end"]]) if "start" in e else (None, None)  # an elliptical arc runs counterclockwise from start to end
+                shape = _ellipse_edge(points[e["center"]], points[e["major"]], minor, normal, *arc)
             elif e["type"] == "spline":
                 through = [points[i] for i in e["points"]]
                 if len(through) < 2:
