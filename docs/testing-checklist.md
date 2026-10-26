@@ -85,3 +85,4 @@ Restart the core before testing anything in the first group.
 - [ ] Sketch card: with a long constraint list (draw a few rectangles), the rows scroll inside the card; Finish sketch, Check sketch and the other buttons stay in place.
 - [ ] Sketch list, datum plane list and constraint list rows use a trash can button to delete (the X only means see-through).
 - [ ] Open a tool form (for example Add box), then Menu > New project: no tool selection error appears in the status line or the diagnostics report.
+- [ ] Sketch: put Fix, Equal or other constraint marks on circles and arcs; the tag sits just above the centre point instead of covering it, and the selected centre highlight stays visible.

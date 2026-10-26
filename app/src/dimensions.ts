@@ -37,6 +37,8 @@ export interface Dimension {
   /** Sketch dimensions: drawn highlighted when selected, a click on the text selects it, and a right-click on the text opens its menu. */
   /** Not a dimension value: a constraint tag (H, V, =) or a live size tag while drawing. Its lines are not cut around it. */
   mark?: boolean;
+  /** Tags: world points (arc and circle centres) the tag is moved clear of, so it never covers them or their selection highlight. */
+  avoid?: number[][];
   selected?: boolean;
   select?: (e: MouseEvent) => void;
   menu?: (e: MouseEvent) => void;
@@ -133,7 +135,7 @@ export class DimensionOverlay {
       this.clash = false;
       try {
         if (d.kind === "linear") this.linear(d, project, mine);
-        else if (d.kind === "tag") this.label(project(d.points[0]), d.text, mine, true);
+        else if (d.kind === "tag") this.label(this.clearOf(project(d.points[0]), d, project), d.text, mine, true);
         else if (d.kind === "angle") this.angle(d, project, mine);
         else this.leader(d, project, mine);
       } catch (e) {
@@ -148,6 +150,14 @@ export class DimensionOverlay {
       this.placed.push(...this.pending);
     }
     this.svg.replaceChildren(...parts);
+  }
+
+  /** A tag's place moved up, out of the way of the points it must not cover (a centre point and its highlight). */
+  private clearOf(at: V, d: Dimension, project: (p: number[]) => V): V {
+    const half = { x: textWidth(d.text) / 2 + 6, y: TEXT_PX / 2 + 8 };
+    let p = at;
+    for (const q of (d.avoid ?? []).map(project)) if (Math.abs(p.x - q.x) < half.x && Math.abs(p.y - q.y) < half.y) p = { x: p.x, y: q.y - half.y };
+    return p;
   }
 
   private linear(d: Dimension, project: (p: number[]) => V, out: SVGElement[]) {

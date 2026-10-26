@@ -328,6 +328,7 @@ export function constraintMarks(s: SketchData): Dimension[] {
     return e.type === "line" ? [(line[0][0] + line[1][0]) / 2, (line[0][1] + line[1][1]) / 2] : mid;
   };
   const out: Dimension[] = [];
+  const centres = s.entities.flatMap((e) => (e.type === "circle" || e.type === "arc" || e.type === "ellipse" ? [pointOf(s, e.center)] : [])).map((p) => toWorld(s.plane, p.u, p.v));
   for (const c of s.constraints) {
     const text = MARKS[c.type];
     if (!text) continue;
@@ -342,7 +343,7 @@ export function constraintMarks(s: SketchData): Dimension[] {
     }
     if (!anchors.length) continue;
     const [u, v] = [anchors.reduce((a, q) => a + q[0], 0) / anchors.length, anchors.reduce((a, q) => a + q[1], 0) / anchors.length];
-    out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true });
+    out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true, avoid: centres });
   }
   return out;
 }
