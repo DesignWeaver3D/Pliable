@@ -4,7 +4,7 @@
 
 ## What the alpha promises
 
-- Runs on Windows. Only Windows has been tested; macOS and Linux are untested until testers there confirm.
+- Runs as a portable desktop app (a native window; no browser needed). Only Windows has been tested by a person. The macOS and Linux builds are built and start-up checked automatically, but nobody has opened their window yet; testers there are welcome.
 - Opens and exports STEP.
 - Applies the direct-editing tools to single parts of modest size.
 - Autosaves your work and offers to restore it after a crash.
@@ -22,9 +22,10 @@
 - **Sketching is incomplete and unsupported.** It is in the app but expect missing features and failures.
 - Performance and UI stability.
 - Compatibility of anything saved by this version with later versions. Export STEP to keep your work.
-- **Chrome only.** Other browsers are untested.
+- **Webview differences.** The window uses the system webview: WebView2 on Windows (Chromium-based, the tested one), WebKit on macOS and WebKitGTK on Linux. Drawing, fonts and file dialogs may differ on the last two. Running the core in a browser is a development setup, and Chrome is the only browser tried.
 - Autosave protects against crashes, not against a bad edit. Undo history is capped at 50 steps.
-- The portable build is unsigned, so Windows SmartScreen will warn on first launch.
+- The portable builds are unsigned: Windows SmartScreen warns on first launch and macOS Gatekeeper blocks it until you allow it (see the release notes). Linux needs Ubuntu 24.04, Linux Mint 22 or a similar distribution from 2024 or later with `libwebkit2gtk-4.1`.
+- Everything Pliable saves lives in the `data` folder beside the program. Moving the folder keeps your settings and autosaves; deleting it resets them.
 
 - **The 3D view is an approximation of the exact solid.** Curves and cylinders are drawn as small flat facets, and the facets are coarser while you drag. The underlying model and STEP export are exact.
 

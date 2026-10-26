@@ -71,7 +71,7 @@ Port the prototype's tools first (push/pull, fillet, chamfer), then expand to th
 - Uniform and directional scale
 
 **4. Desktop Release**
-Installers for Windows, macOS, and Linux via Tauri. STL and 3MF export, since many hobbyists end up at a 3D printer. This is the first release meant for real users.
+A Tauri desktop shell with portable (unzip and run) builds for Windows, macOS, and Linux, built and smoke-tested in CI; shipped as v0.4.0. Installers and code signing come later. STL and 3MF export, since many hobbyists end up at a 3D printer. This is the first release meant for real users.
 
 **5. Placement and Transform**
 A reliable way to position objects relative to faces, edges, and points, plus a move/rotate widget in the viewport.

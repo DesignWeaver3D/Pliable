@@ -1,6 +1,6 @@
 # Working on Pliable with the AI assistant
 
-Pliable is being rebuilt; day-to-day work goes on branch `dev`, and `rebuild` is the release candidate (see CONTRIBUTING.md). The plan is in [ROADMAP.md](ROADMAP.md); open work is in [docs/progress.md](docs/progress.md), and lasting technical notes are in [docs/dev-notes.md](docs/dev-notes.md). Finished work is not recorded in a file: it lives in the commit messages (`git log --grep`).
+Pliable is being rebuilt; `main` is the development branch. Contributors change it by pull request, the owner commits to it directly, and releases are tagged from `main` or a `release/*` branch (see CONTRIBUTING.md). The plan is in [ROADMAP.md](ROADMAP.md); open work is in [docs/progress.md](docs/progress.md), and lasting technical notes are in [docs/dev-notes.md](docs/dev-notes.md). Finished work is not recorded in a file: it lives in the commit messages (`git log --grep`).
 
 ## Starting a session
 
@@ -24,6 +24,7 @@ Most of the owner's lost time comes from regressions and from invented design, n
 - **Check what the diff touched.** Before committing, read `git diff` and confirm every changed line serves the goal; mention anything that changes behavior in the commit body and in the report.
 - **Record approvals.** When the owner approves or corrects a behavior, add a one-line "when X, Y happens" to `docs/behavior.md` in the same commit.
 - **Add a test for a fixed regression** when it can be tested without a browser, so it cannot return.
+- **Before a release, follow the release checklist in [CONTRIBUTING.md](CONTRIBUTING.md);** documentation is finished before the tag.
 
 ## During a session
 
@@ -31,7 +32,9 @@ Most of the owner's lost time comes from regressions and from invented design, n
 
 - Usage is limited (a subscription plan). Keep context small: read only the files the task needs, keep command output short, and don't dump large files.
 - Use subagents only when clearly cheaper than doing the work directly, and give them a cheap model: the `searcher` agent (Haiku) for lookups, the `researcher` agent (Sonnet) for research.
-- Commit to `dev` after every working step, with tests passing. Push to `dev` only when the owner asks (a permission rule asks before any push, and agents never push). Never commit failing tests. Never push to `rebuild` or `main` directly: pushing `rebuild` starts the release build and cancels the previous one. Merge `dev` into `rebuild` only when the owner asks.
+- Commit to `main` after every working step, with tests passing. Push only when the owner asks (a permission rule asks before any push, and agents never push). Never commit failing tests. Never tag, create a release branch or open a pull request without the owner's say.
+- **Changing this file.** You may propose changes to this file, but only apply them after the owner has seen the exact diff and explicitly agreed to it in this conversation. Approval of one change does not extend to another.
+- **If you are working for a contributor rather than the owner,** "the owner" means the maintainer who reviews the pull request. Where this file says to ask the owner, ask the contributor, and do not edit `docs/behavior.md` without their approval.
 - When adding a shortcut, tolerance, guess or known limitation, add an entry to [docs/watchlist.md](docs/watchlist.md) in the same commit, naming the commit that introduced it by short hash (add the hash in a follow-up commit if it is not known yet). The file is large: search it with Grep, do not read it whole.
 - Commit messages and PR text contain no AI attribution lines of any kind.
 - Commit messages are written for a human reading the log later: a plain subject (12-72 characters, capitalized, imperative, no period, no labels like `S22:`, `feat:` or `Progress:`) that says what the change does, and for any commit touching 3 or more files a short body saying what changed and why. Never name commercial products or other programs (other CAD tools, AI tools, vendors); describe the behavior instead. The hook also rejects the name of the AI tool and of its instructions file, so write "the project instructions file". Write the message once, correctly: check it against these rules before running `git commit` and never retry a commit because the hook rejected it. Commit from the Bash tool with a heredoc (`git commit -F -`); the hook finds the project's own Python by itself, so PATH does not matter. Prefer one commit per logical change, not a log entry per session step.
@@ -71,8 +74,8 @@ When the prompt says the owner is asleep, away, or that the session is unattende
 - **If the plan seems exhausted but open rows remain,** re-read `docs/progress.md` from the top; you have missed some. If every row is truly Parked or awaiting the owner, add new rows from `ROADMAP.md`, `docs/research/` (parity plan, command inventory, GUI plan) and the "Not built" items in `docs/decisions-log.md`, and keep working. Only an empty plan with nothing left to add in any of those places counts as an empty queue.
 - **Before each new item, run this check:** "Is there an open row (not Parked, not awaiting hand test) in `docs/progress.md`?" If yes, start it now. If you catch yourself composing a wrap-up message, run the check instead.
 - **Stopping.** Stop only when (a) the check above finds no row to work on, (b) the usage limit ends the session, or (c) you are blocked on something only the owner can do and every remaining row depends on it. Before a stop, make sure everything is committed and `docs/progress.md` says exactly where to resume. Then, and only then, put the resume point in `docs/progress.md` (the summary of what was done goes in the final message and the commits, not in a file), list any real questions in `docs/questions.md`, and write the final message.
-- Do not push to `rebuild` or `main`, tag, merge, run or cancel release workflows, or change this file or settings.
-- Commit to `dev` after every working step with tests passing (local commits survive a cutoff; do not push unless the prompt says to), and keep `docs/progress.md` current so a cutoff loses nothing. Before the usage limit hits, make sure everything is committed and the log says exactly where to resume.
+- Do not push, tag, create release branches, run or cancel release workflows, or change settings. Do not change this file.
+- Commit to `main` after every working step with tests passing (local commits survive a cutoff; do not push unless the prompt says to), and keep `docs/progress.md` current so a cutoff loses nothing. Before the usage limit hits, make sure everything is committed and the log says exactly where to resume.
 
 ## Ending a session (always, including when stopping early)
 
@@ -92,3 +95,4 @@ In an interactive session, if it is running long or the usage window is nearly u
 - Run npm, npx and uv from the PowerShell tool after refreshing PATH (the Bash tool has no npm; a nested `powershell.exe` from Bash cannot run npm because of the script execution policy). Check results with `Select-String '^ℹ (pass|fail)'` for node tests, `Select-Object -Last 1` for pytest.
 - The owner tests on frontend port 5180 with a core on 8770 (`VITE_CORE_PORT=8770`); never stop their servers unless asked. To restart a core: stop the listener and its `uv run` parent processes, then start `uv run pliable-server --port 8770` hidden from `core/`.
 - Agent worktrees, ports and the usage rules are in `docs/orchestration.md` ("Keeping usage low"); the current state and the open work are in `docs/progress.md`; lasting technical notes are in `docs/dev-notes.md`.
+- Before merging for a release, follow the release checklist in CONTRIBUTING.md.

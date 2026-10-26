@@ -1,0 +1,50 @@
+# Checks every pull request and every push to main: core tests, app tests, type check, app build, and the
+# release-document check. Make these checks required in the branch protection rules for main.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Core tests
+        working-directory: core
+        run: |
+          uv sync
+          uv run pytest -q
+
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Install
+        working-directory: app
+        run: npm ci
+      - name: Type check
+        working-directory: app
+        run: npx tsc --noEmit
+      - name: Tests
+        working-directory: app
+        run: npm test
+      - name: Build
+        working-directory: app
+        run: npm run build
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release documents match the version and the dependency lock files
+        run: python scripts/check_release_docs.py

@@ -15,6 +15,12 @@ interface CoreReport {
   build123d: string;
   lastTool: { tool: string; commit: boolean; ok: boolean; error: string | null } | null;
   importWarnings: string[];
+  packaged?: boolean;
+  shell?: string | null;
+  machine?: string;
+  cpus?: number | null;
+  uptimeSeconds?: number;
+  model?: { bodies?: number };
   usage?: Record<string, UsageRow>;
   log: string[];
 }
@@ -120,13 +126,17 @@ export function showImportNotice(core: Requester, solids: number, warnings: stri
 }
 
 /** The text a bug report needs. Browser details are added here; the core adds everything else. */
-export function formatDiagnostics(report: CoreReport, browser: string, messages: readonly string[] = []): string {
+export function formatDiagnostics(report: CoreReport, browser: string, messages: readonly string[] = [], display = ""): string {
   const last = report.lastTool;
+  const how = [report.shell ? `desktop window ${report.shell}` : "browser", report.packaged ? "packaged" : "from source"].join(", ");
+  const minutes = Math.floor((report.uptimeSeconds ?? 0) / 60);
   const lines = [
-    `Pliable ${report.pliable}`,
-    `OS: ${report.os}`,
-    `Browser: ${browser}`,
+    `Pliable ${report.pliable} (${how})`,
+    `OS: ${report.os}${report.machine ? `, ${report.machine}` : ""}${report.cpus ? `, ${report.cpus} CPUs` : ""}`,
+    `${report.shell ? "Webview" : "Browser"}: ${browser}`,
+    ...(display ? [`Display: ${display}`] : []),
     `Python ${report.python}, OpenCASCADE (OCP) ${report.opencascade}, build123d ${report.build123d}`,
+    `Core running ${minutes} min${report.model?.bodies !== undefined ? `, ${report.model.bodies} bodies open` : ""}`,
     `Last tool: ${last ? `${last.tool} (${last.commit ? "commit" : "preview"}) ${last.ok ? "ok" : `failed: ${last.error}`}` : "none"}`,
   ];
   if (report.importWarnings.length) lines.push("", "Import warnings:", ...report.importWarnings);
@@ -134,6 +144,19 @@ export function formatDiagnostics(report: CoreReport, browser: string, messages:
   lines.push("", "Tool usage (counts only, since the core started):", ...usageLines(report.usage));
   lines.push("", `Core log (last ${report.log.length} lines):`, ...report.log);
   return lines.join("\n");
+}
+
+/** The graphics renderer and screen size, which decide most display problems. */
+function displayInfo(): string {
+  let renderer = "unknown renderer";
+  try {
+    const gl = document.createElement("canvas").getContext("webgl2");
+    const info = gl?.getExtension("WEBGL_debug_renderer_info");
+    if (gl && info) renderer = String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL));
+  } catch {
+    // no WebGL information available
+  }
+  return `${renderer}, screen ${screen.width}x${screen.height} at ${window.devicePixelRatio}x`;
 }
 
 export async function showDiagnostics(core: Requester): Promise<void> {
@@ -163,7 +186,7 @@ export async function showDiagnostics(core: Requester): Promise<void> {
   const collect = async () => {
     try {
       const { report: coreReport } = await core.request<{ report: CoreReport }>("diagnostics");
-      area.value = formatDiagnostics(coreReport, navigator.userAgent, recentMessages());
+      area.value = formatDiagnostics(coreReport, navigator.userAgent, recentMessages(), displayInfo());
     } catch (e) {
       area.value = ["Could not reach the core: " + (e as Error).message + " (Browser: " + navigator.userAgent + ")", "", "Recent error and warning messages:", ...(recentMessages().length ? recentMessages() : ["none"])].join("\n");
     }

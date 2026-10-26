@@ -212,3 +212,9 @@ node_modules/
 # Local-only reference notes (never commit)
 docs/research/
 .claude/scheduled_tasks.lock
+
+# Tauri shell
+desktop/node_modules/
+desktop/dist/
+desktop/src-tauri/gen/
+desktop/smoke/
