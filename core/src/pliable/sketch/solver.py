@@ -339,11 +339,23 @@ class _Solver:
                 spoke = s.addLineSegment(self._point(a["center"]), self._point(end), g)
                 handles.append(s.addPerpendicular(spoke, self.entities[id_b][1], wp, g))
                 return handles
+            if a["type"] == "arc":  # an arc end held on the line (a tangent arc drawn between two curves): its radius there is square to the line
+                held = [q for q in (a["start"], a["end"]) if any(c.get("type") == "point_on" and c.get("point") == q and c.get("entity") == id_b for c in self.sketch.get("constraints", []))]
+                if held:
+                    spoke = s.addLineSegment(self._point(a["center"]), self._point(held[0]), g)
+                    handles.append(s.addPerpendicular(spoke, self.entities[id_b][1], wp, g))
+                    return handles
             p0, p1 = coords[b["a"]], coords[b["b"]]
             dx, dy = p1[0] - p0[0], p1[1] - p0[1]
             t = ((centre[0] - p0[0]) * dx + (centre[1] - p0[1]) * dy) / (dx * dx + dy * dy or 1.0)
             guess = (p0[0] + t * dx, p0[1] + t * dy)
         else:
+            for x, idx, idy in ((a, id_a, id_b), (b, id_b, id_a)):  # an arc end held on the other round entity touches it on the line through the centres
+                held = [q for q in (x.get("start"), x.get("end")) if q is not None and any(c.get("type") == "point_on" and c.get("point") == q and c.get("entity") == idy for c in self.sketch.get("constraints", []))]
+                if x["type"] == "arc" and held:
+                    through = s.addLineSegment(self._point(a["center"]), self._point(b["center"]), g)
+                    handles.append(s.addPointOnLine(self._point(held[0]), through, wp, g))
+                    return handles
             other = coords[b["center"]]
             d = math.dist(centre, other) or 1.0
             guess = (centre[0] + (other[0] - centre[0]) * radius / d, centre[1] + (other[1] - centre[1]) * radius / d)

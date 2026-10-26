@@ -82,13 +82,13 @@ export function buildToolOptions(ctx: PanelContext): HTMLElement {
     field("Start angle ", "Start angle in degrees counterclockwise from the horizontal axis; blank follows the pointer", () => ctx.arcOptions.startAngle, (n) => (ctx.arcOptions.startAngle = n));
     field("Sweep ", "Sweep in degrees, counterclockwise (above 0, below 360); blank follows the pointer", () => ctx.arcOptions.sweep, (n) => (ctx.arcOptions.sweep = n !== null && n > 0 && n < 360 ? n : null));
   }
-  if (ctx.tool === "arcrad") {
+  if (ctx.tool === "arcrad" || ctx.tool === "tancircle" || ctx.tool === "tanarc") {
     const size = document.createElement("input");
     size.type = "number";
     size.step = "any";
     size.min = "0";
     size.value = String(ctx.arcOptions.radius);
-    size.title = "Radius of the arc";
+    size.title = ctx.tool === "tancircle" ? "Radius of the circle made from two curves" : "Radius of the arc";
     size.addEventListener("keydown", (e) => e.stopPropagation());
     size.addEventListener("input", () => (ctx.arcOptions.radius = Math.abs(Number(size.value)) || 0));
     const row = el("label", "", "Radius ");

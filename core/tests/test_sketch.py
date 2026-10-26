@@ -1609,3 +1609,63 @@ def test_two_elliptical_arcs_cut_from_one_ellipse_solve_and_close_into_a_profile
     solved = sketch.apply_solution(sk, result)
     at = coords(result)
     assert sketch.profile_face(solved).area == pytest.approx(math.pi * math.dist(at[2], at[4]) / 2 * 6, rel=1e-3)
+
+
+def test_circle_tangent_to_three_lines_solves():
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 4, "v": 0}, {"id": 3, "u": 0, "v": 3}, {"id": 4, "u": 1.1, "v": 0.9}]
+    entities = [
+        {"id": 10, "type": "line", "a": 1, "b": 2}, {"id": 11, "type": "line", "a": 2, "b": 3}, {"id": 12, "type": "line", "a": 3, "b": 1},
+        {"id": 13, "type": "circle", "center": 4, "radius": 1.1},
+    ]
+    constraints = [{"id": 20 + k, "type": "fixed", "point": k} for k in (1, 2, 3)] + [{"id": 30 + k, "type": "tangent", "entities": [13, 10 + k]} for k in range(3)]
+    result = sketch.solve(sketch_of(points, entities, constraints))
+    assert result["status"] == "ok"
+    c = coords(result)
+    assert c[4][0] == pytest.approx(1, abs=1e-6) and c[4][1] == pytest.approx(1, abs=1e-6)
+    assert result["dof"] == 0
+
+
+def test_arc_tangent_to_two_lines_with_its_ends_on_them_solves():
+    points = [
+        {"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 20, "v": 0}, {"id": 3, "u": 0, "v": 20},
+        {"id": 4, "u": 5.2, "v": 4.9}, {"id": 5, "u": 0.1, "v": 5.1}, {"id": 6, "u": 5.1, "v": 0.1},
+    ]
+    entities = [
+        {"id": 10, "type": "line", "a": 1, "b": 2}, {"id": 11, "type": "line", "a": 1, "b": 3},
+        {"id": 12, "type": "arc", "center": 4, "start": 5, "end": 6},
+    ]
+    constraints = [
+        {"id": 20, "type": "fixed", "point": 1}, {"id": 21, "type": "fixed", "point": 2}, {"id": 22, "type": "fixed", "point": 3},
+        {"id": 23, "type": "point_on", "point": 5, "entity": 11}, {"id": 24, "type": "point_on", "point": 6, "entity": 10},
+        {"id": 25, "type": "tangent", "entities": [12, 11]}, {"id": 26, "type": "tangent", "entities": [12, 10]},
+        {"id": 27, "type": "radius", "entity": 12, "value": 5},
+    ]
+    result = sketch.solve(sketch_of(points, entities, constraints))
+    assert result["status"] == "ok"
+    c = coords(result)
+    assert c[4][0] == pytest.approx(5, abs=1e-6) and c[4][1] == pytest.approx(5, abs=1e-6)
+    assert c[5][0] == pytest.approx(0, abs=1e-6) and c[6][1] == pytest.approx(0, abs=1e-6)
+    assert result["dof"] == 0
+
+
+def test_arc_tangent_to_a_circle_with_its_end_on_it_solves():
+    points = [
+        {"id": 1, "u": 0, "v": 0}, {"id": 2, "u": -20, "v": 10}, {"id": 3, "u": 20, "v": 10},
+        {"id": 5, "u": 3.8, "v": 7.1}, {"id": 6, "u": 2.4, "v": 4.4}, {"id": 7, "u": 3.9, "v": 10},
+    ]
+    entities = [
+        {"id": 10, "type": "circle", "center": 1, "radius": 5}, {"id": 11, "type": "line", "a": 2, "b": 3},
+        {"id": 12, "type": "arc", "center": 5, "start": 7, "end": 6},
+    ]
+    constraints = [
+        {"id": 20, "type": "fixed", "point": 1}, {"id": 21, "type": "fixed", "point": 2}, {"id": 22, "type": "fixed", "point": 3},
+        {"id": 23, "type": "point_on", "point": 6, "entity": 10}, {"id": 24, "type": "point_on", "point": 7, "entity": 11},
+        {"id": 25, "type": "tangent", "entities": [12, 10]}, {"id": 26, "type": "tangent", "entities": [12, 11]},
+        {"id": 27, "type": "radius", "entity": 12, "value": 3}, {"id": 28, "type": "radius", "entity": 10, "value": 5},
+    ]
+    result = sketch.solve(sketch_of(points, entities, constraints))
+    assert result["status"] == "ok"
+    c = coords(result)
+    assert math.dist(c[1], c[5]) == pytest.approx(8, abs=1e-6)  # externally tangent: 5 + 3
+    assert math.dist(c[1], c[6]) == pytest.approx(5, abs=1e-6)
+    assert c[7][1] == pytest.approx(10, abs=1e-6)
