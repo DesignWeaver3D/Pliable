@@ -16,3 +16,10 @@ def test_preview_names_the_body_on_each_side():
     sides = preview(session, 0)["sides"]
     assert len(sides) == 2 and None not in sides and sides[0] != sides[1]
     assert preview(session, 1)["sides"] == sides  # the same two bodies whichever side is removed
+
+
+def test_edge_faces_lists_the_faces_beside_an_edge():
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    reply = session.handle({"type": "edge_faces", "edge": 0})
+    assert len(reply["faces"]) == 2

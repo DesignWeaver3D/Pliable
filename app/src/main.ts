@@ -42,6 +42,7 @@ import { askMeshOptions } from "./meshexportdialog";
 import { TOOLS_HANDLE_ICON, uiIcon } from "./icons";
 import type { AnchorInfo } from "./placepick";
 import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type HandleInfo, type ToolInfo } from "./tools";
+import { switchToTwoDistances } from "./twodistances";
 import { Viewport, type Sel } from "./viewport";
 import { usage, type Surface } from "./usage";
 import { pruneGhost, pruneHidden } from "./bodylogic";
@@ -1521,6 +1522,25 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     });
   },
   datumPlanes: () => datumPlanes.planes,
+  twoDistances: (distance) =>
+    void switchToTwoDistances(
+      {
+        core,
+        tools: () => tools,
+        selection: () => currentSels,
+        open(tool, sels, values) {
+          toolPanel.close();
+          viewport.selectItems(sels);
+          setSelection(sels);
+          toolPanel.openForm(tool, values, "other");
+        },
+        say(text, error) {
+          status.textContent = text;
+          status.classList.toggle("error", error);
+        },
+      },
+      distance,
+    ),
   sketchList: () => keptSketches.infos,
   async sketchPlane(id) {
     try {

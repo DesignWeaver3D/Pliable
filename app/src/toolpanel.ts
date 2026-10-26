@@ -35,6 +35,8 @@ export interface ToolPanelHost {
   /** The kept sketches and the plane of one, offered as buttons by tools that take a plane (see planepicks.ts). */
   sketchList?(): readonly { id: number; name: string }[];
   sketchPlane?(id: number): Promise<{ origin: number[]; normal: number[] } | null>;
+  /** Fillet/Chamfer's Two distances button: reopen as Chamfer (two distances) on the first face beside the edge, with this distance for both. */
+  twoDistances?(distance: number): void;
   /** Keep a marker at the picked base point (null removes it). */
   showBase?(point: number[] | null): void;
   /** The points of a new shape that can be put at the destination (primitives), for the current values. */
@@ -221,6 +223,13 @@ export class ToolPanel {
     const buttons = document.createElement("div");
     buttons.className = "buttons";
     buttons.append(apply, cancel);
+    if (tool.id === "fillet_chamfer" && editBody === undefined && this.host.twoDistances) {
+      const two = document.createElement("button");
+      two.textContent = "Two distances";
+      two.title = "Bevel with a different distance on each side: reopens as Chamfer (two distances), with the first face beside the edge as the reference";
+      two.addEventListener("click", () => this.host.twoDistances!(parseFloat((inputs.distance as HTMLInputElement).value) || 0));
+      buttons.prepend(two);
+    }
     this.formEl.replaceChildren(title, ...rows, buttons);
     const placement = tool.placement;
     if (placement && placement.length === 3 && this.host.pickPoint) {
