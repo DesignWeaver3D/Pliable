@@ -29,6 +29,10 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
   - [ ] Push/pull: "M mode is regression that doesn't work when right-click mode did (can't use right click because need right-drag for orbit?). Push/pull hole face does nothing at all, starts a box selection."
   - [ ] Delete face: "works on circular holes. fails otherwise with no error or message why. This was supposed to be named Defeature. Delete face doesn't make sense in all the contexts that this is supposed to work."
   - [ ] Align face: "grayed out and i have no idea what it's supposed to do anyway."
+- **Export mesh tessellation options.** Owner: "the export STL worked. However, it didn't provide any tessellation options, so that can be added to future tasks. User should be able to define the angular deviation and another tessellation option. And the default settings should match the default import tessellation settings that orcaslicer uses." Related items checked: nothing in Parked or Ideas covers export tessellation (the mesh-import note and the display tessellation entry in the watchlist are about other things).
+  - [ ] Export mesh (STL and the other mesh formats) asks for the angular deviation and one more tessellation option (likely linear deflection) before exporting.
+  - [ ] Look up the default tessellation values the slicer named in the quote uses when it imports a STEP file, and use them as the defaults; record the source in `docs/decisions-log.md` (not verified yet, do not guess).
+  - [ ] Export tessellation is separate from the display tessellation, so changing it does not change what is drawn.
 
 ## Parked or owner-dependent
 
