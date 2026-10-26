@@ -16,7 +16,7 @@ Rules for keeping it:
 
 ### Desktop app (Windows archive)
 
-- [ ] Unzip, run, open the bracket, push/pull, export STEP. The window icon shows, the window resizes cleanly, and an export download works in the webview. macOS and Linux archives are untested.
+- [ ] Do you have a Mac or a Linux machine to run the v0.4.0 desktop archive on? Nobody has run those two archives; the Windows one works. Default: release them marked untested.
 
 ### Inset face edges
 
