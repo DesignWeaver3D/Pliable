@@ -29,6 +29,7 @@ import { KeyRouter } from "./keyrouter";
 import { HintLine } from "./hints";
 import { exportAs as saveModel, installFileOpening } from "./filesave";
 import { askApplyOrDiscard, isArrayTool } from "./arrayprompt";
+import { clickAway } from "./toolclickaway";
 import { askRestore, dismissRestorePrompt } from "./restoreprompt";
 import { bodyView } from "./appstate";
 import { createToolStrip } from "./toolstrip";
@@ -406,16 +407,18 @@ async function settleOpenArray(): Promise<"apply" | "discard" | null> {
 
 function setSelection(sels: Sel[]) {
   if (isArrayTool(toolPanel.openToolId)) {
-    // Clicking away from an array being edited asks first; the click itself is not carried over (the preview's ids are not the model's).
+    // Clicking empty space away from an array being edited asks first; the click itself is not carried over (the preview's ids are not the model's).
     const before = currentSels;
+    if (clickAway(sels) === "ignore") { viewport.selectItems(before); return; } // another item: the form stays open
     if (!askingArray) void settleOpenArray().then((answer) => { if (answer === "discard" && committed) { viewport.selectItems(before); setSelection(before); } });
     return;
   }
+  if (toolPanel.isOpen && clickAway(sels) === "ignore") { viewport.selectItems(currentSels); return; } // another item: the open tool card stays as it is
   if (pendingProfile && (committed !== pendingProfile.mesh || sels.length !== pendingProfile.faces.length || sels.some((s) => s.kind !== "face" || !pendingProfile!.faces.includes(s.id)))) {
     if (committed === pendingProfile.mesh && !toolPanel.isOpen) void dropPendingProfile(); // clicked away from the picked region: it was only a pick
     else pendingProfile = null; // a tool used it, or the history moved on
   }
-  if (toolPanel.isOpen) { // clicking away from an open tool card applies it (to the selection it was opened on); the click itself is not carried over
+  if (toolPanel.isOpen) { // a click on empty space applies the open tool card (to the selection it was opened on); another item leaves it open; the click itself is not carried over
     void toolPanel.apply();
     return;
   }
@@ -642,6 +645,7 @@ function pump(token: number) {
 }
 
 viewport.onSelect = setSelection;
+viewport.toolOpen = () => toolPanel.isOpen || isArrayTool(toolPanel.openToolId);
 
 // Editing a displayed dimension in place (dimedit.ts): the core maps it to the matching tool, so it previews like one and is one undo step.
 const dimensionEditor = new DimensionEditor({

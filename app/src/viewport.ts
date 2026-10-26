@@ -155,6 +155,8 @@ export class Viewport {
   private drag: { sels: Sel[]; normal: THREE.Vector3; point: THREE.Vector3; x: number; y: number; moved: boolean } | null = null;
   /** Called when the user changes the selection by clicking. */
   onSelect: (selection: Sel[]) => void = () => {};
+  /** A tool card is open: pressing another item then only picks it (the card ignores that), it does not start that item's drag tool. */
+  toolOpen: () => boolean = () => false;
   /** The tinted profile regions of kept sketches that a click can pick as if they were faces (they belong to no model). */
   profileTargets: () => { id: number; region: number; object: THREE.Object3D }[] = () => [];
   onProfileClick: (sketchId: number, region: number, additive: boolean) => void = () => {};
@@ -489,7 +491,7 @@ export class Viewport {
       // Dragging the selected face or edge starts its tool instead of orbiting.
       const additive = e.ctrlKey || e.metaKey || e.shiftKey;
       const shiftOnly = e.shiftKey && !e.ctrlKey && !e.metaKey; // Shift keeps the selection and drags symmetrically (push/pull)
-      if (hit && direction && (!additive || shiftOnly)) {
+      if (hit && direction && (!additive || shiftOnly) && !(this.toolOpen() && !this.isSelected(hit))) {
         // Pressing on an item selects it and starts its tool drag in one motion.
         if (!this.isSelected(hit)) {
           const sel = { kind: hit.kind, id: hit.id };
