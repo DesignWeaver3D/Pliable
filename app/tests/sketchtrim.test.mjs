@@ -68,3 +68,11 @@ test("an arc cuts the line where the line meets the arc's own sweep, not the res
   const under = { ...s, points: s.points.map((p) => (p.id === 1 || p.id === 2 ? { ...p, v: -2 } : p)) };
   assert.equal(trimClick(under, 10, 1, -2, new Set()).sketch.entities.filter((e) => e.type === "line").length, 1);
 });
+
+test("cutting at two crossings joins only neighbouring pieces with collinear constraints", () => {
+  const first = trimClick(crossed(), 10, 1, 0, new Set());
+  const ends = (id) => { const e = first.sketch.entities.find((x) => x.id === id); return new Set([e.a, e.b]); };
+  const collinear = first.sketch.constraints.filter((c) => c.type === "collinear");
+  assert.equal(collinear.length, 2);
+  for (const c of collinear) assert.ok([...ends(c.entities[0])].some((p) => ends(c.entities[1]).has(p)), "pieces share an end point");
+});

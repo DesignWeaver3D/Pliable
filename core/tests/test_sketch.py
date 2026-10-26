@@ -1307,3 +1307,13 @@ def test_moving_an_ellipse_by_its_centre_and_major_end_carries_all_its_points():
     assert result["status"] == "ok"
     for pid, want in {4: (-9.5, 0.3), 5: (0.5, 5.3), 6: (0.5, -4.7)}.items():
         assert at[pid] == pytest.approx(want, abs=1e-6)
+
+
+def test_three_pieces_joined_by_neighbour_collinear_constraints_solve():
+    """What Trim leaves on a line cut at two crossings: each automatic collinear constraint joins neighbouring pieces."""
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 3, "v": 0}, {"id": 3, "u": 7, "v": 0}, {"id": 4, "u": 10, "v": 0}]
+    lines = [{"id": 10, "type": "line", "a": 1, "b": 2}, {"id": 11, "type": "line", "a": 2, "b": 3}, {"id": 12, "type": "line", "a": 3, "b": 4}]
+    constraints = [{"id": 5, "type": "collinear", "entities": [10, 11], "auto": True}, {"id": 6, "type": "collinear", "entities": [11, 12], "auto": True}]
+    result = sketch.solve(sketch_of(points, lines, constraints))
+    assert result["status"] == "ok" and not result.get("conflicts")
+
