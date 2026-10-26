@@ -55,10 +55,9 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
   - [ ] A gizmo moves and tilts the plane like the face push/pull gizmo.
   - [ ] The remove side list reads None, Side 1, Side 2, each in the colour of the body it will give.
   - Open: side names coloured like the result bodies; picking a kept sketch plane.
-- **More import and export file types.** Owner: "I want to expand the import and export filetypes to include those that oCCT supports such as: .step, .stp, .stpZ, .iges, .igs, .brep, .brp, .ifc. Also investigate potentially supporting .3dm    Via OpenNURBS / openNURBS bindings."
-  - [ ] Import and export the formats OCCT supports: .step, .stp, .stpZ, .iges, .igs, .brep, .brp, .ifc (check each against the installed OCCT build and its licence first).
-  - [ ] Investigate .3dm through OpenNURBS bindings and report licence, size and feasibility before building.
-  - Open: .ifc and .3dm are in author-guidance.md (Future); build nothing until decided.
+- **More import and export file types: .ifc and a true .3dm export.** Owner: "I want to expand the import and export filetypes to include those that oCCT supports such as: .step, .stp, .stpZ, .iges, .igs, .brep, .brp, .ifc. Also investigate potentially supporting .3dm    Via OpenNURBS / openNURBS bindings." STEP, stpZ, IGES, BREP and 3dm import are built; 3dm export writes triangle meshes only (labelled lossy).
+  - [ ] .ifc import and export: OCCT has none; use IfcOpenShell (LGPL-3.0, 42 to 55 MB per platform) loaded only when an .ifc file is used, so the core stays small if the dependency is optional; the owner asked for .ifc by name, so build it (decide the packaging by the hierarchy and log it). Export solids as building element proxies with a B-rep body.
+  - [ ] .3dm export as trimmed B-reps if any other way exists (the wheels cannot build them); otherwise keep the mesh export.
 - **Quick two-distance mode while creating a chamfer (discuss).** Owner (testing checklist, 2026-10-26): "resize chamfer and the two distance gizmos work great. Need a way to quickly enter two distance mode while creating a chamfer. Maybe pressing ALt or tab while in chamfer creation is still active. Discuss."
   - [ ] Choose the key (Alt, Tab or another) with the owner, then let a chamfer being created switch to two distances. Related: the typed-number Tab behavior and the Alt+click face cycling must not clash.
   - Default: a "Two distances" button in the Fillet/Chamfer form that reopens as Chamfer (two distances) with the first face beside the edge as reference; build it.
