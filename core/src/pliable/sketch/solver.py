@@ -565,7 +565,7 @@ def _connected_ids(sketch: dict, start: set[int]) -> set[int]:
     that dragging one of `start` may legitimately move."""
     links: list[set[int]] = []
     for e in sketch.get("entities", []):
-        links.append({e["id"], *(e[k] for k in ("a", "b", "center", "start", "end", "major") if k in e), *e.get("points", [])})
+        links.append({e["id"], *(e[k] for k in ("a", "b", "center", "start", "end", "major", "major2", "minor1", "minor2") if k in e), *e.get("points", [])})
     for c in sketch.get("constraints", []):
         group = {*c.get("points", []), *c.get("entities", [])}
         group.update(c[k] for k in ("point", "entity") if k in c)
