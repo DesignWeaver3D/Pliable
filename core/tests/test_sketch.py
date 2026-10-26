@@ -1282,3 +1282,39 @@ def test_a_fully_constrained_sketch_colours_every_point_without_testing_each(mon
 
     monkeypatch.setattr(solver._Solver, "hold_axis", never)
     assert sketch.point_freedom(s, budget=0.0) == {p["id"]: 0 for p in points}
+
+
+def _axis(eid, horizontal):
+    a, b = (-11, -12) if horizontal else (-21, -22)
+    reach = 1e4
+    pts = [{"id": a, "u": -reach if horizontal else 0, "v": 0 if horizontal else -reach, "fixed": True}, {"id": b, "u": reach if horizontal else 0, "v": 0 if horizontal else reach, "fixed": True}]
+    return pts, {"id": eid, "type": "line", "a": a, "b": b, "reference": True, "axis": True}
+
+
+@pytest.mark.parametrize("horizontal", [True, False])
+def test_symmetric_about_an_axis_mirrors_about_that_axis(horizontal):
+    from pliable.server import Session
+
+    axis_points, axis_line = _axis(-1 if horizontal else -2, horizontal)
+    points = [{"id": 1, "u": -10, "v": 5}, {"id": 2, "u": 10, "v": -4}] + axis_points
+    sk = sketch_of(points, [{"id": 100, "type": "line", "a": 1, "b": 2}, axis_line], [{"id": 5, "type": "symmetric", "points": [1, 2], "entity": axis_line["id"]}])
+    result = Session().handle({"type": "sketch_solve", "sketch": sk})
+    assert result["status"] == "ok"
+    (u1, v1), (u2, v2) = coords(result)[1], coords(result)[2]
+    if horizontal:  # about the x-axis: same u, opposite v
+        assert u1 == pytest.approx(u2) and v1 == pytest.approx(-v2)
+    else:
+        assert v1 == pytest.approx(v2) and u1 == pytest.approx(-u2)
+
+
+def test_an_ellipse_axis_line_takes_symmetric_about_the_vertical_axis():
+    sk = _ellipse_with_ends()
+    sk["points"][0].update(u=3, v=2)  # the centre is free
+    axis_points, axis_line = _axis(-2, False)
+    sk["points"] += axis_points
+    sk["entities"] += [{"id": 9, "type": "line", "a": 2, "b": 4, "construction": True}, axis_line]
+    sk["constraints"] = [{"id": 5, "type": "symmetric", "points": [2, 4], "entity": -2}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok"
+    at = coords(result)
+    assert at[2][1] == pytest.approx(at[4][1], abs=1e-6) and at[2][0] == pytest.approx(-at[4][0], abs=1e-6)

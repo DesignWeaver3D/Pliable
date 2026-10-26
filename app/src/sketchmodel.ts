@@ -366,6 +366,14 @@ export function constraintMarks(s: SketchData): Dimension[] {
   for (const c of s.constraints) {
     const text = MARKS[c.type];
     if (!text) continue;
+    if (c.type === "symmetric" || c.type === "symmetric_point") {
+      // One mark at each of the mirrored points (and at the centre point of a symmetry about a point), never at the average with the axis or line.
+      for (const id of [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])]) {
+        const p = s.points.find((q) => q.id === id);
+        if (p) out.push({ kind: "tag", text, points: [toWorld(s.plane, p.u, p.v)], mark: true, avoid: centres });
+      }
+      continue;
+    }
     const anchors: [number, number][] = [];
     for (const id of [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])]) {
       const p = s.points.find((q) => q.id === id);
