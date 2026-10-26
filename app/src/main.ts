@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { moveHandlesAt } from "./placepick";
 import { bodyCentres, movedBodies } from "./slide";
 import { PointPicker, ReferenceView } from "./reference";
-import { installAlphaUi, showDiagnostics, showImportNotice, showLaunchNotice, showMessage } from "./alpha";
+import { installAlphaUi, showDiagnostics, showLaunchNotice, showMessage } from "./alpha";
 import { installMessageLog } from "./messagelog";
 import type { PlaneData } from "./sketchmodel";
 import { CoreClient, type MeshData } from "./client";
@@ -11,8 +11,8 @@ import type { Tool as SketchTool } from "./sketch";
 import { SketchBar } from "./sketchbar";
 import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
-import { DimensionOverlay, type Dimension } from "./dimensions";
-import { DimensionEditor, withoutDraftTag } from "./dimedit";
+import { DimensionOverlay } from "./dimensions";
+import { DimensionEditor } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
 import { acceptsWithRail } from "./sketchrail";
 import { SKETCH_CONSTRAINT_KEYS } from "./sketchkeys";
@@ -22,20 +22,17 @@ import { edgeMiddle } from "./edgepick";
 import { DatumPlanes } from "./datumplanes";
 import type { DatumPlane, MirrorMode } from "./datumcorners";
 import { LatestWins } from "./latestwins";
-import { LENGTH_UNIT } from "./units";
-import { materialOrDefault, ownDensities } from "./materials";
 import { SETTING_ENTRIES, createSettingsWindow, onSettingsChange, openSettings, setHintsBinding, setKeysOpener, settingValue, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
 import { HintLine } from "./hints";
 import { exportAs as saveModel, installFileOpening } from "./filesave";
 import { askApplyOrDiscard, isArrayTool } from "./arrayprompt";
-import { clickAway } from "./toolclickaway";
 import { askRestore, dismissRestorePrompt } from "./restoreprompt";
-import { bodyView } from "./appstate";
+import { app, bodyView } from "./appstate";
 import { createToolStrip } from "./toolstrip";
 import { helperSignature as helperSignatureOf, selectionHelpers as selectionHelpersOf, type HelperDeps } from "./toolhelpers";
-import { expand, relatedState, renderChips as chipsRender, type RelatedRule } from "./relatedrules";
+import { expand, renderChips as chipsRender } from "./relatedrules";
 import { installBodyActions } from "./bodyactions";
 import { Palette, type Command } from "./palette";
 import { toolKeywords } from "./search";
@@ -46,9 +43,11 @@ import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type HandleInf
 import { switchToTwoDistances } from "./twodistances";
 import { Viewport, type Sel } from "./viewport";
 import { usage, type Surface } from "./usage";
-import { pruneGhost, pruneHidden } from "./bodylogic";
-import { bodiesOf, filterHidden } from "./visibility";
+import { bodiesOf } from "./visibility";
 import { showNumber } from "./precision.ts";
+import { createSelection } from "./selection";
+import { createModelView } from "./modelview";
+import { createItemDrag } from "./itemdrag";
 
 const $ = (id: string) => document.getElementById(id)!;
 const status = $("status");
@@ -138,8 +137,6 @@ function logOnce(kind: string, e: unknown) {
 
 // Tool registry from the core, the current selection, and which tool a drag runs.
 let tools: ToolInfo[] = [];
-let currentSels: Sel[] = [];
-let refined: string[] | null = null; // ids the core says apply to currentSels (null until it replies)
 let armedTool: string | null = null; // tool the user chose in the toolbar or palette
 
 /** The tool the chips speak for: the armed tool, else the open form's tool, else none (a choice for all tools). */
@@ -155,7 +152,7 @@ function renderChips() {
     toolPanel.renderList();
   } });
   // While Fillet/Chamfer is armed with edges selected, a chip switches to two distances (a chamfer being created).
-  if (armedTool === "fillet_chamfer" && currentSels.some((s) => s.kind === "edge")) {
+  if (armedTool === "fillet_chamfer" && app.currentSels.some((s) => s.kind === "edge")) {
     const two = document.createElement("button");
     two.textContent = "Two distances";
     two.title = "Bevel with a different distance on each side: switches to Chamfer (two distances), with the first face beside the edge as the reference";
@@ -166,22 +163,20 @@ function renderChips() {
 
 /** Tools usable with the current selection: counts checked here, the core's extra checks once it replies. */
 function usableTools(): ToolInfo[] {
-  return tools.filter((t) => (acceptsSelection(t, expand(t, currentSels)) || acceptsWithRail(t, expand(t, currentSels), chosenSketch) || (t.id === "move_body" && movableSketch() !== null)) && (refined === null || refined.includes(t.id)));
+  return tools.filter((t) => (acceptsSelection(t, expand(t, app.currentSels)) || acceptsWithRail(t, expand(t, app.currentSels), app.chosenSketch) || (t.id === "move_body" && movableSketch() !== null)) && (app.refined === null || app.refined.includes(t.id)));
 }
 
 /** The kept sketch Move/Rotate would move: the sketch whose row was picked, or whose region was picked in the view. */
 function movableSketch(): number | null {
-  if (pickedRow?.list === "sketch") return pickedRow.id;
-  const pending = pendingProfile;
-  if (pending && committed === pending.mesh && currentSels.length > 0 && currentSels.every((s) => s.kind === "face" && pending.faces.includes(s.id))) return pending.sketchId;
+  if (app.pickedRow?.list === "sketch") return app.pickedRow.id;
+  const pending = app.pendingProfile;
+  if (pending && app.committed === pending.mesh && app.currentSels.length > 0 && app.currentSels.every((s) => s.kind === "face" && pending.faces.includes(s.id))) return pending.sketchId;
   return null;
 }
 /** The kept sketch chosen with Shift or Ctrl+click on its curve in the view; kept beside the face and edge selection. */
-let chosenSketch: number | null = null;
-let keepingChosen = false;
 function setChosenSketch(id: number | null) {
-  if (chosenSketch === id) return;
-  chosenSketch = id;
+  if (app.chosenSketch === id) return;
+  app.chosenSketch = id;
   keptSketches.setChosen(id);
 }
 /** The kept sketch the open Move/Rotate form is moving (its plane moves, see sketchmove.py); null for a body move. */
@@ -222,14 +217,14 @@ function dragToolFor(sels: Sel[]): ToolInfo | null {
 /** The hole or cut tool whose axis handles show for a selected hole face or rim (or the wall of a square or slot cut) (none while a drag tool is armed). */
 function holeHandleTool(sels: Sel[]): ToolInfo | null {
   if (armedTool !== null || sels.length !== 1) return null;
-  const id = refined?.includes("edit_hole") ? "edit_hole" : refined?.includes("edit_void") ? "edit_void" : null; // a round hole, else a square or slot cut
+  const id = app.refined?.includes("edit_hole") ? "edit_hole" : app.refined?.includes("edit_void") ? "edit_void" : null; // a round hole, else a square or slot cut
   return id ? (tools.find((t) => t.id === id) ?? null) : null;
 }
 let selectionHandleTool: ToolInfo | null = null; // the tool the handles now shown on the selection belong to
 
 /** With a selection and no form open, the tool a drag would run shows its handles (push/pull's arrow on the face). */
 async function refreshSelectionHandles() {
-  const sels = currentSels;
+  const sels = app.currentSels;
   if (viewport.interceptor) {
     viewport.manipulator.clear(); // a sketch is open: model handles would sit over it
     return;
@@ -242,7 +237,7 @@ async function refreshSelectionHandles() {
   }
   try {
     const reply = await core.request<{ handles: HandleInfo[] }>("tool_handles", { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params: tool.id === "push_pull" ? viewport.pullDirection.params() : {} });
-    if (currentSels !== sels || toolPanel.isOpen) return; // the selection changed or a form took over while waiting
+    if (app.currentSels !== sels || toolPanel.isOpen) return; // the selection changed or a form took over while waiting
     viewport.manipulator.setHandles(reply.handles);
   } catch {
     viewport.manipulator.clear(); // handles are a convenience; the plain drag still works
@@ -307,7 +302,7 @@ const { renderToolbar } = createToolStrip({
   chooseConstraint: (label) => chooseConstraint(label),
   drawerHidden: () => !!drawer.hidden,
   toggleDrawer: (open, usableOnly) => toggleDrawer(open, usableOnly),
-  selection: () => currentSels,
+  selection: () => app.currentSels,
   usableTools: () => usableTools(),
   dragToolFor: (sels) => dragToolFor(sels),
   helperSignature: () => helperSignature(),
@@ -320,8 +315,8 @@ const { renderToolbar } = createToolStrip({
 const helperDeps: HelperDeps = {
   core,
   status,
-  committed: () => committed,
-  selection: () => currentSels,
+  committed: () => app.committed,
+  selection: () => app.currentSels,
   select: (sels) => {
     viewport.selectItems(sels);
     setSelection(sels);
@@ -335,7 +330,7 @@ const selectionHelpers = () => selectionHelpersOf(helperDeps);
 /** Reopen the creation form and handles of an editable primitive body, filled with the values it was made with. */
 async function editPrimitive(id: number) {
   await settleOpenArray(); // an array still being edited is applied or discarded first
-  const body = committed ? bodiesOf(committed).find((b) => b.id === id) : undefined;
+  const body = app.committed ? bodiesOf(app.committed).find((b) => b.id === id) : undefined;
   const tool = body?.editable && body.recipe ? tools.find((t) => t.id === body.recipe!.tool) : undefined;
   if (!body || !tool || !body.recipe) {
     status.textContent = body?.why ?? "That body is not an editable primitive";
@@ -372,7 +367,6 @@ function armTool(tool: ToolInfo, surface: Surface) {
 }
 
 /** The model state made by picking a sketch region, while its face is still the only selection and nothing was done with it. */
-let pendingProfile: { mesh: MeshData; faces: number[]; sketchId: number; regions: number[] } | null = null;
 
 /** A sketch region picked in the view becomes a temporary face of the model, selected so the usual tools work on it. */
 let profilePicking: Promise<void> | null = null;
@@ -383,7 +377,7 @@ function pickProfile(sketchId: number, region: number, additive = false) {
 }
 async function pickProfileNow(sketchId: number, region: number, additive: boolean) {
   // Shift or Ctrl adds another region of the same sketch (or takes a picked one out again): all the picked regions become faces together.
-  const before = additive && pendingProfile && pendingProfile.sketchId === sketchId && committed === pendingProfile.mesh ? pendingProfile.regions : [];
+  const before = additive && app.pendingProfile && app.pendingProfile.sketchId === sketchId && app.committed === app.pendingProfile.mesh ? app.pendingProfile.regions : [];
   const regions = before.includes(region) ? before.filter((r) => r !== region) : [...before, region];
   await dropPendingProfile();
   if (!regions.length) return setSelection([]);
@@ -391,7 +385,7 @@ async function pickProfileNow(sketchId: number, region: number, additive: boolea
     const mesh = await core.request<MeshData>("sketch_regions", { sketch_id: sketchId, region: regions[0], picked_regions: regions });
     const faces: number[] = mesh.header.selection?.faces ?? [];
     setCommitted(mesh, false, faces.map((id) => ({ kind: "face" as const, id })));
-    if (faces.length) pendingProfile = { mesh, faces, sketchId, regions };
+    if (faces.length) app.pendingProfile = { mesh, faces, sketchId, regions };
     else {
       // Nothing came back selected (a core that was not restarted adds every region): take the faces out again so none stay in the model.
       await history("undo");
@@ -406,266 +400,58 @@ async function pickProfileNow(sketchId: number, region: number, additive: boolea
 
 /** Take the temporary face of a picked region out of the model again (an undo of the pick). */
 async function dropPendingProfile() {
-  const pending = pendingProfile;
-  pendingProfile = null;
-  if (pending && committed === pending.mesh) await history("undo");
+  const pending = app.pendingProfile;
+  app.pendingProfile = null;
+  if (pending && app.committed === pending.mesh) await history("undo");
 }
 
 /** An array form that is only a preview is open: ask to apply or discard it; resolves with the answer once the form is closed, or null at once when none is open. */
-let askingArray = false;
 async function settleOpenArray(): Promise<"apply" | "discard" | null> {
-  if (!isArrayTool(toolPanel.openToolId) || askingArray) return null;
-  askingArray = true;
+  if (!isArrayTool(toolPanel.openToolId) || app.askingArray) return null;
+  app.askingArray = true;
   try {
     const answer = await askApplyOrDiscard(toolPanel.openToolLabel);
     if (answer === "apply") await toolPanel.apply();
     else toolPanel.close();
     return answer;
   } finally {
-    askingArray = false;
+    app.askingArray = false;
   }
 }
 
-function setSelection(sels: Sel[]) {
-  if (isArrayTool(toolPanel.openToolId)) {
-    // Clicking empty space away from an array being edited asks first; the click itself is not carried over (the preview's ids are not the model's).
-    const before = currentSels;
-    if (clickAway(sels) === "ignore") { viewport.selectItems(before); return; } // another item: the form stays open
-    if (!askingArray) void settleOpenArray().then((answer) => { if (answer === "discard" && committed) { viewport.selectItems(before); setSelection(before); } });
-    return;
-  }
-  if (toolPanel.isOpen && clickAway(sels) === "ignore") { viewport.selectItems(currentSels); return; } // another item: the open tool card stays as it is
-  if (pendingProfile && (committed !== pendingProfile.mesh || sels.length !== pendingProfile.faces.length || sels.some((s) => s.kind !== "face" || !pendingProfile!.faces.includes(s.id)))) {
-    if (committed === pendingProfile.mesh && !toolPanel.isOpen) void dropPendingProfile(); // clicked away from the picked region: it was only a pick
-    else pendingProfile = null; // a tool used it, or the history moved on
-  }
-  if (toolPanel.isOpen) { // a click on empty space applies the open tool card (to the selection it was opened on); another item leaves it open; the click itself is not carried over
-    void toolPanel.apply();
-    return;
-  }
-  viewport.pullDirection.reset(); // a chosen push/pull direction belongs to the face it was chosen for
-  if (sels.length === 0 && !keepingChosen) setChosenSketch(null); // a click on empty space lets the chosen sketch go
-  if (sels.length && pickedRow) pickRow(null); // a body or face was picked: the Delete key leaves the sketch and datum rows
-  if (toolPanel.isOpen) toolPanel.close(false); // the selection changed under an open tool form
-  viewport.manipulator.clear();
-  currentSels = sels;
-  navCube.fitSelectedButton.disabled = sels.length === 0;
-  bodyList.setSelected(sels.filter((s) => s.kind === "body").map((s) => s.id));
-  refined = null;
-  relatedState.rules = [];
-  selected.textContent = describe(sels);
-  if (sels.length === 0) {
-    measurePanel.hide();
-    measuredDims = []; previewDimsShown = false; dimensionOverlay.set([]);
-    renderChips();
-    renderToolbar();
-    toolPanel.renderList();
-    renderSketchBar();
-    // The core knows which tools make sense with nothing selected (whole-model tools need a single body).
-    core
-      .request<{ tools: string[] }>("available_tools", { selection: selectionPayload(sels) })
-      .then((reply) => {
-        if (currentSels !== sels) return;
-        refined = reply.tools;
-        renderToolbar();
-        toolPanel.renderList();
-      })
-      .catch((e) => logOnce("available tools", e));
-    return;
-  }
-  // Wait for the core's answers and render once: rendering the count-only guess first, then the refined set,
-  // made tools flip between enabled and greyed and the chips blink on every face click.
-  const rules = sels.length === 1 && sels[0].kind === "face" ? core.request<{ rules: RelatedRule[] }>("related", { face: sels[0].id }) : Promise.resolve({ rules: [] as RelatedRule[] });
-  const available = core.request<{ tools: string[] }>("available_tools", { selection: selectionPayload(sels) });
-  Promise.allSettled([rules, available]).then(([rulesReply, availableReply]) => {
-    if (currentSels !== sels) return; // the selection changed while waiting
-    relatedState.rules = rulesReply.status === "fulfilled" ? rulesReply.value.rules : [];
-    refined = availableReply.status === "fulfilled" ? availableReply.value.tools : null;
-    void refreshSelectionHandles();
-    renderChips();
-    renderToolbar();
-    toolPanel.renderList();
-    renderSketchBar();
-  });
-  core
-    .request<MeasureReply>("measure", { selection: selectionPayload(sels), density: materialOrDefault(settings.material).density, densities: ownDensities(committed ? bodiesOf(committed) : []) }) // the density gives a selected body its mass
-    .then((reply) => {
-      // Not while a drag is live (the panel is hidden then); never on a stale dragSels left by a drag that failed to end.
-      if (currentSels === sels && !viewport.dragging) {
-        measurePanel.show(reply);
-        measuredDims = withoutDraftTag(reply.dimensions ?? []);
-        previewDimsShown = false;
-        dimensionOverlay.set(measuredDims);
-      }
-    })
-    .catch((e) => {
-      logOnce("measurement", e);
-      if (currentSels === sels) {
-        measurePanel.hide();
-        measuredDims = []; previewDimsShown = false; dimensionOverlay.set([]);
-      }
-    });
-}
 
-function selectionPayload(sels: Sel[]) {
-  const ids = (kind: Sel["kind"]) => sels.filter((s) => s.kind === kind).map((s) => s.id);
-  return { faces: ids("face"), edges: ids("edge"), vertices: ids("vertex"), bodies: ids("body"), ...(chosenSketch === null ? {} : { rail: chosenSketch }) }; // rail: the kept sketch chosen as a path
-}
-
-let committed: MeshData | null = null; // last committed (non-preview) mesh
-/** The newest committed tool run, kept while nothing else has changed the model: "Edit last" undoes it and reopens its form. */
-let lastOp: { tool: ToolInfo; sels: Sel[]; values: Record<string, ParamValue> } | null = null;
-
+const { setSelection, selectionPayload, mappedSelection } = createSelection({
+  viewport, core, navCube, measurePanel, dimensionOverlay, selected,
+  get toolPanel() { return toolPanel; },
+  get bodyList() { return bodyList; },
+  renderChips, renderToolbar, renderSketchBar, settleOpenArray, dropPendingProfile, setChosenSketch, pickRow, refreshSelectionHandles, logOnce,
+});
 
 /** Tells the list of kept sketches what the document holds; set once that list exists. */
 let onSketches: (list: { id: number; name: string; rev: number }[]) => void = () => {};
 let onDatums: (list: DatumPlane[], mirror: MirrorMode | null) => void = () => {};
 
-/** The dimensions of the committed model's measurement, and whether a preview's own are on screen instead. */
-let measuredDims: Dimension[] = [];
-let previewDimsShown = false;
-
-function show(mesh: MeshData, frame = false) {
-  // A preview that keeps one face or edge selected (a hole being moved) brings the dimensions of its own model.
-  const previewDims: Dimension[] | undefined = mesh.header.preview ? mesh.header.dimensions : undefined;
-  if (previewDims) {
-    dimensionOverlay.set(previewDims);
-    previewDimsShown = true;
-  } else if (previewDimsShown && !mesh.header.preview) {
-    dimensionOverlay.set(measuredDims); // the preview ended without a commit: the committed model's dimensions again
-    previewDimsShown = false;
-  }
-  bodyView.hidden = pruneHidden(bodyView.hidden, bodiesOf(mesh).map((b) => b.id));
-  const pruned = pruneGhost(bodyView.ghost, bodyView.focus, bodiesOf(mesh).map((b) => b.id));
-  bodyView.ghost = pruned.ghost;
-  bodyView.focus = pruned.focus;
-  viewport.setMesh(filterHidden(mesh, bodyView.hidden), frame);
-  viewport.setGhosted(bodyView.ghost);
-  if (!mesh.header.preview) {
-    bodyList.setBodies(bodiesOf(mesh), bodyView.hidden, bodyView.ghost, bodyView.focus?.body ?? null);
-    onSketches(mesh.header.sketches ?? []);
-    onDatums(mesh.header.datums ?? [], mesh.header.mirror ?? null);
-  }
-  modelHistory = { undo: !!mesh.header.canUndo, redo: !!mesh.header.canRedo };
-  syncHistoryButtons();
-}
-
-let modelHistory = { undo: false, redo: false }; // what the model itself can undo and redo, kept while a sketch is edited
-
-/** The top bar's Undo and Redo follow the sketch's edits while a sketch is open, and the model's otherwise. */
-function syncHistoryButtons() {
-  undoButton.disabled = sketch.active ? !sketch.canUndo : !modelHistory.undo;
-  redoButton.disabled = sketch.active ? !sketch.canRedo : !modelHistory.redo;
-}
-
-function describe(sels: Sel[]): string {
-  if (sels.length === 0) return "";
-  if (sels[0].kind === "body") {
-    const name = (id: number) => (committed ? bodiesOf(committed).find((b) => b.id === id)?.name : undefined) ?? `body ${id}`;
-    return sels.length === 1 ? name(sels[0].id) : `${sels.length} bodies`;
-  }
-  return sels.length === 1 ? `${sels[0].kind} ${sels[0].id}` : `${sels.length} ${sels[0].kind}s`;
-}
-
-/** The selection a reply says the old selection maps to. */
-function mappedSelection(mesh: MeshData): Sel[] {
-  const s = mesh.header.selection ?? {};
-  const result: Sel[] = [];
-  for (const [key, kind] of [["faces", "face"], ["edges", "edge"], ["vertices", "vertex"], ["bodies", "body"]] as const) {
-    for (const id of s[key] ?? []) result.push({ kind, id });
-  }
-  return result;
-}
-
-function setCommitted(mesh: MeshData, frame = false, sels: Sel[] = []) {
-  committed = mesh;
-  setChosenSketch(null); // a sketch chosen with Shift+click was for the step just taken
-  lastOp = null; // callers that commit a tool run set it again afterwards
-  editLastButton.disabled = true;
-  if (frame) { // a newly opened model: its body ids restart at 1, so the old model's hidden, see-through and focus state would hit its bodies
-    sketch.exit(); // an open sketch belongs to the old model: left open it kept its curves and projected edges over the new one
-    bodyView.hidden = new Set();
-    bodyView.ghost = new Set();
-    bodyView.focus = null;
-  }
-  show(mesh, frame);
-  viewport.selectItems(sels);
-  setSelection(sels);
-  status.classList.remove("error");
-  const warnings: string[] = mesh.header.warnings ?? [];
-  if (mesh.header.solids !== undefined) showImportNotice(core, mesh.header.solids, warnings, (mesh.header.timings?.importMs ?? 0) + (mesh.header.timings?.meshMs ?? 0));
-  status.textContent = `${mesh.header.name ?? loadedSample}: ${mesh.faces.length} faces` + (DEV ? `, ${mesh.indices.length / 3} triangles` : "") + (warnings.length ? ` | Warning: ${warnings.join("; ")}` : "");
-}
+const { show, syncHistoryButtons, setCommitted } = createModelView({
+  viewport, core, status, dimensionOverlay, undoButton, redoButton, dev: DEV,
+  get bodyList() { return bodyList; },
+  get editLastButton() { return editLastButton; },
+  get sketch() { return sketch; },
+  get loadedSample() { return loadedSample; },
+  onSketches: (list) => onSketches(list),
+  onDatums: (list, mirror) => onDatums(list, mirror),
+  setChosenSketch, setSelection,
+});
 
 async function load(name: string) {
   status.textContent = `loading ${name}...`;
   setCommitted(await core.openDemo(name), true);
 }
 
-// Push/pull drag: one preview request in flight, the newest distance wins.
-let session = 0; // bumped when a drag ends, so late replies are dropped
-let inFlight: Promise<void> | null = null;
-let queued: number | null = null;
-let lastGood: number | null = null; // newest distance whose preview succeeded
-let previewFailed = false; // the newest preview request failed (size past the limit)
-let dragSels: Sel[] | null = null;
-
-// Shift held when a push/pull drag starts makes the whole drag symmetric (about a plane, see the core's symmetric push/pull).
-let shiftHeld = false;
-let dragSymmetric = false;
-for (const type of ["keydown", "keyup"] as const) {
-  window.addEventListener(type, (e) => {
-    shiftHeld = e.shiftKey;
-    // Pressing or letting go of Shift during a push/pull drag switches the symmetric mode from then on and previews it at once.
-    if (dragSels !== null && dragToolFor(dragSels)?.id === "push_pull" && dragSymmetric !== shiftHeld) {
-      dragSymmetric = shiftHeld;
-      queued = dragValue;
-      pump(session);
-    }
-  });
-}
-window.addEventListener("blur", () => (shiftHeld = false));
-
-function toolRequest(sels: Sel[], distance: number, commit = false) {
-  const tool = dragToolFor(sels)!;
-  const params: Record<string, number> = { [dragParam(tool)!]: distance };
-  if (tool.id === "push_pull" && dragSymmetric) params.symmetric = 1;
-  if (tool.id === "push_pull") Object.assign(params, viewport.pullDirection.params()); // the chosen direction (pulldir.ts), for the arrow handle and the face drag alike
-  // Pulling a just-picked sketch region: the pick and the extrusion are one undo step.
-  const foldPick = commit && pendingProfile !== null && committed === pendingProfile.mesh ? { foldPick: true } : {};
-  return { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params, ...foldPick };
-}
-
-function pump(token: number) {
-  if (inFlight || queued === null || dragSels === null) return;
-  const distance = queued;
-  queued = null;
-  const sent = performance.now();
-  inFlight = core
-    .request<MeshData>("tool_preview", toolRequest(dragSels, distance))
-    .then((mesh) => {
-      if (token !== session) return;
-      lastGood = distance;
-      previewFailed = false;
-      status.classList.remove("error");
-      show(mesh);
-      viewport.selectItems(mappedSelection(mesh));
-      const t = mesh.header.timings ?? {};
-      latency.textContent = `preview ${Math.round(performance.now() - sent)} ms (op ${t.opMs} + mesh ${t.meshMs})`;
-    })
-    .catch((e) => {
-      if (token !== session) return;
-      // Keep showing the last size that worked (smooth), but say plainly that the
-      // requested size is past the limit; releasing commits the last good size.
-      previewFailed = true;
-      status.textContent = lastGood === null ? e.message : `limit reached (${e.message})`;
-      status.classList.add("error");
-    })
-    .finally(() => {
-      inFlight = null;
-      pump(token);
-    });
-}
+const itemDrag = createItemDrag({
+  viewport, core, status, latency, dimLabel: $("dim"), measurePanel, dimensionOverlay,
+  get armedTool() { return armedTool; },
+  dragToolFor, show, setCommitted, setSelection, selectionPayload, mappedSelection, rememberOp,
+});
 
 viewport.onSelect = setSelection;
 viewport.toolOpen = () => toolPanel.isOpen || isArrayTool(toolPanel.openToolId);
@@ -674,13 +460,13 @@ viewport.toolOpen = () => toolPanel.isOpen || isArrayTool(toolPanel.openToolId);
 const dimensionEditor = new DimensionEditor({
   overlay: dimensionOverlay,
   container: $("viewport"),
-  send: (edit, value, flip, commit) => core.request("dimension_edit", { selection: selectionPayload(currentSels), dimension: edit.kind, value, flip, commit }),
+  send: (edit, value, flip, commit) => core.request("dimension_edit", { selection: selectionPayload(app.currentSels), dimension: edit.kind, value, flip, commit }),
   preview: (reply) => {
     show(reply as MeshData);
     status.classList.remove("error");
   },
   revert: () => {
-    if (committed) show(committed);
+    if (app.committed) show(app.committed);
   },
   committed: (reply, summary) => {
     const mesh = reply as MeshData;
@@ -720,7 +506,7 @@ viewport.onCentreDrag = async (face, offset, phase) => {
   }
   await centrePreviews.cancel();
   if (phase === "cancel") {
-    if (committed) show(committed);
+    if (app.committed) show(app.committed);
     return;
   }
   const req = centreRequest(face, { x: offset.x, y: offset.y, z: offset.z });
@@ -729,7 +515,7 @@ viewport.onCentreDrag = async (face, offset, phase) => {
     const mesh = await core.request<MeshData>("tool_commit", req);
     setCommitted(mesh, false, mappedSelection(mesh));
   } catch (e) {
-    if (committed) setCommitted(committed, false, currentSels);
+    if (app.committed) setCommitted(app.committed, false, app.currentSels);
     status.textContent = (e as Error).message;
     status.classList.add("error");
   }
@@ -745,7 +531,7 @@ viewport.pullGizmo.onPick = () => {
   viewport.eyedropper = pickPullDirection;
 };
 const pickPullDirection = (sel: Sel) => {
-  const own = currentSels.length === 1 && currentSels[0].kind === "face" && sel.kind === "face" && sel.id === currentSels[0].id;
+  const own = app.currentSels.length === 1 && app.currentSels[0].kind === "face" && sel.kind === "face" && sel.id === app.currentSels[0].id;
   const result = resolvePick(own, own ? null : viewport.directionOf(sel), viewport.pullDirection.normal);
   if (result.kind === "refused") {
     status.textContent = "Pick a straight edge or a flat face for the direction (Esc cancels)";
@@ -767,7 +553,7 @@ viewport.onEdgeLoop = async (edgeId, additive) => {
     // The chain follows tangent continuity only (a rim, a smooth outline); Ctrl adds it to the selection.
     const { edges } = await core.request<{ edges: number[] }>("edge_chain", { edge: edgeId });
     const picked: Sel[] = edges.map((id) => ({ kind: "edge" as const, id }));
-    const sels = additive ? [...currentSels.filter((s) => !(s.kind === "edge" && edges.includes(s.id))), ...picked] : picked;
+    const sels = additive ? [...app.currentSels.filter((s) => !(s.kind === "edge" && edges.includes(s.id))), ...picked] : picked;
     viewport.selectItems(sels);
     setSelection(sels);
     status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} selected by double-click (edges that continue smoothly from this one; Ctrl+double-click adds them to the selection)`;
@@ -776,178 +562,21 @@ viewport.onEdgeLoop = async (edgeId, additive) => {
   }
 };
 
-// Dimension label: follows the pointer during a drag; typing digits turns it into the value entry.
-const dimLabel = $("dim");
-const DIM_OFFSET_PX = 16; // label offset from the pointer
-const len = (n: number) => `${showNumber(n)} ${LENGTH_UNIT}`;
-let typed: string | null = null; // text typed so far, null while the mouse sets the value
-let dragValue = 0; // value from the mouse (model units)
-let typedNegative = false; // sign of the typed value: starts as the drag direction, "-" flips it
+itemDrag.installKeys();
 
-/** The number sent to the core: the typed value if it parses, else the mouse value. */
-function effectiveValue(): number {
-  const n = typed === null || typed === "" ? NaN : Number(typed);
-  if (!Number.isFinite(n)) return dragValue;
-  const m = viewport.measureMode ? viewport.measureSel : null;
-  // In measure mode the typed number is the edge's new length; the face moves by the difference.
-  return m ? m.grow * (n - m.length) : typedNegative ? -n : n;
-}
-
-function renderDim() {
-  const entering = typed !== null;
-  dimLabel.classList.toggle("entry", entering);
-  const m = viewport.measureSel ?? viewport.primaryMeasure;
-  const was = m ? len(m.length) : "";
-  if (viewport.measureMode && m) {
-    const shown = entering ? `${typed}| ${LENGTH_UNIT}` : len(m.length + m.grow * effectiveValue());
-    dimLabel.textContent = `edge ${shown}\nwas ${was} (face ${len(effectiveValue())})`;
-    return;
-  }
-  const value = entering ? `${typedNegative ? "-" : ""}${typed}| ${LENGTH_UNIT}` : len(dragValue);
-  const context = m ? `\nedge ${was} → ${len(m.length + m.grow * dragValue)}` : "";
-  dimLabel.textContent = value + context;
-}
-
-// Right-click during a drag toggles measure mode; picking another edge or leaving it drops any typed text.
-viewport.onMeasureChange = () => {
-  typed = null;
-  if (viewport.measureMode) {
-    status.classList.remove("error");
-    status.textContent = "Measure mode: click an edge, type its length, Enter to apply, Esc to go back";
-  }
-  renderDim();
-};
-
-function hideDim() {
-  typed = null;
-  dimLabel.hidden = true;
-}
-
-window.addEventListener("keydown", (e) => {
-  // A direction arc being dragged owns the keyboard too: typed degrees set its tilt (see PullGizmo.key).
-  if (viewport.pullGizmo.dragging && !e.ctrlKey && !e.metaKey && !e.altKey && viewport.pullGizmo.key(e)) {
-    e.preventDefault();
-    return;
-  }
-  // A handle being dragged owns the keyboard: typed digits set its value (see Manipulator.key).
-  if (viewport.manipulator.dragging && !e.ctrlKey && !e.metaKey && !e.altKey && viewport.manipulator.key(e)) {
-    e.preventDefault();
-    return;
-  }
-  if (!viewport.dragging || e.ctrlKey || e.metaKey || e.altKey) return;
-  if (/^[0-9.-]$/.test(e.key)) {
-    if (e.key === "-" && viewport.measureMode) return; // lengths are not signed
-    if (typed === null) {
-      typed = "";
-      typedNegative = dragValue < 0; // the drag already chose the direction
-      viewport.holdDrag = true;
-    }
-    if (e.key === "-") typedNegative = !typedNegative;
-    else typed += e.key;
-  } else if (e.key === "Backspace" && typed !== null) {
-    typed = typed.slice(0, -1);
-  } else if (e.key === "Enter" && typed !== null) {
-    viewport.finishDrag();
-    return;
-  } else if (e.key === "Escape" && typed !== null) {
-    // Button still held (or measure mode): the first Escape leaves entry and goes back to the mouse. Button already up: Escape cancels the drag.
-    if (!viewport.measureMode && viewport.dragReleased) {
-      typed = null;
-      viewport.cancelDrag();
-      return;
-    }
-    typed = null;
-    viewport.holdDrag = viewport.measureMode;
-    renderDim();
-    return;
-  } else if (e.key === "Escape" && viewport.measureMode) {
-    viewport.exitMeasure();
-    return;
-  } else return;
-  // The preview stays where the mouse left it until Enter, so entry can finish before geometry moves.
-  e.preventDefault();
-  renderDim();
-});
-
-viewport.onItemDrag = async (sels, distance, phase, x = 0, y = 0) => {
-  if (phase === "move") {
-    if (!dragToolFor(sels)) return;
-    dragValue = distance;
-    dimLabel.hidden = false;
-    measurePanel.hide();
-    measuredDims = []; previewDimsShown = false; dimensionOverlay.set([]);
-    dimLabel.style.left = `${x + DIM_OFFSET_PX}px`;
-    dimLabel.style.top = `${y + DIM_OFFSET_PX}px`;
-    renderDim();
-    if (dragSels === null) {
-      lastGood = null;
-      previewFailed = false;
-      dragSymmetric = shiftHeld;
-      const dragTool = dragToolFor(sels)!;
-      if (armedTool !== dragTool.id) usage.record(dragTool.id, "start", "drag"); // an armed tool already counted its start
-    }
-    dragSels = sels;
-    queued = distance;
-    pump(session);
-    return;
-  }
-  // End or cancel: stop previews, let the in-flight one finish, then settle.
-  if (phase === "end" && typed !== null) distance = effectiveValue();
-  else if (phase === "end") distance = dragValue;
-  hideDim();
-  session++;
-  queued = null;
-  try {
-    await inFlight;
-  } catch {
-    // a failed preview must not leave the drag state set
-  }
-  dragSels = null;
-  const good = lastGood;
-  if (phase === "end" && previewFailed && good !== null) distance = good;
-  lastGood = null;
-  previewFailed = false;
-  const dragTool = dragToolFor(sels);
-  try {
-    if (!(phase === "end" && Math.abs(distance) > 1e-6) && dragTool) usage.record(dragTool.id, "cancel");
-    if (phase === "end" && Math.abs(distance) > 1e-6) {
-      const start = performance.now();
-      let mesh: MeshData;
-      try {
-        mesh = await core.request<MeshData>("tool_commit", toolRequest(sels, distance, true));
-      } catch (e) {
-        // The final size can fail when the last preview reply was dropped at release;
-        // fall back to the newest size known to work.
-        if (good === null || good === distance) throw e;
-        mesh = await core.request<MeshData>("tool_commit", toolRequest(sels, good, true));
-      }
-      setCommitted(mesh, false, mappedSelection(mesh));
-      rememberOp(dragToolFor(sels), sels, distance);
-      if (dragTool) usage.record(dragTool.id, "commit");
-      latency.textContent = `commit ${Math.round(performance.now() - start)} ms`;
-    } else if (committed) {
-      setCommitted(committed, false, sels);
-    }
-  } catch (e) {
-    if (dragTool) usage.record(dragTool.id, "error");
-    if (committed) setCommitted(committed, false, sels);
-    status.textContent = (e as Error).message; // after setCommitted, which rewrites the status
-    status.classList.add("error");
-  }
-  dragSymmetric = false;
-};
+viewport.onItemDrag = itemDrag.onItemDrag;
 
 const editLastButton = $("editlast") as HTMLButtonElement;
 
 function rememberOp(tool: ToolInfo | null, sels: Sel[], distance: number) {
   const param = tool && dragParam(tool);
   if (!tool || !param) return;
-  lastOp = { tool, sels, values: { [param]: distance } };
+  app.lastOp = { tool, sels, values: { [param]: distance } };
   editLastButton.disabled = false;
 }
 
 editLastButton.addEventListener("click", async () => {
-  const op = lastOp;
+  const op = app.lastOp;
   if (!op) return;
   await history("undo"); // back to the model before the operation (same ids, so the selection still fits)
   viewport.selectItems(op.sels);
@@ -970,8 +599,8 @@ const { bodyList, setVisibility } = installBodyActions({
   status,
   list: $("bodylist"),
   count: $("bodycount"),
-  committed: () => committed,
-  selection: () => currentSels,
+  committed: () => app.committed,
+  selection: () => app.currentSels,
   show: (mesh) => show(mesh),
   setCommitted: (mesh, frame, sels) => setCommitted(mesh, frame, sels),
   select: (sels) => {
@@ -998,7 +627,7 @@ const keys = new KeyRouter({
     "display.seeThrough": () => viewport.toggleSeeThrough(),
     "ui.shortcuts": () => keys.openSettings(),
     "view.lookAtFace": () => {
-      if (currentSels.length === 1 && currentSels[0].kind === "face" && !viewport.alignToFace(currentSels[0].id)) status.textContent = "Look at face: could not find a view direction for this face";
+      if (app.currentSels.length === 1 && app.currentSels[0].kind === "face" && !viewport.alignToFace(app.currentSels[0].id)) status.textContent = "Look at face: could not find a view direction for this face";
     },
     measure: () => {
       const why = viewport.toggleMeasureKey();
@@ -1014,7 +643,7 @@ const keys = new KeyRouter({
     ...Object.fromEntries(SKETCH_CONSTRAINT_KEYS.map((k) => [k.id, () => sketch.chooseConstraint(k.constraint)])),
     ...Object.fromEntries(["sketch.undo", "sketch.redo", "sketch.cancel", "sketch.finish", "sketch.delete"].map((id) => [id, (e: KeyboardEvent) => sketch.onKey(e)])),
   },
-  entryActive: () => viewport.dragging || dragSels !== null || viewport.manipulator.dragging || viewport.pullGizmo.dragging,
+  entryActive: () => viewport.dragging || itemDrag.isDragging() || viewport.manipulator.dragging || viewport.pullGizmo.dragging,
   sketchActive: () => sketch.active,
   cancelInteraction: () => {
     viewport.cancelDrag();
@@ -1029,11 +658,11 @@ setKeysOpener(() => keys.openSettings());
 setHintsBinding({ get: () => hintLine.prefs.on, set: (on) => hintLine.setOn(on) });
 // Leaving with edits (undo steps) or an open sketch asks first; autosave still protects against crashes.
 window.addEventListener("beforeunload", (e) => {
-  if (modelHistory.undo || sketch.active) e.preventDefault();
+  if (app.modelHistory.undo || sketch.active) e.preventDefault();
 });
 
 installFileOpening(
-  { core, status, hasEdits: () => modelHistory.undo || sketch.active, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame),
+  { core, status, hasEdits: () => app.modelHistory.undo || sketch.active, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame),
     endTool: () => {
       if (toolPanel.isOpen) toolPanel.close(false); // an open tool form would be applied to the new model by the selection reset
       armedTool = null;
@@ -1072,7 +701,7 @@ select.addEventListener("change", () => {
   const name = select.value;
   select.value = ""; // back to the prompt, so any sample (the first too) can be chosen again
   if (!name) return;
-  if (modelHistory.undo && !window.confirm("Opening a sample model replaces the current model and its undo history. Continue?")) return;
+  if (app.modelHistory.undo && !window.confirm("Opening a sample model replaces the current model and its undo history. Continue?")) return;
   loadedSample = name;
   load(name).catch((e) => (status.textContent = e.message));
 });
@@ -1111,8 +740,8 @@ function commands(): Command[] {
     ...settingCommands,
     { label: "Undo", scope: "view", hint: keys.keymap.hint("history.undo"), enabled: !undoButton.disabled, run: () => history("undo") },
     { label: "Redo", scope: "view", hint: keys.keymap.hint("history.redo"), enabled: !redoButton.disabled, run: () => history("redo") },
-    { label: "Hide body", scope: "body", hint: keys.keymap.hint("display.hide"), enabled: currentSels.length > 0, run: () => setVisibility("hide") },
-    { label: "Isolate body", scope: "body", hint: keys.keymap.hint("display.isolate"), enabled: currentSels.length > 0, run: () => setVisibility("isolate") },
+    { label: "Hide body", scope: "body", hint: keys.keymap.hint("display.hide"), enabled: app.currentSels.length > 0, run: () => setVisibility("hide") },
+    { label: "Isolate body", scope: "body", hint: keys.keymap.hint("display.isolate"), enabled: app.currentSels.length > 0, run: () => setVisibility("isolate") },
     { label: "Show all bodies", scope: "body", hint: keys.keymap.hint("display.showAll"), enabled: bodyView.hidden.size > 0, run: () => setVisibility("show") },
     { label: "See-through selection (pick edges and faces behind the model)", scope: "view", keywords: ["x ray", "transparent", "xray"], hint: keys.keymap.hint("display.seeThrough"), enabled: true, run: () => viewport.toggleSeeThrough() },
     {
@@ -1132,11 +761,11 @@ function commands(): Command[] {
     { label: "Open STEP file as new project", scope: "file", keywords: ["iges", "igs", "brep", "stpz", "stp", "3dm", "ifc", "cad"], enabled: true, run: () => $("openasnew").click() },
     ...(["XY", "XZ", "YZ"] as const).map((plane) => ({ label: `Add datum plane: ${plane} origin plane`, scope: "file" as const, keywords: ["helper plane", "construction", "mirror"], enabled: true, run: () => addDatum({ plane }) })),
     ...(["XY", "XZ", "YZ"] as const).map((plane) => ({ label: `Mirror mode on: ${plane} origin plane`, scope: "file" as const, keywords: ["symmetry", "symmetric", "mirror"], enabled: true, run: () => keptRequest("mirror_set", { plane }) })),
-    { label: "Mirror mode on: the selected face", scope: "file", keywords: ["symmetry", "symmetric", "mirror"], enabled: currentSels.length === 1 && currentSels[0].kind === "face", run: () => keptRequest("mirror_set", { face: currentSels[0].id, name: "Selected face" }) },
+    { label: "Mirror mode on: the selected face", scope: "file", keywords: ["symmetry", "symmetric", "mirror"], enabled: app.currentSels.length === 1 && app.currentSels[0].kind === "face", run: () => keptRequest("mirror_set", { face: app.currentSels[0].id, name: "Selected face" }) },
     ...datumPlanes.planes.map((d) => ({ label: `Mirror mode on: datum plane ${d.name}`, scope: "file" as const, keywords: ["symmetry", "symmetric", "mirror"], enabled: true, run: () => keptRequest("mirror_set", { datum_id: d.id }) })),
     { label: "Mirror mode off", scope: "file", keywords: ["symmetry", "symmetric", "mirror"], enabled: true, run: () => keptRequest("mirror_clear", {}) },
-    { label: "Add datum plane on the selected face", scope: "file", keywords: ["helper plane", "construction", "mirror"], enabled: currentSels.length === 1 && currentSels[0].kind === "face", run: () => addDatum({ face: currentSels[0].id }) },
-    { label: "Add datum plane midway between two selected faces", scope: "file", keywords: ["helper plane", "construction", "mirror", "middle"], enabled: currentSels.length === 2 && currentSels.every((s) => s.kind === "face"), run: () => addDatum({ midplane: currentSels.map((s) => s.id) }) },
+    { label: "Add datum plane on the selected face", scope: "file", keywords: ["helper plane", "construction", "mirror"], enabled: app.currentSels.length === 1 && app.currentSels[0].kind === "face", run: () => addDatum({ face: app.currentSels[0].id }) },
+    { label: "Add datum plane midway between two selected faces", scope: "file", keywords: ["helper plane", "construction", "mirror", "middle"], enabled: app.currentSels.length === 2 && app.currentSels.every((s) => s.kind === "face"), run: () => addDatum({ midplane: app.currentSels.map((s) => s.id) }) },
     { label: "Export STEP file", scope: "file", enabled: true, run: () => exportAs("export_step", "step") },
     { label: "Save project (.plbl file with bodies, names and sketches)", scope: "file", keywords: ["save", "pliable file"], enabled: true, run: () => exportAs("save_project", "plbl") },
     { label: "Open project (.plbl file)", scope: "file", keywords: ["load", "pliable file"], enabled: true, run: () => $("openproject").click() },
@@ -1166,7 +795,7 @@ const sketch = new SketchMode(
     pickPoint: () => pointPicker.pick(),
     showBase: (point) => pointPicker.showBase(point),
     restore() {
-      if (committed) show(committed);
+      if (app.committed) show(app.committed);
       renderSketchBar();
     },
     committed: (mesh) => setCommitted(mesh, false, []),
@@ -1180,13 +809,13 @@ chooseConstraint = (label) => sketch.chooseConstraint(label);
 sketch.onToolChange = () => {
   renderToolbar();
   syncHistoryButtons();
-  navCube.fitSelectedButton.disabled = sketch.active ? !sketch.selection.length : currentSels.length === 0; // in a sketch the fit button follows the sketch selection
+  navCube.fitSelectedButton.disabled = sketch.active ? !sketch.selection.length : app.currentSels.length === 0; // in a sketch the fit button follows the sketch selection
 };
 /** Run a request that changes the kept sketches and takes the document state it answers with. */
 function keptRequest(kind: string, args: Record<string, unknown>) {
   core
     .request<MeshData>(kind, args)
-    .then((mesh) => setCommitted(mesh, false, currentSels))
+    .then((mesh) => setCommitted(mesh, false, app.currentSels))
     .catch((e) => {
       status.textContent = (e as Error).message;
       status.classList.add("error");
@@ -1226,22 +855,21 @@ const datumPlanes = new DatumPlanes({
   rename: (id, name) => keptRequest("datum_rename", { datum_id: id, name }),
 });
 // The Delete key (listdelete.ts): selected bodies, or the sketch or datum plane row last clicked.
-let pickedRow: RowRef | null = null;
 function pickRow(row: RowRef | null) {
-  pickedRow = row;
+  app.pickedRow = row;
   keptSketches.setPicked(row?.list === "sketch" ? row.id : null);
   datumPlanes.setPicked(row?.list === "datum" ? row.id : null);
-  if (row && currentSels.length) {
+  if (row && app.currentSels.length) {
     viewport.selectItems([]);
     setSelection([]);
   }
 }
 window.addEventListener("keydown", (e) => {
   const action = deleteAction(e.key, {
-    bodies: currentSels.filter((s) => s.kind === "body").map((s) => s.id),
-    row: pickedRow,
+    bodies: app.currentSels.filter((s) => s.kind === "body").map((s) => s.id),
+    row: app.pickedRow,
     typing: isTyping(e.target),
-    blocked: sketch.active || toolPanel.isOpen || e.ctrlKey || e.metaKey || e.altKey || viewport.dragging || dragSels !== null,
+    blocked: sketch.active || toolPanel.isOpen || e.ctrlKey || e.metaKey || e.altKey || viewport.dragging || itemDrag.isDragging(),
   });
   if (!action) return;
   e.preventDefault();
@@ -1276,15 +904,15 @@ viewport.curveTargets = () => keptSketches.curveTargets();
 // Shift or Ctrl+click on a kept sketch's curve chooses the whole sketch beside the selection (click it again to let it go); the curves turn orange.
 viewport.onSketchCurveClick = (id) => {
   if (toolPanel.isOpen) return;
-  setChosenSketch(chosenSketch === id ? null : id);
+  setChosenSketch(app.chosenSketch === id ? null : id);
   const name = keptSketches.infos.find((k) => k.id === id)?.name ?? `Sketch ${id}`;
   status.classList.remove("error");
-  status.textContent = chosenSketch === null ? `${name} no longer chosen` : `${name} chosen (Shift+click its curve again to let it go)`;
-  keepingChosen = true; // the tools that can follow it (Sweep face, Array along path) now fit the selection
+  status.textContent = app.chosenSketch === null ? `${name} no longer chosen` : `${name} chosen (Shift+click its curve again to let it go)`;
+  app.keepingChosen = true; // the tools that can follow it (Sweep face, Array along path) now fit the selection
   try {
-    setSelection(currentSels);
+    setSelection(app.currentSels);
   } finally {
-    keepingChosen = false;
+    app.keepingChosen = false;
   }
 };
 reference.keptSnaps = () => keptSketches.snapData(); // point picks snap to the ends, centres, midpoints and curves of kept sketches
@@ -1303,7 +931,7 @@ const sketchBar = new SketchBar({
   core,
   sketch,
   bar: $("sketchbar"),
-  selection: () => currentSels,
+  selection: () => app.currentSels,
   viewPlane: () => viewport.viewPlane(),
   status(text, error = false) {
     status.textContent = text;
@@ -1313,7 +941,7 @@ const sketchBar = new SketchBar({
 });
 const hintLine = new HintLine(
   $("viewport"),
-  () => ({ dragging: viewport.dragging || dragSels !== null, sketch: sketch.active, hasSelection: currentSels.length > 0 }),
+  () => ({ dragging: viewport.dragging || itemDrag.isDragging(), sketch: sketch.active, hasSelection: app.currentSels.length > 0 }),
   (id) => keys.keymap.hint(id),
 );
 function renderSketchBar() {
@@ -1345,7 +973,7 @@ function readValue(rows: { label: string; value: number | number[] | string }[],
 
 /** While the Divide face form is open, the viewport lets a drag over the model place the dividing line. */
 async function updateDivideFrame() {
-  const face = toolPanel.openToolId === "divide_face" && currentSels.length === 1 && currentSels[0].kind === "face" ? currentSels[0].id : null;
+  const face = toolPanel.openToolId === "divide_face" && app.currentSels.length === 1 && app.currentSels[0].kind === "face" ? app.currentSels[0].id : null;
   if (face === null) {
     viewport.divideFrame = null;
     return;
@@ -1398,7 +1026,7 @@ async function runPreview(tool: ToolInfo, values: Record<string, ParamValue>, ed
   const t0 = performance.now();
   const sentValue = slideLive?.value;
   try {
-    const mesh = await core.request<MeshData>("tool_preview", { tool: tool.id, selection: selectionPayload(editBody === undefined ? expand(tool, currentSels) : []), params: values, ...(editBody === undefined ? {} : { edit_body: editBody }) });
+    const mesh = await core.request<MeshData>("tool_preview", { tool: tool.id, selection: selectionPayload(editBody === undefined ? expand(tool, app.currentSels) : []), params: values, ...(editBody === undefined ? {} : { edit_body: editBody }) });
     const t1 = performance.now();
     if (!toolPanel.isOpen || seq !== formPreviewSeq) return; // closed or a newer preview was asked for
     show(mesh);
@@ -1427,7 +1055,7 @@ function twoDistances(distance: number) {
     {
       core,
       tools: () => tools,
-      selection: () => currentSels,
+      selection: () => app.currentSels,
       open(tool, sels, values) {
         toolPanel.close();
         armedTool = null;
@@ -1446,7 +1074,7 @@ function twoDistances(distance: number) {
 }
 
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
-  selectedEdges: () => currentSels.filter((s) => s.kind === "edge").map((s) => s.id),
+  selectedEdges: () => app.currentSels.filter((s) => s.kind === "edge").map((s) => s.id),
   pickPoint: (options) => pointPicker.pick(options),
   showBase: (point) => pointPicker.showBase(point),
   async anchors(tool, values) {
@@ -1457,7 +1085,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     }
   },
   tools: () => tools,
-  usable: (tool) => (acceptsSelection(tool, expand(tool, currentSels)) || acceptsWithRail(tool, expand(tool, currentSels), chosenSketch) || (tool.id === "move_body" && movableSketch() !== null)) && (refined === null || refined.includes(tool.id)),
+  usable: (tool) => (acceptsSelection(tool, expand(tool, app.currentSels)) || acceptsWithRail(tool, expand(tool, app.currentSels), app.chosenSketch) || (tool.id === "move_body" && movableSketch() !== null)) && (app.refined === null || app.refined.includes(tool.id)),
   preview(tool, values, editBody) {
     // One preview in flight at a time, the newest request waiting behind it (latest wins): the core answers in order, so
     // sending every pointer move would show nothing until the pointer rests while the replies queue up.
@@ -1480,16 +1108,16 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       }
       return;
     }
-    const sels = currentSels;
+    const sels = app.currentSels;
     try {
       const mesh = await core.request<MeshData>("tool_commit", { tool: tool.id, selection: selectionPayload(editBody === undefined ? expand(tool, sels) : []), params: values, ...(editBody === undefined ? {} : { edit_body: editBody }) });
       setCommitted(mesh, false, mappedSelection(mesh));
-      lastOp = { tool, sels, values };
+      app.lastOp = { tool, sels, values };
       editLastButton.disabled = false;
       usage.record(tool.id, "commit");
     } catch (e) {
       usage.record(tool.id, "error");
-      if (committed) setCommitted(committed, false, sels);
+      if (app.committed) setCommitted(app.committed, false, sels);
       status.textContent = (e as Error).message;
       status.classList.add("error");
     }
@@ -1497,7 +1125,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   eyedrop(param, kind) {
     return new Promise((resolve) => {
       cancelEyedrop();
-      if (committed) show(committed); // pick against the committed model, whose ids the core knows
+      if (app.committed) show(app.committed); // pick against the committed model, whose ids the core knows
       status.classList.remove("error");
       status.textContent = "Eyedropper: click the item to copy from (Esc cancels)";
       eyedropResolve = resolve;
@@ -1519,12 +1147,12 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   pickEdgePoint() {
     return new Promise((resolve) => {
       cancelEyedrop();
-      if (committed) show(committed); // pick against the committed model, whose edges the core knows
+      if (app.committed) show(app.committed); // pick against the committed model, whose edges the core knows
       status.classList.remove("error");
       status.textContent = "Pick the edge the face pivots about (any edge of the model; Esc cancels)";
       eyedropResolve = () => resolve(null);
       viewport.eyedropper = (sel) => {
-        const data = committed;
+        const data = app.committed;
         const point = sel.kind === "edge" && data ? edgeMiddle(data.edges, data.edgePositions, sel.id) : null;
         if (!point) {
           status.textContent = "Pick an edge (Esc cancels)";
@@ -1541,7 +1169,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   pickEdgeId() {
     return new Promise((resolve) => {
       cancelEyedrop();
-      if (committed) show(committed); // pick against the committed model, whose edge ids the core knows
+      if (app.committed) show(app.committed); // pick against the committed model, whose edge ids the core knows
       status.classList.remove("error");
       status.textContent = "Pick the edge the copies turn about (a straight or circular edge; Esc cancels)";
       eyedropResolve = () => resolve(null);
@@ -1561,7 +1189,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   pickPlane() {
     return new Promise((resolve) => {
       cancelEyedrop();
-      if (committed) show(committed); // pick against the committed model, whose face ids the core knows
+      if (app.committed) show(app.committed); // pick against the committed model, whose face ids the core knows
       status.classList.remove("error");
       status.textContent = "Pick a flat face for the plane (Esc cancels)";
       eyedropResolve = () => resolve(null);
@@ -1612,8 +1240,8 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       keptSketches.previewPlane(sketchMove, null);
       sketchMove = null;
     }
-    if (committed) {
-      show(committed);
+    if (app.committed) {
+      show(app.committed);
       status.classList.remove("error");
     }
   },
@@ -1641,7 +1269,7 @@ viewport.manipulator.onDrag = (param, value, phase, x, y, linked) => {
     // A tool without a drag value (a hole's size, depth and position): its handle opens the form, which then carries the preview.
     toolPanel.openForm(selectionHandleTool, {}, "drag");
     toolPanel.setValues({ ...linked, [param]: value });
-  } else void viewport.onItemDrag(currentSels, phase === "cancel" ? 0 : value, phase, x, y);
+  } else void viewport.onItemDrag(app.currentSels, phase === "cancel" ? 0 : value, phase, x, y);
 };
 
 new Palette(commands);
@@ -1700,7 +1328,7 @@ async function syncWithCore(hadModel: boolean) {
 async function connectToCore() {
   if (connecting) return;
   connecting = true;
-  const hadModel = committed !== null;
+  const hadModel = app.committed !== null;
   let delay = RETRY_MIN_MS;
   try {
     for (;;) {
@@ -1745,7 +1373,7 @@ $("bodyhead").addEventListener("click", () => {
 
 // Escape clears a body selection (when nothing else is using the key).
 window.addEventListener("keydown", (e) => {
-  if (e.key !== "Escape" || e.defaultPrevented || !currentSels.some((s) => s.kind === "body")) return;
+  if (e.key !== "Escape" || e.defaultPrevented || !app.currentSels.some((s) => s.kind === "body")) return;
   if (toolPanel.isOpen || viewport.dragging || (e.target as HTMLElement).closest?.("input, textarea")) return;
   viewport.selectItems([]);
   setSelection([]);
