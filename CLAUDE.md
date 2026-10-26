@@ -7,10 +7,10 @@ Pliable is being rebuilt; `main` is the development branch. Contributors change 
 The steps below apply to interactive sessions. In an unattended session (see "Unattended sessions") the queue is every open row, and that section overrides any rule here or below about scope or stopping.
 
 1. Read `docs/progress.md`. Don't re-read or re-explore anything it already records.
-2. Take the first open row in the plan (not Parked, not awaiting the owner's hand test). Work only on that row; if something else comes up, add it to the plan instead of doing it. Rows have no numbers; the title identifies them.
+2. Take the first open row in the plan (not Parked). Work only on that row; if something else comes up, add it to the plan instead of doing it. Rows have no numbers; the title identifies them.
 3. If a row has an "In progress" note, resume from it exactly.
 4. New rows quote the owner's request in their own words and list what it needs as a checklist. Never paraphrase the request. A row is deleted only when every checklist item is verified against the quote.
-5. Keep `docs/progress.md` open-work-only and under about 10 KB. When work is finished, delete its entry (git keeps the history) and describe the change in the commit message; do not write session narratives, summaries or numbered labels in any file or commit.
+5. Keep `docs/progress.md` open work, parked work and not-built ideas only, under about 20 KB (a pre-commit check blocks more). Before adding a row, search its Parked and Ideas sections for related items and say which ones the new row touches. When work is finished, delete its entry (git keeps the history) and describe the change in the commit message; do not write session narratives, summaries or numbered labels in any file or commit.
 
 ## Protecting existing behavior
 
@@ -22,7 +22,7 @@ Most of the owner's lost time comes from regressions and from invented design, n
 - **Read what you edit.** Read the whole function and its callers (grep for them) before changing it, even if the task is small; excerpt reads are not enough for shared handlers in large files (`sketch.ts`, `viewport.ts`, `main.ts`).
 - **When a fix seems to need a behavior change, stop and ask.** In an attended session, ask the owner (see "Deciding without the owner" for the unattended case only). "Discuss" means no edits.
 - **Check what the diff touched.** Before committing, read `git diff` and confirm every changed line serves the goal; mention anything that changes behavior in the commit body and in the report.
-- **Record approvals.** When the owner approves or corrects a behavior, add a one-line "when X, Y happens" to `docs/behavior.md` in the same commit.
+- **Record approvals.** When the owner approves or corrects a behavior, add a one-line "when X, Y happens" to `docs/behavior.md` in the same commit. When the owner reports a hand-test item passed, delete its line from `docs/testing-checklist.md`; a failure becomes a row in `docs/progress.md`.
 - **Add a test for a fixed regression** when it can be tested without a browser, so it cannot return.
 - **Before a release, follow the release checklist in [CONTRIBUTING.md](CONTRIBUTING.md);** documentation is finished before the tag.
 
@@ -67,7 +67,7 @@ When the prompt says the owner is asleep, away, or that the session is unattende
 - **The queue is every open row in `docs/progress.md`** (the Planned and Open bug sections, plus unparked rows), in order, plus any prompt-specified items first. The run is finished only when no open row remains outside the Parked and Awaiting-hand-test sections. Nothing else is a valid reason to stop.
 - **Ending your turn ends the run.** A final message with no tool call stops everything and nobody is there to reply. So never write a summary, status report, "next steps" or "let me know" message while queue items remain. After finishing an item, immediately start the next one in the same turn. The only final message is the one described in "Stopping" below.
 - **Not valid reasons to stop:** finishing one session or a batch of sessions; a checkpoint session; a question or ambiguity; a decision that needs the owner; a failing or skipped item; "good stopping point"; the feeling that the context is large or the session has run long (context is compacted automatically, keep going); having made a lot of progress; the remaining items being large, hard or risky.
-- **Work the owner must hand-test:** do the work, move it to the "Awaiting the owner's hand test" list in `docs/progress.md` with what the owner should check, and continue. Do not report.
+- **Work the owner must hand-test:** do the work, append it to `docs/testing-checklist.md` as one line saying what to do and what to see, and continue. Do not report.
 - **Items needing an owner decision:** decide using "Deciding without the owner", log it in `docs/decisions-log.md`, build it, move it to the hand-test list and say it is provisional. Never wait.
 - **Failures:** if an item fails or stagnates after a reasonable attempt (about three different approaches), write what was tried in `docs/progress.md`, move the row to Parked, and go to the next row. Never retry in a loop, and never treat one failure as the end of the run.
 - **Rows with sub-parts:** a row that is partly done stays open. Finish the remaining parts, or park them explicitly with notes, before moving on.
@@ -80,7 +80,7 @@ When the prompt says the owner is asleep, away, or that the session is unattende
 ## Ending a session (always, including when stopping early)
 
 1. Run the tests.
-2. Update `docs/progress.md`: delete finished rows (moving anything the owner must hand-test to the hand-test list), or write an "In progress" note saying exactly what's finished, what's half-done, and the next concrete step.
+2. Update `docs/progress.md`: delete finished rows (appending anything the owner must hand-test to `docs/testing-checklist.md`), or write an "In progress" note saying exactly what's finished, what's half-done, and the next concrete step.
 3. Commit (push only if the owner asked).
 
 In an interactive session, if it is running long or the usage window is nearly used up, do these steps right away rather than starting anything new. This wrap-up rule does not apply to unattended sessions until the usage limit is actually reached: there, do these steps after every item and keep going.
