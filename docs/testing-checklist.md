@@ -85,3 +85,7 @@ Restart the core before testing anything in the first group.
 - [ ] Open the command search (Ctrl+K or the search box) and type "unify", "patch_fill", "bridge" and "path array": each finds its tool (Refine bodies, Patch fill, Bridge edges, Array along path) and the tooltip says what selection it needs.
 - [ ] Click a face, then Ctrl+click an edge (and the other way round): both stay selected, and Revolve face and Sweep become usable. A Ctrl+click on a vertex after a face still starts a new selection.
 - [ ] Round the top loop of a plate with rounded corners (tangent chain), select one fillet face and run Resize fillet with a new radius: the whole loop is resized; end radius above 0 on such a chain says it is not supported.
+- [ ] Round face edges: select a face, open the tool: an arrow grip on an edge of the face sets the distance (drag out to round, in to bevel).
+- [ ] Divide face: the arrow grip moves the dividing edge; the new angle field turns the line; columns and rows above 1 divide the face into an even grid (no grip then; dragging over the face goes back to one line).
+- [ ] Move hole/boss: three move arrows (X, Y, Z) appear at the hole's middle and move the hole.
+- [ ] Circular array: an arc grip sets the angle and an arrow grip on the first copy sets the count; axis is a list (X, Y, Z, Picked edge) and Pick axis edge turns the copies about a straight or circular edge you click.

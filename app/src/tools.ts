@@ -19,6 +19,7 @@ export interface ToolInfo {
   moveVector?: string[] | null;
   /** Names of the x, y, z parameters of a picked axis point and of the choice list that selects it; the form offers a Pick axis button (Draft). */
   pickAxis?: string[] | null;
+  pickEdge?: string[] | null;
   /** "tool": the tool is chosen first and places something new; "selection": it acts on a selection. */
   startsFrom?: "selection" | "tool";
   hasHandles?: boolean;

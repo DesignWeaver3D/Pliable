@@ -1293,7 +1293,7 @@ async function updateDivideFrame() {
     viewport.divideFrame = null;
   }
 }
-viewport.onDivideDrag = (across, offset) => toolPanel.setValues({ across, offset });
+viewport.onDivideDrag = (across, offset) => toolPanel.setValues({ across, offset, angle: 0, columns: 0, rows: 0 }); // a drag places one line along an axis
 
 let formPreviewSeq = 0;
 let previewBusy = false;
@@ -1444,6 +1444,26 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
         eyedropResolve = null;
         status.textContent = "Pivot edge picked";
         resolve(point);
+      };
+    });
+  },
+  pickEdgeId() {
+    return new Promise((resolve) => {
+      cancelEyedrop();
+      if (committed) show(committed); // pick against the committed model, whose edge ids the core knows
+      status.classList.remove("error");
+      status.textContent = "Pick the edge the copies turn about (a straight or circular edge; Esc cancels)";
+      eyedropResolve = () => resolve(null);
+      viewport.eyedropper = (sel) => {
+        if (sel.kind !== "edge") {
+          status.textContent = "Pick an edge (Esc cancels)";
+          status.classList.add("error");
+          return; // stays armed
+        }
+        viewport.eyedropper = null;
+        eyedropResolve = null;
+        status.textContent = "Axis edge picked";
+        resolve(sel.id);
       };
     });
   },

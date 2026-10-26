@@ -25,6 +25,8 @@ export interface ToolPanelHost {
   pickPoint?(options?: PickOptions): Promise<number[] | null>;
   /** Wait for a click on an edge anywhere on the model and give back a point on it; null if cancelled. */
   pickEdgePoint?(): Promise<number[] | null>;
+  /** The id of an edge the user clicks, or null when cancelled (the circular array's axis). */
+  pickEdgeId?(): Promise<number | null>;
   /** Keep a marker at the picked base point (null removes it). */
   showBase?(point: number[] | null): void;
   /** The points of a new shape that can be put at the destination (primitives), for the current values. */
@@ -39,6 +41,7 @@ const PREVIEW_DELAY_MS = 150;
 const UNITS: Record<string, string> = { length: "mm", angle: "°", number: "" };
 /** Form fields whose bare name is unclear: a fuller label and a tooltip. */
 const PARAM_HELP: Record<string, { label: string; title: string }> = {
+  axis_edge: { label: "axis edge (id, set by Pick axis edge)", title: "The edge the copies turn about when the axis is Picked edge; use the Pick axis edge button rather than typing." },
   new_body: { label: "new body (1 = separate, 0 = join)", title: "1 keeps the new solid as its own body. 0 fuses it into the bodies it touches, which only shows when it overlaps or touches one." },
 };
 
@@ -324,6 +327,20 @@ export class ToolPanel {
         this.schedulePreview(0);
       });
       buttons.before(pickAxis);
+    }
+    const edgeAxis = tool.pickEdge;
+    if (edgeAxis && edgeAxis.length === 2 && this.host.pickEdgeId) {
+      const pickEdge = document.createElement("button");
+      pickEdge.textContent = "Pick axis edge";
+      pickEdge.title = "Click a straight edge (the copies turn about its line) or a circular edge (about the circle's axis) anywhere on the model";
+      pickEdge.addEventListener("click", async () => {
+        const id = await this.host.pickEdgeId!();
+        if (id === null || this.open !== tool) return;
+        inputs[edgeAxis[0]].value = String(id);
+        inputs[edgeAxis[1]].value = "3"; // the choice list: picked edge
+        this.schedulePreview(0);
+      });
+      buttons.before(pickEdge);
     }
     this.formEl.hidden = false;
     this.inputs = inputs;

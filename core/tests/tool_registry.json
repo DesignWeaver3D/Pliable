@@ -2236,7 +2236,7 @@
  {
   "id": "circular_array",
   "label": "Circular array",
-  "description": "Makes copies of a body (select any of its faces, or nothing for the whole model) around the X, Y or Z axis through the origin (0 = X, 1 = Y, 2 = Z) and fuses them. The count includes the original; 360 spreads them round a full circle.",
+  "description": "Makes copies of a body (select any of its faces, or nothing for the whole model) around the X, Y or Z axis through the origin, or around a picked edge (Pick axis edge), and fuses them. The count includes the original; 360 spreads them round a full circle. Drag the arc grip for the angle and the arrow grip for the count.",
   "accepts": {
    "faces": [
     0,
@@ -2269,12 +2269,24 @@
     "kind": "number",
     "default": 2,
     "drag": false,
-    "options": []
+    "options": [
+     "X axis",
+     "Y axis",
+     "Z axis",
+     "Picked edge"
+    ]
    },
    {
     "name": "angle",
     "kind": "angle",
     "default": 360,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "axis_edge",
+    "kind": "number",
+    "default": -1,
     "drag": false,
     "options": []
    }
@@ -3126,7 +3138,7 @@
  {
   "id": "divide_face",
   "label": "Divide face",
-  "description": "Adds a dividing line straight across a flat face so each side can be moved on its own. Select one flat face; across picks the direction (0 or 1) and offset the position from the centre.",
+  "description": "Adds a dividing line straight across a flat face so each side can be moved on its own. Select one flat face; across picks the direction (0 or 1), offset the position from the centre and angle turns the line by degrees. Set columns and/or rows above 1 to divide the face into an even grid instead.",
   "accepts": {
    "faces": [
     1,
@@ -3158,6 +3170,27 @@
     "name": "offset",
     "kind": "length",
     "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "angle",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "columns",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rows",
+    "kind": "number",
+    "default": 0,
     "drag": false,
     "options": []
    }
