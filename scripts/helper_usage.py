@@ -1,4 +1,4 @@
-"""Lists which tools use each top-level helper (docs/architecture-plan.md, Phase 0, item 5).
+"""Lists which tools use each top-level helper (docs/archive/architecture-plan.md, Phase 0, item 5).
 
 Prints a markdown table of helpers defined in the files that hold tools, with the tools and other
 helpers that reference them; helpers used by two or more tools belong in shared/. Usage: python scripts/helper_usage.py"""

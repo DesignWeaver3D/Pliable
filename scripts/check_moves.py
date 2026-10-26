@@ -1,4 +1,4 @@
-"""Proves a code move was pure (docs/architecture-plan.md, Phase 0).
+"""Proves a code move was pure (docs/archive/architecture-plan.md, Phase 0).
 
 Hashes every top-level function, and every method under ".name", in core/src/pliable (docstrings included, comments and import lines
 not), keyed by name without the module path, so a def that moved to another

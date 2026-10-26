@@ -1,4 +1,4 @@
-"""The registered tools, in order, with everything the client sees. Guards the file split (docs/architecture-plan.md):
+"""The registered tools, in order, with everything the client sees. Guards the file split (docs/archive/architecture-plan.md):
 moving a tool to another file must not change which tools exist, their order or their declared shape.
 
 To accept a deliberate change, regenerate the golden file: `uv run python tests/test_tool_registry.py`."""
