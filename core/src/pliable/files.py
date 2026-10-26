@@ -22,12 +22,12 @@ from .ops import solids_of
 SEWING_TOLERANCE = 1e-3  # model units (mm): gaps up to this size between surface edges are stitched shut
 
 
-CAD_EXTENSIONS = ("step", "stp", "stpz", "iges", "igs", "brep", "brp", "3dm")  # the CAD formats the kernel and the rhino3dm wheels read and write
+CAD_EXTENSIONS = ("step", "stp", "stpz", "iges", "igs", "brep", "brp", "3dm", "ifc")  # the CAD formats the kernel, the rhino3dm wheels and (optional) IfcOpenShell read and write
 MAX_UNPACKED = 1 << 30  # bytes a compressed STEP file may unpack to
 
 
 def cad_kind(extension: str) -> str:
-    """"step", "stpz", "iges", "brep" or "3dm" for a file extension (any case, with or without the dot)."""
+    """"step", "stpz", "iges", "brep", "3dm" or "ifc" for a file extension (any case, with or without the dot)."""
     ext = str(extension or "step").lower().lstrip(".")
     if ext not in CAD_EXTENSIONS:
         raise ValueError(f"Unknown CAD file type {extension!r}; the supported ones are {', '.join('.' + e for e in CAD_EXTENSIONS)}")
@@ -46,6 +46,17 @@ def read_step_tree(data: bytes, extension: str = "step"):
             raise
         except Exception as e:
             raise ValueError("Could not read that 3dm file") from e
+    if kind == "ifc":
+        from .filesifc import read_ifc
+
+        try:
+            root, notes = read_ifc(data)
+        except ValueError:
+            raise
+        except Exception as e:
+            raise ValueError("Could not read that ifc file") from e
+        root.import_notes = notes
+        return root
     if kind == "stpz":
         import zlib
 
@@ -112,6 +123,7 @@ def read_step_parts(data: bytes, extension: str = "step") -> tuple[TopoDS_Shape,
         for shell in _loose_shells(leaf.wrapped):
             names.append((shell, getattr(leaf, "label", "") or "unnamed"))
     shape, warnings = check_import(root.wrapped, names)
+    warnings = [*getattr(root, "import_notes", []), *warnings]
     return shape, warnings, part_names(root)
 
 
@@ -123,8 +135,8 @@ def write_step(shape: TopoDS_Shape) -> bytes:
             return f.read()
 
 
-def write_cad(shape: TopoDS_Shape, extension: str) -> bytes:
-    """The model as a STEP (.step, .stp), compressed STEP (.stpz), IGES (.iges, .igs) or BREP (.brep, .brp) file; 3dm holds meshes."""
+def write_cad(shape: TopoDS_Shape, extension: str, names: list[str] | None = None) -> bytes:
+    """The model as a STEP (.step, .stp), compressed STEP (.stpz), IGES (.iges, .igs) or BREP (.brep, .brp) file; 3dm holds meshes and ifc (named by `names`, one per solid) faceted B-reps."""
     kind = cad_kind(extension)
     if kind == "step":
         return write_step(shape)
@@ -132,6 +144,10 @@ def write_cad(shape: TopoDS_Shape, extension: str) -> bytes:
         from .files3dm import write_3dm
 
         return write_3dm(shape)
+    if kind == "ifc":
+        from .filesifc import write_ifc
+
+        return write_ifc(shape, names)
     if kind == "stpz":
         import gzip
 

@@ -366,7 +366,7 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
         if kind == "export_cad":
             document = self._require_document()
             try:
-                data = write_cad(document.current.shape, str(request.get("format")))
+                data = write_cad(document.current.shape, str(request.get("format")), [b.name for b in document.current.bodies.bodies])
             except ValueError as e:
                 raise RequestError(str(e)) from e
             return {"name": document.name, "data": base64.b64encode(data).decode()}

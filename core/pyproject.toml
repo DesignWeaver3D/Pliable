@@ -11,12 +11,15 @@ dependencies = [
     "websockets>=15",
 ]
 
+[project.optional-dependencies]
+ifc = ["ifcopenshell>=0.8"]  # LGPL-3.0, about 120 MB installed; only .ifc files need it
+
 [project.scripts]
 pliable-server = "pliable.server:main"
 pliable-app = "pliable.launcher:main"
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ifcopenshell>=0.8"]  # tests cover .ifc
 
 [build-system]
 requires = ["hatchling"]

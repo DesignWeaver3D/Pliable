@@ -241,16 +241,17 @@
       <input id="projectfile" type="file" accept=".plbl" hidden />
       <button id="saveproject" title="Save the whole project as a Pliable project file (.plbl): bodies, names and sketches">Save Project</button>
       <button id="openasnew" title="Close the current project and start a new one from a STEP, compressed STEP, IGES or BREP file">Open STEP/IGES/BREP as New Project</button>
-      <input id="file" type="file" accept=".step,.stp,.stpz,.iges,.igs,.brep,.brp,.3dm" hidden />
-      <button id="open" title="Add a STEP, compressed STEP (.stpZ), IGES, BREP or 3dm file to the project you have now, as a new body at its own origin. Nothing in the current project changes. Use the Boolean tool to join, subtract or intersect bodies afterwards">Import STEP/IGES/BREP/3dm...</button>
+      <input id="file" type="file" accept=".step,.stp,.stpz,.iges,.igs,.brep,.brp,.3dm,.ifc" hidden />
+      <button id="open" title="Add a STEP, compressed STEP (.stpZ), IGES, BREP, 3dm or IFC file to the project you have now, as a new body at its own origin. Nothing in the current project changes. Use the Boolean tool to join, subtract or intersect bodies afterwards">Import STEP/IGES/BREP/3dm/IFC...</button>
       <button id="export" title="Save the current project as a STEP file">Export STEP</button>
-      <select id="exportcad" title="Save the current project in another CAD file type: STEP (.stp), compressed STEP (.stpZ), IGES (.igs), the kernel's own BREP (.brep) or 3dm (.3dm, saved as triangle meshes, so lossy)">
+      <select id="exportcad" title="Save the current project in another CAD file type: STEP (.stp), compressed STEP (.stpZ), IGES (.igs), the kernel's own BREP (.brep) 3dm (.3dm, saved as triangle meshes, so lossy) or IFC (.ifc, each body as a building element proxy with a faceted B-rep, so lossy; needs the optional IfcOpenShell package)">
         <option value="">Export CAD...</option>
         <option value="stp">STEP (.stp)</option>
         <option value="stpz">Compressed STEP (.stpZ)</option>
         <option value="igs">IGES (.igs)</option>
         <option value="brep">BREP (.brep)</option>
         <option value="3dm">3dm meshes (.3dm)</option>
+        <option value="ifc">IFC faceted (.ifc)</option>
       </select>
       <select id="exportmesh" title="Save the project as a mesh file (lossy: curved faces become triangles)">
         <option value="">Export mesh...</option>
