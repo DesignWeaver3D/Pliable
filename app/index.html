@@ -163,6 +163,7 @@
       #sketchbar button:disabled { color: #666; }
       #sketchpanel { position: fixed; top: 270px; right: 12px; width: 250px; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; font-size: 13px; }
       #sketchpanel[hidden] { display: none; }
+      #sketchpanel .crows { max-height: max(120px, calc(100vh - 560px)); overflow-y: auto; } /* the constraint rows scroll on their own so the card stays put */
       #sketchpanel .head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
       #sketchpanel .head .iconbtn { padding: 3px 5px; line-height: 0; }
       #sketchpanel .head .iconbtn.active { border-color: #ff8a1f; color: #ffb878; }
