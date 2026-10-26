@@ -18,10 +18,6 @@ Rules for keeping it:
 
 - [ ] Do you have a Mac or a Linux machine to run the v0.4.0 desktop archive on? Nobody has run those two archives; the Windows one works. Default: release them marked untested.
 
-### Inset face edges
-
-- [ ] Loop 1 on a plain bracket (no overlapping duplicate body): the face count goes up and the Bodies list does not gain new bodies. A test model once went from 4 to 6 bodies.
-
 ## Normal priority
 
 ### Gizmos and handles that need a real mouse (hold the button down)
@@ -61,6 +57,7 @@ Rules for keeping it:
 ### Decisions
 
 - [ ] Remove fillet/chamfer, Fill hole / remove boss and Chamfer (distance and angle) now overlap Defeature on the bracket's fillets and round holes. Remove any of them? Default: keep all three.
+- [ ] Inset face edges, when the inner and outer offset outlines start to overlap (the bracket's lower top face with its four holes): should the offsets merge into one combined outline (the inset face is the face minus the union of every edge's band, so the loops join and trim where they cross, and a band that covers the face leaves nothing), or stay separate loops as now? Default: merge them like a 2D offset does.
 - [ ] Distribute holes/bosses spaces holes along one axis only, so the four bracket base holes spread unevenly. Keep for single rows, or remove in favour of arrays on features? Default: keep, tooltip only.
 - [ ] Smart dimension menus: should they also offer Radius, Coincident, Parallel, Perpendicular and Angle so the matching buttons can go? Default: keep the buttons.
 - [ ] Dimension and Horizontal/Vertical variants under one tool (drop list under Dimension for horizontal and vertical distance; drop list under Horizontal / vertical for the strict ones). This changes the approved button row in behavior.md. Approve the layout?
