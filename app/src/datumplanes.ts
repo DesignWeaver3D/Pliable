@@ -3,6 +3,7 @@
 import { openRowMenu } from "./rowmenu";
 import * as THREE from "three";
 import { uiIcon } from "./icons";
+import { deleteButton } from "./deletebutton";
 import { DATUM_HALF, datumCorners, type DatumPlane, type MirrorMode } from "./datumcorners";
 
 export interface DatumHost {
@@ -124,11 +125,7 @@ export class DatumPlanes {
       name.textContent = d.name;
       name.title = "Double-click to rename";
       name.addEventListener("dblclick", () => this.rename(d, name));
-      const del = document.createElement("button");
-      del.className = "rowbtn";
-      del.title = "Delete this datum plane (Undo brings it back)";
-      del.append(uiIcon("close", 14));
-      del.addEventListener("click", () => this.host.remove(d.id));
+      const del = deleteButton("Delete this datum plane (Undo brings it back)", () => this.host.remove(d.id));
       row.append(eye, name, del);
       row.classList.toggle("selected", this.picked === d.id);
       row.addEventListener("click", (e) => {

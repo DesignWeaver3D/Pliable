@@ -339,3 +339,29 @@ test("symmetric takes a line or an axis as the item the others are mirrored abou
   assert.deepEqual(symmetries(s, e(14, -2)), [{ type: "symmetric", points: [1, 2], entity: -2 }]);
   assert.deepEqual(symmetries(s, e(12, 13, -2)), [{ type: "symmetric", points: [5, 6], entity: -2 }]);
 });
+
+test("constraint tags list the arc and circle centres they must stay clear of", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 3, v: 4 }],
+    entities: [{ id: 10, type: "circle", center: 1, radius: 2 }],
+    constraints: [{ id: 1, type: "fixed", point: 1 }],
+  };
+  assert.deepEqual(constraintMarks(s)[0].avoid, [[3, 4, 0]]);
+});
+
+test("an arc's radius leader sits on the arc where it was dragged, with a dashed extension past either end", async () => {
+  const { arcLeaderWay } = await import("../src/sketchmodel.ts");
+  // quarter arc about (0,0) from (5,0) to (0,5)
+  const s = { plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]), points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 5, v: 0 }, { id: 3, u: 0, v: 5 }], entities: [{ id: 10, type: "arc", center: 1, start: 2, end: 3 }], constraints: [] };
+  const arc = s.entities[0];
+  const mid = arcLeaderWay(s, arc, null);
+  assert.ok(Math.abs(mid.way[0] - Math.SQRT1_2) < 1e-9 && Math.abs(mid.way[1] - Math.SQRT1_2) < 1e-9 && mid.extension.length === 0);
+  assert.equal(arcLeaderWay(s, arc, [4, 3]).extension.length, 0); // inside the sweep: no extension
+  const past = arcLeaderWay(s, arc, [-3, 3]); // past the end at (0,5)
+  assert.ok(past.extension.length > 0);
+  const [from] = past.extension[0];
+  assert.ok(Math.abs(from[0]) < 1e-9 && Math.abs(from[1] - 5) < 1e-9); // starts at the arc's end
+  const before = arcLeaderWay(s, arc, [3, -3]); // before the start at (5,0)
+  assert.ok(Math.abs(before.extension[0][0][0] - 5) < 1e-9 && Math.abs(before.extension[0][0][1]) < 1e-9);
+});

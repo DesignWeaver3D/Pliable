@@ -14,6 +14,7 @@ import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay, type Dimension } from "./dimensions";
 import { DimensionEditor, withoutDraftTag } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
+import { SKETCH_CONSTRAINT_KEYS } from "./sketchkeys";
 import { deleteAction, isTyping, type RowRef } from "./listdelete";
 import { resolvePick } from "./pulldir";
 import { edgeMiddle } from "./edgepick";
@@ -979,6 +980,7 @@ const keys = new KeyRouter({
     "history.undo": () => void history("undo"),
     "history.redo": () => void history("redo"),
     "sketch.smartDimension": () => sketch.chooseConstraint("Dimension"),
+    ...Object.fromEntries(SKETCH_CONSTRAINT_KEYS.map((k) => [k.id, () => sketch.chooseConstraint(k.constraint)])),
     ...Object.fromEntries(["sketch.undo", "sketch.redo", "sketch.cancel", "sketch.finish", "sketch.delete"].map((id) => [id, (e: KeyboardEvent) => sketch.onKey(e)])),
   },
   entryActive: () => viewport.dragging || dragSels !== null || viewport.manipulator.dragging || viewport.pullGizmo.dragging,
@@ -1000,7 +1002,14 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 installFileOpening(
-  { core, status, hasEdits: () => modelHistory.undo || sketch.active, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame) },
+  { core, status, hasEdits: () => modelHistory.undo || sketch.active, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame),
+    endTool: () => {
+      if (toolPanel.isOpen) toolPanel.close(false); // an open tool form would be applied to the new model by the selection reset
+      armedTool = null;
+      viewport.cancelDrag();
+      viewport.manipulator.cancel();
+      viewport.pullGizmo.cancel();
+    } },
   { open: $("open"), openAsNew: $("openasnew"), openProject: $("openproject"), newProject: $("newproject") },
   { step: fileInput, project: $("projectfile") as HTMLInputElement },
 );

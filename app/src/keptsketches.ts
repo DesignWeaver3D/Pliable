@@ -3,6 +3,7 @@ import { openRowMenuItems } from "./rowmenu";
 import * as THREE from "three";
 import type { CoreClient } from "./client";
 import { uiIcon } from "./icons";
+import { deleteButton } from "./deletebutton";
 import * as M from "./sketchmodel";
 
 export interface KeptInfo {
@@ -151,11 +152,7 @@ export class KeptSketches {
       edit.title = "Edit this sketch";
       edit.append(uiIcon("edit", 14));
       edit.addEventListener("click", () => this.host.open(k.id));
-      const del = document.createElement("button");
-      del.className = "rowbtn";
-      del.title = "Delete this sketch (Undo brings it back)";
-      del.append(uiIcon("close", 14));
-      del.addEventListener("click", () => this.host.remove(k.id));
+      const del = deleteButton("Delete this sketch (Undo brings it back)", () => this.host.remove(k.id));
       row.append(eye, name, edit, del);
       row.classList.toggle("selected", this.picked === k.id);
       row.classList.toggle("hovered", this.hovered === k.id);

@@ -5,8 +5,9 @@ import * as M from "./sketchmodel.ts";
 import { typedLabels, typedTargets } from "./sketchtyped.ts";
 import type { UV } from "./sketchshapes.ts";
 import type { PreviewContext } from "./sketchpreview.ts";
+import { showNumber } from "./precision.ts";
 
-const n = (x: number) => parseFloat(x.toFixed(3)).toString();
+const n = (x: number) => showNumber(x);
 
 /** The numbers typed so far (a number still being typed counts), in order; the ones not typed yet are missing. */
 function typedNumbers(text: string): number[] {

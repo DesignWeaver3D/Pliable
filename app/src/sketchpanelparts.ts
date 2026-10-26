@@ -4,6 +4,7 @@ import * as Chk from "./sketchcheck";
 import * as M from "./sketchmodel";
 import * as Co from "./sketchcoincident";
 import { uiIcon } from "./icons";
+import { deleteButton } from "./deletebutton";
 import type { SketchOptions, Tool } from "./sketch";
 
 export interface PanelContext {
@@ -61,6 +62,19 @@ export function buildToolOptions(ctx: PanelContext): HTMLElement {
     row.append(sides);
     tools.append(row);
   }
+  if (ctx.tool === "fillet" || ctx.tool === "chamfer") {
+    const size = document.createElement("input");
+    size.type = "number";
+    size.step = "any";
+    size.min = "0";
+    size.value = String(ctx.rectOptions.size);
+    size.title = ctx.tool === "fillet" ? "Fillet radius" : "Chamfer distance along each side";
+    size.addEventListener("keydown", (e) => e.stopPropagation());
+    size.addEventListener("input", () => (ctx.rectOptions.size = Math.abs(Number(size.value)) || 0));
+    const row = el("label", "", ctx.tool === "fillet" ? "Radius " : "Distance ");
+    row.append(size);
+    tools.append(row);
+  }
   if (ctx.tool === "rectangle" || ctx.tool === "rectcentre") {
     const corner = document.createElement("select");
     for (const [v, label] of [["none", "Square corners"], ["fillet", "Rounded corners"], ["chamfer", "Bevelled corners"]]) corner.append(new Option(label, v, false, v === ctx.rectOptions.corner));
@@ -82,7 +96,8 @@ export function buildToolOptions(ctx: PanelContext): HTMLElement {
 
 /** The "Constraints" section: counts, mark toggle, checks and one row per constraint. */
 export function buildConstraintList(ctx: PanelContext): HTMLElement {
-  const list = el("div", "section");
+  const list = el("div", "section cons");
+  const rows = el("div", "crows"); // the rows scroll on their own while the buttons stay in place
   // Points where drawn curves meet are listed as automatic coincident rows (a negative id marks them); with a selection only its own rows show.
   const everything = [...ctx.s.constraints, ...Co.sharedAsConstraints(ctx.s)];
   const shown = Co.constraintsFor(ctx.s, everything, ctx.selection);
@@ -111,11 +126,11 @@ export function buildConstraintList(ctx: PanelContext): HTMLElement {
     ctx.render();
   });
   join.title = "Merge points that are very close but not the same point, so outlines close";
-  list.append(check, join);
+  list.append(check, join, rows);
   for (const c of shown) {
     const row = el("div", ctx.failed.has(c.id) ? "crow bad" : "crow");
     row.append(el("span", "", M.describeConstraint(ctx.s, c) + (c.auto ? " (automatic)" : "")));
-    row.title = c.id < 0 ? "Drawn curves share this end point. Hover to see what it holds; the x splits it so each curve has its own end" : c.auto ? "Added by a drawing tool. Hover to see what it holds; the x removes it so the geometry moves freely" : "Hover to see what it holds; the x removes it";
+    row.title = c.id < 0 ? "Drawn curves share this end point. Hover to see what it holds; the trash can splits it so each curve has its own end" : c.auto ? "Added by a drawing tool. Hover to see what it holds; the trash can removes it so the geometry moves freely" : "Hover to see what it holds; the bin removes it";
     row.addEventListener("pointerenter", () => ctx.lightUp(c));
     row.addEventListener("pointerleave", () => ctx.lightUp(null));
     if (c.value !== undefined) {
@@ -127,17 +142,16 @@ export function buildConstraintList(ctx: PanelContext): HTMLElement {
       ref.title = c.reference ? "Make this dimension drive the shape" : "Keep only the measurement; the dimension stops driving the shape (reference)";
       row.append(...(c.reference ? [ref] : [edit, ref]));
     }
-    const remove = button("✕", () => {
+    const remove = deleteButton(c.id < 0 ? "Split this shared end point so the curves can move apart" : "Remove this constraint", () => {
       ctx.pushUndo();
       if (c.id < 0) ctx.s = Co.splitPoint(ctx.s, -c.id);
       else ctx.s.constraints = ctx.s.constraints.filter((x) => x.id !== c.id);
       ctx.highlight = [];
       ctx.resolve();
       ctx.render();
-    });
-    remove.title = c.id < 0 ? "Split this shared end point so the curves can move apart" : "Remove this constraint";
+    }, "iconbtn");
     row.append(remove);
-    list.append(row);
+    rows.append(row);
   }
   if (ctx.s.constraints.some((c) => c.auto)) {
     const clear = button("Remove automatic constraints", () => {

@@ -2,6 +2,7 @@
 import type { Dimension } from "./dimensions";
 import { pointInRect, polylineInBox, type Rect } from "./boxselect.ts";
 import { measure, radiusOf } from "./sketchconstraints.ts";
+import { showNumber } from "./precision.ts";
 export * from "./sketchconstraints.ts";
 export * from "./sketchsmartdim.ts";
 
@@ -164,7 +165,7 @@ export function describeConstraint(s: SketchData, c: SketchConstraint): string {
   const refs = [...(c.points ?? []).map((p) => `p${p}`), ...(c.point !== undefined ? [`p${c.point}`] : []), ...(c.entity !== undefined ? [entityName(c.entity)] : []), ...(c.entities ?? []).map(entityName)];
   void s;
   const value = c.reference ? measure(s, c) : c.value;
-  return `${c.reference ? "Reference " : ""}${names[c.type] ?? c.type} ${refs.join(" ")}${value != null ? ` = ${parseFloat(value.toFixed(3))}` : ""}`;
+  return `${c.reference ? "Reference " : ""}${names[c.type] ?? c.type} ${refs.join(" ")}${value != null ? ` = ${showNumber(value)}` : ""}`;
 }
 
 /** What dimension placement knows about the closed regions: whether a sketch point lies inside one, and how far from the geometry to look. */
@@ -199,7 +200,7 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
     const value = c.reference ? measure(s, c) : c.value;
     if (value === undefined || value === null) continue;
     const first = out.length;
-    const text = c.reference ? `(${parseFloat(value.toFixed(3))})` : parseFloat(value.toFixed(3)).toString();
+    const text = c.reference ? `(${showNumber(value)})` : showNumber(value);
     const entity = entityOf(s, c.entity);
     if (c.type === "distance") {
       const ends = entity && entity.type === "line" ? [entity.a, entity.b] : c.points!;
@@ -260,14 +261,47 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
         const ways = [f.x, f.x.map((x) => -x), f.y, f.y.map((x) => -x)];
         way = ways.find((w) => !outside.inside(...toPlane(s.plane, center.map((x, k) => x + w[k] * (r + outside.probe))))) ?? f.x;
       }
-      const rim = entity.type === "circle" ? [0, 1, 2].map((k) => center[k] + r * way[k]) : world(entity.start);
+      let extend: number[][][] | undefined;
+      if (entity.type === "arc") {
+        // An arc's leader touches the arc where it was dragged (the middle of the arc until then); past either end it sits on an
+        // extension of the arc's circle, drawn dashed from that end (no geometry is added).
+        const arcWay = arcLeaderWay(s, entity, c.place ?? null);
+        way = [0, 1, 2].map((k) => arcWay.way[0] * f.x[k] + arcWay.way[1] * f.y[k]);
+        extend = arcWay.extension.map(([p, q]) => [toWorld(s.plane, ...p), toWorld(s.plane, ...q)]);
+      }
+      const rim = [0, 1, 2].map((k) => center[k] + r * way[k]);
       const leader: Dimension = c.type === "radius" ? { kind: "radius", text: `R${text}`, points: [center, rim] } : { kind: "diameter", text: `Ø${text}`, points: [[0, 1, 2].map((k) => 2 * center[k] - rim[k]), rim] };
+      if (extend?.length) leader.extend = extend;
       if (c.place) leader.labelAt = toWorld(s.plane, c.place[0], c.place[1]);
       out.push(leader);
     }
     for (const made of out.slice(first)) made.constraint = c.id;
   }
   return out;
+}
+
+/** The unit direction (in sketch coordinates) an arc's radius leader leaves the centre in, and the dashed segments that carry the arc's circle
+ *  from the nearer end to that direction when it lies outside the arc's sweep. `place` is where the leader was dragged (null: the arc's middle). */
+export function arcLeaderWay(s: SketchData, arc: Extract<SketchEntity, { type: "arc" }>, place: [number, number] | null): { way: [number, number]; extension: [[number, number], [number, number]][] } {
+  const c = pointOf(s, arc.center);
+  const r = Math.hypot(pointOf(s, arc.start).u - c.u, pointOf(s, arc.start).v - c.v);
+  const a0 = Math.atan2(pointOf(s, arc.start).v - c.v, pointOf(s, arc.start).u - c.u);
+  let sweep = Math.atan2(pointOf(s, arc.end).v - c.v, pointOf(s, arc.end).u - c.u) - a0;
+  if (sweep <= 0) sweep += 2 * Math.PI;
+  const full = 2 * Math.PI;
+  const turn = (a: number) => (((a - a0) % full) + full) % full; // counterclockwise from the start
+  const angle = place && Math.hypot(place[0] - c.u, place[1] - c.v) > 1e-9 ? Math.atan2(place[1] - c.v, place[0] - c.u) : a0 + sweep / 2;
+  const way: [number, number] = [Math.cos(angle), Math.sin(angle)];
+  const t = turn(angle);
+  if (t <= sweep) return { way, extension: [] };
+  // outside the sweep: extend from the end it is nearer to (going on past the end, or back before the start)
+  const past = t - sweep; // beyond the end
+  const before = full - t; // before the start
+  const from = past <= before ? a0 + sweep : a0;
+  const to = past <= before ? a0 + sweep + past : a0 - before;
+  const steps = Math.max(4, Math.ceil(Math.abs(to - from) / 0.15));
+  const point = (a: number): [number, number] => [c.u + r * Math.cos(a), c.v + r * Math.sin(a)];
+  return { way, extension: Array.from({ length: steps }, (_, i) => [point(from + ((to - from) * i) / steps), point(from + ((to - from) * (i + 1)) / steps)] as [[number, number], [number, number]]) };
 }
 
 const ARC_STEPS = 24;
@@ -328,6 +362,7 @@ export function constraintMarks(s: SketchData): Dimension[] {
     return e.type === "line" ? [(line[0][0] + line[1][0]) / 2, (line[0][1] + line[1][1]) / 2] : mid;
   };
   const out: Dimension[] = [];
+  const centres = s.entities.flatMap((e) => (e.type === "circle" || e.type === "arc" || e.type === "ellipse" ? [pointOf(s, e.center)] : [])).map((p) => toWorld(s.plane, p.u, p.v));
   for (const c of s.constraints) {
     const text = MARKS[c.type];
     if (!text) continue;
@@ -342,7 +377,7 @@ export function constraintMarks(s: SketchData): Dimension[] {
     }
     if (!anchors.length) continue;
     const [u, v] = [anchors.reduce((a, q) => a + q[0], 0) / anchors.length, anchors.reduce((a, q) => a + q[1], 0) / anchors.length];
-    out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true });
+    out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true, avoid: centres });
   }
   return out;
 }
@@ -550,6 +585,15 @@ export function sketchAxes(plane: PlaneData): { u: number; v: number; du: number
 
 // Trim ------------------------------------------------------------------------------------------------
 
+/** Whether the point (u, v), taken to lie on the arc's circle, is within the arc's counterclockwise sweep. */
+function onArc(s: SketchData, arc: Extract<SketchEntity, { type: "arc" }>, u: number, v: number): boolean {
+  const c = pointOf(s, arc.center);
+  const angle = (x: number, y: number) => Math.atan2(y - c.v, x - c.u);
+  const turn = (to: number) => ((to - angle(pointOf(s, arc.start).u, pointOf(s, arc.start).v)) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+  const sweep = turn(angle(pointOf(s, arc.end).u, pointOf(s, arc.end).v)) || 2 * Math.PI;
+  return turn(angle(u, v)) <= sweep + 1e-9;
+}
+
 /** Parameters t along line `e` (0 at its start, 1 at its end, unbounded) where it meets other lines and circles. */
 export function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line" }>): number[] {
   const a = pointOf(s, e.a);
@@ -569,17 +613,21 @@ export function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line"
       const t = ((c.u - a.u) * ey - (c.v - a.v) * ex) / den;
       const w = ((c.u - a.u) * dy - (c.v - a.v) * dx) / den;
       if (w >= -1e-9 && w <= 1 + 1e-9) ts.push(t);
-    } else if (o.type === "circle") {
+    } else if (o.type === "circle" || o.type === "arc") {
       const c = pointOf(s, o.center);
+      const radius = o.type === "circle" ? o.radius : Math.hypot(pointOf(s, o.start).u - c.u, pointOf(s, o.start).v - c.v);
       const fx = a.u - c.u;
       const fy = a.v - c.v;
       const qa = dx * dx + dy * dy;
       const qb = 2 * (fx * dx + fy * dy);
-      const qc = fx * fx + fy * fy - o.radius * o.radius;
+      const qc = fx * fx + fy * fy - radius * radius;
       const disc = qb * qb - 4 * qa * qc;
       if (disc < 0 || qa < 1e-12) continue;
       const root = Math.sqrt(disc);
-      ts.push((-qb - root) / (2 * qa), (-qb + root) / (2 * qa));
+      for (const t of [(-qb - root) / (2 * qa), (-qb + root) / (2 * qa)]) {
+        if (o.type === "arc" && !onArc(s, o, a.u + t * dx, a.v + t * dy)) continue; // only the part of the circle the arc covers
+        ts.push(t);
+      }
     }
   }
   return ts.sort((x, y) => x - y);

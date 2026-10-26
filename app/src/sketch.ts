@@ -26,6 +26,10 @@ import { parseValue } from "./dimedit";
 import { uiIcon } from "./icons";
 import { LENGTH_UNIT } from "./units";
 import { usage } from "./usage";
+import { showNumber } from "./precision";
+import { cornerAt } from "./sketchcorner";
+import { automaticInTheWay } from "./sketchautowin";
+import { FREE_COLOR, freeMessage, freeParts } from "./sketchfreedom";
 import type { HandleInfo } from "./tools";
 import type { Sel, Viewport } from "./viewport";
 
@@ -35,14 +39,14 @@ const CONSTRUCTION_DASH_PX = 8;
 const CONSTRUCTION_GAP_PX = 5;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
-export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "polygon" | "ellipse" | "spline" | "trim" | "extend" | "split" | "triangle" | "pentagon" | "hexagon" | "octagon";
+export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "polygon" | "ellipse" | "spline" | "trim" | "extend" | "split" | "fillet" | "chamfer" | "triangle" | "pentagon" | "hexagon" | "octagon";
 /** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
 const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5, hexagon: 6, octagon: 8 };
 export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "select", label: "Select", hint: "Click to select, drag points, Delete removes" },
   { id: "line", label: "Line", hint: "Click points; Enter or right-click ends the chain" },
-  { id: "rectangle", label: "Rectangle", hint: "Click two opposite corners" },
-  { id: "rectcentre", label: "Centre rectangle", hint: "Click the centre, then a corner" },
+  { id: "rectangle", label: "Rectangle", hint: "Click two opposite corners; square, rounded or bevelled corners and their size are chosen in the sketch card" },
+  { id: "rectcentre", label: "Centre rectangle", hint: "Click the centre, then a corner; square, rounded or bevelled corners and their size are chosen in the sketch card" },
   { id: "circle", label: "Circle", hint: "Click the centre, then a point on the circle" },
   { id: "circle3", label: "Circle by 3 points", hint: "Click three points the circle passes through" },
   { id: "arc", label: "Arc", hint: "Click the centre, the start, then the end; the arc runs the way the pointer moves from the start" },
@@ -53,6 +57,8 @@ export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "spline", label: "Spline", hint: "Click points the curve passes through; Enter or right-click ends it, clicking the first point closes it" },
   { id: "trim", label: "Trim", hint: "Click a line to cut it at its crossings and mark that piece; click the marked piece again to delete it" },
   { id: "split", label: "Split", hint: "Click a line where it should be cut in two" },
+  { id: "fillet", label: "Fillet", hint: "Click a corner where two lines meet (or one of its lines) to round it; the radius is set in the sketch card" },
+  { id: "chamfer", label: "Chamfer", hint: "Click a corner where two lines meet (or one of its lines) to bevel it; the distance is set in the sketch card" },
   { id: "extend", label: "Extend", hint: "Click near the end of a line to stretch it to the next curve" },
   { id: "polygon", label: "Polygon", hint: "Click the centre, then a corner; the number of sides is set in the sketch card (3 to 64)" },
 ];
@@ -110,6 +116,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   failed = new Set<number>();
   /** Directions each point can still move in (0 = placed by the constraints); empty until the first settled solve. */
   private freedom = new Map<number, number>();
+  /** Set by clicking the degrees of freedom message: the points and curves that still have freedom light up yellow. */
+  private showFree = false;
   /** Whether small tags (H, V, T, =, ...) show where constraints act. */
   showMarks = true;
   private undoStack: string[] = [];
@@ -117,6 +125,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private normal = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.line, linewidth: 2, depthTest: false, transparent: true }));
   private construction = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.construction, linewidth: 2, depthTest: false, transparent: true, dashed: true, dashSize: 1, gapSize: 1 })); // dash lengths are set per frame, in screen pixels
   private placed = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.placed, linewidth: 2, depthTest: false, transparent: true }));
+  private free = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: FREE_COLOR, linewidth: 3, depthTest: false, transparent: true }));
   private marked = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.selected, linewidth: 3, depthTest: false, transparent: true }));
   /** The model's principal axes as they project onto the sketch plane (red x, green y, blue z). */
   private axes = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ linewidth: 1, vertexColors: true, depthTest: false, transparent: true, opacity: 0.7 }));
@@ -152,7 +161,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     window.addEventListener("pointermove", (e) => (this.lastPointer = { x: e.clientX, y: e.clientY }), true);
     window.addEventListener("resize", () => { if (this.active) this.placePanel(); });
     for (const o of [this.normal, this.placed, this.construction, this.points]) o.userData.extent = true; // counted by the origin axes' length
-    for (const o of [this.axes, this.normal, this.placed, this.construction, this.marked, this.pending, this.points]) {
+    for (const o of [this.axes, this.normal, this.placed, this.construction, this.free, this.marked, this.pending, this.points]) {
       o.renderOrder = 5;
       o.frustumCulled = false;
       this.group.add(o);
@@ -220,6 +229,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.dof = null;
     this.failed.clear();
     this.freedom.clear();
+    this.showFree = false;
     this.undoStack = [];
     this.active = true;
     this.viewport.selectItems([]); // the model's selection highlight would cover the sketch
@@ -591,7 +601,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       }
       return;
     }
-    if (this.tool === "select" || this.tool === "trim" || this.tool === "extend" || this.tool === "split") this.hover = this.pick(e);
+    if (this.tool === "select" || this.tool === "trim" || this.tool === "extend" || this.tool === "split" || this.tool === "fillet" || this.tool === "chamfer") this.hover = this.pick(e);
     else this.cursor = this.snap(e);
     this.render();
   }
@@ -680,9 +690,40 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       return;
     }
     if (this.tool === "select") return;
+    if (this.tool === "fillet" || this.tool === "chamfer") {
+      const uv = this.planeUV(e);
+      const corner = uv ? cornerAt(this.s, this.pick(e), uv[0], uv[1]) : null;
+      if (corner === null) this.host.status("Click a corner where two lines meet, or one of its lines", true);
+      else {
+        const made = M.roundCorner(this.s, corner, this.tool, this.rectOptions.size);
+        if (typeof made === "string") this.host.status(made, true);
+        else {
+          this.pushUndo();
+          this.s = made;
+          this.selection = [];
+          this.resolve();
+          this.host.status(this.tool === "fillet" ? "Rounded the corner" : "Bevelled the corner");
+        }
+      }
+      this.render();
+      return;
+    }
     if (this.tool === "trim" || this.tool === "extend" || this.tool === "split") {
       const hit = this.pick(e);
       const uv = this.planeUV(e);
+      if (this.tool === "split" && hit?.kind === "point") {
+        // a click on a point that lies on a line cuts the line exactly there (the point joins both pieces)
+        const through = E.lineThroughPoint(this.s, hit.id);
+        const at = this.s.points.find((x) => x.id === hit.id);
+        const cut = through !== null && at ? E.splitLine(this.s, through, at.u, at.v, 0, hit.id) : null;
+        if (cut) {
+          this.pushUndo();
+          this.s = cut.sketch;
+          this.resolve();
+        }
+        this.render();
+        return;
+      }
       const line = hit?.kind === "entity" ? this.s.entities.find((x) => x.id === hit.id) : undefined;
       if (line?.type === "line" && uv && !line.reference) {
         if (this.tool === "split") {
@@ -1049,7 +1090,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.s.constraints.push(added);
       addedIds.add(added.id);
     }
-    const ok = await this.resolve();
+    const ok = (await this.resolve()) || (await this.userWins(addedIds));
     if (ok) this.selection = []; // an applied constraint ends the selection it was made from
     if (ok && option.dimension) {
       this.render();
@@ -1083,6 +1124,23 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.render();
   }
 
+  /** The new constraint made the sketch fail: automatic constraints in the way are removed one at a time until it solves (the user's constraint wins), with a warning. */
+  private async userWins(addedIds: Set<number>): Promise<boolean> {
+    const mine = this.s.constraints.filter((c) => addedIds.has(c.id)).map((c) => M.describeConstraint(this.s, c)).join("; ");
+    for (const c of automaticInTheWay(this.s.constraints, this.failed, addedIds)) {
+      const all = this.s.constraints;
+      const name = M.describeConstraint(this.s, c);
+      this.s.constraints = all.filter((x) => x.id !== c.id);
+      if (await this.resolve()) {
+        this.host.status(`Removed the automatic ${name} because it repeats or conflicts with the new ${mine}`, "warn");
+        return true;
+      }
+      this.s.constraints = all;
+    }
+    await this.resolve(); // the failure is worked out again for the message
+    return false;
+  }
+
   /** The sketch settings window (the gear in the sketch card): grid spacing and automatic constraints. Changes apply at once and are remembered on this computer. */
   private openSettings() {
     if (this.settingsDialog?.open) return;
@@ -1109,7 +1167,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     input.inputMode = "decimal";
     input.setAttribute("aria-label", M.describeConstraint(this.s, c).replace(/ = .*$/, ""));
     input.style.cssText = "width:78px;padding:2px 5px;font:inherit;color:#ff8a1f;background:#1b1d22;border:1px solid #ff8a1f;border-radius:3px;outline:none;text-align:center";
-    input.value = String(parseFloat(c.value.toFixed(3)));
+    input.value = showNumber(c.value);
     box.append(input);
     for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "dblclick"]) box.addEventListener(type, (e) => e.stopPropagation());
     let closed = false;
@@ -1271,7 +1329,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
         const input = document.createElement("input");
         input.type = "number";
         input.step = f.integer ? "1" : "any";
-        input.value = String(parseFloat(f.value.toFixed(3)));
+        input.value = showNumber(f.value);
         input.title = f.label;
         input.addEventListener("keydown", (e) => {
           e.stopPropagation();
@@ -1392,7 +1450,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       const input = document.createElement("input");
       input.type = "number";
       input.step = "any";
-      input.value = String(parseFloat(initial.toFixed(3)));
+      input.value = showNumber(initial);
       const reference = document.createElement("input");
       reference.type = "checkbox";
       reference.title = "Only show this measurement; it does not change the shape";
@@ -1717,7 +1775,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
 
   private onFrame() {
     const size = this.viewport.renderer.getSize(new THREE.Vector2());
-    for (const l of [this.axes, this.normal, this.placed, this.construction, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
+    for (const l of [this.axes, this.normal, this.placed, this.construction, this.free, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
     const pixel = this.pixelAt(0, 0); // dashes keep their screen size as the view zooms
     this.construction.material.dashSize = CONSTRUCTION_DASH_PX * pixel;
     this.construction.material.gapSize = CONSTRUCTION_GAP_PX * pixel;
@@ -1760,12 +1818,15 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const marked: [number, number][][] = [];
     const guides: [number, number][][] = [];
     const placed: [number, number][][] = [];
-    for (const e of this.s.entities) (this.isMarked({ kind: "entity", id: e.id }) ? marked : e.construction ? guides : this.isPlaced(e) ? placed : normal).push(M.polyline(this.s, e));
+    const lit: [number, number][][] = [];
+    const open = this.showFree ? freeParts(this.s, this.freedom) : null;
+    for (const e of this.s.entities) (this.isMarked({ kind: "entity", id: e.id }) ? marked : open?.entities.has(e.id) ? lit : e.construction ? guides : this.isPlaced(e) ? placed : normal).push(M.polyline(this.s, e));
     this.drawAxes();
     this.set(this.normal, this.segments(normal));
     this.set(this.construction, this.segments(guides));
     this.set(this.marked, this.segments(marked));
     this.set(this.placed, this.segments(placed));
+    this.set(this.free, this.segments(lit));
     this.set(this.pending, this.segments(this.pendingShapes()));
 
     const positions: number[] = [];
@@ -1773,7 +1834,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const color = new THREE.Color();
     for (const p of this.s.points) {
       positions.push(...this.world(p.u, p.v).toArray());
-      color.set(this.isMarked({ kind: "point", id: p.id }) ? COLORS.selected : this.cursor?.id === p.id ? COLORS.hover : p.fixed ? COLORS.construction : this.freedom.get(p.id) === 0 ? COLORS.placed : COLORS.line);
+      color.set(this.isMarked({ kind: "point", id: p.id }) ? COLORS.selected : open?.points.has(p.id) ? FREE_COLOR : this.cursor?.id === p.id ? COLORS.hover : p.fixed ? COLORS.construction : this.freedom.get(p.id) === 0 ? COLORS.placed : COLORS.line);
       colors.push(color.r, color.g, color.b);
     }
     this.points.geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
@@ -1878,6 +1939,15 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     icons.append(look, gizmos, base, target, grid, snap);
     const status = el("div", "dof", this.failed.size ? `Conflict: ${this.s.constraints.filter((c) => this.failed.has(c.id)).map((c) => M.describeConstraint(this.s, c)).join("; ") || [...this.failed].join(", ")}. Remove one (red rows below)` : this.dof === null ? "" : this.dof === 0 ? "Fully constrained" : `${this.dof} degrees of freedom left`);
     if (this.failed.size) status.classList.add("bad");
+    else if (this.dof) {
+      status.classList.add("link");
+      status.title = "Click to light up (in yellow) the points and curves that still have freedom";
+      status.addEventListener("click", () => {
+        this.showFree = !this.showFree;
+        if (this.showFree) this.status(freeMessage(freeParts(this.s, this.freedom), this.dof));
+        this.render();
+      });
+    }
 
     const tools = buildToolOptions(this);
 

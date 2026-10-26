@@ -1254,3 +1254,31 @@ def test_projected_ellipse_edge_stays_a_true_ellipse():
         along, across = du * ux + dv * uy, -du * uy + dv * ux
         assert (along / a) ** 2 + (across / e["minor"]) ** 2 == pytest.approx(1, abs=1e-6)
     assert a >= e["minor"]
+
+
+def test_a_solution_that_is_not_a_number_is_a_failure(monkeypatch):
+    from pliable.sketch import solver
+
+    points = [{"id": 1, "u": 0, "v": 0, "fixed": True}, {"id": 2, "u": -4, "v": 1}, {"id": 3, "u": 5, "v": 2, "fixed": True}]
+    constraints = [{"id": 1, "type": "symmetric_point", "points": [2, 3], "point": 1}]
+    monkeypatch.setattr(solver._Solver, "_coords", lambda self, pid: (float("nan"), 0.0))
+    result = sketch.solve(sketch_of(points, [], constraints))
+    assert result["status"] == "failed" and result["points"] == []
+
+
+def test_a_fully_constrained_sketch_colours_every_point_without_testing_each(monkeypatch):
+    from pliable.sketch import solver
+
+    points, lines = [], []
+    for k in range(12):  # many fixed-size rectangles, far more points than the time budget could test one by one
+        p, l = rectangle(10, 10, x0=30 * k, first_id=1 + 4 * k)
+        points += p
+        lines += l
+    constraints = [{"id": 1000 + i, "type": "fixed", "point": p["id"]} for i, p in enumerate(points)]
+    s = sketch_of(points, lines, constraints)
+
+    def never(*a, **k):
+        raise AssertionError("each point was tested on its own")
+
+    monkeypatch.setattr(solver._Solver, "hold_axis", never)
+    assert sketch.point_freedom(s, budget=0.0) == {p["id"]: 0 for p in points}

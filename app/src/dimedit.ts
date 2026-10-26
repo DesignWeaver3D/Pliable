@@ -2,6 +2,7 @@
  * Enter applies one undo step, Escape cancels, Tab moves to the next editable dimension. The core decides what an
  * edit means (`dimension_edit`, see `dimedit.py`); an impossible edit comes back as a one-line reason shown in red. */
 import type { DimEdit, DimensionOverlay } from "./dimensions";
+import { showNumber } from "./precision.ts";
 
 export interface DimensionEditorHost {
   overlay: DimensionOverlay;
@@ -40,7 +41,7 @@ export function withoutDraftTag<T extends { kind: string; edit?: { kind?: string
 }
 
 export function formatValue(v: number): string {
-  return String(Number(v.toFixed(4)));
+  return showNumber(v, 4);
 }
 
 /** A typed number (a comma counts as the decimal point), or null when the text is not one. */

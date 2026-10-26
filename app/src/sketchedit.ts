@@ -120,8 +120,10 @@ export function repeat(s: SketchData, sel: SketchSel[], count: number, step: (k:
  * Cut a line in two where the click projects onto it. The first piece keeps the line's id; both pieces keep
  * the direction constraints (horizontal, vertical, parallel, perpendicular, angle), and a line with none stays
  * straight through a collinear constraint. Other constraints on the old line (lengths, equal, tangent) go.
+ * With `atPoint` the line is cut at that existing point (which lies on it): both pieces end at it, so everything that
+ * met the line there is joined to the cut, and the point-on-line constraint it needed is dropped.
  */
-export function splitLine(s: SketchData, lineId: number, u: number, v: number, margin = 0.02): EditResult | null {
+export function splitLine(s: SketchData, lineId: number, u: number, v: number, margin = 0.02, atPoint?: number): EditResult | null {
   const line = s.entities.find((e) => e.id === lineId);
   if (!line || line.type !== "line" || line.reference) return null;
   const [a, b] = [pointOf(s, line.a), pointOf(s, line.b)];
@@ -131,9 +133,9 @@ export function splitLine(s: SketchData, lineId: number, u: number, v: number, m
   const t = ((u - a.u) * du + (v - a.v) * dv) / length2;
   if (t < margin || t > 1 - margin) return null; // too near an end to cut
   let id = nextId(s);
-  const middle = id++;
+  const middle = atPoint ?? id++;
   const second = id++;
-  const points = [...s.points, { id: middle, u: a.u + t * du, v: a.v + t * dv }];
+  const points = atPoint !== undefined ? s.points : [...s.points, { id: middle, u: a.u + t * du, v: a.v + t * dv }];
   const entities = s.entities.flatMap((e) =>
     e.id === lineId ? [{ ...e, b: middle } as SketchEntity, { id: second, type: "line", a: middle, b: line.b, ...(line.construction ? { construction: true } : {}) } as SketchEntity] : [e],
   );
@@ -142,6 +144,7 @@ export function splitLine(s: SketchData, lineId: number, u: number, v: number, m
   let kept = false;
   for (const c of s.constraints) {
     const onLine = c.entity === lineId || c.entities?.includes(lineId);
+    if (atPoint !== undefined && c.type === "point_on" && c.point === atPoint && c.entity === lineId) continue; // the point is now the cut itself
     if (!onLine) {
       constraints.push(c);
       continue;
@@ -157,4 +160,24 @@ export function splitLine(s: SketchData, lineId: number, u: number, v: number, m
   }
   if (!kept) constraints.push({ id: id++, type: "collinear", entities: [lineId, second], auto: true });
   return { sketch: { ...s, points, entities, constraints }, selection: [{ kind: "entity", id: lineId }, { kind: "entity", id: second }] };
+}
+
+/** The line a point lies on in its interior, for cutting it there: the one its point-on-line constraint names, else any line the point touches
+ *  without being an end of it. Null when there is none (or the point is too near an end to cut). */
+export function lineThroughPoint(s: SketchData, pointId: number): number | null {
+  const p = s.points.find((q) => q.id === pointId);
+  if (!p) return null;
+  const named = s.constraints.find((c) => c.type === "point_on" && c.point === pointId && c.entity !== undefined);
+  const candidates = named ? s.entities.filter((e) => e.id === named.entity) : s.entities;
+  for (const e of candidates) {
+    if (e.type !== "line" || e.reference || e.a === pointId || e.b === pointId) continue;
+    const [a, b] = [pointOf(s, e.a), pointOf(s, e.b)];
+    const [du, dv] = [b.u - a.u, b.v - a.v];
+    const length2 = du * du + dv * dv;
+    if (length2 < 1e-12) continue;
+    const t = ((p.u - a.u) * du + (p.v - a.v) * dv) / length2;
+    if (t <= 1e-6 || t >= 1 - 1e-6) continue;
+    if (Math.hypot(p.u - (a.u + t * du), p.v - (a.v + t * dv)) < 1e-6 * Math.sqrt(length2) + 1e-9) return e.id;
+  }
+  return null;
 }

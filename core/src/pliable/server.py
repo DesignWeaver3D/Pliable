@@ -263,7 +263,7 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             return result
         if kind == "sketch_freedom":
             try:
-                return {"freedom": sketch.point_freedom(request["sketch"], budget=0.4)}
+                return {"freedom": sketch.point_freedom(request["sketch"], budget=1.0)}
             except (KeyError, TypeError, ValueError) as e:
                 raise RequestError(f"Malformed sketch: {e!r}") from e
         if kind == "sketch_extrude":

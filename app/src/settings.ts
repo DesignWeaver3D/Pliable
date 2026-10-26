@@ -1,4 +1,5 @@
 import { uiIcon } from "./icons.ts";
+import { setDecimals, DEFAULT_DECIMALS, MAX_DECIMALS } from "./precision.ts";
 import { MATERIALS, DEFAULT_MATERIAL_ID, getMaterial } from "./materials.ts";
 /** User settings kept in the browser. Read the values through `settings`; they change live. */
 export interface Settings {
@@ -20,10 +21,12 @@ export interface Settings {
   glossyLook: boolean;
   /** Id of the default material: the look of the bodies and the mass of bodies that have no material of their own (see materials.ts). */
   material: string;
+  /** Decimals shown for lengths and values (zeros after the last digit are never shown). */
+  displayDecimals: number;
 }
 
 const KEY = "pliable.settings";
-const DEFAULTS: Settings = { edgePickPx: 5, vertexPickPx: 8, seeThrough: false, seeThroughOpacity: 12, sharpAngle: 30, boxKind: "auto", randomBodyColors: true, glossyLook: true, material: DEFAULT_MATERIAL_ID };
+const DEFAULTS: Settings = { edgePickPx: 5, vertexPickPx: 8, seeThrough: false, seeThroughOpacity: 12, sharpAngle: 30, boxKind: "auto", randomBodyColors: true, glossyLook: true, material: DEFAULT_MATERIAL_ID, displayDecimals: DEFAULT_DECIMALS };
 
 export const settings: Settings = { ...DEFAULTS };
 const listeners: Array<() => void> = [];
@@ -36,6 +39,7 @@ try {
 } catch {
   /* storage can be blocked; defaults apply */
 }
+setDecimals(settings.displayDecimals);
 
 export function onSettingsChange(fn: () => void) {
   listeners.push(fn);
@@ -43,6 +47,7 @@ export function onSettingsChange(fn: () => void) {
 
 export function updateSettings(patch: Partial<Settings>) {
   Object.assign(settings, patch);
+  setDecimals(settings.displayDecimals);
   try {
     localStorage.setItem(KEY, JSON.stringify(settings));
   } catch {
@@ -67,6 +72,7 @@ export function setHintsBinding(b: { get: () => boolean; set: (on: boolean) => v
 export const SETTING_ENTRIES: { id: string; label: string; keywords: string[] }[] = [
   { id: "edgePickPx", label: "Edge pick range", keywords: ["select", "radius", "reach", "pixels"] },
   { id: "vertexPickPx", label: "Point pick range", keywords: ["vertex", "hole centre", "snap", "radius", "pixels"] },
+  { id: "displayDecimals", label: "Display precision", keywords: ["decimals", "rounding", "digits", "places", "numbers", "dimensions"] },
   { id: "sharpAngle", label: "Sharp edge angle", keywords: ["crease", "select edges", "degrees"] },
   { id: "boxKind", label: "Box selects", keywords: ["marquee", "rubber band", "drag box", "edges", "faces", "vertices"] },
   { id: "seeThrough", label: "See-through", keywords: ["transparent", "x ray", "hidden edges"] },
@@ -86,6 +92,8 @@ export function settingValue(id: string): string {
       return `${settings[id]} px`;
     case "sharpAngle":
       return `${settings.sharpAngle}°`;
+    case "displayDecimals":
+      return `${settings.displayDecimals} decimals`;
     case "seeThroughOpacity":
       return `${settings.seeThroughOpacity} %`;
     case "seeThrough":
@@ -120,7 +128,7 @@ export function createSettingsWindow(host: HTMLElement) {
   const panel = document.createElement("div");
   panel.id = "settingspanel";
   panel.hidden = true;
-  const slider = (label: string, key: "edgePickPx" | "vertexPickPx" | "sharpAngle" | "seeThroughOpacity", min: number, max: number, hint: string) => {
+  const slider = (label: string, key: "edgePickPx" | "vertexPickPx" | "sharpAngle" | "seeThroughOpacity" | "displayDecimals", min: number, max: number, hint: string) => {
     const row = document.createElement("label");
     row.title = hint;
     row.dataset.setting = key;
@@ -131,7 +139,7 @@ export function createSettingsWindow(host: HTMLElement) {
     input.min = String(min);
     input.max = String(max);
     input.step = "1";
-    const unit = key === "sharpAngle" ? "°" : key === "seeThroughOpacity" ? " %" : " px";
+    const unit = key === "sharpAngle" ? "°" : key === "seeThroughOpacity" ? " %" : key === "displayDecimals" ? " decimals" : " px";
     const show = () => (text.textContent = `${label}: ${settings[key]}${unit}`);
     input.value = String(settings[key]);
     input.oninput = () => {
@@ -246,6 +254,7 @@ export function createSettingsWindow(host: HTMLElement) {
     heading,
     slider("Edge pick range", "edgePickPx", 1, 14, "How close the pointer must be to an edge to pick it. Lower it to reach small faces."),
     slider("Point pick range", "vertexPickPx", 1, 16, "How close the pointer must be to a vertex or hole centre to pick it."),
+    slider("Display precision", "displayDecimals", 1, MAX_DECIMALS, "How many decimals lengths and values show, up to 8. Zeros after the last digit are never shown, so 10 stays 10. Values dragged with the mouse are still rounded to 0.001 when they are made."),
     slider("Sharp edge angle", "sharpAngle", 5, 90, "Sharp edges selects connected edges whose faces meet at this angle or more."),
     boxRow,
     seeThrough,
