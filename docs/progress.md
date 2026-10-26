@@ -27,10 +27,6 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
   - [ ] Fixed pins a point at its current place and really holds it (a dragged circle with a Fixed centre keeps its centre; the degrees of freedom count drops by two and matches what can still move). Decide what Lock means by the decision hierarchy, log it, and give both a tooltip that says what they do.
   - [ ] The green colouring and the degrees of freedom count agree with what can actually be dragged.
   - Touches: the Fully constrained colouring and Degrees of freedom rows below (the 1 degree with nothing lit may be this).
-- **Sketch ellipse and circle dragging.** Owner (2026-10-26): "Sketch ellipse: grabbing a quandrant vertex and rotating the ellipse doesn't update the other quadrant construction line actively, the other construction line updates after the rotation. Moving a sketch ellipse is very laggy." and "Sketch circle: an unconstrined circle should be location draggable by its center point and freely resized by dragging the circle (center stays put)."
-  - [ ] While a quadrant vertex is dragged to rotate an ellipse, both construction lines follow live.
-  - [ ] Moving an ellipse is as smooth as moving a circle (find the cost per frame).
-  - [ ] An unconstrained circle: dragging its centre point moves it; dragging the circle itself changes the radius with the centre fixed. Check behavior.md and the drag rule for free circles first.
 - **Stored array parameters (long term, needs owner feedback).** Store array parameters like primitives (editable later); today arrays make separate solids. Consider an option for the array to be a compound with its source object.
 
 - **Problems noted on the first hand-test pass (owner, 2026-10-18; verify each still happens before working on it).** Quoted from the owner's notes:

@@ -51,6 +51,7 @@ Rules for keeping it:
 - [ ] Fillet and Chamfer sketch tools, Trim (piece between a line end and an arc), Split at a point on a line, Rectangle corner styles (Square, Rounded, Bevelled), sketch-only keys C E S H T L R.
 - [ ] Newest user constraint wins: a constraint that repeats an automatic one removes the automatic row with a warning naming it.
 - [ ] Drag of a free line, circle or point (snaps, guides, nothing else moves).
+- [ ] Free circle: dragging its rim resizes it with the centre fixed, dragging its centre moves it; ellipse quadrant vertex rotates it with both construction lines live, and moving an ellipse feels smooth (checked only with synthetic pointer events).
 
 ### Model: faces, edges and selection (look and feel)
 
