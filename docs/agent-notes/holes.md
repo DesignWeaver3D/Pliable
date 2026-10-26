@@ -9,3 +9,8 @@
 ## Task 2: global display precision (done)
 - `roundValue` and `showNumber` (app/src/precision.ts) now drive drag rounding (manipulator, viewport, linked values), form fields after drags or picks, handle, point and status labels, and the 2-decimal drag labels. Sketch constraint/angle rounding unchanged on purpose (stored values). Node test added in precision.test.mjs.
 - Real-mouse only: set precision 1 and 6 in settings and drag a handle to see the rounding step.
+
+## Task 3: hole centre as a selectable item (done, flag approach)
+- A dot press makes a face selection with `centre: true` (viewport.ts `Sel`); the view marks the dot only; tools see the hole's face as before. Chrome check was inconclusive with the Push/Pull handles over the dot.
+- Real-mouse only: press a hole's centre dot with no tool armed and confirm the dot lights and the wall does not; hover the dot likewise.
+- Not done: conical mouths; the flag is dropped after a tool run rebuilds the selection.

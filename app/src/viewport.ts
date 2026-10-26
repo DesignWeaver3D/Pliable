@@ -25,6 +25,8 @@ export type Kind = "face" | "edge" | "vertex" | "body";
 export interface Sel {
   kind: Kind;
   id: number;
+  /** A face selection made through the hole's centre dot: the same hole for every tool, shown as the dot alone (no tint on the wall). */
+  centre?: boolean;
 }
 
 interface Hit extends Sel {
@@ -653,7 +655,7 @@ export class Viewport {
           this.onCentreDrag(c.face, this.centreOffset(e, c), "end");
           down = null;
         } else {
-          this.clickSelect({ kind: "face", id: c.face }, e.ctrlKey || e.metaKey || e.shiftKey);
+          this.clickSelect({ kind: "face", id: c.face, centre: true }, e.ctrlKey || e.metaKey || e.shiftKey);
           down = null;
         }
         return;
@@ -1080,6 +1082,12 @@ export class Viewport {
         mark.edge.geometry.setPositions(lines);
         mark.edge.visible = true;
       }
+    } else if (sel.kind === "face" && sel.centre) {
+      // A hole picked by its centre dot shows the dot only.
+      const centre = this.data.centres.find((c) => c.face === sel.id);
+      if (!centre) return;
+      mark.vertex.geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(centre.position), 3));
+      mark.vertex.visible = true;
     } else if (sel.kind === "face") {
       const range = this.data.faces.find((f) => f.id === sel.id);
       if (!range) return;
@@ -1107,7 +1115,7 @@ export class Viewport {
     const same = Math.hypot(e.clientX - this.lastClick.x, e.clientY - this.lastClick.y) < 3;
     if (!through || !hit || hit.kind !== "face") {
       this.lastClick = { x: e.clientX, y: e.clientY, n: 0 };
-      return hit && { kind: hit.kind, id: hit.id };
+      return hit && { kind: hit.kind, id: hit.id, ...(hit.centre ? { centre: true } : {}) };
     }
     const faces = this.facesUnder(e);
     const n = same && faces.length ? (this.lastClick.n + 1) % faces.length : 0;
@@ -1647,7 +1655,7 @@ export class Viewport {
       if (!start) return false; // looking edge-on along the hole's plane
       this.centreDrag = { face: c.face, origin: p, plane, start, x: e.clientX, y: e.clientY, moved: false };
       if (!this.isSelected({ kind: "face", id: c.face })) {
-        const sel = { kind: "face" as const, id: c.face };
+        const sel = { kind: "face" as const, id: c.face, centre: true };
         this.selectItems([sel]);
         this.onSelect([sel]);
       }
@@ -1713,7 +1721,7 @@ export class Viewport {
       const d = Math.hypot(((n.x + 1) / 2) * rect.width - px, ((1 - n.y) / 2) * rect.height - py);
       if (d < bestDistance && !this.occluded(p)) {
         bestDistance = d;
-        best = { kind: "face", id: c.face, point: p };
+        best = { kind: "face", id: c.face, point: p, centre: true };
       }
     }
     return best;
@@ -1869,7 +1877,7 @@ export class Viewport {
   }
 
   private setHover(sel: Sel | null) {
-    if (sel?.kind === this.hovered?.kind && sel?.id === this.hovered?.id) return;
+    if (sel?.kind === this.hovered?.kind && sel?.id === this.hovered?.id && !!sel?.centre === !!this.hovered?.centre) return;
     this.hovered = sel;
     this.onHoverBody(this.bodyOf(sel));
     this.refreshCentres();
