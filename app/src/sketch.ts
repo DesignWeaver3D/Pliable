@@ -26,6 +26,7 @@ import { parseValue } from "./dimedit";
 import { uiIcon } from "./icons";
 import { LENGTH_UNIT } from "./units";
 import { usage } from "./usage";
+import { automaticInTheWay } from "./sketchautowin";
 import { FREE_COLOR, freeMessage, freeParts } from "./sketchfreedom";
 import type { HandleInfo } from "./tools";
 import type { Sel, Viewport } from "./viewport";
@@ -1067,7 +1068,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.s.constraints.push(added);
       addedIds.add(added.id);
     }
-    const ok = await this.resolve();
+    const ok = (await this.resolve()) || (await this.userWins(addedIds));
     if (ok) this.selection = []; // an applied constraint ends the selection it was made from
     if (ok && option.dimension) {
       this.render();
@@ -1099,6 +1100,23 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.host.status(`Dropped ${dropped.join("; ")}: it repeats or conflicts with ${against}`, "warn");
     }
     this.render();
+  }
+
+  /** The new constraint made the sketch fail: automatic constraints in the way are removed one at a time until it solves (the user's constraint wins), with a warning. */
+  private async userWins(addedIds: Set<number>): Promise<boolean> {
+    const mine = this.s.constraints.filter((c) => addedIds.has(c.id)).map((c) => M.describeConstraint(this.s, c)).join("; ");
+    for (const c of automaticInTheWay(this.s.constraints, this.failed, addedIds)) {
+      const all = this.s.constraints;
+      const name = M.describeConstraint(this.s, c);
+      this.s.constraints = all.filter((x) => x.id !== c.id);
+      if (await this.resolve()) {
+        this.host.status(`Removed the automatic ${name} because it repeats or conflicts with the new ${mine}`, "warn");
+        return true;
+      }
+      this.s.constraints = all;
+    }
+    await this.resolve(); // the failure is worked out again for the message
+    return false;
   }
 
   /** The sketch settings window (the gear in the sketch card): grid spacing and automatic constraints. Changes apply at once and are remembered on this computer. */
