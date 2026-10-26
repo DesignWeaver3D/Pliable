@@ -1213,6 +1213,38 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       };
     });
   },
+  pickItem(kind, message) {
+    return new Promise((resolve) => {
+      cancelEyedrop();
+      if (app.committed) show(app.committed); // pick against the committed model, whose ids the core knows
+      status.classList.remove("error");
+      status.textContent = `${message} (Esc cancels)`;
+      eyedropResolve = () => resolve(null);
+      viewport.eyedropper = (sel) => {
+        if (sel.kind !== kind) {
+          status.textContent = `Pick a${kind === "edge" ? "n" : ""} ${kind} (Esc cancels)`;
+          status.classList.add("error");
+          return; // stays armed
+        }
+        viewport.eyedropper = null;
+        eyedropResolve = null;
+        status.textContent = "Picked";
+        resolve(sel.id);
+      };
+    });
+  },
+  async planeFrom(request) {
+    try {
+      const plane = (await core.request<{ plane: PlaneData }>("sketch_plane", request)).plane;
+      status.classList.remove("error");
+      status.textContent = "Plane made";
+      return { origin: plane.origin, normal: plane.normal };
+    } catch (e) {
+      status.textContent = (e as Error).message;
+      status.classList.add("error");
+      return null;
+    }
+  },
   datumPlanes: () => datumPlanes.planes,
   twoDistances,
   sketchList: () => keptSketches.infos,
