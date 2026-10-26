@@ -711,24 +711,42 @@ def test_projected_tilted_cylinder_gives_ellipses_matching_the_analytic_axes():
         sketch.profile_face(sk)  # reference geometry is construction: nothing crashes, there is just no profile
 
 
-def test_projected_tilted_arc_becomes_a_spline_through_its_ends():
-    from build123d import Circle, Plane, extrude
-    from OCP.BRepAdaptor import BRepAdaptor_Curve
+def test_projected_tilted_arc_becomes_an_elliptical_arc_through_its_ends():
+    from build123d import Axis, Edge
 
-    arc = Circle(5).edges()[0]
-    from build123d import Edge
-    part = Edge.make_circle(5, start_angle=0, end_angle=90).rotate(__import__("build123d").Axis.X, 30)
+    part = Edge.make_circle(5, start_angle=0, end_angle=90).rotate(Axis.X, 30)
     plane = sketch.STANDARD_PLANES["XY"]
     ref = sketch.face_reference(part.wrapped, plane, project=True)
-    splines = [e for e in ref["entities"] if e["type"] == "spline"]
-    assert len(splines) == 1 and ref["drawn"]["splines"] == 1 and len(splines[0]["points"]) >= 8
+    arcs = [e for e in ref["entities"] if e["type"] == "ellipse" and "start" in e]
+    assert len(arcs) == 1 and ref["drawn"]["ellipse_arcs"] == 1 and ref["drawn"]["splines"] == 0
     pts = {p["id"]: p for p in ref["points"]}
-    start, end = pts[splines[0]["points"][0]], pts[splines[0]["points"][-1]]
-    ends = sorted([(round(start["u"], 6), round(start["v"], 6)), (round(end["u"], 6), round(end["v"], 6))])
+    ends = sorted((round(pts[arcs[0][k]]["u"], 6), round(pts[arcs[0][k]]["v"], 6)) for k in ("start", "end"))
     a = math.cos(math.radians(30))
     assert ends == sorted([(5.0, 0.0), (0.0, round(5 * a, 6))])
+    assert arcs[0]["minor"] == pytest.approx(5 * a, rel=1e-6)
     sk = _as_sketch(ref, plane)
     assert sketch.solve(sk)["status"] != "failed"
+    # the arc is counterclockwise from its start to its end: made a profile with a chord it covers the quarter ellipse's segment
+    solid = {**sk, "entities": [{**e, "construction": False, "reference": False} for e in sk["entities"]]}
+    solid["entities"].append({"id": 999, "type": "line", "a": arcs[0]["end"], "b": arcs[0]["start"]})
+    assert sketch.profile_face(solid).area == pytest.approx(math.pi * 5 * 5 * a / 4 - 5 * 5 * a / 2, rel=1e-3)
+
+
+def test_projected_elliptical_arc_edge_stays_an_elliptical_arc():
+    from build123d import Axis, Edge
+
+    part = Edge.make_ellipse(8, 4, start_angle=30, end_angle=200).rotate(Axis.X, 40).rotate(Axis.Z, 25)
+    ref = sketch.face_reference(part.wrapped, sketch.STANDARD_PLANES["XY"], project=True)
+    arcs = [e for e in ref["entities"] if e["type"] == "ellipse" and "start" in e]
+    assert len(arcs) == 1 and not [e for e in ref["entities"] if e["type"] == "spline"]
+    pts = {p["id"]: p for p in ref["points"]}
+    start, end = pts[arcs[0]["start"]], pts[arcs[0]["end"]]
+    c, m = pts[arcs[0]["center"]], pts[arcs[0]["major"]]
+    a, b = math.dist((c["u"], c["v"]), (m["u"], m["v"])), arcs[0]["minor"]
+    along = math.atan2(m["v"] - c["v"], m["u"] - c["u"])
+    for p in (start, end):  # both ends are on the flattened ellipse
+        x, y = (p["u"] - c["u"]) * math.cos(along) + (p["v"] - c["v"]) * math.sin(along), -(p["u"] - c["u"]) * math.sin(along) + (p["v"] - c["v"]) * math.cos(along)
+        assert (x / a) ** 2 + (y / b) ** 2 == pytest.approx(1, abs=1e-6)
 
 
 def test_projected_square_circle_stays_a_circle_and_end_on_edges_stay_points():

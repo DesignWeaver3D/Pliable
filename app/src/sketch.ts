@@ -1732,7 +1732,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   /** Flatten the picked faces and edges onto the sketch plane as fixed reference geometry the sketch can snap to. */
   private async projectModel(picked: Sel[]) {
     try {
-      const ref = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[]; skipped?: { square: number; tilted_circles: number; other: number }; drawn?: { ellipses: number; splines: number } }>("sketch_project", { plane: this.s.plane, faces: picked.filter((p) => p.kind === "face").map((p) => p.id), edges: picked.filter((p) => p.kind === "edge").map((p) => p.id) });
+      const ref = await this.core.request<{ points: M.SketchPoint[]; entities: M.SketchEntity[]; skipped?: { square: number; tilted_circles: number; other: number }; drawn?: { ellipses: number; splines: number; ellipse_arcs?: number } }>("sketch_project", { plane: this.s.plane, faces: picked.filter((p) => p.kind === "face").map((p) => p.id), edges: picked.filter((p) => p.kind === "edge").map((p) => p.id) });
       if (!this.active) return; // the sketch was left while the model was being projected
       const near = (a: M.SketchPoint, b: M.SketchPoint) => Math.hypot(a.u - b.u, a.v - b.v) < 1e-5;
       const known = this.s.points.filter((p) => p.fixed);
@@ -1754,7 +1754,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
         const mapped = { ...e, id: M.nextId(this.s) } as M.SketchEntity;
         if (mapped.type === "line") (mapped.a = map.get(mapped.a)!), (mapped.b = map.get(mapped.b)!);
         else if (mapped.type === "circle") mapped.center = map.get(mapped.center)!;
-        else if (mapped.type === "ellipse") (mapped.center = map.get(mapped.center)!), (mapped.major = map.get(mapped.major)!);
+        else if (mapped.type === "ellipse") (mapped.center = map.get(mapped.center)!), (mapped.major = map.get(mapped.major)!), mapped.start !== undefined && ((mapped.start = map.get(mapped.start)!), (mapped.end = map.get(mapped.end!)!));
         else if (mapped.type === "spline") mapped.points = mapped.points.map((q) => map.get(q)!);
         else (mapped.center = map.get(mapped.center)!), (mapped.start = map.get(mapped.start)!), (mapped.end = map.get(mapped.end)!);
         if (have.has(entityKey(mapped))) continue;
@@ -1766,7 +1766,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       const sk = ref.skipped;
       const notes = [
         ref.drawn?.ellipses ? `${ref.drawn.ellipses} tilted circle${ref.drawn.ellipses === 1 ? "" : "s"} drawn as ellipses` : "",
-        ref.drawn?.splines ? `${ref.drawn.splines} tilted arc or curved edge${ref.drawn.splines === 1 ? "" : "s"} drawn as splines` : "",
+        ref.drawn?.ellipse_arcs ? `${ref.drawn.ellipse_arcs} tilted arc${ref.drawn.ellipse_arcs === 1 ? "" : "s"} drawn as elliptical arcs` : "",
+        ref.drawn?.splines ? `${ref.drawn.splines} curved edge${ref.drawn.splines === 1 ? "" : "s"} drawn as splines` : "",
         sk?.tilted_circles ? `${sk.tilted_circles} arc${sk.tilted_circles === 1 ? "" : "s"} seen edge-on not drawn, their end points are snappable` : "",
         sk?.other ? `${sk.other} curved edge${sk.other === 1 ? "" : "s"} of another kind skipped, their end points are snappable` : "",
         sk?.square ? `${sk.square} edge${sk.square === 1 ? "" : "s"} seen end-on shown as points` : "",
