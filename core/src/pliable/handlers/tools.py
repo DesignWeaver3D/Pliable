@@ -11,6 +11,7 @@ from ..mirrormode import mirror_result
 from ..plane_sides import side_bodies
 from ..ops import solids_of
 from ..shared.solids import finish
+from ..sketch.rail import attach_rail
 from ..tools import get_tool, Selection
 from ..topology import Topology
 from .common import _ms, RequestError
@@ -89,6 +90,7 @@ class ToolHandlers:
         if request.get("edit_body") is not None:
             return self._edit_primitive(request, tool, commit)
         selection = request_selection = Selection.from_json(request.get("selection"))
+        attach_rail(document, selection)
         start = time.perf_counter()
         self.last_tool = {"tool": tool.id, "commit": commit, "ok": False, "error": None}
         try:

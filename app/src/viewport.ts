@@ -1,6 +1,7 @@
 import { pointInRect, segmentHitsRect, segmentsInBox, triangleHitsRect, trianglesInBox, type Rect } from "./boxselect";
 import { doubleClickBody } from "./bodylogic";
 import * as THREE from "three";
+import { viewPlane, type ViewPlane } from "./viewplane";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { materialOrDefault, usesBodyColors } from "./materials";
@@ -166,6 +167,8 @@ export class Viewport {
   /** The tinted region under the pointer (null for none), and a double-click on a sketch's curves or regions (its id). */
   onProfileHover: (at: { id: number; region: number } | null, curve: number | null) => void = () => {};
   onSketchDouble: (sketchId: number) => void = () => {};
+  /** Shift or Ctrl+click on a kept sketch's curve: the sketch is chosen (or let go) as a path or snap source beside the selection. */
+  onSketchCurveClick: (sketchId: number) => void = () => {};
   /** The drawn curves of the kept sketches, for the double-click to find the sketch under the pointer. */
   curveTargets: () => { id: number; object: THREE.LineSegments }[] = () => [];
   /** Double-click on an edge: the host selects the whole smooth chain it belongs to (Ctrl adds to the selection). */
@@ -251,6 +254,13 @@ export class Viewport {
   /** Screen position (CSS pixels, relative to the viewport element) of a world point. */
   toScreen(p: THREE.Vector3): THREE.Vector2 {
     return this.toPixels(p, this.renderer.domElement.getBoundingClientRect());
+  }
+
+  /** The plane square to the camera through the point it orbits (see viewplane.ts), for a sketch "on the screen". */
+  viewPlane(): ViewPlane {
+    this.camera.updateMatrixWorld();
+    const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0);
+    return viewPlane(this.camera.position.toArray(), this.controls.target.toArray(), right.toArray());
   }
 
   /** World length of one screen pixel at a point (for snapping and handle sizes). */
@@ -1488,19 +1498,23 @@ export class Viewport {
   /** A click: a profile region of a kept sketch that is not behind the model counts as a face; otherwise the usual pick. */
   private clickOrProfile(e: PointerEvent, additive: boolean) {
     const picked = this.pickCycling(e);
+    if (additive && (!picked || picked.kind === "face")) {
+      const curve = this.curveUnder(e, 4); // Shift or Ctrl+click right on a kept sketch's curve chooses the whole sketch (kept beside the selection)
+      if (curve !== null) return this.onSketchCurveClick(curve);
+    }
     const profile = !picked || picked.kind === "face" ? this.profileUnder(e) : null;
     if (profile) this.onProfileClick(profile.id, profile.region, additive);
     else this.clickSelect(picked, additive);
   }
 
   /** The kept sketch whose drawn curve passes within a few pixels of the pointer and is not hidden behind the model. */
-  private curveUnder(e: MouseEvent): number | null {
+  private curveUnder(e: MouseEvent, reach = 6): number | null {
     const rect = this.renderer.domElement.getBoundingClientRect();
     const px = e.clientX - rect.left;
     const py = e.clientY - rect.top;
     this.camera.updateMatrixWorld();
     let best: number | null = null;
-    let bestD = 6; // pixels
+    let bestD = reach; // pixels
     const point = (x: number, y: number, z: number) => {
       const n = new THREE.Vector3(x, y, z).project(this.camera);
       return { x: ((n.x + 1) / 2) * rect.width, y: ((1 - n.y) / 2) * rect.height, behind: n.z > 1 };

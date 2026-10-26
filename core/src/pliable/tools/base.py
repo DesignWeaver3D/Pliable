@@ -53,6 +53,8 @@ class Selection:
     edges: list[int] = field(default_factory=list)
     vertices: list[int] = field(default_factory=list)
     bodies: list[int] = field(default_factory=list)  # stable body ids (see bodies.py): whole solids chosen from the body list
+    rail: int | None = None  # a kept sketch chosen as a path for Sweep face and Array along path (instead of selected edges)
+    rail_wire: object = field(default=None, repr=False, compare=False)  # that sketch's curves as a wire, set by sketch/rail.py before a tool runs
 
     @classmethod
     def from_json(cls, data: dict | None) -> "Selection":
@@ -62,6 +64,7 @@ class Selection:
             edges=[int(i) for i in data.get("edges", [])],
             vertices=[int(i) for i in data.get("vertices", [])],
             bodies=[int(i) for i in data.get("bodies", [])],
+            rail=int(data["rail"]) if data.get("rail") is not None else None,
         )
 
     def to_json(self) -> dict:
@@ -244,6 +247,8 @@ class Tool:
     description: str = ""
     accepts: Accepts
     params: list[Param] = []
+    # What the tool accepts when a kept sketch is chosen as its path (`Selection.rail`) instead of edges; None = no sketch path.
+    rail_accepts: "Accepts | None" = None
     # Relationship rules (see relations.py) whose matching faces join the selection when the user has them on.
     related: tuple[str, ...] = ()
     # Names of three length parameters that together are a point in space; the view offers to fill them by
@@ -301,7 +306,8 @@ class Tool:
         if any(i not in known for i in selection.bodies):
             return False
         try:
-            return self.accepts.matches(selection) and self.applies(topology, selection)
+            accepts = self.rail_accepts if self.rail_accepts and selection.rail_wire is not None and not selection.edges else self.accepts
+            return accepts.matches(selection) and self.applies(topology, selection)
         except KeyError:  # a selected id that does not exist
             return False
 
@@ -375,6 +381,7 @@ class Tool:
             "startsFrom": self.starts_from,
             "hidden": self.hidden,
             "hasHandles": type(self).handles is not Tool.handles,
+            **({"railAccepts": self.rail_accepts.to_json()} if self.rail_accepts else {}),
         }
 
 

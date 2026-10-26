@@ -14,6 +14,7 @@ import { NavCube, VIEW_KEYS } from "./navcube";
 import { DimensionOverlay, type Dimension } from "./dimensions";
 import { DimensionEditor, withoutDraftTag } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
+import { acceptsWithRail } from "./sketchrail";
 import { SKETCH_CONSTRAINT_KEYS } from "./sketchkeys";
 import { deleteAction, isTyping, type RowRef } from "./listdelete";
 import { resolvePick } from "./pulldir";
@@ -165,7 +166,7 @@ function renderChips() {
 
 /** Tools usable with the current selection: counts checked here, the core's extra checks once it replies. */
 function usableTools(): ToolInfo[] {
-  return tools.filter((t) => (acceptsSelection(t, expand(t, currentSels)) || (t.id === "move_body" && movableSketch() !== null)) && (refined === null || refined.includes(t.id)));
+  return tools.filter((t) => (acceptsSelection(t, expand(t, currentSels)) || acceptsWithRail(t, expand(t, currentSels), chosenSketch) || (t.id === "move_body" && movableSketch() !== null)) && (refined === null || refined.includes(t.id)));
 }
 
 /** The kept sketch Move/Rotate would move: the sketch whose row was picked, or whose region was picked in the view. */
@@ -174,6 +175,14 @@ function movableSketch(): number | null {
   const pending = pendingProfile;
   if (pending && committed === pending.mesh && currentSels.length > 0 && currentSels.every((s) => s.kind === "face" && pending.faces.includes(s.id))) return pending.sketchId;
   return null;
+}
+/** The kept sketch chosen with Shift or Ctrl+click on its curve in the view; kept beside the face and edge selection. */
+let chosenSketch: number | null = null;
+let keepingChosen = false;
+function setChosenSketch(id: number | null) {
+  if (chosenSketch === id) return;
+  chosenSketch = id;
+  keptSketches.setChosen(id);
 }
 /** The kept sketch the open Move/Rotate form is moving (its plane moves, see sketchmove.py); null for a body move. */
 let sketchMove: number | null = null;
@@ -435,6 +444,7 @@ function setSelection(sels: Sel[]) {
     return;
   }
   viewport.pullDirection.reset(); // a chosen push/pull direction belongs to the face it was chosen for
+  if (sels.length === 0 && !keepingChosen) setChosenSketch(null); // a click on empty space lets the chosen sketch go
   if (sels.length && pickedRow) pickRow(null); // a body or face was picked: the Delete key leaves the sketch and datum rows
   if (toolPanel.isOpen) toolPanel.close(false); // the selection changed under an open tool form
   viewport.manipulator.clear();
@@ -499,7 +509,7 @@ function setSelection(sels: Sel[]) {
 
 function selectionPayload(sels: Sel[]) {
   const ids = (kind: Sel["kind"]) => sels.filter((s) => s.kind === kind).map((s) => s.id);
-  return { faces: ids("face"), edges: ids("edge"), vertices: ids("vertex"), bodies: ids("body") };
+  return { faces: ids("face"), edges: ids("edge"), vertices: ids("vertex"), bodies: ids("body"), ...(chosenSketch === null ? {} : { rail: chosenSketch }) }; // rail: the kept sketch chosen as a path
 }
 
 let committed: MeshData | null = null; // last committed (non-preview) mesh
@@ -569,6 +579,7 @@ function mappedSelection(mesh: MeshData): Sel[] {
 
 function setCommitted(mesh: MeshData, frame = false, sels: Sel[] = []) {
   committed = mesh;
+  setChosenSketch(null); // a sketch chosen with Shift+click was for the step just taken
   lastOp = null; // callers that commit a tool run set it again afterwards
   editLastButton.disabled = true;
   if (frame) { // a newly opened model: its body ids restart at 1, so the old model's hidden, see-through and focus state would hit its bodies
@@ -1262,6 +1273,21 @@ function addDatum(args: Record<string, unknown>) {
 viewport.profileTargets = () => (sketch.active ? [] : keptSketches.fillTargets());
 viewport.onProfileClick = (id, region, additive) => void pickProfile(id, region, additive);
 viewport.curveTargets = () => keptSketches.curveTargets();
+// Shift or Ctrl+click on a kept sketch's curve chooses the whole sketch beside the selection (click it again to let it go); the curves turn orange.
+viewport.onSketchCurveClick = (id) => {
+  if (toolPanel.isOpen) return;
+  setChosenSketch(chosenSketch === id ? null : id);
+  const name = keptSketches.infos.find((k) => k.id === id)?.name ?? `Sketch ${id}`;
+  status.classList.remove("error");
+  status.textContent = chosenSketch === null ? `${name} no longer chosen` : `${name} chosen (Shift+click its curve again to let it go)`;
+  keepingChosen = true; // the tools that can follow it (Sweep face, Array along path) now fit the selection
+  try {
+    setSelection(currentSels);
+  } finally {
+    keepingChosen = false;
+  }
+};
+reference.keptSnaps = () => keptSketches.snapData(); // point picks snap to the ends, centres, midpoints and curves of kept sketches
 viewport.onProfileHover = (at, curve) => {
   keptSketches.setHoveredRegion(at);
   keptSketches.setHovered(curve ?? at?.id ?? null);
@@ -1278,6 +1304,7 @@ const sketchBar = new SketchBar({
   sketch,
   bar: $("sketchbar"),
   selection: () => currentSels,
+  viewPlane: () => viewport.viewPlane(),
   status(text, error = false) {
     status.textContent = text;
     status.classList.toggle("error", error);
@@ -1430,7 +1457,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     }
   },
   tools: () => tools,
-  usable: (tool) => (acceptsSelection(tool, expand(tool, currentSels)) || (tool.id === "move_body" && movableSketch() !== null)) && (refined === null || refined.includes(tool.id)),
+  usable: (tool) => (acceptsSelection(tool, expand(tool, currentSels)) || acceptsWithRail(tool, expand(tool, currentSels), chosenSketch) || (tool.id === "move_body" && movableSketch() !== null)) && (refined === null || refined.includes(tool.id)),
   preview(tool, values, editBody) {
     // One preview in flight at a time, the newest request waiting behind it (latest wins): the core answers in order, so
     // sending every pointer move would show nothing until the pointer rests while the replies queue up.

@@ -44,6 +44,7 @@ from .edgesel import edge_loops, edge_ring, outer_loop, face_edges, face_loops, 
 from .relations import find_related, tangent_chain
 from .tessellate import tessellate  # noqa: F401  (the benchmark patches server.tessellate)
 from .tools import TOOLS, Selection, get_tool
+from .sketch.rail import attach_rail
 from .topology import Topology
 from .handlers.sketch import SketchHandlers
 from .handlers.datum import DatumHandlers
@@ -172,11 +173,13 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
         if kind == "available_tools":
             topology = self._require_document().current
             selection = Selection.from_json(request.get("selection"))
+            attach_rail(self.document, selection, strict=False)
             return {"tools": [t.id for t in TOOLS.values() if t.offered(topology, selection)]}
         if kind == "tool_handles":
             topology = self._require_document().current
             tool = get_tool(str(request.get("tool")))
             selection = Selection.from_json(request.get("selection"))
+            attach_rail(self.document, selection, strict=False)
             return {"handles": tool.handle_list(topology, selection, request.get("params") or {}), "startsFrom": tool.starts_from, "anchors": tool.anchor_list(request.get("params") or {})}
         if kind == "measure":
             topology = self._require_document().current

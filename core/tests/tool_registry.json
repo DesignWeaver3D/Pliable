@@ -2705,7 +2705,7 @@
  {
   "id": "sweep_face",
   "label": "Sweep face along edge",
-  "description": "Pulls a face along an edge to make a solid. Select one face and the edge to follow; mode 0 adds the solid, 1 cuts it.",
+  "description": "Pulls a face along an edge to make a solid. Select one face and the edge to follow (or Shift-click a kept sketch's curve to follow the whole sketch); mode 0 adds the solid, 1 cuts it.",
   "accepts": {
    "faces": [
     1,
@@ -2746,7 +2746,7 @@
  {
   "id": "path_array",
   "label": "Array along path",
-  "description": "Needs an edge selected (it does not show in the tool strip otherwise). Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model), or the round walls of holes or bosses to copy just those features; the count includes the original.",
+  "description": "Needs an edge selected, or a kept sketch chosen with Shift-click on its curve (it does not show in the tool strip otherwise). Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model), or the round walls of holes or bosses to copy just those features; the count includes the original.",
   "accepts": {
    "faces": [
     0,

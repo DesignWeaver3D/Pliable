@@ -15,8 +15,9 @@ class PathArray(Tool):
 
     id = "path_array"
     label = "Array along path"
-    description = "Needs an edge selected (it does not show in the tool strip otherwise). Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model), or the round walls of holes or bosses to copy just those features; the count includes the original."
+    description = "Needs an edge selected, or a kept sketch chosen with Shift-click on its curve (it does not show in the tool strip otherwise). Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model), or the round walls of holes or bosses to copy just those features; the count includes the original."
     accepts = Accepts(faces=(0, None), edges=(1, None))
+    rail_accepts = Accepts(faces=(0, None))
     params = [Param("count", "number", 4)]
 
     def run(self, topology, selection, values, preview):
@@ -25,12 +26,15 @@ class PathArray(Tool):
         from OCP.GCPnts import GCPnts_AbscissaPoint
 
         count = _array_copies(values["count"])
-        maker = BRepBuilderAPI_MakeWire()
-        for i in selection.edges:
-            maker.Add(topology.edge(i))
-        if not maker.IsDone():
-            raise OperationError("The selected edges do not form one connected path")
-        wire = maker.Wire()
+        if selection.rail_wire is not None:
+            wire = selection.rail_wire
+        else:
+            maker = BRepBuilderAPI_MakeWire()
+            for i in selection.edges:
+                maker.Add(topology.edge(i))
+            if not maker.IsDone():
+                raise OperationError("The selected edges do not form one connected path")
+            wire = maker.Wire()
         curve = BRepAdaptor_CompCurve(wire)
         total = GCPnts_AbscissaPoint.Length_s(curve)
         closed = curve.IsClosed()
