@@ -408,3 +408,21 @@ def test_through_cut_commits_through_the_session():
     session.handle({"type": "tool_preview", "tool": "push_pull", "selection": {"faces": [boss_top]}, "params": {"distance": -500}})
     session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": [boss_top]}, "params": {"distance": -500}})
     assert volume(session.document.current.shape) == pytest.approx(before - 100 * 25)
+
+
+def test_export_mesh_deflection_options_change_the_triangle_count():
+    session = Session()
+    session.handle({"type": "open_demo", "name": "bracket"})
+
+    def triangles(**options):
+        data = base64.b64decode(session.handle({"type": "export_mesh", "format": "obj", **options})["data"])
+        return data.count(b"\nf ")
+
+    default = triangles()
+    coarse = triangles(linear=1.0, angular=1.0)
+    assert coarse < default
+    assert triangles(linear=0.003, angular=0.5) == default  # the defaults are the slicer's STEP import values
+    with pytest.raises(Exception):
+        triangles(linear=0)
+    with pytest.raises(Exception):
+        triangles(angular=True)

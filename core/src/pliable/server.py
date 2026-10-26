@@ -369,7 +369,13 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
         if kind == "export_mesh":
             document = self._require_document()
             try:
-                data = write_mesh(document.current.shape, str(request.get("format")))
+                kwargs = {}
+                for key, name in (("linear", "linear"), ("angular", "angular")):
+                    if key in request:
+                        if isinstance(request[key], bool) or not isinstance(request[key], (int, float)):
+                            raise RequestError(f"{name} deflection must be a number")
+                        kwargs[name] = float(request[key])
+                data = write_mesh(document.current.shape, str(request.get("format")), **kwargs)
             except ValueError as e:
                 raise RequestError(str(e)) from e
             return {"name": document.name, "data": base64.b64encode(data).decode()}

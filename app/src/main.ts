@@ -36,6 +36,7 @@ import { expand, relatedState, renderChips as chipsRender, type RelatedRule } fr
 import { installBodyActions } from "./bodyactions";
 import { Palette, type Command } from "./palette";
 import { toolKeywords } from "./search";
+import { askMeshOptions } from "./meshexportdialog";
 import { TOOLS_HANDLE_ICON, uiIcon } from "./icons";
 import type { AnchorInfo } from "./placepick";
 import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type HandleInfo, type ToolInfo } from "./tools";
@@ -1011,10 +1012,15 @@ const exportAs = (request: string, extension: string, params: Record<string, unk
 $("export").addEventListener("click", () => exportAs("export_step", "step"));
 $("saveproject").addEventListener("click", () => exportAs("save_project", "plbl"));
 const exportMesh = $("exportmesh") as HTMLSelectElement;
+/** Ask for the tessellation, then export the mesh. */
+async function exportMeshAs(format: string) {
+  const options = await askMeshOptions(format);
+  if (options) void exportAs("export_mesh", format, { format, ...options });
+}
 exportMesh.addEventListener("change", () => {
   const format = exportMesh.value;
   exportMesh.value = "";
-  if (format) void exportAs("export_mesh", format, { format });
+  if (format) void exportMeshAs(format);
 });
 
 select.addEventListener("change", () => {
@@ -1094,7 +1100,7 @@ function commands(): Command[] {
       scope: "file" as const,
       keywords: ["save", "download", "print"],
       enabled: true,
-      run: () => exportAs("export_mesh", format, { format }),
+      run: () => void exportMeshAs(format),
     })),
     ...demos,
   ];

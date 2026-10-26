@@ -79,24 +79,37 @@ def write_step(shape: TopoDS_Shape) -> bytes:
 
 
 MESH_FORMATS = ("stl", "obj", "3mf")
-MESH_TOLERANCE = 0.01  # model units; chord deviation of the exported triangles
+# The slicer's own defaults for importing a STEP file (its STEP mesh dialog and app config): linear deflection 0.003 mm,
+# angular deflection 0.5 radian, both absolute (see docs/decisions-log.md). Its dialog accepts 0.001 to 0.1 mm and 0.01 to 1.0 rad.
+MESH_LINEAR_DEFLECTION = 0.003
+MESH_ANGULAR_DEFLECTION = 0.5
+LINEAR_RANGE = (0.0001, 10.0)
+ANGULAR_RANGE = (0.01, 1.5)
 
 
-def write_mesh(shape: TopoDS_Shape, fmt: str) -> bytes:
-    """Triangle-mesh export (STL, OBJ, 3MF). Lossy compared with STEP: curved faces become triangles."""
+def write_mesh(shape: TopoDS_Shape, fmt: str, linear: float = MESH_LINEAR_DEFLECTION, angular: float = MESH_ANGULAR_DEFLECTION) -> bytes:
+    """Triangle-mesh export (STL, OBJ, 3MF). Lossy compared with STEP: curved faces become triangles.
+    `linear` is the largest distance (model units) between the surface and its triangles; `angular` the largest angle (radians) between neighbouring triangles' normals.
+    The export meshes a copy of the shape, so what is drawn in the view is not affected."""
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
+
     if fmt not in MESH_FORMATS:
         raise ValueError(f"Unknown mesh format {fmt!r}")
-    solid = Shape.cast(shape)
+    if not LINEAR_RANGE[0] <= linear <= LINEAR_RANGE[1]:
+        raise ValueError(f"The linear deflection must be between {LINEAR_RANGE[0]} and {LINEAR_RANGE[1]}")
+    if not ANGULAR_RANGE[0] <= angular <= ANGULAR_RANGE[1]:
+        raise ValueError(f"The angular deflection must be between {ANGULAR_RANGE[0]} and {ANGULAR_RANGE[1]} radians")
+    solid = Shape.cast(BRepBuilderAPI_Copy(shape, True).Shape())
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, f"export.{fmt}")
         if fmt == "stl":
-            export_stl(solid, path, tolerance=MESH_TOLERANCE)
+            export_stl(solid, path, tolerance=linear, angular_tolerance=angular)
         elif fmt == "3mf":
             mesher = Mesher()
-            mesher.add_shape(solid, linear_deflection=MESH_TOLERANCE)
+            mesher.add_shape(solid, linear_deflection=linear, angular_deflection=angular)
             mesher.write(path)
         else:
-            vertices, triangles = solid.tessellate(MESH_TOLERANCE)
+            vertices, triangles = solid.tessellate(linear, angular)
             with open(path, "w") as f:
                 f.write("# Pliable export" + chr(10))
                 for v in vertices:
