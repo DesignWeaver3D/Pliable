@@ -1318,3 +1318,35 @@ def test_an_ellipse_axis_line_takes_symmetric_about_the_vertical_axis():
     assert result["status"] == "ok"
     at = coords(result)
     assert at[2][1] == pytest.approx(at[4][1], abs=1e-6) and at[2][0] == pytest.approx(-at[4][0], abs=1e-6)
+
+
+def _circle_sketch(constraints):
+    return sketch_of([{"id": 1, "u": 0, "v": 0}], [{"id": 10, "type": "circle", "center": 1, "radius": 5}], constraints)
+
+
+def test_a_fixed_point_stays_put_when_dragged():
+    from pliable.server import Session
+
+    sk = _circle_sketch([{"id": 5, "type": "fixed", "point": 1}])
+    session = Session()
+    result = session.handle({"type": "sketch_solve", "sketch": sk, "drag": {"point": 1, "u": 20, "v": 10}})
+    assert result["status"] == "ok" and result["dof"] == 1  # only the radius is left
+    assert coords(result)[1] == pytest.approx((0, 0))
+
+
+def test_a_locked_circle_does_not_move_or_resize():
+    from pliable.server import Session
+
+    sk = _circle_sketch([{"id": 5, "type": "block", "entity": 10}])
+    result = Session().handle({"type": "sketch_solve", "sketch": sk, "drag": {"point": 1, "u": 20, "v": 10}})
+    assert result["dof"] == 0 and coords(result)[1] == pytest.approx((0, 0))
+
+
+def test_a_circle_with_a_placed_centre_still_reports_its_free_radius():
+    from pliable.server import Session
+
+    session = Session()
+    fixed = _circle_sketch([{"id": 5, "type": "fixed", "point": 1}])
+    assert session.handle({"type": "sketch_freedom", "sketch": fixed})["free_sizes"] == [10]
+    sized = _circle_sketch([{"id": 5, "type": "fixed", "point": 1}, {"id": 6, "type": "radius", "entity": 10, "value": 5}])
+    assert session.handle({"type": "sketch_freedom", "sketch": sized})["free_sizes"] == []

@@ -101,6 +101,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Dimension values are always drawn upright (horizontal on the screen), whatever direction their line runs, including vertical dimensions (owner, 2026-10-24).
 - The sketch's horizontal and vertical axes can be picked like lines (when no other curve or point is near) and dimensioned or constrained to; the Symmetric button is always on the strip and takes two points about a line, three points about the third, or two lines about a line or a point.
 - A Symmetric constraint shows a "Sym" mark at each of its mirrored points (not at the axis or line), and mirrors the points about the chosen axis or line.
+- A Fixed point stays where it is when dragged; a circle is drawn as fully constrained only when its radius is fixed as well.
 - In a sketch the top bar's Undo and Redo and Ctrl+Z, Ctrl+Y step through the sketch's own edits; a constraint that is dropped says which constraints it repeats or conflicts with.
 - Shift or Ctrl+click on a kept sketch's tinted region adds it to (or takes it out of) the picked regions; all picked regions of one sketch are selected as faces together.
 - Hovering a sketch in the sketches list lights its row and its curves in the view (white); a picked sketch is orange in both. Hovering a sketch's curves or tinted region in the view lights it the same way. Double-clicking a sketch row opens it for editing; renaming and deleting are in its right-click menu.

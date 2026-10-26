@@ -116,6 +116,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   failed = new Set<number>();
   /** Directions each point can still move in (0 = placed by the constraints); empty until the first settled solve. */
   private freedom = new Map<number, number>();
+  /** Circles whose radius is not fixed yet: not drawn as fully constrained even when their centre is placed. */
+  private freeSizes = new Set<number>();
   /** Set by clicking the degrees of freedom message: the points and curves that still have freedom light up yellow. */
   private showFree = false;
   /** Whether small tags (H, V, T, =, ...) show where constraints act. */
@@ -229,6 +231,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.dof = null;
     this.failed.clear();
     this.freedom.clear();
+    this.freeSizes.clear();
     this.showFree = false;
     this.undoStack = [];
     this.active = true;
@@ -1495,9 +1498,10 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private async refreshFreedom() {
     const seq = ++this.freedomSeq;
     try {
-      const reply = await this.core.request<{ freedom: Record<string, number> }>("sketch_freedom", { sketch: M.forSolver(this.s) });
+      const reply = await this.core.request<{ freedom: Record<string, number>; free_sizes?: number[] }>("sketch_freedom", { sketch: M.forSolver(this.s) });
       if (seq !== this.freedomSeq || !this.active) return;
       this.freedom = new Map(Object.entries(reply.freedom).map(([id, n]) => [Number(id), n]));
+      this.freeSizes = new Set(reply.free_sizes ?? []);
       this.render(false);
     } catch {
       // the points keep their earlier colours
@@ -1807,7 +1811,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
 
   /** Whether the constraints already place every point of the entity (drawn green, like a fully constrained shape). */
   private isPlaced(e: M.SketchEntity): boolean {
-    if (!this.freedom.size || this.failed.size) return false;
+    if (!this.freedom.size || this.failed.size || this.freeSizes.has(e.id)) return false;
     const ids = M.entityPoints(e);
     return ids.length > 0 && ids.every((id) => this.freedom.get(id) === 0);
   }

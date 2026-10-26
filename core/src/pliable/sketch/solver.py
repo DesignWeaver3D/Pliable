@@ -446,10 +446,10 @@ def _solved(sketch: dict, drag: dict | None = None, skip: int | None = None) -> 
                 solver.add_constraint(c)
         pins: dict[int, int] = {}  # slvs handle of a pin -> index in `pins_wanted`
         for k, (pid, axis, want) in enumerate(pins_wanted):
+            if pid in solver.held:
+                continue  # already fixed by a constraint: it stays put (pinning it again is a redundancy)
             entity = solver._point(pid)
             solver.system.getParam(solver.system.getEntityParam(entity, axis)).val = want
-            if pid in solver.held:
-                continue  # already fixed by a constraint: pinning it again is a redundancy
             pins[solver.pin(pid, axis, want)] = k
         result = solver.solve()
         if result["status"] == "ok" or len(pins_wanted) < 2:
