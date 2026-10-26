@@ -17,7 +17,7 @@ class ResizeFillet(Tool):
 
     id = "resize_fillet"
     label = "Resize fillet"
-    description = "Changes the radius of an existing fillet. Select the fillet face; an end radius of 0 keeps the radius constant."
+    description = "Changes the radius of an existing fillet. Select the fillet face (a fillet along a chain of edges is resized as a whole); an end radius of 0 keeps the radius constant."
     accepts = Accepts(faces=(1, 1))
     params = [Param("radius", "length", 2), Param("end_radius", "length", 0)]
 
@@ -35,5 +35,10 @@ class ResizeFillet(Tool):
                 if not other.IsSame(face) and _tangent(edge, face, other) and not any(other.IsSame(n) for n in neighbours):
                     neighbours.append(other)
         if len(neighbours) != 2:
-            raise OperationError("That face is not a simple fillet between two faces")
+            # A fillet along a chain of tangent edges: every face of the chain is resized together.
+            from ..shared.roundchain import rebuild_chain
+
+            if values["end_radius"] > 0:
+                raise OperationError("A variable radius can only be set on a fillet between two faces; leave the end radius at 0")
+            return rebuild_chain(topology, face, values["radius"])
         return _rebuild_round(topology, face, neighbours, values["radius"], chamfer=False, end_size=values["end_radius"])
