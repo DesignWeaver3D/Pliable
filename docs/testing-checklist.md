@@ -89,3 +89,5 @@ Restart the core before testing anything in the first group.
 - [ ] Divide face: the arrow grip moves the dividing edge; the new angle field turns the line; columns and rows above 1 divide the face into an even grid (no grip then; dragging over the face goes back to one line).
 - [ ] Move hole/boss: three move arrows (X, Y, Z) appear at the hole's middle and move the hole.
 - [ ] Circular array: an arc grip sets the angle and an arrow grip on the first copy sets the count; axis is a list (X, Y, Z, Picked edge) and Pick axis edge turns the copies about a straight or circular edge you click.
+- [ ] Provisional decision: Linear, Circular and Array along path copy just the selected holes or bosses when every selected face is a full round hole or boss wall (reason: the owner asked for arrays on features; other face selections still copy the whole body). Select a hole's wall, run Linear array: only that hole is repeated.
+- [ ] Distribute holes/bosses: its tooltip now says it spaces holes along one axis only (so the four holes of the bracket base spread unevenly); confirm whether to keep, redesign or merge it with arrays on features.

@@ -748,7 +748,7 @@
  {
   "id": "distribute_holes",
   "label": "Distribute holes / bosses",
-  "description": "Spaces holes or bosses evenly between the two outermost ones, along the chosen axis (0 = X, 1 = Y, 2 = Z). Select three or more round faces.",
+  "description": "Spaces holes or bosses evenly between the two outermost ones, along the chosen axis (0 = X, 1 = Y, 2 = Z). Select three or more round faces in a row: only the position along the chosen axis changes, so a grid of holes (the four of a bracket base) is spread unevenly; select one row at a time.",
   "accepts": {
    "faces": [
     3,
@@ -2142,7 +2142,7 @@
  {
   "id": "linear_array",
   "label": "Linear array",
-  "description": "Makes copies of a body in a grid of columns and rows and fuses them. Select any face of the body, or nothing for the whole model; the counts include the original. Set rows to 1 for a single line.",
+  "description": "Makes copies of a body in a grid of columns and rows and fuses them. Select any face of the body, or nothing for the whole model; select only the round walls of holes or bosses to copy just those features; the counts include the original. Set rows to 1 for a single line.",
   "accepts": {
    "faces": [
     0,
@@ -2236,7 +2236,7 @@
  {
   "id": "circular_array",
   "label": "Circular array",
-  "description": "Makes copies of a body (select any of its faces, or nothing for the whole model) around the X, Y or Z axis through the origin, or around a picked edge (Pick axis edge), and fuses them. The count includes the original; 360 spreads them round a full circle. Drag the arc grip for the angle and the arrow grip for the count.",
+  "description": "Makes copies of a body (select any of its faces, or nothing for the whole model; select only the round walls of holes or bosses to copy just those features) around the X, Y or Z axis through the origin, or around a picked edge (Pick axis edge), and fuses them. The count includes the original; 360 spreads them round a full circle. Drag the arc grip for the angle and the arrow grip for the count.",
   "accepts": {
    "faces": [
     0,
@@ -2691,7 +2691,7 @@
  {
   "id": "path_array",
   "label": "Array along path",
-  "description": "Needs an edge selected (it does not show in the tool strip otherwise). Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model); the count includes the original.",
+  "description": "Needs an edge selected (it does not show in the tool strip otherwise). Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model), or the round walls of holes or bosses to copy just those features; the count includes the original.",
   "accepts": {
    "faces": [
     0,

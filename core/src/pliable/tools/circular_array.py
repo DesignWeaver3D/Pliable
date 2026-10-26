@@ -20,7 +20,7 @@ class CircularArray(Tool):
     id = "circular_array"
     whole_model_needs_one_body = True
     label = "Circular array"
-    description = "Makes copies of a body (select any of its faces, or nothing for the whole model) around the X, Y or Z axis through the origin, or around a picked edge (Pick axis edge), and fuses them. The count includes the original; 360 spreads them round a full circle. Drag the arc grip for the angle and the arrow grip for the count."
+    description = "Makes copies of a body (select any of its faces, or nothing for the whole model; select only the round walls of holes or bosses to copy just those features) around the X, Y or Z axis through the origin, or around a picked edge (Pick axis edge), and fuses them. The count includes the original; 360 spreads them round a full circle. Drag the arc grip for the angle and the arrow grip for the count."
     accepts = Accepts(faces=(0, None))
     params = [Param("count", "number", 4), Param("axis", "number", 2, options=AXIS_CHOICES), Param("angle", "angle", 360), Param("axis_edge", "number", -1)]
     pick_edge = ("axis_edge", "axis")  # the form's Pick axis edge button fills the edge id and chooses "Picked edge"

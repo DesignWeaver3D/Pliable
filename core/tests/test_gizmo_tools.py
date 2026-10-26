@@ -122,3 +122,33 @@ def test_move_hole_has_three_move_arrows_that_follow_the_move():
     at1 = tool.handles(topology, Selection(faces=[face]), {"dx": 5, "dy": 0, "dz": 0})
     assert [h.param for h in at0] == ["dx", "dy", "dz"] and all(h.kind == "move" for h in at0)
     assert at1[0].anchor[0] - at0[0].anchor[0] == pytest.approx(5)
+
+
+def hole_faces(topology):
+    from pliable.shared.hole_groups import Hole
+    from pliable.ops import OperationError
+
+    out = []
+    for i in range(topology.face_count):
+        try:
+            Hole(topology.face(i))
+            out.append(i)
+        except OperationError:
+            pass
+    return out
+
+
+def test_arrays_copy_a_selected_hole_instead_of_the_body():
+    topology = Topology(load_demo("bracket"))
+    faces = hole_faces(topology)
+    assert faces
+    face = faces[1]
+    hole_count_before = len(hole_faces(topology))
+    result = get_tool("linear_array").execute(
+        topology, Selection(faces=[face]), {"count": 3, "rows": 1, "dx": 0, "dy": 6, "dz": 0, "dx2": 0, "dy2": 20, "dz2": 0}, preview=False)
+    after = Topology(result.shape)
+    assert len(after.bodies.bodies) == len(topology.bodies.bodies)  # not three copies of the bracket
+    assert volume(result.shape) <= volume(topology.shape) + 1e-6
+    circ = get_tool("circular_array").execute(topology, Selection(faces=[face]), {"count": 3, "axis": 2, "angle": 360, "axis_edge": -1}, preview=False)
+    assert len(Topology(circ.shape).bodies.bodies) == len(topology.bodies.bodies)
+    assert hole_count_before >= 1
