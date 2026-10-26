@@ -1479,6 +1479,34 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       };
     });
   },
+  pickPlane() {
+    return new Promise((resolve) => {
+      cancelEyedrop();
+      if (committed) show(committed); // pick against the committed model, whose face ids the core knows
+      status.classList.remove("error");
+      status.textContent = "Pick a flat face for the plane (Esc cancels)";
+      eyedropResolve = () => resolve(null);
+      viewport.eyedropper = async (sel) => {
+        if (sel.kind !== "face") {
+          status.textContent = "Pick a flat face (Esc cancels)";
+          status.classList.add("error");
+          return; // stays armed
+        }
+        viewport.eyedropper = null;
+        eyedropResolve = null;
+        try {
+          const f = await core.request<{ centre: number[]; normal: number[] }>("face_frame", { face: sel.id });
+          status.textContent = "Plane picked";
+          resolve({ origin: f.centre, normal: f.normal });
+        } catch (e) {
+          status.textContent = (e as Error).message; // not a flat face
+          status.classList.add("error");
+          resolve(null);
+        }
+      };
+    });
+  },
+  datumPlanes: () => datumPlanes.planes,
   cancelEyedrop,
   changed: () => {
     if (!toolPanel.isOpen) {

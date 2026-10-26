@@ -27,6 +27,10 @@ export interface ToolPanelHost {
   pickEdgePoint?(): Promise<number[] | null>;
   /** The id of an edge the user clicks, or null when cancelled (the circular array's axis). */
   pickEdgeId?(): Promise<number | null>;
+  /** A plane the user picks (a flat face clicked in the view), or null when cancelled (the mirror's plane). */
+  pickPlane?(): Promise<{ origin: number[]; normal: number[] } | null>;
+  /** The datum planes of the model, offered as buttons by tools that take a plane. */
+  datumPlanes?(): readonly { name: string; plane: { origin: number[]; normal: number[] } }[];
   /** Keep a marker at the picked base point (null removes it). */
   showBase?(point: number[] | null): void;
   /** The points of a new shape that can be put at the destination (primitives), for the current values. */
@@ -341,6 +345,30 @@ export class ToolPanel {
         this.schedulePreview(0);
       });
       buttons.before(pickEdge);
+    }
+    const planeNames = tool.pickPlane;
+    if (planeNames && planeNames.length === 7 && this.host.pickPlane) {
+      const usePlaneIn = (origin: number[], normal: number[]) => {
+        planeNames.slice(0, 3).forEach((name, i) => (inputs[name].value = String(parseFloat(origin[i].toFixed(4)))));
+        planeNames.slice(3, 6).forEach((name, i) => (inputs[name].value = String(parseFloat(normal[i].toFixed(6)))));
+        inputs[planeNames[6]].value = "4"; // the choice list: picked plane
+        this.schedulePreview(0);
+      };
+      const pickPlane = document.createElement("button");
+      pickPlane.textContent = "Pick plane";
+      pickPlane.title = "Click a flat face anywhere on the model to use its plane (use this when the tool was started with the wrong face selected)";
+      pickPlane.addEventListener("click", async () => {
+        const plane = await this.host.pickPlane!();
+        if (plane && this.open === tool) usePlaneIn(plane.origin, plane.normal);
+      });
+      const datums = (this.host.datumPlanes?.() ?? []).map((d) => {
+        const button = document.createElement("button");
+        button.textContent = `Datum: ${d.name}`;
+        button.title = `Use the datum plane ${d.name}`;
+        button.addEventListener("click", () => usePlaneIn(d.plane.origin, d.plane.normal));
+        return button;
+      });
+      buttons.before(pickPlane, ...datums);
     }
     this.formEl.hidden = false;
     this.inputs = inputs;

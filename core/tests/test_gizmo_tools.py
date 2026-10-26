@@ -152,3 +152,22 @@ def test_arrays_copy_a_selected_hole_instead_of_the_body():
     circ = get_tool("circular_array").execute(topology, Selection(faces=[face]), {"count": 3, "axis": 2, "angle": 360, "axis_edge": -1}, preview=False)
     assert len(Topology(circ.shape).bodies.bodies) == len(topology.bodies.bodies)
     assert hole_count_before >= 1
+
+
+def test_mirror_selected_bodies_across_origin_picked_and_face_planes():
+    topology = Topology(load_demo("bracket"))
+    tool = get_tool("mirror")
+    body = topology.bodies.bodies[0].id
+    base = {"offset": 0, "plane": 1, "px": 0, "py": 0, "pz": 0, "nx": 0, "ny": 0, "nz": 1}
+    lo, hi = bounds(topology.shape)
+    by_body = tool.execute(topology, Selection(bodies=[body]), {**base, "plane": 2, "offset": 100}, preview=False)
+    nlo, nhi = bounds(by_body.shape)
+    assert nhi[1] - nlo[1] > (hi[1] - lo[1]) * 1.5  # the XZ plane pushed out 100 mm: the copy sits apart
+    whole = tool.execute(topology, Selection(), {**base, "plane": 3}, preview=False)  # YZ plane through the origin
+    assert bounds(whole.shape)[1][0] >= hi[0] - 1e-6
+    picked = tool.execute(topology, Selection(), {**base, "plane": 4, "px": 0, "py": 0, "pz": hi[2] + 5, "nx": 0, "ny": 0, "nz": 1}, preview=False)
+    assert bounds(picked.shape)[1][2] > hi[2] + 5 + (hi[2] - lo[2]) * 0.9
+    with pytest.raises(Exception):
+        tool.execute(topology, Selection(), {**base, "plane": 0}, preview=False)  # the selected face is the plane but none is selected
+    flat = next(i for i in range(topology.face_count) if tool.available(topology, Selection(faces=[i])))
+    assert tool.execute(topology, Selection(faces=[flat]), {**base, "plane": 0}, preview=False).shape is not None

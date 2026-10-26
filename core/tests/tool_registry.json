@@ -1210,10 +1210,10 @@
  {
   "id": "mirror",
   "label": "Mirror",
-  "description": "Mirrors the whole model across the plane of a flat face and joins the copy. Select one flat face; offset moves the mirror plane.",
+  "description": "Mirrors bodies across a plane and joins the copy. Select bodies in the list (or nothing for the whole model) and optionally one flat face; choose the plane: the selected face, an origin plane, or a picked plane (Pick plane, or a datum plane button); offset moves the plane.",
   "accepts": {
    "faces": [
-    1,
+    0,
     1
    ],
    "edges": [
@@ -1226,7 +1226,7 @@
    ],
    "bodies": [
     0,
-    0
+    null
    ],
    "any_of": false
   },
@@ -1237,6 +1237,61 @@
     "default": 0.0,
     "drag": false,
     "options": []
+   },
+   {
+    "name": "plane",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Selected face",
+     "XY origin plane",
+     "XZ origin plane",
+     "YZ origin plane",
+     "Picked plane"
+    ]
+   },
+   {
+    "name": "px",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "py",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "pz",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "nx",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "ny",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "nz",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
    }
   ],
   "related": [],
@@ -1244,7 +1299,7 @@
   "move_vector": null,
   "starts_from": "selection",
   "hidden": false,
-  "whole_model_needs_one_body": false,
+  "whole_model_needs_one_body": true,
   "body_kind": "Body",
   "keeps_body_order": false
  },
