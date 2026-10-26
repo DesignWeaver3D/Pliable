@@ -56,3 +56,16 @@ test("the prism tool is found by polygon names", () => {
   const items = [{ label: "Add prism", scope: "tool", keywords: toolKeywords("add_prism") }];
   for (const word of ["hexagon", "polygon", "prism"]) assert.equal(searchItems(items, word)[0]?.label, "Add prism", word);
 });
+
+test("Unify, Patch fill, Bridge and Path array are found by their tool names", () => {
+  const list = [
+    { label: "Refine bodies", scope: "tool", keywords: toolKeywords("unify") },
+    { label: "Patch fill", scope: "tool", keywords: toolKeywords("patch_fill") },
+    { label: "Bridge edges", scope: "tool", keywords: toolKeywords("bridge") },
+    { label: "Array along path", scope: "tool", keywords: toolKeywords("path_array") },
+  ];
+  assert.equal(searchItems(list, "unify")[0].label, "Refine bodies");
+  assert.equal(searchItems(list, "Patch_fill")[0].label, "Patch fill");
+  assert.equal(searchItems(list, "bridge")[0].label, "Bridge edges");
+  assert.equal(searchItems(list, "path array")[0].label, "Array along path");
+});

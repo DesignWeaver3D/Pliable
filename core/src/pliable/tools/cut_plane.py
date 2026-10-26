@@ -12,6 +12,10 @@ from ..shared.solids import _bounds_diagonal, _combine, _compound, _volume
 from ..tools import Accepts, Param, register, Tool
 
 
+SIDE_CHOICES = ("None (keep both)", "Side 1 (the direction's side)", "Side 2 (the other side)")  # which part to remove; the value is the index
+PLANE_PICK = ("position", "nx", "ny", "nz", "axis")  # filled by the form's Pick plane and datum buttons, which set axis 3 (the direction nx, ny, nz)
+
+
 def _half_space(shape, normal, position: float, above: bool):
     """A block covering everything past the plane `normal . x = position` (on the normal's side when `above`)."""
     from OCP.gp import gp_Ax2, gp_Dir
@@ -46,9 +50,9 @@ def _cutting_plane(shape, values) -> tuple[tuple[float, float, float], float]:
 def _cut_bodies(topology, selection, values) -> TopoDS_Shape:
     """Cut the chosen bodies (every body when none is chosen) with the plane. `remove_side` +1 drops the part on the normal's side,
     -1 the other part, 0 keeps both parts as separate bodies. Bodies the plane misses stay as they are."""
-    side = values["remove_side"]
-    if side not in (1.0, -1.0, 0.0):
-        raise OperationError("remove_side must be +1, -1 or 0 (keep both)")
+    side = {0.0: 0.0, 1.0: 1.0, 2.0: -1.0, -1.0: -1.0}.get(values["remove_side"])  # the list gives 0 None, 1 Side 1, 2 Side 2; -1 (the old value for Side 2) still works
+    if side is None:
+        raise OperationError("Remove side must be None, Side 1 or Side 2")
     chosen, target = _cut_target(topology, selection)
     normal, position = _cutting_plane(target, values)
     out, cut = [], False
@@ -90,9 +94,11 @@ class CutPlane(Tool):
 
     id = "cut_plane"
     label = "Cut with plane"
-    description = "Cuts the model with a plane and keeps one side or both. Drag the arrow to slide the plane and the two rings to tilt it (tilt_u, tilt_v). Axis 0, 1, 2 is X, Y, Z; axis 3 uses the direction nx, ny, nz. Position is the plane's distance from the origin along its direction. Remove side +1 removes the part on the direction's side, -1 the other part, 0 keeps both as two separate bodies. Select bodies to cut only those; with nothing selected every body is cut."
+    description = "Cuts the model with a plane and keeps one side or both. Drag the arrow to slide the plane and the two rings to tilt it (tilt_u, tilt_v). Axis 0, 1, 2 is X, Y, Z; axis 3 uses the direction nx, ny, nz. Position is the plane's distance from the origin along its direction. Remove side picks Side 1 (the part on the direction's side), Side 2 (the other part) or None, which keeps both as two separate bodies. Pick plane (a flat face) or a datum plane button sets the plane from that object. Select bodies to cut only those; with nothing selected every body is cut."
     accepts = Accepts(faces=(0, None), bodies=(0, None))
-    params = [Param("axis", "number", 2), Param("position", "length"), Param("remove_side", "number", 1), Param("nx", "number", 0), Param("ny", "number", 0), Param("nz", "number", 1), *TILT]
+    params = [Param("axis", "number", 2), Param("position", "length"), Param("remove_side", "number", 1, options=SIDE_CHOICES), Param("nx", "number", 0), Param("ny", "number", 0), Param("nz", "number", 1), *TILT]
+
+    pick_plane = PLANE_PICK
 
     def handles(self, topology, selection, values):
         return _plane_handles(topology, selection, values)

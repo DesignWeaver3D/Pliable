@@ -37,6 +37,7 @@ import { expand, relatedState, renderChips as chipsRender, type RelatedRule } fr
 import { installBodyActions } from "./bodyactions";
 import { Palette, type Command } from "./palette";
 import { toolKeywords } from "./search";
+import { askMeshOptions } from "./meshexportdialog";
 import { TOOLS_HANDLE_ICON, uiIcon } from "./icons";
 import type { AnchorInfo } from "./placepick";
 import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type HandleInfo, type ToolInfo } from "./tools";
@@ -68,7 +69,7 @@ installAlphaUi($("bar"), core);
 installMessageLog(status, showMessage); // errors and warnings are kept for Copy diagnostics; a click on a cut-short message shows it whole
 
 const BUSY_LABELS: Record<string, string> = {
-  import_step: "Importing", combine_step: "Combining", export_step: "Exporting", save_project: "Saving", open_project: "Opening", open_demo: "Opening",
+  import_step: "Importing", combine_step: "Combining", export_step: "Exporting", export_cad: "Exporting", save_project: "Saving", open_project: "Opening", open_demo: "Opening",
   restore_session: "Restoring", tool_commit: "Applying", sketch_extrude: "Building", undo: "Undoing", redo: "Redoing",
 };
 const busyBox = $("busy");
@@ -1019,11 +1020,22 @@ const exportAs = (request: string, extension: string, params: Record<string, unk
 
 $("export").addEventListener("click", () => exportAs("export_step", "step"));
 $("saveproject").addEventListener("click", () => exportAs("save_project", "plbl"));
+const exportCad = $("exportcad") as HTMLSelectElement;
+exportCad.addEventListener("change", () => {
+  const format = exportCad.value;
+  exportCad.value = "";
+  if (format) void exportAs("export_cad", format === "stpz" ? "stpZ" : format, { format });
+});
 const exportMesh = $("exportmesh") as HTMLSelectElement;
+/** Ask for the tessellation, then export the mesh. */
+async function exportMeshAs(format: string) {
+  const options = await askMeshOptions(format);
+  if (options) void exportAs("export_mesh", format, { format, ...options });
+}
 exportMesh.addEventListener("change", () => {
   const format = exportMesh.value;
   exportMesh.value = "";
-  if (format) void exportAs("export_mesh", format, { format });
+  if (format) void exportMeshAs(format);
 });
 
 select.addEventListener("change", () => {
@@ -1085,9 +1097,9 @@ function commands(): Command[] {
     { label: "Keyboard shortcuts (see and change them; hotkeys)", scope: "view", keywords: ["keys", "bindings", "rebind"], hint: keys.keymap.hint("ui.shortcuts"), enabled: true, run: () => keys.openSettings() },
     { label: hintLine.prefs.on ? "Turn hints off" : "Turn hints on", scope: "view", keywords: ["tips", "help line"], enabled: true, run: () => hintLine.setOn(!hintLine.prefs.on) },
     { label: "Getting started (the first things to try)", scope: "view", keywords: ["help", "tutorial", "learn", "tips", "intro", "basics"], enabled: true, run: () => hintLine.showGettingStarted() },
-    { label: "Import STEP file (add to model)", scope: "file", enabled: true, run: () => $("open").click() },
+    { label: "Import STEP file (add to model)", scope: "file", keywords: ["iges", "igs", "brep", "stpz", "stp", "cad"], enabled: true, run: () => $("open").click() },
     { label: "New project (empty)", scope: "file", keywords: ["blank", "clear"], enabled: true, run: () => $("newproject").click() },
-    { label: "Open STEP file as new project", scope: "file", enabled: true, run: () => $("openasnew").click() },
+    { label: "Open STEP file as new project", scope: "file", keywords: ["iges", "igs", "brep", "stpz", "stp", "cad"], enabled: true, run: () => $("openasnew").click() },
     ...(["XY", "XZ", "YZ"] as const).map((plane) => ({ label: `Add datum plane: ${plane} origin plane`, scope: "file" as const, keywords: ["helper plane", "construction", "mirror"], enabled: true, run: () => addDatum({ plane }) })),
     ...(["XY", "XZ", "YZ"] as const).map((plane) => ({ label: `Mirror mode on: ${plane} origin plane`, scope: "file" as const, keywords: ["symmetry", "symmetric", "mirror"], enabled: true, run: () => keptRequest("mirror_set", { plane }) })),
     { label: "Mirror mode on: the selected face", scope: "file", keywords: ["symmetry", "symmetric", "mirror"], enabled: currentSels.length === 1 && currentSels[0].kind === "face", run: () => keptRequest("mirror_set", { face: currentSels[0].id, name: "Selected face" }) },
@@ -1103,7 +1115,7 @@ function commands(): Command[] {
       scope: "file" as const,
       keywords: ["save", "download", "print"],
       enabled: true,
-      run: () => exportAs("export_mesh", format, { format }),
+      run: () => void exportMeshAs(format),
     })),
     ...demos,
   ];
@@ -1302,7 +1314,7 @@ async function updateDivideFrame() {
     viewport.divideFrame = null;
   }
 }
-viewport.onDivideDrag = (across, offset) => toolPanel.setValues({ across, offset });
+viewport.onDivideDrag = (across, offset) => toolPanel.setValues({ across, offset, angle: 0, columns: 0, rows: 0 }); // a drag places one line along an axis
 
 let formPreviewSeq = 0;
 let previewBusy = false;
@@ -1456,6 +1468,54 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       };
     });
   },
+  pickEdgeId() {
+    return new Promise((resolve) => {
+      cancelEyedrop();
+      if (committed) show(committed); // pick against the committed model, whose edge ids the core knows
+      status.classList.remove("error");
+      status.textContent = "Pick the edge the copies turn about (a straight or circular edge; Esc cancels)";
+      eyedropResolve = () => resolve(null);
+      viewport.eyedropper = (sel) => {
+        if (sel.kind !== "edge") {
+          status.textContent = "Pick an edge (Esc cancels)";
+          status.classList.add("error");
+          return; // stays armed
+        }
+        viewport.eyedropper = null;
+        eyedropResolve = null;
+        status.textContent = "Axis edge picked";
+        resolve(sel.id);
+      };
+    });
+  },
+  pickPlane() {
+    return new Promise((resolve) => {
+      cancelEyedrop();
+      if (committed) show(committed); // pick against the committed model, whose face ids the core knows
+      status.classList.remove("error");
+      status.textContent = "Pick a flat face for the plane (Esc cancels)";
+      eyedropResolve = () => resolve(null);
+      viewport.eyedropper = async (sel) => {
+        if (sel.kind !== "face") {
+          status.textContent = "Pick a flat face (Esc cancels)";
+          status.classList.add("error");
+          return; // stays armed
+        }
+        viewport.eyedropper = null;
+        eyedropResolve = null;
+        try {
+          const f = await core.request<{ centre: number[]; normal: number[] }>("face_frame", { face: sel.id });
+          status.textContent = "Plane picked";
+          resolve({ origin: f.centre, normal: f.normal });
+        } catch (e) {
+          status.textContent = (e as Error).message; // not a flat face
+          status.classList.add("error");
+          resolve(null);
+        }
+      };
+    });
+  },
+  datumPlanes: () => datumPlanes.planes,
   cancelEyedrop,
   changed: () => {
     if (!toolPanel.isOpen) {

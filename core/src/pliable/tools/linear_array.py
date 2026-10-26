@@ -33,7 +33,7 @@ class LinearArray(Tool):
     whole_model_needs_one_body = True
     label = "Linear array"
     description = (
-        "Makes copies of a body in a grid of columns and rows and fuses them. Select any face of the body, or nothing for the whole model; the counts include the original. "
+        "Makes copies of a body in a grid of columns and rows and fuses them. Select any face of the body, or nothing for the whole model; select only the round walls of holes or bosses to copy just those features; the counts include the original. "
         "Set rows to 1 for a single line."
     )
     accepts = Accepts(faces=(0, None))

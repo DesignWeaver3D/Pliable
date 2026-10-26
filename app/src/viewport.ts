@@ -15,7 +15,7 @@ import { PullGizmo } from "./pullgizmo";
 import { PullDirection, edgeVector, type Vec } from "./pulldir";
 import type { HandleInfo } from "./tools";
 import { onSettingsChange, settings, updateSettings } from "./settings";
-import { parentBodies, similarTo, type SimilarKind } from "./selfilter";
+import { canJoinSelection, parentBodies, similarTo, type SimilarKind } from "./selfilter";
 import { bodyColorArray } from "./bodycolorarray";
 import { fitBoxOf } from "./sketchfit";
 
@@ -1887,7 +1887,7 @@ export class Viewport {
     if (!additive) next = sel ? [sel] : [];
     else if (!sel) next = this.selected;
     else if (this.isSelected(sel)) next = this.selected.filter((s) => !(s.kind === sel.kind && s.id === sel.id));
-    else next = this.selected.length && this.selected[0].kind === sel.kind ? [...this.selected, sel] : [sel];
+    else next = this.selected.length && canJoinSelection(this.selected[0].kind, sel.kind) ? [...this.selected, sel] : [sel];
     this.selectItems(next);
     this.onSelect(next);
   }

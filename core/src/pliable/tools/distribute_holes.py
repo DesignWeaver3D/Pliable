@@ -10,7 +10,7 @@ class DistributeHoles(_HoleGroup):
 
     id = "distribute_holes"
     label = "Distribute holes / bosses"
-    description = "Spaces holes or bosses evenly between the two outermost ones, along the chosen axis (0 = X, 1 = Y, 2 = Z). Select three or more round faces."
+    description = "Spaces holes or bosses evenly between the two outermost ones, along the chosen axis (0 = X, 1 = Y, 2 = Z). Select three or more round faces in a row: only the position along the chosen axis changes, so a grid of holes (the four of a bracket base) is spread unevenly; select one row at a time."
     accepts = Accepts(faces=(3, None))
     params = [Param("axis", "number", 0)]
 

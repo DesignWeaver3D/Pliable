@@ -22,13 +22,49 @@ from .ops import solids_of
 SEWING_TOLERANCE = 1e-3  # model units (mm): gaps up to this size between surface edges are stitched shut
 
 
-def read_step_tree(data: bytes):
-    """The imported assembly as a build123d tree, which keeps the part names."""
+CAD_EXTENSIONS = ("step", "stp", "stpz", "iges", "igs", "brep", "brp")  # the CAD formats the kernel reads and writes without extra packages
+MAX_UNPACKED = 1 << 30  # bytes a compressed STEP file may unpack to
+
+
+def cad_kind(extension: str) -> str:
+    """"step", "stpz", "iges" or "brep" for a file extension (any case, with or without the dot)."""
+    ext = str(extension or "step").lower().lstrip(".")
+    if ext not in CAD_EXTENSIONS:
+        raise ValueError(f"Unknown CAD file type {extension!r}; the supported ones are {', '.join('.' + e for e in CAD_EXTENSIONS)}")
+    return {"stp": "step", "igs": "iges", "brp": "brep"}.get(ext, ext)
+
+
+def read_step_tree(data: bytes, extension: str = "step"):
+    """The imported assembly as a build123d tree, which keeps the part names (STEP; IGES and BREP files have no part names)."""
+    kind = cad_kind(extension)
+    if kind == "stpz":
+        import zlib
+
+        unpacker = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        data = unpacker.decompress(data, MAX_UNPACKED)
+        if unpacker.unconsumed_tail:
+            raise ValueError("The compressed STEP file unpacks to more than 1 GB")
+        kind = "step"
     with tempfile.TemporaryDirectory() as tmp:
-        path = os.path.join(tmp, "import.step")
+        path = os.path.join(tmp, f"import.{ {'step': 'step', 'iges': 'igs', 'brep': 'brep'}[kind] }")
         with open(path, "wb") as f:
             f.write(data)
-        return import_step(path)
+        if kind == "step":
+            return import_step(path)
+        if kind == "iges":
+            from OCP.IGESControl import IGESControl_Reader
+
+            reader = IGESControl_Reader()
+            if reader.ReadFile(path) != 1 or reader.TransferRoots() == 0:
+                raise ValueError("Could not read that IGES file")
+            return Shape.cast(reader.OneShape())
+        from OCP.BRep import BRep_Builder
+        from OCP.BRepTools import BRepTools
+
+        shape = TopoDS_Shape()
+        if not BRepTools.Read_s(shape, path, BRep_Builder()) or shape.IsNull():
+            raise ValueError("Could not read that BREP file")
+        return Shape.cast(shape)
 
 
 def read_step(data: bytes) -> TopoDS_Shape:
@@ -59,9 +95,9 @@ def read_step_checked(data: bytes) -> tuple[TopoDS_Shape, list[str]]:
     return shape, warnings
 
 
-def read_step_parts(data: bytes) -> tuple[TopoDS_Shape, list[str], list[tuple[TopoDS_Shape, str]]]:
+def read_step_parts(data: bytes, extension: str = "step") -> tuple[TopoDS_Shape, list[str], list[tuple[TopoDS_Shape, str]]]:
     """Like read_step_checked, plus the (solid, part name) pairs of the file's named parts."""
-    root = read_step_tree(data)
+    root = read_step_tree(data, extension)
     names = []  # (shell, part name) for every surface body outside a solid
     for leaf in [root, *root.descendants]:
         for shell in _loose_shells(leaf.wrapped):
@@ -78,25 +114,67 @@ def write_step(shape: TopoDS_Shape) -> bytes:
             return f.read()
 
 
+def write_cad(shape: TopoDS_Shape, extension: str) -> bytes:
+    """The model as a STEP (.step, .stp), compressed STEP (.stpz), IGES (.iges, .igs) or BREP (.brep, .brp) file."""
+    kind = cad_kind(extension)
+    if kind == "step":
+        return write_step(shape)
+    if kind == "stpz":
+        import gzip
+
+        return gzip.compress(write_step(shape))
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "export." + ("igs" if kind == "iges" else "brep"))
+        if kind == "iges":
+            from OCP.IGESControl import IGESControl_Writer
+
+            writer = IGESControl_Writer("MM", 1)  # 1 writes solids as BREP entities, not loose faces
+            if not writer.AddShape(shape):
+                raise ValueError("Could not write that model as IGES")
+            writer.ComputeModel()
+            if not writer.Write(path):
+                raise ValueError("Could not write that model as IGES")
+        else:
+            from OCP.BRepTools import BRepTools
+
+            if not BRepTools.Write_s(shape, path):
+                raise ValueError("Could not write that model as BREP")
+        with open(path, "rb") as f:
+            return f.read()
+
+
 MESH_FORMATS = ("stl", "obj", "3mf")
-MESH_TOLERANCE = 0.01  # model units; chord deviation of the exported triangles
+# The slicer's own defaults for importing a STEP file (its STEP mesh dialog and app config): linear deflection 0.003 mm,
+# angular deflection 0.5 radian, both absolute (see docs/decisions-log.md). Its dialog accepts 0.001 to 0.1 mm and 0.01 to 1.0 rad.
+MESH_LINEAR_DEFLECTION = 0.003
+MESH_ANGULAR_DEFLECTION = 0.5
+LINEAR_RANGE = (0.0001, 10.0)
+ANGULAR_RANGE = (0.01, 1.5)
 
 
-def write_mesh(shape: TopoDS_Shape, fmt: str) -> bytes:
-    """Triangle-mesh export (STL, OBJ, 3MF). Lossy compared with STEP: curved faces become triangles."""
+def write_mesh(shape: TopoDS_Shape, fmt: str, linear: float = MESH_LINEAR_DEFLECTION, angular: float = MESH_ANGULAR_DEFLECTION) -> bytes:
+    """Triangle-mesh export (STL, OBJ, 3MF). Lossy compared with STEP: curved faces become triangles.
+    `linear` is the largest distance (model units) between the surface and its triangles; `angular` the largest angle (radians) between neighbouring triangles' normals.
+    The export meshes a copy of the shape, so what is drawn in the view is not affected."""
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
+
     if fmt not in MESH_FORMATS:
         raise ValueError(f"Unknown mesh format {fmt!r}")
-    solid = Shape.cast(shape)
+    if not LINEAR_RANGE[0] <= linear <= LINEAR_RANGE[1]:
+        raise ValueError(f"The linear deflection must be between {LINEAR_RANGE[0]} and {LINEAR_RANGE[1]}")
+    if not ANGULAR_RANGE[0] <= angular <= ANGULAR_RANGE[1]:
+        raise ValueError(f"The angular deflection must be between {ANGULAR_RANGE[0]} and {ANGULAR_RANGE[1]} radians")
+    solid = Shape.cast(BRepBuilderAPI_Copy(shape, True).Shape())
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, f"export.{fmt}")
         if fmt == "stl":
-            export_stl(solid, path, tolerance=MESH_TOLERANCE)
+            export_stl(solid, path, tolerance=linear, angular_tolerance=angular)
         elif fmt == "3mf":
             mesher = Mesher()
-            mesher.add_shape(solid, linear_deflection=MESH_TOLERANCE)
+            mesher.add_shape(solid, linear_deflection=linear, angular_deflection=angular)
             mesher.write(path)
         else:
-            vertices, triangles = solid.tessellate(MESH_TOLERANCE)
+            vertices, triangles = solid.tessellate(linear, angular)
             with open(path, "w") as f:
                 f.write("# Pliable export" + chr(10))
                 for v in vertices:

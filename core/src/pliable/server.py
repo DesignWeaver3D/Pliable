@@ -32,7 +32,7 @@ from . import diagnostics
 from .usage import Usage
 from .document import Document
 from .shared.solids import combine
-from .files import part_names, read_step_parts, read_step_tree, write_mesh, write_step
+from .files import part_names, read_step_parts, read_step_tree, write_cad, write_mesh, write_step
 from OCP.TopoDS import TopoDS_Compound
 from OCP.gp import gp_Vec
 from .measure import measure, model_info
@@ -103,6 +103,14 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             header["mirror"] = self.document.mirror
         return encode_mesh(header, mesh)
 
+    @staticmethod
+    def _read_cad(reader, request):
+        """Read the file in `request["data"]` with `reader` (read_step_parts or read_step_tree); its type comes from `request["extension"]` (STEP when missing)."""
+        try:
+            return reader(base64.b64decode(request["data"]), str(request.get("extension") or "step"))
+        except ValueError as e:
+            raise RequestError(str(e)) from e
+
     def _open(self, shape, name: str) -> bytes:
         self.document = Document(shape, name)
         self._autosave(fresh=True)
@@ -139,7 +147,7 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             return self._open(TopoDS_Compound(), "Untitled")
         if kind == "import_step":
             start = time.perf_counter()
-            shape, warnings, named = read_step_parts(base64.b64decode(request["data"]))
+            shape, warnings, named = self._read_cad(read_step_parts, request)
             self.document = Document(shape, request.get("name", "Imported"), body_ids.fresh(shape, body_ids.namer(named)))
             self.import_warnings = warnings
             self._autosave(fresh=True)
@@ -180,7 +188,7 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
         if kind == "combine_step":
             document = self._require_document()
             start = time.perf_counter()
-            root = read_step_tree(base64.b64decode(request["data"]))
+            root = self._read_cad(read_step_tree, request)
             other, named = root.wrapped, part_names(root)
             offset = gp_Vec(float(request.get("dx", 0)), float(request.get("dy", 0)), float(request.get("dz", 0)))
             result = combine(document.current.shape, other, str(request.get("mode", "union")), offset)
@@ -353,6 +361,13 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             document = self._require_document()
             data = write_step(document.current.shape)
             return {"name": document.name, "data": base64.b64encode(data).decode()}
+        if kind == "export_cad":
+            document = self._require_document()
+            try:
+                data = write_cad(document.current.shape, str(request.get("format")))
+            except ValueError as e:
+                raise RequestError(str(e)) from e
+            return {"name": document.name, "data": base64.b64encode(data).decode()}
         if kind == "save_project":
             document = self._require_document()
             return {"name": document.name, "data": base64.b64encode(projectfile.pack(document.to_project())).decode()}
@@ -369,7 +384,13 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
         if kind == "export_mesh":
             document = self._require_document()
             try:
-                data = write_mesh(document.current.shape, str(request.get("format")))
+                kwargs = {}
+                for key, name in (("linear", "linear"), ("angular", "angular")):
+                    if key in request:
+                        if isinstance(request[key], bool) or not isinstance(request[key], (int, float)):
+                            raise RequestError(f"{name} deflection must be a number")
+                        kwargs[name] = float(request[key])
+                data = write_mesh(document.current.shape, str(request.get("format")), **kwargs)
             except ValueError as e:
                 raise RequestError(str(e)) from e
             return {"name": document.name, "data": base64.b64encode(data).decode()}

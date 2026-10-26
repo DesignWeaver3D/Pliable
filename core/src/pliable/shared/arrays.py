@@ -56,7 +56,33 @@ def _array_source(topology, selection) -> TopoDS_Shape:
     return _compound(chosen)
 
 
+def _feature_holes(topology, selection) -> list:
+    """The holes and bosses the selection names when every selected face is the full round wall of one (then an array copies those features, not the body); else an empty list."""
+    from .hole_groups import Hole
+
+    if not selection.faces:
+        return []
+    try:
+        return [Hole(topology.face(i)) for i in selection.faces]
+    except OperationError:
+        return []
+
+
+def _fuse_feature_copies(topology, holes: list, transforms: list[gp_Trsf]) -> OpResult:
+    """Cut or fuse a transformed copy of each hole or boss for every transform (one boolean per transform and kind, so copies that touch each other stay valid)."""
+    result = topology.shape
+    for trsf in transforms:
+        for boss in (False, True):
+            solids = [BRepBuilderAPI_Transform(h.solid(), trsf, True).Shape() for h in holes if h.boss == boss]
+            if solids:
+                result = _combine(result, _compound(solids), fuse=boss)
+    return finish(result)
+
+
 def _fuse_copies(topology, selection, transforms: list[gp_Trsf]) -> OpResult:
+    holes = _feature_holes(topology, selection)
+    if holes:
+        return _fuse_feature_copies(topology, holes, transforms)
     source = _array_source(topology, selection)
     result = topology.shape
     for trsf in transforms:
