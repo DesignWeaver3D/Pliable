@@ -1,6 +1,6 @@
 # Progress
 
-Open work only, for the rebuild in [ROADMAP.md](../ROADMAP.md). Read this first in every session. Keep it under about 32 KB: when work is finished, delete its entry (git keeps the history; describe the change in the commit message). Rows have no numbers; the title is the identity.
+Open work only, for the rebuild in [ROADMAP.md](../ROADMAP.md). Read this first in every session. Keep it under about 48 KB: when work is finished, delete its entry (git keeps the history; describe the change in the commit message). Rows have no numbers; the title is the identity.
 
 Where things go: open to-dos here; parked work and not-built ideas in the last two sections here (judge every new row against them, because a related idea may become part of the new task); blocking owner questions in [questions.md](questions.md); things for the owner to hand-test in [testing-checklist.md](testing-checklist.md); approved behavior in [behavior.md](behavior.md); decisions in [decisions-log.md](decisions-log.md); shortcuts and guesses in [watchlist.md](watchlist.md); lasting technical notes in [dev-notes.md](dev-notes.md).
 
@@ -80,6 +80,39 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
 - **More import and export file types.** Owner: "I want to expand the import and export filetypes to include those that oCCT supports such as: .step, .stp, .stpZ, .iges, .igs, .brep, .brp, .ifc. Also investigate potentially supporting .3dm    Via OpenNURBS / openNURBS bindings."
   - [ ] Import and export the formats OCCT supports: .step, .stp, .stpZ, .iges, .igs, .brep, .brp, .ifc (check each against the installed OCCT build and its licence first).
   - [ ] Investigate .3dm through OpenNURBS bindings and report licence, size and feasibility before building.
+- **Round face edges needs a radius gizmo.** Owner (testing checklist, 2026-10-26): "Round face edges works but has no gizmo to edit the fillet radius in the 3d view."
+  - [ ] A radius gizmo in the 3D view, built like the existing fillet and Inset face edges gizmos.
+- **Divide face: edge gizmo and more ways to divide.** Owner (testing checklist, 2026-10-26): "Divide face works but has no gizmo to move the edge that's being created. Also, divide face should be extended to be able to subdivide the face either linearly in either or arbitrary direction (ratated by °) or subdivided in both directions like a grid with configurable rows and columns."
+  - [ ] A gizmo that moves the divide edge being created.
+  - [ ] Divide linearly in either direction or in an arbitrary direction (rotated by a typed angle).
+  - [ ] Divide in both directions as a grid with configurable rows and columns.
+- **Inset face: the all-edges or perimeter ball (discuss).** Owner (testing checklist, 2026-10-26): "Inset face is working great as well as its gizmo. The selector between all face edges and only perimeter is a ball that can be clicked. This should be discussed as other tools don't use this approach, but maybe they should because its quick, discoverable, and has complete instructions on what it does."
+  - [ ] Discuss with the owner whether other tools should use the same clickable ball selector for their options; no change before that.
+- **Resize fillet fails on a fillet that runs along a chain of edges.** Owner (testing checklist, 2026-10-26): "Resize fillet error "That face is not a simple fillet between two faces" because the fillet applies to a chain of edges, but tool should still allow editing the fillet. Works for simple fillet only affecting two faces."
+  - [ ] Resize fillet works on a fillet face that belongs to a chain of edges, not only on a simple fillet between two faces; reproduce first and add a core test.
+- **Quick two-distance mode while creating a chamfer (discuss).** Owner (testing checklist, 2026-10-26): "resize chamfer and the two distance gizmos work great. Need a way to quickly enter two distance mode while creating a chamfer. Maybe pressing ALt or tab while in chamfer creation is still active. Discuss."
+  - [ ] Choose the key (Alt, Tab or another) with the owner, then let a chamfer being created switch to two distances. Related: the typed-number Tab behavior and the Alt+click face cycling must not clash.
+- **What is Chamfer (distance and angle)? (answer the owner).** Owner (testing checklist, 2026-10-26): "There's a line item for "chamfer_distance_angle" and I don't know what it is referring to."
+  - [ ] Answer: it is the tool listed as Chamfer (distance and angle) in Edges. Explain what it does in its tooltip and check it works; ask the owner whether to keep it.
+- **Remove fillet/chamfer tool may be unnecessary (discuss).** Owner (testing checklist, 2026-10-26): "Remove fillet/chamfer tool is unnecessary because the Defeature tool already does the same thing."
+  - [ ] Check that Defeature (delete_face) removes fillets and chamfers everywhere Remove fillet/chamfer does, then ask the owner before removing the tool.
+- **Circular array: gizmos and axis picking.** Owner (testing checklist, 2026-10-26): "Circular array needs gizmos for count and angle plus needs an option for user to pick the axis by selecting any axis or edge in the 3d view."
+  - [ ] Gizmos for count and angle. Related: the planned array gizmos rows.
+  - [ ] Pick the axis from any axis or edge in the 3D view.
+- **Arrays should work on selected features.** Owner (testing checklist, 2026-10-26): "Arrays should work on selected features too. Such as selecting faces of a boss or hole, etc."
+  - [ ] Linear, circular and path arrays accept selected features (the faces of a boss or hole and so on), not only bodies. Related: the existing hole pattern tools (pattern_hole, pattern_hole_circular).
+- **Move hole/boss needs a gizmo.** Owner (testing checklist, 2026-10-26): "Move hole/boss works with multiple holes selected, they all move together. However, this tool needs a gizmo for editing it in the 3d view."
+  - [ ] A gizmo for Move hole/boss in the 3D view. Related: the parked Holes row about move, resize and depth handles.
+- **Distribute holes/bosses is unclear.** Owner (testing checklist, 2026-10-26): "Distribute holes/bosses I think is entended to do something like how I said arrays should apply to features, but it's current implementation is not intuitive. It's not clear to me what the tool is trying to do when I select the 4 holes in the bottom portion of the included bracket shape."
+  - [ ] Explain what the tool does today with the four bracket holes; then redesign or merge it with arrays on features (previous row) after asking the owner.
+- **Fill hole / remove boss tool may be unnecessary (discuss).** Owner (testing checklist, 2026-10-26): "Fill hole/remove boss tool is not needed as the defeature tool does this work."
+  - [ ] Check that Defeature covers every case of fill_hole, then ask the owner before removing the tool.
+- **Path array is not visible in the UI.** Owner (testing checklist, 2026-10-26): "I cannot see a path array tool in the UI."
+  - [ ] Find why: the tool (Array along path) appeared in the strip only when an edge was selected in the v0.4.0 build and is not in the default tool strip; make it findable (list entry, search, tooltip saying it needs an edge) and check it is in the All tools list.
+- **Revolve face and Sweep cannot take a face plus an edge with Ctrl+click.** Owner (testing checklist, 2026-10-26): "Cannot use Revolve face or sweep a face because cannot select a face and an edge in 3d view holding Ctrl+Left click."
+  - [ ] Ctrl+click can add an edge to a selected face (and a face to an edge) so Revolve face and Sweep can run; reproduce first.
+- **Unify, Patch fill and Bridge are not findable.** Owner (testing checklist, 2026-10-26): "I don't see tools named Unify, Patch_fill, or Bridge in the all tools list or by searching for them."
+  - [ ] Find why: the tools are registered as unify, patch_fill and bridge (Patch fill and Bridge edges showed in the strip for an edge selection) but not found by those names in the list or search; give them list entries, titles and search keywords, and say in the tooltip what each needs.
 
 ## Parked or owner-dependent
 

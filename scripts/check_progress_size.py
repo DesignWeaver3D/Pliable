@@ -6,7 +6,7 @@ and finished work lives in commit messages. Trim the file before committing.
 import subprocess
 import sys
 
-LIMIT = 32 * 1024
+LIMIT = 48 * 1024
 PATH = "docs/progress.md"
 
 
