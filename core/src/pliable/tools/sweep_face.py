@@ -11,8 +11,9 @@ class SweepFace(Tool):
 
     id = "sweep_face"
     label = "Sweep face along edge"
-    description = "Pulls a face along an edge to make a solid. Select one face and the edge to follow; mode 0 adds the solid, 1 cuts it."
+    description = "Pulls a face along an edge to make a solid. Select one face and the edge to follow (or Shift-click a kept sketch's curve to follow the whole sketch); mode 0 adds the solid, 1 cuts it."
     accepts = Accepts(faces=(1, 1), edges=(1, 1))
+    rail_accepts = Accepts(faces=(1, 1))
     params = [Param("mode", "number", 0)]
 
     def run(self, topology, selection, values, preview):
@@ -22,7 +23,7 @@ class SweepFace(Tool):
         mode = int(round(values["mode"]))
         if mode not in (0, 1):
             raise OperationError("Mode must be 0 (add) or 1 (cut)")
-        path = BRepBuilderAPI_MakeWire(topology.edge(selection.edges[0])).Wire()
+        path = selection.rail_wire if selection.rail_wire is not None else BRepBuilderAPI_MakeWire(topology.edge(selection.edges[0])).Wire()
         pipe = BRepOffsetAPI_MakePipe(path, topology.face(selection.faces[0]))
         try:
             pipe.Build()

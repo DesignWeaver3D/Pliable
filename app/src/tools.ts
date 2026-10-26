@@ -10,6 +10,8 @@ export interface ToolInfo {
   /** Plain-language sentence(s) on what the tool does and what to select; shown in tooltips. */
   description?: string;
   accepts: { faces: Range; edges: Range; vertices?: Range; bodies?: Range; anyOf?: boolean };
+  /** What the tool accepts instead when a kept sketch is chosen as its path (Sweep face, Array along path). */
+  railAccepts?: { faces: Range; edges: Range; vertices?: Range; bodies?: Range; anyOf?: boolean };
   params: { name: string; kind: string; default: number; drag: boolean; options?: string[] }[];
   /** Relationship rules whose matching faces join the selection when switched on. */
   related?: string[];
