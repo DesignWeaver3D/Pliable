@@ -18,10 +18,6 @@ Rules for keeping it:
 
 - [ ] Unzip, run, open the bracket, push/pull, export STEP. The window icon shows, the window resizes cleanly, and an export download works in the webview. macOS and Linux archives are untested.
 
-### Sketch zoom
-
-- [ ] Zoom to fit in a sketch with about ten shapes filled only a third of the view width and left a stray point at the far left (seen in the v0.4.0 build). Confirm or dismiss; also fit-selection with a selection, and that nothing hides behind the top strip.
-
 ### Inset face edges
 
 - [ ] Loop 1 on a plain bracket (no overlapping duplicate body): the face count goes up and the Bodies list does not gain new bodies. A test model once went from 4 to 6 bodies.
