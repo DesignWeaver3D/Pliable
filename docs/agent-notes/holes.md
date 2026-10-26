@@ -22,3 +22,6 @@
 ## Task 4b: step depth grips (done)
 - Edit hole params `step_depth` and `end_step_depth` with grips (edit_hole.py); core tests in test_holes.py. Not checked in Chrome (the bracket has no counterbore; the grip uses the same pattern as the depth grip).
 - Real-mouse only: drag the step grip on a counterbore.
+
+## Task 4c: non-round through voids (not done)
+- Needs a new tool, not a tweak: read the void's wall loop (lines and arcs parallel to one axis) into a profile, fill it, and re-cut a moved, resized or deeper profile. Resize has no settled meaning for a square or slot (uniform offset, or width and length separately), the hierarchy does not decide it, and the grips need a per-profile handle design (one per side or corner). It is a self-contained feature of several hours; start from `holes.find_hole` (walk the faces) and `rebuild_hole` (fill then cut) and generalise `hole_profile` to a polygon cross-section. Threads were excluded by the task.
