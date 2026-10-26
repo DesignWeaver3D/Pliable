@@ -85,6 +85,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Horizontal and vertical constraints apply to several selected lines at once; by default both kinds are applied as detected (nearly horizontal lines get horizontal, nearly vertical get vertical).
 - Every dimensional constraint (any constraint holding a number) is editable on screen by double-clicking its dimension leader or its number.
 - When a numeric constraint is created, its dimension appears immediately with the as-created value prefilled and ready for editing.
+- Fillet and Chamfer work on a corner of two lines or arcs (click the corner point or one of its curves), and on any two lines, arcs or circles picked one after the other: the fillet is the arc of the typed radius tangent to both whose centre is nearest the second click, each curve is cut or stretched to its tangent point, and tangent constraints are added; the chamfer joins the points at the typed distance along each curve (along the arc for an arc) from the corner, on the second click's side where the curves cross. A circle is cut into an arc where the fillet or chamfer meets it. Curves that do not meet are refused by Chamfer.
 
 ## Layout
 

@@ -676,7 +676,7 @@ export function extendLine(s: SketchData, entityId: number, u: number, v: number
 }
 
 /** Drop points no entity uses, with the constraints that name them. */
-function dropOrphans(s: SketchData): SketchData {
+export function dropOrphans(s: SketchData): SketchData {
   const used = new Set(s.entities.flatMap(entityPoints));
   const orphans = new Set(s.points.filter((p) => !used.has(p.id) && !p.fixed).map((p) => p.id));
   const refs = (c: SketchConstraint) => [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])];

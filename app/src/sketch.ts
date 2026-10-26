@@ -28,7 +28,7 @@ import { uiIcon } from "./icons";
 import { LENGTH_UNIT } from "./units";
 import { usage } from "./usage";
 import { showNumber } from "./precision";
-import { cornerAt } from "./sketchcorner";
+import { cornerAt, isCurvePick, roundAt, roundPair } from "./sketchcorner";
 import { automaticInTheWay } from "./sketchautowin";
 import { FREE_COLOR, freeMessage, freeParts } from "./sketchfreedom";
 import type { HandleInfo } from "./tools";
@@ -58,8 +58,8 @@ export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "spline", label: "Spline", hint: "Click points the curve passes through; Enter or right-click ends it, clicking the first point closes it" },
   { id: "trim", label: "Trim", hint: "Click a line to cut it at its crossings and mark that piece; click the marked piece again to delete it" },
   { id: "split", label: "Split", hint: "Click a line where it should be cut in two" },
-  { id: "fillet", label: "Fillet", hint: "Click a corner where two lines meet (or one of its lines) to round it; the radius is set in the sketch card" },
-  { id: "chamfer", label: "Chamfer", hint: "Click a corner where two lines meet (or one of its lines) to bevel it; the distance is set in the sketch card" },
+  { id: "fillet", label: "Fillet", hint: "Click a corner where two lines or arcs meet (or one of its curves), or pick two curves, to round it; the radius is set in the sketch card" },
+  { id: "chamfer", label: "Chamfer", hint: "Click a corner where two lines or arcs meet (or one of its curves), or pick two curves, to bevel it; the distance is set in the sketch card" },
   { id: "extend", label: "Extend", hint: "Click near the end of a line to stretch it to the next curve" },
   { id: "polygon", label: "Polygon", hint: "Click the centre, then a corner; the number of sides is set in the sketch card (3 to 64)" },
 ];
@@ -707,18 +707,33 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     if (this.tool === "select") return;
     if (this.tool === "fillet" || this.tool === "chamfer") {
       const uv = this.planeUV(e);
-      const corner = uv ? cornerAt(this.s, this.pick(e), uv[0], uv[1]) : null;
-      if (corner === null) this.host.status("Click a corner where two lines meet, or one of its lines", true);
-      else {
-        const made = M.roundCorner(this.s, corner, this.tool, this.rectOptions.size);
+      const hit = this.pick(e);
+      const first = this.cornerFirst;
+      let made: M.SketchData | string | null = null;
+      if (!uv) made = null;
+      else if (first !== null) {
+        this.cornerFirst = null;
+        this.selection = [];
+        if (!isCurvePick(this.s, hit) || hit.id === first) this.host.status("Pick a second line, arc or circle", true);
+        else made = roundPair(this.s, first, hit.id, this.tool, this.rectOptions.size, uv[0], uv[1]);
+      } else {
+        const corner = cornerAt(this.s, hit, uv[0], uv[1]);
+        if (corner !== null) made = roundAt(this.s, corner, this.tool, this.rectOptions.size, uv[0], uv[1]);
+        else if (isCurvePick(this.s, hit)) {
+          this.cornerFirst = hit.id;
+          this.selection = [hit];
+          this.host.status(`Now click the second curve, on the side where the ${this.tool === "fillet" ? "fillet" : "bevel"} goes`);
+        } else this.host.status("Click a corner where two lines or arcs meet, or pick two curves", true);
+      }
+      if (made !== null) {
         if (typeof made === "string") this.host.status(made, true);
         else {
           this.pushUndo();
           this.s = made;
-          this.selection = [];
           this.resolve();
           this.host.status(this.tool === "fillet" ? "Rounded the corner" : "Bevelled the corner");
         }
+        this.selection = [];
       }
       this.render();
       return;
@@ -1003,6 +1018,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
 
   // Drawing tools: the work is in sketchbuilders.ts, which takes this mode as its context.
   chainStart?: Snap;
+  /** The first curve picked for a Fillet or Chamfer between two curves that need not touch. */
+  private cornerFirst: number | null = null;
   rectOptions: { corner: "none" | "fillet" | "chamfer"; size: number } = { corner: "none", size: 5 };
   status(text: string, error?: boolean | "warn") {
     this.host.status(text, error);
@@ -1047,6 +1064,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     if (tool !== "select") this.lastDrawTool = tool;
     if (tool !== "select") usage.record(`sketch_${tool}`.toLowerCase().replace(/[^a-z0-9_]/g, "_"), "start", "other");
     this.trimCandidates.clear();
+    if (this.cornerFirst !== null) this.selection = [];
+    this.cornerFirst = null;
     this.tool = tool;
     this.typed = "";
     this.chain = [];
