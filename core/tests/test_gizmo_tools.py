@@ -171,3 +171,18 @@ def test_mirror_selected_bodies_across_origin_picked_and_face_planes():
         tool.execute(topology, Selection(), {**base, "plane": 0}, preview=False)  # the selected face is the plane but none is selected
     flat = next(i for i in range(topology.face_count) if tool.available(topology, Selection(faces=[i])))
     assert tool.execute(topology, Selection(faces=[flat]), {**base, "plane": 0}, preview=False).shape is not None
+
+
+def test_cut_plane_sides_are_named_by_index_and_the_old_minus_one_still_works():
+    topology = block()
+    base = {"axis": 2, "position": 0, "nx": 0, "ny": 0, "nz": 1}
+    tool = get_tool("cut_plane")
+    side2 = tool.execute(topology, Selection(), {**base, "remove_side": 2}, preview=False)
+    old = tool.execute(topology, Selection(), {**base, "remove_side": -1}, preview=False)
+    assert volume(side2.shape) == pytest.approx(volume(old.shape))
+    assert volume(side2.shape) == pytest.approx(volume(topology.shape) / 2, rel=1e-6)
+    both = tool.execute(topology, Selection(), {**base, "remove_side": 0}, preview=False)
+    assert len(Topology(both.shape).bodies.bodies) == 2
+    with pytest.raises(Exception):
+        tool.execute(topology, Selection(), {**base, "remove_side": 3}, preview=False)
+    assert tool.describe()["pickPlane"] == ["position", "nx", "ny", "nz", "axis"]

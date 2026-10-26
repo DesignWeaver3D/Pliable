@@ -347,11 +347,21 @@ export class ToolPanel {
       buttons.before(pickEdge);
     }
     const planeNames = tool.pickPlane;
-    if (planeNames && planeNames.length === 7 && this.host.pickPlane) {
+    if (planeNames && (planeNames.length === 7 || planeNames.length === 5) && this.host.pickPlane) {
       const usePlaneIn = (origin: number[], normal: number[]) => {
-        planeNames.slice(0, 3).forEach((name, i) => (inputs[name].value = String(parseFloat(origin[i].toFixed(4)))));
-        planeNames.slice(3, 6).forEach((name, i) => (inputs[name].value = String(parseFloat(normal[i].toFixed(6)))));
-        inputs[planeNames[6]].value = "4"; // the choice list: picked plane
+        if (planeNames.length === 7) {
+          planeNames.slice(0, 3).forEach((name, i) => (inputs[name].value = String(parseFloat(origin[i].toFixed(4)))));
+          planeNames.slice(3, 6).forEach((name, i) => (inputs[name].value = String(parseFloat(normal[i].toFixed(6)))));
+          inputs[planeNames[6]].value = "4"; // the choice list: picked plane
+        } else {
+          // A plane given as a distance along its direction: position, nx, ny, nz and the axis choice (3 = the direction nx, ny, nz); tilts start again from the picked plane.
+          const length = Math.hypot(normal[0], normal[1], normal[2]) || 1;
+          const n = normal.map((c) => c / length);
+          inputs[planeNames[0]].value = String(parseFloat((n[0] * origin[0] + n[1] * origin[1] + n[2] * origin[2]).toFixed(4)));
+          planeNames.slice(1, 4).forEach((name, i) => (inputs[name].value = String(parseFloat(n[i].toFixed(6)))));
+          inputs[planeNames[4]].value = "3";
+          for (const tilt of ["tilt_u", "tilt_v"]) if (inputs[tilt]) inputs[tilt].value = "0";
+        }
         this.schedulePreview(0);
       };
       const pickPlane = document.createElement("button");
