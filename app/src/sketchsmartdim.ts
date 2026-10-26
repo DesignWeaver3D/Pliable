@@ -1,5 +1,5 @@
 /** The smart dimension: one button (and the D key) that offers every constraint or dimension that fits whatever is selected.
- *  One fit is applied at once; several are chosen from a small menu next to the cursor. Rules and answers: docs/smart-dimension-plan.md. No DOM. */
+ *  One fit is applied at once; several are chosen from a small menu next to the cursor. Rules and answers: docs/archive/smart-dimension-plan.md. No DOM. */
 import { CONSTRAINT_OPTIONS, coincidences, dist, entities, measure, only, pointLineDistance, pts, radiusOf, type ConstraintOption } from "./sketchconstraints.ts";
 import { distanceTo, entityPoints, pointOf, type SketchConstraint, type SketchData, type SketchEntity, type SketchSel } from "./sketchmodel.ts";
 
@@ -147,7 +147,7 @@ export function optionsFor(s: SketchData, sel: SketchSel[]): ConstraintOption[] 
   return sel.length === 0 ? [] : [SMART_DIMENSION, ...CONSTRAINT_OPTIONS].filter((o) => o.build(s, sel) !== null);
 }
 
-/** Buttons the smart dimension replaces: each one's constraint is reached by a selection the smart dimension handles (tested in sketchsmartdim.test.mjs; the audit is in docs/smart-dimension-plan.md). */
+/** Buttons the smart dimension replaces: each one's constraint is reached by a selection the smart dimension handles (tested in sketchsmartdim.test.mjs; the audit is in docs/archive/smart-dimension-plan.md). */
 export const ABSORBED_BY_SMART: Record<string, string> = {
   "Length / distance": "one line, or two separated points",
   "Short radius": "one ellipse",
