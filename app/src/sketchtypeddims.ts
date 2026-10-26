@@ -73,7 +73,7 @@ export function typedDimensions(ctx: PreviewContext): Dimension[] {
       const [du, dv] = [side.u - a.u, side.v - a.v];
       linear(ctx.chain.length === 2 ? 0 : 1, mirrored, side, [-dv, du], 2 * Math.hypot(du, dv));
     }
-  } else if (ctx.tool === "ellipse") {
+  } else if (ctx.tool === "ellipse" || (ctx.tool === "ellarc" && ctx.chain.length <= 2)) {
     const major = ctx.chain.length === 2 ? ctx.chain[1] : target;
     const [mu, mv] = [major.u - first.u, major.v - first.v];
     // The major width runs across the whole long axis and the minor width across the short one; each is drawn beside its axis.

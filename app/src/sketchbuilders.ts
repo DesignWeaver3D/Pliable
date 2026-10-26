@@ -2,6 +2,7 @@
  *  Moved out of sketch.ts; `SketchMode` passes itself as the context. The geometry itself is in sketchshapes.ts. */
 import * as M from "./sketchmodel.ts";
 import * as Sh from "./sketchshapes.ts";
+import * as Ell from "./sketchellipse.ts";
 import type { Drag, Snap } from "./sketch.ts";
 
 /** A line drawn within this angle of horizontal/vertical becomes exactly so (also read by the arc tangent rule below). */
@@ -164,12 +165,24 @@ export function addCircle(ctx: BuilderContext, center: Snap, edge: Snap) {
 }
 
 export function addEllipse(ctx: BuilderContext, center: Snap, major: Snap, side: Snap) {
-  const a = Math.hypot(major.u - center.u, major.v - center.v);
-  if (a < 1e-6) return;
-  // the short radius is how far the third click is from the long axis
-  const minor = Math.abs(((side.u - center.u) * (major.v - center.v) - (side.v - center.v) * (major.u - center.u)) / a);
-  if (minor < 1e-6) return;
+  if (shortRadius(center, major, side) === null) return;
   ctx.pushUndo();
+  makeEllipse(ctx, center, major, side);
+  ctx.resolve();
+}
+
+/** The short radius of the ellipse of three clicks (how far the third is from the long axis), or null when the clicks give it no size. */
+function shortRadius(center: Sh.UV, major: Sh.UV, side: Sh.UV): number | null {
+  const a = Math.hypot(major.u - center.u, major.v - center.v);
+  if (a < 1e-6) return null;
+  const minor = Math.abs(((side.u - center.u) * (major.v - center.v) - (side.v - center.v) * (major.u - center.u)) / a);
+  return minor < 1e-6 ? null : minor;
+}
+
+/** Push an ellipse with its four axis ends and the two construction lines along its axes; the ellipse. */
+function makeEllipse(ctx: BuilderContext, center: Snap, major: Snap, side: Snap): Extract<M.SketchEntity, { type: "ellipse" }> {
+  const a = Math.hypot(major.u - center.u, major.v - center.v);
+  const minor = shortRadius(center, major, side)!;
   const c = ctx.pointFor(center);
   const m = ctx.pointFor(major);
   // the other three ends of the axes are points of their own, so they can be dimensioned and constrained to; the third click's side takes the minor end
@@ -179,10 +192,34 @@ export function addEllipse(ctx: BuilderContext, center: Snap, major: Snap, side:
   const major2 = end(2 * center.u - major.u, 2 * center.v - major.v);
   const minor1 = end(center.u + nu, center.v + nv);
   const minor2 = end(center.u - nu, center.v - nv);
-  ctx.s.entities.push({ id: M.nextId(ctx.s), type: "ellipse", center: c, major: m, major2, minor1, minor2, minor });
+  const entity: Extract<M.SketchEntity, { type: "ellipse" }> = { id: M.nextId(ctx.s), type: "ellipse", center: c, major: m, major2, minor1, minor2, minor };
+  ctx.s.entities.push(entity);
   // Each axis is also a construction line between its two ends, so its length can be dimensioned by selecting the line alone.
   ctx.s.entities.push({ id: M.nextId(ctx.s), type: "line", a: m, b: major2, construction: true });
   ctx.s.entities.push({ id: M.nextId(ctx.s), type: "line", a: minor1, b: minor2, construction: true });
+  return entity;
+}
+
+/** An elliptical arc: the ellipse of the first three clicks (centre, long axis end, a point for the short radius) and the part of it between the
+ *  start and end clicks, which are taken to the ellipse by angle. It follows the pointer from the start like an arc; `counterclockwise` forces the direction. */
+export function addEllipseArc(ctx: BuilderContext, center: Snap, major: Snap, side: Snap, start: Snap, end: Snap, counterclockwise = false) {
+  const minor = shortRadius(center, major, side);
+  if (minor === null) return;
+  ctx.pushUndo();
+  const made = makeEllipse(ctx, center, major, side);
+  const f = Ell.ellipseFrame(center, major, minor);
+  const [t0, t1] = [Ell.ellipseAngle(f, start.u, start.v), Ell.ellipseAngle(f, end.u, end.v)];
+  const clockwise = !counterclockwise && Ell.ellipseSweepToward(t0, t1) < 0; // arcs are stored counterclockwise
+  const [first, last] = clockwise ? [t1, t0] : [t0, t1];
+  const ends = [made.major, made.major2!, made.minor1!, made.minor2!];
+  const at = (t: number, clicked: Snap) => {
+    const [u, v] = Ell.ellipsePoint(f, t);
+    if (clicked.id !== undefined && Math.hypot(clicked.u - u, clicked.v - v) < 1e-6) return clicked.id; // a point already on the ellipse is the end
+    const axisEnd = ends.find((id) => Math.hypot(M.pointOf(ctx.s, id).u - u, M.pointOf(ctx.s, id).v - v) < 1e-6); // an end of an axis is the end
+    return axisEnd ?? ctx.pointFor({ u, v } as Snap);
+  };
+  made.start = clockwise ? at(first, end) : at(first, start);
+  made.end = clockwise ? at(last, start) : at(last, end);
   ctx.resolve();
 }
 

@@ -1484,3 +1484,53 @@ def test_symmetric_that_really_conflicts_is_still_refused():
     # two ends of an axis line that lies along the mirror axis
     assert Session().handle({"type": "sketch_solve", "sketch": _app_ellipse_about_axis((0, 0), (2, 4), True, True)})["status"] == "failed"
     assert Session().handle({"type": "sketch_solve", "sketch": _app_ellipse_about_axis((0, 0), (5, 6), False, True)})["status"] == "failed"
+
+
+def _elliptical_arc(start=(10.0, 0.0), end=(0.0, 5.0)):
+    sk = _ellipse_with_ends()
+    sk["points"] += [{"id": 7, "u": start[0], "v": start[1]}, {"id": 8, "u": end[0], "v": end[1]}]
+    sk["entities"][0].update({"start": 7, "end": 8})
+    return sk
+
+
+def test_an_elliptical_arc_is_the_part_of_the_ellipse_from_start_to_end():
+    sk = _elliptical_arc()
+    (edge,) = sketch._edges(sk)
+    whole = 48.4422411  # the perimeter of an ellipse 10 by 5
+    assert edge.length == pytest.approx(whole / 4, rel=1e-5)
+    # counterclockwise from the end back to the start is the other three quarters
+    flipped = _elliptical_arc(start=(0.0, 5.0), end=(10.0, 0.0))
+    assert sketch._edges(flipped)[0].length == pytest.approx(whole * 3 / 4, rel=1e-3)
+
+
+def test_an_elliptical_arc_closed_by_a_chord_is_a_profile_and_its_ends_follow_the_ellipse():
+    sk = _elliptical_arc()
+    sk["entities"].append({"id": 9, "type": "line", "a": 8, "b": 7})
+    assert sketch.profile_face(sk).area == pytest.approx(math.pi * 50 / 4 - 25, rel=1e-6)
+    sk["constraints"] = [{"id": 10, "type": "fixed", "point": 1}, {"id": 11, "type": "horizontal", "points": [1, 2]}, {"id": 12, "type": "distance", "points": [5, 6], "value": 14}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok"
+    at = coords(result)
+    for pid in (7, 8):  # both ends stay on the widened ellipse
+        a, b = math.dist(at[1], at[2]), math.dist(at[1], at[5])
+        assert (at[pid][0] - at[1][0]) ** 2 / a**2 + (at[pid][1] - at[1][1]) ** 2 / b**2 == pytest.approx(1, abs=1e-6)
+    assert b == pytest.approx(7)
+
+
+def test_an_elliptical_arc_may_start_at_an_axis_end_and_still_solves():
+    sk = _elliptical_arc()
+    sk["entities"][0]["start"] = 2  # the end of the long axis is the start
+    sk["constraints"] = [{"id": 10, "type": "distance", "points": [5, 6], "value": 7}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok" and result["radii"][3] == pytest.approx(3.5)
+
+
+def test_halving_the_short_width_of_an_elliptical_arc_keeps_the_long_axis_about_as_long():
+    sk = _elliptical_arc()
+    c, ends = (-9.76, -24.75), {2: (15.53, -6.68), 4: (-35.06, -42.83), 5: (-21.27, -8.65), 6: (1.74, -40.86), 7: (4.85, -0.78), 8: (-37.17, -30.74)}
+    sk["points"] = [{"id": 1, "u": c[0], "v": c[1]}] + [{"id": i, "u": u, "v": v} for i, (u, v) in ends.items()]
+    sk["entities"][0]["minor"] = 19.79
+    sk["constraints"] = [{"id": 10, "type": "distance", "points": [5, 6], "value": 20}]
+    result = sketch.solve(sk)
+    at = coords(result)
+    assert result["status"] == "ok" and math.dist(at[2], at[4]) < 70 and math.dist(at[5], at[6]) == pytest.approx(20)

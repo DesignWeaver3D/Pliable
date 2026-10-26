@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addArc, addEllipse, addRectangle, addPolygon, addCircle, addSlot, polygonCorners } from "../src/sketchbuilders.ts";
+import { addArc, addEllipse, addEllipseArc, addRectangle, addPolygon, addCircle, addSlot, polygonCorners } from "../src/sketchbuilders.ts";
 
 // A stand-in for the sketch mode: the same rules as SketchMode.pointFor and addConstraintRaw, with undo and solving as counters.
 function context(auto = "shape") {
@@ -148,4 +148,23 @@ test("a centre clicked on a curve, a sketch axis or a point is made coincident w
   const sym = rounded.s.constraints.find((c) => c.type === "symmetric_point");
   const [p, q] = sym.points.map((id) => rounded.s.points.find((x) => x.id === id));
   assert.deepEqual([(p.u + q.u) / 2, (p.v + q.v) / 2], [3, 2]);
+});
+
+test("an elliptical arc is an ellipse with start and end points on it, running counterclockwise from the start", () => {
+  const ctx = context("none");
+  addEllipseArc(ctx, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 0, v: 4 }, { u: 20, v: 0 }, { u: 0, v: 9 });
+  const arc = ctx.s.entities.find((e) => e.type === "ellipse");
+  const at = (id) => ctx.s.points.find((p) => p.id === id);
+  assert.equal(arc.start, arc.major); // the start is the end of the long axis, so it is that point
+  assert.ok(Math.abs(at(arc.end).u) < 1e-9 && Math.abs(at(arc.end).v - 4) < 1e-9); // taken to the ellipse by angle
+  assert.equal(ctx.s.entities.filter((e) => e.type === "line").length, 2);
+});
+
+test("an elliptical arc whose end is clicked clockwise from the start is stored counterclockwise", () => {
+  const ctx = context("none");
+  addEllipseArc(ctx, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 0, v: 4 }, { u: 0, v: 5 }, { u: 5, v: 0.1 });
+  const arc = ctx.s.entities.find((e) => e.type === "ellipse");
+  const at = (id) => ctx.s.points.find((p) => p.id === id);
+  assert.ok(Math.abs(at(arc.start).v) < 1 && at(arc.start).u > 0); // the pointer went clockwise, so the arc starts at the clicked end
+  assert.ok(Math.abs(at(arc.end).u) < 1e-9 && at(arc.end).v > 0);
 });

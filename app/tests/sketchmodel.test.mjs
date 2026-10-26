@@ -377,3 +377,25 @@ test("a symmetric constraint is marked at each mirrored point, not at the axis",
   assert.equal(marks.length, 2);
   assert.deepEqual(marks.map((m) => m.points[0].slice(0, 2)), [[10, 5], [10, -5]]);
 });
+
+test("an elliptical arc is drawn only between its start and end, counterclockwise", () => {
+  const points = [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 0, v: 5 }, { id: 4, u: -10, v: 0 }];
+  const s = { plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]), points, entities: [], constraints: [] };
+  const arc = { id: 9, type: "ellipse", center: 1, major: 2, minor: 5, start: 2, end: 3 };
+  const line = polyline(s, arc, 8);
+  assert.deepEqual(line[0].map(Math.round), [10, 0]);
+  assert.deepEqual(line[8].map(Math.round), [0, 5]);
+  assert.ok(line.every(([x, y]) => (x / 10) ** 2 + (y / 5) ** 2 < 1 + 1e-9 && x > -1e-9 && y > -1e-9));
+  assert.deepEqual(entityPoints(arc), [1, 2, 2, 3]);
+});
+
+test("an elliptical arc is drawn only between its start and end, counterclockwise", () => {
+  const points = [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 0, v: 5 }, { id: 4, u: -10, v: 0 }];
+  const s = { plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]), points, entities: [], constraints: [] };
+  const arc = { id: 9, type: "ellipse", center: 1, major: 2, minor: 5, start: 2, end: 3 };
+  const line = polyline(s, arc, 8);
+  assert.deepEqual(line[0].map(Math.round), [10, 0]);
+  assert.deepEqual(line[8].map(Math.round), [0, 5]);
+  assert.ok(line.every(([x, y]) => (x / 10) ** 2 + (y / 5) ** 2 < 1 + 1e-9 && x > -1e-9 && y > -1e-9));
+  assert.deepEqual(entityPoints(arc), [1, 2, 2, 3]);
+});

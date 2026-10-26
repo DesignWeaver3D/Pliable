@@ -40,7 +40,7 @@ const CONSTRUCTION_DASH_PX = 8;
 const CONSTRUCTION_GAP_PX = 5;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
-export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "polygon" | "ellipse" | "spline" | "trim" | "extend" | "split" | "fillet" | "chamfer" | "triangle" | "pentagon" | "hexagon" | "octagon";
+export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "slot" | "point" | "polygon" | "ellipse" | "ellarc" | "spline" | "trim" | "extend" | "split" | "fillet" | "chamfer" | "triangle" | "pentagon" | "hexagon" | "octagon";
 /** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
 const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5, hexagon: 6, octagon: 8 };
 export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
@@ -55,6 +55,7 @@ export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "slot", label: "Slot", hint: "Click the centre of one end, the centre of the other end, then a point for the width" },
   { id: "point", label: "Point", hint: "Click to place a point; it can be snapped to and constrained" },
   { id: "ellipse", label: "Ellipse", hint: "Click the centre, the end of the long axis, then a point for the short radius" },
+  { id: "ellarc", label: "Ellipse arc", hint: "Click the centre, the end of the long axis, a point for the short radius, then the start and the end of the arc; the arc runs the way the pointer moves from the start" },
   { id: "spline", label: "Spline", hint: "Click points the curve passes through; Enter or right-click ends it, clicking the first point closes it" },
   { id: "trim", label: "Trim", hint: "Click a line to cut it at its crossings and mark that piece; click the marked piece again to delete it" },
   { id: "split", label: "Split", hint: "Click a line where it should be cut in two" },
@@ -670,7 +671,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       const entity = this.s.entities.find((x) => x.id === it.id);
       if (!entity || entity.reference) continue;
       // An ellipse is held by its centre and major end only: its other axis ends follow, and pinning all five over-constrains the solver (many retries, a laggy drag).
-      const held = (entity.type === "ellipse" ? [entity.center, entity.major] : M.entityPoints(entity)).map(point);
+      const held = (entity.type === "ellipse" ? [entity.center, entity.major, ...(entity.start !== undefined ? [entity.start, entity.end!] : [])] : M.entityPoints(entity)).map(point);
       if (M.entityPoints(entity).every((id) => !point(id)?.fixed) && held.every((p) => p)) for (const p of held) ids.add(p!.id);
     }
     if (!ids.size) return;
@@ -795,6 +796,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       }
     } else if (this.tool === "ellipse" && this.chain.length === 3) {
       this.addEllipse(this.chain[0], this.chain[1], this.chain[2]);
+      this.shapeDone();
+    } else if (this.tool === "ellarc" && this.chain.length === 5) {
+      this.addEllipseArc(this.chain[0], this.chain[1], this.chain[2], this.chain[3], this.chain[4]);
       this.shapeDone();
     } else if ((this.tool === "rectangle" || this.tool === "rectcentre") && this.chain.length === 2) {
       this.addRectangle(this.chain[0], this.chain[1], this.tool === "rectcentre");
@@ -1019,6 +1023,10 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private addCircle(center: Snap, edge: Snap) {
     B.addCircle(this, center, edge);
   }
+  private addEllipseArc(center: Snap, major: Snap, side: Snap, start: Snap, end: Snap) {
+    B.addEllipseArc(this, center, major, side, start, end, this.placingTyped);
+  }
+
   private addEllipse(center: Snap, major: Snap, side: Snap) {
     B.addEllipse(this, center, major, side);
   }

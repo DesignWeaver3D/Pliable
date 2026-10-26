@@ -74,3 +74,15 @@ test("a circle takes its diameter, a polygon its radius", () => {
   const [rim] = typedTargets("circle", [{ u: 0, v: 0 }], { u: 3, v: 0 }, [10]);
   assert.ok(Math.abs(rim.u - 5) < 1e-9 && Math.abs(rim.v) < 1e-9);
 });
+
+test("an elliptical arc takes the major and minor widths and a sweep, and places its points", () => {
+  assert.deepEqual(typedLabels("ellarc", 1, false), ["major width", "minor width", "sweep degrees"]);
+  assert.deepEqual(typedLabels("ellarc", 2, false), ["minor width", "sweep degrees"]);
+  assert.deepEqual(typedLabels("ellarc", 4, false), ["sweep degrees"]);
+  const [major, minor, start, end] = typedTargets("ellarc", [{ u: 0, v: 0 }], { u: 1, v: 0 }, [20, 8, 90]);
+  near(major.u, 10);
+  near(minor.v, 4);
+  near(start.u, 10);
+  near(end.u, 0);
+  assert.ok(end.v > 0);
+});

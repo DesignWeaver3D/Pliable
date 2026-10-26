@@ -13,6 +13,7 @@ export function typedLabels(tool: Tool, chainLength: number, polygon: boolean): 
   if (tool === "rectangle" || tool === "rectcentre") return first ? ["width", "height"] : [];
   if (tool === "slot") return first ? ["length", "width"] : second ? ["width"] : [];
   if (tool === "ellipse") return first ? ["major width", "minor width"] : second ? ["minor width"] : [];
+  if (tool === "ellarc") return first ? ["major width", "minor width", "sweep degrees"] : second ? ["minor width", "sweep degrees"] : chainLength >= 3 ? ["sweep degrees"] : [];
   if (tool === "arc") return first ? ["radius", "sweep degrees"] : second ? ["sweep degrees"] : [];
   return [];
 }
@@ -80,6 +81,19 @@ export function typedTargets(tool: Tool, chain: UV[], cursor: UV | null, numbers
     if (chain.length === 2) return [beside(chain[0], chain[1], w / 2)]; // the typed numbers are the full widths of the axes
     const end = along(first, w / 2);
     return h === undefined ? [end] : [end, beside(first, end, h / 2)];
+  }
+  if (tool === "ellarc") {
+    // The arc starts at the end of the long axis and sweeps the typed degrees counterclockwise, measured about the centre.
+    const sweep = numbers[numbers.length - 1];
+    if (chain.length === 4) return [turned(first, chain[3], sweep)];
+    const major = chain.length === 1 ? along(first, w / 2) : chain[1];
+    if (chain.length === 3) return [major, turned(first, major, sweep)];
+    const widths = chain.length === 1 ? 2 : 1; // the numbers before the sweep
+    const out: UV[] = chain.length === 1 ? [major] : [];
+    if (numbers.length < widths) return out;
+    out.push(beside(first, major, numbers[widths - 1] / 2));
+    if (numbers.length > widths) out.push(major, turned(first, major, numbers[widths]));
+    return out;
   }
   if (tool === "arc") {
     if (chain.length === 2) return [turned(first, chain[1], w)];
