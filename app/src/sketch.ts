@@ -19,6 +19,7 @@ import * as F from "./sketchfit";
 import * as Co from "./sketchcoincident";
 import { trimClick } from "./sketchtrim";
 import { addTangentArc, tangentStart } from "./sketchtangentarc";
+import { addArcRadius, arcClick, defaultArcOptions } from "./sketcharcoptions";
 import { ellipseThroughPoint, splitEllipse } from "./sketchsplitellipse";
 import { isFreeCircle, draggedRadius } from "./sketchcircledrag";
 import { loadSketchOptions, OPTIONS_KEY } from "./sketchoptions";
@@ -42,7 +43,7 @@ const CONSTRUCTION_DASH_PX = 8;
 const CONSTRUCTION_GAP_PX = 5;
 const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
-export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "arctan" | "slot" | "point" | "polygon" | "ellipse" | "ellarc" | "spline" | "trim" | "extend" | "split" | "fillet" | "chamfer" | "triangle" | "pentagon" | "hexagon" | "octagon";
+export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "arctan" | "arcrad" | "slot" | "point" | "polygon" | "ellipse" | "ellarc" | "spline" | "trim" | "extend" | "split" | "fillet" | "chamfer" | "triangle" | "pentagon" | "hexagon" | "octagon";
 /** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
 const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5, hexagon: 6, octagon: 8 };
 export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
@@ -54,6 +55,7 @@ export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "circle3", label: "Circle by 3 points", hint: "Click three points the circle passes through" },
   { id: "arc", label: "Arc", hint: "Click the centre, the start, then the end; the arc runs the way the pointer moves from the start" },
   { id: "arc3", label: "Arc by 3 points", hint: "Click the start, the end, then a point the arc passes through" },
+  { id: "arcrad", label: "Arc by ends and radius", hint: "Set the radius in the sketch card, click the start and the end, then a point on the side the arc bulges to; of the arcs of that radius the one nearest the pointer is made" },
   { id: "arctan", label: "Tangent arc", hint: "Click the end of a line or arc (or the curve itself), then the end of the new arc, which leaves the curve tangentially" },
   { id: "slot", label: "Slot", hint: "Click the centre of one end, the centre of the other end, then a point for the width" },
   { id: "point", label: "Point", hint: "Click to place a point; it can be snapped to and constrained" },
@@ -810,6 +812,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       if (typeof start === "string") return this.host.status(start, true);
       snap = start;
     }
+    if (this.tool === "arc" && !this.placingTyped && this.chain.length >= 1 && this.chain.length <= 2) snap = arcClick(this.chain, snap, this.arcOptions);
     this.chain.push(snap);
     if (this.tool === "line") {
       if (this.chain.length >= 2) {
@@ -845,6 +848,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.shapeDone();
     } else if (this.tool === "arc3" && this.chain.length === 3) {
       this.addArcThrough(this.chain[0], this.chain[2], this.chain[1]); // clicked start, end, then the point it passes through
+      this.shapeDone();
+    } else if (this.tool === "arcrad" && this.chain.length === 3) {
+      addArcRadius(this, this.chain[0], this.chain[1], this.chain[2], this.arcOptions.radius);
       this.shapeDone();
     } else if (this.tool === "arctan" && this.chain.length === 2) {
       addTangentArc(this, this.chain[0], this.chain[1]);
@@ -1044,6 +1050,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   /** The first curve picked for a Fillet or Chamfer between two curves that need not touch. */
   private cornerFirst: number | null = null;
   rectOptions: { corner: "none" | "fillet" | "chamfer"; size: number } = { corner: "none", size: 5 };
+  /** Numbers of the arc tools kept in the sketch card (start angle and sweep of the centre arc, radius of the arc by ends and radius). */
+  arcOptions = defaultArcOptions();
   status(text: string, error?: boolean | "warn") {
     this.host.status(text, error);
   }
@@ -1079,7 +1087,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     B.addSlot(this, a, b, side);
   }
   private addArc(center: Snap, start: Snap, end: Snap) {
-    B.addArc(this, center, start, end, this.placingTyped);
+    B.addArc(this, center, start, end, this.placingTyped || this.arcOptions.sweep !== null);
   }
 
   /** The drawing tool used last in this sketch; Enter with no tool active starts it again. */

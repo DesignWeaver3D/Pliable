@@ -6,6 +6,7 @@ import * as Co from "./sketchcoincident";
 import { uiIcon } from "./icons";
 import { deleteButton } from "./deletebutton";
 import type { SketchOptions, Tool } from "./sketch";
+import type { ArcOptions } from "./sketcharcoptions";
 
 export interface PanelContext {
   s: M.SketchData;
@@ -15,6 +16,7 @@ export interface PanelContext {
   showMarks: boolean;
   options: SketchOptions;
   rectOptions: { corner: "none" | "fillet" | "chamfer"; size: number };
+  arcOptions: ArcOptions;
   tool: Tool;
   saveOptions(): void;
   pushUndo(): void;
@@ -60,6 +62,37 @@ export function buildToolOptions(ctx: PanelContext): HTMLElement {
     });
     const row = el("label", "", "Sides ");
     row.append(sides);
+    tools.append(row);
+  }
+  if (ctx.tool === "arc") {
+    // Blank leaves the start and the end to the pointer; a number fixes the start direction (degrees counterclockwise from the horizontal axis) and the counterclockwise sweep.
+    const field = (label: string, title: string, get: () => number | null, set: (n: number | null) => void) => {
+      const input = document.createElement("input");
+      input.type = "number";
+      input.step = "any";
+      input.placeholder = "pointer";
+      input.title = title;
+      input.value = get() === null ? "" : String(get());
+      input.addEventListener("keydown", (e) => e.stopPropagation());
+      input.addEventListener("input", () => set(input.value.trim() === "" || !Number.isFinite(Number(input.value)) ? null : Number(input.value)));
+      const row = el("label", "", label);
+      row.append(input);
+      tools.append(row);
+    };
+    field("Start angle ", "Start angle in degrees counterclockwise from the horizontal axis; blank follows the pointer", () => ctx.arcOptions.startAngle, (n) => (ctx.arcOptions.startAngle = n));
+    field("Sweep ", "Sweep in degrees, counterclockwise (above 0, below 360); blank follows the pointer", () => ctx.arcOptions.sweep, (n) => (ctx.arcOptions.sweep = n !== null && n > 0 && n < 360 ? n : null));
+  }
+  if (ctx.tool === "arcrad") {
+    const size = document.createElement("input");
+    size.type = "number";
+    size.step = "any";
+    size.min = "0";
+    size.value = String(ctx.arcOptions.radius);
+    size.title = "Radius of the arc";
+    size.addEventListener("keydown", (e) => e.stopPropagation());
+    size.addEventListener("input", () => (ctx.arcOptions.radius = Math.abs(Number(size.value)) || 0));
+    const row = el("label", "", "Radius ");
+    row.append(size);
     tools.append(row);
   }
   if (ctx.tool === "fillet" || ctx.tool === "chamfer") {

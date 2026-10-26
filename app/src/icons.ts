@@ -128,6 +128,7 @@ export const SKETCH_ICONS: Record<string, string> = {
   arc: '<path d="M4.5 17a9 9 0 0 1 15 0"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/><circle cx="4.5" cy="17" r="1.4" fill="currentColor"/><circle cx="19.5" cy="17" r="1.4" fill="currentColor"/>',
   arc3: '<path d="M4.5 18a9 9 0 0 1 15 0"/><circle cx="4.5" cy="18" r="1.4" fill="currentColor"/><circle cx="12" cy="9.5" r="1.4" fill="currentColor"/><circle cx="19.5" cy="18" r="1.4" fill="currentColor"/>',
   slot: '<rect x="3.5" y="8" width="17" height="8" rx="4" fill="currentColor" fill-opacity=".12"/>',
+  arcrad: '<path d="M4.5 17a9 9 0 0 1 15 0"/><circle cx="4.5" cy="17" r="1.4" fill="currentColor"/><circle cx="19.5" cy="17" r="1.4" fill="currentColor"/><path d="M12 17l5-7" stroke-dasharray="2 2"/>',
   arctan: '<path d="M3 19h8"/><path d="M11 19a8 8 0 0 0 8-8"/><circle cx="11" cy="19" r="1.4" fill="currentColor"/><circle cx="19" cy="11" r="1.4" fill="currentColor"/>',
   point: '<circle cx="12" cy="12" r="2.4" fill="currentColor"/><path d="M12 4v4M12 16v4M4 12h4M16 12h4"/>',
   ellarc: '<path d="M3 12a9 5.5 0 0 1 18 0"/><circle cx="3" cy="12" r="1.4" fill="currentColor"/><circle cx="21" cy="12" r="1.4" fill="currentColor"/>',
