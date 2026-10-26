@@ -37,7 +37,7 @@ export async function exportAs(core: FileCore, status: HTMLElement, baseName: st
     }
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = name.replace(/\.(step|stp|stpz|iges|igs|brep|brp|3dm|stl|obj|3mf|plbl)$/i, "") + "." + extension;
+    link.download = name.replace(/\.(step|stp|stpz|iges|igs|brep|brp|3dm|ifc|stl|obj|3mf|plbl)$/i, "") + "." + extension;
     link.click();
     URL.revokeObjectURL(link.href);
   } catch (e) {
@@ -82,7 +82,7 @@ export function installFileOpening(d: OpenFileDeps, buttons: { open: HTMLElement
     try {
       d.status.textContent = `importing ${file.name}...`;
       const data = toBase64(new Uint8Array(await file.arrayBuffer()));
-      const extension = /\.([a-z0-9]+)$/i.exec(file.name)?.[1]?.toLowerCase() ?? "step"; // the core reads STEP, compressed STEP, IGES, BREP and 3dm by it
+      const extension = /\.([a-z0-9]+)$/i.exec(file.name)?.[1]?.toLowerCase() ?? "step"; // the core reads STEP, compressed STEP, IGES, BREP, 3dm and IFC by it
       if (mode === "replace") d.setCommitted(await d.core.request("import_step", { name: file.name, data, extension }), true);
       else d.setCommitted(await d.core.request("combine_step", { data, mode, extension }), false);
     } catch (e) {

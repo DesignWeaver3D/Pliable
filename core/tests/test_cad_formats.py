@@ -85,3 +85,61 @@ def test_3dm_export_and_empty_file():
 
     model = rhino3dm.File3dm.FromByteArray(base64.b64decode(exported["data"]))
     assert len(model.Objects) == len(source.document.current.bodies.bodies)
+
+
+@pytest.mark.parametrize("demo", ["bracket", "block"])
+def test_ifc_round_trip(demo):
+    pytest.importorskip("ifcopenshell")
+    source = Session()
+    source.handle({"type": "open_demo", "name": demo})
+    exported = source.handle({"type": "export_cad", "format": "ifc"})
+    raw = base64.b64decode(exported["data"])
+    assert raw.startswith(b"ISO-10303-21") and b"IFCBUILDINGELEMENTPROXY" in raw and b"IFCFACETEDBREP" in raw
+    for body in source.document.current.bodies.bodies:
+        assert body.name.encode() in raw
+    target = Session()
+    target.handle({"type": "import_step", "name": "x.ifc", "extension": "ifc", "data": exported["data"]})
+    assert len(target.document.current.bodies.bodies) == len(source.document.current.bodies.bodies)
+    assert [b.name for b in target.document.current.bodies.bodies] == [b.name for b in source.document.current.bodies.bodies]
+    assert volume(target) == pytest.approx(volume(source), rel=1e-3)
+
+
+def test_ifc_skipped_elements_and_bad_file():
+    pytest.importorskip("ifcopenshell")
+    import ifcopenshell
+    import ifcopenshell.api
+
+    source = Session()
+    source.handle({"type": "open_demo", "name": "bracket"})
+    raw = base64.b64decode(source.handle({"type": "export_cad", "format": "ifc"})["data"])
+    import os
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "a.ifc")
+        with open(path, "wb") as f:
+            f.write(raw)
+        model = ifcopenshell.open(path)
+        ifcopenshell.api.run("root.create_entity", model, ifc_class="IfcSpace", name="Room")
+        model.write(path)
+        with open(path, "rb") as f:
+            data = base64.b64encode(f.read()).decode()
+    target = Session()
+    reply = target.handle({"type": "import_step", "name": "a.ifc", "extension": "ifc", "data": data})
+    assert reply is not None
+    assert volume(target) == pytest.approx(volume(source), rel=1e-3)
+    assert any("space" in w for w in files.read_step_parts(base64.b64decode(data), "ifc")[1])
+    with pytest.raises(Exception, match="ifc"):
+        target.handle({"type": "import_step", "extension": "ifc", "data": base64.b64encode(b"not ifc").decode()})
+
+
+def test_ifc_curved_solid_is_close():
+    pytest.importorskip("ifcopenshell")
+    from build123d import Cylinder
+
+    from pliable.filesifc import read_ifc, write_ifc
+
+    cylinder = Cylinder(5, 10)
+    root, notes = read_ifc(write_ifc(cylinder.wrapped, ["Pin"]))
+    assert root.children[0].label == "Pin" and len(root.solids()) == 1
+    assert files._volume(root.wrapped) == pytest.approx(cylinder.volume, rel=1e-3)
