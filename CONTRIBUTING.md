@@ -23,6 +23,17 @@ The `commit-lint` workflow runs the same check on pushes and pull requests.
 - `main` is the default branch and holds the last released state. Merge `rebuild` into it when cutting an alpha, and only when the owner says so.
 - Version tags (`v*`) are cut from `rebuild` once its build is green. The tag build makes a draft release that you publish by hand. The archives copy the README, license and third-party notices at build time, so finish documentation changes before tagging.
 
+### Release checklist (before merging `dev` into `rebuild` for a release)
+
+The `docs-check` job in the release workflow runs `python scripts/check_release_docs.py [TAG]` first and stops the build, and the draft, when something is out of date. Run it yourself before merging so the failure does not cost a build:
+
+1. Raise the version in the four places (see Desktop shell) and run `uv lock` in `core/`.
+2. README: the status line names the new version; the download section still matches the archives.
+3. `docs/release-notes.md` and `docs/known-limitations.md`: what was tested by a person, platform requirements, new warnings.
+4. `THIRD_PARTY_NOTICES.md`: when a lock file changed (the check says so), review the list for new libraries and licenses, then run `python scripts/check_release_docs.py --update-fingerprints`.
+5. `docs/progress.md`, `ROADMAP.md`, `docs/behavior.md`: state lines and anything the release changes.
+6. Run `python scripts/check_release_docs.py vX.Y.Z`, the tests, then merge, wait for the green build, tag, and publish the draft by hand.
+
 ## Desktop shell
 
 `desktop/` is the Tauri shell: it starts the frozen core (`core/pliable` beside the program) on a free port, then shows the page the core serves in a native window. It changes nothing in the app or the protocol. Builds are portable archives, not installers; the shell, the `core/` folder and a `data/` folder (created at run time) sit together.

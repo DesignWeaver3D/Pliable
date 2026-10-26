@@ -16,3 +16,5 @@ Pliable is licensed under the GNU Affero General Public License v3 or later (see
 | About 400 Rust crates used by the desktop shell | Window, webview and system access (the full list is in `desktop/src-tauri/Cargo.lock`) | Mostly MIT or Apache-2.0; also Unicode-3.0, Zlib, ISC, BSD-3-Clause and MPL-2.0 (a few crates) |
 
 The desktop window uses the operating system's webview (Microsoft WebView2 on Windows, WebKit on macOS, WebKitGTK on Linux); it is not bundled. Portable builds bundle the other components. OpenCASCADE is LGPL: its libraries ship as separate files in the build so they can be replaced. The AGPL source for Pliable is at https://github.com/DesignWeaver3D/Pliable.
+
+<!-- lock fingerprints: desktop/src-tauri/Cargo.lock=0acc4fc288cc core/uv.lock=c6ebfb808ced app/package-lock.json=e7dd29074a56 desktop/package-lock.json=01a653602ff9 -->

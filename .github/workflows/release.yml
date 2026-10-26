@@ -17,8 +17,17 @@ concurrency:
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
+  docs-check:
+    # The archives ship the README, license and notices, so they must be right before anything is built.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the release documents (and that the tag matches the version)
+        run: python scripts/check_release_docs.py "${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}"
+
   create-draft:
     runs-on: ubuntu-latest
+    needs: [docs-check]
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4
@@ -38,8 +47,8 @@ jobs:
           - { os: macos-15-intel, label: macos-x64 }
           - { os: ubuntu-24.04, label: linux-x64 }
     runs-on: ${{ matrix.os }}
-    needs: [create-draft]
-    if: always() && (needs.create-draft.result == 'success' || needs.create-draft.result == 'skipped')
+    needs: [docs-check, create-draft]
+    if: always() && needs.docs-check.result == 'success' && (needs.create-draft.result == 'success' || needs.create-draft.result == 'skipped')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
