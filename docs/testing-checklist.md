@@ -1,121 +1,70 @@
-# Hand-testing checklist
+# Hand-test queue
 
-Mark each line `[w]` works, `[r]` rough (usable, but note why), or `[x]` broken. Put a short note after the dash. Tool ids match `app/src/layout.ts`; `divide_face` and `inset_face` are registered but not placed in a group, so they show under "Other".
+Things built and unit tested that the owner has not yet tried in the app. Sessions append one line per thing to check: what to do and what you should see. Delete a line when it passes. If it fails, describe the problem and it becomes a row in [progress.md](progress.md); nothing is marked or kept once it works. Approved behavior is recorded in [behavior.md](behavior.md) when you approve it, so a passed test does not need to be re-run later.
 
-For every tool, check these five things once, then only note the exceptions:
-1. Selecting the right thing enables the tool (and the wrong thing doesn't).
-2. The live preview matches the result.
-3. Typed entry (Tab) gives the same result as dragging.
-4. Undo and redo restore the exact model.
-5. The status message makes sense, including on an invalid input.
+Restart the core before testing anything that says so.
 
-Test on: a simple block, a part with holes (the bracket), and an imported STEP file.
+## To test
 
-## File, view and selection
-- [r] Open STEP- does not warn that current model will be deleted. Does not offer option to add to current session (mulitple solids).
-- [r] Export STEP - does not provide dialog to define export name or file type or destination.
-- [x] Export STL / OBJ / 3MF - I don't see this tool or functionality at all.
-- [r] Combine STEP (other file at its own origin) - see open step above. Maybe the options should just be import or exxport and work from there.
-- [w] Undo / redo across several different tools
-- [r] Click select: face, edge, vertex; shift/ctrl multi-select - unclear what shift select does. Appears to create selection chips but then don't know what to do next. Sometimes hard to select edges. hard to select small faces without zooming way in.
-- [r] Double-click an edge selects its smooth chain; ctrl+double-click adds - sometimes adds non-tangent edges which is wrong. Ctrl+doubleclick doesn't behave as expected.
-- [r] Related-face chips (coplanar, equal radius, coaxial): toggle on/off, highlight is correct - highlight appears correct but unknown how to work with chips altogether.
-- [r] "All edges" and "Edge loops" for a selected face - both appear to do same thing. Edge loop should be the outperimeter edges, or have a different name perhaps.
-- [w] Number keys for standard views (0 to 6), `P` perspective/orthographic toggle
-- [w] Orthographic camera looks right when rotated and zoomed
-- [r] Measurements shown for a selected edge, hole wall, flat face, fillet face, vertex - this seems to work good, but sometimes after other tool usage stops working and need to refresh the browser tab to get it working again.
+- [ ] Tauri portable shell (owner, 2026-10-25: "begin work necessary to move to Tauri. All Tauri builds will be portable for now."): `desktop/` holds the shell (starts the frozen core, shows its page in a native window, keeps the webview profile, core log and autosave in `data/` beside the program). Built locally on Windows with the GNU toolchain (no admin rights for the C++ build tools), assembled with `scripts/build_desktop.py`, and `core/scripts/smoke.py desktop PATH` passed against the packaged folder. The `desktop` workflow (start it from the Actions tab) built and smoke-tested the portable archives on Windows (MSVC), Linux (Ubuntu 24.04) and both macOS builds; the archives are the run's artifacts. Owner checked the Windows archive (2026-10-25): it starts, opens a `.plbl` and a STEP file, and a STEP exported from a Pliable-made shape opens cleanly in another CAD program. Not done: hand check of window icon and resize, and of the macOS and Linux archives; `release.yml` now builds the desktop archives (not yet run: it ran green on the former release candidate branch and on the `v0.4.0` tag; it now runs on `release/*` branches and tags). Next steps: owner hand test of the Windows archive; then add file dialogs through the shell if downloads misbehave in the webview.
+- [ ] Sketch agent batch (owner, 2026-10-25), unit tested; only trim and split were looked at in the app (restart the core first). Check: Trim (first click splits at crossings and turns the clicked piece into construction, second click on it deletes it); Split (no false conflict on two lines sharing an end); Arc by center clockwise and counter-clockwise following the pointer (a typed sweep stays counter-clockwise); Arc by 3 points start, end, then through; selection clears after a constraint; construction curves dashed and drawn below normal ones (including projected edges); a new ellipse gets two construction axis lines you can dimension alone; a centre rectangle gets a centre point held symmetric at the middle, with a coincident constraint when the centre is clicked on a line, axis or point; automatic constraints are on by default. `sketchoptions.ts` was split out of `sketch.ts`.
+- [ ] Project edges (owner, 2026-10-25): the core already projected the B-rep edge curves (not the view mesh); now a whole ellipse edge also stays a true ellipse. Unit tested only. Check in the app: project a sphere/cylinder/slot on a flat plane (circles and arcs stay true, selectable by radius) and on a tilted plane (ellipses; tilted arcs are splines). Restart the core first.
+- [ ] Kernel agent batch (owner, 2026-10-25), core tested; not looked at in the app (restart the core first). Check: Zoom all in a sketch fits the sketch with no minimum; Menu > New Project after projecting edges in an open sketch leaves nothing behind; selecting a body shows volume and mass in the measurement card; Resize chamfer shows two arrows (which neighbour is "first" is not labelled); Face Draft has Pick axis and an Axis list (default Face centroid). If the view goes blank again the status line should now name the failing part.
+- [ ] Material per body (owner, 2026-10-25), core and unit tested, not looked at in the app (restart the core first; the browser extension was unavailable). Check: Settings > Default material is PLA; right-click a body in the body list > Material: pick a metal, select the body and its mass in the measurement card follows it (other bodies keep the default); undo/redo and save/open keep it; Duplicate copies it. The 3D look still uses the default material for all bodies.
+- [ ] Face Draft Pick axis (owner, 2026-10-25), unit tested for the edge-point maths, not looked at in the app. Check: open Draft on a face, press Pick axis, click an edge of its own face or another edge elsewhere; the Axis list switches to Picked point and the face pivots about the plane through that edge (square to the pull direction; exact for an edge square to the pull).
+- [ ] Move/Rotate on edges: select straight edges, open Move/Rotate. Two arrows square to the edge and one arc between them; the arc turns the arrows about the edge and snaps to the adjacent faces' normals (or type degrees); arrows move the edge, corners sliding along faces that stay put. Unit tested in the core; the arc and arrow drawing is not looked at in the app. Check: arc grab and snap feel, arrow and arc placement on slanted and chamfer edges, preview speed. Owner's request: "Need move/rotate gizmo to work on edges with angle snapping to adjacent face edge normals."
+- [ ] Move sketches (owner, 2026-10-24): with a sketch picked (its row in the list, or its tinted region in the view) the Move/Rotate tool is offered and opens the same arrows, rings and number fields as for a body; the sketch's curves and regions follow live, Apply keeps it (one undo step), Esc puts it back. It turns about the middle of the sketch, X then Y then Z, then shifts, like a solid. Picking a region first takes its temporary face out of the model. Not checked in the app; restart the core first (new request). Open: moving several sketches at once, and fixed projected edges inside a moved sketch move with it.
+- [ ] Sketch origin (owner, 2026-10-24): the points, the origin among them, are drawn over every curve, and a reopened kept sketch gets its origin point back if it had none (it was only added to new sketches). Not checked in the app.
+- [ ] Symmetric (owner, 2026-10-24): besides points and lines about a line or axis, one line (its two ends) about another line or an axis, and two circles, arcs or ellipses (their centres) about a line, axis or point now offer Symmetric. Points or lines with a line or axis already did in the tests, so if your case still says it does not fit, tell me exactly what you selected. Not checked in the app.
+- [ ] Error messages and Copy diagnostics (owner, 2026-10-24): every error and warning shown in the top bar's status line is recorded (last 50, with the time) and listed in the diagnostics report; clicking a status message that is cut short, or an error, opens it whole in a window you can select and copy. Not checked in the app.
+- [ ] Ellipse (owner, 2026-10-24): a new ellipse has four axis-end points (quadrant points) as well as the centre; typed sizes are the major and minor widths; the Dimension button on an ellipse offers Major width and Minor width (distances between the opposite ends); a point can be put on an ellipse (Coincident, Point on, or snapping a line end to it), solved with hidden focus points, so the TypeError is gone. Older ellipses without the four ends still take a point on them. Not checked in the app; restart the core first.
+- [ ] Prism icon (owner, 2026-10-24): Add prism now shows a square pyramid. Not checked in the app.
+- [ ] Project menu and samples (owner, 2026-10-24): the Menu group is Project: New Project (completely empty, "Untitled", the camera looks at the origin), Open Project, Save Project, Open STEP as New Project, Import STEP..., Export STEP, Export mesh...; Model info button removed; the sample list shows "Choose a sample..." so the first sample (bracket) can be chosen at once. I kept Save Project (not in your list) after Open Project. Not checked in the app; restart the core first (new request).
+- [ ] Boolean (owner, 2026-10-24): the tool is named Boolean, is offered for two or more bodies or faces on two bodies (a body plus faces of another works), and the form has a Union, Subtract, Intersect list (first selected is the target). Not checked in the app; restart the core first.
+- [ ] Sketch batch (owner, 2026-10-24): angle to horizontal axis removed everywhere; three far-apart points (two centres and the origin) now offer Symmetric about the third (the fixed one, else the one nearest the others' middle) instead of Coincident; the smart dimension accepts projected edges together with other geometry or a point; a value too wide for the room between its arrows goes past the far extension line with the line run on to it; two quick taps on a dimension's value or lines open the editor even when the drawing was rebuilt between them; after a solve the shape and dimensions update first and the point colours follow (the core's per-point freedom work was the lag, now a separate request limited to 0.4 s, so the colours of very big sketches may be partly missing). Not checked in the app; restart the core first (new request, new constraint). Leaders already keep text upright; check long decimals on a diameter or radius leader.
+- [ ] Repeat last sketch tool (owner, 2026-10-24: "hit enter and the last drawing tool is reactivated"): Enter in a sketch with the Select tool active restarts the last drawing tool; Enter during a line chain still ends it. Not checked in the app.
+- [ ] Smart dimension and region pick (owner, 2026-10-24): two separated points give the length at once; Horizontal distance and Vertical distance are strip buttons again (new icons). Picking a tinted sketch region sends the single region too, so a core started before the multi-region change still works; restart the core to get Shift/Ctrl multi-pick. Not checked in the app.
+- [ ] Concentric circles (owner, 2026-10-24): two concentric or nested circles or arcs now offer the gap between their rims (the old message came from only the Concentric constraint being offered, which does nothing for circles already sharing a centre); clicking a dimension's leader selects it (a diameter's line across the circle still is not clickable, so the centre stays selectable). Restart the core (solver change).
+- [ ] Round dimensions (owner, 2026-10-24): circle default is the diameter (typed entry takes the diameter and keeps a diameter dimension, the live tag shows the diameter), arc stays radius; right-click a radius or diameter value to show it as the other; two circles or arcs offer "Distance between the centres" (already there) and "Gap between the rims" (new `round_gap` constraint, solved with a hidden point on each rim; not offered when they overlap); clicked dimensions are deleted with Delete. Not checked in the app; restart the core first.
+- [ ] Typed sizes while drawing (owner, 2026-10-24: "Draw the dimension leaders/extension lines and display the typed value in it, not a random text box floating in space"): typing sizes now previews the shape at those sizes and draws real dimensions with the typed value inside (rectangle width and height with extension lines; line, slot length and width; radius leaders for circle, polygon, ellipse; angle arc for the arc sweep); the number being typed has a caret and is orange. Not checked in the app (the dimension text still steps away from the pointer when it is close).
+- [ ] Sketch list and view (owner, 2026-10-24): hovering a sketch row or its curves or region in the view lights it (white), a picked sketch is orange in the row and the view; double-clicking a row opens the sketch, rename moved to the row's right-click menu with Delete; double-clicking a sketch's curves or region in the view selects the whole sketch (Delete removes it); a sketch region over a coplanar face wins hover and press (the face under it is no longer selected and dragged by the press). Not checked in the app. Curve hover tests every visible sketch segment on each pointer move (watch for lag with very large sketches).
+- [ ] Sketch and selection batch three (owner, 2026-10-24): 3D box select with no filter takes faces, edges and vertices together (setting "All"; F, E, V still restrict; the old "keep the current kind" is gone); in a sketch the top bar's Undo and Redo, Ctrl+Z and Ctrl+Y/Ctrl+Shift+Z step through sketch edits (there was no sketch redo, and the top bar stepped the model); a dropped constraint names itself and the constraints it repeats or conflicts with (or says it clashes with fixed points); Shift or Ctrl+click on a second tinted sketch region adds it, so two circles can be pulled together (core request `picked_regions`). Not checked in the app: restart the core; whether undo now covers every constraint you add is not confirmed, tell me a case that still cannot be undone. Box-dragging over tinted sketch regions is not supported.
+- [ ] Sketch batch two (owner, 2026-10-24): Symmetric is back on the strip and takes two points about a line, three points about the third, two lines about a line (a sketch axis or construction line, else the last selected) or about a point, pairing ends to fit the drawn shape; the sketch axes can be picked (only when no other curve or point is near; they turn orange when picked) and dimensioned or constrained to (axis ids -1 horizontal and -2 vertical, sent to the core as fixed lines only when a constraint uses them); every dimension value is drawn upright (horizontal on the screen), vertical ones included. Not checked in the app; restart the core first.
+- [ ] Angle dimension as an arc (owner: "sketch angle dimension doesn't show arc leaders like is expected for technical drawings. Also, the angle between two selected edges should proritize the location of the cursor at the time dimension tool is invoked"): arc with an arrowhead at each end, extension lines out to it, the value on its middle (beside it when short); dragging the value moves the arc's size and sector. A new angle takes the sector the pointer was in when the Dimension tool or D was invoked (inside or outside angle, value to match). Not checked in the app; the sector uses the last pointer position, so from a toolbar button it is the sector toward the button.
+- [ ] Sketch: dimensions (card has no constraint buttons, strip uses the full width and never greys buttons, entry on creation applies, dimensions drag by text or lines, new ones go outside closed faces, circle centre selectable under a diameter or radius dimension; circle-leader placement inside a larger face not checked); every dimension editable by double-click; dimension appears at once with the value prefilled; horizontal and vertical on multiple lines as detected; coincident for several vertices and vertex-on-edge; smart tangent or collinear; smart dimension; visual-only faces as soon as a profile closes; leaders in the shared off-white; key instructions as a hint; coloured axis edges on the XY, XZ, YZ buttons; sketch geometry draws over the origin axes; dragging a dimensioned horizontal line freely; constraints that need edges ignore selected vertices; gizmo off by default; constraint row on its own second row of the top strip (applying from it not checked); sketch card layout.
+- [ ] Sketch drawing: typed sizes with Tab for rectangle, slot, ellipse, arc, line, circle, polygons (slot, ellipse and arc sizes are not kept as dimensions); every drawing tool but Line leaves to Select after its first shape (spline after closing or Enter; point after one point).
+- [ ] One push/pull path: dragging the face's arrow handle now behaves like dragging the face itself (M or right-click measure edges, typed value, Shift symmetric, companion faces); check both start points give the same result and that the arrow still tracks.
+- [ ] Sketch region pull undo: pick a kept sketch's region, pull it with the arrow or the face, press Undo once: the model returns to before the pick (no loose face left) and Redo brings the extrusion back (core test passes; one Chrome run showed the pull and undo working, the exact face count after Undo was not distinguishable).
+- [ ] Delete key in the lists: select bodies in the list (Shift or Ctrl), press Delete, one Undo brings them back (checked in the app with two bodies, and a sketch row clicked then Delete); right-click Delete on sketch and datum rows and on a multi-selected body row not checked in the app.
+- [ ] Add prism top and bottom diameters (a top of 0 is a true pyramid; the flat sides are real planar faces, volumes and face counts are unit tested; the form and handles not checked in the app): the cone-style diameter handles at the bottom and the top, the sides grip riding the top rim (the bottom rim for a pyramid). Add prism (hexagon by default): in the tools list and drawer after Add torus; check the form, the diameter and height grips, the sides cube grip (slides along the top rim), Edit primitive from the bodies list, and that searching hexagon or polygon finds it (preview checked in the app; apply and edit not checked).
+- [ ] Push/pull direction: select a face; the draft angle tag now sits near the top of an upright wall instead of on the arrow; a pick icon sits past the arrow head with four 120 degree arcs around it. Press the icon, click a straight edge (or a face for its normal; the selected face resets); drag an arc toward the side you want the arrow to lean. Dragging the arrow or the face then pulls along that direction (checked in the app: icon pick of a vertical edge, one arc drag to 52.8 degrees, a face drag committed a slanted pull, Undo). Not checked: arrow-handle drag along a tilted direction, the loose sketch face path in the app, Shift (symmetric) with a tilted direction shows an error.
+- [ ] Push/pull direction gizmo look: pick icon is the sketch pick-button crosshair; four colour-of-axis arcs (120 degrees, through the arrowhead tip) around the arrow; no draft tag by default; the lean angle label only while tilted (checked in the app: icon and arcs shown, one arc drag to 79.6 degrees with the label; the pick of an edge was not rechecked after the icon change; the arcs are 34 px in radius so they are fairly small on screen, and thin against the orange selected face).
+- [ ] Push/pull direction gizmo, two arcs: red and green arcs about the face's sketch axes, a little bigger; bare pick icon; pick then click an edge keeps Push/Pull and applies the direction (checked in the app: select face, press pick, click an edge, status says set and the face stays selected with Push/Pull active, a face drag commits; Undo). Not checked: dragging the new arcs, a pick of a slanted edge.
+- [ ] Typed entry on the direction arcs and the array cube grip: hold an arc and type degrees (Enter applies, Escape cancels); hold the cube grip and type columns, Tab, rows, Enter. Checked in the app with synthetic pointer and key events (25 degrees applied from an arc; 5 by 2 applied to the form from the cube). Not checked with a real held mouse button.
+- [ ] Linear array grid: 3 by 3 default, two spacing grips and a cube corner grip: dragging it in the plane of the two steps sets columns and rows independently (checked: 3 by 4 from one drag); the two spacing grips not checked; rows 1 gives the old line; with parallel steps the corner grip stays an arrow along the diagonal.
+- [ ] Array apply or discard: with an array form open, clicking away, editing a primitive or picking another tool asks Apply or Discard (checked: click away then Discard; Apply and the edit-primitive path not checked). Push/pull arrow drag shares the face drag (not checked in the app: the drag attempt missed the arrow).
+- [ ] Sketch zoom to fit: the nav cube's fit everything and fit selection use the edited sketch's geometry (the fit-selection button enables with a sketch selection).
+- [ ] Sketch view button: switches to orthographic and back to the earlier mode when the camera is turned (not hand-checked; the 0.99985 direction threshold is about 1 degree).
+- [ ] Sketch Delete on selected vertices: removes the coincidence and keeps the lines (a lone free end is still deleted with its line).
+- [ ] Sketch constraint list: shared end points listed as automatic Coincident rows (x splits them); list filtered by the selection.
+- [ ] Dimension value gaps: the dimension's own lines are cut around its value and nothing else is hidden (check length, diameter and radius leaders, angle tags, point to line, outside-arrow mode, a measured edge length and a hole diameter in the 3D view, and a value over a tinted face or the grid).
+- [ ] Sketch point drag: a dragged point snaps to the grid (when on), the axes and the lines of other points (with guides), but never joins another point; Horizontal and Vertical on a single line now add their constraint (the former open bug).
+- [ ] Core crash on editing a diameter after a redundant-constraint error: not reproduced in the solver (fuzzed redundant, conflicting, lock and zero values: no native crash, no uncaught error). Hardened instead: a radius or diameter value that is not a positive number is refused, a circle of no size gives no regions, a native crash now prints a traceback (faulthandler), and the page keeps retrying if the connection drops while it syncs after reconnecting. If it happens again, note the core console output.
+- [ ] Implied faces for 3D work: picking a divided-rectangle region and push/pull (loose and imprinted), and sketch extrude or revolve of a sketch with a divider or attached lines, are tested in the core; the app path (click a tinted region, then push/pull) is unchanged and not hand-checked on implied faces. Restart the core first.
+- [ ] Outside dimension arrows (no line between the extension lines now): pull a length dimension's value past an extension line and check the arrows (not seen in the app; drawn in `dimensions.ts` `dimLine`).
+- [ ] Sketch D hotkey: applies the smart dimension to the selection (no key conflicts in the default keymap).
+- [ ] Region next to an extruded region: picking it works again (the neighbour's shared edge was mistaken for lying on the extruded face); restart the core first.
+- [ ] Smart dimension (D or the Dimension button, first in the constraint row): cursor menu when several fit (two separated points: distance, horizontal, vertical); parallel lines distance; centre distances; 3+ items symmetric, midpoint, equal, collinear, concentric; message when nothing fits; redundant dimension added as reference with a warning; icon button in the constraint list and right-click on a dimension value (click selects, Shift or Ctrl adds) switches reference and driving; redundant geometric constraint dropped with a warning; drag an angle value across the lines for the outside angle; polygons get major and minor construction circles. Not checked in the app. Restart the core first (angle outside flag).
+- [ ] Constraint row cleanup: Dimension first; Length, Horizontal and Vertical distance, Short radius, Point to line distance and Symmetric removed from the row (reachable through the smart dimension); every button shows an icon and its name (check the row wraps well at your window width). Owner questions at the end of the audit in smart-dimension-plan.md.
+- [ ] Zoom to fit below the top strip (and with sketch dimensions): check that nothing sits behind the strip after zoom all, in the model and in a sketch with dimensions; right and left overlays (nav cube, lists) are not excluded.
+- [ ] Point to line dimension: the dimension line now runs square to the line from the point to the line, extension lines along the line (they ran along the measured segment before); check by dragging and editing.
+- [ ] Sketch planes and regions: faces from areas enclosed by geometry without shared end points (divider across a rectangle, lines attached to a side); offset and angled planes from a flat face, plane tangent to a face at a vertex (angle turns about the face plane's x axis); clicking a kept sketch's tinted region adds it as a selected face (push/pull, pocket, Revolve face, Sweep, Loft); clicking one opens its extrude dialog; grid drawn per pixel (jiggle during a camera glide); grid-off lock-up not reproduced (needs exact steps); slot unconstrainable not reproduced; sketch lift of the alpha "unsupported" label.
+- [ ] Selection and UI: box-drag filters F, E, V with badge; Select similar; Select parent bodies (wording provisional); edge centres as snap points (not selectable yet); bodies list moved right and scrolls to the picked body; top bar sizes; edit cards under the nav cube group (measurement card dodge not seen); hints stay until Got it; old sketch key tips removed; search keywords, recents, searchable settings, Getting started card, touch sizing, printable shortcut sheet (needs a real touch device; review the icons).
+- [ ] Modeling: Cut with plane (any direction, keep both halves); counterbore and countersink at either or both ends; Shift toggles symmetric push/pull mid-drag (provisional); primitive handles (stems point inward, only the cube or arrowhead grabs); Model info for the selected body; "new body" box label; datum planes; Mirror mode; symmetric push/pull about a sketch plane, mid-plane or datum; project save and open `.plbl` (restart the core first; stale core caused "Unknown request type"); refresh resumes the open model before any crash prompt (not tried with two cores); many-body speed (150 bodies about 0.3 s per commit); rotation gizmos sized to 50% of the viewport.
+- [ ] Not reproduced, retest on a restarted core: opening the block model while a 109-solid STEP was loaded took over 150 s (core measured 10 ms).
+- [ ] Earlier hand-test lists with specific unchecked items: snapping to a ghosted body's edge, Normal-to-edge sketch plane, rotation rings typed degrees, Material choices other than ABS, gloss on a 100k-triangle model, Mirror, Rotate and Scale prompts, circle of copies, split, three-point arc and circle previews, plane through points, kept curve drawing over the model, renaming and deleting a kept sketch, typed negative sign.
 
-## Edit faces
-- [r] push_pull — flat face out and in; hole wall; onto another body (merge) - push/pull flat face works pretty good, but M mode is regression that doesn't work when right-click mode did (can't use right click because need right-drag for orbit?). Push/pull hole face does nothing at all, starts a box selection.
-- [r] delete_face — heals the gap; fails clearly when it cannot - works on circular holes. fails otherwise with no error or message why. This was supposed to be named Defeature. Delete face doesn't make sense in all the contexts that this is supposed to work.
-- [x] align_face - this is grayed out and i have no idea what it's supposed to do anyway.
-- [x] draft - doesn't appear to work at all.
-- [ ] round_face
-- [ ] divide_face (under "Other")
-- [ ] inset_face (under "Other")
-
-## Edges
-- [ ] fillet_chamfer — drag a single edge and a chain
-- [ ] resize_fillet — constant radius, variable radius, constant/variable switch
-- [ ] resize_chamfer
-- [ ] variable_fillet
-- [ ] chamfer_two_distances
-- [ ] chamfer_distance_angle
-- [ ] remove_round
-
-## Holes
-- [ ] add_hole
-- [ ] add_counterbore
-- [ ] add_countersink
-- [ ] add_slot
-- [ ] add_boss
-- [ ] resize_hole — with equal-radius rule on and off
-- [ ] move_hole — one hole alone (default) and all equal-radius holes together
-- [ ] center_between — hole, then two faces; also other pick orders
-- [ ] align_holes
-- [ ] distribute_holes
-- [ ] pattern_hole
-- [ ] pattern_hole_circular
-- [ ] fill_hole
-- [ ] Hole centre measurements: centre, centre-to-centre, centre-to-face
-
-## Solids
-- [ ] add_box
-- [ ] add_cylinder
-- [ ] add_sphere
-- [ ] add_cone
-- [ ] add_torus
-- [ ] add_prism
-- [ ] linear_array
-- [ ] circular_array
-- [ ] path_array — over connected edges
-- [ ] revolve_face
-- [ ] loft_faces
-- [ ] sweep_face
-- [ ] body_boolean — union, subtract, intersect
-- [ ] shell
-- [ ] mirror
-- [ ] unify
-- [ ] patch_fill
-- [ ] bridge
-- [ ] offset_body
-- [ ] cut_plane
-- [ ] split_plane
-
-## Transform body
-- [ ] move_body
-- [ ] rotate_body
-- [ ] scale_body
-
-## Sketching
-- [ ] Sketch on a selected flat face
-- [ ] Sketch on XY, XZ, YZ, and on a plane moved by an offset distance
-- [ ] Line (auto horizontal/vertical snap within 3 degrees)
-- [ ] Rectangle (square, rounded, bevelled corners)
-- [ ] Centre rectangle
-- [ ] Circle
-- [ ] Arc
-- [ ] Offset curve
-- [ ] Trim and extend
-- [ ] Point snapping to curves and midpoints, alignment guides
-- [ ] Live size tags while placing shapes
-- [ ] Project model edges onto the sketch plane
-- [ ] Select and drag sketch points
-- [ ] Constraints and dimensions
-- [ ] Finish sketch: regions become faces; zones on a flat face are imprinted
-- [ ] Discard sketch (button and Escape)
-- [ ] Extrude or push/pull a finished sketch region
-
-## Tool GUI
-- [ ] Every tool button opens, runs, and closes cleanly
-- [ ] Tools without a drag parameter open a typed-value form with live preview
-- [ ] Top bar wraps on a narrow window
-- [ ] Edit last works until another change is made
-
-## Notes
-Anything not tied to one tool (crashes, lag on large parts, confusing messages) goes here:
-
-## Added 2026-10-18 (merged since the first checklist)
+## Not yet tried (from the first checklist, 2026-10-18)
 
 - [ ] Alpha notice shows on a first launch, not again after I understand and a reload
 - [ ] Restore prompt: kill the core, restart it, the previous model is offered once; two copies running at once never offer or touch each other's session
@@ -135,9 +84,6 @@ Anything not tied to one tool (crashes, lag on large parts, confusing messages) 
 - [ ] Per-tool applies-to chip: Resize hole also resizes same-size holes by default, other tools only the selected feature
 - [ ] Unsaved-work warning when leaving the page with edits or an open sketch
 - [ ] Keys window lists the see-through key (X) and the sketch keys; keys act only while the pointer is over the view
-
-## Per alpha build
-
 - [ ] Packaged build: unzip, run, open the bracket, push/pull, export STEP (or confirm CI is green)
 - [ ] A long open shows the busy indicator and the UI stays responsive; it clears after a failed operation too
 - [ ] Copy diagnostics shows its text first and contains nothing personal

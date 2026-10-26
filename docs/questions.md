@@ -14,7 +14,7 @@ Only real questions that need your answer. Each one ends with a question mark an
 7. Should `sketch.ts` (about 1860 lines) and `main.ts` (about 1450 lines) be split into modules now? The commit hook flags both, and the architecture plan holds the order and risks. Options: split now with a Chrome check per slice, or keep adding features first. Default if unanswered: keep adding features, no split.
 8. Should a wall's draft angle be editable in place again? The ∠ tag on an upright wall was the only in-place way to change its draft angle, and it is hidden now so that no face angle shows over the push/pull gizmo; the Draft tool (a face selected, then Draft) still does the same edit through its card. Options: leave it to the Draft tool, show the tag only while the Draft tool is armed, or add an angle entry to the push/pull card. Default if unanswered: leave it to the Draft tool.
 
-The other open questions in the research notes (hotkey letters per tool, plain Delete on a selected face, a repeat-last key, drag-only versus gizmo-first, blocking versus hint for fillet order) are listed in docs/future-ideas.md; none of them blocks work.
+The other open questions in the research notes (hotkey letters per tool, plain Delete on a selected face, a repeat-last key, drag-only versus gizmo-first, blocking versus hint for fillet order) are listed in the Ideas section of docs/progress.md; none of them blocks work.
 
 ## Topics you asked to discuss one at a time
 
