@@ -56,6 +56,7 @@ Rules for keeping it:
 
 - [ ] Measure (M) pressed right after pressing a face; measuring after other tools; Ctrl+double-click an edge with faces already selected keeps them; Shift+click shows the hint line.
 - [ ] Selection feel: shift-select and the chips (what they are for), hard-to-hit small faces and edges, double-click chains that add non-tangent edges, box select with F, E, V filters and badge.
+- [ ] Hole work with a real mouse: Edit hole step depth grips (counterbore and countersink), the Sizes preset list, Edit cut (square and slot: move, resize and depth grips; the slot only has tests), pressing a hole centre dot, push/pull and drag on a hole whose wall is two faces, and the display precision setting in tool forms, labels and drag rounding.
 - [ ] Hole centre dots, per-tool applies-to chip (Resize hole also resizes same-size holes by default), Move hole/boss with several holes.
 - [ ] Emboss and Cut along surface on a cylinder and a wrapped region; unrolled sketch on a cone, a flat-fillet-flat chain, and across a closed cylinder's seam.
 - [ ] Face Draft pivot (Pick axis, then an edge of its own face or another edge), and Cut with plane with its Remove side list and Pick plane.

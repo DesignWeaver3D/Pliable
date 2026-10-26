@@ -6,6 +6,7 @@ import type { HandleInfo } from "./tools";
 import { gridCounts, gridShift, planePoint } from "./gridgrip.ts";
 import { TypedFields, typedCounts } from "./typedentry.ts";
 import { ARM_PX, GRAB_PX, MOVE_ARM_PX, AXIS_LINE, HANDLE_OUTLINE, pickScore, grabFraction, handleColors, handleValue, snapValue, linkedValues, travelFor, typedTravel, typedStep, lineParam, formatValue, ARC_RADIUS_PX, ARC_HALF_SPAN, ARC_STEPS, ARC_REST_OPACITY, COLOR_SNAPPED, snappedIndex, RING_VIEW_FRACTION, refitRing } from "./handlemath.ts";
+import { roundValue } from "./precision.ts";
 export * from "./handlemath.ts"; // the maths moved to its own file; the tests and other modules still import it from here
 
 interface Item {
@@ -438,7 +439,7 @@ export class Manipulator {
     a.moved = true;
     const value = snapValue(handleValue(a.item.info, this.travelAt(a, e)), a.item.info.snaps);
     a.item.travel = travelFor(a.item.info, value);
-    this.onDrag(a.item.info.param, Math.round(value * 1000) / 1000, "move", e.clientX, e.clientY, linkedValues(a.item.info, a.item.travel));
+    this.onDrag(a.item.info.param, roundValue(value), "move", e.clientX, e.clientY, linkedValues(a.item.info, a.item.travel));
   }
 
   /** The counts of a grid grip (its parameter and its first linked one) as the grip was computed. */
@@ -549,7 +550,7 @@ export class Manipulator {
   private setTravel(a: Active, travel: number) {
     a.item.travel = travel;
     const { info } = a.item;
-    this.onDrag(info.param, Math.round(handleValue(info, travel) * 1000) / 1000, "move", a.lastX ?? a.x, a.lastY ?? a.y, linkedValues(info, travel));
+    this.onDrag(info.param, roundValue(handleValue(info, travel)), "move", a.lastX ?? a.x, a.lastY ?? a.y, linkedValues(info, travel));
   }
 
   /** Ends the drag as if the pointer was released (a typed value is committed). */
@@ -575,7 +576,7 @@ export class Manipulator {
       if (a.moved) this.onDrag(info.param, start.columns, "cancel", a.lastX ?? a.x, a.lastY ?? a.y, rowsParam ? { [rowsParam]: start.rows } : {});
       return;
     }
-    if (a.moved) this.onDrag(info.param, Math.round(handleValue(info, a.travel0) * 1000) / 1000, "cancel", a.lastX ?? a.x, a.lastY ?? a.y, linkedValues(info, a.travel0));
+    if (a.moved) this.onDrag(info.param, roundValue(handleValue(info, a.travel0)), "cancel", a.lastX ?? a.x, a.lastY ?? a.y, linkedValues(info, a.travel0));
   }
 
   up(e: PointerEvent) {
@@ -603,7 +604,7 @@ export class Manipulator {
       if (a.moved && now) this.onDrag(info.param, now.columns, "end", e.clientX, e.clientY, rowsParam ? { [rowsParam]: now.rows } : {});
       return;
     }
-    if (a.moved) this.onDrag(info.param, Math.round(handleValue(info, travel) * 1000) / 1000, "end", e.clientX, e.clientY, linkedValues(info, travel));
+    if (a.moved) this.onDrag(info.param, roundValue(handleValue(info, travel)), "end", e.clientX, e.clientY, linkedValues(info, travel));
   }
 }
 

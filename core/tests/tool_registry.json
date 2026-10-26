@@ -3266,7 +3266,7 @@
  {
   "id": "edit_hole",
   "label": "Edit hole",
-  "description": "Changes a round hole's diameter or depth and moves it, keeping counterbore or countersink steps. Select a face of the hole or the circle at its opening; 0 leaves a size unchanged, and a depth as long as the body is through.",
+  "description": "Changes a round hole's diameter or depth and moves it, keeping counterbore or countersink steps. Select a face of the hole or the circle at its opening; 0 leaves a size unchanged, and a depth as long as the body is through. Step depth sets how deep the counterbore or countersink at the opening goes (the far end's has End step depth).",
   "accepts": {
    "faces": [
     0,
@@ -3303,6 +3303,93 @@
    },
    {
     "name": "start",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dx",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dy",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dz",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "step_depth",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "end_step_depth",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": [
+   "dx",
+   "dy",
+   "dz"
+  ],
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "edit_void",
+  "label": "Edit cut",
+  "description": "Moves, resizes and sets the depth of a square, slot or other straight-walled cut that goes through the body or ends at a flat floor. Select one wall or the floor of the cut. Resize grows (or, negative, shrinks) every wall by that distance; 0 leaves a depth unchanged, and a depth as long as the body is through.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "depth",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "grow",
     "kind": "length",
     "default": 0.0,
     "drag": false,

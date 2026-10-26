@@ -4,6 +4,7 @@
 import * as THREE from "three";
 import { AXIS_COLORS } from "./axes.ts";
 import type { HandleInfo } from "./tools";
+import { roundValue, showNumber } from "./precision.ts";
 
 /** Length of a handle's arm and the radius of its grab target, in screen pixels. */
 export const ARM_PX = 34;
@@ -82,7 +83,7 @@ export function snapValue(value: number, snaps: readonly number[] | undefined): 
 /** The values of a handle's linked parameters after travelling `travel`. */
 export function linkedValues(h: Pick<HandleInfo, "links">, travel: number): Record<string, number> {
   const out: Record<string, number> = {};
-  for (const l of h.links ?? []) out[l.param] = Math.round((l.value + l.scale * travel) * 1000) / 1000;
+  for (const l of h.links ?? []) out[l.param] = roundValue(l.value + l.scale * travel);
   return out;
 }
 
@@ -121,9 +122,9 @@ export function lineParam(p: THREE.Vector3, d: THREE.Vector3, rayOrigin: THREE.V
   return (b * rayDir.dot(w) - d.dot(w)) / denom;
 }
 
-/** A value for a label: at most three decimals, no trailing zeros. */
+/** A value for a label: at most the global number of decimals, no trailing zeros. */
 export function formatValue(v: number): string {
-  return String(Math.round(v * 1000) / 1000);
+  return showNumber(v);
 }
 
 /** A turn arc (see HandleInfo.arc) runs this many pixels from its centre, 120 degrees of it, beyond the move arrows' tips. */

@@ -11,6 +11,7 @@ from OCP.TopoDS import TopoDS_Shape
 from OCP.gp import gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 
 from ..ops import MIN_DISTANCE, OperationError, OpResult
+from ..splitwalls import wall_chain
 from ..tools import Accepts, Param, Tool
 from .faces import _PlanarFace, _plane_axes
 from .solids import _bounds_diagonal, _combine, _compound, _cylinder, finish
@@ -19,13 +20,13 @@ from .solids import _bounds_diagonal, _combine, _compound, _cylinder, finish
 class Hole:
     """A cylindrical face read as a hole: where its axis starts, which way it runs, its radius and length."""
 
-    def __init__(self, face):
+    def __init__(self, face, split: bool = False):
         surface = BRepAdaptor_Surface(face)
         if surface.GetType() != GeomAbs_Cylinder:
             raise OperationError("Select the cylindrical wall of a hole")
         cylinder = surface.Cylinder()
         u0, u1, v0, v1 = BRepTools.UVBounds_s(face)
-        if u1 - u0 < 2 * math.pi - 1e-6:
+        if u1 - u0 < 2 * math.pi - 1e-6 and not split:
             raise OperationError("That cylinder face is only partly round (a fillet?); select a full hole wall")
         axis = cylinder.Axis()
         self.direction = axis.Direction()
@@ -34,6 +35,23 @@ class Hole:
         self.length = v1 - v0
         # The face's outward (material) normal points away from the axis for a boss, toward it for a hole.
         self.boss = face.Orientation() != TopAbs_REVERSED
+
+    @classmethod
+    def of(cls, topology, face_id: int) -> "Hole":
+        """The hole or boss of a wall face; one face of a wall that is split into several faces stands for the whole wall."""
+        return cls(topology.face(face_id), split=len(wall_chain(topology, face_id)) > 1)
+
+    @classmethod
+    def of_selection(cls, topology, selection) -> list["Hole"]:
+        """One hole per selected wall (two selected halves of one split wall give one hole)."""
+        seen: set[int] = set()
+        holes = []
+        for i in selection.faces:
+            if i in seen:
+                continue
+            seen.update(wall_chain(topology, i))
+            holes.append(cls.of(topology, i))
+        return holes
 
     def solid(self, radius: float | None = None, offset: gp_Vec | None = None) -> TopoDS_Shape:
         origin = self.origin.Translated(offset) if offset is not None else self.origin
@@ -68,7 +86,7 @@ def apply_holes(shape: TopoDS_Shape, holes: list["Hole"], moves: list[tuple[floa
 
 
 def _holes(topology, selection) -> list[Hole]:
-    return [Hole(topology.face(i)) for i in selection.faces]
+    return Hole.of_selection(topology, selection)
 
 
 class _CylinderFaces(Tool):

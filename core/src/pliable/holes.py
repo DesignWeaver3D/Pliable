@@ -26,6 +26,7 @@ from OCP.TopoDS import TopoDS
 from OCP.gp import gp_Ax1, gp_Dir, gp_Lin, gp_Pnt, gp_Vec
 
 from .ops import MIN_DISTANCE, OperationError
+from .splitwalls import wall_chain
 
 TOL = 1e-5
 FULL_TURN = 2 * math.pi - 1e-6
@@ -136,13 +137,16 @@ def _inward(face) -> bool:
     return normal.Dot(radial) < 0
 
 
-def _is_round_wall(face) -> bool:
-    """A full cylinder or cone whose material side faces the axis."""
+def _is_round_wall(face, topology=None) -> bool:
+    """A full cylinder or cone whose material side faces the axis. With `topology`, one face of a cylinder that is
+    split into several faces closing a full turn counts too."""
     found = _axis_of(face)
     if found is None:
         return False
     u0, u1, _, _ = BRepTools.UVBounds_s(face)
-    return u1 - u0 >= FULL_TURN and _inward(face)
+    if u1 - u0 >= FULL_TURN:
+        return _inward(face)
+    return topology is not None and found[1] == "cylinder" and _inward(face) and bool(wall_chain(topology, topology.face_id(face)))
 
 
 def _circle_edges(face) -> list | None:
@@ -174,7 +178,7 @@ def _floor_axis(topology, face):
     explorer = TopExp_Explorer(face, TopAbs_EDGE)
     while explorer.More():
         for other in topology.edge_faces(TopoDS.Edge(explorer.Current())):
-            if not other.IsSame(face) and not _is_round_wall(other):
+            if not other.IsSame(face) and not _is_round_wall(other, topology):
                 return None
         explorer.Next()
     return axis
@@ -184,7 +188,7 @@ def _coaxial_neighbour(topology, face, axis: gp_Ax1) -> bool:
     found = _axis_of(face)
     if found is not None:
         other = found[0]
-        return _parallel(other.Direction(), axis.Direction()) and _on_axis(other.Location(), axis) and _is_round_wall(face)
+        return _parallel(other.Direction(), axis.Direction()) and _on_axis(other.Location(), axis) and _is_round_wall(face, topology)
     floor = _floor_axis(topology, face)
     return floor is not None and _parallel(floor.Direction(), axis.Direction()) and _on_axis(floor.Location(), axis)
 
@@ -221,12 +225,20 @@ def _seed(topology, face_id: int | None, edge_id: int | None):
     for cid in candidates:
         face = topology.face(cid)
         found = _axis_of(face)
-        if found is not None and _is_round_wall(face):
+        if found is not None and _is_round_wall(face, topology):
             return cid, found[0]
         floor = _floor_axis(topology, face)
         if floor is not None:
             return cid, floor
     return None
+
+
+def _distinct(steps: list[dict]) -> list[dict]:
+    kept: list[dict] = []
+    for step in steps:
+        if not any(all(abs(step[k] - old[k]) < TOL if k != "type" else step[k] == old[k] for k in step) for old in kept):
+            kept.append(step)
+    return kept
 
 
 def _pass_length(shape, entry: gp_Pnt, direction: gp_Dir, reach: float) -> float:
@@ -305,6 +317,7 @@ def find_hole(topology, face_id: int | None = None, edge_id: int | None = None, 
             elif seg.kind == "cone":
                 dr, ds = abs(seg.r1 - seg.r0), seg.s1 - seg.s0
                 stages.append({"type": "countersink", "diameter": 2 * max(seg.r0, seg.r1), "angle": math.degrees(2 * math.atan2(dr, ds)), "depth": seg.s1})
+    stages = _distinct(stages)  # the halves of a split wall are one step
     through = not disks and not tips
     total = max(s.s1 for s in ordered)
     end_stages = []
@@ -317,6 +330,7 @@ def find_hole(topology, face_id: int | None = None, edge_id: int | None = None, 
             elif seg.kind == "cone":
                 dr, ds = abs(seg.r1 - seg.r0), seg.s1 - seg.s0
                 end_stages.append({"type": "countersink", "diameter": 2 * max(seg.r0, seg.r1), "angle": math.degrees(2 * math.atan2(dr, ds)), "depth": total - seg.s0})
+        end_stages = _distinct(end_stages)
         end_stages.sort(key=lambda s: -s["depth"])
     bottom = "through" if through else "cone" if tips else "flat"
     tip_angle = 0.0

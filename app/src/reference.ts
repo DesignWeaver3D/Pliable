@@ -7,6 +7,7 @@ import type { Viewport } from "./viewport";
 import { holeAxisPoints } from "./holepoints.ts";
 import { mouthPoints, snapCentres } from "./placepick";
 import { AXIS_COLORS, axisHalfLength, modelBounds, type Box6 } from "./axes";
+import { showNumber } from "./precision.ts";
 
 const AXES = [
   { name: "X axis", dir: new THREE.Vector3(1, 0, 0), color: AXIS_COLORS.x },
@@ -265,7 +266,7 @@ export class PointPicker {
           if (this.current) {
             this.marker.position.copy(this.current.point);
             if (from) this.line.geometry.setFromPoints([from, this.current.point]);
-            this.status(`${this.current.label}: ${this.current.point.toArray().map((x) => parseFloat(x.toFixed(3))).join(", ")}`);
+            this.status(`${this.current.label}: ${this.current.point.toArray().map((x) => showNumber(x)).join(", ")}`);
           }
         },
         up: () => this.finish(this.current ? this.current.point.toArray() : null, !this.current),

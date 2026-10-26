@@ -254,7 +254,7 @@ export function createSettingsWindow(host: HTMLElement) {
     heading,
     slider("Edge pick range", "edgePickPx", 1, 14, "How close the pointer must be to an edge to pick it. Lower it to reach small faces."),
     slider("Point pick range", "vertexPickPx", 1, 16, "How close the pointer must be to a vertex or hole centre to pick it."),
-    slider("Display precision", "displayDecimals", 1, MAX_DECIMALS, "How many decimals lengths and values show, up to 8. Zeros after the last digit are never shown, so 10 stays 10. Values dragged with the mouse are still rounded to 0.001 when they are made."),
+    slider("Display precision", "displayDecimals", 1, MAX_DECIMALS, "How many decimals lengths and values show and how finely mouse drags round, up to 8. It covers measurements, dimensions, tool forms and handle labels. Zeros after the last digit are never shown, so 10 stays 10. The core always works at full precision."),
     slider("Sharp edge angle", "sharpAngle", 5, 90, "Sharp edges selects connected edges whose faces meet at this angle or more."),
     boxRow,
     seeThrough,

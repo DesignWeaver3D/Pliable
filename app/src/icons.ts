@@ -87,6 +87,7 @@ export const TOOL_ICONS: Record<string, Spec> = {
   add_slot: spec("hole", "slot"),
   add_boss: spec("face", "plus"),
   edit_hole: spec("hole", "scale"),
+  edit_void: spec("hole", "scale"),
   convert_to_countersink: spec("hole", "cone"),
   convert_to_counterbore: spec("hole", "step"),
   resize_hole: spec("hole", "scale"),

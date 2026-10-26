@@ -18,3 +18,9 @@ export function decimals(): number {
 export function showNumber(v: number, atLeast = 0): string {
   return String(parseFloat(v.toFixed(Math.max(places, atLeast))) + 0);
 }
+
+/** The number rounded to the global number of decimals: what a drag sends to the core and what a form field gets after
+ *  a drag, so the value shown is the value used. The core itself always works at full precision. */
+export function roundValue(v: number): number {
+  return parseFloat(v.toFixed(places)) + 0;
+}

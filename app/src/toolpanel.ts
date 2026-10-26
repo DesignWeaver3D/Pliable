@@ -6,6 +6,8 @@ import { TOOL_GROUPS } from "./layout";
 import { toolTooltip, type ToolInfo } from "./tools";
 import { moveVector, offsetOf, originFor, pointText, type AnchorInfo, type Vec3 } from "./placepick";
 import { usage, type Surface } from "./usage";
+import { roundValue, showNumber } from "./precision.ts";
+import { hasSizes, holeSizes } from "./holesizes.ts";
 
 /** A parameter value: a number, or for `per_edge` parameters one [start, end] radius pair per selected edge. */
 export type ParamValue = number | number[][];
@@ -206,11 +208,27 @@ export class ToolPanel {
           const value = await this.host.eyedrop(p.name, p.kind);
           dropper.classList.remove("armed");
           if (value !== null && this.open) {
-            input.value = String(Math.round(value * 1000) / 1000);
+            input.value = String(roundValue(value));
             this.schedulePreview(0);
           }
         });
         row.append(dropper);
+      }
+      if (hasSizes(tool.id, p.name)) {
+        const sizes = document.createElement("select");
+        sizes.className = "sizes";
+        sizes.title = "Standard sizes: metric clearance and tap drill diameters";
+        sizes.append(new Option("Sizes", ""));
+        holeSizes(p.name).forEach((size, i) => sizes.append(new Option(`${size.label} (${size.diameter})`, String(i))));
+        sizes.addEventListener("change", () => {
+          const size = holeSizes(p.name)[Number(sizes.value)];
+          sizes.value = "";
+          if (!size) return;
+          input.value = String(size.diameter);
+          this.schedulePreview(0);
+        });
+        sizes.addEventListener("keydown", (e) => e.stopPropagation());
+        row.append(sizes);
       }
       return row;
     });
@@ -248,7 +266,7 @@ export class ToolPanel {
       };
       const place = () => {
         if (!destination) return;
-        originFor(destination, offset).forEach((c, i) => (inputs[placement[i]].value = String(parseFloat(c.toFixed(4)))));
+        originFor(destination, offset).forEach((c, i) => (inputs[placement[i]].value = showNumber(c, 4)));
         this.schedulePreview(0);
       };
       const pickDestination = async () => {
@@ -305,7 +323,7 @@ export class ToolPanel {
       };
       const apply = () => {
         if (!destination) return;
-        moveVector(base, destination).forEach((c, i) => (inputs[vector[i]].value = String(parseFloat(c.toFixed(4)))));
+        moveVector(base, destination).forEach((c, i) => (inputs[vector[i]].value = showNumber(c, 4)));
         this.schedulePreview(0);
       };
       const pickDestination = async () => {
@@ -345,7 +363,7 @@ export class ToolPanel {
       pickAxis.addEventListener("click", async () => {
         const point = await (this.host.pickEdgePoint ?? this.host.pickPoint)!();
         if (!point || this.open !== tool) return;
-        axis.slice(0, 3).forEach((name, i) => (inputs[name].value = String(parseFloat(point[i].toFixed(4)))));
+        axis.slice(0, 3).forEach((name, i) => (inputs[name].value = showNumber(point[i], 4)));
         inputs[axis[3]].value = "1"; // the choice list: picked point
         this.schedulePreview(0);
       });
@@ -369,15 +387,15 @@ export class ToolPanel {
     if (planeNames && (planeNames.length === 7 || planeNames.length === 5) && this.host.pickPlane) {
       const usePlaneIn = (origin: number[], normal: number[]) => {
         if (planeNames.length === 7) {
-          planeNames.slice(0, 3).forEach((name, i) => (inputs[name].value = String(parseFloat(origin[i].toFixed(4)))));
-          planeNames.slice(3, 6).forEach((name, i) => (inputs[name].value = String(parseFloat(normal[i].toFixed(6)))));
+          planeNames.slice(0, 3).forEach((name, i) => (inputs[name].value = showNumber(origin[i], 4)));
+          planeNames.slice(3, 6).forEach((name, i) => (inputs[name].value = showNumber(normal[i], 6)));
           inputs[planeNames[6]].value = "4"; // the choice list: picked plane
         } else {
           // A plane given as a distance along its direction: position, nx, ny, nz and the axis choice (3 = the direction nx, ny, nz); tilts start again from the picked plane.
           const length = Math.hypot(normal[0], normal[1], normal[2]) || 1;
           const n = normal.map((c) => c / length);
-          inputs[planeNames[0]].value = String(parseFloat((n[0] * origin[0] + n[1] * origin[1] + n[2] * origin[2]).toFixed(4)));
-          planeNames.slice(1, 4).forEach((name, i) => (inputs[name].value = String(parseFloat(n[i].toFixed(6)))));
+          inputs[planeNames[0]].value = showNumber(n[0] * origin[0] + n[1] * origin[1] + n[2] * origin[2], 4);
+          planeNames.slice(1, 4).forEach((name, i) => (inputs[name].value = showNumber(n[i], 6)));
           inputs[planeNames[4]].value = "3";
           for (const tilt of ["tilt_u", "tilt_v"]) if (inputs[tilt]) inputs[tilt].value = "0";
         }
@@ -447,7 +465,7 @@ export class ToolPanel {
 
   /** Put values into the open form's fields (a drag in the viewport fills them) and refresh the preview. */
   setValues(values: Record<string, number>) {
-    for (const [name, value] of Object.entries(values)) if (this.inputs[name]) this.inputs[name].value = String(Math.round(value * 1000) / 1000);
+    for (const [name, value] of Object.entries(values)) if (this.inputs[name]) this.inputs[name].value = String(roundValue(value));
     this.schedulePreview(0);
   }
 
