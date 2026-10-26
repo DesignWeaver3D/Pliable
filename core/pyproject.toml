@@ -6,6 +6,7 @@ license = "AGPL-3.0-or-later"
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "build123d>=0.13",
+    "rhino3dm>=8.17",
     "py-slvs>=1.0.6",
     "websockets>=15",
 ]
