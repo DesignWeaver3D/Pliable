@@ -1254,3 +1254,13 @@ def test_projected_ellipse_edge_stays_a_true_ellipse():
         along, across = du * ux + dv * uy, -du * uy + dv * ux
         assert (along / a) ** 2 + (across / e["minor"]) ** 2 == pytest.approx(1, abs=1e-6)
     assert a >= e["minor"]
+
+
+def test_a_solution_that_is_not_a_number_is_a_failure(monkeypatch):
+    from pliable.sketch import solver
+
+    points = [{"id": 1, "u": 0, "v": 0, "fixed": True}, {"id": 2, "u": -4, "v": 1}, {"id": 3, "u": 5, "v": 2, "fixed": True}]
+    constraints = [{"id": 1, "type": "symmetric_point", "points": [2, 3], "point": 1}]
+    monkeypatch.setattr(solver._Solver, "_coords", lambda self, pid: (float("nan"), 0.0))
+    result = sketch.solve(sketch_of(points, [], constraints))
+    assert result["status"] == "failed" and result["points"] == []

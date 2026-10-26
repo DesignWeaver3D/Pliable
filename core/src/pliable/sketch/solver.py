@@ -10,6 +10,7 @@ from .planes import _quaternion, frame
 
 
 SOLVE_GROUP = 2  # entities in group 1 (the workplane) stay fixed; group 2 is solved
+MAX_COORDINATE = 1e9  # a solved point farther out than this (or not a number) means the solver diverged
 
 
 def _entity_point_ids(e: dict) -> list[int]:
@@ -412,6 +413,8 @@ class _Solver:
         points = []
         if ok:
             points = [{"id": pid, "u": self._coords(pid)[0], "v": self._coords(pid)[1]} for pid in self.points]
+            if not all(math.isfinite(p["u"]) and math.isfinite(p["v"]) and abs(p["u"]) < MAX_COORDINATE and abs(p["v"]) < MAX_COORDINATE for p in points):
+                ok, code, points = False, -1, []  # a solution that flew off to infinity is a failure, never geometry
         radii = {eid: self.system.getParam(param).val for eid, param in self.radii.items()} if ok else {}
         if ok:
             radii.update(self.minors)  # an ellipse's short semi-axis travels with the radii
