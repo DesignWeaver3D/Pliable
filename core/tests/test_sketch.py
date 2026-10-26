@@ -1430,3 +1430,57 @@ def test_ellipse_without_axis_ends_has_a_free_size_until_its_minor_radius_is_dim
     assert Session().handle({"type": "sketch_freedom", "sketch": sk})["free_sizes"] == [3]
     sk["constraints"].append({"id": 9, "type": "minor_radius", "entity": 3, "value": 5})
     assert Session().handle({"type": "sketch_freedom", "sketch": sk})["free_sizes"] == []
+
+
+def _app_ellipse_about_axis(centre, pair, horizontal, fixed_centre, turn=0.0):
+    """The sketch the app sends for an ellipse (centre, four axis ends, two construction axis lines) and a Symmetric about a sketch axis."""
+    sk = _ellipse_with_ends(23.0, 11.5)
+    c, s = math.cos(turn), math.sin(turn)
+    for p, (u, v) in zip(sk["points"], [(0, 0), (23, 0), (-23, 0), (0, 11.5), (0, -11.5)]):
+        p.update(u=centre[0] + u * c - v * s, v=centre[1] + u * s + v * c)
+    sk["points"][0]["fixed"] = fixed_centre
+    axis_points, axis_line = _axis(-1 if horizontal else -2, horizontal)
+    sk["points"] += axis_points
+    sk["entities"] += [{"id": 7, "type": "line", "a": 2, "b": 4, "construction": True}, {"id": 8, "type": "line", "a": 5, "b": 6, "construction": True}, axis_line]
+    sk["constraints"] = [{"id": 9, "type": "symmetric", "points": list(pair), "entity": axis_line["id"]}]
+    return sk
+
+
+@pytest.mark.parametrize("centre", [(0, 0), (30, 0)])
+def test_minor_ends_of_an_ellipse_centred_on_the_x_axis_take_symmetric_about_it(centre):
+    """The fixed centre on the axis already puts the middle of the minor ends on it, so only the squareness is new: it is not reported as a conflict."""
+    from pliable.server import Session
+
+    for fixed in (True, False):
+        result = Session().handle({"type": "sketch_solve", "sketch": _app_ellipse_about_axis(centre, (5, 6), True, fixed)})
+        assert result["status"] == "ok"
+        at = coords(result)
+        assert at[5][0] == pytest.approx(at[6][0], abs=1e-6) and at[5][1] == pytest.approx(-at[6][1], abs=1e-6)
+
+
+def test_major_ends_of_an_ellipse_centred_on_the_y_axis_take_symmetric_about_it_with_a_fixed_centre():
+    from pliable.server import Session
+
+    result = Session().handle({"type": "sketch_solve", "sketch": _app_ellipse_about_axis((0, 0), (2, 4), False, True)})
+    assert result["status"] == "ok"
+    at = coords(result)
+    assert at[2][1] == pytest.approx(at[4][1], abs=1e-6) and at[2][0] == pytest.approx(-at[4][0], abs=1e-6)
+
+
+def test_a_turned_ellipse_with_a_fixed_centre_on_the_axis_turns_to_mirror_its_minor_ends():
+    from pliable.server import Session
+
+    result = Session().handle({"type": "sketch_solve", "sketch": _app_ellipse_about_axis((0, 0), (5, 6), True, True, turn=0.5)})
+    assert result["status"] == "ok"
+    at = coords(result)
+    assert at[5][0] == pytest.approx(at[6][0], abs=1e-6) and at[5][1] == pytest.approx(-at[6][1], abs=1e-6)
+
+
+def test_symmetric_that_really_conflicts_is_still_refused():
+    from pliable.server import Session
+
+    # the centre is fixed off the axis: the minor ends cannot mirror about it
+    assert Session().handle({"type": "sketch_solve", "sketch": _app_ellipse_about_axis((30, -20), (5, 6), True, True)})["status"] == "failed"
+    # two ends of an axis line that lies along the mirror axis
+    assert Session().handle({"type": "sketch_solve", "sketch": _app_ellipse_about_axis((0, 0), (2, 4), True, True)})["status"] == "failed"
+    assert Session().handle({"type": "sketch_solve", "sketch": _app_ellipse_about_axis((0, 0), (5, 6), False, True)})["status"] == "failed"

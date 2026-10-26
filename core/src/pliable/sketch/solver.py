@@ -21,8 +21,9 @@ def _entity_point_ids(e: dict) -> list[int]:
 
 
 class _Solver:
-    def __init__(self, sketch: dict):
+    def __init__(self, sketch: dict, skip_symmetric: dict | None = None):
         self.sketch = sketch
+        self.skip_symmetric = skip_symmetric or {}  # symmetric constraint id -> parts of it that the rest of the sketch already implies
         self.system = slvs.System()
         s = self.system
         origin, x, y, normal = frame(sketch["plane"])
@@ -248,7 +249,7 @@ class _Solver:
             h = s.addMidPoint(self._point(c["point"]), s.addLineSegment(points[0], points[1], g), wp, g)
         elif kind == "symmetric":
             (au, av), (bu, bv) = (self._coords(i) for i in c["points"])
-            for h in symmetric_about_line(s, points[0], points[1], self._entity(c["entity"], "line"), wp, g, ((au + bu) / 2, (av + bv) / 2)):
+            for h in symmetric_about_line(s, points[0], points[1], self._entity(c["entity"], "line"), wp, g, ((au + bu) / 2, (av + bv) / 2), self.skip_symmetric.get(c.get("id"), ())):
                 self.failed_ids[h] = c.get("id")
             return
         elif kind == "minor_radius":
@@ -429,6 +430,34 @@ class _Solver:
 
 
 def _solved(sketch: dict, drag: dict | None = None, skip: int | None = None) -> tuple[_Solver, dict]:
+    """`_solved_once`; when that fails, a Symmetric constraint whose middle-on-the-line or square-to-the-line part is already implied by the rest of the
+    sketch (an ellipse's minor ends about an axis its fixed centre lies on) is tried again without that part, and kept if the skipped part then holds."""
+    first = _solved_once(sketch, drag, skip)
+    if first[1]["status"] == "ok":
+        return first
+    for c in sketch.get("constraints", []):
+        if c.get("type") != "symmetric" or c.get("reference") or c.get("id") is None or c.get("id") == skip:
+            continue
+        for part in ("on", "square"):
+            solver, result = _solved_once(sketch, drag, skip, {c["id"]: (part,)})
+            if result["status"] == "ok" and _symmetric_part_holds(sketch, result, c, part):
+                return solver, result
+    return first
+
+
+def _symmetric_part_holds(sketch: dict, result: dict, c: dict, part: str) -> bool:
+    at = {p["id"]: (p["u"], p["v"]) for p in result["points"]}
+    line = next(e for e in sketch["entities"] if e["id"] == c["entity"])
+    (au, av), (bu, bv) = (at[i] for i in c["points"])
+    (ou, ov), (du, dv) = at[line["a"]], at[line["b"]]
+    du, dv = du - ou, dv - ov
+    length = math.hypot(du, dv) or 1.0
+    if part == "on":
+        return abs(((au + bu) / 2 - ou) * dv - ((av + bv) / 2 - ov) * du) / length < 1e-6
+    return abs((bu - au) * du + (bv - av) * dv) / (length * (math.hypot(bu - au, bv - av) or 1.0)) < 1e-6
+
+
+def _solved_once(sketch: dict, drag: dict | None = None, skip: int | None = None, skip_symmetric: dict | None = None) -> tuple[_Solver, dict]:
     """A solver loaded with the sketch's constraints (all but `skip`) and the dragged points held, plus its result.
 
     Holding every coordinate of a dragged line can contradict its own constraints (a dimensioned or horizontal
@@ -440,7 +469,7 @@ def _solved(sketch: dict, drag: dict | None = None, skip: int | None = None) -> 
         for h in drag["points"] if "points" in drag else [drag]:
             pins_wanted += [(h["point"], 0, h["u"]), (h["point"], 1, h["v"])]
     while True:
-        solver = _Solver(sketch)
+        solver = _Solver(sketch, skip_symmetric)
         for c in sketch.get("constraints", []):
             if (skip is None or c.get("id") != skip) and not c.get("reference"):
                 solver.add_constraint(c)
