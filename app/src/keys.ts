@@ -9,6 +9,8 @@
  *  - Every shortcut can be redefined by the user, under the same rules.
  */
 
+import { SKETCH_CONSTRAINT_KEYS } from "./sketchkeys.ts";
+
 export type KeyClass =
   | "view" // camera or projection
   | "display" // what is drawn (hide, isolate); reversible, never touches the model
@@ -64,6 +66,7 @@ export const KEY_COMMANDS: KeyCommand[] = [
   { id: "sketch.cancel", label: "Sketch: cancel the step, then leave", class: "view", defaults: ["Escape"], onlyInSketch: true, fixed: true, anyFocus: true },
   { id: "sketch.finish", label: "Sketch: finish the line chain", class: "view", defaults: ["Enter"], onlyInSketch: true, fixed: true },
   { id: "sketch.smartDimension", label: "Sketch: smart dimension the selection", class: "arm", defaults: ["D"], onlyInSketch: true },
+  ...SKETCH_CONSTRAINT_KEYS.map((k) => ({ id: k.id, label: `Sketch: ${k.constraint.toLowerCase()} constraint on the selection`, class: "arm" as const, defaults: k.defaults, onlyInSketch: true })),
   { id: "sketch.delete", label: "Sketch: delete selection (Ctrl+Z restores)", class: "history", defaults: ["Delete", "Backspace"], onlyInSketch: true, fixed: true },
 ];
 

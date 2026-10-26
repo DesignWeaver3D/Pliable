@@ -72,7 +72,11 @@ test("sketch mode swaps undo and hide for the sketch's own keys and keeps view k
   const sketching = { ...live, sketchActive: true };
   assert.equal(ran(ev("z", { ctrlKey: true }), sketching), "sketch.undo");
   assert.equal(ran(ev("z", { ctrlKey: true })), "history.undo");
-  assert.equal(ran(ev("h"), sketching), null);
+  assert.equal(ran(ev("h"), sketching), "sketch.horizontal"); // hide body is not available in a sketch, so H applies a constraint there
+  assert.equal(ran(ev("c"), sketching), "sketch.coincident");
+  assert.equal(ran(ev("p"), sketching), "view.projection"); // P and V stay with the view keys until the owner decides
+  assert.equal(ran(ev("v"), sketching), "view.lookAtFace");
+  assert.equal(ran(ev("c")), null); // the constraint keys are for sketches only
   assert.equal(ran(ev("1"), sketching), "view.front");
   assert.equal(ran(ev("Delete", { code: "Delete" }), sketching), "sketch.delete");
   assert.equal(ran(ev("Backspace", { code: "Backspace" }), sketching), "sketch.delete");
