@@ -18,9 +18,9 @@ The `commit-lint` workflow runs the same check on pushes and pull requests.
 
 ## Branches and pull requests
 
-- **`main` is the development branch** and the default. It is protected: nobody pushes to it directly, changes arrive as pull requests, and the `ci` checks (core tests, app tests and build, release documents) and the commit-message check must pass.
+- **`main` is the development branch** and the default. It is protected for everyone but the owner: changes arrive as pull requests, and the `ci` checks (core tests, app tests and build, release documents) and the commit-message check must pass.
 - **Contributors:** fork the repository, make a branch, open a pull request against `main`. Keep each pull request to one concern and fill in the template. Squash-merge keeps the history readable, so the pull request title becomes the commit subject (the commit message rules above apply to it).
-- **The owner and the owner's assistants** use short-lived branches and pull requests too (for example `topic/sketch-trim`), and merge once the checks are green.
+- **The owner** (a repository administrator) commits to `main` directly; the protection rule does not apply to administrators. The `ci` checks still run on every push, so tag a release only from a commit whose `ci` run is green. A pull request is optional for the owner, for changes worth checking before they land.
 - **Releases:** tags (`vX.Y.Z`) are cut from `main`, or from a release branch when one exists. A release branch (`release/0.4`) is only made when `main` has moved on to work that must not ship in patch releases; fixes go to `main` first and are cherry-picked to the release branch. Pushing a `release/*` branch or a tag starts the four-platform build and smoke test; a tag also makes a draft release that the owner publishes by hand.
 - Do not tag, publish or create release branches without the owner saying so.
 
