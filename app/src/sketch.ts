@@ -26,6 +26,7 @@ import { parseValue } from "./dimedit";
 import { uiIcon } from "./icons";
 import { LENGTH_UNIT } from "./units";
 import { usage } from "./usage";
+import { FREE_COLOR, freeMessage, freeParts } from "./sketchfreedom";
 import type { HandleInfo } from "./tools";
 import type { Sel, Viewport } from "./viewport";
 
@@ -110,6 +111,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   failed = new Set<number>();
   /** Directions each point can still move in (0 = placed by the constraints); empty until the first settled solve. */
   private freedom = new Map<number, number>();
+  /** Set by clicking the degrees of freedom message: the points and curves that still have freedom light up yellow. */
+  private showFree = false;
   /** Whether small tags (H, V, T, =, ...) show where constraints act. */
   showMarks = true;
   private undoStack: string[] = [];
@@ -117,6 +120,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private normal = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.line, linewidth: 2, depthTest: false, transparent: true }));
   private construction = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.construction, linewidth: 2, depthTest: false, transparent: true, dashed: true, dashSize: 1, gapSize: 1 })); // dash lengths are set per frame, in screen pixels
   private placed = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.placed, linewidth: 2, depthTest: false, transparent: true }));
+  private free = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: FREE_COLOR, linewidth: 3, depthTest: false, transparent: true }));
   private marked = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.selected, linewidth: 3, depthTest: false, transparent: true }));
   /** The model's principal axes as they project onto the sketch plane (red x, green y, blue z). */
   private axes = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ linewidth: 1, vertexColors: true, depthTest: false, transparent: true, opacity: 0.7 }));
@@ -152,7 +156,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     window.addEventListener("pointermove", (e) => (this.lastPointer = { x: e.clientX, y: e.clientY }), true);
     window.addEventListener("resize", () => { if (this.active) this.placePanel(); });
     for (const o of [this.normal, this.placed, this.construction, this.points]) o.userData.extent = true; // counted by the origin axes' length
-    for (const o of [this.axes, this.normal, this.placed, this.construction, this.marked, this.pending, this.points]) {
+    for (const o of [this.axes, this.normal, this.placed, this.construction, this.free, this.marked, this.pending, this.points]) {
       o.renderOrder = 5;
       o.frustumCulled = false;
       this.group.add(o);
@@ -220,6 +224,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.dof = null;
     this.failed.clear();
     this.freedom.clear();
+    this.showFree = false;
     this.undoStack = [];
     this.active = true;
     this.viewport.selectItems([]); // the model's selection highlight would cover the sketch
@@ -1717,7 +1722,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
 
   private onFrame() {
     const size = this.viewport.renderer.getSize(new THREE.Vector2());
-    for (const l of [this.axes, this.normal, this.placed, this.construction, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
+    for (const l of [this.axes, this.normal, this.placed, this.construction, this.free, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
     const pixel = this.pixelAt(0, 0); // dashes keep their screen size as the view zooms
     this.construction.material.dashSize = CONSTRUCTION_DASH_PX * pixel;
     this.construction.material.gapSize = CONSTRUCTION_GAP_PX * pixel;
@@ -1760,12 +1765,15 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const marked: [number, number][][] = [];
     const guides: [number, number][][] = [];
     const placed: [number, number][][] = [];
-    for (const e of this.s.entities) (this.isMarked({ kind: "entity", id: e.id }) ? marked : e.construction ? guides : this.isPlaced(e) ? placed : normal).push(M.polyline(this.s, e));
+    const lit: [number, number][][] = [];
+    const open = this.showFree ? freeParts(this.s, this.freedom) : null;
+    for (const e of this.s.entities) (this.isMarked({ kind: "entity", id: e.id }) ? marked : open?.entities.has(e.id) ? lit : e.construction ? guides : this.isPlaced(e) ? placed : normal).push(M.polyline(this.s, e));
     this.drawAxes();
     this.set(this.normal, this.segments(normal));
     this.set(this.construction, this.segments(guides));
     this.set(this.marked, this.segments(marked));
     this.set(this.placed, this.segments(placed));
+    this.set(this.free, this.segments(lit));
     this.set(this.pending, this.segments(this.pendingShapes()));
 
     const positions: number[] = [];
@@ -1773,7 +1781,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const color = new THREE.Color();
     for (const p of this.s.points) {
       positions.push(...this.world(p.u, p.v).toArray());
-      color.set(this.isMarked({ kind: "point", id: p.id }) ? COLORS.selected : this.cursor?.id === p.id ? COLORS.hover : p.fixed ? COLORS.construction : this.freedom.get(p.id) === 0 ? COLORS.placed : COLORS.line);
+      color.set(this.isMarked({ kind: "point", id: p.id }) ? COLORS.selected : open?.points.has(p.id) ? FREE_COLOR : this.cursor?.id === p.id ? COLORS.hover : p.fixed ? COLORS.construction : this.freedom.get(p.id) === 0 ? COLORS.placed : COLORS.line);
       colors.push(color.r, color.g, color.b);
     }
     this.points.geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
@@ -1878,6 +1886,15 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     icons.append(look, gizmos, base, target, grid, snap);
     const status = el("div", "dof", this.failed.size ? `Conflict: ${this.s.constraints.filter((c) => this.failed.has(c.id)).map((c) => M.describeConstraint(this.s, c)).join("; ") || [...this.failed].join(", ")}. Remove one (red rows below)` : this.dof === null ? "" : this.dof === 0 ? "Fully constrained" : `${this.dof} degrees of freedom left`);
     if (this.failed.size) status.classList.add("bad");
+    else if (this.dof) {
+      status.classList.add("link");
+      status.title = "Click to light up (in yellow) the points and curves that still have freedom";
+      status.addEventListener("click", () => {
+        this.showFree = !this.showFree;
+        if (this.showFree) this.status(freeMessage(freeParts(this.s, this.freedom), this.dof));
+        this.render();
+      });
+    }
 
     const tools = buildToolOptions(this);
 

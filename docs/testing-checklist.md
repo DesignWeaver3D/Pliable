@@ -87,3 +87,4 @@ Restart the core before testing anything in the first group.
 - [ ] Open a tool form (for example Add box), then Menu > New project: no tool selection error appears in the status line or the diagnostics report.
 - [ ] Sketch: put Fix, Equal or other constraint marks on circles and arcs; the tag sits just above the centre point instead of covering it, and the selected centre highlight stays visible.
 - [ ] Sketch: a larger fully constrained sketch (several dimensioned rectangles) shows all its geometry in the fully constrained colour; a circle whose radius has no dimension is a known exception (still coloured when only its centre is placed).
+- [ ] Sketch: with "N degrees of freedom left" showing, click that line; the points and curves that still have freedom light up bright yellow and the status line says how many (click again to clear). When one degree is reported but no point can move, the message says the freedom is in a size (radius or axis).
