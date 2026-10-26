@@ -15,3 +15,4 @@
 
 ## Chrome check
 See the end of this file.
+Chrome (ports 8802/5202): exported .stpZ and .3dm from the Export CAD list (file pickers bypassed), re-imported the .stpZ through the Import input (faces 19 to 38, combined), and a mesh-only .3dm import showed the no-surfaces message. Native file dialogs were not tested.
