@@ -32,6 +32,8 @@ import { uiIcon } from "./icons";
 import { LENGTH_UNIT } from "./units";
 import { usage } from "./usage";
 import { showNumber } from "./precision";
+import { askForm, askNumber } from "./sketchasks";
+import { createSolver } from "./sketchsolve";
 import { cornerAt, isCurvePick, roundAt, roundPair } from "./sketchcorner";
 import { automaticInTheWay } from "./sketchautowin";
 import { FREE_COLOR, freeMessage, freeParts } from "./sketchfreedom";
@@ -97,16 +99,6 @@ export interface Snap {
   /** Dotted guide lines to show: the cursor lined up with existing points. */
   guides?: [number, number][][];
 }
-interface SolveReply {
-  status: "ok" | "failed";
-  dof: number | null;
-  failed: (number | null)[];
-  points: { id: number; u: number; v: number }[];
-  radii: Record<string, number>;
-  /** Only when nothing is being dragged. On success: directions each point can still move in. On failure: constraints to blame. */
-  freedom?: Record<string, number>;
-  conflicts?: number[];
-}
 
 export type Drag = { point: number; u: number; v: number } | { points: { point: number; u: number; v: number }[] };
 
@@ -157,8 +149,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   selectTool(tool: Tool) {
     if (this.active) this.setTool(tool);
   }
-  private solving = false;
-  private queued: { drag?: Drag } | null = null;
+  private solver: ReturnType<typeof createSolver>;
   private panel: HTMLElement;
 
   constructor(
@@ -169,6 +160,17 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     panel: HTMLElement,
   ) {
     this.panel = panel;
+    this.solver = createSolver({
+      core: this.core,
+      sketch: () => this.s,
+      status: (text, error) => this.host.status(text, error),
+      setDof: (dof) => (this.dof = dof),
+      failed: () => this.failed,
+      setFailed: (failed) => (this.failed = failed),
+      render: () => this.render(),
+      refreshProfiles: () => this.refreshProfiles(),
+      refreshFreedom: () => this.refreshFreedom(),
+    });
     window.addEventListener("keydown", this.onTyping, true);
     window.addEventListener("pointermove", (e) => (this.lastPointer = { x: e.clientX, y: e.clientY }), true);
     window.addEventListener("resize", () => { if (this.active) this.placePanel(); });
@@ -707,7 +709,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.drag = null;
       this.cursor = null;
       if (moved) {
-        while (this.solving) await new Promise((r) => setTimeout(r, 5)); // let the last pinned position finish first
+        while (this.solver.isSolving()) await new Promise((r) => setTimeout(r, 5)); // let the last pinned position finish first
         await this.resolve(); // settle without pinning the dragged point
       }
       this.render();
@@ -1415,51 +1417,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   /** Ask for a dimension's value; ticking "Reference" keeps the current measurement instead of driving the shape. */
   /** Several numbers at once (and optionally a Copy box) in the ask strip. Resolves null when cancelled. */
   private askForm(title: string, fields: { label: string; value: number; integer?: boolean }[], copy?: boolean): Promise<{ values: number[]; copy: boolean } | null> {
-    return new Promise((resolve) => {
-      const box = this.panel.querySelector<HTMLElement>(".ask")!;
-      box.hidden = false;
-      box.replaceChildren();
-      const inputs = fields.map((f) => {
-        const input = document.createElement("input");
-        input.type = "number";
-        input.step = f.integer ? "1" : "any";
-        input.value = showNumber(f.value);
-        input.title = f.label;
-        input.addEventListener("keydown", (e) => {
-          e.stopPropagation();
-          if (e.key === "Enter") ok.click();
-          else if (e.key === "Escape") done(null);
-        });
-        return input;
-      });
-      const copyBox = document.createElement("input");
-      copyBox.type = "checkbox";
-      copyBox.checked = copy ?? false;
-      const done = (values: number[] | null) => {
-        box.hidden = true;
-        box.replaceChildren();
-        resolve(values ? { values, copy: copyBox.checked } : null);
-      };
-      const ok = document.createElement("button");
-      ok.textContent = "OK";
-      ok.addEventListener("click", () => {
-        const values = inputs.map((i) => Number(i.value));
-        done(values.every(Number.isFinite) ? values : null);
-      });
-      const cancel = document.createElement("button");
-      cancel.textContent = "Cancel";
-      cancel.addEventListener("click", () => done(null));
-      const rows = fields.map((f, k) => {
-        const label = document.createElement("label");
-        label.append(`${f.label} `, inputs[k]);
-        return label;
-      });
-      const copyLabel = document.createElement("label");
-      copyLabel.append(copyBox, " Copy");
-      box.append(title, ...rows, ...(copy === undefined ? [] : [copyLabel]), ok, cancel);
-      inputs[0]?.focus();
-      inputs[0]?.select();
-    });
+    return askForm(this.panel, title, fields, copy);
   }
 
   /** Replace the sketch with an edited one (move, copy, array) and settle it; a result the constraints refuse is undone. */
@@ -1535,52 +1493,14 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   }
 
   private askNumber(label: string, initial: number): Promise<{ value: number; reference: boolean } | null> {
-    return new Promise((resolve) => {
-      const box = this.panel.querySelector<HTMLElement>(".ask")!;
-      box.hidden = false;
-      box.replaceChildren();
-      const text = document.createElement("span");
-      text.textContent = label;
-      const input = document.createElement("input");
-      input.type = "number";
-      input.step = "any";
-      input.value = showNumber(initial);
-      const reference = document.createElement("input");
-      reference.type = "checkbox";
-      reference.title = "Only show this measurement; it does not change the shape";
-      const referenceLabel = document.createElement("label");
-      referenceLabel.append(reference, " Reference");
-      const done = (value: number | null) => {
-        box.hidden = true;
-        box.replaceChildren();
-        resolve(value === null ? null : { value: reference.checked ? initial : value, reference: reference.checked });
-      };
-      const ok = document.createElement("button");
-      ok.textContent = "OK";
-      ok.title = "Accept this value";
-      ok.addEventListener("click", () => done(Number.isFinite(Number(input.value)) ? Number(input.value) : null));
-      const cancel = document.createElement("button");
-      cancel.textContent = "Cancel";
-      cancel.title = "Leave the value unchanged";
-      cancel.addEventListener("click", () => done(null));
-      input.addEventListener("keydown", (e) => {
-        e.stopPropagation();
-        if (e.key === "Enter") ok.click();
-        else if (e.key === "Escape") done(null);
-      });
-      box.append(text, input, referenceLabel, ok, cancel);
-      input.focus();
-      input.select();
-    });
+    return askNumber(this.panel, label, initial);
   }
 
   // Solving -----------------------------------------------------------------------------------------
 
   /** Solve the constraints (latest request wins while one is in flight). Resolves true if the solver succeeded. */
   resolve(drag?: Drag): Promise<boolean> {
-    this.queued = { drag };
-    if (this.solving) return Promise.resolve(true);
-    return this.runSolve();
+    return this.solver.resolve(drag);
   }
 
   private freedomSeq = 0;
@@ -1684,52 +1604,6 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     });
   }
 
-  private async runSolve(): Promise<boolean> {
-    this.solving = true;
-    let ok = true;
-    try {
-      while (this.queued) {
-        const job = this.queued;
-        this.queued = null;
-        let reply: SolveReply;
-        try {
-          reply = await this.core.request<SolveReply>("sketch_solve", { sketch: M.forSolver(this.s), drag: job.drag });
-          // Which constraints to blame is only worked out for a failure, and only when nothing is being dragged.
-          if (reply.status !== "ok" && !job.drag) reply = await this.core.request<SolveReply>("sketch_solve", { sketch: M.forSolver(this.s), detail: true });
-        } catch (e) {
-          this.host.status((e as Error).message, true);
-          ok = false;
-          continue;
-        }
-        if (reply.status === "ok") {
-          const byId = new Map(reply.points.map((p) => [p.id, p]));
-          for (const p of this.s.points) {
-            const q = byId.get(p.id);
-            if (q) [p.u, p.v] = [q.u, q.v];
-          }
-          for (const e of this.s.entities) {
-            if (e.type === "circle" && String(e.id) in reply.radii) e.radius = reply.radii[String(e.id)];
-            if (e.type === "ellipse" && String(e.id) in reply.radii) e.minor = reply.radii[String(e.id)];
-          }
-          this.dof = reply.dof;
-          this.failed.clear();
-          ok = true;
-          if (!job.drag) {
-            void this.refreshProfiles();
-            void this.refreshFreedom();
-          }
-        } else if (!job.drag) {
-          this.failed = new Set([...reply.failed, ...(reply.conflicts ?? [])].filter((x): x is number => x !== null));
-          ok = false;
-          if (!this.failed.size) this.host.status("The sketch could not be solved, so geometry will not follow its constraints. Undo the last change", true);
-        }
-        this.render();
-      }
-    } finally {
-      this.solving = false;
-    }
-    return ok;
-  }
 
   /** Add parallel copies of the selected curves, `offset.distance` away (positive grows a closed outline). */
   private async offsetSelection() {

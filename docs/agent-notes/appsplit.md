@@ -7,5 +7,9 @@ Shared-state design: plain-field `app` object in `app/src/appstate.ts` (like `bo
 
 - Slice 2: `itemdrag.ts` (pump, toolRequest, dimension label, typed entry, onItemDrag); main.ts calls createItemDrag, itemDrag.installKeys() and assigns viewport.onItemDrag in the original places (listener order kept).
 
-## Remaining
-- Slice 3 (sketch.ts), slice 4 (viewport.ts).
+- Slice 3 (part): `sketchasks.ts` (askForm, askNumber; the class methods delegate) and `sketchsolve.ts` (createSolver: resolve and the solve loop; SketchMode builds it in its constructor from a context of closures, `solver.isSolving()` replaces `this.solving`).
+
+## Remaining and why stopped
+- sketch.ts pointer handling (onMove, onDown, startDrag, place), projection (pickToProject..projectModel), editInline/selectDimension: each touches 10+ private fields (drag, selection, hover, undoStack, chain, cursor) and has no test; a real-mouse drag cannot be checked by browser automation here. Needs the existing Context-interface pattern (BuilderContext etc.) extended; resume by extracting projection (pickToProject, cancelProjectPick, finishProjectPick, projectModel, toggleProjectPick: they only use projectPick, viewport, host, renderPanel) first, then dimension dialogs (editInline, editDimension).
+- viewport.ts: not started; same reason, needs owner hand-checks of orbit, picking and handle drags.
+- Phase 5 (core folders) untouched.
