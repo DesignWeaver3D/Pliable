@@ -12,7 +12,7 @@ How the main session (the orchestrator) works with several agents at once. Use i
 ## Setup
 
 - One git worktree per agent, from the main checkout: `.\scripts\worktree.ps1 new <name>` makes `..\pliable-wt\<name>` on branch `agent/<name>`, gives it its own ports (core 8801+, frontend 5201+), its own autosave folder (`PLIABLE_DATA`), and copies the ignored project files. `list`, `remove <name>` and `refresh <name|all>` are the other actions.
-- Ignored files (the agent rules file in the repo root, `docs/research/`, the local settings file) are not part of a checkout. **Before starting or resuming any agent run `.\scripts\worktree.ps1 refresh <name|all>`, then merge `dev` into the agent branch.** Otherwise the agent reads stale rules.
+- Ignored files (the agent rules file in the repo root, `docs/research/`, the local settings file) are not part of a checkout. **Before starting or resuming any agent run `.\scripts\worktree.ps1 refresh <name|all>`, then merge `main` into the agent branch.** Otherwise the agent reads stale rules.
 - The local settings file asks before any `git push` and denies `git update-index`. `.gitattributes` keeps both sides of `docs/watchlist.md` on merge.
 - Fresh agent or resumed agent: resume only when the next task touches the same code; otherwise start a fresh agent with the task and the relevant progress rows. A resumed agent re-reads its whole history on every turn, so long histories cost usage.
 - Research agents use the `researcher` agent definition (cheap model, no file edits).
@@ -43,7 +43,7 @@ Name the worktree and branch, then require, in this order:
 
 ## While the owner is testing (2026-10-19)
 
-The owner's page on 5180 is served from the main checkout, so any edit there reloads it mid-test. Do all edits in worktrees and merge into `dev` only on request; run worktree checks on spare ports; a `scripts/worktree.ps1 new <name> -Base <branch>` starts from another branch (used to stack agents on an integration branch). To test several agents' work together, merge their branches into a scratch integration worktree first (resolve the usual `docs/decisions-log.md` and `docs/watchlist.md` append conflicts by keeping both sides), run all checks there, and merge that one branch into `dev`. Run `scripts/worktree.ps1` through Bash (`powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/worktree.ps1 ...`): the PowerShell tool aborts it on git's stderr output.
+The owner's page on 5180 is served from the main checkout, so any edit there reloads it mid-test. Do all edits in worktrees and merge into `main` only on request; run worktree checks on spare ports; a `scripts/worktree.ps1 new <name> -Base <branch>` starts from another branch (used to stack agents on an integration branch). To test several agents' work together, merge their branches into a scratch integration worktree first (resolve the usual `docs/decisions-log.md` and `docs/watchlist.md` append conflicts by keeping both sides), run all checks there, and merge that one branch into `main`. Run `scripts/worktree.ps1` through Bash (`powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/worktree.ps1 ...`): the PowerShell tool aborts it on git's stderr output.
 
 ## Spot-checking
 
@@ -51,7 +51,7 @@ Never merge on a report alone. In the agent's worktree run the core tests, `npm 
 
 ## Merging
 
-- Merge finished branches into `dev` one at a time, running core tests, `npm test`, `tsc` and `npm run build` after each. Do not push unless the owner asks.
+- Merge finished branches into `main` one at a time, running core tests, `npm test`, `tsc` and `npm run build` after each. Do not push unless the owner asks.
 - Expect conflicts only in shared UI files (`main.ts`, `viewport.ts`, `toolpanel.ts`, `sketch.ts`, `keys.ts`). Read both sides; features added in two branches may need a hand merge (for example a key re-added to the router).
 - If the owner is testing in the main checkout, ask before merging: the frontend reloads live while the core server keeps old code, which can break their session. After merging, restart their test instance and tell them to reload.
 - Afterwards: fold the notes into the plan (`docs/progress.md` rows), log decisions in `docs/decisions-log.md`, and put only real questions in `docs/questions.md`. Then delete the agents' temporary notes files; do not keep them in the repo.

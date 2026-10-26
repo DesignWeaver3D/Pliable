@@ -1,5 +1,5 @@
 ﻿# Short-lived worktrees for parallel agent work.
-#   .\scripts\worktree.ps1 new <name> [-Base dev]   create ..\pliable-wt\<name> on branch agent/<name>
+#   .\scripts\worktree.ps1 new <name> [-Base main]   create ..\pliable-wt\<name> on branch agent/<name>
 #   .\scripts\worktree.ps1 remove <name> [-Force]    remove it once the branch is merged
 #   .\scripts\worktree.ps1 refresh <name|all>      recopy the ignored project files (run before assigning or resuming an agent)
 #   .\scripts\worktree.ps1 list
@@ -8,7 +8,7 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)][ValidateSet("new", "remove", "refresh", "list")][string]$Action,
     [Parameter(Position = 1)][string]$Name,
-    [string]$Base = "dev",
+    [string]$Base = "main",
     [switch]$Force
 )
 
