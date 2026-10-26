@@ -20,6 +20,11 @@ def _entity_point_ids(e: dict) -> list[int]:
     return ids + list(e.get("points", []))
 
 
+def _frame_key(e: dict):
+    """What an ellipse is made of: elliptical arcs cut from one ellipse share its axis end points, so they share its hidden construction."""
+    return (e["center"], e["major"], e["major2"], e["minor1"], e["minor2"]) if "minor1" in e else e["id"]
+
+
 class _Solver:
     def __init__(self, sketch: dict, skip_symmetric: dict | None = None):
         self.sketch = sketch
@@ -37,6 +42,7 @@ class _Solver:
         self.radii: dict[int, int] = {}
         self.minors: dict[int, float] = {}  # ellipse id -> short semi-axis set by a minor_radius dimension
         self.frames: dict[int, tuple] = {}  # ellipse id -> (centre, major end, opposite major end, minor end, opposite minor end) point handles
+        self.held_on_ellipse: set[tuple] = set()  # (ellipse frame, point id) of the arc ends already held on their ellipse
         self.foci: dict[int, tuple] = {}  # ellipse id -> its two focus points and the major axis (made when a point is put on the ellipse)
         for e in sketch.get("entities", []):
             self._add_entity(e)
@@ -69,8 +75,9 @@ class _Solver:
             if kind == "ellipse" and "minor1" in e:  # four axis ends: the centre is the middle of both axes, which are square to each other
                 self._ellipse_frame(e)
                 if "start" in e:  # an elliptical arc: its two end points stay on the ellipse
-                    for end in (e["start"], e["end"]):
-                        if end not in (e["major"], e["major2"], e["minor1"], e["minor2"]):  # an axis end is on the ellipse already and cannot take the foci construction
+                    for end in {e["start"], e["end"]}:  # (one point can be both ends of a closed arc, and an end of two arcs cut from one ellipse)
+                        if end not in (e["major"], e["major2"], e["minor1"], e["minor2"]) and (_frame_key(e), end) not in self.held_on_ellipse:  # an axis end is on the ellipse already and cannot take the foci construction
+                            self.held_on_ellipse.add((_frame_key(e), end))
                             self._point_on_ellipse(self._point(end), e)
         else:
             raise SketchError(f"Unknown entity type {kind!r}")
@@ -83,8 +90,9 @@ class _Solver:
         """The ellipse's centre, major end, opposite major end, minor end and opposite minor end as slvs points. An ellipse
         drawn with its four ends has them as sketch points; an older one (a centre, a major end and a minor radius) gets
         hidden ones. Either way the ends are held square to each other about the centre."""
-        if e["id"] in self.frames:
-            return self.frames[e["id"]]
+        key = _frame_key(e)
+        if key in self.frames:
+            return self.frames[key]
         s, wp, g = self.system, self.workplane, SOLVE_GROUP
         centre, major = self._point(e["center"]), self._point(e["major"])
         if "minor1" in e:
@@ -101,8 +109,8 @@ class _Solver:
         s.addMidPoint(centre, major_axis, wp, g)
         s.addMidPoint(centre, minor_axis, wp, g)
         s.addPerpendicular(major_axis, minor_axis, wp, g)
-        self.frames[e["id"]] = (centre, major, major2, minor1, minor2)
-        return self.frames[e["id"]]
+        self.frames[key] = (centre, major, major2, minor1, minor2)
+        return self.frames[key]
 
     def _point_on_ellipse(self, point, e: dict) -> int:
         """Put a point on an ellipse through its foci: the distances from the point to the two foci add up to the major
@@ -110,7 +118,8 @@ class _Solver:
         second focus is, and is held one major width from the first focus."""
         s, wp, g = self.system, self.workplane, SOLVE_GROUP
         centre, major, major2, minor1, minor2 = self._ellipse_frame(e)
-        if e["id"] not in self.foci:
+        key = _frame_key(e)
+        if key not in self.foci:
             (cu, cv), (mu, mv), (nu, nv) = self._coords_of(centre), self._coords_of(major), self._coords_of(minor1)
             a, b = math.hypot(mu - cu, mv - cv), math.hypot(nu - cu, nv - cv)
             # the foci lie on the longer axis, as far from the centre as the square root of the difference of the squares of the semi-axes
@@ -126,8 +135,8 @@ class _Solver:
             s.addMidPoint(centre, s.addLineSegment(f1, f2, g), wp, g)
             # an end of the shorter axis is one semi-major length from each focus
             s.addEqualLength(s.addLineSegment(f1, near, g), s.addLineSegment(centre, far, g), wp, g)
-            self.foci[e["id"]] = (f1, f2, long_axis)
-        f1, f2, long_axis = self.foci[e["id"]]
+            self.foci[key] = (f1, f2, long_axis)
+        f1, f2, long_axis = self.foci[key]
         (pu, pv), (fu, fv), (gu, gv) = self._coords_of(point), self._coords_of(f1), self._coords_of(f2)
         reach = math.hypot(pu - fu, pv - fv) or 1.0
         beyond = math.hypot(pu - gu, pv - gv)

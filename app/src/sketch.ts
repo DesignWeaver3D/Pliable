@@ -18,6 +18,7 @@ import * as T from "./sketchtyped";
 import * as F from "./sketchfit";
 import * as Co from "./sketchcoincident";
 import { trimClick } from "./sketchtrim";
+import { ellipseThroughPoint, splitEllipse } from "./sketchsplitellipse";
 import { isFreeCircle, draggedRadius } from "./sketchcircledrag";
 import { loadSketchOptions, OPTIONS_KEY } from "./sketchoptions";
 import { chooseAtCursor } from "./sketchmenu";
@@ -58,7 +59,7 @@ export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "ellarc", label: "Ellipse arc", hint: "Click the centre, the end of the long axis, a point for the short radius, then the start and the end of the arc; the arc runs the way the pointer moves from the start" },
   { id: "spline", label: "Spline", hint: "Click points the curve passes through; Enter or right-click ends it, clicking the first point closes it" },
   { id: "trim", label: "Trim", hint: "Click a line to cut it at its crossings and mark that piece; click the marked piece again to delete it" },
-  { id: "split", label: "Split", hint: "Click a line where it should be cut in two" },
+  { id: "split", label: "Split", hint: "Click a line, an ellipse or an elliptical arc where it should be cut" },
   { id: "fillet", label: "Fillet", hint: "Click a corner where two lines meet (or one of its lines) to round it; the radius is set in the sketch card" },
   { id: "chamfer", label: "Chamfer", hint: "Click a corner where two lines meet (or one of its lines) to bevel it; the distance is set in the sketch card" },
   { id: "extend", label: "Extend", hint: "Click near the end of a line to stretch it to the next curve" },
@@ -731,7 +732,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
         // a click on a point that lies on a line cuts the line exactly there (the point joins both pieces)
         const through = E.lineThroughPoint(this.s, hit.id);
         const at = this.s.points.find((x) => x.id === hit.id);
-        const cut = through !== null && at ? E.splitLine(this.s, through, at.u, at.v, 0, hit.id) : null;
+        const round = through === null ? ellipseThroughPoint(this.s, hit.id) : null;
+        const cut = through !== null && at ? E.splitLine(this.s, through, at.u, at.v, 0, hit.id) : round !== null && at ? splitEllipse(this.s, round, at.u, at.v, 0, hit.id) : null;
         if (cut) {
           this.pushUndo();
           this.s = cut.sketch;
@@ -741,7 +743,14 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
         return;
       }
       const line = hit?.kind === "entity" ? this.s.entities.find((x) => x.id === hit.id) : undefined;
-      if (line?.type === "line" && uv && !line.reference) {
+      if (this.tool === "split" && line?.type === "ellipse" && uv && !line.reference) {
+        const cut = splitEllipse(this.s, line.id, uv[0], uv[1]);
+        if (cut) {
+          this.pushUndo();
+          this.s = cut.sketch;
+          this.resolve();
+        } else this.host.status("Click along the ellipse, away from the ends of an arc, to cut it (an old ellipse without axis ends cannot be cut)", true);
+      } else if (line?.type === "line" && uv && !line.reference) {
         if (this.tool === "split") {
           const cut = E.splitLine(this.s, line.id, uv[0], uv[1]);
           if (cut) {

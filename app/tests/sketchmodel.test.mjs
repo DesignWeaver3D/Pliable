@@ -399,3 +399,40 @@ test("an elliptical arc is drawn only between its start and end, counterclockwis
   assert.ok(line.every(([x, y]) => (x / 10) ** 2 + (y / 5) ** 2 < 1 + 1e-9 && x > -1e-9 && y > -1e-9));
   assert.deepEqual(entityPoints(arc), [1, 2, 2, 3]);
 });
+
+import { splitEllipse, ellipseThroughPoint } from "../src/sketchsplitellipse.ts";
+
+function ellipseSketch(extra = {}) {
+  const points = [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: -10, v: 0 }, { id: 4, u: 0, v: 5 }, { id: 5, u: 0, v: -5 }];
+  const entities = [{ id: 9, type: "ellipse", center: 1, major: 2, major2: 3, minor1: 4, minor2: 5, minor: 5, ...extra }];
+  return { plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]), points, entities, constraints: [] };
+}
+
+test("splitting a whole ellipse opens it into one arc that starts and ends at the cut", () => {
+  const cut = splitEllipse(ellipseSketch(), 9, 3, 30);
+  const arc = cut.sketch.entities[0];
+  assert.equal(arc.start, arc.end);
+  const p = cut.sketch.points.find((q) => q.id === arc.start);
+  assert.ok(Math.abs((p.u / 10) ** 2 + (p.v / 5) ** 2 - 1) < 1e-9 && p.u > 0 && p.v > 0);
+});
+
+test("splitting an elliptical arc gives two arcs that share the cut and the ellipse's axis points", () => {
+  const s = ellipseSketch({ start: 2, end: 3 });
+  const cut = splitEllipse(s, 9, 0, 6);
+  const [first, second] = cut.sketch.entities;
+  assert.equal(first.id, 9);
+  assert.equal(first.start, 2);
+  assert.equal(first.end, second.start);
+  assert.equal(second.end, 3);
+  assert.deepEqual([second.center, second.major, second.minor1], [first.center, first.major, first.minor1]);
+  assert.equal(splitEllipse(s, 9, 0, -6, 0.02), null); // the click is on the other side of the ellipse, outside the arc
+});
+
+test("an existing point on an ellipse cuts it where it is and is found from the point", () => {
+  const s = ellipseSketch({ start: 2, end: 3 });
+  s.points.push({ id: 7, u: 0, v: 5 });
+  assert.equal(ellipseThroughPoint(s, 7), 9);
+  const cut = splitEllipse(s, 9, 0, 5, 0, 7);
+  assert.equal(cut.sketch.entities[0].end, 7);
+  assert.equal(cut.sketch.entities[1].start, 7);
+});

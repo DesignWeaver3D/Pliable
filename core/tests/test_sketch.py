@@ -1534,3 +1534,20 @@ def test_halving_the_short_width_of_an_elliptical_arc_keeps_the_long_axis_about_
     result = sketch.solve(sk)
     at = coords(result)
     assert result["status"] == "ok" and math.dist(at[2], at[4]) < 70 and math.dist(at[5], at[6]) == pytest.approx(20)
+
+
+def test_two_elliptical_arcs_cut_from_one_ellipse_solve_and_close_into_a_profile():
+    sk = _ellipse_with_ends()
+    sk["points"].append({"id": 7, "u": 0.0, "v": 5.0 * 1.0})
+    sk["points"][-1] = {"id": 7, "u": 10 * math.cos(1.0), "v": 5 * math.sin(1.0)}
+    sk["entities"][0].update({"start": 7, "end": 7})  # an ellipse cut open at one point is one arc that starts and ends there
+    assert sketch._edges(sk)[0].length == pytest.approx(48.44, rel=1e-3)
+    sk["points"].append({"id": 8, "u": -10 * math.cos(1.0), "v": -5 * math.sin(1.0)})
+    sk["entities"][0]["end"] = 8
+    sk["entities"].append({"id": 4, "type": "ellipse", "center": 1, "major": 2, "major2": 4, "minor1": 5, "minor2": 6, "minor": 5.0, "start": 8, "end": 7})
+    sk["constraints"] = [{"id": 10, "type": "fixed", "point": 1}, {"id": 11, "type": "distance", "points": [5, 6], "value": 12}]
+    result = sketch.solve(sk)
+    assert result["status"] == "ok"
+    solved = sketch.apply_solution(sk, result)
+    at = coords(result)
+    assert sketch.profile_face(solved).area == pytest.approx(math.pi * math.dist(at[2], at[4]) / 2 * 6, rel=1e-3)
