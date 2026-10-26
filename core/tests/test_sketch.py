@@ -1484,3 +1484,43 @@ def test_symmetric_that_really_conflicts_is_still_refused():
     # two ends of an axis line that lies along the mirror axis
     assert Session().handle({"type": "sketch_solve", "sketch": _app_ellipse_about_axis((0, 0), (2, 4), True, True)})["status"] == "failed"
     assert Session().handle({"type": "sketch_solve", "sketch": _app_ellipse_about_axis((0, 0), (5, 6), False, True)})["status"] == "failed"
+
+def test_line_arc_fillet_corner_solves_with_tangents():
+    # what the Fillet tool leaves for a line meeting an arc: the line, the arc and a fillet arc, joined by tangent constraints
+    points = [
+        {"id": 1, "u": 20, "v": 0}, {"id": 3, "u": 10, "v": 0}, {"id": 4, "u": 10, "v": -10},
+        {"id": 12, "u": 3.67544467966324, "v": 0}, {"id": 13, "u": 0.9649209709474889, "v": -4.285714285714285}, {"id": 15, "u": 3.67544467966324, "v": -3},
+    ]
+    entities = [
+        {"id": 10, "type": "line", "a": 1, "b": 12},
+        {"id": 11, "type": "arc", "center": 3, "start": 13, "end": 4},
+        {"id": 14, "type": "arc", "center": 15, "start": 12, "end": 13},
+    ]
+    constraints = [{"id": 16, "type": "tangent", "entities": [14, 10], "auto": True}, {"id": 17, "type": "tangent", "entities": [14, 11], "auto": True}]
+    constraints += [{"type": "fixed", "point": k} for k in (1, 3, 4)] + [{"type": "radius", "entity": 14, "value": 3}]
+    result = sketch.solve(sketch_of(points, entities, constraints))
+    assert result["status"] == "ok"
+    c = coords(result)
+    # the fillet centre stays 3 from the line and 7 from the arc's centre (tangent inside the arc's circle)
+    assert c[15][1] == pytest.approx(-3, abs=1e-6)
+    assert math.dist(c[15], c[3]) == pytest.approx(7, abs=1e-6)
+    assert c[12][0] == pytest.approx(c[15][0], abs=1e-6)
+
+
+def test_arc_arc_fillet_corner_solves_with_tangents():
+    points = [
+        {"id": 1, "u": -10, "v": 10}, {"id": 3, "u": 0, "v": 10}, {"id": 4, "u": 10, "v": -10}, {"id": 5, "u": 10, "v": 0},
+        {"id": 12, "u": -1.5463788336675375, "v": 0.12028783299913037}, {"id": 13, "u": 0.12028783299913037, "v": -1.5463788336675357}, {"id": 15, "u": -1.8556546004010448, "v": -1.855654600401043},
+    ]
+    entities = [
+        {"id": 10, "type": "arc", "center": 3, "start": 1, "end": 12},
+        {"id": 11, "type": "arc", "center": 5, "start": 13, "end": 4},
+        {"id": 14, "type": "arc", "center": 15, "start": 13, "end": 12},
+    ]
+    constraints = [{"id": 16, "type": "tangent", "entities": [14, 10], "auto": True}, {"id": 17, "type": "tangent", "entities": [14, 11], "auto": True}]
+    constraints += [{"type": "fixed", "point": k} for k in (1, 3, 4, 5)] + [{"type": "radius", "entity": 14, "value": 2}]
+    result = sketch.solve(sketch_of(points, entities, constraints))
+    assert result["status"] == "ok"
+    c = coords(result)
+    assert math.dist(c[15], c[3]) == pytest.approx(12, abs=1e-6)
+    assert math.dist(c[15], c[5]) == pytest.approx(12, abs=1e-6)
