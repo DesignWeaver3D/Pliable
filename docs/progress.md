@@ -20,6 +20,8 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
   - Owner (2026-10-26): could not reproduce either; will report if it recurs. Leave the guarded frame loop as is.
 - **Symmetric about an axis still dropped on an ellipse's construction line (bug).** Owner (2026-10-26, after the first fix): the quadrant points selected were the top and bottom ones, on either side of the x-axis that was picked as the symmetry axis, so this is not the along-the-axis conflict; the warning "Dropped Symmetric p1010 p1011 vertical axis: it repeats or conflicts with the fixed points and the constraints already on these items" is still a symmetric bug.
   - [ ] Reproduce the exact case in the app and in a core test: an ellipse (automatic constraints on, drawn at the origin and elsewhere), its two top and bottom (minor axis) end points plus the x-axis, Symmetric. Find why it is dropped (the message says "vertical axis" for the x-axis pick, check the naming too) and make it apply, or drop only a truly redundant one with the real reason.
+- **Ellipses without axis end points are not counted in the degrees of freedom number** (old files only; the sketch card number and the yellow highlight differ there).
+  - [ ] Count them, or add the axis ends when such a sketch is opened.
 - **Stored array parameters (long term, needs owner feedback).** Store array parameters like primitives (editable later); today arrays make separate solids. Consider an option for the array to be a compound with its source object.
 
 - **Problems noted on the first hand-test pass (owner, 2026-10-18; verify each still happens before working on it).** Quoted from the owner's notes:
@@ -38,13 +40,6 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
   - [ ] Fillet and Chamfer for a corner between a line and an arc (needs a tangent-circle choice, inside or outside the arc, and trimming the arc end).
 - **Trim and Extend ignore ellipses and splines.**
   - [ ] Find crossings with ellipses and splines when trimming (behavior change: ask the owner first or decide by the hierarchy).
-- **Fully constrained colouring is unreliable.** Owner: "Sketch fully constrained coloring is not reliable at coloring all fully constrained geometry."
-  - [ ] Find sketches where fully constrained geometry is not coloured as such and fix the cause; add a core test if it can run without a browser.
-  - Open: a circle with a placed centre but a free radius still colours as placed.
-- **Degrees of freedom message is a clickable highlight.** Owner: "Sketch constraint solver sometimes reports 1 degree of freedom left when I cannot find any. Degree of Freedom message should be a clickable link that highlights the edges and vertices with remaining degrees of freedom. Highlight can be bright yellow."
-  - [ ] Clicking the message highlights the edges and vertices that still have freedom, in bright yellow.
-  - [ ] Check the cases where one degree is reported but none can be found (the highlight shows which); fix the count if it is wrong.
-  - Open: why the count says one degree when nothing lights up.
 - **Global display precision (discuss first).** Owner: "Global settings need a global precision to declare UI rounding. Currently, it appears the UI hides decimals when they are all zero and dynamically displays precision, which i like, but when the decimals are many the default behavior appears to be two decimals, but user should be able to select more up to 8 or the rounding limit that most functions use, if there is a limit. Discuss."
   - [ ] Find the rounding limit the functions use, then propose a precision setting (keeping the hide-zero-decimals look) and ask the owner.
   - Open: extend the setting to the tool forms, manipulator labels and drag rounding.
