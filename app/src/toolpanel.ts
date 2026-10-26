@@ -1,5 +1,6 @@
 /** "All tools" list (grouped by layout.ts) and the parameter form for tools that are not dragged. */
 import { colourSides, planeButtons } from "./planepicks";
+import { planeBuildControls } from "./planebuild";
 import type { PickOptions } from "./reference";
 import { toolIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
@@ -32,6 +33,10 @@ export interface ToolPanelHost {
   pickEdgeId?(): Promise<number | null>;
   /** A plane the user picks (a flat face clicked in the view), or null when cancelled (the mirror's plane). */
   pickPlane?(): Promise<{ origin: number[]; normal: number[] } | null>;
+  /** Wait for a click on a vertex, edge or flat face anywhere on the model and give back its id (null when cancelled); `message` is shown in the status line. */
+  pickItem?(kind: "vertex" | "edge" | "face", message: string): Promise<number | null>;
+  /** The plane the core builds for a sketch_plane request (vertices, edge and vertex, or face with offset and angle), or null with the error shown. */
+  planeFrom?(request: Record<string, unknown>): Promise<{ origin: number[]; normal: number[] } | null>;
   /** The datum planes of the model, offered as buttons by tools that take a plane. */
   datumPlanes?(): readonly { name: string; plane: { origin: number[]; normal: number[] } }[];
   /** The kept sketches and the plane of one, offered as buttons by tools that take a plane (see planepicks.ts). */
@@ -415,7 +420,7 @@ export class ToolPanel {
         button.addEventListener("click", () => usePlaneIn(d.plane.origin, d.plane.normal));
         return button;
       });
-      buttons.before(pickPlane, ...datums, ...planeButtons(this.host, usePlaneIn));
+      buttons.before(pickPlane, ...datums, ...planeButtons(this.host, usePlaneIn), ...planeBuildControls(this.host, () => this.open === tool, usePlaneIn));
     }
     this.formEl.hidden = false;
     this.inputs = inputs;
