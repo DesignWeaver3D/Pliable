@@ -151,6 +151,7 @@ export const UI_ICONS: Record<string, string> = {
   gear: '<path d="M9.84 4.92 L10.50 2.52 L13.50 2.52 L14.16 4.92 L15.47 5.47 L17.64 4.23 L19.77 6.36 L18.53 8.53 L19.08 9.84 L21.48 10.50 L21.48 13.50 L19.08 14.16 L18.53 15.47 L19.77 17.64 L17.64 19.77 L15.47 18.53 L14.16 19.08 L13.50 21.48 L10.50 21.48 L9.84 19.08 L8.53 18.53 L6.36 19.77 L4.23 17.64 L5.47 15.47 L4.92 14.16 L2.52 13.50 L2.52 10.50 L4.92 9.84 L5.47 8.53 L4.23 6.36 L6.36 4.23 L8.53 5.47 Z" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2"/>',
   more: '<circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  trash: '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/>',
   edit: '<path d="M4 20l1-5L16 4l4 4L9 19z"/>',
   eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   eyeOff: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" opacity=".45"/><path d="M4 20L20 4"/>',
