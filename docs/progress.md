@@ -32,12 +32,10 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
   - [ ] Delete face: "works on circular holes. fails otherwise with no error or message why. This was supposed to be named Defeature. Delete face doesn't make sense in all the contexts that this is supposed to work."
   - [ ] Align face: "grayed out and i have no idea what it's supposed to do anyway."
   - Open (not reproduced or needs design): click and shift select, chips, double-click chain, measurements stopping, M mode, push/pull on a hole face. Fixed already: Open/Export STEP, Defeature naming and messages, Align face tooltip, Outline edges.
-- **Sketch 2D fillet and chamfer.** Owner: "Sketch needs 2d fillet and 2d chamfer tools."
-  - [ ] Fillet and Chamfer sketch tools for the corner between two lines (and line and arc), with a typed value, in the same tool strip and style as the other sketch tools. Related: the Round face edges and Fillet ideas are 3D only.
-  - Open: line and arc corners.
-- **Trim does not cut the segment between an end point and a crossing.** Owner: "Sketch trim tool changes clicked edges to construction first click and deletes second click, but does not actually cut the segment that's between a line endpoint and another line intersection."
-  - [ ] Reproduce: clicking the piece between a line end and its nearest crossing; the cut must happen there too. Check against the two-click Trim rule in behavior.md before changing it.
-  - Open: ellipses and splines are ignored when finding crossings.
+- **Sketch fillet and chamfer on a line and an arc.** Owner: "Sketch needs 2d fillet and 2d chamfer tools." The two-line corner tools exist; the rest is open.
+  - [ ] Fillet and Chamfer for a corner between a line and an arc (needs a tangent-circle choice, inside or outside the arc, and trimming the arc end).
+- **Trim and Extend ignore ellipses and splines.**
+  - [ ] Find crossings with ellipses and splines when trimming (behavior change: ask the owner first or decide by the hierarchy).
 - **Fully constrained colouring is unreliable.** Owner: "Sketch fully constrained coloring is not reliable at coloring all fully constrained geometry."
   - [ ] Find sketches where fully constrained geometry is not coloured as such and fix the cause; add a core test if it can run without a browser.
   - Open: a circle with a placed centre but a free radius still colours as placed.

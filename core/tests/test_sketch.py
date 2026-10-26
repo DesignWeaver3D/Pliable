@@ -1308,7 +1308,6 @@ def test_moving_an_ellipse_by_its_centre_and_major_end_carries_all_its_points():
     for pid, want in {4: (-9.5, 0.3), 5: (0.5, 5.3), 6: (0.5, -4.7)}.items():
         assert at[pid] == pytest.approx(want, abs=1e-6)
 
-<<<<<<< HEAD
 def _axis(eid, horizontal):
     a, b = (-11, -12) if horizontal else (-21, -22)
     reach = 1e4
@@ -1398,7 +1397,7 @@ def test_quadrant_points_take_symmetric_about_the_axis_they_can_mirror_about():
     assert sketch.solve(_ellipse_with_quadrant_copies((13, 14), True))["status"] == "ok"  # the minor ends about the x-axis
     assert sketch.solve(_ellipse_with_quadrant_copies((11, 12), False))["status"] == "ok"  # the major ends about the y-axis
     assert sketch.solve(_ellipse_with_quadrant_copies((11, 12), True))["status"] == "failed"  # two ends of one axis line cannot mirror about a line along it
-=======
+
 
 def test_three_pieces_joined_by_neighbour_collinear_constraints_solve():
     """What Trim leaves on a line cut at two crossings: each automatic collinear constraint joins neighbouring pieces."""
@@ -1408,4 +1407,3 @@ def test_three_pieces_joined_by_neighbour_collinear_constraints_solve():
     result = sketch.solve(sketch_of(points, lines, constraints))
     assert result["status"] == "ok" and not result.get("conflicts")
 
->>>>>>> agent/sketchtools
