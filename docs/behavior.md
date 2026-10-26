@@ -27,7 +27,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Bare keys may change view, display, arm a tool or change selection. Anything that changes the model or a setting at once needs Ctrl or Alt.
 - Every hotkey is user-redefinable except the fixed sketch keys (Ctrl+Z, Escape, Enter, Delete/Backspace). Any mix of Ctrl, Alt and Shift is allowed.
 - Measure pick is the rebindable command "measure", default M.
-- The page warns when leaving with undo steps or an open sketch.
+- The page warns when leaving with undo steps or an open sketch (confirmed by the owner, 2026-10-26: also when the sketch holds only geometry and nothing else changed).
 
 ## Tools and drags
 

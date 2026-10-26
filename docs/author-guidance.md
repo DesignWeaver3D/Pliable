@@ -13,12 +13,6 @@ Rules for keeping it:
 
 ### Possible hangs, blank views and data loss
 
-- [ ] Blank 3D view after a sketch constraint (symmetry): not reproduced. If the view goes white again, do not refresh; copy the status line, which now names the failing part, and note the steps.
-- [ ] Push/pull direction arcs: tilt the arrow by hand, press Escape, then click Menu. A scripted test froze the tab here; check it is only the test method.
-- [ ] Restore prompt: kill the core and restart it; the previous model is offered once. Two copies running at once never offer or touch each other's session.
-- [ ] Unsaved-work warning: leaving the page with an open sketch and nothing else changed still asks first.
-- [ ] A long open shows the busy indicator and the UI stays responsive; it clears after a failed operation too. Opening the block model while a 109-solid STEP is loaded takes seconds, not 150 s.
-- [ ] Editing a diameter after a redundant-constraint error does not crash the core (if it does, copy the core console output).
 
 ### Desktop app (Windows archive)
 
