@@ -1,6 +1,6 @@
 ﻿# Decision log
 
-Decisions made without the owner or by the owner, grouped by topic. Each says what was decided and what to change if the owner disagrees. A record for later reference; real questions go in [questions.md](questions.md). Decision order when the owner is away: described workflow, industry practice for solid modelers, other direct modelers, web consensus.
+Decisions made without the owner or by the owner, grouped by topic. Each says what was decided and what to change if the owner disagrees. A record for later reference; items needing the owner go in [author-guidance.md](author-guidance.md). Decision order when the owner is away: described workflow, industry practice for solid modelers, other direct modelers, web consensus.
 
 ## Owner direction
 

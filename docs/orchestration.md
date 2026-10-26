@@ -21,10 +21,10 @@ How the main session (the orchestrator) works with several agents at once. Use i
 
 Name the worktree and branch, then require, in this order:
 1. Use absolute paths under its worktree; never touch the main checkout or other worktrees.
-2. Read the agent rules file in the repo root, `docs/progress.md`, and the relevant `docs/questions.md` and `docs/decisions-log.md` entries.
+2. Read the agent rules file in the repo root, `docs/progress.md`, and the relevant `docs/author-guidance.md` and `docs/decisions-log.md` entries.
 3. Its ports and the exact core server line with `PLIABLE_DATA` (from `agent-ports.txt`); never port 8765.
 4. Finish one task at a time: run the tests and commit that task (one commit per task, plain subject) before starting the next, so a cutoff loses only the task in progress. Local commits on its branch only; never push; no `git update-index`; do not touch `dev`, `rebuild` or `main`.
-5. Do not edit `docs/progress.md` or `docs/questions.md`; put status, decisions (with what to change), open questions and the resume point in the final report and in a temporary `docs/agent-notes/<name>.md` on its branch; watchlist entries append-only.
+5. Do not edit `docs/progress.md` or `docs/author-guidance.md`; put status, decisions (with what to change), items the owner must judge (only what a test cannot decide) and the resume point in the final report and in a temporary `docs/agent-notes/<name>.md` on its branch; watchlist entries append-only.
 6. Commit messages pass `scripts/check_commit_message.py`; the hook also rejects names of other products and AI tools in any staged text, so describe behaviour instead.
 7. Unattended rules from the agent rules file: decide, log, keep going; ending the turn ends the run.
 8. Tests go through the real code path (`Tool.execute` or the server handlers, never helpers that skip steps the app applies); run core tests, `npm test`, `npx tsc --noEmit` and `npm run build`.
@@ -54,7 +54,7 @@ Never merge on a report alone. In the agent's worktree run the core tests, `npm 
 - Merge finished branches into `main` one at a time, running core tests, `npm test`, `tsc` and `npm run build` after each. Do not push unless the owner asks.
 - Expect conflicts only in shared UI files (`main.ts`, `viewport.ts`, `toolpanel.ts`, `sketch.ts`, `keys.ts`). Read both sides; features added in two branches may need a hand merge (for example a key re-added to the router).
 - If the owner is testing in the main checkout, ask before merging: the frontend reloads live while the core server keeps old code, which can break their session. After merging, restart their test instance and tell them to reload.
-- Afterwards: fold the notes into the plan (`docs/progress.md` rows), log decisions in `docs/decisions-log.md`, and put only real questions in `docs/questions.md`. Then delete the agents' temporary notes files; do not keep them in the repo.
+- Afterwards: fold the notes into the plan (`docs/progress.md` rows), log decisions in `docs/decisions-log.md`, and add to `docs/author-guidance.md` only what a test cannot judge, re-sorting it by priority and tool group. Then delete the agents' temporary notes files; do not keep them in the repo.
 
 ## Orchestrator's own checks
 

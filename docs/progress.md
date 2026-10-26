@@ -2,7 +2,7 @@
 
 Open work only, for the rebuild in [ROADMAP.md](../ROADMAP.md). Read this first in every session. Keep it under about 48 KB: when work is finished, delete its entry (git keeps the history; describe the change in the commit message). Rows have no numbers; the title is the identity.
 
-Where things go: open to-dos here; parked work and not-built ideas in the last two sections here (judge every new row against them, because a related idea may become part of the new task); blocking owner questions in [questions.md](questions.md); things for the owner to hand-test in [testing-checklist.md](testing-checklist.md); approved behavior in [behavior.md](behavior.md); decisions in [decisions-log.md](decisions-log.md); shortcuts and guesses in [watchlist.md](watchlist.md); lasting technical notes in [dev-notes.md](dev-notes.md).
+Where things go: open to-dos here; parked work and not-built ideas in the last two sections here (judge every new row against them, because a related idea may become part of the new task); everything that needs the owner's time (hand-tests, questions, approvals) in [author-guidance.md](author-guidance.md); approved behavior in [behavior.md](behavior.md); decisions in [decisions-log.md](decisions-log.md); shortcuts and guesses in [watchlist.md](watchlist.md); lasting technical notes in [dev-notes.md](dev-notes.md).
 
 New rows quote the owner's request in their own words, then list what it needs as a checklist. A row is deleted only when every checklist item is verified against the quote.
 
@@ -12,12 +12,11 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
 
 - Split `app/src/manipulator.ts` (762 lines): move arrows, grid grips and the turn arcs (drawing, hit test, snap ticks) are separate jobs; the turn arcs could move to their own file. Raised after the edge gizmo work; no owner request yet.
 
-  - Status: the camera-free maths moved to handlemath.ts; the class (arrows, grid grips, turn arcs) is still one file of about 600 lines.
 - **White viewport after a symmetry constraint (bug, high priority: risk of lost work).** Owner: "While sketching I made a symmetry constraint and the entire background turned white and sketch axis origin and sketch geometry cannot be seen but dimensions are still visible. No error reported and otherwise the UI elements are there and allow editing. Clicking finish sketch did not resolve the issue. Refreshing the browser tab fixed, but we cannot rely on refreshing the browser tab which always poses a lost work risk becuase sometimes the project state doesn't restore to latest."
   - [ ] (In progress: not reproduced with two lines about a line or point, a core fuzz of 1500 symmetric sketches gave no NaN; the loop is now guarded and shows a status error if a frame part throws, so the next occurrence names the cause.) Find the cause. Likely a render failure in the 3D view (for example a NaN or invalid value in the symmetry constraint's geometry, or a lost WebGL context) while the HTML dimension labels keep working; check the browser console and the symmetry constraint code path.
   - [ ] Symmetry constraint no longer blanks the viewport; add a test for any bad value found if it can run without a browser.
   - [ ] Separate row if confirmed: the project state does not always restore to the latest after a refresh (owner: "sometimes the project state doesn't restore to latest"). Reproduce and investigate the autosave and restore path.
-  - Status: not reproduced after three approaches; the solver now rejects non-finite solutions and the frame loop is guarded. Next: log renderer info and context state when it happens; check the profile-fill mesh and the dimension overlay for NaN.
+  - Not reproduced; the solver rejects non-finite solutions and the frame loop is guarded. Next: log renderer info and context state when it happens; check the profile-fill mesh and the dimension overlay for NaN.
 - **Stored array parameters (long term, needs owner feedback).** Store array parameters like primitives (editable later); today arrays make separate solids. Consider an option for the array to be a compound with its source object.
 
 - **Problems noted on the first hand-test pass (owner, 2026-10-18; verify each still happens before working on it).** Quoted from the owner's notes:
@@ -31,65 +30,36 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
   - [ ] Push/pull: "M mode is regression that doesn't work when right-click mode did (can't use right click because need right-drag for orbit?). Push/pull hole face does nothing at all, starts a box selection."
   - [ ] Delete face: "works on circular holes. fails otherwise with no error or message why. This was supposed to be named Defeature. Delete face doesn't make sense in all the contexts that this is supposed to work."
   - [ ] Align face: "grayed out and i have no idea what it's supposed to do anyway."
-  - Status: already fixed or done: Open STEP import/new, Export STEP save dialog, Defeature naming and messages, Align face tooltip, "Outline edges" rename. Not reproduced or needs design: click and shift select, chips, double-click chain, measurements stopping, M mode, push/pull on a hole face.
+  - Open (not reproduced or needs design): click and shift select, chips, double-click chain, measurements stopping, M mode, push/pull on a hole face. Fixed already: Open/Export STEP, Defeature naming and messages, Align face tooltip, Outline edges.
 - **Sketch 2D fillet and chamfer.** Owner: "Sketch needs 2d fillet and 2d chamfer tools."
   - [ ] Fillet and Chamfer sketch tools for the corner between two lines (and line and arc), with a typed value, in the same tool strip and style as the other sketch tools. Related: the Round face edges and Fillet ideas are 3D only.
-  - Status: line-to-line only. Open: line and arc corners.
-- **Pre-filleted rectangles (discuss first).** Owner: "Sketch rectangle tool needs options for pre-filleted rectangles. Need to discuss how we can choose options on the fly. If on the fly is troublesome then we need additional rectangle tool drop menu for selecting the various types. Need to determine the approach that provides most intuitive UX."
-  - [ ] Propose the options (on the fly while drawing versus a rectangle drop menu) and ask the owner before building. Related: the sizes typed with Tab (behavior.md) and the corner-style field in the sketch card.
-  - Status: the corner style list (Square, Rounded, Bevelled) exists; only tooltips changed. Open: owner question whether a key should cycle the style while drawing.
+  - Open: line and arc corners.
 - **Trim does not cut the segment between an end point and a crossing.** Owner: "Sketch trim tool changes clicked edges to construction first click and deletes second click, but does not actually cut the segment that's between a line endpoint and another line intersection."
   - [ ] Reproduce: clicking the piece between a line end and its nearest crossing; the cut must happen there too. Check against the two-click Trim rule in behavior.md before changing it.
-  - Status: crossings with arcs now count. Open: ellipses and splines.
-- **Arc radius leader points at an end point and cannot move freely.** Owner: "Sketch arc radius so far always points at one of its end points instead of at the arc edge. Therefore cannot move the radius leader freely. Also radius constraint leader should support creating a helper construction arc if user moves radius leader past either arc endpoint."
-  - [ ] The radius leader points at the arc edge and can be dragged freely around it.
-  - [ ] Dragging the leader past either end point creates a helper construction arc for the leader to sit on.
-  - Status: leader points at the arc and moves freely; the helper arc is a dashed extension (provisional). Open: owner decision on a real construction arc.
+  - Open: ellipses and splines are ignored when finding crossings.
 - **Fully constrained colouring is unreliable.** Owner: "Sketch fully constrained coloring is not reliable at coloring all fully constrained geometry."
   - [ ] Find sketches where fully constrained geometry is not coloured as such and fix the cause; add a core test if it can run without a browser.
-  - Status: a sketch with no freedom colours all points. Gap: a circle with a placed centre but free radius still colours as placed.
-- **Sketch hotkeys for constraints (discuss first).** Owner: "Discussion: Can sketch mode have its own hotkeys that conflict with non-sketch mode hotkeys? I find myself wanting to use hotkeys for applying constraints as habits created while using [another CAD program]. Proposed hotkeys during sketch editing: C - coinsident, E - Equal, S - Symmetry, P - Parallel, V - vertical, H - horizontal, T - tangent, L - perpendicular (capital L looks like a square & P already used), R - radius."
-  - [ ] Answer the question (sketch-only keys that override model keys while a sketch is open) and list the conflicts (V, H, P, S, T and others are model keys today). Related: the Ideas entry for one key table with a hotkey field per tool. Do not build before the owner decides.
-  - Status: provisional C E S H T L R built. Open: P and V (perspective, look at face) stay unassigned in a sketch; owner decides.
-- **Dimension and Horizontal/Vertical variants under one tool (discuss first).** Owner: "Discuss Sketch constraints:  some constraints are related and are more strict than their smart counterparts. Dimension covers a lot, but sometimes user needs to define Horizontal Distance or Vertical Distance explicitly when it would be ambiguous for smart Dimension tool. So I think it would make sense for those two to be under the Dimension tool as a drop list selection. Same for Vertical and Horizontal being special drop-menu selections under the combined horizontal/Vertical constraint tool. We want the smart tools to work as often as possible but still allow user control."
-  - [ ] Propose the strip layout (drop list under Dimension for Horizontal and Vertical distance; drop list under Horizontal / vertical for the strict ones) and ask the owner. This changes the approved button row in behavior.md, so no edits before approval.
-  - Status: parked, proposal in the sketch agent notes: drop list under Dimension (smart, horizontal, vertical distance) and under Horizontal / vertical (smart, horizontal only, vertical only). Needs a behavior.md change.
+  - Open: a circle with a placed centre but a free radius still colours as placed.
 - **Degrees of freedom message is a clickable highlight.** Owner: "Sketch constraint solver sometimes reports 1 degree of freedom left when I cannot find any. Degree of Freedom message should be a clickable link that highlights the edges and vertices with remaining degrees of freedom. Highlight can be bright yellow."
   - [ ] Clicking the message highlights the edges and vertices that still have freedom, in bright yellow.
   - [ ] Check the cases where one degree is reported but none can be found (the highlight shows which); fix the count if it is wrong.
-  - Status: the click lights free points and curves in yellow. Open: why the count says one degree when nothing lights up (the message says the freedom is in a size).
+  - Open: why the count says one degree when nothing lights up.
 - **Global display precision (discuss first).** Owner: "Global settings need a global precision to declare UI rounding. Currently, it appears the UI hides decimals when they are all zero and dynamically displays precision, which i like, but when the decimals are many the default behavior appears to be two decimals, but user should be able to select more up to 8 or the rounding limit that most functions use, if there is a limit. Discuss."
   - [ ] Find the rounding limit the functions use, then propose a precision setting (keeping the hide-zero-decimals look) and ask the owner.
-  - Status: provisional setting 1 to 8 decimals, default 3, covers the measurement panel and sketch dimensions. Open: tool forms, manipulator labels and drag rounding.
+  - Open: extend the setting to the tool forms, manipulator labels and drag rounding.
 - **Cut with plane: any planar object, gizmo, and named sides (discuss first).** Owner: "I thought there was a separate tool called Split with Plane that is missing now. Was it combined into Cut with Plane? Appears so. The cut plane should be able to pick any planar object like a face, sketch, datum plane, etc. The cut plane should have a gizmo to relocate and tilt it similar to the face push/pull gizmo. Remove side should not be a list of numbers, should be None, Side1, Side2 with the side text color matching the proposed tool body colors."
   - [ ] Answer the question: Split with plane and Cut with plane were merged into one tool with a keep option (see the parked Cut with plane rows; the owner question there is pending, so confirm the merge).
   - [ ] The plane can be picked from a face, sketch, datum plane or any other planar object.
   - [ ] A gizmo moves and tilts the plane like the face push/pull gizmo.
   - [ ] The remove side list reads None, Side 1, Side 2, each in the colour of the body it will give.
-  - Status: Remove side list (None, Side 1, Side 2), Pick plane and datum buttons done. Open: side names coloured like the result bodies; picking a kept sketch plane. Split with plane and Cut with plane are merged in effect (None keeps both).
-- **Using a gizmo must not apply the tool.** Owner: "Using the gizmos for any tool should not exit and apply the tool. Exiting and appling the tool should be when user clicks completely emtpy space meaning no object, gizmo anything is under the cursor at the click."
-  - [ ] Dragging or clicking any gizmo keeps the tool open; only a click on completely empty space (nothing, no gizmo, under the pointer) applies it. This changes the approved rule in behavior.md that clicking another item also applies the tool, so confirm that with the owner and then update behavior.md.
+  - Open: side names coloured like the result bodies; picking a kept sketch plane.
 - **More import and export file types.** Owner: "I want to expand the import and export filetypes to include those that oCCT supports such as: .step, .stp, .stpZ, .iges, .igs, .brep, .brp, .ifc. Also investigate potentially supporting .3dm    Via OpenNURBS / openNURBS bindings."
   - [ ] Import and export the formats OCCT supports: .step, .stp, .stpZ, .iges, .igs, .brep, .brp, .ifc (check each against the installed OCCT build and its licence first).
   - [ ] Investigate .3dm through OpenNURBS bindings and report licence, size and feasibility before building.
-  - Status: .step, .stp, .stpZ, .iges, .igs, .brep, .brp done. Open: .ifc (IfcOpenShell LGPL-3.0, 42 to 55 MB per platform) and .3dm (rhino3dm, MIT, about 2.5 MB, needs own trim conversion): decide whether to build.
-- **Inset face: the all-edges or perimeter ball (discuss).** Owner (testing checklist, 2026-10-26): "Inset face is working great as well as its gizmo. The selector between all face edges and only perimeter is a ball that can be clicked. This should be discussed as other tools don't use this approach, but maybe they should because its quick, discoverable, and has complete instructions on what it does."
-  - [ ] Discuss with the owner whether other tools should use the same clickable ball selector for their options; no change before that.
+  - Open: .ifc and .3dm are in author-guidance.md (Future); build nothing until decided.
 - **Quick two-distance mode while creating a chamfer (discuss).** Owner (testing checklist, 2026-10-26): "resize chamfer and the two distance gizmos work great. Need a way to quickly enter two distance mode while creating a chamfer. Maybe pressing ALt or tab while in chamfer creation is still active. Discuss."
   - [ ] Choose the key (Alt, Tab or another) with the owner, then let a chamfer being created switch to two distances. Related: the typed-number Tab behavior and the Alt+click face cycling must not clash.
-  - Status: parked. Proposal: a "Two distances" button in the Fillet/Chamfer form that reopens as Chamfer (two distances) with the first face beside the edge as reference.
-- **What is Chamfer (distance and angle)? (answer the owner).** Owner (testing checklist, 2026-10-26): "There's a line item for "chamfer_distance_angle" and I don't know what it is referring to."
-  - [ ] Answer: it is the tool listed as Chamfer (distance and angle) in Edges. Explain what it does in its tooltip and check it works; ask the owner whether to keep it.
-  - Status: answered in the tooltip: the bevel starts the distance in from the edge along the selected face and slopes at the angle to it (45 = equal legs). Open: keep the tool?
-- **Remove fillet/chamfer tool may be unnecessary (discuss).** Owner (testing checklist, 2026-10-26): "Remove fillet/chamfer tool is unnecessary because the Defeature tool already does the same thing."
-  - [ ] Check that Defeature (delete_face) removes fillets and chamfers everywhere Remove fillet/chamfer does, then ask the owner before removing the tool.
-  - Status: Defeature matches on every fillet and round hole face of the bracket (core test); chamfer and boss cases untested. No tool removed.
-- **Distribute holes/bosses is unclear.** Owner (testing checklist, 2026-10-26): "Distribute holes/bosses I think is entended to do something like how I said arrays should apply to features, but it's current implementation is not intuitive. It's not clear to me what the tool is trying to do when I select the 4 holes in the bottom portion of the included bracket shape."
-  - [ ] Explain what the tool does today with the four bracket holes; then redesign or merge it with arrays on features (previous row) after asking the owner.
-  - Status: today it spaces the selected holes evenly along one axis between the two outermost; a 2 x 2 grid gives odd results. Proposal: keep for single rows and refuse grids, or drop it for arrays on features. Tooltip changed only.
-- **Fill hole / remove boss tool may be unnecessary (discuss).** Owner (testing checklist, 2026-10-26): "Fill hole/remove boss tool is not needed as the defeature tool does this work."
-  - [ ] Check that Defeature covers every case of fill_hole, then ask the owner before removing the tool.
-  - Status: Defeature covers round holes; boss case untested. No tool removed.
+  - Default: a "Two distances" button in the Fillet/Chamfer form that reopens as Chamfer (two distances) with the first face beside the edge as reference; build it.
 
 ## Parked or owner-dependent
 
@@ -103,7 +73,7 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
 
 ## Ideas (not built; the owner picks what becomes a row)
 
-Ideas from the local research notes in `docs/research/` (untracked), written in our own words, by behavior only. Nothing here is approved or scheduled. Questions they raise are in [questions.md](questions.md).
+Ideas from the local research notes in `docs/research/` (untracked), written in our own words, by behavior only. Nothing here is approved or scheduled. Questions they raise go to [author-guidance.md](author-guidance.md) only if a choice is needed.
 
 - Mouse-modifier shortcuts (owner, 2026-10-24): direct manipulation such as dragging a face is a shortcut for a tool the arrow handle or the tool strip also starts, with the same options; more shortcuts using mouse modifiers are expected, with the modifiers not decided yet.
 - Merge Cut with plane and Split with plane into one tool with a keep option, and let the plane come from a selected face (owner question pending).
