@@ -1,0 +1,11 @@
+# Changes to these paths need a review from the owner.
+/docs/behavior.md @DesignWeaver3D
+/CLA*.md @DesignWeaver3D
+/CONTRIBUTING.md @DesignWeaver3D
+/.github/ @DesignWeaver3D
+/.githooks/ @DesignWeaver3D
+/scripts/ @DesignWeaver3D
+/desktop/ @DesignWeaver3D
+/LICENSE @DesignWeaver3D
+/THIRD_PARTY_NOTICES.md @DesignWeaver3D
+* @DesignWeaver3D

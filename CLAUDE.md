@@ -92,3 +92,4 @@ In an interactive session, if it is running long or the usage window is nearly u
 - Run npm, npx and uv from the PowerShell tool after refreshing PATH (the Bash tool has no npm; a nested `powershell.exe` from Bash cannot run npm because of the script execution policy). Check results with `Select-String '^ℹ (pass|fail)'` for node tests, `Select-Object -Last 1` for pytest.
 - The owner tests on frontend port 5180 with a core on 8770 (`VITE_CORE_PORT=8770`); never stop their servers unless asked. To restart a core: stop the listener and its `uv run` parent processes, then start `uv run pliable-server --port 8770` hidden from `core/`.
 - Agent worktrees, ports and the usage rules are in `docs/orchestration.md` ("Keeping usage low"); the current state and the open work are in `docs/progress.md`; lasting technical notes are in `docs/dev-notes.md`.
+- Before merging for a release, follow the release checklist in CONTRIBUTING.md.

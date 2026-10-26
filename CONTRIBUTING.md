@@ -16,34 +16,13 @@ Write commits for someone reading the log later.
 
 The `commit-lint` workflow runs the same check on pushes and pull requests.
 
-## Branches
+## Branches and pull requests
 
-- `dev` is where day-to-day work goes. Commit and push there as often as you like.
-- `rebuild` is the release candidate. Pushing to it starts the four-platform build and smoke test, and a newer push cancels the build before it, so it only changes by merging `dev` (a normal merge, never a force-push).
-- `main` is the default branch and holds the last released state. Merge `rebuild` into it when cutting an alpha, and only when the owner says so.
-- Version tags (`v*`) are cut from `rebuild` once its build is green. The tag build makes a draft release that you publish by hand. The archives copy the README, license and third-party notices at build time, so finish documentation changes before tagging.
-
-### Release checklist (before merging `dev` into `rebuild` for a release)
-
-The `docs-check` job in the release workflow runs `python scripts/check_release_docs.py [TAG]` first and stops the build, and the draft, when something is out of date. Run it yourself before merging so the failure does not cost a build:
-
-1. Raise the version in the four places (see Desktop shell) and run `uv lock` in `core/`.
-2. README: the status line names the new version; the download section still matches the archives.
-3. `docs/release-notes.md` and `docs/known-limitations.md`: what was tested by a person, platform requirements, new warnings.
-4. `THIRD_PARTY_NOTICES.md`: when a lock file changed (the check says so), review the list for new libraries and licenses, then run `python scripts/check_release_docs.py --update-fingerprints`.
-5. `docs/progress.md`, `ROADMAP.md`, `docs/behavior.md`: state lines and anything the release changes.
-6. Run `python scripts/check_release_docs.py vX.Y.Z`, the tests, then merge, wait for the green build, tag, and publish the draft by hand.
-
-## Desktop shell
-
-`desktop/` is the Tauri shell: it starts the frozen core (`core/pliable` beside the program) on a free port, then shows the page the core serves in a native window. It changes nothing in the app or the protocol. Builds are portable archives, not installers; the shell, the `core/` folder and a `data/` folder (created at run time) sit together.
-
-- Needs Rust and, on Windows, the Visual Studio C++ build tools; on Linux the webkit2gtk-4.1 development packages (see `.github/workflows/desktop.yml`). Run `npm ci` in `desktop/` for the Tauri command line tool.
-- Build: `npm run build` in `app/`, `uv run python scripts/build_app.py LABEL` in `core/` (needs pyinstaller), then `python scripts/build_desktop.py LABEL` from the repository root gives `desktop/dist/pliable-desktop-LABEL.zip`.
-- Check a packaged build with `uv run python scripts/smoke.py desktop PATH_TO_SHELL` in `core/`.
-- The `desktop` workflow builds and smoke-tests all four platforms. A manual workflow is not listed until its file is on `main`, so run it by pushing `dev` to the scratch branch `desktop-build`. The `release` workflow runs the same steps and attaches the archives to a draft on a tag.
-- The version is one number, kept equal in `core/src/pliable/__init__.py`, `core/pyproject.toml`, `desktop/src-tauri/Cargo.toml` and `tauri.conf.json` (a core test checks it).
-- The Linux build is pinned to `ubuntu-24.04` so the frozen core runs on Ubuntu 24.04 and Mint 22 or newer; the `-latest` label moves to 26.04 in November 2026.
+- **`main` is the development branch** and the default. It is protected: nobody pushes to it directly, changes arrive as pull requests, and the `ci` checks (core tests, app tests and build, release documents) and the commit-message check must pass.
+- **Contributors:** fork the repository, make a branch, open a pull request against `main`. Keep each pull request to one concern and fill in the template. Squash-merge keeps the history readable, so the pull request title becomes the commit subject (the commit message rules above apply to it).
+- **The owner and the owner's assistants** use short-lived branches and pull requests too (for example `topic/sketch-trim`), and merge once the checks are green.
+- **Releases:** tags (`vX.Y.Z`) are cut from `main`, or from a release branch when one exists. A release branch (`release/0.4`) is only made when `main` has moved on to work that must not ship in patch releases; fixes go to `main` first and are cherry-picked to the release branch. Pushing a `release/*` branch or a tag starts the four-platform build and smoke test; a tag also makes a draft release that the owner publishes by hand.
+- Do not tag, publish or create release branches without the owner saying so.
 
 ## Reference material
 

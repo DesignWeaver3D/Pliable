@@ -5,7 +5,7 @@ name: commit-lint
 
 on:
   push:
-    branches: [main, rebuild, dev]
+    branches: [main]
   pull_request:
 
 jobs:

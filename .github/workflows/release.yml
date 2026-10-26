@@ -6,7 +6,7 @@ name: release
 on:
   push:
     tags: ["v*"]
-    branches: [rebuild]   # build and smoke-test only; publishing needs a tag
+    branches: ["release/**"]   # build and smoke-test only; publishing needs a tag
   workflow_dispatch: {}   # manual run: builds and smoke-tests, never publishes
 
 permissions:
