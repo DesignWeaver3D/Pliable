@@ -307,9 +307,10 @@ def offset_wire(wire, grow: float):
     return TopoDS.Wire(explorer.Current())
 
 
-def rebuild_void(shape, info: VoidInfo, offset: gp_Vec | None = None, grow: float = 0.0, depth: float | None = None):
+def rebuild_void(shape, info: VoidInfo, offset: gp_Vec | None = None, grow: float = 0.0, depth: float | None = None, stretch: tuple[tuple[int, float], ...] = ()):
     """The model with this void filled and cut again, moved by `offset`, grown by `grow` and `depth` long (None keeps
-    it; at least the whole pass means through). Returns the new shape (not yet unified)."""
+    it; at least the whole pass means through) and `stretch` (world axis, distance) pairs that lengthen or shorten it along
+    one axis (void_stretch.py). Returns the new shape (not yet unified)."""
     from .shared.solids import _combine
 
     margin = 0.01 * max(info.pass_length, info.depth) + 1e-3
@@ -325,4 +326,8 @@ def rebuild_void(shape, info: VoidInfo, offset: gp_Vec | None = None, grow: floa
     else:
         through, length = False, depth
     cut = _prism(wire, d, -margin, length + margin + (margin if through else 0.0))
+    for axis, distance in stretch:
+        from .void_stretch import stretch_solid
+
+        cut = stretch_solid(cut, axis, distance)
     return _combine(filled, cut, fuse=False)

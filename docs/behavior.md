@@ -37,6 +37,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - The hole forms have a Sizes list beside the diameter (and counterbore diameter) field: metric clearance and tap drill sizes M2 to M20, counterbore diameters for cap screws; choosing one fills the field and refreshes the preview.
 - Edit hole shows a grip on the shoulder of a counterbore or countersink (and at the far end of a through hole's step); dragging it sets the step's depth, and a countersink keeps its angle so its mouth widens.
 - Edit cut works on a square, slot or other straight-walled cut (through, or ending at a flat floor) selected by a wall or its floor: Move arrows, a depth grip (0 or the body's thickness is through; less leaves a flat floor) and a resize grip that grows every wall by the same distance (negative shrinks).
+- Edit cut also has Length and Width resize grips (and fields): each moves only the two ends of the cut along its longer or its shorter side, by the value, for a cut that runs along a world axis; the all-round resize grip is unchanged.
 - Pressing on a face or edge selects it and starts its drag in one motion; a press without movement is a click.
 - One drag sets one value. Typing digits during a drag starts value entry: Tab switches fields, Enter commits, Escape cancels. The shape moves only on Enter.
 - A failed preview keeps the last good size and shows the status in red; release commits the last good size.

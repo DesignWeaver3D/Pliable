@@ -109,3 +109,30 @@ def test_handles_follow_the_values():
     moved = {h["param"]: h for h in tool.handle_list(part, Selection(faces=[wall]), {"grow": 2, "dx": 5, "depth": 6})}
     assert moved["depth"]["value"] == pytest.approx(6) and moved["depth"]["anchor"][0] == pytest.approx(5)
     assert moved["grow"]["value"] == pytest.approx(2)
+
+
+def test_length_and_width_resize_move_only_their_own_ends():
+    part = square()  # a 10 x 8 cut through a 40 x 30 x 10 plate: the length is along X
+    wall = walls(part)[0]
+    base = volume(part.shape)
+    longer = run("edit_void", part, faces=[wall], grow_length=2.0)
+    assert volume(longer.shape) == pytest.approx(base - 4 * 8 * 10, rel=1e-3)  # 14 x 8
+    wider = run("edit_void", part, faces=[wall], grow_width=1.0)
+    assert volume(wider.shape) == pytest.approx(base - 10 * 2 * 10, rel=1e-3)  # 10 x 10
+    shorter = run("edit_void", part, faces=[wall], grow_length=-1.5)
+    assert volume(shorter.shape) == pytest.approx(base + 3 * 8 * 10, rel=1e-3)  # 7 x 8
+    with pytest.raises(OperationError, match="close the cut|nothing"):
+        run("edit_void", part, faces=[wall], grow_width=-4)
+
+
+def test_length_and_width_resize_a_slot_and_have_grips():
+    part = slot()  # 20 long (14 plus the two round ends) and 6 wide
+    wall = walls(part)[0]
+    base = volume(part.shape)
+    longer = run("edit_void", part, faces=[wall], grow_length=3.0)
+    assert volume(longer.shape) == pytest.approx(base - 6 * 6 * 10, rel=1e-3)
+    handles = {h["param"]: h for h in get_tool("edit_void").handle_list(part, Selection(faces=[wall]), {"grow_length": 1.0})}
+    assert handles["grow_length"]["direction"] == pytest.approx([1, 0, 0])
+    assert handles["grow_width"]["direction"] == pytest.approx([0, 1, 0])
+    assert handles["grow_length"]["value"] == pytest.approx(1.0)
+    assert handles["grow_length"]["anchor"][0] == pytest.approx(10 + 1.0)
