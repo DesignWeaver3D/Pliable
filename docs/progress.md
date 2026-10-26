@@ -26,8 +26,7 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
 - **Alpha release:** `v0.3.0` is tagged and its draft release awaits the owner. Do not publish, tag or merge to `main` without the owner's explicit go-ahead each time. The next release series is `v0.4.0` (move to a Tauri local portable install, to last until 1.0). The alpha tool-coverage decision is provisional (every core tool has a test; none hidden or marked experimental).
 - **Sketch parity, remaining:** live (non-snapshot) projected edges are not built because edge ids are not stable across model changes (a live edge could silently go stale); shape constraints for ellipses and splines need another solver (the only candidate wheel has no macOS build); control-point splines with weights; hyperbola and parabola arcs. Built: choosing a kept sketch for Array along path and Sweep face, snapping to sketch curves, the View sketch plane.
 - **Shared newest-wins preview scheduler** (`app/src/latestwins.ts`): only the hole centre drag uses it; the push/pull drag (`pump`) and form previews (`drainPreviews`) keep their own copies because of extra state; moving them is a risk with no user-visible gain.
-- **Holes, parked parts:** separate width and length resize for non-round cuts, sloped or stepped cut walls; threads (not asked). Step depth grips, size presets and the Edit cut tool are built.
-- **Cut with plane, parked parts:** choosing the half by two special colours; creating the plane from three points, edge and point, or offset or angle (the core builders exist, the tool still takes numbers). The plane picks, gizmo and coloured sides are built.
+- **Holes, parked parts:** sloped or stepped cut walls; threads (not asked). Step depth grips, size presets and the Edit cut tool with length and width resize are built.
 
 ## Ideas (not built; the owner picks what becomes a row)
 
