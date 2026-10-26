@@ -21,6 +21,7 @@ Rules for keeping it:
 
 ### Gizmos and handles that need a real mouse (hold the button down)
 
+- [ ] Inset face edges with a distance past the first overlap: drag the distance handle and watch the merged preview (the result itself is tested).
 - [ ] Push/pull: dragging the face arrow handle behaves like dragging the face (M or right-click edge measure, typed value, Shift symmetric); the arrow keeps tracking after a drag along a tilted direction; direction arcs lean the arrow with the angle label only while tilted; a slanted edge pick sets the direction.
 - [ ] Typed entry on a gizmo: hold a direction arc and type degrees (Enter applies, Escape cancels); hold the array cube grip and type columns, Tab, rows, Enter.
 - [ ] Arrays: linear grid grips (two spacing grips and a cube corner grip), circular array arc and count grips, Apply or Discard prompt when clicking away from an open array form.
