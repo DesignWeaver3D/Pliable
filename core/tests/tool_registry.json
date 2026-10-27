@@ -2226,23 +2226,9 @@
     "options": []
    },
    {
-    "name": "rows",
-    "kind": "number",
-    "default": 3,
-    "drag": false,
-    "options": []
-   },
-   {
     "name": "dx",
     "kind": "length",
     "default": 20,
-    "drag": false,
-    "options": []
-   },
-   {
-    "name": "dy",
-    "kind": "length",
-    "default": 0.0,
     "drag": false,
     "options": []
    },
@@ -2254,9 +2240,9 @@
     "options": []
    },
    {
-    "name": "dx2",
-    "kind": "length",
-    "default": 0.0,
+    "name": "rows",
+    "kind": "number",
+    "default": 3,
     "drag": false,
     "options": []
    },
@@ -2269,6 +2255,20 @@
    },
    {
     "name": "dz2",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dy",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dx2",
     "kind": "length",
     "default": 0.0,
     "drag": false,

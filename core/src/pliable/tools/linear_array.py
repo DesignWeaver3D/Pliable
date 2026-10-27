@@ -15,14 +15,21 @@ def _unit(v, fallback):
     return tuple(c / length for c in v) if length > 1e-9 else fallback
 
 
-def _spacing_handle(label, names, step, count, centre, fallback):
-    """The grip on the last copy of one direction: dragging it along that direction changes the spacing (the step vector keeps its direction)."""
+def _spacing_handle(label, names, step, centre, fallback):
+    """The grip on the second copy of one direction (the first step from the source): dragging it along that direction changes the spacing (the step vector keeps its direction)."""
     u = _unit(step, fallback)
     k = max(range(3), key=lambda i: abs(u[i]))  # the dominant axis carries the handle's value; the other two move with it
-    reach = max(count - 1, 1)
-    anchor = tuple(centre[i] + step[i] * reach for i in range(3))
-    links = tuple((names[i], u[i] / reach) for i in range(3) if i != k)
-    return Handle(names[k], label, anchor, u, scale=u[k] / reach, links=links)
+    anchor = tuple(centre[i] + step[i] for i in range(3))
+    links = tuple((names[i], u[i]) for i in range(3) if i != k)
+    return Handle(names[k], label, anchor, u, scale=u[k], links=links)
+
+
+def _offset_handle(label, param, axis, step, centre, hi):
+    """An arrow on the second copy for one offset component of a step: up (axis 2) from the top of that copy, or out of its side along x or y."""
+    anchor = tuple(centre[i] + step[i] for i in range(3))
+    anchor = tuple(hi[i] + step[i] if i == axis else anchor[i] for i in range(3))
+    direction = tuple(1.0 if i == axis else 0.0 for i in range(3))
+    return Handle(param, label, anchor, direction)
 
 
 @register
@@ -37,15 +44,16 @@ class LinearArray(Tool):
         "Set rows to 1 for a single line."
     )
     accepts = Accepts(faces=(0, None))
+    # The card order: the columns group (count, spacing, Z offset), the rows group, then the two planar shifts (Y for each column step, X for each row step).
     params = [
         Param("count", "number", 3),
-        Param("rows", "number", 3),
         Param("dx", "length", 20),
-        Param("dy", "length"),
         Param("dz", "length"),
-        Param("dx2", "length"),
+        Param("rows", "number", 3),
         Param("dy2", "length", 20),
         Param("dz2", "length"),
+        Param("dy", "length"),
+        Param("dx2", "length"),
     ]
     move_vector = ("dx", "dy", "dz")
 
@@ -59,8 +67,12 @@ class LinearArray(Tool):
         except OperationError:
             return []
         out = [
-            _spacing_handle("Column spacing", ("dx", "dy", "dz"), step1, columns, centre, (1.0, 0.0, 0.0)),
-            _spacing_handle("Row spacing", ("dx2", "dy2", "dz2"), step2, rows, centre, (0.0, 1.0, 0.0)),
+            _spacing_handle("Column spacing", ("dx", "dy", "dz"), step1, centre, (1.0, 0.0, 0.0)),
+            _spacing_handle("Row spacing", ("dx2", "dy2", "dz2"), step2, centre, (0.0, 1.0, 0.0)),
+            _offset_handle("Column Z-offset", "dz", 2, step1, centre, hi),
+            _offset_handle("Row Z-offset", "dz2", 2, step2, centre, hi),
+            _offset_handle("Column Y planar shift", "dy", 1, step1, centre, hi),
+            _offset_handle("Row X planar shift", "dx2", 0, step2, centre, hi),
         ]
         diagonal = tuple(a + b for a, b in zip(step1, step2))  # one more column and one more row
         size = math.sqrt(sum(c * c for c in diagonal))

@@ -65,6 +65,20 @@ const PARAM_HELP: Record<string, { label: string; title: string }> = {
   new_body: { label: "new body (1 = separate, 0 = join)", title: "1 keeps the new solid as its own body. 0 fuses it into the bodies it touches, which only shows when it overlaps or touches one." },
 };
 
+/** Labels for the parameters of one tool (by tool id), where the bare names are unclear: the linear array's columns, rows and planar shifts. */
+const TOOL_PARAM_HELP: Record<string, Record<string, { label: string; title: string }>> = {
+  linear_array: {
+    count: { label: "Columns", title: "How many copies in the column direction, the source included." },
+    dx: { label: "Column spacing (mm)", title: "The distance between one column and the next (the X part of the column step)." },
+    dz: { label: "Column Z-offset (mm)", title: "How far each column steps up (or down) from the one before." },
+    rows: { label: "Rows", title: "How many rows, the source row included." },
+    dy2: { label: "Row spacing (mm)", title: "The distance between one row and the next (the Y part of the row step)." },
+    dz2: { label: "Row Z-offset (mm)", title: "How far each row steps up (or down) from the one before." },
+    dy: { label: "Column Y planar shift (mm)", title: "How far each column is shifted sideways, along Y, from the one before." },
+    dx2: { label: "Row X planar shift (mm)", title: "How far each row is shifted sideways, along X, from the one before." },
+  },
+};
+
 export class ToolPanel {
   private open: ToolInfo | null = null;
   private editBody: number | undefined; // set while an existing primitive body is being edited (its id)
@@ -175,7 +189,7 @@ export class ToolPanel {
       const row = document.createElement("label");
       row.className = "row";
       const name = document.createElement("span");
-      const help = PARAM_HELP[p.name];
+      const help = TOOL_PARAM_HELP[tool.id]?.[p.name] ?? PARAM_HELP[p.name];
       name.textContent = help?.label ?? `${p.name.replace(/_/g, " ")}${UNITS[p.kind] ? ` (${UNITS[p.kind]})` : ""}`;
       if (help) row.title = help.title;
       if (p.options) {

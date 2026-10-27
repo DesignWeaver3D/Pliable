@@ -8,6 +8,7 @@ from OCP.gp import gp_Vec
 from pliable.demos import load_demo
 from pliable.measure import measure
 from pliable.ops import OperationError
+from pliable.shared.bodies import _body_bounds
 from pliable.tools import Selection, get_tool
 from pliable.topology import Topology
 
@@ -316,10 +317,18 @@ def test_linear_array_grips_set_spacing_and_counts(block):
     tool = get_tool("linear_array")
     values = tool.bind({"count": 3, "rows": 2, "dx": 40, "dy": 0, "dz": 0, "dx2": 0, "dy2": 30, "dz2": 0})
     handles = {h.label: h for h in tool.handles(block, Selection(faces=[], edges=[]), values)}
-    assert set(handles) == {"Column spacing", "Row spacing", "Columns and rows"}
+    assert set(handles) == {"Column spacing", "Row spacing", "Columns and rows", "Column Z-offset", "Row Z-offset", "Column Y planar shift", "Row X planar shift"}
     column = handles["Column spacing"]
-    assert column.param == "dx" and column.direction == (1.0, 0.0, 0.0) and column.scale == pytest.approx(0.5)  # the last copy is 2 steps out
+    assert column.param == "dx" and column.direction == (1.0, 0.0, 0.0) and column.scale == pytest.approx(1.0)  # on the second copy, one step out
     assert {name for name, _ in column.links} == {"dy", "dz"}
+    lo, hi = _body_bounds(block, Selection(faces=[], edges=[]))
+    assert column.anchor == pytest.approx(tuple((a + b) / 2 + s for a, b, s in zip(lo, hi, (40, 0, 0))))
+    up, row_up = handles["Column Z-offset"], handles["Row Z-offset"]
+    assert (up.param, up.direction, row_up.param) == ("dz", (0.0, 0.0, 1.0), "dz2")
+    assert up.anchor[2] == pytest.approx(hi[2]) and row_up.anchor[1] == pytest.approx((lo[1] + hi[1]) / 2 + 30)  # above the top of the second copy of each direction
+    side, row_side = handles["Column Y planar shift"], handles["Row X planar shift"]
+    assert (side.param, side.direction, row_side.param, row_side.direction) == ("dy", (0.0, 1.0, 0.0), "dx2", (1.0, 0.0, 0.0))
+    assert side.anchor[1] == pytest.approx(hi[1])  # out of the side of the second copy
     both = handles["Columns and rows"]
     assert both.param == "count" and both.links == (("rows", both.scale),)
     assert both.scale == pytest.approx(1 / 50)  # one more column and row adds a 40 + 30 step diagonal of length 50
