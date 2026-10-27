@@ -14,11 +14,6 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
 
 Related existing items checked: Parked/Ideas "Stored array parameters" (arrays stay separate solids; the compound-union row below does not touch it), "Merge Cut with plane and Split with plane" (the Cut with plane card row touches it: keep the two tools separate), "Axis lock keys" and "Mouse-modifier shortcuts" (the measure double-click row touches them).
 
-Tool group UI (follow-up):
-
-- **Remaining parameters without a gizmo.** Owner: "For each parameter in the card, there should be an associated gizmo (this is a global tool behavior)."
-  - [ ] Variable-fillet end radius and the circular pattern axis point and direction have none (choices such as mirror plane, revolve and stretch mode, array axis and size-by lists are deliberately without one); decide whether either needs a handle.
-
 Tool group CORE (follow-up):
 
 - **Union of separate bodies.** Owner: "Boolean union on non-overlapping bodies should convert it to a compound body."
