@@ -16,8 +16,6 @@ Related existing items checked: Parked/Ideas "Stored array parameters" (arrays s
 
 Tool group CORE (follow-up):
 
-- **Compound body limits.** Owner: "Boolean union on non-overlapping bodies should convert it to a compound body." (Union now makes one compound body.)
-  - [ ] With several bodies, tools other than push/pull may split a compound body back into separate bodies; Subtract, Intersect and Combine-with-file union do not group; per-solid measure of a compound reports the whole body. Make the other tools keep a compound, test.
 - **Stretch on parts with curved neighbours.** Owner: "Stretch tool doesn't work at all." (Not reproduced on simple solids; a straight flat-end move now falls back to extruding.)
   - [ ] Find the owner's failing case if it recurs; ask for the part.
 
