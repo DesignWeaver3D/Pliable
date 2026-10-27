@@ -41,7 +41,7 @@ def test_description_says_where_a_tool_starts_and_whether_it_has_handles(session
     tools = {t["id"]: t for t in session.handle({"type": "list_tools"})["tools"]}
     assert tools["stub_handles"]["startsFrom"] == "tool" and tools["stub_handles"]["hasHandles"]
     assert tools["push_pull"]["startsFrom"] == "selection"
-    assert tools["shell"]["hasHandles"] is False
+    assert tools["delete_face"]["hasHandles"] is False
 
 
 def test_tool_handles_request_returns_normalised_handles_with_the_current_value(session):
