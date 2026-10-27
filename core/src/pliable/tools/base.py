@@ -53,6 +53,7 @@ class Selection:
     edges: list[int] = field(default_factory=list)
     vertices: list[int] = field(default_factory=list)
     bodies: list[int] = field(default_factory=list)  # stable body ids (see bodies.py): whole solids chosen from the body list
+    axes: list[int] = field(default_factory=list)  # global axes picked in the view: 0 = X, 1 = Y, 2 = Z (lines through the origin)
     rail: int | None = None  # a kept sketch chosen as a path for Sweep face and Array along path (instead of selected edges)
     rail_wire: object = field(default=None, repr=False, compare=False)  # that sketch's curves as a wire, set by sketch/rail.py before a tool runs
 
@@ -64,6 +65,7 @@ class Selection:
             edges=[int(i) for i in data.get("edges", [])],
             vertices=[int(i) for i in data.get("vertices", [])],
             bodies=[int(i) for i in data.get("bodies", [])],
+            axes=[int(i) for i in data.get("axes", []) if int(i) in (0, 1, 2)],
             rail=int(data["rail"]) if data.get("rail") is not None else None,
         )
 
@@ -79,10 +81,11 @@ class Accepts:
     edges: tuple[int, int | None] = (0, 0)
     vertices: tuple[int, int | None] = (0, 0)
     bodies: tuple[int, int | None] = (0, 0)
+    axes: tuple[int, int | None] = (0, 0)  # global axes (X, Y, Z) picked in the view
     any_of: bool = False  # the selection must hold something (the ranges then say how many of each kind are allowed)
 
     def matches(self, selection: Selection) -> bool:
-        if self.any_of and not (selection.faces or selection.edges or selection.vertices or selection.bodies):
+        if self.any_of and not (selection.faces or selection.edges or selection.vertices or selection.bodies or selection.axes):
             return False
         return all(
             lo <= len(items) and (hi is None or len(items) <= hi)
@@ -91,11 +94,14 @@ class Accepts:
                 (self.edges, selection.edges),
                 (self.vertices, selection.vertices),
                 (self.bodies, selection.bodies),
+                (self.axes, selection.axes),
             )
         )
 
     def to_json(self) -> dict:
         out = {"faces": list(self.faces), "edges": list(self.edges), "vertices": list(self.vertices), "bodies": list(self.bodies)}
+        if self.axes != (0, 0):
+            out["axes"] = list(self.axes)
         if self.any_of:
             out["anyOf"] = True
         return out

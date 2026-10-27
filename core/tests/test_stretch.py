@@ -76,11 +76,25 @@ def test_stretch_a_taper_keeps_the_end_size():
     assert volume(grown) == pytest.approx(expected, rel=1e-6)
 
 
-def test_stretch_refuses_curved_neighbours_and_insert_still_works():
+def test_stretch_with_curved_neighbours_extrudes_straight_moves_and_refuses_the_rest():
     plate = Topology(load_demo("perforated_plate"))
     side = face_with_normal(plate, [1.0, 0.0, 0.0])
     with pytest.raises(OperationError, match="Insert"):
-        run(plate, [side], dx=5, dy=0, dz=0, mode=0)
-    longer = run(plate, [side], dx=5, dy=0, dz=0, mode=1)
+        run(plate, [side], dx=0, dy=0, dz=5, mode=0)  # sliding the end sideways cannot re-fit curved neighbours
+    longer = run(plate, [side], dx=5, dy=0, dz=0, mode=0)  # straight along the normal: the end's section is extruded instead
+    same = run(plate, [side], dx=5, dy=0, dz=0, mode=1)
     assert volume(longer.shape) > volume(plate.shape)
+    assert volume(longer.shape) == pytest.approx(volume(same.shape))
     assert BRepCheck_Analyzer(longer.shape).IsValid()
+
+
+def test_stretch_through_the_server_on_a_part_with_fillets():
+    from pliable.server import Session
+
+    s = Session()
+    s.handle({"type": "open_demo", "name": "perforated_plate"})
+    topology = s.document.current
+    side = face_with_normal(topology, [1.0, 0.0, 0.0])
+    before = volume(topology.shape)
+    s.handle({"type": "tool_commit", "tool": "stretch", "selection": {"faces": [side]}, "params": {"dx": 5, "mode": 0}})
+    assert volume(s.document.current.shape) > before

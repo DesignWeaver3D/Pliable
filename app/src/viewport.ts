@@ -21,8 +21,8 @@ import { bodyColorArray } from "./bodycolorarray";
 import { fitBoxOf } from "./sketchfit";
 import { roundValue } from "./precision.ts";
 
-/** A "body" selection is a whole solid (every face of the body), chosen from the body list. */
-export type Kind = "face" | "edge" | "vertex" | "body";
+/** A "body" selection is a whole solid (every face of the body), chosen from the body list. An "axis" is a global axis (id 0, 1, 2 for X, Y, Z) picked in the view. */
+export type Kind = "face" | "edge" | "vertex" | "body" | "axis";
 export interface Sel {
   kind: Kind;
   id: number;
@@ -144,6 +144,8 @@ export class Viewport {
   private hoverMark: Mark | null = null;
   private relatedMarks: Mark[] = [];
   private hoverLine = new LineMaterial({ color: 0xffd36b, linewidth: 3, depthTest: true });
+  /** Half-length of the drawn global axes (0 while they are hidden): the reference view sets it, and the axes can be picked along it. */
+  originAxisHalf = 0;
   private selectedLine = new LineMaterial({ color: 0xff8a1f, linewidth: 4, depthTest: true });
   private raycaster = new THREE.Raycaster();
   /** Box selection in progress (screen coordinates); active once the pointer moved past the click threshold. */
@@ -629,6 +631,7 @@ export class Viewport {
     });
     dom.addEventListener("dblclick", (e) => {
       if (this.interceptor) return;
+      if (this.measureMode) return; // a double-click on a measure candidate is only a pick: it must not start a fillet or chamfer on that edge
       const hit = this.pickHit(e as PointerEvent);
       if (hit?.kind === "edge") this.onEdgeLoop(hit.id, e.ctrlKey || e.metaKey);
       const sketchId = !hit || hit.kind === "face" ? (this.curveUnder(e) ?? this.profileUnder(e as PointerEvent)?.id ?? null) : null;
@@ -1092,6 +1095,12 @@ export class Viewport {
         mark.edge.geometry.setPositions(lines);
         mark.edge.visible = true;
       }
+    } else if (sel.kind === "axis") {
+      const half = this.originAxisHalf;
+      if (half <= 0) return;
+      const end = new THREE.Vector3().setComponent(sel.id, half);
+      mark.edge.geometry.setPositions([-end.x, -end.y, -end.z, end.x, end.y, end.z]);
+      mark.edge.visible = true;
     } else if (sel.kind === "face" && sel.centre) {
       // A hole picked by its centre dot shows the dot only.
       const centre = this.data.centres.find((c) => c.face === sel.id);
@@ -1640,6 +1649,8 @@ export class Viewport {
     if (centre) return centre;
     const edge = this.nearestEdge(px, py, rect, depthLimit, edgeRange);
     if (edge) return edge;
+    const axis = this.nearestAxis(px, py, rect, depthLimit);
+    if (axis) return axis;
 
     if (!faceHit || faceHit.faceIndex == null) return null;
     const face = this.data.faces[lo];
@@ -1815,6 +1826,36 @@ export class Viewport {
         bestDepth = depth;
         best = { kind: "edge", id: edge.id, point };
       }
+    }
+    return best;
+  }
+
+  /** The global axis line (X, Y or Z through the origin, as long as it is drawn) under the pointer, when it is not hidden behind a face. */
+  private nearestAxis(px: number, py: number, rect: DOMRect, depthLimit: number): Hit | null {
+    if (this.originAxisHalf <= 0) return null;
+    this.camera.updateMatrixWorld();
+    const toPx = (v: THREE.Vector3) => {
+      const n = v.clone().project(this.camera);
+      return [((n.x + 1) / 2) * rect.width, ((1 - n.y) / 2) * rect.height, n.z] as const;
+    };
+    let best: Hit | null = null;
+    let bestDistance = settings.edgePickPx;
+    for (let k = 0; k < 3; k++) {
+      const a = new THREE.Vector3().setComponent(k, -this.originAxisHalf);
+      const b = new THREE.Vector3().setComponent(k, this.originAxisHalf);
+      const [ax, ay, az] = toPx(a);
+      const [bx, by, bz] = toPx(b);
+      if (az > 1 || bz > 1) continue;
+      const dx = bx - ax;
+      const dy = by - ay;
+      const lengthSq = dx * dx + dy * dy;
+      const t = lengthSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSq));
+      const d = Math.hypot(ax + t * dx - px, ay + t * dy - py);
+      if (d >= bestDistance) continue;
+      const point = a.clone().lerp(b, t);
+      if (point.distanceTo(this.camera.position) > depthLimit) continue;
+      bestDistance = d;
+      best = { kind: "axis", id: k, point };
     }
     return best;
   }

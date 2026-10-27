@@ -48,7 +48,8 @@ export function createSelection(d: SelectionDeps) {
       return;
     }
     if (d.toolPanel.isOpen && clickAway(sels) === "ignore") { viewport.selectItems(app.currentSels); return; } // another item: the open tool card stays as it is
-    if (app.pendingProfile && (app.committed !== app.pendingProfile.mesh || sels.length !== app.pendingProfile.faces.length || sels.some((s) => s.kind !== "face" || !app.pendingProfile!.faces.includes(s.id)))) {
+    // The picked region stays a pick while it is still selected, alone or with an edge or global axis added to it (Revolve face from a sketch).
+    if (app.pendingProfile && (app.committed !== app.pendingProfile.mesh || !app.pendingProfile.faces.every((f) => sels.some((s) => s.kind === "face" && s.id === f)) || sels.some((s) => s.kind === "face" ? !app.pendingProfile!.faces.includes(s.id) : s.kind !== "edge" && s.kind !== "axis"))) {
       if (app.committed === app.pendingProfile.mesh && !d.toolPanel.isOpen) void dropPendingProfile(); // clicked away from the picked region: it was only a pick
       else app.pendingProfile = null; // a tool used it, or the history moved on
     }
@@ -122,7 +123,7 @@ export function createSelection(d: SelectionDeps) {
 
   function selectionPayload(sels: Sel[]) {
     const ids = (kind: Sel["kind"]) => sels.filter((s) => s.kind === kind).map((s) => s.id);
-    return { faces: ids("face"), edges: ids("edge"), vertices: ids("vertex"), bodies: ids("body"), ...(app.chosenSketch === null ? {} : { rail: app.chosenSketch }) }; // rail: the kept sketch chosen as a path
+    return { faces: ids("face"), edges: ids("edge"), vertices: ids("vertex"), bodies: ids("body"), axes: ids("axis"), ...(app.chosenSketch === null ? {} : { rail: app.chosenSketch }) }; // rail: the kept sketch chosen as a path
   }
 
   function describe(sels: Sel[]): string {
@@ -131,6 +132,8 @@ export function createSelection(d: SelectionDeps) {
       const name = (id: number) => (app.committed ? bodiesOf(app.committed).find((b) => b.id === id)?.name : undefined) ?? `body ${id}`;
       return sels.length === 1 ? name(sels[0].id) : `${sels.length} bodies`;
     }
+    const axes = sels.filter((s) => s.kind === "axis");
+    if (axes.length) return [describe(sels.filter((s) => s.kind !== "axis")), ...axes.map((s) => `${"XYZ"[s.id]} axis`)].filter(Boolean).join(" + "); // a global axis beside a face
     return sels.length === 1 ? `${sels[0].kind} ${sels[0].id}` : `${sels.length} ${sels[0].kind}s`;
   }
 
@@ -138,7 +141,7 @@ export function createSelection(d: SelectionDeps) {
   function mappedSelection(mesh: MeshData): Sel[] {
     const s = mesh.header.selection ?? {};
     const result: Sel[] = [];
-    for (const [key, kind] of [["faces", "face"], ["edges", "edge"], ["vertices", "vertex"], ["bodies", "body"]] as const) {
+    for (const [key, kind] of [["faces", "face"], ["edges", "edge"], ["vertices", "vertex"], ["bodies", "body"], ["axes", "axis"]] as const) {
       for (const id of s[key] ?? []) result.push({ kind, id });
     }
     return result;

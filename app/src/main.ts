@@ -1149,13 +1149,15 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       cancelEyedrop();
       if (app.committed) show(app.committed); // pick against the committed model, whose edges the core knows
       status.classList.remove("error");
-      status.textContent = "Pick the edge the face pivots about (any edge of the model; Esc cancels)";
+      status.textContent = "Pick the edge the face pivots about (any edge or corner of the model; Esc cancels)";
       eyedropResolve = () => resolve(null);
       viewport.eyedropper = (sel) => {
         const data = app.committed;
-        const point = sel.kind === "edge" && data ? edgeMiddle(data.edges, data.edgePositions, sel.id) : null;
+        // A click near an end of an edge picks its corner point instead of the edge; that point is as good a pivot, so it counts too.
+        const corner = sel.kind === "vertex" && data ? data.vertices.find((v) => v.id === sel.id)?.position ?? null : null;
+        const point = sel.kind === "edge" && data ? edgeMiddle(data.edges, data.edgePositions, sel.id) : sel.kind === "axis" ? [0, 0, 0] : corner ? [...corner] : null; // a global axis passes through the origin
         if (!point) {
-          status.textContent = "Pick an edge (Esc cancels)";
+          status.textContent = "Pick an edge or a corner point (Esc cancels)";
           status.classList.add("error");
           return; // stays armed
         }
@@ -1171,18 +1173,18 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       cancelEyedrop();
       if (app.committed) show(app.committed); // pick against the committed model, whose edge ids the core knows
       status.classList.remove("error");
-      status.textContent = "Pick the edge the copies turn about (a straight or circular edge; Esc cancels)";
+      status.textContent = "Pick the axis: a straight or circular edge, or a global axis (Esc cancels)";
       eyedropResolve = () => resolve(null);
       viewport.eyedropper = (sel) => {
-        if (sel.kind !== "edge") {
-          status.textContent = "Pick an edge (Esc cancels)";
+        if (sel.kind !== "edge" && sel.kind !== "axis") {
+          status.textContent = "Pick an edge or a global axis (Esc cancels)";
           status.classList.add("error");
           return; // stays armed
         }
         viewport.eyedropper = null;
         eyedropResolve = null;
-        status.textContent = "Axis edge picked";
-        resolve(sel.id);
+        status.textContent = "Axis picked";
+        resolve(sel.kind === "axis" ? -2 - sel.id : sel.id); // a global axis X, Y, Z is -2, -3, -4
       };
     });
   },

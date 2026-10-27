@@ -9,9 +9,9 @@ export interface ToolInfo {
   label: string;
   /** Plain-language sentence(s) on what the tool does and what to select; shown in tooltips. */
   description?: string;
-  accepts: { faces: Range; edges: Range; vertices?: Range; bodies?: Range; anyOf?: boolean };
+  accepts: { faces: Range; edges: Range; vertices?: Range; bodies?: Range; axes?: Range; anyOf?: boolean };
   /** What the tool accepts instead when a kept sketch is chosen as its path (Sweep face, Array along path). */
-  railAccepts?: { faces: Range; edges: Range; vertices?: Range; bodies?: Range; anyOf?: boolean };
+  railAccepts?: { faces: Range; edges: Range; vertices?: Range; bodies?: Range; axes?: Range; anyOf?: boolean };
   params: { name: string; kind: string; default: number; drag: boolean; options?: string[] }[];
   /** Relationship rules whose matching faces join the selection when switched on. */
   related?: string[];
@@ -86,7 +86,8 @@ export function acceptsSelection(tool: ToolInfo, sels: Sel[]): boolean {
     inRange(count("face"), tool.accepts.faces) &&
     inRange(count("edge"), tool.accepts.edges) &&
     inRange(count("vertex"), tool.accepts.vertices ?? [0, 0]) &&
-    inRange(count("body"), tool.accepts.bodies ?? [0, 0])
+    inRange(count("body"), tool.accepts.bodies ?? [0, 0]) &&
+    inRange(count("axis"), tool.accepts.axes ?? [0, 0])
   );
 }
 
@@ -101,7 +102,7 @@ function needs(range: Range, noun: string): string | null {
 export function describeNeeds(tool: ToolInfo): string {
   const anyOf = tool.accepts.anyOf;
   const fix = (r: Range): Range => (anyOf ? [Math.max(r[0], 1), r[1]] : r);
-  return [needs(fix(tool.accepts.faces), "face"), needs(fix(tool.accepts.edges), "edge"), needs(fix(tool.accepts.vertices ?? [0, 0]), "vertex"), needs(fix(tool.accepts.bodies ?? [0, 0]), "body")]
+  return [needs(fix(tool.accepts.faces), "face"), needs(fix(tool.accepts.edges), "edge"), needs(fix(tool.accepts.vertices ?? [0, 0]), "vertex"), needs(fix(tool.accepts.bodies ?? [0, 0]), "body"), needs(fix(tool.accepts.axes ?? [0, 0]), "global axis")]
     .filter(Boolean)
     .join(anyOf ? " or " : " + ");
 }

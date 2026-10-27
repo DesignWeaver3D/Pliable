@@ -49,3 +49,11 @@ test("a face and an edge can be selected together (Revolve face, Sweep)", async 
   assert.equal(canJoinSelection("face", "face"), true);
   assert.equal(canJoinSelection("face", "vertex"), false);
 });
+
+test("a global axis can be selected together with a face (Revolve face)", async () => {
+  const { canJoinSelection } = await import("../src/selfilter.ts");
+  assert.equal(canJoinSelection("face", "axis"), true);
+  assert.equal(canJoinSelection("axis", "face"), true);
+  assert.equal(canJoinSelection("axis", "edge"), false);
+  assert.equal(canJoinSelection("axis", "vertex"), false);
+});

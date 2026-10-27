@@ -41,7 +41,7 @@ export function hintItems(ctx: HintContext, mods: Modifiers, keyText: (id: strin
     ];
   } else if (mods.shift && ctx.hasSelection) {
     items = [
-      { keys: "Shift+click", text: "add to the selection; then pick a tool or a chip" },
+      { keys: "Shift+click", text: "click an item to add it to the selection" },
       { keys: k("display.isolate", "Shift+H"), text: "isolate the selected body" },
     ];
   } else if (mods.alt) {
