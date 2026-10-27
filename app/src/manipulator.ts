@@ -417,6 +417,7 @@ export class Manipulator {
 
   private tipPoint(item: Item): THREE.Vector3 {
     if (item.info.pie && item.info.ring) return piePoint(item.info, handleValue(item.info, item.travel)); // the grip rides the arc
+    if (item.info.badge) return new THREE.Vector3(...item.info.anchor); // a number stays where it is while the wheel or typing changes its value
     return new THREE.Vector3(...item.info.anchor).addScaledVector(new THREE.Vector3(...item.info.direction), item.travel).add(item.shift);
   }
 
