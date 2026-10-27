@@ -5,7 +5,7 @@ import * as THREE from "three";
 import type { HandleInfo } from "./tools";
 import { gridCounts, gridShift, planePoint } from "./gridgrip.ts";
 import { TypedFields, typedCounts } from "./typedentry.ts";
-import { ARM_PX, GRAB_PX, MOVE_ARM_PX, AXIS_LINE, HANDLE_OUTLINE, pickScore, grabFraction, handleColors, handleValue, snapValue, linkedValues, travelFor, typedTravel, typedStep, lineParam, formatValue, ARC_RADIUS_PX, ARC_HALF_SPAN, ARC_STEPS, ARC_REST_OPACITY, COLOR_SNAPPED, snappedIndex, RING_VIEW_FRACTION, refitRing } from "./handlemath.ts";
+import { ARM_PX, GRAB_PX, PUSH_PULL_ARM_RATIO, isPushPullArrow, MOVE_ARM_PX, AXIS_LINE, HANDLE_OUTLINE, pickScore, grabFraction, handleColors, handleValue, snapValue, linkedValues, travelFor, typedTravel, typedStep, lineParam, formatValue, ARC_RADIUS_PX, ARC_HALF_SPAN, ARC_STEPS, ARC_REST_OPACITY, COLOR_SNAPPED, snappedIndex, RING_VIEW_FRACTION, refitRing } from "./handlemath.ts";
 import { roundValue } from "./precision.ts";
 export * from "./handlemath.ts"; // the maths moved to its own file; the tests and other modules still import it from here
 
@@ -296,6 +296,10 @@ export class Manipulator {
         const dir = new THREE.Vector3(...info.direction);
         item.arm.scale.setScalar(ratio);
         item.tip.position.copy(dir).multiplyScalar(ratio - 0.21);
+      } else if (isPushPullArrow(info)) {
+        const dir = new THREE.Vector3(...info.direction);
+        item.arm.scale.setScalar(PUSH_PULL_ARM_RATIO);
+        item.tip.position.copy(dir).multiplyScalar(PUSH_PULL_ARM_RATIO - 0.21);
       }
       const hot = item === this.hot || item === this.active?.item;
       const colors = handleColors(info);
@@ -358,7 +362,7 @@ export class Manipulator {
       const tip = this.tipPoint(item);
       const dir = new THREE.Vector3(...item.info.direction);
       const move = item.info.kind === "move";
-      const ratio = move ? MOVE_ARM_PX / ARM_PX : 1;
+      const ratio = move ? MOVE_ARM_PX / ARM_PX : isPushPullArrow(item.info) ? PUSH_PULL_ARM_RATIO : 1;
       const reach = this.pixelSizeAt(tip) * ARM_PX * ratio;
       const end = item.info.toggle ? this.screen(tip) : this.screen(tip.clone().addScaledVector(dir, reach));
       // a is the tail (a move arrow's start, a pull handle's grab point) and b the head (a move arrow's tip, a pull handle's arm end).

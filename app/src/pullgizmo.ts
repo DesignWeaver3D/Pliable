@@ -6,12 +6,12 @@ import * as THREE from "three";
 import { uiIcon } from "./icons";
 import { AXIS_COLORS } from "./axes.ts";
 import { ARM_PX, type Manipulator } from "./manipulator.ts";
-import { angleFromNormal, sideFrame, sideToward, tiltFromDrag, typedTilt, type PullDirection, type Vec } from "./pulldir.ts";
+import { angleFromNormal, sideFrame, sideToward, tiltAlong, tiltFromDrag, typedTiltKeeping, type PullDirection, type Vec } from "./pulldir.ts";
 import { TypedFields } from "./typedentry.ts";
 
 const COLOR_HOT = 0xffffff; // the hover colour of the move and rotate gizmos
-/** The arcs lie on a sphere around the arrow's base whose radius is the arrow length, so they pass through the arrowhead's tip; the pick icon sits past it, in arrow lengths. */
-const ICON_AT = 1.3;
+/** The pick icon (the target) sits where the two arcs cross: on the arc sphere, straight above the arrow's base (see PUSH_PULL_ARM_RATIO: the arrow's stem runs on past it). */
+const ICON_AT = 1;
 /** The sphere the arcs lie on is a little larger than the arrow, so the arcs stand clear of its head (in arrow lengths). */
 const SPHERE = 1.5;
 const ARC_HALF_SPAN = Math.PI / 3;
@@ -39,6 +39,10 @@ interface ArcDrag {
   /** The direction chosen before this drag (null: the face normal), and the arc's side seen from the face normal (typed degrees are measured from the normal). */
   start: Vec | null;
   baseSide: Vec;
+  /** The other arc's side seen from the face normal (its angle is kept when degrees are typed on this arc). */
+  otherSide: Vec;
+  /** +1 or -1: the way the arc was pulled, so typed positive degrees continue that way (set when typing starts). */
+  sign: number;
 }
 
 export class PullGizmo {
@@ -191,7 +195,7 @@ export class PullGizmo {
     const tip = layout.base.clone().addScaledVector(new THREE.Vector3(...layout.direction), layout.length * SPHERE);
     const sidePx = this.screen(tip.clone().addScaledVector(new THREE.Vector3(...side), layout.length)).sub(this.screen(tip));
     const normal = this.state.normal ?? layout.direction;
-    this.drag = { side, direction: layout.direction, x: e.clientX, y: e.clientY, start: this.state.dir, baseSide: sideToward(normal, layout.axes[hot]), sidePx: sidePx.lengthSq() < 4 ? new THREE.Vector2(1, 0) : sidePx.normalize() };
+    this.drag = { side, direction: layout.direction, x: e.clientX, y: e.clientY, start: this.state.dir, baseSide: sideToward(normal, layout.axes[hot]), otherSide: sideToward(normal, layout.axes[1 - hot]), sign: 1, sidePx: sidePx.lengthSq() < 4 ? new THREE.Vector2(1, 0) : sidePx.normalize() };
     this.live = layout.direction;
     this.hot = hot;
     this.dom.style.cursor = "grabbing";
@@ -218,7 +222,7 @@ export class PullGizmo {
     if (!drag) return false;
     if (e.key === "Enter") {
       const degrees = this.fields?.value(0) ?? null;
-      if (degrees !== null && this.state.normal) this.state.set(typedTilt(this.state.normal, drag.baseSide, degrees));
+      if (degrees !== null && this.state.normal) this.state.set(typedTiltKeeping(this.state.normal, drag.baseSide, drag.otherSide, drag.start, degrees * drag.sign));
       this.end();
       return true;
     }
@@ -232,6 +236,7 @@ export class PullGizmo {
     }
     const fields = this.fields ?? new TypedFields(1);
     if (!fields.key(e.key)) return false;
+    if (!this.fields && this.state.normal) drag.sign = tiltAlong(this.state.normal, drag.baseSide, this.live ?? this.state.dir) < -0.05 ? -1 : 1;
     this.fields = fields;
     return true;
   }
