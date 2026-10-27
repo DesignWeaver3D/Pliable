@@ -605,9 +605,26 @@
     "options": []
    },
    {
+    "name": "bore_by",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Diameter",
+     "Offset from hole"
+    ]
+   },
+   {
     "name": "bore_diameter",
     "kind": "length",
     "default": 11,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "bore_offset",
+    "kind": "length",
+    "default": 2.5,
     "drag": false,
     "options": []
    },
@@ -681,9 +698,26 @@
     "options": []
    },
    {
+    "name": "sink_by",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Diameter",
+     "Offset from hole"
+    ]
+   },
+   {
     "name": "sink_diameter",
     "kind": "length",
     "default": 12,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "sink_offset",
+    "kind": "length",
+    "default": 3,
     "drag": false,
     "options": []
    },
@@ -3550,9 +3584,26 @@
   },
   "params": [
    {
+    "name": "sink_by",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Diameter",
+     "Offset from hole"
+    ]
+   },
+   {
     "name": "sink_diameter",
     "kind": "length",
     "default": 12,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "sink_offset",
+    "kind": "length",
+    "default": 3,
     "drag": false,
     "options": []
    },
@@ -3605,9 +3656,26 @@
   },
   "params": [
    {
+    "name": "bore_by",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Diameter",
+     "Offset from hole"
+    ]
+   },
+   {
     "name": "bore_diameter",
     "kind": "length",
     "default": 12,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "bore_offset",
+    "kind": "length",
+    "default": 3,
     "drag": false,
     "options": []
    },

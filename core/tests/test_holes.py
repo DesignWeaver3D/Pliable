@@ -7,7 +7,7 @@ from pliable.holes import find_hole
 from pliable.ops import OperationError
 from pliable.topology import Topology
 from pliable.tools import Selection, get_tool
-from test_features import faces_where, run, volume
+from test_features import faces_where, run, top_of, volume
 
 
 @pytest.fixture
@@ -313,3 +313,34 @@ def test_edit_countersink_step_depth_widens_the_mouth(block):
     deeper = Topology(run("edit_hole", part, faces=[wall], step_depth=5).shape)
     hole = only_hole(deeper)
     assert hole.stages[0]["type"] == "countersink" and hole.stages[0]["diameter"] == pytest.approx(16) and hole.stages[0]["angle"] == pytest.approx(90)
+
+
+def test_countersink_and_counterbore_size_by_offset_matches_the_diameter(block):
+    part = drilled(block, "add_hole", diameter=6, depth=0)
+    wall = hole_wall(part)
+    by_diameter = run("convert_to_countersink", part, faces=[wall], sink_diameter=12, sink_angle=90)
+    by_offset = run("convert_to_countersink", part, faces=[wall], sink_by=1, sink_offset=3, sink_angle=90)  # 6 + 2 * 3
+    assert volume(by_offset.shape) == pytest.approx(volume(by_diameter.shape), rel=1e-9)
+    cb_diameter = run("convert_to_counterbore", part, faces=[wall], bore_diameter=11, bore_depth=4)
+    cb_offset = run("convert_to_counterbore", part, faces=[wall], bore_by=1, bore_offset=2.5, bore_depth=4)
+    assert volume(cb_offset.shape) == pytest.approx(volume(cb_diameter.shape), rel=1e-9)
+    top = top_of(block)
+    assert volume(run("add_countersink", block, faces=[top], diameter=6, depth=0, sink_by=1, sink_offset=3).shape) == pytest.approx(volume(run("add_countersink", block, faces=[top], diameter=6, depth=0, sink_diameter=12).shape), rel=1e-9)
+    assert volume(run("add_counterbore", block, faces=[top], diameter=6, depth=0, bore_by=1, bore_offset=3, bore_depth=4).shape) == pytest.approx(volume(run("add_counterbore", block, faces=[top], diameter=6, depth=0, bore_diameter=12, bore_depth=4).shape), rel=1e-9)
+    with pytest.raises(OperationError, match="wider than the hole"):
+        run("convert_to_countersink", part, faces=[wall], sink_by=1, sink_offset=0)
+
+
+def test_countersink_angle_gizmo_turns_the_cone_about_its_mouth(block):
+    part = drilled(block, "add_hole", diameter=6, depth=0)
+    wall = hole_wall(part)
+    tool = get_tool("convert_to_countersink")
+    values = tool.bind({"sink_diameter": 12, "sink_angle": 90})
+    handles = {h.label: h for h in tool.handles(part, Selection(faces=[wall]), values)}
+    angle = handles["Countersink angle"]
+    assert angle.param == "sink_angle" and angle.arc and (angle.min, angle.max) == (10.0, 170.0) and angle.unit == "°"
+    along = sum(a * b for a, b in zip(angle.direction, angle.direction))
+    assert along == pytest.approx(1.0)
+    offset = tool.bind({"sink_by": 1, "sink_offset": 3, "sink_angle": 90})
+    labels = [h.label for h in tool.handles(part, Selection(faces=[wall]), offset)]
+    assert "Countersink offset" in labels and "Countersink angle" in labels and not any(l.startswith("Countersink radius") for l in labels)

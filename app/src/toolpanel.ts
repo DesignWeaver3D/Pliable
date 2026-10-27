@@ -8,7 +8,7 @@ import { toolTooltip, type ToolInfo } from "./tools";
 import { moveVector, offsetOf, originFor, pointText, type AnchorInfo, type Vec3 } from "./placepick";
 import { usage, type Surface } from "./usage";
 import { roundValue, showNumber } from "./precision.ts";
-import { hasSizes, holeSizes } from "./holesizes.ts";
+import { COUNTERSINK_ANGLES, hasAngles, hasSizes, holeSizes } from "./holesizes.ts";
 
 /** A parameter value: a number, or for `per_edge` parameters one [start, end] radius pair per selected edge. */
 export type ParamValue = number | number[][];
@@ -59,6 +59,10 @@ const UNITS: Record<string, string> = { length: "mm", angle: "°", number: "" };
 /** Form fields whose bare name is unclear: a fuller label and a tooltip. */
 const PARAM_HELP: Record<string, { label: string; title: string }> = {
   axis_edge: { label: "axis edge (id, set by Pick axis edge)", title: "The edge the copies turn about when the axis is Picked edge; use the Pick axis edge button rather than typing." },
+  sink_by: { label: "countersink size by", title: "Enter the countersink's size as its own diameter, or as how far it reaches past the hole's wall (the offset); the field that is not chosen is ignored." },
+  bore_by: { label: "counterbore size by", title: "Enter the counterbore's size as its own diameter, or as how far it reaches past the hole's wall (the offset); the field that is not chosen is ignored." },
+  sink_offset: { label: "sink offset (mm)", title: "How far the countersink reaches past the hole's wall at the surface: its diameter is the hole's diameter plus twice this. Used when size by is Offset from hole." },
+  bore_offset: { label: "bore offset (mm)", title: "How far the counterbore reaches past the hole's wall: its diameter is the hole's diameter plus twice this. Used when size by is Offset from hole." },
   nx: { label: "nx (direction x)", title: "The x part of the cutting plane's direction (its normal). Pick plane and the origin buttons fill it; typing a direction here uses it instead of an origin plane." },
   ny: { label: "ny (direction y)", title: "The y part of the cutting plane's direction (its normal)." },
   nz: { label: "nz (direction z)", title: "The z part of the cutting plane's direction (its normal)." },
@@ -253,6 +257,23 @@ export class ToolPanel {
         });
         sizes.addEventListener("keydown", (e) => e.stopPropagation());
         input.before(sizes);
+      }
+      if (hasAngles(tool.id, p.name)) {
+        const angles = document.createElement("select");
+        angles.className = "sizes";
+        angles.style.width = "64px";
+        angles.title = "Standard countersink head angles (the full included angle)";
+        angles.append(new Option("Angles", ""));
+        COUNTERSINK_ANGLES.forEach((a, i) => angles.append(new Option(a.label, String(i))));
+        angles.addEventListener("change", () => {
+          const picked = COUNTERSINK_ANGLES[Number(angles.value)];
+          angles.value = "";
+          if (!picked) return;
+          input.value = String(picked.angle);
+          this.schedulePreview(0);
+        });
+        angles.addEventListener("keydown", (e) => e.stopPropagation());
+        input.before(angles);
       }
       return row;
     });

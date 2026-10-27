@@ -27,3 +27,9 @@
 ## Task 6 Concentric array
 - New tool concentric_array (strip: Solids after Circular array; same icon). Decision (hierarchy: common practice in direct modelers for polar/radial patterns): parameters count (positions on the first ring, source included), rings (default 2), spacing (radial step, mm), grow (extra positions added to each outer ring; 0 = same count, set >0 to keep the arc spacing roughly even), axis and picked edge as the circular array. Ring k sits spacing*k out along the line from the axis to the source. Gizmos: spacing arrow at ring 1; count, rings and grow are wheel/typed badges over the source, the outermost ring and ring 1. Total copies limited to 200. Not recorded in decisions-log (edit by orchestrator).
 - Hand-check: badges legible when close together (grow and count overlap when spacing is small).
+
+## Task 7 Countersink and counterbore
+- New params size-by list + offset field on Add/convert counterbore and countersink (sink_by/sink_offset, bore_by/bore_offset); core computes diameter = hole + 2*offset when "Offset from hole" is chosen. The unused field stays visible (card is generic); its tooltip says it is ignored. In offset mode the size gizmo edits the offset (single radius arrow).
+- Angle gizmo only on "Add countersink to hole" (convert_to_countersink): arc turning about the mouth, carried on the cone's side. Add countersink (new hole) and the other add_* hole tools have no gizmos at all (also see gap list); not added.
+- Angles list: 82, 90, 100, 110, 120 (the row's defaults; "top 5 most used" could not be verified from the code).
+- Hand-check: angle arc looks right and follows the cone in the real app.
