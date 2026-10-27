@@ -7,3 +7,7 @@
 
 ## Task 2 Eyedropper
 - Icon-only eyedropper (24px) placed just left of the value box; labels nowrap with ellipsis; sizes list also sits before the value box. Hand-check: card rows align in the hole and fillet cards.
+
+## Task 3 Cut with plane card
+- Default Remove side None (core default 0; golden registry regenerated). Pick plane first and centred, XY/XZ/YZ row below; Axis row hidden (typing nx/ny/nz sets axis 3); nx/ny/nz kept with tooltips (not redundant: typed directions). Same layout applies to Split with plane (shares the form). Dark select styling now applies to all toolform lists.
+- Hand-check: the list popup colours in Chrome.

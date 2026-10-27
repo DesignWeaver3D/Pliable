@@ -2921,7 +2921,7 @@
    {
     "name": "remove_side",
     "kind": "number",
-    "default": 1,
+    "default": 0,
     "drag": false,
     "options": [
      "None",
