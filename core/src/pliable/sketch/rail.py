@@ -23,17 +23,19 @@ def rail_wire(content: dict):
     return maker.Wire()
 
 
-def attach_rail(document, selection, strict: bool = True) -> None:
-    """Resolve `selection.rail` (a kept sketch id) into `selection.rail_wire`; no rail leaves it None. With `strict` false a
-    sketch that cannot be a path just leaves it None (for the lists of available tools and handles, which never fail)."""
-    selection.rail_wire = None
+def attach_rail(document, selection, strict: bool = True, regions: bool = False) -> None:
+    """Resolve `selection.rail` (a kept sketch id) into `selection.rail_wire` and `rail_content`; no rail leaves them None. With
+    `strict` false a sketch that cannot be a path just leaves the wire None (for the lists of available tools and handles,
+    which never fail); with `regions` (a tool that works on the sketch's regions) a sketch that is no path is not an error."""
+    selection.rail_wire = selection.rail_content = None
     if selection.rail is None:
         return
     try:
         found = document.get_sketch(selection.rail)
         if found is None:
             raise OperationError("The sketch chosen as the path no longer exists")
+        selection.rail_content = found["sketch"]
         selection.rail_wire = rail_wire(found["sketch"])
     except OperationError:
-        if strict:
+        if strict and not (regions and selection.rail_content is not None):
             raise

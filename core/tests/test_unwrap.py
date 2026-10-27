@@ -319,3 +319,25 @@ def test_embossing_a_whole_round_wall_says_it_is_push_pull_and_how_to_wrap():
     (side,) = _faces_of(topology, GeomAbs_Cylinder)
     with pytest.raises(OperationError, match="Push/Pull"):
         session.handle({"type": "tool_commit", "tool": "push_pull_surface", "selection": {"faces": [side]}, "params": {"distance": 2}})
+
+
+@pytest.mark.parametrize("distance", [2.0, -2.0])
+def test_a_chosen_sketch_is_wrapped_onto_a_whole_round_wall_and_embossed_or_cut(distance):
+    from build123d import Cylinder as Cyl
+
+    from pliable.server import Session
+
+    session = Session()
+    session._open(Cyl(10, 40).wrapped, "cyl")
+    side = _side_face(session.document.current)
+    plane = session.handle({"type": "sketch_plane", "unwrap": side})["plane"]
+    session.handle({"type": "sketch_keep", "sketch": {**_rectangle(12, 8, cx=5), "plane": plane}})
+    base = _volume(session.document.current.shape)
+    reply = session.handle({"type": "tool_commit", "tool": "push_pull_surface", "selection": {"faces": [side], "rail": 1}, "params": {"distance": distance}})
+    assert isinstance(reply, bytes)
+    change = _volume(session.document.current.shape) - base
+    assert (change > 0) == (distance > 0) and abs(change) > 100  # about 12 x 8 x 2
+    session.handle({"type": "undo"})
+    assert _volume(session.document.current.shape) == pytest.approx(base, rel=1e-9)
+    with pytest.raises(Exception):  # without the sketch a whole wall is still refused
+        session.handle({"type": "tool_commit", "tool": "push_pull_surface", "selection": {"faces": [side]}, "params": {"distance": distance}})

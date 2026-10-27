@@ -90,7 +90,7 @@ class ToolHandlers:
         if request.get("edit_body") is not None:
             return self._edit_primitive(request, tool, commit)
         selection = request_selection = Selection.from_json(request.get("selection"))
-        attach_rail(document, selection)
+        attach_rail(document, selection, regions=tool.rail_regions)
         start = time.perf_counter()
         self.last_tool = {"tool": tool.id, "commit": commit, "ok": False, "error": None}
         try:

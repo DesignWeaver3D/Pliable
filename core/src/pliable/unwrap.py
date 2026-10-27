@@ -533,6 +533,12 @@ def _clip(zone: Face, polygon) -> list[Face]:
 def wrap_regions(shape, topology, face_ids, sketch: dict):
     """Imprint the closed regions of a sketch drawn on the unrolled faces onto those faces.
     Returns the new shape and the number of regions."""
+    shape, count, _ = wrap_patches(shape, topology, face_ids, sketch)
+    return shape, count
+
+
+def wrap_patches(shape, topology, face_ids, sketch: dict):
+    """`wrap_regions` that also returns the mapped faces (the patches as they were made, before the split)."""
     if isinstance(face_ids, int):
         face_ids = [face_ids]
     unrolling = build_unrolling(topology, list(face_ids))
@@ -573,4 +579,4 @@ def wrap_regions(shape, topology, face_ids, sketch: dict):
     splitter.Build()
     if not splitter.IsDone() or splitter.Shape().IsNull():
         raise UnwrapError("Could not imprint the sketch on the faces")
-    return splitter.Shape(), len(zones)
+    return splitter.Shape(), len(zones), list(tools)

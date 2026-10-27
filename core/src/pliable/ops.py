@@ -17,10 +17,10 @@ from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.GeomAbs import GeomAbs_Plane
 from OCP.gp import gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
-from OCP.TopAbs import TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID
+from OCP.TopAbs import TopAbs_COMPOUND, TopAbs_COMPSOLID, TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID
 from OCP.TopExp import TopExp_Explorer
 from OCP.BRep import BRep_Builder
-from OCP.TopoDS import TopoDS_Compound, TopoDS_Edge, TopoDS_Face, TopoDS_Shape
+from OCP.TopoDS import TopoDS_CompSolid, TopoDS_Compound, TopoDS_Edge, TopoDS_Face, TopoDS_Iterator, TopoDS_Shape
 from OCP.collections import List_TopoDS_Shape
 
 MIN_DISTANCE = 1e-4
@@ -159,12 +159,62 @@ def _boolean(shape: TopoDS_Shape, tool: TopoDS_Shape, fuse: bool, glue: bool):
 
 
 def solids_of(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
-    explorer = TopExp_Explorer(shape, TopAbs_SOLID)
-    solids = []
+    """The bodies of a shape: each solid, or each compound body (a CompSolid grouping several solids, see `group`)."""
+    if shape.IsNull():
+        return []
+    kind = shape.ShapeType()
+    if kind in (TopAbs_SOLID, TopAbs_COMPSOLID):
+        return [shape]
+    out: list[TopoDS_Shape] = []
+    if kind == TopAbs_COMPOUND:
+        it = TopoDS_Iterator(shape)
+        while it.More():
+            out.extend(solids_of(it.Value()))
+            it.Next()
+    return out
+
+
+def group(solids: list[TopoDS_Shape]) -> TopoDS_Shape:
+    """One body from several solids: the solid itself for one, otherwise a CompSolid holding them all."""
+    flat = [s for body in solids for s in _inner_solids(body)]
+    if len(flat) == 1:
+        return flat[0]
+    grouped, builder = TopoDS_CompSolid(), BRep_Builder()
+    builder.MakeCompSolid(grouped)
+    for s in flat:
+        builder.Add(grouped, s)
+    return grouped
+
+
+def _inner_solids(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
+    explorer, found = TopExp_Explorer(shape, TopAbs_SOLID), []
     while explorer.More():
-        solids.append(explorer.Current())
+        found.append(explorer.Current())
         explorer.Next()
-    return solids
+    return found
+
+
+def keep_compound(old: TopoDS_Shape, new: TopoDS_Shape) -> TopoDS_Shape:
+    """`new` with its solids grouped again when the model was a single compound body and an operation split it up
+    (with several bodies the tools that handle each body on its own call `regroup` themselves)."""
+    olds = solids_of(old)
+    if new is old or len(olds) != 1 or olds[0].ShapeType() != TopAbs_COMPSOLID:
+        return new
+    news = solids_of(new)
+    if len(news) < 2:
+        return new
+    compound, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(compound)
+    builder.Add(compound, group(news))
+    return compound
+
+
+def regroup(original: TopoDS_Shape, result: TopoDS_Shape) -> TopoDS_Shape:
+    """`result` made a compound body again when it came from one (an operation on a compound body may return a plain compound)."""
+    if original.ShapeType() == TopAbs_COMPSOLID and result.ShapeType() != TopAbs_SOLID:
+        if len(_inner_solids(result)) > 1:
+            return group([result])
+    return result
 
 
 def push_pull(
@@ -212,7 +262,7 @@ def push_pull(
     compound, builder = TopoDS_Compound(), BRep_Builder()
     builder.MakeCompound(compound)
     for i, solid in enumerate(solids):
-        builder.Add(compound, changed.get(i, solid))
+        builder.Add(compound, regroup(solid, changed[i]) if i in changed else solid)
     result.shape = compound
     return result
 
