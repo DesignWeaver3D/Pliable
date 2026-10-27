@@ -16,12 +16,8 @@ Related existing items checked: Parked/Ideas "Stored array parameters" (arrays s
 
 Tool group CORE (follow-up):
 
-- **Union of separate bodies.** Owner: "Boolean union on non-overlapping bodies should convert it to a compound body."
-  - [ ] Union with no overlap yields one compound body. A body is exactly one solid today (BodyState parallel to solids_of; many callers): decide how a body holds several solids (one list row, one id), build it, test.
-- **Whole sketch plus edge.** Owner: "Cannot select the entire sketch in Sketch list and add edge to selection either." (a picked region plus an edge or axis works.)
-  - [ ] Choosing a whole sketch in the Sketch list and adding an edge or axis: decide the rule (the sketch's region faces become the faces to revolve), build, test.
-- **Emboss and Cut along surface on a cylinder.** Owner: "Emboss/Cut along a surface appears to do what push/pull does when a cylindrical face is selected that's not a hole." (a whole round wall now refuses with an explanation.)
-  - [ ] Wrap a chosen sketch region onto the cylinder wall (the unrolled-sketch patch workflow stays), test.
+- **Compound body limits.** Owner: "Boolean union on non-overlapping bodies should convert it to a compound body." (Union now makes one compound body.)
+  - [ ] With several bodies, tools other than push/pull may split a compound body back into separate bodies; Subtract, Intersect and Combine-with-file union do not group; per-solid measure of a compound reports the whole body. Make the other tools keep a compound, test.
 - **Stretch on parts with curved neighbours.** Owner: "Stretch tool doesn't work at all." (Not reproduced on simple solids; a straight flat-end move now falls back to extruding.)
   - [ ] Find the owner's failing case if it recurs; ask for the part.
 
