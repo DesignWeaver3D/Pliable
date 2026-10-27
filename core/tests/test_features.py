@@ -830,3 +830,18 @@ def test_two_distance_chamfer_measures_a_far_edge_from_its_own_face(block):
     far = next(i for i in range(block.edge_count) if not any(f.IsSame(block.face(top)) for f in block.edge_faces(block.edge(i))))
     result = run("chamfer_two_distances", block, faces=[top], edges=[edge, far], first=2, second=2)
     assert volume(result.shape) < volume(block.shape)
+
+
+def test_add_slot_has_a_gizmo_for_every_parameter(block):
+    tool = get_tool("add_slot")
+    top = top_of(block)
+    values = tool.bind({"length": 20, "width": 6, "depth": 5, "angle": 30, "offset_u": 2, "offset_v": -1})
+    handles = tool.handles(block, Selection(faces=[top]), values)
+    assert {h.param for h in handles} == {p.name for p in tool.params}
+    length = [h for h in handles if h.param == "length"]
+    assert len(length) == 2 and all(h.scale == 2.0 for h in length)  # a grip at each end: moving one by t changes the length by 2t
+    angle = next(h for h in handles if h.param == "angle")
+    assert angle.arc and angle.axis == pytest.approx((0.0, 0.0, 1.0)) and angle.ring[3] > 10
+    depth = next(h for h in handles if h.param == "depth")
+    assert depth.direction == pytest.approx((0.0, 0.0, -1.0))  # down from the top face
+    assert tool.handles(block, Selection(faces=[]), values) == []

@@ -33,3 +33,6 @@
 - Angle gizmo only on "Add countersink to hole" (convert_to_countersink): arc turning about the mouth, carried on the cone's side. Add countersink (new hole) and the other add_* hole tools have no gizmos at all (also see gap list); not added.
 - Angles list: 82, 90, 100, 110, 120 (the row's defaults; "top 5 most used" could not be verified from the code).
 - Hand-check: angle arc looks right and follows the cone in the real app.
+
+## Task 8 Add slot
+- Handles: offset_u/offset_v move arrows along the face's directions, length grips at both ends (scale 2), a width grip at one side, a depth grip down from the face (0 = through, starts at the face), an angle turn arc about the face normal 45 degrees round from the slot's length. Checked in Chrome. Hand-check: the depth grip when through and the arc feel.
