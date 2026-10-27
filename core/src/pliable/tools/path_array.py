@@ -3,8 +3,8 @@
 from OCP.gp import gp_Trsf, gp_Vec
 
 from ..ops import OperationError
-from ..shared.arrays import _array_copies, _fuse_copies
-from ..tools import Accepts, Param, register, Tool
+from ..shared.arrays import _array_copies, _fuse_copies, MAX_ARRAY_COPIES
+from ..tools import Accepts, Handle, Param, register, Tool
 
 
 @register
@@ -20,21 +20,35 @@ class PathArray(Tool):
     rail_accepts = Accepts(faces=(0, None))
     params = [Param("count", "number", 4)]
 
+    def _wire(self, topology, selection):
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeWire
+
+        if selection.rail_wire is not None:
+            return selection.rail_wire
+        maker = BRepBuilderAPI_MakeWire()
+        for i in selection.edges:
+            maker.Add(topology.edge(i))
+        if not maker.IsDone():
+            raise OperationError("The selected edges do not form one connected path")
+        return maker.Wire()
+
+    def handles(self, topology, selection, values):
+        # The count is a number over the first copy (the original, at the start of the path) that the wheel and typing change, as on the circular array.
+        from OCP.BRepAdaptor import BRepAdaptor_CompCurve
+
+        try:
+            curve = BRepAdaptor_CompCurve(self._wire(topology, selection))
+        except OperationError:
+            return []
+        start = curve.Value(curve.FirstParameter())
+        return [Handle("count", "Count", (start.X(), start.Y(), start.Z()), (0.0, 0.0, 1.0), min=2, max=MAX_ARRAY_COPIES, unit="", badge=True)]
+
     def run(self, topology, selection, values, preview):
         from OCP.BRepAdaptor import BRepAdaptor_CompCurve
-        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeWire
         from OCP.GCPnts import GCPnts_AbscissaPoint
 
         count = _array_copies(values["count"])
-        if selection.rail_wire is not None:
-            wire = selection.rail_wire
-        else:
-            maker = BRepBuilderAPI_MakeWire()
-            for i in selection.edges:
-                maker.Add(topology.edge(i))
-            if not maker.IsDone():
-                raise OperationError("The selected edges do not form one connected path")
-            wire = maker.Wire()
+        wire = self._wire(topology, selection)
         curve = BRepAdaptor_CompCurve(wire)
         total = GCPnts_AbscissaPoint.Length_s(curve)
         closed = curve.IsClosed()

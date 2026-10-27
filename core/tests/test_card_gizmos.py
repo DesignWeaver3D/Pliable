@@ -117,3 +117,44 @@ def test_mirror_grip_follows_the_offset_along_the_plane_normal():
     assert near.param == "offset" and near.direction == pytest.approx((1, 0, 0))
     assert far.anchor[0] - near.anchor[0] == pytest.approx(30) and near.anchor[0] == pytest.approx(0)
     assert tool.handles(topology, Selection(), {**base, "plane": 0, "offset": 0}) == []  # no face selected yet
+
+
+def test_chamfer_distance_angle_grips_follow_distance_and_angle_and_match_the_bevel():
+    topology = block()
+    top = max(range(topology.face_count), key=lambda i: measure(topology, Selection(faces=[i]))["items"][0]["anchor"][2])
+    tool = get_tool("chamfer_distance_angle")
+    selection = Selection(faces=[top], edges=[1])  # edge 1: the top edge at x = -20
+    values = {"distance": 4, "angle": 30}
+    distance, angle = tool.handles(topology, selection, values)
+    assert (distance.param, angle.param) == ("distance", "angle")
+    assert distance.anchor == pytest.approx((-16, 0, 10))  # 4 in from the edge on the top face
+    assert angle.ring[:3] == pytest.approx(distance.anchor) and angle.arc
+    steep = tool.handles(topology, selection, {"distance": 4, "angle": 60})[1]
+    centre = angle.ring[:3]
+    assert dist(angle.anchor, centre) == pytest.approx(angle.ring[3]) and dist(steep.anchor, centre) == pytest.approx(angle.ring[3])
+    assert angle.anchor[2] < 10 and steep.anchor[2] < angle.anchor[2]  # a steeper bevel goes lower
+    result = tool.execute(topology, selection, values, preview=False)
+    assert result.shape is not None
+
+
+def test_revolve_face_pie_grip_rides_the_ring_of_the_face_middle():
+    topology = block()
+    top = max(range(topology.face_count), key=lambda i: measure(topology, Selection(faces=[i]))["items"][0]["anchor"][2])
+    selection = Selection(faces=[top], edges=[5])  # the top edge at x = 20 runs along y: the axis, 20 from the face middle
+    tool = get_tool("revolve_face")
+    quarter = tool.handles(topology, selection, {"angle": 90, "mode": 0})[0]
+    half = tool.handles(topology, selection, {"angle": 180, "mode": 0})[0]
+    assert quarter.param == "angle" and quarter.pie and (quarter.min, quarter.max) == (-360.0, 360.0)
+    assert quarter.ring[3] == pytest.approx(20) and quarter.axis in ((0.0, 1.0, 0.0), (0.0, -1.0, 0.0))
+    assert dist(quarter.anchor, half.anchor) == pytest.approx(2 * 20 * math.sin(math.radians(45)))  # a quarter turn further round the ring
+
+
+def test_path_array_count_badge_sits_at_the_start_of_the_path():
+    topology = block()
+    tool = get_tool("path_array")
+    selection = Selection(edges=[8])  # the bottom edge along x
+    (badge,) = tool.handles(topology, selection, {"count": 4})
+    assert badge.param == "count" and badge.badge and badge.min == 2
+    assert badge.anchor == pytest.approx((-20, -15, -10)) or badge.anchor == pytest.approx((20, -15, -10))
+    assert tool.handles(topology, Selection(), {"count": 4}) == []
+    assert tool.execute(topology, selection, {"count": 3}, preview=False).shape is not None

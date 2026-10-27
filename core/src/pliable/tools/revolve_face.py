@@ -5,11 +5,11 @@ import math
 from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.BRepPrimAPI import BRepPrimAPI_MakeRevol
 from OCP.GeomAbs import GeomAbs_Line
-from OCP.gp import gp_Ax1
+from OCP.gp import gp_Ax1, gp_Pnt, gp_Trsf, gp_Vec
 
-from ..ops import OperationError
+from ..ops import OperationError, face_handle_point
 from ..shared.solids import _combine, _volume, finish
-from ..tools import Accepts, Param, register, Tool
+from ..tools import Accepts, Handle, Param, register, Tool
 
 
 @register
@@ -24,6 +24,24 @@ class RevolveFace(Tool):
 
     def applies(self, topology, selection):
         return BRepAdaptor_Curve(topology.edge(selection.edges[0])).GetType() == GeomAbs_Line
+
+    def handles(self, topology, selection, values):
+        # A pie-slice grip like the circular array's: the ring the face's middle travels on, from the face (0) to the sweep angle.
+        line = BRepAdaptor_Curve(topology.edge(selection.edges[0])).Line()
+        direction, origin = line.Direction(), line.Location()
+        centre = face_handle_point(topology.face(selection.faces[0]))
+        along = gp_Vec(origin, centre).Dot(gp_Vec(direction))
+        foot = origin.Translated(gp_Vec(direction).Multiplied(along))
+        radius = foot.Distance(centre)
+        if radius < 1e-6:
+            return []
+        turn = gp_Trsf()
+        turn.SetRotation(gp_Ax1(origin, direction), math.radians(values["angle"]))
+        p = centre.Transformed(turn)
+        tangent = gp_Vec(direction).Crossed(gp_Vec(foot, p))
+        tangent.Normalize()
+        return [Handle("angle", "Revolve angle", (p.X(), p.Y(), p.Z()), (tangent.X(), tangent.Y(), tangent.Z()), scale=math.degrees(1 / radius), min=-360.0, max=360.0, unit="°",
+                       axis=(direction.X(), direction.Y(), direction.Z()), ring=(foot.X(), foot.Y(), foot.Z(), radius), pie=True)]
 
     def run(self, topology, selection, values, preview):
         angle = values["angle"]
