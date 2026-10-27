@@ -16,8 +16,8 @@ Related existing items checked: Parked/Ideas "Stored array parameters" (arrays s
 
 Tool group UI (follow-up):
 
-- **Gizmo for every card parameter (global rule).** Owner: "For each parameter in the card, there should be an associated gizmo (this is a global tool behavior)."
-  - [ ] Parameters still without a gizmo (probe found, check with a selection): pattern hole and circular pattern hole, add hole / boss parameters and Add countersink (new hole), path array count, mirror offset, stretch, shell thickness, offset body distance, chamfer distance and angle, resize hole / fillet / chamfer, revolve face angle, circular array axis choices. Decide per tool which are real parameters needing a handle.
+- **Remaining parameters without a gizmo.** Owner: "For each parameter in the card, there should be an associated gizmo (this is a global tool behavior)."
+  - [ ] Variable-fillet end radius and the circular pattern axis point and direction have none (choices such as mirror plane, revolve and stretch mode, array axis and size-by lists are deliberately without one); decide whether either needs a handle.
 
 Tool group CORE (follow-up):
 
