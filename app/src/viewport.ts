@@ -631,6 +631,7 @@ export class Viewport {
     });
     dom.addEventListener("dblclick", (e) => {
       if (this.interceptor) return;
+      if (this.measureMode) return; // a double-click on a measure candidate is only a pick: it must not start a fillet or chamfer on that edge
       const hit = this.pickHit(e as PointerEvent);
       if (hit?.kind === "edge") this.onEdgeLoop(hit.id, e.ctrlKey || e.metaKey);
       const sketchId = !hit || hit.kind === "face" ? (this.curveUnder(e) ?? this.profileUnder(e as PointerEvent)?.id ?? null) : null;
