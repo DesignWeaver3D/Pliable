@@ -845,3 +845,30 @@ def test_add_slot_has_a_gizmo_for_every_parameter(block):
     depth = next(h for h in handles if h.param == "depth")
     assert depth.direction == pytest.approx((0.0, 0.0, -1.0))  # down from the top face
     assert tool.handles(block, Selection(faces=[]), values) == []
+
+
+def test_helical_sweep_adds_and_cuts_a_thread():
+    from OCP.BRep import BRep_Builder
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon
+    from OCP.BRepPrimAPI import BRepPrimAPI_MakeCylinder
+    from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt
+    from OCP.TopoDS import TopoDS_Compound
+
+    cylinder = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), 10, 40).Shape()
+    polygon = BRepBuilderAPI_MakePolygon(gp_Pnt(9, 0, 0), gp_Pnt(12, 0, 1), gp_Pnt(12, 0, 2), gp_Pnt(9, 0, 3), True)  # a thread profile in the XZ plane
+    profile = BRepBuilderAPI_MakeFace(polygon.Wire()).Face()
+    shape = TopoDS_Compound()
+    builder = BRep_Builder()
+    builder.MakeCompound(shape)
+    builder.Add(shape, cylinder)
+    builder.Add(shape, profile)
+    topology = Topology(shape)
+    face = max(i for i, _ in topology.faces())  # the profile is the last face
+    tool = get_tool("helical_sweep")
+    sel = Selection(faces=[face], axes=[2])
+    base = {"pitch": 5, "turns": 6, "hand": 0, "mode": 0, "axis": 2, "axis_edge": -1}
+    before = volume(cylinder)
+    assert volume(tool.run(topology, sel, base, False).shape) > before + 100
+    assert volume(tool.run(topology, sel, {**base, "hand": 1, "mode": 1}, False).shape) < before - 100
+    with pytest.raises(OperationError):
+        tool.run(topology, sel, {**base, "pitch": 0}, False)

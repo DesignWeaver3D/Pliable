@@ -10,6 +10,13 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
 
 ## Planned (not started; discuss before coding)
 
+Tool group CORE:
+
+- **Helix tools.** Owner (2026-10-27): "We need helix tools added". Scope picked by the owner: coil / helical sweep and helical cut / groove (a helix curve in sketch and threads on cylinders were not picked). Related existing items checked: the Holes row (threads: not asked, stays parked), Ideas "Sweep along a rail and arrays along a path" (a helix is a rail; keep Sweep as is).
+  - [x] Coil and helical cut: the Helical sweep tool (mode adds or cuts; built, tested in core, in the Solids tool group).
+  - [ ] Owner (2026-10-27): "Helix work will also apply to hole threads which we'll need to be able to accommodate". Hole threads on cylindrical voids (counterbore/countersink rows are built; threads were "not covered") using `shared/helix.py`; discuss the form (cosmetic or modeled, size presets) with the owner before coding.
+  - [ ] Hand-check the Helical sweep card in the app (axis pick, preview, error text); add the "when X, Y happens" line to behavior.md once approved.
+
 ## Review of 2026-10-26 session B (owner review; quotes are the owner's words)
 
 Related existing items checked: Parked/Ideas "Stored array parameters" (arrays stay separate solids; the compound-union row below does not touch it), "Merge Cut with plane and Split with plane" (the Cut with plane card row touches it: keep the two tools separate), "Axis lock keys" and "Mouse-modifier shortcuts" (the measure double-click row touches them).

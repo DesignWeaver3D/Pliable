@@ -51,6 +51,7 @@ from . import variable_fillet  # noqa: F401
 from . import fillet_per_edge  # noqa: F401
 from . import loft_faces  # noqa: F401
 from . import sweep_face  # noqa: F401
+from . import helical_sweep  # noqa: F401
 from . import path_array  # noqa: F401
 from . import resize_fillet  # noqa: F401
 from . import resize_chamfer  # noqa: F401

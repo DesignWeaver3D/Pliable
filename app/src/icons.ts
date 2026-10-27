@@ -105,6 +105,7 @@ export const TOOL_ICONS: Record<string, Spec> = {
   revolve_face: spec("face", "rotate"),
   loft_faces: spec("face", "loft"),
   sweep_face: spec("face", "sweep"),
+  helical_sweep: spec("face", "sweep"),
   body_boolean: spec("none", "boolean"),
   shell: spec("body", "shell"),
   mirror: spec("body", "mirror"),

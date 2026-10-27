@@ -3062,6 +3062,94 @@
   "keeps_body_order": false
  },
  {
+  "id": "helical_sweep",
+  "label": "Helical sweep",
+  "description": "Winds a face around a straight edge or global axis along a helix, to add a coil or thread or cut a helical groove. Select one face and an axis; the face should lie in a plane that contains the axis. Pitch is the advance per turn; mode 0 adds, 1 cuts.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    1
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "axes": [
+    0,
+    1
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "pitch",
+    "kind": "length",
+    "default": 10,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "turns",
+    "kind": "number",
+    "default": 5,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "hand",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Right",
+     "Left"
+    ]
+   },
+   {
+    "name": "mode",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "axis",
+    "kind": "number",
+    "default": 3,
+    "drag": false,
+    "options": [
+     "X axis",
+     "Y axis",
+     "Z axis",
+     "Picked edge"
+    ]
+   },
+   {
+    "name": "axis_edge",
+    "kind": "number",
+    "default": -1,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
   "id": "path_array",
   "label": "Array along path",
   "description": "Needs an edge selected, or a kept sketch chosen with Shift-click on its curve (it does not show in the tool strip otherwise). Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model), or the round walls of holes or bosses to copy just those features; the count includes the original.",
