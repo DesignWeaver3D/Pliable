@@ -198,14 +198,45 @@ def keep_compound(old: TopoDS_Shape, new: TopoDS_Shape) -> TopoDS_Shape:
     """`new` with its solids grouped again when the model was a single compound body and an operation split it up
     (with several bodies the tools that handle each body on its own call `regroup` themselves)."""
     olds = solids_of(old)
-    if new is old or len(olds) != 1 or olds[0].ShapeType() != TopAbs_COMPSOLID:
+    if new is old or not any(o.ShapeType() == TopAbs_COMPSOLID for o in olds):
         return new
     news = solids_of(new)
     if len(news) < 2:
         return new
     compound, builder = TopoDS_Compound(), BRep_Builder()
     builder.MakeCompound(compound)
-    builder.Add(compound, group(news))
+    if len(olds) == 1:
+        builder.Add(compound, group(news))
+        return compound
+    # Several bodies: match the new plain solids to the old compound bodies' solids (as body identity does) and
+    # group the ones that came from the same compound body again.
+    from .bodies import Body, BodyState, carry
+
+    flat: list[TopoDS_Shape] = []
+    owner: list[int] = []
+    for k, body in enumerate(olds):
+        inner = _inner_solids(body) if body.ShapeType() == TopAbs_COMPSOLID else [body]
+        flat.extend(inner)
+        owner.extend([k if body.ShapeType() == TopAbs_COMPSOLID else -1] * len(inner))
+    plain = [s for n in news for s in _inner_solids(n)]  # a boolean can leave a compound body as several one-solid groups
+    old_flat, new_plain = TopoDS_Compound(), TopoDS_Compound()
+    for target, items in ((old_flat, flat), (new_plain, plain)):
+        builder.MakeCompound(target)
+        for item in items:
+            builder.Add(target, item)
+    state = carry(BodyState(tuple(Body(i, "") for i in range(len(flat))), len(flat)), old_flat, new_plain)
+    members: dict[int, list[int]] = {}  # compound body index -> positions in `plain`
+    for position, matched in enumerate(state.bodies):
+        if matched.id < len(flat) and owner[matched.id] >= 0:
+            members.setdefault(owner[matched.id], []).append(position)
+    if not any(len(m) > 1 for m in members.values()):
+        return new
+    first = {m[0]: m for m in members.values() if len(m) > 1}
+    skip = {p for m in members.values() if len(m) > 1 for p in m[1:]}
+    builder.MakeCompound(compound)
+    for position, item in enumerate(plain):
+        if position not in skip:
+            builder.Add(compound, group([plain[p] for p in first[position]]) if position in first else item)
     return compound
 
 

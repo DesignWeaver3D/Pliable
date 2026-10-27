@@ -22,7 +22,7 @@ from OCP.TopExp import TopExp_Explorer as _Explorer
 from OCP.TopoDS import TopoDS, TopoDS_Compound, TopoDS_Shape
 from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 
-from ..ops import _boolean, OperationError, OpResult, solids_of
+from ..ops import _boolean, keep_compound, OperationError, OpResult, solids_of
 from ..tools import Param
 
 
@@ -183,4 +183,6 @@ def combine(shape: TopoDS_Shape, other: TopoDS_Shape, mode: str, offset: gp_Vec 
         result = _combine(shape, other, fuse=mode == "union")
     if _volume(result) < 1e-9:
         raise OperationError("The result would be empty")
-    return finish(result)
+    done = finish(result)
+    done.shape = keep_compound(shape, done.shape)
+    return done
