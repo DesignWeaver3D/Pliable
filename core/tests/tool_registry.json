@@ -2651,13 +2651,6 @@
   },
   "params": [
    {
-    "name": "angle",
-    "kind": "angle",
-    "default": 360,
-    "drag": false,
-    "options": []
-   },
-   {
     "name": "mode",
     "kind": "number",
     "default": 0,
@@ -2666,6 +2659,13 @@
      "Add",
      "Subtract"
     ]
+   },
+   {
+    "name": "angle",
+    "kind": "angle",
+    "default": 360,
+    "drag": false,
+    "options": []
    },
    {
     "name": "axis",

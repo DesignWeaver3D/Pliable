@@ -25,7 +25,7 @@ class RevolveFace(Tool):
     accepts = Accepts(faces=(1, 1), edges=(0, 1), axes=(0, 1))
     rail_accepts = Accepts(edges=(0, 1), axes=(0, 1), any_of=True)  # a whole chosen sketch plus an edge or axis: its regions are the faces
     rail_regions = True
-    params = [Param("angle", "angle", 360, drag=False), Param("mode", "number", 0, options=("Add", "Subtract")), Param("axis", "number", 3, options=AXIS_CHOICES), Param("axis_edge", "number", -1)]
+    params = [Param("mode", "number", 0, options=("Add", "Subtract")), Param("angle", "angle", 360, drag=False), Param("axis", "number", 3, options=AXIS_CHOICES), Param("axis_edge", "number", -1)]
     pick_edge = ("axis_edge", "axis")  # the form's Pick axis edge button fills the edge id and chooses "Picked edge"
 
     def applies(self, topology, selection):
