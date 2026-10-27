@@ -46,7 +46,13 @@ class Topology:
             TopExp.MapShapesAndAncestors_s(self.shape, TopAbs_EDGE, TopAbs_FACE, self._edge_ancestors)
         if not self._edge_ancestors.Contains(edge):
             return []
-        return [TopoDS.Face(f) for f in self._edge_ancestors.FindFromKey(edge)]
+        found = self._edge_ancestors.FindFromKey(edge)
+        size = found.Size()
+        if size == 1:  # First and Last are about 100 times faster than iterating the list, which slowed the tool checks on a large model
+            return [TopoDS.Face(found.First())]
+        if size == 2:
+            return [TopoDS.Face(found.First()), TopoDS.Face(found.Last())]
+        return [TopoDS.Face(f) for f in found]
 
     @property
     def vertex_count(self) -> int:

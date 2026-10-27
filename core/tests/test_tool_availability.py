@@ -60,3 +60,23 @@ def test_hole_tools_declare_that_they_need_a_selection():
         assert TOOLS[tool_id].describe()["accepts"]["anyOf"] is True
         assert not TOOLS[tool_id].accepts.matches(Selection())
     assert TOOLS["convert_to_countersink"].label == "Add countersink to hole"
+
+
+def test_selecting_a_face_of_a_large_model_checks_the_tools_quickly():
+    """Regression: the Edit cut check walked a plate with 400 faces in about 1.5 s because iterating an edge's face list is slow."""
+    import time
+
+    s = Session()
+    s.handle({"type": "open_demo", "name": "perforated_plate"})
+    s.handle({"type": "available_tools", "selection": {"faces": [0]}})  # warm the edge-to-face map
+    start = time.perf_counter()
+    s.handle({"type": "available_tools", "selection": {"faces": [0]}})
+    assert time.perf_counter() - start < 0.8
+
+
+def test_edge_faces_lists_each_adjacent_face():
+    topology = _bracket()._require_document().current
+    counts = {len(topology.edge_faces(edge)) for _, edge in topology.edges()}
+    assert counts <= {1, 2} and 2 in counts
+    edge = topology.edge(0)
+    assert all(topology.face_id(f) is not None for f in topology.edge_faces(edge))
