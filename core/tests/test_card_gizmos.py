@@ -158,3 +158,100 @@ def test_path_array_count_badge_sits_at_the_start_of_the_path():
     assert badge.anchor == pytest.approx((-20, -15, -10)) or badge.anchor == pytest.approx((20, -15, -10))
     assert tool.handles(topology, Selection(), {"count": 4}) == []
     assert tool.execute(topology, selection, {"count": 3}, preview=False).shape is not None
+
+
+def top_of(topology):
+    return max(range(topology.face_count), key=lambda i: measure(topology, Selection(faces=[i]))["items"][0]["anchor"][2])
+
+
+NEW_HOLE = {"diameter": 6, "depth": 0, "offset_u": 0, "offset_v": 0}
+
+
+@pytest.mark.parametrize("tool_id, extra, params", [
+    ("add_hole", {}, ["diameter", "diameter", "diameter", "depth", "offset_u", "offset_v"]),
+    ("add_counterbore", {"bore_by": 0, "bore_diameter": 11, "bore_offset": 2.5, "bore_depth": 4}, ["diameter"] * 3 + ["depth", "offset_u", "offset_v"] + ["bore_diameter"] * 3 + ["bore_depth"]),
+    ("add_countersink", {"sink_by": 0, "sink_diameter": 12, "sink_offset": 3, "sink_angle": 90}, ["diameter"] * 3 + ["depth", "offset_u", "offset_v"] + ["sink_diameter"] * 3 + ["sink_angle"]),
+    ("add_countersink", {"sink_by": 1, "sink_diameter": 12, "sink_offset": 3, "sink_angle": 90}, ["diameter"] * 3 + ["depth", "offset_u", "offset_v", "sink_offset", "sink_angle"]),
+])
+def test_new_hole_cards_have_a_grip_for_every_number(tool_id, extra, params):
+    topology = block()
+    selection = Selection(faces=[top_of(topology)])
+    tool = get_tool(tool_id)
+    handles = tool.handles(topology, selection, {**NEW_HOLE, **extra})
+    assert [h.param for h in handles] == params
+
+
+def test_new_hole_grips_sit_where_the_cut_goes_and_follow_the_values():
+    topology = block()
+    selection = Selection(faces=[top_of(topology)])
+    tool = get_tool("add_hole")
+    depth = next(h for h in tool.handles(topology, selection, {**NEW_HOLE, "offset_u": 5, "depth": 4}) if h.param == "depth")
+    assert depth.anchor[2] == pytest.approx(6) and depth.shown == 4  # 4 down from the top face
+    through = next(h for h in tool.handles(topology, selection, NEW_HOLE) if h.param == "depth")
+    assert through.anchor[2] == pytest.approx(-10) and through.shown == pytest.approx(20)  # depth 0: the far side
+    radius = next(h for h in tool.handles(topology, selection, {**NEW_HOLE, "diameter": 10}) if h.symbol == "R")
+    centre = radius.anchor
+    assert dist(centre, next(h for h in tool.handles(topology, selection, NEW_HOLE) if h.symbol == "R").anchor) == pytest.approx(2)
+    moved = next(h for h in tool.handles(topology, selection, {**NEW_HOLE, "offset_u": 5}) if h.param == "offset_u")
+    still = next(h for h in tool.handles(topology, selection, NEW_HOLE) if h.param == "offset_u")
+    assert dist(moved.anchor, still.anchor) == pytest.approx(5)
+
+
+def test_add_boss_has_grips_for_diameter_height_and_place():
+    topology = block()
+    selection = Selection(faces=[top_of(topology)])
+    tool = get_tool("add_boss")
+    values = {"diameter": 10, "height": 5, "offset_u": 0, "offset_v": 0}
+    handles = tool.handles(topology, selection, values)
+    assert [h.param for h in handles] == ["diameter"] * 3 + ["height", "offset_u", "offset_v"]
+    height = handles[3]
+    assert height.anchor[2] == pytest.approx(15) and height.direction == pytest.approx((0, 0, 1))
+    assert tool.handles(topology, selection, {**values, "height": 8})[3].anchor[2] == pytest.approx(18)
+
+
+def test_new_countersink_angle_grip_sits_at_the_foot_of_the_cone():
+    topology = block()
+    selection = Selection(faces=[top_of(topology)])
+    values = {**NEW_HOLE, "sink_by": 0, "sink_diameter": 12, "sink_offset": 3, "sink_angle": 90}
+    grip = next(h for h in get_tool("add_countersink").handles(topology, selection, values) if h.param == "sink_angle")
+    # hole radius 3, mouth radius 6, 90 degrees: the cone meets the bore 3 below the face, 3 in from the mouth
+    assert grip.anchor[2] == pytest.approx(7, abs=1e-6)
+    assert abs(math.hypot(grip.anchor[0], grip.anchor[1]) - 3) < 1e-6
+
+
+def test_pattern_hole_has_a_spacing_grip_and_a_count_badge():
+    topology = Topology(load_demo("bracket"))
+    face = hole_faces(topology)[0]
+    selection = Selection(faces=[face])
+    tool = get_tool("pattern_hole")
+    near = tool.handles(topology, selection, {"count": 3, "dx": 10, "dy": 0, "dz": 0})
+    far = tool.handles(topology, selection, {"count": 3, "dx": 25, "dy": 0, "dz": 0})
+    assert [h.param for h in near] == ["dx", "count"] and near[1].badge
+    assert dist(near[0].anchor, far[0].anchor) == pytest.approx(15)  # the grip sits on the second copy
+    assert dist(near[1].anchor, near[0].anchor) == pytest.approx(10)  # and the badge on the source
+
+
+def test_circular_pattern_hole_has_an_angle_pie_and_a_count_badge():
+    topology = Topology(load_demo("bracket"))
+    face = hole_faces(topology)[0]
+    selection = Selection(faces=[face])
+    tool = get_tool("pattern_hole_circular")
+    values = {"count": 6, "angle": 360, "px": 1000, "py": 0, "pz": 0, "ax": 0, "ay": 0, "az": 1}
+    angle, count = tool.handles(topology, selection, values)
+    assert (angle.param, count.param) == ("angle", "count") and angle.pie and count.badge
+    assert angle.ring[3] == pytest.approx(dist(count.anchor[:2], (1000, 0)))  # the ring runs through the source hole
+    assert tool.handles(topology, selection, {**values, "ax": 0, "az": 0}) == []
+
+
+def test_stretch_has_three_move_arrows_at_the_end_face_that_follow_the_move():
+    topology = block()
+    top = top_of(topology)
+    tool = get_tool("stretch")
+    rest = tool.handles(topology, Selection(faces=[top]), {"dx": 0, "dy": 0, "dz": 0, "mode": 0})
+    moved = tool.handles(topology, Selection(faces=[top]), {"dx": 0, "dy": 0, "dz": 6, "mode": 0})
+    assert [h.param for h in rest] == ["dx", "dy", "dz"] and all(h.kind == "move" for h in rest)
+    assert rest[0].anchor == pytest.approx((0, 0, 10)) and moved[2].anchor[2] - rest[2].anchor[2] == pytest.approx(6)
+    result = tool.execute(topology, Selection(faces=[top]), {"dx": 0, "dy": 0, "dz": 6, "mode": 0}, preview=False)
+    from test_gizmo_tools import bounds
+
+    assert bounds(result.shape)[1][2] == pytest.approx(16, abs=1e-3)

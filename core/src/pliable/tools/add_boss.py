@@ -4,8 +4,9 @@ from OCP.gp import gp_Vec
 
 from ..ops import MIN_DISTANCE, OperationError
 from ..shared.faces import _PlanarFace, _plane_axes
+from ..shared.newhole_handles import diameter_handles, Frame, position_handles
 from ..shared.solids import _combine, _cylinder, finish
-from ..tools import Accepts, Param, register
+from ..tools import Accepts, Handle, Param, register
 
 
 @register
@@ -17,6 +18,15 @@ class AddBoss(_PlanarFace):
     description = "Adds a round post standing on a flat face, placed from the face centre. Select one flat face."
     accepts = Accepts(faces=(1, 1))
     params = [Param("diameter", "length", 10), Param("height", "length", 5), Param("offset_u", "length"), Param("offset_v", "length")]
+
+    def handles(self, topology, selection, values):
+        # Radius and diameter grips on the boss's foot, an arrow at its top for the height, and two move arrows at its middle along the face's axes.
+        frame = Frame(topology.face(selection.faces[0]), values)
+        height = values["height"]
+        top = frame.at(-height)
+        out = diameter_handles(frame, "diameter", "Boss", values["diameter"])
+        out.append(Handle("height", "Boss height", top, frame.normal, min=MIN_DISTANCE, kind="resize", axis_from=frame.start))
+        return out + position_handles(frame, -height)
 
     def run(self, topology, selection, values, preview):
         if values["diameter"] < MIN_DISTANCE or values["height"] < MIN_DISTANCE:

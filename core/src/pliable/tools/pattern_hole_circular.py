@@ -7,7 +7,7 @@ from OCP.gp import gp_Ax1, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 from ..ops import OperationError
 from ..shared.hole_groups import _CylinderFaces, _holes
 from ..shared.solids import finish, TOL
-from ..tools import Accepts, Param, register
+from ..tools import Accepts, Handle, Param, register
 
 
 @register
@@ -30,6 +30,34 @@ class CircularPatternHole(_CylinderFaces):
         Param("ay", "number"),
         Param("az", "number", 1),
     ]
+
+    def handles(self, topology, selection, values):
+        # The angle is a pie slice from the source hole round the axis, the count a number over the source (as on the circular array).
+        direction = gp_Vec(values["ax"], values["ay"], values["az"])
+        if direction.Magnitude() < TOL:
+            return []
+        try:
+            (hole,) = _holes(topology, selection)
+        except OperationError:
+            return []
+        axis = gp_Ax1(gp_Pnt(values["px"], values["py"], values["pz"]), gp_Dir(direction))
+        middle = hole.origin.Translated(gp_Vec(hole.direction).Multiplied(hole.length / 2))
+        along = gp_Vec(axis.Location(), middle).Dot(gp_Vec(axis.Direction()))
+        foot = axis.Location().Translated(gp_Vec(axis.Direction()).Multiplied(along))
+        radius = foot.Distance(middle)
+        if radius < 1e-6:
+            return []  # the hole sits on the axis: there is no ring to turn on
+        turn = gp_Trsf()
+        turn.SetRotation(axis, math.radians(values["angle"]))
+        end = middle.Transformed(turn)
+        tangent = gp_Vec(axis.Direction()).Crossed(gp_Vec(foot, end))
+        tangent.Normalize()
+        d = axis.Direction()
+        return [
+            Handle("angle", "Pattern angle", (end.X(), end.Y(), end.Z()), (tangent.X(), tangent.Y(), tangent.Z()), scale=math.degrees(1 / radius), min=-360.0, max=360.0, unit="°",
+                   axis=(d.X(), d.Y(), d.Z()), ring=(foot.X(), foot.Y(), foot.Z(), radius), pie=True),
+            Handle("count", "Count", (middle.X(), middle.Y(), middle.Z()), (0.0, 0.0, 1.0), min=2, max=200, unit="", badge=True),
+        ]
 
     def run(self, topology, selection, values, preview):
         count = int(round(values["count"]))

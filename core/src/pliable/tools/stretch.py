@@ -21,8 +21,8 @@ from OCP.TopoDS import TopoDS, TopoDS_Compound
 from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as ShapeIndexedMap
 from OCP.gp import gp_Dir, gp_Pln, gp_Pnt, gp_Trsf, gp_Vec
 
-from ..ops import MIN_DISTANCE, OperationError, OpResult, planar_normal, solids_of
-from ..tools import Accepts, Param, register, Tool
+from ..ops import face_handle_point, MIN_DISTANCE, OperationError, OpResult, planar_normal, solids_of
+from ..tools import Accepts, Handle, Param, register, Tool
 
 
 REFUSED = " Try Insert (mode 1), which extrudes the end face's section instead."
@@ -179,6 +179,14 @@ class Stretch(Tool):
     description = "Moves the end faces you select by a distance and re-fits the faces joined to them, so the part gets longer or shorter without cutting. Select the faces at one end; mode 0 re-fits the sides, mode 1 extrudes the end's section."
     accepts = Accepts(faces=(1, None))
     params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length"), Param("mode", "number")]
+
+    def handles(self, topology, selection, values):
+        # Three move arrows (X, Y, Z) at the middle of the selected end faces, at their moved position (as on Move hole / boss).
+        points = [face_handle_point(topology.face(i)) for i in selection.faces]
+        centre = [sum(p.Coord(k + 1) for p in points) / len(points) for k in range(3)]
+        now = (values["dx"], values["dy"], values["dz"])
+        at = tuple(c + n for c, n in zip(centre, now))
+        return [Handle(name, f"Stretch along {label}", at, axis, kind="move") for name, label, axis in (("dx", "X", (1, 0, 0)), ("dy", "Y", (0, 1, 0)), ("dz", "Z", (0, 0, 1)))]
 
     def run(self, topology, selection, values, preview):
         offset = gp_Vec(values["dx"], values["dy"], values["dz"])
