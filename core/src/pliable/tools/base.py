@@ -56,6 +56,7 @@ class Selection:
     axes: list[int] = field(default_factory=list)  # global axes picked in the view: 0 = X, 1 = Y, 2 = Z (lines through the origin)
     rail: int | None = None  # a kept sketch chosen as a path for Sweep face and Array along path (instead of selected edges)
     rail_wire: object = field(default=None, repr=False, compare=False)  # that sketch's curves as a wire, set by sketch/rail.py before a tool runs
+    rail_content: object = field(default=None, repr=False, compare=False)  # that sketch's content (its region faces are built by tools with `rail_regions`)
 
     @classmethod
     def from_json(cls, data: dict | None) -> "Selection":
@@ -262,6 +263,7 @@ class Tool:
     params: list[Param] = []
     # What the tool accepts when a kept sketch is chosen as its path (`Selection.rail`) instead of edges; None = no sketch path.
     rail_accepts: "Accepts | None" = None
+    rail_regions = False  # a chosen kept sketch stands in for the faces: its closed regions are the faces the tool works on
     # Relationship rules (see relations.py) whose matching faces join the selection when the user has them on.
     related: tuple[str, ...] = ()
     # Names of three length parameters that together are a point in space; the view offers to fill them by
@@ -319,7 +321,10 @@ class Tool:
         if any(i not in known for i in selection.bodies):
             return False
         try:
-            accepts = self.rail_accepts if self.rail_accepts and selection.rail_wire is not None and not selection.edges else self.accepts
+            on_rail = selection.rail_wire is not None and not selection.edges
+            if self.rail_regions:  # a whole chosen sketch stands in for the faces (and may come with an edge or axis)
+                on_rail = selection.rail_content is not None and not selection.faces
+            accepts = self.rail_accepts if self.rail_accepts and on_rail else self.accepts
             return accepts.matches(selection) and self.applies(topology, selection)
         except KeyError:  # a selected id that does not exist
             return False

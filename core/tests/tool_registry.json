@@ -2625,7 +2625,7 @@
  {
   "id": "revolve_face",
   "label": "Revolve face",
-  "description": "Spins a face around a straight edge to add or cut a round shape. Select one face, then a straight edge or a global axis as the axis (or pick it after starting the tool); mode 0 adds material, 1 cuts.",
+  "description": "Spins a face around a straight edge to add or cut a round shape. Select one face (or a whole sketch in the Sketch list, which revolves all its regions), then a straight edge or a global axis as the axis (or pick it after starting the tool); mode 0 adds material, 1 cuts.",
   "accepts": {
    "faces": [
     1,

@@ -71,3 +71,15 @@ def test_a_sketch_that_does_not_join_is_refused():
     session = session_with_path(points, lines)
     with pytest.raises((OperationError, RequestError)):
         session.handle({"type": "tool_commit", "tool": "path_array", "selection": {"rail": 1}, "params": {"count": 3}})
+
+
+def test_revolve_a_whole_kept_sketch_around_an_axis():
+    points = [{"id": 1, "u": 60, "v": 0}, {"id": 2, "u": 70, "v": 0}, {"id": 3, "u": 70, "v": 10}, {"id": 4, "u": 60, "v": 10}]
+    lines = [{"id": 10 + i, "type": "line", "a": i + 1, "b": (i + 1) % 4 + 1} for i in range(4)]
+    session = session_with_path(points, lines, plane="XZ")
+    before = volume(session.document.current.shape)
+    names = session.handle({"type": "available_tools", "selection": {"rail": 1, "axes": [2]}})["tools"]
+    assert "revolve_face" in names
+    assert "revolve_face" not in session.handle({"type": "available_tools", "selection": {"rail": 1}})["tools"]
+    session.handle({"type": "tool_commit", "tool": "revolve_face", "selection": {"rail": 1, "axes": [2]}, "params": {"angle": 360}})
+    assert volume(session.document.current.shape) > before + 1000  # a ring of the swept rectangle was added
