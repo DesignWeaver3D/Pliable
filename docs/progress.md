@@ -10,6 +10,61 @@ State (2026-10-26): `main` is the development branch and the only long-lived one
 
 ## Planned (not started; discuss before coding)
 
+## Review of 2026-10-26 session B (owner review; quotes are the owner's words)
+
+Related existing items checked: Parked/Ideas "Stored array parameters" (arrays stay separate solids; the compound-union row below does not touch it), "Merge Cut with plane and Split with plane" (the Cut with plane card row touches it: keep the two tools separate), "Axis lock keys" and "Mouse-modifier shortcuts" (the measure double-click row touches them).
+
+Tool group UI (arrays, gizmos, cards):
+
+- **Push/pull tilt typed entry and gizmo layout.** Owner: "Face push/pull vector tilt direct entry is buggy. Starting a tilt and entering a value might tilt that angle in the same or opposite direction. Entering a tilt value in the other gizmo resets the first tilt gizmo to 0 (face normal) and setting either to zero sets both to zero at face normal. hitting Esc while entering a tilt angle cancels just that entry but doesn't escape the task which is good. User should be able to tilt one gizmo by an entered degree angle then the other and the first keep its value and angle values should know the dirction the tilt gizmowas pulled and positive numbers go that value and negative the opposite. I think the gizmo needs ediing. The target symbol should be right at the intersecton of the tilt arcs and the push/pull arrow should be much longer where the stem passes through both pick icon and tilt arcs and extends about the same distance as it is currently off the face past the target icon. This will help maintain ability to grab arrowhead that has been obscured by the pick icon and tilt arcs."
+  - [ ] Typed degrees on one tilt arc keep the other arc's angle; zero on one arc leaves the other.
+  - [ ] The sign of a typed angle follows the direction the arc was pulled (positive continues that way, negative the opposite).
+  - [ ] Esc during entry still cancels only the entry.
+  - [ ] Target symbol sits at the intersection of the tilt arcs; the arrow stem is much longer, passing through the pick icon and arcs, and extends past the target icon about as far as it extends off the face now, so the arrowhead stays grabbable.
+  - [ ] Tests for the angle state; update behavior.md.
+- **Linear Array card and gizmos.** Owner: "Linear Array: typed rows/columns works and esc exits just that data entry without closing the operation which is good. The card needs better parameter naming and order. First field says Count and should be "Columns" which should be grouped together with the column spacing (dx) & Z-Offset (dz). Next group should be Rows, row spacing (dy2) & Z-Offset (dz2). Y-Offset (dy) can be by itself, I guess there is only one option here because an X-Offset would do the same thing? If so then that single parameter can be Planar Shift (but I really think there should be one fore each direction). For each parameter in the card, there should be an associated gizmo (this is a global tool behavior). Spacing gizmo should only be indicated between the first (source) and second instance of the array in either column or row. The Z-offsets can be shown as an upward arrow above the top of the second instance in both column and row.X and Y offsets can be arrows pointing out the side of the second instance object."
+  - [ ] Card order: Columns with column spacing and Z-offset; Rows with row spacing and Z-offset; planar shift fields (one per direction if the parameter model allows it, decided from the code).
+  - [ ] A gizmo for every parameter; spacing gizmos only between the source and second instance; Z-offsets as an upward arrow above the second instance; X and Y offsets as arrows out of its side.
+  - [ ] Check the global rule "every card parameter has a gizmo" against the other tools and list the gaps as rows.
+- **Circular Array angle and count gizmos.** Owner: "Circular Array: The Angle grip should look like a pie-slice type angle that user drags around the axis so a short indicator line pointing from the source object toward the axis then an arc that goes around to the short line pointing from last instance toward the axis with the degrees value displayed on the arc and that is editable by entering mid gizmo turn or in the card or by double clicking the screen value. Angle max value should be 360°. Count should be integers, min value 1, default 2. Count can be a editable value shown over the source object with user can mouse wheel while cursor over value to increase/decrease count. When clicking at nothing, operation should be applied (this is a global tool behavior)."
+  - [ ] Pie-slice angle gizmo with the value on the arc, editable by typing mid-drag, in the card, or by double-clicking the value; maximum 360.
+  - [ ] Count is an integer, minimum 1, default 2, an editable value over the source object that changes with the mouse wheel.
+  - [ ] A click on nothing applies the open tool (check every tool).
+- **Concentric circular array (new tool).** Owner: "I want another array tool that does concentric circular patterns." (No further detail: decide the parameters from the hierarchy and log them.)
+  - [ ] Tool with rings (count, radial spacing) and per-ring count, gizmos on every parameter, test, tool strip entry.
+- **Eyedropper buttons in cards.** Owner: "All tool cards that have values with "eyedropper" should be a eyedropper icon button instead of an autoresizing button and they should all be aligned in the card. The current button looks weird and often the parameter label is getting wrapped to the next row which looks bad. So right justify both the eydropper and the value box next to it and leave the labels left justified will look much better."
+  - [ ] Icon-only eyedropper button; labels left, eyedropper and value box right-aligned in a column; labels never wrap.
+- **Cut with plane card.** Owner: "Cut with Plane: Default Remove side should be None. Remove side drop menu should match the dark theme used everywhere else. Pick plane button should be at the top of the card and have center justified button label. Axis label and box are no longer needed. The origin planes should be 3 buttons in a row right below the Pick plane button and they should only say XY, XZ, YZ using center justified button label text. I have no idea what the nx, ny, nz parameters do."
+  - [ ] Default Remove side None; dark-themed list; Pick plane first with a centred label; three buttons XY, XZ, YZ right below; Axis field removed; nx, ny, nz explained in the field tooltip or hidden if redundant (decide from the code).
+- **Countersink and counterbore measurement and angle.** Owner: "Countersink and counterbore measurements should be an offset value of the hole, or option to enter either." and "Countersink gizmo works great. Need another gizmo for angle. And there should be a droplist of the top 5 most used standard screw countersink head angles."
+  - [ ] Enter the counterbore and countersink size either as a diameter or as an offset from the hole (a choice on the card).
+  - [ ] Angle gizmo for the countersink; droplist of the five most used standard head angles (82, 90, 100, 110, 120 degrees unless the code says otherwise).
+- **Add slot gizmos.** Owner: "Add slot tool has no gizmos."
+  - [ ] Gizmos for every slot parameter (position, length, width, depth), as the other hole tools do.
+
+Tool group CORE (selection, kernel, performance):
+
+- **Slower 3D interaction (bug, high priority).** Owner: "The latest changes have caused the overall 3D view interaction to become slower. Available tool buttons take longer to populate and so do selection widgets."
+  - [ ] Profile selecting faces and edges (tool strip availability and selection widgets) on a large model; find the commits that slowed it and fix the cause; add a timing test where it can run without a browser.
+- **Measure (M) hint and double-click.** Owner: "push/pull measure (M): I don't understand what the shift-click shows hint line is supposed to mean. Double-click a measure candidate exited the push/pull operation and started a chamfer/fillet on that edge. I don't know what the double-click was trying to acheive."
+  - [ ] Read behavior.md first. Decision to apply unless it conflicts: in measure mode a double-click on a candidate acts as a pick (no other tool starts); the Shift+click hint is reworded to say what it does in plain words or removed.
+- **Coplanar chip on several solids.** Owner: "Coplanar chip selection does not work on multiple solids but it should."
+  - [ ] Coplanar selection adds the coplanar faces of every solid, test.
+- **Union of separate bodies.** Owner: "Boolean union on non-overlapping bodies should convert it to a compound body."
+  - [ ] Union with no overlap yields one compound body, test.
+- **Global axes.** Owner: "Global axes are not selectable."
+  - [ ] Global axes can be picked and used as an axis input by tools.
+- **Revolve face without an axis.** Owner: "Select a face should enable Revolve face tool even if no axis is selected and user can select the axis after starting the tool."
+  - [ ] Revolve face available with a face only; axis picked after the tool starts.
+- **Sketch faces and edges.** Owner: "Selecting a sketch area face doesn't allow Ctrl+click to add an edge to selection. Therefore cannot test Revolve face tool using a sketch. Cannot select the entire sketch in Sketch list and add edge to selection either."
+  - [ ] Ctrl+click adds an edge to a selected sketch area; the same with a whole sketch chosen in the Sketch list; Revolve face then works from a sketch with a picked edge as the axis.
+- **Emboss and Cut along surface on cylinders.** Owner: "Emboss/Cut along a surface appears to do what push/pull does when a cylindrical face is selected that's not a hole."
+  - [ ] On a cylinder that is not a hole the tools wrap the sketch region onto the surface (not push/pull); test.
+- **Stretch tool.** Owner: "Stretch tool doesn't work at all."
+  - [ ] Reproduce through the server path, fix, test.
+- **Face Draft pick axis.** Owner: "Draft pick axis sort of works but fails silently for some picked edges."
+  - [ ] Every picked edge works or the form says why it cannot, test.
+
 - Split `app/src/manipulator.ts` (762 lines): move arrows, grid grips and the turn arcs (drawing, hit test, snap ticks) are separate jobs; the turn arcs could move to their own file. Raised after the edge gizmo work; no owner request yet.
 
 - **White viewport after a symmetry constraint (bug, high priority: risk of lost work).** Owner: "While sketching I made a symmetry constraint and the entire background turned white and sketch axis origin and sketch geometry cannot be seen but dimensions are still visible. No error reported and otherwise the UI elements are there and allow editing. Clicking finish sketch did not resolve the issue. Refreshing the browser tab fixed, but we cannot rely on refreshing the browser tab which always poses a lost work risk becuase sometimes the project state doesn't restore to latest."

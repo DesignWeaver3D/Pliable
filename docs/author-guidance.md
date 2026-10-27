@@ -21,13 +21,9 @@ Rules for keeping it:
 
 ### Gizmos and handles that need a real mouse (hold the button down)
 
-- [ ] Inset face edges with a distance past the first overlap: drag the distance handle and watch the merged preview (the result itself is tested).
-- [ ] Push/pull: dragging the face arrow handle behaves like dragging the face (M or right-click edge measure, typed value, Shift symmetric); the arrow keeps tracking after a drag along a tilted direction; direction arcs lean the arrow with the angle label only while tilted; a slanted edge pick sets the direction.
-- [ ] Typed entry on a gizmo: hold a direction arc and type degrees (Enter applies, Escape cancels); hold the array cube grip and type columns, Tab, rows, Enter.
-- [ ] Arrays: linear grid grips (two spacing grips and a cube corner grip), circular array arc and count grips, Apply or Discard prompt when clicking away from an open array form.
-- [ ] Move/Rotate on straight edges (two arrows square to the edge and one arc that snaps to face normals; slanted and chamfer edges; preview speed), on sketches (rows or tinted regions; several sketches at once), and Move hole/boss arrows.
-- [ ] Round face edges, Divide face (edge grip, angle, grid), Resize chamfer two arrows (which neighbour is first is not labelled), Add prism handles (top and bottom diameter, sides cube riding the top rim).
-- [ ] Touch sizing on a real touch device.
+- [ ] Push/pull: dragging the face arrow handle behaves like dragging the face (M or right-click edge measure, typed value, Shift symmetric); a slanted edge pick sets the direction.
+- [ ] Move/Rotate on slanted and chamfer edges (single straight edges between planar faces pass), on sketches (rows or tinted regions; several sketches at once), and Move hole/boss arrows.
+- [ ] Round face edges, Divide face (edge grip, angle, grid).
 
 ### Sketch: drawing and dimensions (look and feel)
 
@@ -45,24 +41,28 @@ Rules for keeping it:
 - [ ] Ellipse arc tool: the five clicks (centre, long-axis end, short-radius point, start, end), the start and end direction, dragging an end along its ellipse, and Split on an ellipse (the cut point is marked only when hovered).
 - [ ] Fillet and Chamfer on a line and an arc, two arcs and a circle: first click a curve, second click the side (real-mouse feel of the two-curve pick).
 - [ ] Dimension and Horizontal / vertical drop lists (the small arrow beside each button) and the rule that only a click on empty space applies an open tool, with a real mouse on every tool card and gizmo.
-- [ ] Cut with plane: drag the arrow and tilt rings, pick a kept sketch and an origin plane, and the Side 1 / Side 2 colours; Fillet/Chamfer with edges selected: the Two distances chip (which side is first for edges on other faces).
+- [ ] Fillet/Chamfer with edges selected: the Two distances chip (which side is first for edges on other faces).
 - [ ] .ifc and .3dm in the native file dialogs: export both, open them in another program, import them back (IFC needs the optional IfcOpenShell extra; exports are lossy meshes/facets).
 - [ ] New sketch arc tools with a real mouse: Tangent arc, Arc by ends and radius, Start angle and Sweep fields, Circle and Arc tangent to curves; Round / Bevel corner on line-arc and arc-arc corners; Trim and Extend at ellipse and spline crossings (the last three were not clicked in the browser).
 - [ ] Sketch parity with a real mouse: Shift/Ctrl+click a kept sketch's curve chooses the sketch; snapping to sketch ends, centres and midpoints; Array along path and Sweep face with a chosen sketch (sweep tested in the core only); the View button starts a sketch square to the camera and the plane stays fixed after orbiting.
 - [ ] After the app split (selection, drag and preview, sketch solve code moved to new files): click, Ctrl-click and double-click selection, box select, push/pull and Move drags, and a sketch session with a real mouse feel and behave as before.
-- [ ] Cut with plane from 3 points, edge + point (neither clicked in the browser) and face offset/angle; Edit cut Length and Width grips on a square and a slot (tested in the core only).
+- [ ] Edit cut Length and Width grips on a slot (tested in the core only).
 - [ ] Newest user constraint wins: a constraint that repeats an automatic one removes the automatic row with a warning naming it.
 - [ ] Drag of a free line, circle or point (snaps, guides, nothing else moves).
 - [ ] Free circle: dragging its rim resizes it with the centre fixed, dragging its centre moves it; ellipse quadrant vertex rotates it with both construction lines live, and moving an ellipse feels smooth (checked only with synthetic pointer events).
 
 ### Model: faces, edges and selection (look and feel)
 
-- [ ] Measure (M) pressed right after pressing a face; measuring after other tools; Ctrl+double-click an edge with faces already selected keeps them; Shift+click shows the hint line.
+- [ ] Measure (M) pressed right after pressing a face; measuring after other tools; Ctrl+double-click an edge with faces already selected keeps them.
 - [ ] Selection feel: shift-select and the chips (what they are for), hard-to-hit small faces and edges, double-click chains that add non-tangent edges, box select with F, E, V filters and badge.
-- [ ] Hole work with a real mouse: Edit hole step depth grips (counterbore and countersink), the Sizes preset list, Edit cut (square and slot: move, resize and depth grips; the slot only has tests), pressing a hole centre dot, push/pull and drag on a hole whose wall is two faces, and the display precision setting in tool forms, labels and drag rounding.
-- [ ] Hole centre dots, per-tool applies-to chip (Resize hole also resizes same-size holes by default), Move hole/boss with several holes.
+- [ ] Hole work with a real mouse: the Sizes preset list, push/pull and drag on a hole whose wall is two faces, and the display precision setting in tool forms, labels and drag rounding.
 - [ ] Emboss and Cut along surface on a cylinder and a wrapped region; unrolled sketch on a cone, a flat-fillet-flat chain, and across a closed cylinder's seam.
-- [ ] Face Draft pivot (Pick axis, then an edge of its own face or another edge), and Cut with plane with its Remove side list and Pick plane.
 
 ### Decisions
 
+(none open; the session B review is in the plan, see progress.md "Review of 2026-10-26 session B")
+
+
+## Future
+
+- [ ] Touchpad and touch devices: the owner has none; general users test sizing and gestures and report back, and problems become rows.
