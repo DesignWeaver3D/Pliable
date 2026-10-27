@@ -60,7 +60,7 @@ export function parentBodies(data: Pick<MeshData, "faces" | "edges" | "vertices"
   return [...found];
 }
 
-/** Whether an item of kind `next` may be added (Shift or Ctrl+click) to a selection that starts with kind `first`: the same kind, or a face with an edge (Revolve face and Sweep need one of each). */
+/** Whether an item of kind `next` may be added (Shift or Ctrl+click) to a selection that starts with kind `first`: the same kind, or a face with an edge or a global axis (Revolve face and Sweep need one of each). */
 export function canJoinSelection(first: string, next: string): boolean {
-  return first === next || (["face", "edge"].includes(first) && ["face", "edge"].includes(next));
+  return first === next || (["face", "edge"].includes(first) && ["face", "edge"].includes(next)) || (["face", "axis"].includes(first) && ["face", "axis"].includes(next));
 }

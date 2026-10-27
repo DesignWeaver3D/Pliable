@@ -378,12 +378,15 @@ export class ToolPanel {
     if (edgeAxis && edgeAxis.length === 2 && this.host.pickEdgeId) {
       const pickEdge = document.createElement("button");
       pickEdge.textContent = "Pick axis edge";
-      pickEdge.title = "Click a straight edge (the copies turn about its line) or a circular edge (about the circle's axis) anywhere on the model";
+      pickEdge.title = "Click a straight edge (the axis is its line), a circular edge (the circle's axis) anywhere on the model, or a global axis";
       pickEdge.addEventListener("click", async () => {
         const id = await this.host.pickEdgeId!();
         if (id === null || this.open !== tool) return;
-        inputs[edgeAxis[0]].value = String(id);
-        inputs[edgeAxis[1]].value = "3"; // the choice list: picked edge
+        if (id <= -2) inputs[edgeAxis[1]].value = String(-2 - id); // a global axis: the choice list's X, Y or Z
+        else {
+          inputs[edgeAxis[0]].value = String(id);
+          inputs[edgeAxis[1]].value = "3"; // the choice list: picked edge
+        }
         this.schedulePreview(0);
       });
       buttons.before(pickEdge);

@@ -77,6 +77,7 @@ export class ReferenceView {
   setVisible(on: boolean) {
     this.shown = on;
     this.group.visible = on;
+    this.viewport.originAxisHalf = on ? this.half : 0;
   }
 
   /** Call every frame: follows the model's size and keeps line widths right. */
@@ -113,6 +114,7 @@ export class ReferenceView {
 
   private setHalf(half: number) {
     this.half = half;
+    if (this.shown) this.viewport.originAxisHalf = half;
     for (const line of this.lines) {
       const d = line.userData.dir as THREE.Vector3;
       const sign = line.userData.positive ? 1 : -1;

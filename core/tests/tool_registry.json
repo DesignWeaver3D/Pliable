@@ -20,6 +20,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -64,6 +68,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -102,6 +110,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -146,6 +158,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [],
@@ -176,6 +192,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -212,6 +232,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [],
@@ -244,6 +268,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -287,6 +315,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -348,6 +380,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -414,6 +450,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -511,6 +551,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -570,6 +614,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -649,6 +697,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -725,6 +777,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -766,6 +822,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -804,6 +864,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -866,6 +930,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -945,6 +1013,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [],
@@ -975,6 +1047,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -1086,6 +1162,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -1187,6 +1267,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -1227,6 +1311,10 @@
    "bodies": [
     0,
     null
+   ],
+   "axes": [
+    0,
+    0
    ],
    "any_of": false
   },
@@ -1324,6 +1412,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -1365,6 +1457,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [],
@@ -1398,6 +1494,10 @@
     0,
     null
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [],
@@ -1428,6 +1528,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -1525,6 +1629,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -1563,6 +1671,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -1627,6 +1739,10 @@
    "bodies": [
     0,
     null
+   ],
+   "axes": [
+    0,
+    0
    ],
    "any_of": false
   },
@@ -1708,6 +1824,10 @@
     0,
     null
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -1756,6 +1876,10 @@
     0,
     null
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -1794,6 +1918,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -1888,6 +2016,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -1999,6 +2131,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -2097,6 +2233,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -2215,6 +2355,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -2309,6 +2453,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -2358,14 +2506,14 @@
  {
   "id": "revolve_face",
   "label": "Revolve face",
-  "description": "Spins a face around a straight edge to add or cut a round shape. Select one face and one straight edge as the axis; mode 0 adds material, 1 cuts.",
+  "description": "Spins a face around a straight edge to add or cut a round shape. Select one face, then a straight edge or a global axis as the axis (or pick it after starting the tool); mode 0 adds material, 1 cuts.",
   "accepts": {
    "faces": [
     1,
     1
    ],
    "edges": [
-    1,
+    0,
     1
    ],
    "vertices": [
@@ -2375,6 +2523,10 @@
    "bodies": [
     0,
     0
+   ],
+   "axes": [
+    0,
+    1
    ],
    "any_of": false
   },
@@ -2390,6 +2542,25 @@
     "name": "mode",
     "kind": "number",
     "default": 0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "axis",
+    "kind": "number",
+    "default": 3,
+    "drag": false,
+    "options": [
+     "X axis",
+     "Y axis",
+     "Z axis",
+     "Picked edge"
+    ]
+   },
+   {
+    "name": "axis_edge",
+    "kind": "number",
+    "default": -1,
     "drag": false,
     "options": []
    }
@@ -2421,6 +2592,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -2479,6 +2654,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -2527,6 +2706,10 @@
     0,
     null
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": true
   },
   "params": [
@@ -2569,6 +2752,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -2641,6 +2828,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -2679,6 +2870,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -2723,6 +2918,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -2764,6 +2963,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -2802,6 +3005,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -2853,6 +3060,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -2900,6 +3111,10 @@
    "bodies": [
     0,
     null
+   ],
+   "axes": [
+    0,
+    0
    ],
    "any_of": false
   },
@@ -2995,6 +3210,10 @@
     0,
     null
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -3078,6 +3297,10 @@
     0,
     null
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -3119,6 +3342,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -3157,6 +3384,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -3212,6 +3443,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -3281,6 +3516,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],
@@ -3378,6 +3617,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": false
   },
   "params": [
@@ -3465,6 +3708,10 @@
     0,
     0
    ],
+   "axes": [
+    0,
+    0
+   ],
    "any_of": true
   },
   "params": [
@@ -3517,6 +3764,10 @@
     0
    ],
    "bodies": [
+    0,
+    0
+   ],
+   "axes": [
     0,
     0
    ],

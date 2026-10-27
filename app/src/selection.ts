@@ -123,7 +123,7 @@ export function createSelection(d: SelectionDeps) {
 
   function selectionPayload(sels: Sel[]) {
     const ids = (kind: Sel["kind"]) => sels.filter((s) => s.kind === kind).map((s) => s.id);
-    return { faces: ids("face"), edges: ids("edge"), vertices: ids("vertex"), bodies: ids("body"), ...(app.chosenSketch === null ? {} : { rail: app.chosenSketch }) }; // rail: the kept sketch chosen as a path
+    return { faces: ids("face"), edges: ids("edge"), vertices: ids("vertex"), bodies: ids("body"), axes: ids("axis"), ...(app.chosenSketch === null ? {} : { rail: app.chosenSketch }) }; // rail: the kept sketch chosen as a path
   }
 
   function describe(sels: Sel[]): string {
@@ -132,6 +132,8 @@ export function createSelection(d: SelectionDeps) {
       const name = (id: number) => (app.committed ? bodiesOf(app.committed).find((b) => b.id === id)?.name : undefined) ?? `body ${id}`;
       return sels.length === 1 ? name(sels[0].id) : `${sels.length} bodies`;
     }
+    const axes = sels.filter((s) => s.kind === "axis");
+    if (axes.length) return [describe(sels.filter((s) => s.kind !== "axis")), ...axes.map((s) => `${"XYZ"[s.id]} axis`)].filter(Boolean).join(" + "); // a global axis beside a face
     return sels.length === 1 ? `${sels[0].kind} ${sels[0].id}` : `${sels.length} ${sels[0].kind}s`;
   }
 
@@ -139,7 +141,7 @@ export function createSelection(d: SelectionDeps) {
   function mappedSelection(mesh: MeshData): Sel[] {
     const s = mesh.header.selection ?? {};
     const result: Sel[] = [];
-    for (const [key, kind] of [["faces", "face"], ["edges", "edge"], ["vertices", "vertex"], ["bodies", "body"]] as const) {
+    for (const [key, kind] of [["faces", "face"], ["edges", "edge"], ["vertices", "vertex"], ["bodies", "body"], ["axes", "axis"]] as const) {
       for (const id of s[key] ?? []) result.push({ kind, id });
     }
     return result;

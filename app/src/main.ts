@@ -1171,18 +1171,18 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       cancelEyedrop();
       if (app.committed) show(app.committed); // pick against the committed model, whose edge ids the core knows
       status.classList.remove("error");
-      status.textContent = "Pick the edge the copies turn about (a straight or circular edge; Esc cancels)";
+      status.textContent = "Pick the axis: a straight or circular edge, or a global axis (Esc cancels)";
       eyedropResolve = () => resolve(null);
       viewport.eyedropper = (sel) => {
-        if (sel.kind !== "edge") {
-          status.textContent = "Pick an edge (Esc cancels)";
+        if (sel.kind !== "edge" && sel.kind !== "axis") {
+          status.textContent = "Pick an edge or a global axis (Esc cancels)";
           status.classList.add("error");
           return; // stays armed
         }
         viewport.eyedropper = null;
         eyedropResolve = null;
-        status.textContent = "Axis edge picked";
-        resolve(sel.id);
+        status.textContent = "Axis picked";
+        resolve(sel.kind === "axis" ? -2 - sel.id : sel.id); // a global axis X, Y, Z is -2, -3, -4
       };
     });
   },
