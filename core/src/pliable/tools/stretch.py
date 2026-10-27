@@ -193,7 +193,18 @@ class Stretch(Tool):
             raise OperationError("Select faces that all belong to one solid")
         if mode == 1 and len(selected) != 1:
             raise OperationError("Insert takes one flat end face")
-        changed = stretch_solid(body, selected, offset) if mode == 0 else insert_solid(body, selected[0], offset)
+        if mode == 0:
+            try:
+                changed = stretch_solid(body, selected, offset)
+            except OperationError:
+                # A flat end moved straight along its normal gives the same shape whether the sides are re-fitted or the section is extruded,
+                # so when the sides cannot be re-fitted (curved neighbours, such as fillets) the extrusion is used instead of refusing.
+                normal = planar_normal(selected[0]) if len(selected) == 1 else None
+                if normal is None or (offset - gp_Vec(normal).Multiplied(gp_Vec(normal).Dot(offset))).Magnitude() > 1e-6:
+                    raise
+                changed = insert_solid(body, selected[0], offset)
+        else:
+            changed = insert_solid(body, selected[0], offset)
         from ..shared.solids import finish
         compound, builder = TopoDS_Compound(), BRep_Builder()
         builder.MakeCompound(compound)
