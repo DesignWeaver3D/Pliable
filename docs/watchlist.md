@@ -232,3 +232,4 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Pie slice angle grip (ui agent, 408fb3b): the grip follows the pointer's angle in the ring plane only; a view looking along the ring plane falls back to the straight-line drag; at 360 the end line coincides with the source line.
 - Countersink angle arc (ui agent, e252e9b): the grip sits on the cone's side line at its own length from the mouth, with a 4 mm minimum; the top-5 head angles list (82, 90, 100, 110, 120) was chosen without a source in the code.
 - Add slot depth grip (ui agent, 1bc9c82): with depth 0 (through) the grip starts at the face, so dragging it sets the depth from the face.
+- Gizmos for card parameters (2fd6de3 and earlier ui commits): Add hole depth grip for depth 0 uses the bounding box for the through depth; Resize fillet grip only for cylinder fillets (variable fillet end radius has none); Offset body arrow is always on the +X side.
