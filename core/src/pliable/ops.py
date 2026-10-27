@@ -200,14 +200,19 @@ def push_pull(
                 break
     if not owners:
         raise OperationError("This face is not part of a closed solid (the file has an open shell here), so push/pull can't work on it")
-    if len(owners) != 1:
-        raise OperationError("The selected faces belong to different solids; select faces of one solid")
-    index = owners.pop()
-    result = _push_pull(solids[index], face, distance, preview, follow_edges, follow_vertices, direction)
+    changed, results = {}, []
+    for index in sorted(owners):  # each solid is pushed or pulled on its own (faces of several solids, such as coplanar ones, move together)
+        own = [f for f in faces if _contains(solids[index], f)]
+        result = _push_pull(solids[index], own if len(own) > 1 else own[0], distance, preview, follow_edges if not results else None, follow_vertices if not results else None, direction)
+        changed[index] = result.shape
+        results.append(result)
+    result = results[0]
+    for other in results[1:]:
+        result.tracked_faces = result.tracked_faces + other.tracked_faces
     compound, builder = TopoDS_Compound(), BRep_Builder()
     builder.MakeCompound(compound)
     for i, solid in enumerate(solids):
-        builder.Add(compound, result.shape if i == index else solid)
+        builder.Add(compound, changed.get(i, solid))
     result.shape = compound
     return result
 

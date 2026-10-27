@@ -10,6 +10,7 @@ from OCP.BRep import BRep_Builder
 from pliable.document import Document
 from pliable.files import check_import
 from pliable.ops import OperationError, planar_normal, solids_of
+from pliable.relations import find_related
 from pliable.tools import TOOLS, Selection, Tool, get_tool
 from pliable.topology import Topology
 
@@ -262,3 +263,17 @@ def test_scale_rotate_offset_selected_body_only():
     _tool(session, "rotate_body", [_face_at(session, 24, 36)], {"axis": 2, "angle": 90})
     assert len(solids_of(session.document.current.shape)) == 2
     assert _centres(session) == [0.0, 0.0]
+
+
+def test_push_pull_moves_coplanar_faces_of_several_solids_together():
+    first = Topology(Box(10, 10, 10).wrapped)
+    both = Topology(get_tool("add_box").execute(first, Selection(), {"x": 30, "y": 0, "z": -5}, preview=False).shape)
+    tops = [i for i, face in both.faces() if planar_normal(face) is not None and planar_normal(face).Z() > 0.9]
+    related = find_related(both, tops[0])
+    chip = next(r for r in related if r["id"] == "coplanar")
+    assert chip["faces"] == [tops[1]]
+    selection = Selection(faces=[tops[0], *chip["faces"]])
+    assert get_tool("push_pull").available(both, selection)
+    pulled = get_tool("push_pull").execute(both, selection, {"distance": 4}, preview=False)
+    assert count_solids(pulled.shape) == 2
+    assert volume(pulled.shape) == pytest.approx(2000 + 2 * 400)
