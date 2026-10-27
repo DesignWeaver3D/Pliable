@@ -7,9 +7,9 @@ from OCP.BRepPrimAPI import BRepPrimAPI_MakeRevol
 from OCP.GeomAbs import GeomAbs_Line
 from OCP.gp import gp_Ax1
 
-from ..ops import OperationError
+from ..ops import _contains, _faces_of, OperationError, solids_of
 from ..shared.arrayaxis import AXIS_CHOICES, array_axis
-from ..shared.solids import _combine, _volume, finish
+from ..shared.solids import _combine, _compound, _volume, finish
 from ..tools import Accepts, Param, register, Tool
 
 
@@ -58,7 +58,16 @@ class RevolveFace(Tool):
         if not revolved.IsDone():
             raise OperationError("The face cannot be revolved around that axis (the axis must not cross the face)")
         before = _volume(topology.shape)
-        result = _combine(topology.shape, revolved.Shape(), fuse=mode == 0)
+        solids = solids_of(topology.shape)
+        loose = [f for f in _faces_of(topology.shape) if not any(_contains(solid, f) for solid in solids)]  # sketch regions picked as faces
+        if solids:  # booleans run on the solids alone; the other loose faces are put back afterwards (the picked one is used up)
+            result = _combine(_compound(solids), revolved.Shape(), fuse=mode == 0)
+        elif mode == 0:
+            result = revolved.Shape()
+        else:
+            raise OperationError("There is no solid to cut")
+        if loose:
+            result = _compound([result, *[f for f in loose if not f.IsSame(face)]])
         if abs(_volume(result) - before) < 1e-9:
             raise OperationError("Revolving changed nothing: the swept volume is already inside or outside the model")
         return finish(result)

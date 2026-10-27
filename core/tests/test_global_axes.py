@@ -52,3 +52,18 @@ def test_revolve_face_without_an_axis_says_what_is_missing():
     with pytest.raises(Exception, match="Pick the axis"):
         s.handle({"type": "tool_commit", "tool": "revolve_face", "selection": {"faces": [top]}, "params": {"angle": 90}})
 
+
+
+def test_revolve_a_picked_sketch_region_about_a_global_axis():
+    from test_sketch_store import header, make
+
+    from pliable.ops import solids_of
+
+    s = Session()
+    s.handle({"type": "open_demo", "name": "block"})
+    s.handle({"type": "sketch_keep", "sketch": make(s, 10, x0=500), "regions": False})  # a square at x 500 to 510 in the XY plane
+    face = header(s.handle({"type": "sketch_regions", "sketch_id": 1, "region": 0}))["selection"]["faces"]
+    assert "revolve_face" in _tools(s, {"faces": face, "axes": [1]})
+    before = len(solids_of(s.document.current.shape))
+    s.handle({"type": "tool_commit", "tool": "revolve_face", "selection": {"faces": face, "axes": [1]}, "params": {"angle": 360}})
+    assert len(solids_of(s.document.current.shape)) == before + 1

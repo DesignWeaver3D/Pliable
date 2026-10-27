@@ -49,7 +49,8 @@ export function createSelection(d: SelectionDeps) {
       return;
     }
     if (d.toolPanel.isOpen && clickAway(sels) === "ignore") { viewport.selectItems(app.currentSels); return; } // another item: the open tool card stays as it is
-    if (app.pendingProfile && (app.committed !== app.pendingProfile.mesh || sels.length !== app.pendingProfile.faces.length || sels.some((s) => s.kind !== "face" || !app.pendingProfile!.faces.includes(s.id)))) {
+    // The picked region stays a pick while it is still selected, alone or with an edge or global axis added to it (Revolve face from a sketch).
+    if (app.pendingProfile && (app.committed !== app.pendingProfile.mesh || !app.pendingProfile.faces.every((f) => sels.some((s) => s.kind === "face" && s.id === f)) || sels.some((s) => s.kind === "face" ? !app.pendingProfile!.faces.includes(s.id) : s.kind !== "edge" && s.kind !== "axis"))) {
       if (app.committed === app.pendingProfile.mesh && !d.toolPanel.isOpen) void dropPendingProfile(); // clicked away from the picked region: it was only a pick
       else app.pendingProfile = null; // a tool used it, or the history moved on
     }
