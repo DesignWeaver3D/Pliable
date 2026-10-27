@@ -220,3 +220,32 @@ def test_defeature_gives_the_same_result_as_remove_round_and_fill_hole_on_the_br
         assert volume(got.shape) == pytest.approx(volume(expected.shape), rel=1e-9)
         checked += 1
     assert checked >= 6
+
+
+def concentric(topology, **values):
+    base = {"count": 6, "rings": 2, "spacing": 20, "grow": 0, "axis": 2, "axis_edge": -1}
+    base.update(values)
+    return get_tool("concentric_array").execute(topology, Selection(), base, preview=False)
+
+
+def test_concentric_array_has_a_gizmo_for_every_number():
+    topology = block()
+    handles = get_tool("concentric_array").handles(topology, Selection(), {"count": 6, "rings": 3, "spacing": 20, "grow": 2, "axis": 2, "axis_edge": -1})
+    assert [h.param for h in handles] == ["spacing", "count", "rings", "grow"]
+    assert [h.badge for h in handles] == [False, True, True, True]
+
+
+def test_concentric_array_makes_rings_of_copies_and_checks_its_numbers():
+    from pliable.topology import Topology as T
+    block_topology = block()
+    one_ring = concentric(block_topology, count=1, rings=1)
+    assert one_ring.shape is not None  # the source alone
+    base = concentric(block_topology, count=2, rings=1, spacing=50)
+    more = concentric(block_topology, count=2, rings=2, spacing=50)
+    assert T(more.shape).face_count >= T(base.shape).face_count
+    with pytest.raises(OperationError):
+        concentric(block_topology, rings=0)
+    with pytest.raises(OperationError):
+        concentric(block_topology, rings=2, spacing=0)
+    with pytest.raises(OperationError):
+        concentric(block_topology, count=100, rings=3, grow=50)

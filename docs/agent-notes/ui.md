@@ -23,3 +23,7 @@
 - Click on empty space now applies an open array (no Apply/Discard question; picking another tool while an array is open still asks). behavior.md line updated. Other tool cards already applied on empty clicks.
 - Hand-check: dragging the pie grip round with a real mouse past 180 degrees to 360; double-click typing.
 - Checked in Chrome: pie at 120 deg, count badge wheel.
+
+## Task 6 Concentric array
+- New tool concentric_array (strip: Solids after Circular array; same icon). Decision (hierarchy: common practice in direct modelers for polar/radial patterns): parameters count (positions on the first ring, source included), rings (default 2), spacing (radial step, mm), grow (extra positions added to each outer ring; 0 = same count, set >0 to keep the arc spacing roughly even), axis and picked edge as the circular array. Ring k sits spacing*k out along the line from the axis to the source. Gizmos: spacing arrow at ring 1; count, rings and grow are wheel/typed badges over the source, the outermost ring and ring 1. Total copies limited to 200. Not recorded in decisions-log (edit by orchestrator).
+- Hand-check: badges legible when close together (grow and count overlap when spacing is small).

@@ -1,5 +1,5 @@
 /** The question asked when something outside an array form is clicked while the array is still only a preview. */
-const ARRAY_TOOLS = new Set(["linear_array", "circular_array", "path_array"]);
+const ARRAY_TOOLS = new Set(["linear_array", "circular_array", "concentric_array", "path_array"]);
 
 export function isArrayTool(id: string | null): boolean {
   return id !== null && ARRAY_TOOLS.has(id);
