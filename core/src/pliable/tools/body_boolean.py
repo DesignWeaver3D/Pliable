@@ -54,8 +54,9 @@ class BodyBoolean(Tool):
                 merged = _combine(merged, tool, fuse=mode == 0)
                 if _volume(merged) < 1e-9:
                     raise OperationError("The result would be empty")
-        if mode == 0:
-            merged = group([merged])  # a union of solids that do not touch stays one compound body
+        if mode in (0, 2):
+            merged = group([merged])  # a union of solids that do not touch, or an overlap in several pieces, is one compound body
+        # Subtract: pieces of a cut stay separate bodies, except that a compound body stays one (Tool.execute keeps it).
         compound, builder = TopoDS_Compound(), BRep_Builder()
         builder.MakeCompound(compound)
         builder.Add(compound, merged)
