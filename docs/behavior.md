@@ -15,6 +15,8 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Relationship chips (coplanar, equal radius and so on) are off by default, with All/None and Parallel/Symmetric. Resize hole also resizes same-size holes.
 - See-through is the X key; repeated click or Alt+click cycles faces behind.
 - Selecting a body in the 3D view scrolls its row into view in the bodies list.
+- A global axis can be clicked in the view when no vertex, edge or nearer face is under the pointer, and joined to a face with Ctrl+click; Revolve face then turns the face about it. Revolve face needs only a face; the axis can be chosen in its form. (owner, 2026-10-26)
+- In measure mode, a double-click on a candidate acts as a pick and starts no other tool. (decided, 2026-10-26)
 
 ## Navigation and view
 

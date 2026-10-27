@@ -58,6 +58,7 @@ Rules for keeping it:
 ### Model: faces, edges and selection (look and feel)
 
 - [ ] Measure (M) pressed right after pressing a face; measuring after other tools; Ctrl+double-click an edge with faces already selected keeps them.
+- [ ] Click an X/Y/Z axis line near the model (it highlights; nearer faces and edges win); pick a sketch region and Ctrl+click an edge or axis (the region stays picked, Revolve face runs); Revolve face with only a face and its Axis list; Draft > Pick axis near an edge end; press M while dragging push/pull and double-click a candidate (nothing else starts). Stretch: send me the part where it fails.
 - [ ] Selection feel: shift-select and the chips (what they are for), hard-to-hit small faces and edges, double-click chains that add non-tangent edges, box select with F, E, V filters and badge.
 - [ ] Hole work with a real mouse: the Sizes preset list, push/pull and drag on a hole whose wall is two faces, and the display precision setting in tool forms, labels and drag rounding.
 - [ ] Emboss and Cut along surface on a cylinder and a wrapped region; unrolled sketch on a cone, a flat-fillet-flat chain, and across a closed cylinder's seam.

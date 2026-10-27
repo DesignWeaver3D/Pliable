@@ -19,30 +19,16 @@ Tool group UI (follow-up):
 - **Gizmo for every card parameter (global rule).** Owner: "For each parameter in the card, there should be an associated gizmo (this is a global tool behavior)."
   - [ ] Parameters still without a gizmo (probe found, check with a selection): pattern hole and circular pattern hole, add hole / boss parameters and Add countersink (new hole), path array count, mirror offset, stretch, shell thickness, offset body distance, chamfer distance and angle, resize hole / fillet / chamfer, revolve face angle, circular array axis choices. Decide per tool which are real parameters needing a handle.
 
-Tool group CORE (selection, kernel, performance):
+Tool group CORE (follow-up):
 
-- **Slower 3D interaction (bug, high priority).** Owner: "The latest changes have caused the overall 3D view interaction to become slower. Available tool buttons take longer to populate and so do selection widgets."
-  - [ ] Profile selecting faces and edges (tool strip availability and selection widgets) on a large model; find the commits that slowed it and fix the cause; add a timing test where it can run without a browser.
-- **Measure (M) hint and double-click.** Owner: "push/pull measure (M): I don't understand what the shift-click shows hint line is supposed to mean. Double-click a measure candidate exited the push/pull operation and started a chamfer/fillet on that edge. I don't know what the double-click was trying to acheive."
-  - [ ] Read behavior.md first. Decision to apply unless it conflicts: in measure mode a double-click on a candidate acts as a pick (no other tool starts); the Shift+click hint is reworded to say what it does in plain words or removed.
-- **Coplanar chip on several solids.** Owner: "Coplanar chip selection does not work on multiple solids but it should."
-  - [ ] Coplanar selection adds the coplanar faces of every solid, test.
 - **Union of separate bodies.** Owner: "Boolean union on non-overlapping bodies should convert it to a compound body."
-  - [ ] Union with no overlap yields one compound body, test.
-- **Global axes.** Owner: "Global axes are not selectable."
-  - [ ] Global axes can be picked and used as an axis input by tools.
-- **Revolve face without an axis.** Owner: "Select a face should enable Revolve face tool even if no axis is selected and user can select the axis after starting the tool."
-  - [ ] Revolve face available with a face only; axis picked after the tool starts.
-- **Sketch faces and edges.** Owner: "Selecting a sketch area face doesn't allow Ctrl+click to add an edge to selection. Therefore cannot test Revolve face tool using a sketch. Cannot select the entire sketch in Sketch list and add edge to selection either."
-  - [ ] Ctrl+click adds an edge to a selected sketch area; the same with a whole sketch chosen in the Sketch list; Revolve face then works from a sketch with a picked edge as the axis.
-- **Emboss and Cut along surface on cylinders.** Owner: "Emboss/Cut along a surface appears to do what push/pull does when a cylindrical face is selected that's not a hole."
-  - [ ] On a cylinder that is not a hole the tools wrap the sketch region onto the surface (not push/pull); test.
-- **Stretch tool.** Owner: "Stretch tool doesn't work at all."
-  - [ ] Reproduce through the server path, fix, test.
-- **Face Draft pick axis.** Owner: "Draft pick axis sort of works but fails silently for some picked edges."
-  - [ ] Every picked edge works or the form says why it cannot, test.
-
-- Split `app/src/manipulator.ts` (762 lines): move arrows, grid grips and the turn arcs (drawing, hit test, snap ticks) are separate jobs; the turn arcs could move to their own file. Raised after the edge gizmo work; no owner request yet.
+  - [ ] Union with no overlap yields one compound body. A body is exactly one solid today (BodyState parallel to solids_of; many callers): decide how a body holds several solids (one list row, one id), build it, test.
+- **Whole sketch plus edge.** Owner: "Cannot select the entire sketch in Sketch list and add edge to selection either." (a picked region plus an edge or axis works.)
+  - [ ] Choosing a whole sketch in the Sketch list and adding an edge or axis: decide the rule (the sketch's region faces become the faces to revolve), build, test.
+- **Emboss and Cut along surface on a cylinder.** Owner: "Emboss/Cut along a surface appears to do what push/pull does when a cylindrical face is selected that's not a hole." (a whole round wall now refuses with an explanation.)
+  - [ ] Wrap a chosen sketch region onto the cylinder wall (the unrolled-sketch patch workflow stays), test.
+- **Stretch on parts with curved neighbours.** Owner: "Stretch tool doesn't work at all." (Not reproduced on simple solids; a straight flat-end move now falls back to extruding.)
+  - [ ] Find the owner's failing case if it recurs; ask for the part.
 
 - **White viewport after a symmetry constraint (bug, high priority: risk of lost work).** Owner: "While sketching I made a symmetry constraint and the entire background turned white and sketch axis origin and sketch geometry cannot be seen but dimensions are still visible. No error reported and otherwise the UI elements are there and allow editing. Clicking finish sketch did not resolve the issue. Refreshing the browser tab fixed, but we cannot rely on refreshing the browser tab which always poses a lost work risk becuase sometimes the project state doesn't restore to latest."
   - [ ] (In progress: not reproduced with two lines about a line or point, a core fuzz of 1500 symmetric sketches gave no NaN; the loop is now guarded and shows a status error if a frame part throws, so the next occurrence names the cause.) Find the cause. Likely a render failure in the 3D view (for example a NaN or invalid value in the symmetry constraint's geometry, or a lost WebGL context) while the HTML dimension labels keep working; check the browser console and the symmetry constraint code path.
