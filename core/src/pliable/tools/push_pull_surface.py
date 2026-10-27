@@ -1,6 +1,10 @@
 """The Emboss/Cut along surface tool."""
 
-from ..ops import planar_normal, push_pull
+import math
+
+from OCP.BRepTools import BRepTools
+
+from ..ops import OperationError, planar_normal, push_pull
 from .base import Accepts, Param, register, Tool
 
 
@@ -21,6 +25,22 @@ class PushPullSurface(Tool):
 
     def run(self, topology, selection, values, preview):
         faces = [topology.face(i) for i in selection.faces]
+        if any(_goes_all_the_way_round(f) for f in faces):
+            raise OperationError(
+                "This face goes all the way round, so raising or cutting it only changes its radius, which is what Push/Pull does. "
+                "To emboss or cut a pattern, sketch it on the unrolled face (Sketch on geometry), pick the pattern's patch and use this tool on that"
+            )
         result = push_pull(topology.shape, faces if len(faces) > 1 else faces[0], values["distance"], preview=preview)
         result.tracked_faces = result.tracked_faces[:1]
         return result
+
+
+def _goes_all_the_way_round(face) -> bool:
+    """True for a whole cylinder or cone wall (a full turn), which is not a pattern wrapped onto it."""
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder
+
+    if BRepAdaptor_Surface(face).GetType() not in (GeomAbs_Cylinder, GeomAbs_Cone):
+        return False
+    u0, u1, _, _ = BRepTools.UVBounds_s(face)
+    return u1 - u0 > 2 * math.pi - 1e-6

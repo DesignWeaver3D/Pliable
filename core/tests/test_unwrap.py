@@ -304,3 +304,18 @@ def _kind_is_cylinder(face):
 def _is_vertical_flat(face):
     surface = BRepAdaptor_Surface(face)
     return unwrap._kind(face) == unwrap.GeomAbs_Plane and abs(surface.Plane().Axis().Direction().Z()) < 1e-6
+
+
+def test_embossing_a_whole_round_wall_says_it_is_push_pull_and_how_to_wrap():
+    import pytest
+    from build123d import Cylinder
+
+    from pliable.ops import OperationError
+    from pliable.server import Session
+
+    session = Session()
+    session._open(Cylinder(10, 20).wrapped, "boss")
+    topology = session.document.current
+    (side,) = _faces_of(topology, GeomAbs_Cylinder)
+    with pytest.raises(OperationError, match="Push/Pull"):
+        session.handle({"type": "tool_commit", "tool": "push_pull_surface", "selection": {"faces": [side]}, "params": {"distance": 2}})
