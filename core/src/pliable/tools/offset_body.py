@@ -1,9 +1,9 @@
 """The Offset body tool."""
 
 from ..ops import MIN_DISTANCE, OperationError, OpResult
-from ..shared.bodies import _on_bodies
+from ..shared.bodies import _body_bounds, _on_bodies
 from ..shared.solids import finish, TOL
-from ..tools import Accepts, Param, register, Tool
+from ..tools import Accepts, Handle, Param, register, Tool
 
 
 @register
@@ -17,6 +17,12 @@ class OffsetBody(Tool):
     description = "Grows (positive) or shrinks (negative) a solid evenly in all directions. Select bodies, any face of the solid, or nothing for the whole model."
     accepts = Accepts(faces=(0, None), bodies=(0, None))
     params = [Param("distance", "length", 1)]
+
+    def handles(self, topology, selection, values):
+        # One arrow on the +X side of the chosen solids: that side moves out by exactly the distance.
+        lo, hi = _body_bounds(topology, selection)
+        d = values["distance"]
+        return [Handle("distance", "Offset distance", (hi[0] + d, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2), (1.0, 0.0, 0.0))]
 
     def run(self, topology, selection, values, preview):
         from OCP.BRepOffsetAPI import BRepOffsetAPI_MakeOffsetShape

@@ -3,9 +3,9 @@
 from OCP.BRepOffsetAPI import BRepOffsetAPI_MakeThickSolid
 from OCP.collections import List_TopoDS_Shape
 
-from ..ops import MIN_DISTANCE, OperationError
+from ..ops import MIN_DISTANCE, OperationError, planar_normal
 from ..shared.solids import _volume, finish, TOL
-from ..tools import Accepts, Param, register, Tool
+from ..tools import Accepts, Handle, Param, register, Tool
 
 
 @register
@@ -17,6 +17,27 @@ class Shell(Tool):
     description = "Hollows out the solid, leaving the selected faces open. Select the faces to open; the wall thickness grows inward."
     accepts = Accepts(faces=(1, None))
     params = [Param("thickness", "length", 2)]
+
+    def handles(self, topology, selection, values):
+        # One grip on the rim of the first opened flat face, sliding into that face: the wall thickness shows as the distance from the rim.
+        from build123d import Face
+
+        shape = topology.face(selection.faces[0])
+        normal = planar_normal(shape)
+        if normal is None:
+            return []
+        face = Face(shape)
+        wire = face.outer_wire()
+        p, t = wire.position_at(0.0), wire.tangent_at(0.0)
+        n = (normal.X(), normal.Y(), normal.Z())
+        side = (n[1] * t.Z - n[2] * t.Y, n[2] * t.X - n[0] * t.Z, n[0] * t.Y - n[1] * t.X)
+        length = sum(c * c for c in side) ** 0.5 or 1.0
+        side = tuple(c / length for c in side)
+        centre = face.center()
+        if (centre.X - p.X) * side[0] + (centre.Y - p.Y) * side[1] + (centre.Z - p.Z) * side[2] < 0:
+            side = tuple(-c for c in side)
+        d = values["thickness"]
+        return [Handle("thickness", "Wall thickness", (p.X + side[0] * d, p.Y + side[1] * d, p.Z + side[2] * d), side, min=MIN_DISTANCE)]
 
     def run(self, topology, selection, values, preview):
         thickness = values["thickness"]

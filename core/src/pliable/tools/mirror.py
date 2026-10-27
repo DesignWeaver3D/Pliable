@@ -4,10 +4,10 @@ from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
 from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 
 from ..ops import OperationError
-from ..shared.bodies import _chosen_solids
+from ..shared.bodies import _body_bounds, _chosen_solids
 from ..shared.faces import _PlanarFace, _plane_axes
 from ..shared.solids import _combine, _compound, finish
-from ..tools import Accepts, Param, Selection, register
+from ..tools import Accepts, Handle, Param, Selection, register
 
 PLANE_CHOICES = ("Selected face", "XY origin plane", "XZ origin plane", "YZ origin plane", "Picked plane")  # the value is the index
 ORIGIN_NORMALS = {1: (0, 0, 1), 2: (0, 1, 0), 3: (1, 0, 0)}
@@ -53,6 +53,18 @@ class Mirror(_PlanarFace):
         if direction.Magnitude() < 1e-9:
             raise OperationError("The picked plane has no direction")
         return gp_Pnt(values["px"], values["py"], values["pz"]), gp_Dir(direction)
+
+    def handles(self, topology, selection, values):
+        # One arrow along the plane's normal, on the plane where it is nearest the bodies' middle; it follows the offset.
+        try:
+            centre, normal = self._plane(topology, selection, values)
+        except OperationError:
+            return []
+        lo, hi = _body_bounds(topology, Selection(bodies=selection.bodies))
+        middle = gp_Vec(gp_Pnt(*((a + b) / 2 for a, b in zip(lo, hi))), centre)
+        n = gp_Vec(normal)
+        foot = gp_Pnt(*((a + b) / 2 for a, b in zip(lo, hi))).Translated(n.Multiplied(middle.Dot(n) + values["offset"]))
+        return [Handle("offset", "Mirror plane offset", (foot.X(), foot.Y(), foot.Z()), (normal.X(), normal.Y(), normal.Z()))]
 
     def run(self, topology, selection, values, preview):
         centre, normal = self._plane(topology, selection, values)

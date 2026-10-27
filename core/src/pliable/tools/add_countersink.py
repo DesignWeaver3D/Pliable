@@ -5,10 +5,11 @@ import math
 from OCP.BRepPrimAPI import BRepPrimAPI_MakeCone
 from OCP.gp import gp_Ax2, gp_Vec
 
-from ..ops import OperationError
+from ..ops import MIN_DISTANCE, OperationError
 from ..shared.hole_edit import _entered_diameter, SIZE_BY
 from ..shared.hole_groups import _HoleOnFace
-from ..tools import Param, register
+from ..shared.newhole_handles import cone_angle_handle, diameter_handles
+from ..tools import Handle, Param, register
 
 
 @register
@@ -19,6 +20,16 @@ class AddCountersink(_HoleOnFace):
     label = "Add countersink"
     description = "Drills a hole with a cone-shaped opening for a flat-head screw. Select one flat face; depth 0 = through."
     params = _HoleOnFace.params + [Param("sink_by", "number", 0, options=SIZE_BY), Param("sink_diameter", "length", 12), Param("sink_offset", "length", 3), Param("sink_angle", "angle", 90)]
+
+    def extra_handles(self, frame, values, depth):
+        # The cone's width (its diameter, or how far it reaches past the hole, as the size-by list chooses) and its angle, as on Add countersink to hole.
+        sink = _entered_diameter(values, "sink_by", "sink_diameter", "sink_offset", values["diameter"])
+        if int(round(values["sink_by"])) == 1:
+            reach = tuple(c + u * sink / 2 for c, u in zip(frame.start, frame.u))
+            out = [Handle("sink_offset", "Countersink offset", reach, frame.u, min=MIN_DISTANCE)]
+        else:
+            out = diameter_handles(frame, "sink_diameter", "Countersink", values["sink_diameter"], min=values["diameter"] + MIN_DISTANCE)
+        return out + cone_angle_handle(frame, values["diameter"], sink, values["sink_angle"])
 
     def extra_cutters(self, start, normal, values, depth, margin):
         sink = _entered_diameter(values, "sink_by", "sink_diameter", "sink_offset", values["diameter"])

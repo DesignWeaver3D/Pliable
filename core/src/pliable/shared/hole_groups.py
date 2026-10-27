@@ -105,6 +105,17 @@ class _HoleOnFace(_PlanarFace):
     accepts = Accepts(faces=(1, 1))
     params = [Param("diameter", "length", 6), Param("depth", "length"), Param("offset_u", "length"), Param("offset_v", "length")]
 
+    def extra_handles(self, frame, values: dict, depth: float) -> list:
+        """Handles for the parameters of the tool beyond the bore's own; `depth` is the bore's real depth."""
+        return []
+
+    def handles(self, topology, selection, values):
+        from .newhole_handles import depth_handle, diameter_handles, Frame, position_handles, through_depth
+
+        frame = Frame(topology.face(selection.faces[0]), values)
+        depth = values["depth"] if values["depth"] > MIN_DISTANCE else through_depth(topology.shape, frame)
+        return [*diameter_handles(frame, "diameter", "Hole", values["diameter"]), depth_handle(frame, "depth", "Hole depth (end = through)", depth), *position_handles(frame, depth), *self.extra_handles(frame, values, depth)]
+
     def extra_cutters(self, start: gp_Pnt, normal: gp_Dir, values: dict, depth: float, margin: float) -> list[TopoDS_Shape]:
         """Shapes to cut besides the main bore; `start` is on the face plane, `margin` the lead-in above it."""
         return []
