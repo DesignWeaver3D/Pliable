@@ -149,6 +149,17 @@ def test_revolve_face_pie_grip_rides_the_ring_of_the_face_middle():
     assert dist(quarter.anchor, half.anchor) == pytest.approx(2 * 20 * math.sin(math.radians(45)))  # a quarter turn further round the ring
 
 
+def test_revolve_face_pie_grip_follows_the_axis_chosen_in_the_form():
+    topology = block()
+    top = max(range(topology.face_count), key=lambda i: measure(topology, Selection(faces=[i]))["items"][0]["anchor"][2])
+    tool = get_tool("revolve_face")
+    from_form = tool.handles(topology, Selection(faces=[top]), {"angle": 90, "mode": 0, "axis": 1, "axis_edge": -1})  # the Y axis from the form's buttons
+    from_selection = tool.handles(topology, Selection(faces=[top], axes=[1]), {"angle": 90, "mode": 0})
+    assert len(from_form) == 1 and from_form[0].pie and from_form[0].axis in ((0.0, 1.0, 0.0), (0.0, -1.0, 0.0))
+    assert from_form[0].anchor == pytest.approx(from_selection[0].anchor)
+    assert tool.handles(topology, Selection(faces=[top]), {"angle": 90, "mode": 0, "axis": 3, "axis_edge": -1}) == []  # no axis picked yet
+
+
 def test_path_array_count_badge_sits_at_the_start_of_the_path():
     topology = block()
     tool = get_tool("path_array")

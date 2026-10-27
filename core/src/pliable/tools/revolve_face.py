@@ -49,8 +49,13 @@ class RevolveFace(Tool):
 
     def handles(self, topology, selection, values):
         # A pie-slice grip like the circular array's: the ring the face's middle travels on, from the face (0) to the sweep angle.
-        line = BRepAdaptor_Curve(topology.edge(selection.edges[0])).Line()
-        direction, origin = line.Direction(), line.Location()
+        if not selection.faces:
+            return []
+        try:
+            axis = self._axis(topology, selection, values)  # a selected edge or global axis, or the form's choice
+        except OperationError:
+            return []
+        direction, origin = axis.Direction(), axis.Location()
         centre = face_handle_point(topology.face(selection.faces[0]))
         along = gp_Vec(origin, centre).Dot(gp_Vec(direction))
         foot = origin.Translated(gp_Vec(direction).Multiplied(along))
