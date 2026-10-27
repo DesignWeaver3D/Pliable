@@ -55,7 +55,7 @@ export interface ToolPanelHost {
 }
 
 const PREVIEW_DELAY_MS = 150;
-const UNITS: Record<string, string> = { length: "mm", angle: "Â°", number: "" };
+const UNITS: Record<string, string> = { length: "mm", angle: "°", number: "" };
 /** Form fields whose bare name is unclear: a fuller label and a tooltip. */
 const PARAM_HELP: Record<string, { label: string; title: string }> = {
   axis_edge: { label: "axis edge (id, set by Pick axis edge)", title: "The edge the copies turn about when the axis is Picked edge; use the Pick axis edge button rather than typing." },
