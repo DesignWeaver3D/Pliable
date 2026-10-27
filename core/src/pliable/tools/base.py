@@ -24,7 +24,7 @@ Writing a tool:
 
 from dataclasses import dataclass, field
 
-from ..ops import OperationError, OpResult, unify_result
+from ..ops import OperationError, OpResult, keep_compound, unify_result
 from ..topology import Topology
 
 
@@ -351,6 +351,7 @@ class Tool:
             result = self.run(topology, selection, values, preview)
             if not result.unified and result.shape is not topology.shape:
                 result = unify_result(result)  # tools that skip finish() still leave no redundant faces or edges
+            result.shape = keep_compound(topology.shape, result.shape)
             return result
         except OperationError:
             raise

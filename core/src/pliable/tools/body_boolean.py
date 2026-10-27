@@ -3,7 +3,7 @@
 from OCP.BRep import BRep_Builder
 from OCP.TopoDS import TopoDS_Compound
 
-from ..ops import OperationError, solids_of
+from ..ops import OperationError, group, solids_of
 from ..shared.bodies import _chosen_solids
 from ..shared.solids import _combine, _volume, finish
 from ..tools import Accepts, Param, register, Tool
@@ -54,6 +54,8 @@ class BodyBoolean(Tool):
                 merged = _combine(merged, tool, fuse=mode == 0)
                 if _volume(merged) < 1e-9:
                     raise OperationError("The result would be empty")
+        if mode == 0:
+            merged = group([merged])  # a union of solids that do not touch stays one compound body
         compound, builder = TopoDS_Compound(), BRep_Builder()
         builder.MakeCompound(compound)
         builder.Add(compound, merged)

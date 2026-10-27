@@ -14,7 +14,7 @@ from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.BRepBndLib import BRepBndLib
 from OCP.BRepMesh import BRepMesh_IncrementalMesh
 from OCP.GCPnts import GCPnts_TangentialDeflection
-from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID, TopAbs_VERTEX
+from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED, TopAbs_VERTEX
 from OCP.TopExp import TopExp, TopExp_Explorer
 from OCP.TopLoc import TopLoc_Location
 from OCP.TopoDS import TopoDS, TopoDS_Shape
@@ -283,15 +283,13 @@ def _solid_indices(topology: Topology) -> tuple[dict, dict, dict]:
     maps = (IndexedMap(), IndexedMap(), IndexedMap())
     kinds = (TopAbs_FACE, TopAbs_EDGE, TopAbs_VERTEX)
     owner = ({}, {}, {})
-    solids = TopExp_Explorer(topology.shape, TopAbs_SOLID)
     number = 0
-    while solids.More():
+    for solid in solids_of(topology.shape):
         for table, indexed, kind in zip(owner, maps, kinds):
             before = indexed.Extent()
-            TopExp.MapShapes_s(solids.Current(), kind, indexed)
+            TopExp.MapShapes_s(solid, kind, indexed)
             table.update(dict.fromkeys(range(before, indexed.Extent()), number))
         number += 1
-        solids.Next()
     if (maps[0].Extent(), maps[1].Extent(), maps[2].Extent()) != (topology.face_count, topology.edge_count, topology.vertex_count):
         return _solid_indices_by_lookup(topology)
     return owner
@@ -302,18 +300,16 @@ def _solid_indices_by_lookup(topology: Topology) -> tuple[dict, dict, dict]:
     owner = ({}, {}, {})
     lookups = (topology.face_id, topology.edge_id, topology.vertex_id)
     kinds = (TopAbs_FACE, TopAbs_EDGE, TopAbs_VERTEX)
-    solids = TopExp_Explorer(topology.shape, TopAbs_SOLID)
     number = 0
-    while solids.More():
+    for solid in solids_of(topology.shape):
         for table, lookup, kind in zip(owner, lookups, kinds):
-            sub = TopExp_Explorer(solids.Current(), kind)
+            sub = TopExp_Explorer(solid, kind)
             while sub.More():
                 sub_id = lookup(sub.Current())
                 if sub_id is not None:
                     table.setdefault(sub_id, number)
                 sub.Next()
         number += 1
-        solids.Next()
     return owner
 
 
