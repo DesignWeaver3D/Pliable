@@ -50,7 +50,7 @@
  {
   "id": "push_pull_surface",
   "label": "Emboss/Cut along surface",
-  "description": "Raises or cuts curved faces along their surface normal, for example a pattern drawn on unrolled faces. Select curved faces and type a distance; positive raises, negative cuts.",
+  "description": "Raises or cuts curved faces along their surface normal, for example a pattern drawn on unrolled faces. Select curved faces and type a distance; positive raises, negative cuts. On a whole round wall, also choose a sketch drawn on its unrolled face in the Sketch list to wrap its regions onto the wall.",
   "accepts": {
    "faces": [
     1,
