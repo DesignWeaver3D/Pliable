@@ -57,8 +57,9 @@ class HelicalSweep(RevolveFace):
         return centre, foot, direction, gp_Vec(foot, centre)
 
     def handles(self, topology, selection, values):
-        # Pitch is a length dimension along the axis from the face's middle, with a short extension line at each end pointing in toward the axis;
-        # turns is a number beside the face on the side away from the axis (the wheel and double-click change it, as the circular array's count).
+        # Pitch is a length dimension along the axis, drawn outside the profile on the side away from the axis, with an extension line at each end
+        # running back in to the profile's middle line, an arrowhead grip and the value in the middle of the line; turns is a number at the start of it
+        # (the wheel and double-click change it, as the circular array's count).
         try:
             axis = self._axis(topology, selection, values)
             if selection.faces:
@@ -77,12 +78,16 @@ class HelicalSweep(RevolveFace):
         BRepBndLib.Add_s(face, box)
         lo, hi = box.CornerMin(), box.CornerMax()
         reach = max(gp_Vec(centre, gp_Pnt(x, y, z)).Dot(inward.Reversed()) for x in (lo.X(), hi.X()) for y in (lo.Y(), hi.Y()) for z in (lo.Z(), hi.Z()))
-        outside = centre.Translated(inward.Reversed().Multiplied(max(reach, 0.0) + 2.0))
-        end = centre.Translated(along.Multiplied(values["pitch"]))
+        gap = max(reach, 0.0) + 2.0  # the dimension line runs this far outside the profile, on the side away from the axis
+        away = inward.Reversed()
+        start = centre.Translated(away.Multiplied(gap))
+        end = start.Translated(along.Multiplied(values["pitch"]))
+        number = start.Translated(along.Reversed().Multiplied(gap))  # the turns number sits just before the dimension line starts
+        reachback = inward.Multiplied(gap)  # the extension lines run from the dimension line back in to the profile's middle line
         return [
-            Handle("pitch", "Pitch", (end.X(), end.Y(), end.Z()), (direction.X(), direction.Y(), direction.Z()), min=0.01, kind="resize",
-                   axis_from=(centre.X(), centre.Y(), centre.Z()), extension=(inward.X(), inward.Y(), inward.Z())),
-            Handle("turns", "Turns", (outside.X(), outside.Y(), outside.Z()), (direction.X(), direction.Y(), direction.Z()), min=0.1, max=200, unit="", badge=True),
+            Handle("pitch", "Pitch", (end.X(), end.Y(), end.Z()), (direction.X(), direction.Y(), direction.Z()), min=0.01, kind="resize", arrowhead=True,
+                   axis_from=(start.X(), start.Y(), start.Z()), extension=(reachback.X(), reachback.Y(), reachback.Z())),
+            Handle("turns", "Turns", (number.X(), number.Y(), number.Z()), (direction.X(), direction.Y(), direction.Z()), min=0.1, max=200, unit="", badge=True),
         ]
 
     def _turn(self, face, foot, direction, radial, radius, values, turns):

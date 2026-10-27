@@ -49,6 +49,8 @@ export interface HandleInfo {
   axisFrom?: [number, number, number] | null;
   /** A dimension-style length grip: the direction of the short extension line drawn at each end of the line from `axisFrom` to the grip. */
   extension?: [number, number, number] | null;
+  /** Drawn as an arrowhead at the end of its line with the value in the middle of the line (a length dimension). */
+  arrowhead?: boolean;
   /** A rotation handle: the axis it turns about (it is drawn in that axis's colour) and the ring it runs on: centre and radius. */
   axis?: [number, number, number] | null;
   ring?: [number, number, number, number] | null;

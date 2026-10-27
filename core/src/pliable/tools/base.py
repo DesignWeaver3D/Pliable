@@ -188,8 +188,10 @@ class Handle:
     pie: bool = False
     # A number shown over `anchor` that the mouse wheel and typing change (the circular array's count over its source); it has no grip.
     badge: bool = False
-    # A dimension-style length grip (`axis_from` to `anchor`): a short extension line at each end of its line, pointing along this vector (the helical sweep's pitch, pointing in toward the axis).
+    # A dimension-style length grip (`axis_from` to `anchor`): an extension line at each end of its line, running along this vector (the helical sweep's pitch: from the dimension line in toward the measured profile).
     extension: tuple[float, float, float] | None = None
+    # The grip is drawn as an arrowhead at the end of its line (pointing along `direction`), and its value is shown in the middle of the line, like a length dimension.
+    arrowhead: bool = False
 
     def to_json(self, value: float, values: dict | None = None) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
@@ -209,6 +211,7 @@ class Handle:
             "badge": self.badge,
             "axisFrom": [float(c) for c in self.axis_from] if self.axis_from else None,
             "extension": [float(c) for c in self.extension] if self.extension else None,
+            "arrowhead": self.arrowhead,
             "param": self.param,
             "label": self.label,
             "anchor": [float(c) for c in self.anchor],

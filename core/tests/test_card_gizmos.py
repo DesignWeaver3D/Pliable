@@ -273,10 +273,9 @@ def test_helical_sweep_pitch_dimension_and_turns_number():
     top = top_of(topology)
     tool = get_tool("helical_sweep")
     pitch, turns = tool.handles(topology, Selection(faces=[top], axes=[1]), {"mode": 0, "pitch": 12, "turns": 3, "hand": 0, "axis": 3, "axis_edge": -1})
-    assert pitch.param == "pitch" and pitch.axis_from is not None and pitch.extension is not None
-    assert dist(pitch.anchor, pitch.axis_from) == pytest.approx(12)  # the dimension is one pitch long, starting at the face middle
-    assert pitch.axis_from == pytest.approx((0, 0, 10), abs=1e-6)
-    assert pitch.extension == pytest.approx((0, 0, -1))  # toward the Y axis through the origin, which is straight below the face
+    assert pitch.param == "pitch" and pitch.arrowhead and pitch.axis_from is not None and pitch.extension is not None
+    assert dist(pitch.anchor, pitch.axis_from) == pytest.approx(12)  # the dimension is one pitch long
+    assert pitch.axis_from[2] > 10  # outside the profile (the top face, z = 10), on the side away from the Y axis through the origin
+    assert pitch.extension == pytest.approx((0, 0, -(pitch.axis_from[2] - 10)))  # the extension lines run back in to the face's middle line
     assert turns.param == "turns" and turns.badge
-    assert turns.anchor[2] > 10  # beside the face, on the side away from the axis
     assert tool.handles(topology, Selection(faces=[top]), {"mode": 0, "pitch": 12, "turns": 3, "hand": 0, "axis": 3, "axis_edge": -1}) == []

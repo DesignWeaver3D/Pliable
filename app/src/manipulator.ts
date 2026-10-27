@@ -5,7 +5,7 @@ import * as THREE from "three";
 import type { HandleInfo } from "./tools";
 import { gridCounts, gridShift, planePoint } from "./gridgrip.ts";
 import { TypedFields, typedCounts } from "./typedentry.ts";
-import { ARM_PX, GRAB_PX, PUSH_PULL_ARM_RATIO, isPushPullArrow, MOVE_ARM_PX, AXIS_LINE, HANDLE_OUTLINE, pickScore, grabFraction, handleColors, handleValue, snapValue, linkedValues, travelFor, typedTravel, typedStep, lineParam, formatValue, ARC_RADIUS_PX, EXTENSION_PX, ARC_HALF_SPAN, ARC_STEPS, ARC_REST_OPACITY, COLOR_SNAPPED, snappedIndex, RING_VIEW_FRACTION, refitRing } from "./handlemath.ts";
+import { ARM_PX, GRAB_PX, PUSH_PULL_ARM_RATIO, isPushPullArrow, MOVE_ARM_PX, AXIS_LINE, HANDLE_OUTLINE, pickScore, grabFraction, handleColors, handleValue, snapValue, linkedValues, travelFor, typedTravel, typedStep, lineParam, formatValue, ARC_RADIUS_PX, ARC_HALF_SPAN, ARC_STEPS, ARC_REST_OPACITY, COLOR_SNAPPED, snappedIndex, RING_VIEW_FRACTION, refitRing } from "./handlemath.ts";
 import { roundValue } from "./precision.ts";
 import { pieAngleAt, pieLines, piePoint, pieTangent } from "./piegizmo.ts";
 export * from "./handlemath.ts"; // the maths moved to its own file; the tests and other modules still import it from here
@@ -139,7 +139,8 @@ export class Manipulator {
     const dir = new THREE.Vector3(...info.direction);
     group.position.set(...info.anchor);
     const resize = info.kind === "resize" && !info.toggle;
-    const geometry = info.toggle ? new THREE.SphereGeometry(0.17, 16, 12) : resize ? new THREE.BoxGeometry(0.3, 0.3, 0.3) : new THREE.ConeGeometry(0.16, 0.42, 16);
+    const arrowhead = info.arrowhead && !info.toggle;
+    const geometry = info.toggle ? new THREE.SphereGeometry(0.17, 16, 12) : resize && !arrowhead ? new THREE.BoxGeometry(0.3, 0.3, 0.3) : new THREE.ConeGeometry(0.16, 0.42, 16);
     const tip = new THREE.Mesh(geometry, material());
     tip.renderOrder = 11;
     // A dark outline so the grip stays visible against light surfaces: a slightly larger back-facing copy drawn just beneath it.
@@ -147,7 +148,10 @@ export class Manipulator {
     outline.scale.setScalar(1.2);
     outline.renderOrder = 10;
     tip.add(outline);
-    if (resize) {
+    if (arrowhead) {
+      tip.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      tip.position.copy(dir).multiplyScalar(-0.21); // the cone's point sits on the anchor, the end of the dimension line
+    } else if (resize) {
       tip.position.copy(dir).multiplyScalar(-0.15); // the grip sits on the anchor, with a thin stem back to the model
     } else if (!info.toggle) {
       tip.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
@@ -226,8 +230,12 @@ export class Manipulator {
       tip.visible = false; // a number over its point: no grip
       arm.visible = false;
     }
+    if (arrowhead) {
+      arm.visible = false; // the dimension line is drawn from axisFrom; the value sits in the middle of it
+      label.style.transform = "translate(-50%,-50%)";
+    }
     const made: Item = { info: { ...info }, declared: info.ring && !info.pie ? info : undefined, baseDirection: info.turnedBy ? dir.clone() : undefined, group, tip, arm, axis, label, travel: 0, shift: new THREE.Vector3() };
-    if (info.pie || info.badge) this.editableLabel(made);
+    if (info.pie || info.badge || arrowhead) this.editableLabel(made);
     return made;
   }
 
@@ -235,7 +243,7 @@ export class Manipulator {
   private editableLabel(item: Item) {
     item.label.style.pointerEvents = "auto";
     item.label.style.cursor = "text";
-    item.label.title = item.info.badge ? "Mouse wheel changes the count; double-click to type it" : "Double-click to type the angle";
+    item.label.title = item.info.badge ? "Mouse wheel changes the count; double-click to type it" : item.info.arrowhead ? "Double-click to type the length" : "Double-click to type the angle";
     item.label.addEventListener("dblclick", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -346,10 +354,10 @@ export class Manipulator {
         const line = item.axis.children[0] as THREE.Line;
         line.geometry.setFromPoints([from, pos]);
         item.axis.children[1].position.copy(from);
-        item.axis.children[1].scale.setScalar(this.pixelSizeAt(from) * 4);
+        item.axis.children[1].scale.setScalar(info.arrowhead ? 0 : this.pixelSizeAt(from) * 4); // a dimension line has no dot at its start
         if (info.extension) {
-          // Short extension lines at both ends of a dimension line, pointing the way `extension` says (in toward the axis), a fixed length on screen.
-          const out = new THREE.Vector3(...info.extension).multiplyScalar(this.pixelSizeAt(from) * EXTENSION_PX);
+          // Extension lines at both ends of a dimension line, each running by the vector `extension` (back in to the measured profile).
+          const out = new THREE.Vector3(...info.extension);
           (item.axis.children[2] as THREE.LineSegments).geometry.setFromPoints([from, from.clone().add(out), pos, pos.clone().add(out)]);
         }
       }
@@ -380,8 +388,9 @@ export class Manipulator {
       const value = handleValue(info, item.travel);
       const p = pos.clone().project(this.camera());
       const behind = p.z > 1;
-      item.label.style.display = behind || (!hot && !info.pie && !info.badge) ? "none" : "block"; // only the handle under the pointer or being dragged names itself (a pie angle and a count always show their value)
-      const at = info.pie && info.ring ? p.clone().copy(piePoint(info, value / 2)).project(this.camera()) : p; // a pie's value sits on its arc
+      item.label.style.display = behind || (!hot && !info.pie && !info.badge && !info.arrowhead) ? "none" : "block"; // only the handle under the pointer or being dragged names itself (a pie angle and a count always show their value)
+      const middle = info.arrowhead && info.axisFrom ? new THREE.Vector3(...info.axisFrom).add(pos).multiplyScalar(0.5).project(this.camera()) : null;
+      const at = middle ?? (info.pie && info.ring ? p.clone().copy(piePoint(info, value / 2)).project(this.camera()) : p); // a pie's value sits on its arc
       item.label.style.left = `${((at.x + 1) / 2) * rect.width}px`;
       item.label.style.top = `${((1 - at.y) / 2) * rect.height}px`;
       const unit = info.unit === "Â°" || !info.unit ? info.unit : " " + info.unit;
@@ -392,7 +401,7 @@ export class Manipulator {
       const grid = info.plane && (item.grid || fields) ? { ...this.gridStart(info), ...item.grid } : null;
       const gridText = grid ? (fields ? `${fields.shown(0, String(grid.columns))} × ${fields.shown(1, String(grid.rows))}` : `${grid.columns} × ${grid.rows}`) : "";
       const snapText = snapped < 0 ? "" : info.snapNames?.[snapped] === "face" ? " - square to a face" : " - square to the global axes";
-      item.label.textContent = info.toggle ? info.label : grid ? `${info.label} ${gridText}` : info.pie ? `${shown}°` : info.badge ? `${info.label} ${shown}` : `${info.label} ${shown}${unit}${snapText}`;
+      item.label.textContent = info.toggle ? info.label : grid ? `${info.label} ${gridText}` : info.pie ? `${shown}°` : info.badge ? `${info.label} ${shown}` : info.arrowhead ? `${shown}${unit}` : `${info.label} ${shown}${unit}${snapText}`;
       item.label.style.outline = typing || fields ? "1px solid #ffb347" : "";
       item.label.style.fontWeight = hot ? "bold" : "normal";
     }

@@ -135,8 +135,6 @@ export function formatValue(v: number): string {
 
 /** A turn arc (see HandleInfo.arc) runs this many pixels from its centre, 120 degrees of it, beyond the move arrows' tips. */
 export const ARC_RADIUS_PX = 110;
-/** The length on screen of the extension lines at the ends of a dimension-style length grip (Handle.extension). */
-export const EXTENSION_PX = 18;
 export const ARC_HALF_SPAN = Math.PI / 3;
 export const ARC_STEPS = 24;
 export const ARC_REST_OPACITY = 0.9;
