@@ -47,6 +47,8 @@ export interface HandleInfo {
   unit: string;
   /** An axis handle: the other end of the line drawn from here (a hole's opening), or null. */
   axisFrom?: [number, number, number] | null;
+  /** A dimension-style length grip: the direction of the short extension line drawn at each end of the line from `axisFrom` to the grip. */
+  extension?: [number, number, number] | null;
   /** A rotation handle: the axis it turns about (it is drawn in that axis's colour) and the ring it runs on: centre and radius. */
   axis?: [number, number, number] | null;
   ring?: [number, number, number, number] | null;

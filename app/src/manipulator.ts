@@ -5,7 +5,7 @@ import * as THREE from "three";
 import type { HandleInfo } from "./tools";
 import { gridCounts, gridShift, planePoint } from "./gridgrip.ts";
 import { TypedFields, typedCounts } from "./typedentry.ts";
-import { ARM_PX, GRAB_PX, PUSH_PULL_ARM_RATIO, isPushPullArrow, MOVE_ARM_PX, AXIS_LINE, HANDLE_OUTLINE, pickScore, grabFraction, handleColors, handleValue, snapValue, linkedValues, travelFor, typedTravel, typedStep, lineParam, formatValue, ARC_RADIUS_PX, ARC_HALF_SPAN, ARC_STEPS, ARC_REST_OPACITY, COLOR_SNAPPED, snappedIndex, RING_VIEW_FRACTION, refitRing } from "./handlemath.ts";
+import { ARM_PX, GRAB_PX, PUSH_PULL_ARM_RATIO, isPushPullArrow, MOVE_ARM_PX, AXIS_LINE, HANDLE_OUTLINE, pickScore, grabFraction, handleColors, handleValue, snapValue, linkedValues, travelFor, typedTravel, typedStep, lineParam, formatValue, ARC_RADIUS_PX, EXTENSION_PX, ARC_HALF_SPAN, ARC_STEPS, ARC_REST_OPACITY, COLOR_SNAPPED, snappedIndex, RING_VIEW_FRACTION, refitRing } from "./handlemath.ts";
 import { roundValue } from "./precision.ts";
 import { pieAngleAt, pieLines, piePoint, pieTangent } from "./piegizmo.ts";
 export * from "./handlemath.ts"; // the maths moved to its own file; the tests and other modules still import it from here
@@ -212,6 +212,11 @@ export class Manipulator {
       const dot = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshBasicMaterial({ color: AXIS_LINE, depthTest: false, transparent: true }));
       dot.renderOrder = 9;
       axis.add(line, dot);
+      if (info.extension) {
+        const ends = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: AXIS_LINE, depthTest: false, transparent: true, opacity: 0.9 }));
+        ends.renderOrder = 9;
+        axis.add(ends);
+      }
       this.root.add(axis);
     }
     const label = document.createElement("div");
@@ -342,6 +347,11 @@ export class Manipulator {
         line.geometry.setFromPoints([from, pos]);
         item.axis.children[1].position.copy(from);
         item.axis.children[1].scale.setScalar(this.pixelSizeAt(from) * 4);
+        if (info.extension) {
+          // Short extension lines at both ends of a dimension line, pointing the way `extension` says (in toward the axis), a fixed length on screen.
+          const out = new THREE.Vector3(...info.extension).multiplyScalar(this.pixelSizeAt(from) * EXTENSION_PX);
+          (item.axis.children[2] as THREE.LineSegments).geometry.setFromPoints([from, from.clone().add(out), pos, pos.clone().add(out)]);
+        }
       }
       const size = this.pixelSizeAt(pos) * ARM_PX;
       group.scale.setScalar(size);

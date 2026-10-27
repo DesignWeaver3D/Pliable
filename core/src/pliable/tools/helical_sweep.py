@@ -1,10 +1,12 @@
 """The Helical sweep tool."""
 
+from OCP.BRepBndLib import BRepBndLib
+from OCP.Bnd import Bnd_Box
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepOffsetAPI import BRepOffsetAPI_MakePipeShell
-from OCP.gp import gp_Trsf, gp_Vec
+from OCP.gp import gp_Pnt, gp_Trsf, gp_Vec
 from OCP.TopAbs import TopAbs_WIRE
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS
@@ -14,7 +16,7 @@ from ..shared.arrayaxis import AXIS_CHOICES
 from ..shared.helix import helix_wire
 from ..shared.solids import _combine, _compound, _volume, finish
 from ..sketch import SketchError, regions
-from ..tools import Param, register
+from ..tools import Handle, Param, register
 from .revolve_face import RevolveFace
 
 MODES = ("Add", "Subtract")
@@ -46,8 +48,42 @@ class HelicalSweep(RevolveFace):
     params = [Param("mode", "number", 0, options=MODES), Param("pitch", "length", 10), Param("turns", "number", 5), Param("hand", "number", 0, options=("Right", "Left")),
               Param("axis", "number", 3, options=AXIS_CHOICES), Param("axis_edge", "number", -1)]
 
+    def _frame(self, face, axis):
+        """The face's middle, the point of the axis nearest it, the axis direction and the radius (the distance between the two points)."""
+        centre = face_handle_point(face)
+        direction, origin = axis.Direction(), axis.Location()
+        along = gp_Vec(origin, centre).Dot(gp_Vec(direction))
+        foot = origin.Translated(gp_Vec(direction).Multiplied(along))
+        return centre, foot, direction, gp_Vec(foot, centre)
+
     def handles(self, topology, selection, values):
-        return []
+        # Pitch is a length dimension along the axis from the face's middle, with a short extension line at each end pointing in toward the axis;
+        # turns is a number beside the face on the side away from the axis (the wheel and double-click change it, as the circular array's count).
+        try:
+            axis = self._axis(topology, selection, values)
+            if selection.faces:
+                face = topology.face(selection.faces[0])
+            else:
+                face = regions(selection.rail_content)[0].wrapped
+        except (OperationError, KeyError, TypeError, ValueError, IndexError, SketchError):
+            return []
+        centre, foot, direction, radial = self._frame(face, axis)
+        radius = radial.Magnitude()
+        if radius < 1e-6:
+            return []
+        inward = gp_Vec(centre, foot).Normalized()
+        along = gp_Vec(direction)
+        box = Bnd_Box()
+        BRepBndLib.Add_s(face, box)
+        lo, hi = box.CornerMin(), box.CornerMax()
+        reach = max(gp_Vec(centre, gp_Pnt(x, y, z)).Dot(inward.Reversed()) for x in (lo.X(), hi.X()) for y in (lo.Y(), hi.Y()) for z in (lo.Z(), hi.Z()))
+        outside = centre.Translated(inward.Reversed().Multiplied(max(reach, 0.0) + 2.0))
+        end = centre.Translated(along.Multiplied(values["pitch"]))
+        return [
+            Handle("pitch", "Pitch", (end.X(), end.Y(), end.Z()), (direction.X(), direction.Y(), direction.Z()), min=0.01, kind="resize",
+                   axis_from=(centre.X(), centre.Y(), centre.Z()), extension=(inward.X(), inward.Y(), inward.Z())),
+            Handle("turns", "Turns", (outside.X(), outside.Y(), outside.Z()), (direction.X(), direction.Y(), direction.Z()), min=0.1, max=200, unit="", badge=True),
+        ]
 
     def _turn(self, face, foot, direction, radial, radius, values, turns):
         spine = helix_wire(foot, direction, radial, radius, values["pitch"], turns, left=int(round(values["hand"])) == 1)
@@ -67,11 +103,7 @@ class HelicalSweep(RevolveFace):
     def _coil(self, face, axis, values):
         """The coil as pieces that are applied one after another: whole turns are copies of one turn moved along the axis by the pitch,
         and a last piece holds the part turn. (One long sweep fails in boolean operations where it runs off the end of a solid.)"""
-        centre = face_handle_point(face)
-        direction, origin = axis.Direction(), axis.Location()
-        along = gp_Vec(origin, centre).Dot(gp_Vec(direction))
-        foot = origin.Translated(gp_Vec(direction).Multiplied(along))
-        radial = gp_Vec(foot, centre)
+        centre, foot, direction, radial = self._frame(face, axis)
         radius = radial.Magnitude()
         if radius < 1e-6:
             raise OperationError("The face's middle lies on the axis; move the axis away from the face")

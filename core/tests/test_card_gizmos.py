@@ -266,3 +266,17 @@ def test_stretch_has_three_move_arrows_at_the_end_face_that_follow_the_move():
     from test_gizmo_tools import bounds
 
     assert bounds(result.shape)[1][2] == pytest.approx(16, abs=1e-3)
+
+
+def test_helical_sweep_pitch_dimension_and_turns_number():
+    topology = block()
+    top = top_of(topology)
+    tool = get_tool("helical_sweep")
+    pitch, turns = tool.handles(topology, Selection(faces=[top], axes=[1]), {"mode": 0, "pitch": 12, "turns": 3, "hand": 0, "axis": 3, "axis_edge": -1})
+    assert pitch.param == "pitch" and pitch.axis_from is not None and pitch.extension is not None
+    assert dist(pitch.anchor, pitch.axis_from) == pytest.approx(12)  # the dimension is one pitch long, starting at the face middle
+    assert pitch.axis_from == pytest.approx((0, 0, 10), abs=1e-6)
+    assert pitch.extension == pytest.approx((0, 0, -1))  # toward the Y axis through the origin, which is straight below the face
+    assert turns.param == "turns" and turns.badge
+    assert turns.anchor[2] > 10  # beside the face, on the side away from the axis
+    assert tool.handles(topology, Selection(faces=[top]), {"mode": 0, "pitch": 12, "turns": 3, "hand": 0, "axis": 3, "axis_edge": -1}) == []
