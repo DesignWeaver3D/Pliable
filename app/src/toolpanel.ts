@@ -55,10 +55,10 @@ export interface ToolPanelHost {
 }
 
 const PREVIEW_DELAY_MS = 150;
-const UNITS: Record<string, string> = { length: "mm", angle: "°", number: "" };
+const UNITS: Record<string, string> = { length: "mm", angle: "Â°", number: "" };
 /** Form fields whose bare name is unclear: a fuller label and a tooltip. */
 const PARAM_HELP: Record<string, { label: string; title: string }> = {
-  axis_edge: { label: "axis edge (id, set by Pick axis edge)", title: "The edge the copies turn about when the axis is Picked edge; use the Pick axis edge button rather than typing." },
+  axis_edge: { label: "axis edge (id, set by Pick axis)", title: "The edge the copies turn about when the axis is Picked edge; use the Pick axis button rather than typing." },
   sink_by: { label: "countersink size by", title: "Enter the countersink's size as its own diameter, or as how far it reaches past the hole's wall (the offset); the field that is not chosen is ignored." },
   bore_by: { label: "counterbore size by", title: "Enter the counterbore's size as its own diameter, or as how far it reaches past the hole's wall (the offset); the field that is not chosen is ignored." },
   sink_offset: { label: "sink offset (mm)", title: "How far the countersink reaches past the hole's wall at the surface: its diameter is the hole's diameter plus twice this. Used when size by is Offset from hole." },
@@ -417,7 +417,7 @@ export class ToolPanel {
     const edgeAxis = tool.pickEdge;
     if (edgeAxis && edgeAxis.length === 2 && this.host.pickEdgeId) {
       const pickEdge = document.createElement("button");
-      pickEdge.textContent = "Pick axis edge";
+      pickEdge.textContent = "Pick axis";
       pickEdge.title = "Click a straight edge (the axis is its line), a circular edge (the circle's axis) anywhere on the model, or a global axis";
       pickEdge.addEventListener("click", async () => {
         const id = await this.host.pickEdgeId!();
@@ -429,7 +429,23 @@ export class ToolPanel {
         }
         this.schedulePreview(0);
       });
-      buttons.before(pickEdge);
+      // Like the plane forms (Cut with plane): Pick axis first, centred, the three global axes in a row under it; the axis list and the edge id are not shown.
+      pickEdge.style.textAlign = "center";
+      const axisRow = document.createElement("div");
+      axisRow.style.cssText = "display:flex;gap:4px";
+      ["X", "Y", "Z"].forEach((name, i) => {
+        const button = document.createElement("button");
+        button.textContent = `${name} axis`;
+        button.title = `Use the global ${name} axis through the origin`;
+        button.style.cssText = "text-align:center;margin-top:2px";
+        button.addEventListener("click", () => {
+          inputs[edgeAxis[1]].value = String(i);
+          this.schedulePreview(0);
+        });
+        axisRow.append(button);
+      });
+      title.after(pickEdge, axisRow);
+      for (const name of edgeAxis) (inputs[name]?.closest(".row") as HTMLElement | null)?.style.setProperty("display", "none");
     }
     const planeNames = tool.pickPlane;
     if (planeNames && (planeNames.length === 7 || planeNames.length === 5) && this.host.pickPlane) {

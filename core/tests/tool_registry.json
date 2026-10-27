@@ -3064,7 +3064,7 @@
  {
   "id": "helical_sweep",
   "label": "Helical sweep",
-  "description": "Winds a face around a straight edge or global axis along a helix, to add a coil or thread or cut a helical groove. Select one face and an axis; the face should lie in a plane that contains the axis. Pitch is the advance per turn; mode 0 adds, 1 cuts.",
+  "description": "Winds a face (or a whole sketch in the Sketch list) around a straight edge or global axis along a helix, to add a coil or thread or subtract a helical groove from every solid it meets. Select one face and an axis; the face should lie in a plane that contains the axis. Pitch is the advance per turn.",
   "accepts": {
    "faces": [
     1,
@@ -3090,6 +3090,16 @@
   },
   "params": [
    {
+    "name": "mode",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Add",
+     "Subtract"
+    ]
+   },
+   {
     "name": "pitch",
     "kind": "length",
     "default": 10,
@@ -3112,13 +3122,6 @@
      "Right",
      "Left"
     ]
-   },
-   {
-    "name": "mode",
-    "kind": "number",
-    "default": 0,
-    "drag": false,
-    "options": []
    },
    {
     "name": "axis",

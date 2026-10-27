@@ -848,6 +848,7 @@ def test_add_slot_has_a_gizmo_for_every_parameter(block):
 
 
 def test_helical_sweep_adds_and_cuts_a_thread():
+    from pliable.ops import solids_of
     from OCP.BRep import BRep_Builder
     from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon
     from OCP.BRepPrimAPI import BRepPrimAPI_MakeCylinder
@@ -860,15 +861,21 @@ def test_helical_sweep_adds_and_cuts_a_thread():
     shape = TopoDS_Compound()
     builder = BRep_Builder()
     builder.MakeCompound(shape)
+    other = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(0, 0, 45), gp_Dir(0, 0, 1)), 10, 40).Shape()  # a second body further along the axis
     builder.Add(shape, cylinder)
+    builder.Add(shape, other)
     builder.Add(shape, profile)
     topology = Topology(shape)
     face = max(i for i, _ in topology.faces())  # the profile is the last face
     tool = get_tool("helical_sweep")
     sel = Selection(faces=[face], axes=[2])
-    base = {"pitch": 5, "turns": 6, "hand": 0, "mode": 0, "axis": 2, "axis_edge": -1}
-    before = volume(cylinder)
+    base = {"pitch": 5, "turns": 16, "hand": 0, "mode": 0, "axis": 2, "axis_edge": -1}
+    before = volume(cylinder) + volume(other)
     assert volume(tool.run(topology, sel, base, False).shape) > before + 100
-    assert volume(tool.run(topology, sel, {**base, "hand": 1, "mode": 1}, False).shape) < before - 100
+    subtracted = tool.run(topology, sel, {**base, "hand": 1, "mode": 1}, False).shape
+    assert volume(subtracted) < before - 500
+    assert volume(subtracted) < volume(topology.shape) - 500
+    assert len(solids_of(subtracted)) == 2  # Subtract cuts every solid the coil meets
+    assert all(volume(x) < volume(cylinder) - 50 for x in solids_of(subtracted))
     with pytest.raises(OperationError):
         tool.run(topology, sel, {**base, "pitch": 0}, False)

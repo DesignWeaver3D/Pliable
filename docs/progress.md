@@ -15,6 +15,8 @@ Tool group CORE:
 - **Helix tools.** Owner (2026-10-27): "We need helix tools added". Scope picked by the owner: coil / helical sweep and helical cut / groove (a helix curve in sketch and threads on cylinders were not picked). Related existing items checked: the Holes row (threads: not asked, stays parked), Ideas "Sweep along a rail and arrays along a path" (a helix is a rail; keep Sweep as is).
   - [x] Coil and helical cut: the Helical sweep tool (mode adds or cuts; built, tested in core, in the Solids tool group).
   - [ ] Owner (2026-10-27): "Helix work will also apply to hole threads which we'll need to be able to accommodate". Hole threads on cylindrical voids (counterbore/countersink rows are built; threads were "not covered") using `shared/helix.py`; discuss the form (cosmetic or modeled, size presets) with the owner before coding.
+  - [x] Owner (2026-10-27): Mode reads Add / Subtract, directly under the axis buttons; Subtract cuts every solid the coil meets; a chosen sketch works as the profile. Done for Helical sweep.
+  - [ ] Owner (2026-10-27): "Tool cards that require picking a plane or axis should mimic the buttons for those that Cut With Plane has". Done for every card with an axis pick (Revolve face, Circular array, Concentric array, Helical sweep): Pick axis and X/Y/Z axis buttons at the top, axis list and edge id hidden. Not yet done: Add/Subtract wording and mode placement for Revolve face and Sweep face along edge (they still show 0 and 1); other plane-pick cards.
   - [ ] Hand-check the Helical sweep card in the app (axis pick, preview, error text); add the "when X, Y happens" line to behavior.md once approved.
 
 ## Review of 2026-10-26 session B (owner review; quotes are the owner's words)
