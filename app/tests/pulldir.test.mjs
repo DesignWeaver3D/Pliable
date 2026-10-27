@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PullDirection, resolvePick, typedTilt, angleFromNormal, sideToward, edgeVector, leavesFace, outOf, sideFrame, tiltFromDrag, tilted, unit } from "../src/pulldir.ts";
+import { PullDirection, resolvePick, typedTilt, typedTiltKeeping, tiltAlong, angleFromNormal, sideToward, edgeVector, leavesFace, outOf, sideFrame, tiltFromDrag, tilted, unit } from "../src/pulldir.ts";
 
 const close = (a, b) => a.forEach((v, i) => assert.ok(Math.abs(v - b[i]) < 1e-9, `${a} vs ${b}`));
 
@@ -73,4 +73,19 @@ test("typed degrees tilt from the face normal toward the arc's side, either way,
   close(typedTilt([0, 0, 1], [1, 0, 0], 0), [0, 0, 1]);
   const flat = typedTilt([0, 0, 1], [1, 0, 0], 90);
   assert.ok(leavesFace(flat, [0, 0, 1]) && flat[0] > 0.9);
+});
+
+test("typed degrees on one arc keep the other arc's angle, zero on one leaves the other, and the pulled sign is the caller's", () => {
+  const n = [0, 0, 1];
+  const ex = [1, 0, 0];
+  const ey = [0, 1, 0];
+  const first = typedTiltKeeping(n, ex, ey, null, 30);
+  close([tiltAlong(n, ex, first), tiltAlong(n, ey, first)], [30, 0]);
+  const both = typedTiltKeeping(n, ey, ex, first, 20);
+  close([tiltAlong(n, ex, both), tiltAlong(n, ey, both)], [30, 20]);
+  const zeroed = typedTiltKeeping(n, ex, ey, both, 0);
+  close([tiltAlong(n, ex, zeroed), tiltAlong(n, ey, zeroed)], [0, 20]);
+  const back = typedTiltKeeping(n, ex, ey, both, -15); // the caller multiplies by -1 when the arc was pulled the negative way
+  close([tiltAlong(n, ex, back), tiltAlong(n, ey, back)], [-15, 20]);
+  assert.ok(leavesFace(typedTiltKeeping(n, ex, ey, both, 90), n));
 });

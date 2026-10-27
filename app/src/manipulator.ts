@@ -5,8 +5,9 @@ import * as THREE from "three";
 import type { HandleInfo } from "./tools";
 import { gridCounts, gridShift, planePoint } from "./gridgrip.ts";
 import { TypedFields, typedCounts } from "./typedentry.ts";
-import { ARM_PX, GRAB_PX, MOVE_ARM_PX, AXIS_LINE, HANDLE_OUTLINE, pickScore, grabFraction, handleColors, handleValue, snapValue, linkedValues, travelFor, typedTravel, typedStep, lineParam, formatValue, ARC_RADIUS_PX, ARC_HALF_SPAN, ARC_STEPS, ARC_REST_OPACITY, COLOR_SNAPPED, snappedIndex, RING_VIEW_FRACTION, refitRing } from "./handlemath.ts";
+import { ARM_PX, GRAB_PX, PUSH_PULL_ARM_RATIO, isPushPullArrow, MOVE_ARM_PX, AXIS_LINE, HANDLE_OUTLINE, pickScore, grabFraction, handleColors, handleValue, snapValue, linkedValues, travelFor, typedTravel, typedStep, lineParam, formatValue, ARC_RADIUS_PX, ARC_HALF_SPAN, ARC_STEPS, ARC_REST_OPACITY, COLOR_SNAPPED, snappedIndex, RING_VIEW_FRACTION, refitRing } from "./handlemath.ts";
 import { roundValue } from "./precision.ts";
+import { pieAngleAt, pieLines, piePoint, pieTangent } from "./piegizmo.ts";
 export * from "./handlemath.ts"; // the maths moved to its own file; the tests and other modules still import it from here
 
 interface Item {
@@ -164,7 +165,17 @@ export class Manipulator {
     group.add(tip, arm);
     this.root.add(group);
     let axis: THREE.Group | undefined;
-    if (info.ring && info.axis) {
+    if (info.pie && info.ring && info.axis) {
+      // A pie slice: the arc from the source round to the angle, and a short line toward the axis at each end (see piegizmo.ts); redrawn each frame.
+      axis = new THREE.Group();
+      axis.renderOrder = 9;
+      for (let i = 0; i < 3; i++) {
+        const line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: handleColors(info).rest, depthTest: false, transparent: true, opacity: ARC_REST_OPACITY }));
+        line.renderOrder = 9;
+        axis.add(line);
+      }
+      this.root.add(axis);
+    } else if (info.ring && info.axis) {
       // The ring a rotation handle runs on, around the thing it turns: a thin circle in the axis colour.
       axis = new THREE.Group();
       axis.renderOrder = 9;
@@ -206,7 +217,49 @@ export class Manipulator {
     const label = document.createElement("div");
     label.style.cssText = "position:absolute;padding:1px 5px;border-radius:3px;background:rgba(20,20,24,.85);color:#ffd9a0;font:11px sans-serif;white-space:nowrap;transform:translate(10px,-50%)";
     this.layer.append(label);
-    return { info: { ...info }, declared: info.ring ? info : undefined, baseDirection: info.turnedBy ? dir.clone() : undefined, group, tip, arm, axis, label, travel: 0, shift: new THREE.Vector3() };
+    if (info.badge) {
+      tip.visible = false; // a number over its point: no grip
+      arm.visible = false;
+    }
+    const made: Item = { info: { ...info }, declared: info.ring && !info.pie ? info : undefined, baseDirection: info.turnedBy ? dir.clone() : undefined, group, tip, arm, axis, label, travel: 0, shift: new THREE.Vector3() };
+    if (info.pie || info.badge) this.editableLabel(made);
+    return made;
+  }
+
+  /** The value label of a pie angle or a count badge is always shown and can be edited on the screen: double-click it to type a value (Enter applies, Esc cancels); the wheel over a count changes it by one. */
+  private editableLabel(item: Item) {
+    item.label.style.pointerEvents = "auto";
+    item.label.style.cursor = "text";
+    item.label.title = item.info.badge ? "Mouse wheel changes the count; double-click to type it" : "Double-click to type the angle";
+    item.label.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (this.active) return;
+      // Typed entry without a drag: the same state a released drag with typed text is in (Enter applies, Escape cancels).
+      this.active = { item, t0: 0, x: e.clientX, y: e.clientY, axisPx: new THREE.Vector2(0, -1), travel0: item.travel, moved: false, typed: "", negative: false, released: true };
+    });
+    if (item.info.badge) {
+      item.label.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (this.active) return;
+        const now = Math.round(handleValue(item.info, item.travel));
+        const next = handleValue(item.info, travelFor(item.info, now + (e.deltaY < 0 ? 1 : -1)));
+        if (next === now) return;
+        item.travel = travelFor(item.info, next);
+        this.onDrag(item.info.param, next, "end", e.clientX, e.clientY, {});
+      }, { passive: false });
+    }
+  }
+
+  /** Redraw a pie slice for the angle the handle now holds, and turn the grip's arrow to run along the arc. */
+  private drawPie(item: Item) {
+    const value = handleValue(item.info, item.travel);
+    const lines = pieLines(item.info, value);
+    [lines.arc, lines.first, lines.last].forEach((points, i) => (item.axis!.children[i] as THREE.Line).geometry.setFromPoints(points));
+    const dir = pieTangent(item.info, value).multiplyScalar(value < 0 ? -1 : 1);
+    item.tip.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    item.arm.geometry.setFromPoints([new THREE.Vector3(), dir]);
   }
 
   /** Swing a turn arc round its ring so that it stays centred on the handle: where the tool declared the grip, plus the turn made since. */
@@ -280,8 +333,9 @@ export class Manipulator {
       if (item.declared?.arc && item.axis) this.turnArc(item);
       if (item.baseDirection && this.active?.item.info.arc && this.active.item.info.param === item.info.turnedBy) this.reaim(item, this.active.item);
       const { info, group } = item;
-      const pos = new THREE.Vector3(...info.anchor).addScaledVector(new THREE.Vector3(...info.direction), item.travel).add(item.shift);
+      const pos = this.tipPoint(item);
       group.position.copy(pos);
+      if (info.pie && item.axis) this.drawPie(item);
       if (item.axis && info.axisFrom) {
         const from = new THREE.Vector3(...info.axisFrom);
         const line = item.axis.children[0] as THREE.Line;
@@ -296,6 +350,10 @@ export class Manipulator {
         const dir = new THREE.Vector3(...info.direction);
         item.arm.scale.setScalar(ratio);
         item.tip.position.copy(dir).multiplyScalar(ratio - 0.21);
+      } else if (isPushPullArrow(info)) {
+        const dir = new THREE.Vector3(...info.direction);
+        item.arm.scale.setScalar(PUSH_PULL_ARM_RATIO);
+        item.tip.position.copy(dir).multiplyScalar(PUSH_PULL_ARM_RATIO - 0.21);
       }
       const hot = item === this.hot || item === this.active?.item;
       const colors = handleColors(info);
@@ -312,9 +370,10 @@ export class Manipulator {
       const value = handleValue(info, item.travel);
       const p = pos.clone().project(this.camera());
       const behind = p.z > 1;
-      item.label.style.display = behind || !hot ? "none" : "block"; // only the handle under the pointer or being dragged names itself
-      item.label.style.left = `${((p.x + 1) / 2) * rect.width}px`;
-      item.label.style.top = `${((1 - p.y) / 2) * rect.height}px`;
+      item.label.style.display = behind || (!hot && !info.pie && !info.badge) ? "none" : "block"; // only the handle under the pointer or being dragged names itself (a pie angle and a count always show their value)
+      const at = info.pie && info.ring ? p.clone().copy(piePoint(info, value / 2)).project(this.camera()) : p; // a pie's value sits on its arc
+      item.label.style.left = `${((at.x + 1) / 2) * rect.width}px`;
+      item.label.style.top = `${((1 - at.y) / 2) * rect.height}px`;
       const unit = info.unit === "Â°" || !info.unit ? info.unit : " " + info.unit;
       const typing = item === this.active?.item && this.active.typed !== null;
       const symbol = info.symbol ?? "";
@@ -323,7 +382,7 @@ export class Manipulator {
       const grid = info.plane && (item.grid || fields) ? { ...this.gridStart(info), ...item.grid } : null;
       const gridText = grid ? (fields ? `${fields.shown(0, String(grid.columns))} × ${fields.shown(1, String(grid.rows))}` : `${grid.columns} × ${grid.rows}`) : "";
       const snapText = snapped < 0 ? "" : info.snapNames?.[snapped] === "face" ? " - square to a face" : " - square to the global axes";
-      item.label.textContent = info.toggle ? info.label : grid ? `${info.label} ${gridText}` : `${info.label} ${shown}${unit}${snapText}`;
+      item.label.textContent = info.toggle ? info.label : grid ? `${info.label} ${gridText}` : info.pie ? `${shown}°` : info.badge ? `${info.label} ${shown}` : `${info.label} ${shown}${unit}${snapText}`;
       item.label.style.outline = typing || fields ? "1px solid #ffb347" : "";
       item.label.style.fontWeight = hot ? "bold" : "normal";
     }
@@ -338,6 +397,7 @@ export class Manipulator {
   }
 
   private tipPoint(item: Item): THREE.Vector3 {
+    if (item.info.pie && item.info.ring) return piePoint(item.info, handleValue(item.info, item.travel)); // the grip rides the arc
     return new THREE.Vector3(...item.info.anchor).addScaledVector(new THREE.Vector3(...item.info.direction), item.travel).add(item.shift);
   }
 
@@ -347,6 +407,7 @@ export class Manipulator {
     let best: Item | null = null;
     let bestD = GRAB_PX;
     for (const item of this.items) {
+      if (item.info.badge) continue; // a count shown over its point is not grabbed
       if (item.info.arc && item.axis) {
         const d = this.arcDistance(item, pointer);
         if (d < bestD) {
@@ -358,7 +419,7 @@ export class Manipulator {
       const tip = this.tipPoint(item);
       const dir = new THREE.Vector3(...item.info.direction);
       const move = item.info.kind === "move";
-      const ratio = move ? MOVE_ARM_PX / ARM_PX : 1;
+      const ratio = move ? MOVE_ARM_PX / ARM_PX : isPushPullArrow(item.info) ? PUSH_PULL_ARM_RATIO : 1;
       const reach = this.pixelSizeAt(tip) * ARM_PX * ratio;
       const end = item.info.toggle ? this.screen(tip) : this.screen(tip.clone().addScaledVector(dir, reach));
       // a is the tail (a move arrow's start, a pull handle's grab point) and b the head (a move arrow's tip, a pull handle's arm end).
@@ -417,6 +478,10 @@ export class Manipulator {
   private travelAt(a: Active, e: { clientX: number; clientY: number }): number {
     const { info } = a.item;
     const ray = this.ray(e);
+    if (info.pie) {
+      const degrees = pieAngleAt(info, ray.origin, ray.direction, handleValue(info, a.item.travel));
+      if (degrees !== null) return travelFor(info, degrees);
+    }
     const t = lineParam(new THREE.Vector3(...info.anchor), new THREE.Vector3(...info.direction), ray.origin, ray.direction);
     if (t !== null) return t - a.t0;
     // Looking along the handle's line: use the screen direction of a sideways drag instead.

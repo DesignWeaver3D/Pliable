@@ -11,6 +11,12 @@ export const ARM_PX = 34;
 export const GRAB_PX = 9;
 /** A move arrow is this long on screen, from its anchor to the arrowhead, whatever the size of the object. */
 export const MOVE_ARM_PX = 80;
+/** The push/pull arrow is this many handle lengths long: its stem runs through the direction gizmo's pick icon (at 1.5) and tilt arcs and ends as far past them as it used to end off the face. */
+export const PUSH_PULL_ARM_RATIO = 2.5;
+/** Whether a handle is the push/pull arrow (the one the direction gizmo sits on). */
+export function isPushPullArrow(info: Pick<HandleInfo, "param" | "label">): boolean {
+  return info.param === "distance" && info.label === "Push/pull";
+}
 export const COLOR = 0xffb347;
 export const COLOR_HOT = 0xffffff;
 export const COLOR_TOGGLE = 0x6fd3ff;

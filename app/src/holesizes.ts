@@ -37,6 +37,20 @@ export function holeSizes(param: string): HoleSize[] {
   return [...SCREWS.map((s) => ({ label: `${s[0]} clearance`, diameter: s[1] })), ...SCREWS.map((s) => ({ label: `${s[0]} tap drill`, diameter: s[2] }))];
 }
 
+/** The countersink head angles offered most often, with where each is the standard (the full included angle, in degrees). */
+export const COUNTERSINK_ANGLES: readonly { angle: number; label: string }[] = [
+  { angle: 82, label: "82° (inch screws)" },
+  { angle: 90, label: "90° (metric screws)" },
+  { angle: 100, label: "100°" },
+  { angle: 110, label: "110°" },
+  { angle: 120, label: "120°" },
+];
+
+/** The countersink tools whose angle gets the list of standard head angles. */
+export function hasAngles(toolId: string, param: string): boolean {
+  return param === "sink_angle" && (toolId === "add_countersink" || toolId === "convert_to_countersink");
+}
+
 /** Whether a tool's parameter gets a preset list. */
 export function hasSizes(toolId: string, param: string): boolean {
   return SIZE_PARAMS[toolId]?.includes(param) ?? false;

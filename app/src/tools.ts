@@ -54,6 +54,9 @@ export interface HandleInfo {
   snaps?: number[];
   /** A rotation handle drawn as a short arc about the thing it turns (like the push/pull direction arcs) instead of a whole ring with a grip. */
   arc?: boolean;
+  /** A rotation handle drawn as a pie slice about its axis (see piegizmo.ts), and a number shown over its anchor that the wheel and typing change (no grip). */
+  pie?: boolean;
+  badge?: boolean;
   /** A move arrow whose label shows the distance moved along it, not its parameter. */
   along?: boolean;
   /** What each snap angle is ("face", "global axes"), in the order of `snaps`. */

@@ -8,7 +8,7 @@ from OCP.gp import gp_Ax2, gp_Dir, gp_Vec
 from ..ops import MIN_DISTANCE, OperationError
 from ..shared.faces import _PlanarFace, _plane_axes
 from ..shared.solids import _bounds_diagonal, _combine, _cylinder, finish
-from ..tools import Accepts, Param, register
+from ..tools import Accepts, Handle, Param, register
 
 
 @register
@@ -28,6 +28,36 @@ class AddSlot(_PlanarFace):
         Param("offset_u", "length"),
         Param("offset_v", "length"),
     ]
+
+    def handles(self, topology, selection, values):
+        """A gizmo for every parameter: move arrows along the face's two directions (position), a grip at each end (length) and at one side (width), a grip down from the face
+        (depth, 0 = through), and a turn arc about the face normal (angle)."""
+        if len(selection.faces) != 1:
+            return []
+        centre, normal, u, v = _plane_axes(topology.face(selection.faces[0]))
+        vec = lambda d: (d.X(), d.Y(), d.Z())
+        at = lambda p, *terms: tuple(c + sum(k * d[i] for k, d in terms) for i, c in enumerate((p.X(), p.Y(), p.Z())))
+        centre = centre.Translated(gp_Vec(u).Multiplied(values["offset_u"])).Translated(gp_Vec(v).Multiplied(values["offset_v"]))
+        angle = math.radians(values["angle"])
+        along = tuple(math.cos(angle) * a + math.sin(angle) * b for a, b in zip(vec(u), vec(v)))
+        side = tuple(-math.sin(angle) * a + math.cos(angle) * b for a, b in zip(vec(u), vec(v)))
+        length, width = values["length"], values["width"]
+        back = tuple(-c for c in along)
+        down = tuple(-c for c in vec(normal))
+        depth = values["depth"]
+        radius = length / 2 + max(width, 4.0)  # the turn arc rides outside the slot's ends, 45 degrees round from its length
+        phase = angle + math.pi / 4
+        radial = tuple(math.cos(phase) * a + math.sin(phase) * b for a, b in zip(vec(u), vec(v)))
+        tangent = tuple(-math.sin(phase) * a + math.cos(phase) * b for a, b in zip(vec(u), vec(v)))
+        return [
+            Handle("offset_u", "Move along the face's first direction", at(centre), vec(u), kind="move"),
+            Handle("offset_v", "Move along the face's second direction", at(centre), vec(v), kind="move"),
+            Handle("length", "Slot length (+)", at(centre, (length / 2, along)), along, scale=2.0, min=max(width, MIN_DISTANCE), kind="resize"),
+            Handle("length", "Slot length (-)", at(centre, (length / 2, back)), back, scale=2.0, min=max(width, MIN_DISTANCE), kind="resize"),
+            Handle("width", "Slot width", at(centre, (width / 2, side)), side, scale=2.0, min=MIN_DISTANCE, max=length, kind="resize"),
+            Handle("depth", "Slot depth (0 = through)", at(centre, (depth, down)), down, min=0.0, kind="resize"),
+            Handle("angle", "Slot angle", at(centre, (radius, radial)), tangent, scale=math.degrees(1 / radius), unit="°", axis=vec(normal), ring=(*at(centre), radius), arc=True),
+        ]
 
     def run(self, topology, selection, values, preview):
         length, width = values["length"], values["width"]

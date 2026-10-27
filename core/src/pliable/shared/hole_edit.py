@@ -39,6 +39,16 @@ class _HoleTool(Tool):
         return find_hole(topology, reach=reach, **_target(selection))
 
 
+SIZE_BY = ("Diameter", "Offset from hole")  # how a counterbore or countersink size is entered: its own diameter, or how far it reaches past the hole's wall
+
+
+def _entered_diameter(values, by: str, diameter_key: str, offset_key: str, hole_diameter: float) -> float:
+    """The counterbore or countersink diameter: the typed diameter, or the hole's diameter plus twice the typed offset, as `by` chooses (0 diameter, 1 offset)."""
+    if int(round(values.get(by, 0))) == 1:
+        return hole_diameter + 2 * values[offset_key]
+    return values[diameter_key]
+
+
 def _perpendicular(axis, unit) -> tuple[float, float, float]:
     """The unit direction across the hole at right angles to `unit` (axis cross unit)."""
     c = (axis[1] * unit[2] - axis[2] * unit[1], axis[2] * unit[0] - axis[0] * unit[2], axis[0] * unit[1] - axis[1] * unit[0])

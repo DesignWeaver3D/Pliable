@@ -42,6 +42,7 @@ from . import add_torus  # noqa: F401
 from . import add_prism  # noqa: F401
 from . import linear_array  # noqa: F401
 from . import circular_array  # noqa: F401
+from . import concentric_array  # noqa: F401
 from . import revolve_face  # noqa: F401
 from . import chamfer_two_distances  # noqa: F401
 from . import chamfer_distance_angle  # noqa: F401

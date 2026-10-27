@@ -6,7 +6,7 @@ from OCP.gp import gp_Pnt, gp_Trsf, gp_Vec
 
 from ..ops import OperationError
 from ..shared.arrayaxis import AXIS_CHOICES, array_axis
-from ..shared.arrays import _array_copies, _fuse_copies
+from ..shared.arrays import MAX_ARRAY_COPIES, _fuse_copies
 from ..shared.bodies import _body_bounds
 from ..tools import Accepts, Handle, Param, register, Tool
 
@@ -20,9 +20,9 @@ class CircularArray(Tool):
     id = "circular_array"
     whole_model_needs_one_body = True
     label = "Circular array"
-    description = "Makes copies of a body (select any of its faces, or nothing for the whole model; select only the round walls of holes or bosses to copy just those features) around the X, Y or Z axis through the origin, or around a picked edge (Pick axis edge), and fuses them. The count includes the original; 360 spreads them round a full circle. Drag the arc grip for the angle and the arrow grip for the count."
+    description = "Makes copies of a body (select any of its faces, or nothing for the whole model; select only the round walls of holes or bosses to copy just those features) around the X, Y or Z axis through the origin, or around a picked edge (Pick axis edge), and fuses them. The count includes the original; 360 spreads them round a full circle. Drag the pie-slice grip for the angle (up to 360) and use the mouse wheel over the number on the source for the count."
     accepts = Accepts(faces=(0, None))
-    params = [Param("count", "number", 4), Param("axis", "number", 2, options=AXIS_CHOICES), Param("angle", "angle", 360), Param("axis_edge", "number", -1)]
+    params = [Param("count", "number", 2), Param("axis", "number", 2, options=AXIS_CHOICES), Param("angle", "angle", 360), Param("axis_edge", "number", -1)]
     pick_edge = ("axis_edge", "axis")  # the form's Pick axis edge button fills the edge id and chooses "Picked edge"
 
     def _step(self, values) -> float:
@@ -58,22 +58,24 @@ class CircularArray(Tool):
 
         ring = (foot.X(), foot.Y(), foot.Z(), radius)
         angle_point, angle_tangent = at(values["angle"])
-        out = [Handle("angle", "Array angle", angle_point, angle_tangent, scale=math.degrees(1 / radius), unit="°", axis=(direction.X(), direction.Y(), direction.Z()), ring=ring)]
-        # The count grip sits on the first copy: dragging it along the arc by one step adds a copy.
-        step = self._step(values)
-        arc = abs(math.radians(step)) * radius
-        if arc > 1e-6:
-            point, tangent = at(step)
-            sign = 1.0 if step > 0 else -1.0
-            out.append(Handle("count", "Copies", point, tuple(sign * c for c in tangent), scale=1 / arc, min=2, unit=""))
+        # The angle is a pie slice from the source round to the last copy's angle (grip on its arc); the count is a number over the source that the wheel changes.
+        source, _ = at(0.0)
+        out = [
+            Handle("angle", "Array angle", angle_point, angle_tangent, scale=math.degrees(1 / radius), min=-360.0, max=360.0, unit="°", axis=(direction.X(), direction.Y(), direction.Z()), ring=ring, pie=True),
+            Handle("count", "Count", source, (0.0, 0.0, 1.0), min=1, max=MAX_ARRAY_COPIES, unit="", badge=True),
+        ]
         return out
 
     def run(self, topology, selection, values, preview):
-        count = _array_copies(values["count"])
+        count = int(round(values["count"]))
+        if count < 1 or count > MAX_ARRAY_COPIES:
+            raise OperationError(f"The count must be between 1 and {MAX_ARRAY_COPIES}")
         axis = array_axis(topology, values)
         angle = values["angle"]
         if abs(angle) < 1e-6:
             raise OperationError("Give a non-zero angle")
+        if abs(angle) > 360 + 1e-6:
+            raise OperationError("The angle can be at most 360 degrees")
         step = self._step(values)
         transforms = []
         for k in range(1, count):

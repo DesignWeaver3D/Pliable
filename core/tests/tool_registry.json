@@ -605,9 +605,26 @@
     "options": []
    },
    {
+    "name": "bore_by",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Diameter",
+     "Offset from hole"
+    ]
+   },
+   {
     "name": "bore_diameter",
     "kind": "length",
     "default": 11,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "bore_offset",
+    "kind": "length",
+    "default": 2.5,
     "drag": false,
     "options": []
    },
@@ -681,9 +698,26 @@
     "options": []
    },
    {
+    "name": "sink_by",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Diameter",
+     "Offset from hole"
+    ]
+   },
+   {
     "name": "sink_diameter",
     "kind": "length",
     "default": 12,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "sink_offset",
+    "kind": "length",
+    "default": 3,
     "drag": false,
     "options": []
    },
@@ -2226,23 +2260,9 @@
     "options": []
    },
    {
-    "name": "rows",
-    "kind": "number",
-    "default": 3,
-    "drag": false,
-    "options": []
-   },
-   {
     "name": "dx",
     "kind": "length",
     "default": 20,
-    "drag": false,
-    "options": []
-   },
-   {
-    "name": "dy",
-    "kind": "length",
-    "default": 0.0,
     "drag": false,
     "options": []
    },
@@ -2254,9 +2274,9 @@
     "options": []
    },
    {
-    "name": "dx2",
-    "kind": "length",
-    "default": 0.0,
+    "name": "rows",
+    "kind": "number",
+    "default": 3,
     "drag": false,
     "options": []
    },
@@ -2269,6 +2289,20 @@
    },
    {
     "name": "dz2",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dy",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dx2",
     "kind": "length",
     "default": 0.0,
     "drag": false,
@@ -2291,7 +2325,7 @@
  {
   "id": "circular_array",
   "label": "Circular array",
-  "description": "Makes copies of a body (select any of its faces, or nothing for the whole model; select only the round walls of holes or bosses to copy just those features) around the X, Y or Z axis through the origin, or around a picked edge (Pick axis edge), and fuses them. The count includes the original; 360 spreads them round a full circle. Drag the arc grip for the angle and the arrow grip for the count.",
+  "description": "Makes copies of a body (select any of its faces, or nothing for the whole model; select only the round walls of holes or bosses to copy just those features) around the X, Y or Z axis through the origin, or around a picked edge (Pick axis edge), and fuses them. The count includes the original; 360 spreads them round a full circle. Drag the pie-slice grip for the angle (up to 360) and use the mouse wheel over the number on the source for the count.",
   "accepts": {
    "faces": [
     0,
@@ -2315,7 +2349,7 @@
    {
     "name": "count",
     "kind": "number",
-    "default": 4,
+    "default": 2,
     "drag": false,
     "options": []
    },
@@ -2337,6 +2371,87 @@
     "default": 360,
     "drag": false,
     "options": []
+   },
+   {
+    "name": "axis_edge",
+    "kind": "number",
+    "default": -1,
+    "drag": false,
+    "options": []
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": true,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
+  "id": "concentric_array",
+  "label": "Concentric array",
+  "description": "Makes copies of a body (select any of its faces, or nothing for the whole model) in rings round the X, Y or Z axis through the origin, or round a picked edge, and fuses them. The first ring passes through the original; each further ring is the radial spacing further out. Count is the positions on the first ring and Extra per ring adds that many to each ring after it. Use the mouse wheel over the numbers on the model for the count, rings and extra, and drag the arrow for the spacing.",
+  "accepts": {
+   "faces": [
+    0,
+    null
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "count",
+    "kind": "number",
+    "default": 6,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rings",
+    "kind": "number",
+    "default": 2,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "spacing",
+    "kind": "length",
+    "default": 20,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "grow",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "axis",
+    "kind": "number",
+    "default": 2,
+    "drag": false,
+    "options": [
+     "X axis",
+     "Y axis",
+     "Z axis",
+     "Picked edge"
+    ]
    },
    {
     "name": "axis_edge",
@@ -2921,7 +3036,7 @@
    {
     "name": "remove_side",
     "kind": "number",
-    "default": 1,
+    "default": 0,
     "drag": false,
     "options": [
      "None",
@@ -3469,9 +3584,26 @@
   },
   "params": [
    {
+    "name": "sink_by",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Diameter",
+     "Offset from hole"
+    ]
+   },
+   {
     "name": "sink_diameter",
     "kind": "length",
     "default": 12,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "sink_offset",
+    "kind": "length",
+    "default": 3,
     "drag": false,
     "options": []
    },
@@ -3524,9 +3656,26 @@
   },
   "params": [
    {
+    "name": "bore_by",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Diameter",
+     "Offset from hole"
+    ]
+   },
+   {
     "name": "bore_diameter",
     "kind": "length",
     "default": 12,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "bore_offset",
+    "kind": "length",
+    "default": 3,
     "drag": false,
     "options": []
    },

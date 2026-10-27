@@ -109,3 +109,27 @@ export function typedTilt(normal: Vec, side: Vec, degrees: number): Vec {
   }
   return normal;
 }
+
+/** The tilt of `direction` along `side` as an angle in degrees from the face normal (the other arc's part of the tilt is not counted); `side` and `otherSide` are the two arcs' sides seen from the normal. */
+export function tiltAlong(normal: Vec, side: Vec, direction: Vec | null): number {
+  if (!direction) return 0;
+  const across = dot(direction, normal);
+  return across <= 0 ? 0 : (Math.atan2(dot(direction, side), across) * 180) / Math.PI;
+}
+
+/** The direction for `degrees` typed on one arc while the other arc keeps its angle: the current direction's tilt along `otherSide` stays, the tilt along `side` becomes `degrees`
+ *  (positive: toward `side`; the caller flips the sign to follow the way the arc was pulled), cut back until the face is still left at a usable angle. */
+export function typedTiltKeeping(normal: Vec, side: Vec, otherSide: Vec, current: Vec | null, degrees: number): Vec {
+  const keep = tiltAlong(normal, otherSide, current) * (Math.PI / 180);
+  const build = (typed: number): Vec => {
+    const raw: Vec = [0, 1, 2].map((i) => normal[i] + Math.tan(typed) * side[i] + Math.tan(keep) * otherSide[i]) as Vec;
+    return unit(raw) ?? normal;
+  };
+  let typed = Math.max(-89.9, Math.min(89.9, degrees)) * (Math.PI / 180);
+  for (let i = 0; i < 80; i++) {
+    const out = build(typed);
+    if (leavesFace(out, normal)) return out;
+    typed *= 0.95;
+  }
+  return normal;
+}

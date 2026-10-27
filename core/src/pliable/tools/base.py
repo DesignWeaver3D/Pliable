@@ -176,6 +176,11 @@ class Handle:
     # What each snap angle is ("face", "global axes"), in the order of `snaps`, for the label; and, for a handle that another handle turns, that handle's parameter (the view swings it as the other is dragged).
     snap_names: tuple[str, ...] = ()
     turned_by: str = ""
+    # A rotation handle drawn as a pie slice about its axis: an arc from the source's angle (0) to the parameter's angle on `ring`, with a short line
+    # toward the axis at each end, the degrees on the arc, and the grip following the arc (the circular array's angle).
+    pie: bool = False
+    # A number shown over `anchor` that the mouse wheel and typing change (the circular array's count over its source); it has no grip.
+    badge: bool = False
 
     def to_json(self, value: float, values: dict | None = None) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
@@ -191,6 +196,8 @@ class Handle:
             "along": self.along,
             "snapNames": list(self.snap_names),
             "turnedBy": self.turned_by,
+            "pie": self.pie,
+            "badge": self.badge,
             "axisFrom": [float(c) for c in self.axis_from] if self.axis_from else None,
             "param": self.param,
             "label": self.label,

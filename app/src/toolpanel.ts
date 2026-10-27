@@ -1,14 +1,14 @@
 /** "All tools" list (grouped by layout.ts) and the parameter form for tools that are not dragged. */
-import { colourSides, planeButtons } from "./planepicks";
+import { colourSides, ORIGIN_PLANES, planeButtons } from "./planepicks";
 import { planeBuildControls } from "./planebuild";
 import type { PickOptions } from "./reference";
-import { toolIcon } from "./icons";
+import { toolIcon, uiIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
 import { toolTooltip, type ToolInfo } from "./tools";
 import { moveVector, offsetOf, originFor, pointText, type AnchorInfo, type Vec3 } from "./placepick";
 import { usage, type Surface } from "./usage";
 import { roundValue, showNumber } from "./precision.ts";
-import { hasSizes, holeSizes } from "./holesizes.ts";
+import { COUNTERSINK_ANGLES, hasAngles, hasSizes, holeSizes } from "./holesizes.ts";
 
 /** A parameter value: a number, or for `per_edge` parameters one [start, end] radius pair per selected edge. */
 export type ParamValue = number | number[][];
@@ -59,7 +59,28 @@ const UNITS: Record<string, string> = { length: "mm", angle: "°", number: "" };
 /** Form fields whose bare name is unclear: a fuller label and a tooltip. */
 const PARAM_HELP: Record<string, { label: string; title: string }> = {
   axis_edge: { label: "axis edge (id, set by Pick axis edge)", title: "The edge the copies turn about when the axis is Picked edge; use the Pick axis edge button rather than typing." },
+  sink_by: { label: "countersink size by", title: "Enter the countersink's size as its own diameter, or as how far it reaches past the hole's wall (the offset); the field that is not chosen is ignored." },
+  bore_by: { label: "counterbore size by", title: "Enter the counterbore's size as its own diameter, or as how far it reaches past the hole's wall (the offset); the field that is not chosen is ignored." },
+  sink_offset: { label: "sink offset (mm)", title: "How far the countersink reaches past the hole's wall at the surface: its diameter is the hole's diameter plus twice this. Used when size by is Offset from hole." },
+  bore_offset: { label: "bore offset (mm)", title: "How far the counterbore reaches past the hole's wall: its diameter is the hole's diameter plus twice this. Used when size by is Offset from hole." },
+  nx: { label: "nx (direction x)", title: "The x part of the cutting plane's direction (its normal). Pick plane and the origin buttons fill it; typing a direction here uses it instead of an origin plane." },
+  ny: { label: "ny (direction y)", title: "The y part of the cutting plane's direction (its normal)." },
+  nz: { label: "nz (direction z)", title: "The z part of the cutting plane's direction (its normal)." },
   new_body: { label: "new body (1 = separate, 0 = join)", title: "1 keeps the new solid as its own body. 0 fuses it into the bodies it touches, which only shows when it overlaps or touches one." },
+};
+
+/** Labels for the parameters of one tool (by tool id), where the bare names are unclear: the linear array's columns, rows and planar shifts. */
+const TOOL_PARAM_HELP: Record<string, Record<string, { label: string; title: string }>> = {
+  linear_array: {
+    count: { label: "Columns", title: "How many copies in the column direction, the source included." },
+    dx: { label: "Column spacing (mm)", title: "The distance between one column and the next (the X part of the column step)." },
+    dz: { label: "Column Z-offset (mm)", title: "How far each column steps up (or down) from the one before." },
+    rows: { label: "Rows", title: "How many rows, the source row included." },
+    dy2: { label: "Row spacing (mm)", title: "The distance between one row and the next (the Y part of the row step)." },
+    dz2: { label: "Row Z-offset (mm)", title: "How far each row steps up (or down) from the one before." },
+    dy: { label: "Column Y planar shift (mm)", title: "How far each column is shifted sideways, along Y, from the one before." },
+    dx2: { label: "Row X planar shift (mm)", title: "How far each row is shifted sideways, along X, from the one before." },
+  },
 };
 
 export class ToolPanel {
@@ -172,7 +193,7 @@ export class ToolPanel {
       const row = document.createElement("label");
       row.className = "row";
       const name = document.createElement("span");
-      const help = PARAM_HELP[p.name];
+      const help = TOOL_PARAM_HELP[tool.id]?.[p.name] ?? PARAM_HELP[p.name];
       name.textContent = help?.label ?? `${p.name.replace(/_/g, " ")}${UNITS[p.kind] ? ` (${UNITS[p.kind]})` : ""}`;
       if (help) row.title = help.title;
       if (p.options) {
@@ -201,11 +222,13 @@ export class ToolPanel {
       });
       inputs[p.name] = input;
       row.append(name, input);
+      // The label stays left on one line; the eyedropper icon (and the sizes list) sit just left of the value box, which is at the right edge.
       if (p.kind === "length" || p.kind === "angle") {
         const dropper = document.createElement("button");
         dropper.type = "button";
         dropper.className = "eyedropper";
-        dropper.textContent = "⌖";
+        dropper.append(uiIcon("eyedropper", 16));
+        dropper.setAttribute("aria-label", "Eyedropper");
         dropper.title = "Eyedropper: click a fillet, hole or edge in the model to copy its value";
         dropper.addEventListener("click", async (e) => {
           e.preventDefault();
@@ -217,7 +240,7 @@ export class ToolPanel {
             this.schedulePreview(0);
           }
         });
-        row.append(dropper);
+        input.before(dropper);
       }
       if (hasSizes(tool.id, p.name)) {
         const sizes = document.createElement("select");
@@ -233,7 +256,24 @@ export class ToolPanel {
           this.schedulePreview(0);
         });
         sizes.addEventListener("keydown", (e) => e.stopPropagation());
-        row.append(sizes);
+        input.before(sizes);
+      }
+      if (hasAngles(tool.id, p.name)) {
+        const angles = document.createElement("select");
+        angles.className = "sizes";
+        angles.style.width = "64px";
+        angles.title = "Standard countersink head angles (the full included angle)";
+        angles.append(new Option("Angles", ""));
+        COUNTERSINK_ANGLES.forEach((a, i) => angles.append(new Option(a.label, String(i))));
+        angles.addEventListener("change", () => {
+          const picked = COUNTERSINK_ANGLES[Number(angles.value)];
+          angles.value = "";
+          if (!picked) return;
+          input.value = String(picked.angle);
+          this.schedulePreview(0);
+        });
+        angles.addEventListener("keydown", (e) => e.stopPropagation());
+        input.before(angles);
       }
       return row;
     });
@@ -413,6 +453,23 @@ export class ToolPanel {
         const plane = await this.host.pickPlane!();
         if (plane && this.open === tool) usePlaneIn(plane.origin, plane.normal);
       });
+      if (planeNames.length === 5) {
+        // The one-position plane forms (Cut with plane): Pick plane first, centred, the three origin planes in a row under it; the Axis field is not shown (the buttons and the direction fields set it).
+        pickPlane.style.textAlign = "center";
+        const originRow = document.createElement("div");
+        originRow.style.cssText = "display:flex;gap:4px";
+        planeButtons(this.host, usePlaneIn)
+          .slice(0, ORIGIN_PLANES.length)
+          .forEach((button, i) => {
+            button.textContent = ORIGIN_PLANES[i].name;
+            button.style.cssText = "text-align:center;margin-top:2px";
+            originRow.append(button);
+          });
+        title.after(pickPlane, originRow);
+        const axisRow = inputs[planeNames[4]]?.closest(".row") as HTMLElement | null;
+        if (axisRow) axisRow.style.display = "none";
+        for (const n of planeNames.slice(1, 4)) inputs[n].addEventListener("input", () => (inputs[planeNames[4]].value = "3"));
+      }
       const datums = (this.host.datumPlanes?.() ?? []).map((d) => {
         const button = document.createElement("button");
         button.textContent = `Datum: ${d.name}`;
@@ -420,7 +477,7 @@ export class ToolPanel {
         button.addEventListener("click", () => usePlaneIn(d.plane.origin, d.plane.normal));
         return button;
       });
-      buttons.before(pickPlane, ...datums, ...planeButtons(this.host, usePlaneIn), ...planeBuildControls(this.host, () => this.open === tool, usePlaneIn));
+      buttons.before(...(planeNames.length === 5 ? [] : [pickPlane]), ...datums, ...planeButtons(this.host, usePlaneIn).slice(planeNames.length === 5 ? ORIGIN_PLANES.length : 0), ...planeBuildControls(this.host, () => this.open === tool, usePlaneIn));
     }
     this.formEl.hidden = false;
     this.inputs = inputs;
