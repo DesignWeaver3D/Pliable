@@ -67,3 +67,17 @@ def test_revolve_a_picked_sketch_region_about_a_global_axis():
     before = len(solids_of(s.document.current.shape))
     s.handle({"type": "tool_commit", "tool": "revolve_face", "selection": {"faces": face, "axes": [1]}, "params": {"angle": 360}})
     assert len(solids_of(s.document.current.shape)) == before + 1
+
+
+def test_draft_pivots_about_the_middle_of_every_edge_of_a_block():
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+
+    s = Session()
+    s.handle({"type": "open_demo", "name": "block"})
+    topology = s.document.current
+    wall = next(i for i, f in topology.faces() if planar_normal(f) is not None and abs(planar_normal(f).Z()) < 0.1)
+    for _, edge in topology.edges():
+        curve = BRepAdaptor_Curve(edge)
+        p = curve.Value((curve.FirstParameter() + curve.LastParameter()) / 2)
+        params = {"angle": 3, "axis": 1, "axis_x": p.X(), "axis_y": p.Y(), "axis_z": p.Z()}
+        assert isinstance(s.handle({"type": "tool_preview", "tool": "draft", "selection": {"faces": [wall]}, "params": params}), bytes)
