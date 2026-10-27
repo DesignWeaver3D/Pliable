@@ -29,7 +29,7 @@
       #settingspanel .found { outline: 2px solid #ff8a1f; outline-offset: 3px; border-radius: 3px; }
       #settingspanel label { display: flex; flex-direction: column; gap: 2px; }
       #settingspanel label:has(input[type=checkbox]) { flex-direction: row; gap: 6px; }
-      #toolform select.sizes { width: 52px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; font-size: 11px; } #toolform .eyedropper { padding: 0 6px; } #toolform .eyedropper.armed { background: #ff8a1f; color: #000; }
+      #toolform select.sizes { width: 52px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; font-size: 11px; } #toolform .eyedropper { padding: 0; width: 24px; height: 22px; flex: none; margin: 0; display: flex; align-items: center; justify-content: center; } #toolform .row > span { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } #toolform .row > input, #toolform .row > select { flex: none; } #toolform .eyedropper.armed { background: #ff8a1f; color: #000; }
       /* Every element of the bar is one height and sits flush to the top; the icon inside a button is plain, not a second box. */
       #bar > button, #bar > select, #bar > span, #bar > input, #bar #menuwrap > button { height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; margin: 0; padding-top: 0; padding-bottom: 0; }
       #bar > #status, #bar > #selected, #bar > #latency { font-size: 12px; }

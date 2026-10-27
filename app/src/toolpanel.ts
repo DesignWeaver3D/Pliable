@@ -2,7 +2,7 @@
 import { colourSides, planeButtons } from "./planepicks";
 import { planeBuildControls } from "./planebuild";
 import type { PickOptions } from "./reference";
-import { toolIcon } from "./icons";
+import { toolIcon, uiIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
 import { toolTooltip, type ToolInfo } from "./tools";
 import { moveVector, offsetOf, originFor, pointText, type AnchorInfo, type Vec3 } from "./placepick";
@@ -201,11 +201,13 @@ export class ToolPanel {
       });
       inputs[p.name] = input;
       row.append(name, input);
+      // The label stays left on one line; the eyedropper icon (and the sizes list) sit just left of the value box, which is at the right edge.
       if (p.kind === "length" || p.kind === "angle") {
         const dropper = document.createElement("button");
         dropper.type = "button";
         dropper.className = "eyedropper";
-        dropper.textContent = "⌖";
+        dropper.append(uiIcon("eyedropper", 16));
+        dropper.setAttribute("aria-label", "Eyedropper");
         dropper.title = "Eyedropper: click a fillet, hole or edge in the model to copy its value";
         dropper.addEventListener("click", async (e) => {
           e.preventDefault();
@@ -217,7 +219,7 @@ export class ToolPanel {
             this.schedulePreview(0);
           }
         });
-        row.append(dropper);
+        input.before(dropper);
       }
       if (hasSizes(tool.id, p.name)) {
         const sizes = document.createElement("select");
@@ -233,7 +235,7 @@ export class ToolPanel {
           this.schedulePreview(0);
         });
         sizes.addEventListener("keydown", (e) => e.stopPropagation());
-        row.append(sizes);
+        input.before(sizes);
       }
       return row;
     });
