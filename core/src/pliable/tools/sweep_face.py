@@ -7,14 +7,14 @@ from ..tools import Accepts, Param, register, Tool
 
 @register
 class SweepFace(Tool):
-    """Sweep the selected face along the selected edge (the path); `mode` 0 adds the swept solid, 1 cuts it."""
+    """Sweep the selected face along the selected edge (the path); `mode` 0 (Add) adds the swept solid, 1 (Subtract) cuts it."""
 
     id = "sweep_face"
     label = "Sweep face along edge"
-    description = "Pulls a face along an edge to make a solid. Select one face and the edge to follow (or Shift-click a kept sketch's curve to follow the whole sketch); mode 0 adds the solid, 1 cuts it."
+    description = "Pulls a face along an edge to make a solid. Select one face and the edge to follow (or Shift-click a kept sketch's curve to follow the whole sketch); Add adds the solid and Subtract cuts it."
     accepts = Accepts(faces=(1, 1), edges=(1, 1))
     rail_accepts = Accepts(faces=(1, 1))
-    params = [Param("mode", "number", 0)]
+    params = [Param("mode", "number", 0, options=("Add", "Subtract"))]
 
     def run(self, topology, selection, values, preview):
         from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeWire
@@ -22,7 +22,7 @@ class SweepFace(Tool):
 
         mode = int(round(values["mode"]))
         if mode not in (0, 1):
-            raise OperationError("Mode must be 0 (add) or 1 (cut)")
+            raise OperationError("Mode must be Add or Subtract")
         path = selection.rail_wire if selection.rail_wire is not None else BRepBuilderAPI_MakeWire(topology.edge(selection.edges[0])).Wire()
         pipe = BRepOffsetAPI_MakePipe(path, topology.face(selection.faces[0]))
         try:

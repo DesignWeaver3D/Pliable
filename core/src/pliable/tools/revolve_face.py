@@ -17,15 +17,15 @@ from ..tools import Accepts, Handle, Param, register, Tool
 @register
 class RevolveFace(Tool):
     """Sweep the selected face around an axis: a selected straight edge or global axis, else the form's `axis` (the X, Y or Z axis
-    through the origin, or the picked edge `axis_edge`). `mode` 0 adds material, 1 cuts it."""
+    through the origin, or the picked edge `axis_edge`). `mode` 0 (Add) adds material, 1 (Subtract) cuts it."""
 
     id = "revolve_face"
     label = "Revolve face"
-    description = "Spins a face around a straight edge to add or cut a round shape. Select one face (or a whole sketch in the Sketch list, which revolves all its regions), then a straight edge or a global axis as the axis (or pick it after starting the tool); mode 0 adds material, 1 cuts."
+    description = "Spins a face around a straight edge to add or cut a round shape. Select one face (or a whole sketch in the Sketch list, which revolves all its regions), then a straight edge or a global axis as the axis (or pick it after starting the tool); Add adds material and Subtract cuts."
     accepts = Accepts(faces=(1, 1), edges=(0, 1), axes=(0, 1))
     rail_accepts = Accepts(edges=(0, 1), axes=(0, 1), any_of=True)  # a whole chosen sketch plus an edge or axis: its regions are the faces
     rail_regions = True
-    params = [Param("angle", "angle", 360, drag=False), Param("mode", "number", 0), Param("axis", "number", 3, options=AXIS_CHOICES), Param("axis_edge", "number", -1)]
+    params = [Param("angle", "angle", 360, drag=False), Param("mode", "number", 0, options=("Add", "Subtract")), Param("axis", "number", 3, options=AXIS_CHOICES), Param("axis_edge", "number", -1)]
     pick_edge = ("axis_edge", "axis")  # the form's Pick axis edge button fills the edge id and chooses "Picked edge"
 
     def applies(self, topology, selection):
@@ -71,7 +71,7 @@ class RevolveFace(Tool):
             raise OperationError("The angle must be between 0 and 360 degrees")
         mode = int(round(values["mode"]))
         if mode not in (0, 1):
-            raise OperationError("Mode must be 0 (add) or 1 (cut)")
+            raise OperationError("Mode must be Add or Subtract")
         axis = self._axis(topology, selection, values)
         if selection.faces:
             face = topology.face(selection.faces[0])

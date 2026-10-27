@@ -427,12 +427,14 @@ export class ToolPanel {
           inputs[edgeAxis[0]].value = String(id);
           inputs[edgeAxis[1]].value = "3"; // the choice list: picked edge
         }
+        showAxis();
         this.schedulePreview(0);
       });
       // Like the plane forms (Cut with plane): Pick axis first, centred, the three global axes in a row under it; the axis list and the edge id are not shown.
       pickEdge.style.textAlign = "center";
       const axisRow = document.createElement("div");
       axisRow.style.cssText = "display:flex;gap:4px";
+      const axisButtons: HTMLButtonElement[] = [];
       ["X", "Y", "Z"].forEach((name, i) => {
         const button = document.createElement("button");
         button.textContent = `${name} axis`;
@@ -440,10 +442,19 @@ export class ToolPanel {
         button.style.cssText = "text-align:center;margin-top:2px";
         button.addEventListener("click", () => {
           inputs[edgeAxis[1]].value = String(i);
+          showAxis();
           this.schedulePreview(0);
         });
+        axisButtons.push(button);
         axisRow.append(button);
       });
+      // The button for the axis in use gets the orange border of an active button (Pick axis only once an edge has been picked).
+      function showAxis() {
+        const choice = Number(inputs[edgeAxis![1]].value);
+        axisButtons.forEach((button, i) => button.classList.toggle("active", choice === i));
+        pickEdge.classList.toggle("active", choice === 3 && Number(inputs[edgeAxis![0]].value) >= 0);
+      }
+      showAxis();
       title.after(pickEdge, axisRow);
       for (const name of edgeAxis) (inputs[name]?.closest(".row") as HTMLElement | null)?.style.setProperty("display", "none");
     }

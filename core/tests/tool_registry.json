@@ -2625,7 +2625,7 @@
  {
   "id": "revolve_face",
   "label": "Revolve face",
-  "description": "Spins a face around a straight edge to add or cut a round shape. Select one face (or a whole sketch in the Sketch list, which revolves all its regions), then a straight edge or a global axis as the axis (or pick it after starting the tool); mode 0 adds material, 1 cuts.",
+  "description": "Spins a face around a straight edge to add or cut a round shape. Select one face (or a whole sketch in the Sketch list, which revolves all its regions), then a straight edge or a global axis as the axis (or pick it after starting the tool); Add adds material and Subtract cuts.",
   "accepts": {
    "faces": [
     1,
@@ -2662,7 +2662,10 @@
     "kind": "number",
     "default": 0,
     "drag": false,
-    "options": []
+    "options": [
+     "Add",
+     "Subtract"
+    ]
    },
    {
     "name": "axis",
@@ -3019,7 +3022,7 @@
  {
   "id": "sweep_face",
   "label": "Sweep face along edge",
-  "description": "Pulls a face along an edge to make a solid. Select one face and the edge to follow (or Shift-click a kept sketch's curve to follow the whole sketch); mode 0 adds the solid, 1 cuts it.",
+  "description": "Pulls a face along an edge to make a solid. Select one face and the edge to follow (or Shift-click a kept sketch's curve to follow the whole sketch); Add adds the solid and Subtract cuts it.",
   "accepts": {
    "faces": [
     1,
@@ -3049,7 +3052,10 @@
     "kind": "number",
     "default": 0,
     "drag": false,
-    "options": []
+    "options": [
+     "Add",
+     "Subtract"
+    ]
    }
   ],
   "related": [],
