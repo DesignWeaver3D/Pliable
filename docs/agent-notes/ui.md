@@ -17,3 +17,9 @@
 - Gizmos: spacing arrows on the second instance; Z arrows above the second instance's top; Y/X shift arrows out of its side; the count cube stays for Columns/Rows.
 - Hand-check: arrow placement on a real model (up arrows overlap the spacing arrow if offsets are zero).
 - Gap list for "every card parameter has a gizmo" (probe with no selection, so tools needing a selection read as NO_HANDLES and may be wrong; check these with a selection): pattern_hole, pattern_hole_circular, add_hole/counterbore/countersink/slot/boss params (task 7/8 cover hole/slot), path_array count, mirror offset, stretch, shell thickness, offset_body distance, chamfer_distance_angle, resize_hole/fillet/chamfer, revolve_face angle, circular_array axis/axis_edge (choice params), cut/split plane nx,ny,nz and remove_side (choice).
+
+## Task 5 Circular array
+- Pie slice (Handle pie=True, piegizmo.ts, drawn in manipulator.ts): arc from the source to the angle (0..angle, at 360 a full circle), grip on the arc, value label on the arc (double-click to type). Count is a badge over the source (Handle badge=True): wheel +/-1, double-click to type. Decision: the old "Copies" arrow grip on the first copy was removed (the badge replaces it). Count 1 is valid (source alone); angle above 360 is refused; default count 2.
+- Click on empty space now applies an open array (no Apply/Discard question; picking another tool while an array is open still asks). behavior.md line updated. Other tool cards already applied on empty clicks.
+- Hand-check: dragging the pie grip round with a real mouse past 180 degrees to 360; double-click typing.
+- Checked in Chrome: pie at 120 deg, count badge wheel.

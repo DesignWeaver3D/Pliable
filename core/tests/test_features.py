@@ -347,8 +347,7 @@ def test_circular_array(block):
     result = run("circular_array", block, count=4, axis=2, angle=360)
     assert volume(result.shape) < 4 * 24000  # copies overlap near the axis
     assert volume(result.shape) > 24000
-    with pytest.raises(OperationError):
-        run("circular_array", block, count=1)
+    assert volume(run("circular_array", block, count=1).shape) == pytest.approx(24000, rel=1e-6)  # the source alone
 
 
 def test_revolve_face_about_its_own_edge(block):

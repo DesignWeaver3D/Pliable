@@ -38,14 +38,13 @@ export interface SelectionDeps {
 }
 
 export function createSelection(d: SelectionDeps) {
-  const { viewport, core, navCube, measurePanel, dimensionOverlay, selected, renderChips, renderToolbar, renderSketchBar, settleOpenArray, dropPendingProfile, setChosenSketch, pickRow, refreshSelectionHandles, logOnce } = d;
+  const { viewport, core, navCube, measurePanel, dimensionOverlay, selected, renderChips, renderToolbar, renderSketchBar, dropPendingProfile, setChosenSketch, pickRow, refreshSelectionHandles, logOnce } = d;
 
   function setSelection(sels: Sel[]) {
     if (isArrayTool(d.toolPanel.openToolId)) {
-      // Clicking empty space away from an array being edited asks first; the click itself is not carried over (the preview's ids are not the model's).
-      const before = app.currentSels;
-      if (clickAway(sels) === "ignore") { viewport.selectItems(before); return; } // another item: the form stays open
-      if (!app.askingArray) void settleOpenArray().then((answer) => { if (answer === "discard" && app.committed) { viewport.selectItems(before); setSelection(before); } });
+      // Clicking empty space away from an array being edited applies it, like any other open tool; the click itself is not carried over (the preview's ids are not the model's).
+      if (clickAway(sels) === "ignore") { viewport.selectItems(app.currentSels); return; } // another item: the form stays open
+      if (!app.askingArray) void d.toolPanel.apply();
       return;
     }
     if (d.toolPanel.isOpen && clickAway(sels) === "ignore") { viewport.selectItems(app.currentSels); return; } // another item: the open tool card stays as it is

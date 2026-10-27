@@ -2291,7 +2291,7 @@
  {
   "id": "circular_array",
   "label": "Circular array",
-  "description": "Makes copies of a body (select any of its faces, or nothing for the whole model; select only the round walls of holes or bosses to copy just those features) around the X, Y or Z axis through the origin, or around a picked edge (Pick axis edge), and fuses them. The count includes the original; 360 spreads them round a full circle. Drag the arc grip for the angle and the arrow grip for the count.",
+  "description": "Makes copies of a body (select any of its faces, or nothing for the whole model; select only the round walls of holes or bosses to copy just those features) around the X, Y or Z axis through the origin, or around a picked edge (Pick axis edge), and fuses them. The count includes the original; 360 spreads them round a full circle. Drag the pie-slice grip for the angle (up to 360) and use the mouse wheel over the number on the source for the count.",
   "accepts": {
    "faces": [
     0,
@@ -2315,7 +2315,7 @@
    {
     "name": "count",
     "kind": "number",
-    "default": 4,
+    "default": 2,
     "drag": false,
     "options": []
    },

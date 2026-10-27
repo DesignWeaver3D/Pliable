@@ -3,6 +3,7 @@
 import pytest
 
 from pliable.demos import load_demo
+from pliable.ops import OperationError
 from pliable.tools import Selection, get_tool
 from pliable.topology import Topology
 
@@ -85,6 +86,18 @@ def test_circular_array_has_angle_and_count_handles():
     handles = get_tool("circular_array").handles(topology, Selection(), {"count": 4, "axis": 2, "angle": 360, "axis_edge": -1})
     assert [h.param for h in handles] == ["angle", "count"]
     assert handles[0].ring is not None and handles[0].axis == (0.0, 0.0, 1.0)
+    assert handles[0].pie and (handles[0].min, handles[0].max) == (-360.0, 360.0)  # a pie slice of at most a full turn
+    count = handles[1]
+    assert count.badge and count.min == 1 and count.to_json(4, {})["badge"] is True  # a number over the source, wheel-edited
+
+
+def test_circular_array_count_is_whole_from_one_and_defaults_to_two():
+    assert get_tool("circular_array").bind({})["count"] == 2
+    topology = block()
+    assert circular(topology, count=1).shape is not None  # one copy in all: the source alone
+    for bad in ({"count": 0}, {"angle": 400}):
+        with pytest.raises(OperationError):
+            circular(topology, **bad)
 
 
 def test_circular_array_about_a_picked_edge_matches_the_global_axis():
