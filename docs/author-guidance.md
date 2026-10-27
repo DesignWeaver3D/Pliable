@@ -24,6 +24,10 @@ Rules for keeping it:
 - [ ] Push/pull: dragging the face arrow handle behaves like dragging the face (M or right-click edge measure, typed value, Shift symmetric); a slanted edge pick sets the direction.
 - [ ] Move/Rotate on slanted and chamfer edges (single straight edges between planar faces pass), on sketches (rows or tinted regions; several sketches at once), and Move hole/boss arrows.
 - [ ] Round face edges, Divide face (edge grip, angle, grid).
+- [ ] Push/pull tilt: tilt one arc by mouse then type degrees on the other (the first keeps its angle, sign follows the pulled way); the longer arrow keeps its head grabbable above the target at the arc crossing.
+- [ ] Linear array: the Columns / Rows card order and the arrows (spacing between source and second instance, Z-offset arrows above it, X and Y shift arrows out of its side) on a real model.
+- [ ] Circular array: drag the pie grip past 180 to 360 degrees, double-click the degrees to type, wheel and double-click the count badge. Concentric array (new): count, rings, spacing and grow badges stay legible when close together; tell me if the parameters are what you meant.
+- [ ] Countersink angle arc (Add countersink to hole) follows the cone; counterbore and countersink "Offset from hole" entry; Add slot gizmos (depth grip when through, the angle arc); Cut with plane card: the dark list popup and the XY / XZ / YZ buttons (Split with plane shares the layout).
 
 ### Sketch: drawing and dimensions (look and feel)
 
