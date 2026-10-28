@@ -23,23 +23,24 @@ export function typedPoint(ctx: PreviewContext): UV | null {
   return typedTargets(ctx.tool, ctx.chain, ctx.cursor, numbers.slice(0, labels.length))[0] ?? null;
 }
 
-/** The dimensions for the sizes being typed: each number the shape takes is drawn where it applies, with its value (the typed text for the active one). */
-export function typedDimensions(ctx: PreviewContext): Dimension[] {
+/** The dimensions for the sizes being typed: each number the shape takes is drawn where it applies, with its value (the typed text for the active one).
+ *  `live`: nothing is typed; the shape's current sizes are drawn the same way as reference dimensions (gray, in parentheses). */
+export function typedDimensions(ctx: PreviewContext, live = false): Dimension[] {
   const c = ctx.cursor;
   const labels = typedLabels(ctx.tool, ctx.chain.length, !!ctx.sidesOf(ctx.tool));
-  const numbers = typedNumbers(ctx.typed).slice(0, labels.length);
-  if (!c || !ctx.chain.length || !labels.length || !numbers.length) return [];
+  const numbers = live ? [] : typedNumbers(ctx.typed).slice(0, labels.length);
+  if (!c || !ctx.chain.length || !labels.length || (!numbers.length && !live)) return [];
   const plane = ctx.s.plane;
   const world = (p: UV) => M.toWorld(plane, p.u, p.v);
   const direction = (du: number, dv: number) => {
     const o = M.toWorld(plane, 0, 0);
     return M.toWorld(plane, du, dv).map((x, k) => x - o[k]);
   };
-  const active = Math.min(labels.length - 1, Math.max(0, ctx.typed.trim().split(/\s+/).length - (ctx.typed.endsWith(" ") ? 0 : 1)));
+  const active = live ? -1 : Math.min(labels.length - 1, Math.max(0, ctx.typed.trim().split(/\s+/).length - (ctx.typed.endsWith(" ") ? 0 : 1)));
   const tokens = ctx.typed.trim().split(/\s+/);
   /** The value text of field `i`: what is being typed (with the caret) for the active one, else the size the shape has. */
-  const shown = (i: number, size: number, prefix = "", suffix = "") => `${prefix}${i === active && tokens[i] !== undefined ? `${tokens[i]}|` : n(size)}${suffix}`;
-  const targets = typedTargets(ctx.tool, ctx.chain, c, numbers);
+  const shown = (i: number, size: number, prefix = "", suffix = "") => (live ? `(${prefix}${n(size)}${suffix})` : `${prefix}${i === active && tokens[i] !== undefined ? tokens[i] : n(size)}${suffix}`);
+  const targets = live ? [{ u: c.u, v: c.v }] : typedTargets(ctx.tool, ctx.chain, c, numbers);
   const first = ctx.chain[0];
   const last = ctx.chain[ctx.chain.length - 1];
   const out: Dimension[] = [];
@@ -99,5 +100,5 @@ export function typedDimensions(ctx: PreviewContext): Dimension[] {
       out.push({ kind: "angle", text: shown(index, (Math.abs(sweep) * 180) / Math.PI, "", "°"), points: [world(first), ...samples], extend: [], selected: index === active });
     }
   }
-  return out;
+  return live ? out.map((d) => ({ ...d, reference: true })) : out;
 }

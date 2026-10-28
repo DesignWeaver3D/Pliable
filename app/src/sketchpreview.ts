@@ -37,10 +37,8 @@ export function liveDimensions(ctx: PreviewContext): Dimension[] {
     return drawn.length ? drawn : tag((a.u + c.u) / 2, (a.v + c.v) / 2, typedTag(typedLabels(ctx.tool, ctx.chain.length, !!ctx.sidesOf(ctx.tool)), ctx.typed));
   }
   if (ctx.tool === "line") return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `${n(Math.hypot(du, dv))} at ${n((Math.atan2(dv, du) * 180) / Math.PI)}°`);
-  if (ctx.tool === "rectangle") return tag((a.u + c.u) / 2, c.v, `${n(Math.abs(du))} × ${n(Math.abs(dv))}`);
-  if (ctx.tool === "rectcentre") return tag(a.u, c.v, `${n(Math.abs(du) * 2)} × ${n(Math.abs(dv) * 2)}`);
-  if (ctx.tool === "circle") return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `Ø${n(2 * Math.hypot(du, dv))}`);
-  if (ctx.sidesOf(ctx.tool)) return tag((a.u + c.u) / 2, (a.v + c.v) / 2, `R${n(Math.hypot(du, dv))}`);
+  // Rectangles, circles and polygons show their current sizes as real reference dimensions (gray, in parentheses).
+  if (ctx.tool === "rectangle" || ctx.tool === "rectcentre" || ctx.tool === "circle" || ctx.sidesOf(ctx.tool)) return typedDimensions(ctx, true);
   return [];
 }
 

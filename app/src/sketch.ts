@@ -1826,7 +1826,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       const c = this.s.constraints.find((x) => x.id === d.constraint);
       if (!c) return d;
       const drag = (e: PointerEvent) => this.dragDimension(c.id, e);
-      const marked = { selected: this.selectedDimensions.has(c.id), select: (e: MouseEvent) => this.selectDimension(c.id, e.shiftKey || e.ctrlKey || e.metaKey), menu: (e: MouseEvent) => void this.dimensionMenu(c.id, e) };
+      const marked = { selected: this.selectedDimensions.has(c.id), reference: !!c.reference, select: (e: MouseEvent) => this.selectDimension(c.id, e.shiftKey || e.ctrlKey || e.metaKey), menu: (e: MouseEvent) => void this.dimensionMenu(c.id, e) };
       return !c.reference && c.value !== undefined ? { ...d, ...marked, drag, activate: (at: { x: number; y: number }) => this.editInline(c.id, at) } : { ...d, ...marked, drag };
     });
     this.overlay.set([...dimensions, ...(this.showMarks ? M.constraintMarks(this.s).map((m) => (m.constraint === undefined ? m : { ...m, selected: this.selectedDimensions.has(m.constraint), select: (e: MouseEvent) => this.selectDimension(m.constraint!, e.shiftKey || e.ctrlKey || e.metaKey) })) : []), ...this.liveDimensions()]);

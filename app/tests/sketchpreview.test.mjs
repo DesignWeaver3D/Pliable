@@ -22,22 +22,23 @@ test("a line, circle and polygon preview from what has been clicked", () => {
   assert.deepEqual(pendingShapes(context("rectangle", [], { u: 1, v: 1 })), []);
 });
 
-test("size tags show the length and angle, the box size, a radius, or the typed text", () => {
+test("sizes while drawing: a line tag, gray reference dimensions for the other shapes, or the typed text", () => {
   const text = (ctx) => liveDimensions(ctx)[0]?.text;
   assert.equal(text(context("line", [{ u: 0, v: 0 }], { u: 3, v: 4 })), "5 at 53.13°");
-  assert.equal(text(context("rectangle", [{ u: 0, v: 0 }], { u: 4, v: 3 })), "4 × 3");
-  assert.equal(text(context("circle", [{ u: 0, v: 0 }], { u: 3, v: 4 })), "Ø10");
-  assert.equal(text(context("rectangle", [{ u: 0, v: 0 }], { u: 4, v: 3 }, { typed: "12" })), "12|"); // the first real dimension holds the typed value
+  const live = (tool, cursor) => liveDimensions(context(tool, [{ u: 0, v: 0 }], cursor)).map((d) => [d.kind, d.text, d.reference]);
+  assert.deepEqual(live("rectangle", { u: 4, v: 3 }), [["linear", "(4)", true], ["linear", "(3)", true]]);
+  assert.deepEqual(live("circle", { u: 3, v: 4 }), [["diameter", "(Ø10)", true]]);
+  assert.equal(text(context("rectangle", [{ u: 0, v: 0 }], { u: 4, v: 3 }, { typed: "12" })), "12"); // the first real dimension holds the typed value
   assert.deepEqual(liveDimensions(context("line", [], { u: 1, v: 1 })), []);
 });
 
 test("typed sizes are drawn as dimensions holding the typed values", async () => {
   const kinds = (typed, tool = "rectangle") => liveDimensions(context(tool, [{ u: 0, v: 0 }], { u: 4, v: 3 }, { typed })).map((d) => [d.kind, d.text]);
-  assert.deepEqual(kinds("12"), [["linear", "12|"], ["linear", "12"]]); // a square until the height is typed
-  assert.deepEqual(kinds("12 5"), [["linear", "12"], ["linear", "5|"]]);
-  assert.deepEqual(kinds("7", "circle"), [["diameter", "Ø7|"]]);
-  assert.deepEqual(kinds("7", "polygon"), [["radius", "R7|"]]);
-  assert.deepEqual(kinds("9", "line"), [["linear", "9|"]]);
+  assert.deepEqual(kinds("12"), [["linear", "12"], ["linear", "12"]]); // a square until the height is typed
+  assert.deepEqual(kinds("12 5"), [["linear", "12"], ["linear", "5"]]);
+  assert.deepEqual(kinds("7", "circle"), [["diameter", "Ø7"]]);
+  assert.deepEqual(kinds("7", "polygon"), [["radius", "R7"]]);
+  assert.deepEqual(kinds("9", "line"), [["linear", "9"]]);
 });
 
 test("an arc by 3 points previews the chord after the first click, then the arc through the pointer to the second click", () => {

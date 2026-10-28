@@ -42,6 +42,8 @@ export interface Dimension {
   avoid?: number[][];
   /** Tags: the constraint button whose icon is drawn instead of the text. */
   icon?: string;
+  /** Drawn in the reference gray (a measure-only dimension, or a size shown while a shape is drawn). */
+  reference?: boolean;
   /** Tags: a world direction the tag is moved along (a fixed distance on the screen), such as out of the profile. */
   outward?: number[];
   selected?: boolean;
@@ -65,6 +67,8 @@ const CURSOR_CLEAR_PX = 28; // text moves away when the pointer is closer than t
 const LINE_COLOR = "var(--ui-offwhite, #ddd)";
 /** The dark outline under all of them, so they stay readable over light surfaces. */
 const HALO_COLOR = "#1b1d22";
+/** Reference dimensions are drawn in the construction gray (the same as construction curves in a sketch). */
+const REFERENCE_COLOR = "#7f8794";
 const GAP_PAD_PX = 3; // room kept clear of the dimension's own lines around a value
 const HALO_OPACITY = "0.6"; // see-through, so it reads as a soft shadow rather than a hard outline
 const NS = "http://www.w3.org/2000/svg";
@@ -150,6 +154,7 @@ export class DimensionOverlay {
         continue;
       }
       if (this.clash) continue;
+      if (d.reference) for (const el of mine) recolour(el);
       const halos = mine.filter((el) => el.tagName === "line").map(lineHalo);
       if (d.activate || d.drag) mine.push(...this.lineHits(d, mine));
       if (this.drewLabel) this.labelAt.set(index, this.drewLabel);
@@ -518,6 +523,13 @@ export function overlaps(a: Box, b: Box): boolean {
 /** How wide a value is drawn, in pixels, with a little room around it. */
 function textWidth(text: string) {
   return text.length * TEXT_PX * 0.55 + 8;
+}
+
+/** Swap the dimension colour for the reference gray in an element and what it holds (the selected orange is left alone). */
+function recolour(el: Element) {
+  const style = el.getAttribute("style");
+  if (style?.includes(LINE_COLOR)) el.setAttribute("style", style.split(LINE_COLOR).join(REFERENCE_COLOR));
+  for (const child of Array.from(el.children)) recolour(child);
 }
 
 function line(a: V, b: V): SVGElement {
