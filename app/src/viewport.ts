@@ -454,6 +454,7 @@ export class Viewport {
 
   constructor(container: HTMLElement) {
     this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.localClippingEnabled = true; // the section view clips the model's own materials only, not the gizmos
     container.appendChild(this.renderer.domElement);
     this.scene.background = new THREE.Color(0x1b1d22);
     this.scene.add(this.model);
@@ -745,6 +746,7 @@ export class Viewport {
     const parts: [string, () => void][] = [
       ["controls", () => this.controls.update()],
       ["clipping", () => this.fitClipping()],
+      ["section clip", () => this.syncSectionClip()],
       ["render", () => this.renderer.render(this.scene, this.camera)],
       ["manipulator", () => this.manipulator.update()],
       ["pull gizmo", () => this.pullGizmo.update()],
@@ -1019,6 +1021,29 @@ export class Viewport {
     this.applySeeThrough();
 
     if (frame) this.frame(mesh.bounds.every((n) => n === 0) ? [-50, -50, 0, 50, 50, 50] : mesh.bounds); // an empty project looks at the origin from a useful distance
+    this.onMeshSet();
+  }
+
+  /** Called after a new mesh is shown (the section view redraws its cut). */
+  onMeshSet: () => void = () => {};
+
+  private sectionClip: THREE.Plane[] | null = null;
+
+  /** Cut the model away on the negative side of the plane (null shows it whole). Only the model's own surfaces and edges are clipped. */
+  setSectionClip(plane: THREE.Plane | null) {
+    this.sectionClip = plane ? [plane] : null;
+  }
+
+  private syncSectionClip() {
+    const wanted = this.sectionClip;
+    this.model.traverse((o) => {
+      const material = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+      for (const m of Array.isArray(material) ? material : material ? [material] : []) {
+        if (m.clippingPlanes === wanted || (!wanted && !m.clippingPlanes)) continue;
+        m.clippingPlanes = wanted;
+        m.needsUpdate = true;
+      }
+    });
   }
 
   /**

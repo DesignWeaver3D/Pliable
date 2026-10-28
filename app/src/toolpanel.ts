@@ -95,7 +95,7 @@ export class ToolPanel {
   constructor(
     private readonly listEl: HTMLElement,
     private readonly formEl: HTMLElement,
-    private readonly host: ToolPanelHost,
+    readonly host: ToolPanelHost,
   ) {}
 
   private listKey = "";

@@ -171,6 +171,7 @@ export const UI_ICONS: Record<string, string> = {
   xray: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" stroke-dasharray="2.6 2.2"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9" stroke-dasharray="2.6 2.2" opacity=".6"/>',
   focus: '<rect x="3.5" y="3.5" width="8" height="8" rx="1" stroke-dasharray="2.2 2" opacity=".7"/><rect x="12.5" y="3.5" width="8" height="8" rx="1" stroke-dasharray="2.2 2" opacity=".7"/><rect x="3.5" y="12.5" width="8" height="8" rx="1" stroke-dasharray="2.2 2" opacity=".7"/><rect x="12.5" y="12.5" width="8" height="8" rx="1" fill="currentColor" fill-opacity=".55"/>',
   axes: '<path d="M6 18V4M3.5 6.5L6 4l2.5 2.5"/><path d="M6 18h14M17.5 15.5L20 18l-2.5 2.5"/><path d="M6 18l-3.5 3.5M2.5 18.5v3h3"/>',
+  section: '<path d="M4 9l8-4 8 4v7l-8 4-8-4z" opacity=".5"/><path d="M3 12.5l9-4.5 9 4.5-9 4.5z" fill="currentColor" fill-opacity=".2"/><path d="M8 13.5l5-4M11 15l6-4.800M15 16.500l3-2.300"/>',
   iso: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9"/>',
   perspective: '<path d="M3 7l5-2h8l5 2v10l-5 2H8l-5-2z"/><path d="M8 5v14M16 5v14"/>',
   orthographic: '<rect x="4" y="4" width="16" height="16" rx="1"/><rect x="9" y="9" width="6" height="6" fill="currentColor" fill-opacity=".25"/>',

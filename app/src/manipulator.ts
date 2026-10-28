@@ -95,6 +95,11 @@ export class Manipulator {
     return this.active?.item.info ?? null;
   }
 
+  /** Whether a handle for this parameter is shown. */
+  has(param: string): boolean {
+    return this.items.some((i) => i.info.param === param);
+  }
+
   get count(): number {
     return this.items.length;
   }

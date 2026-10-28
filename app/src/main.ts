@@ -11,6 +11,8 @@ import type { Tool as SketchTool } from "./sketch";
 import { SketchBar } from "./sketchbar";
 import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";
+import { SectionView } from "./sectionview";
+import { SectionPanel } from "./sectionpanel";
 import { DimensionOverlay } from "./dimensions";
 import { DimensionEditor } from "./dimedit";
 import { KeptSketches } from "./keptsketches";
@@ -102,6 +104,23 @@ const navCube = new NavCube($("navcube"), viewport);
 const reference = new ReferenceView(viewport);
 const pointPicker = new PointPicker(viewport, reference, (text) => (status.textContent = text));
 const seeThroughButton = $("seethrough");
+const section = new SectionView(viewport, () => !toolPanel.isOpen && !viewport.interceptor);
+const sectionButton = document.createElement("button");
+sectionButton.id = "section";
+sectionButton.append(uiIcon("section"));
+sectionButton.addEventListener("click", () => (section.active ? section.close() : section.open()));
+let sectionPanel: SectionPanel | undefined;
+let sectionShown = false;
+const syncSection = () => {
+  sectionButton.classList.toggle("active", section.active);
+  sectionButton.setAttribute("aria-pressed", String(section.active));
+  sectionButton.title = `Section view ${section.active ? "on" : "off"}: cut the model with a plane in the view, with hatched cut faces; where bodies overlap the cut is red`;
+  if (section.active !== sectionShown) {
+    sectionShown = section.active;
+    sectionPanel?.setOpen(sectionShown);
+  }
+};
+navCube.group.prepend(sectionButton);
 navCube.group.append(seeThroughButton, $("axes"));
 seeThroughButton.addEventListener("click", () => viewport.toggleSeeThrough());
 const syncSeeThrough = () => {
@@ -120,7 +139,7 @@ axesButton.addEventListener("click", () => {
 syncAxes();
 viewport.onFrame = () => {
   // One failing part must not stop the others from updating on later frames.
-  for (const part of [() => reference.tick(), () => dimensionOverlay.draw(), () => navCube.update()]) {
+  for (const part of [() => reference.tick(), () => dimensionOverlay.draw(), () => navCube.update(), () => section.tick()]) {
     try {
       part();
     } catch (e) {
@@ -1284,6 +1303,13 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   },
 });
 toolPanel.renderList();
+sectionPanel = new SectionPanel($("sectioncard"), section, toolPanel.host);
+const sectionPanelChanged = section.onChange;
+section.onChange = () => {
+  sectionPanelChanged();
+  syncSection();
+};
+syncSection();
 // A handle dragged in the view sets its parameter through the open form, so typed entry and the preview stay in step.
 // With no form open (a selection waiting for its drag tool) the handle runs that tool's normal drag instead.
 let lastDragEvent = 0;
@@ -1293,6 +1319,7 @@ viewport.handleStartsItemDrag = (info) =>
 viewport.manipulator.onDrag = (param, value, phase, x, y, linked) => {
   lastDragEvent = performance.now();
   if (sketch.onPlaneDrag(param, value, phase)) return; // a sketch's plane gizmo
+  if (section.onDrag(param, value, phase)) return; // the section plane's slide arrow
   const info = viewport.manipulator.dragInfo;
   if (toolPanel.isOpen && phase === "move" && info?.kind === "move") {
     slideLive = { info, value };

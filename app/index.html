@@ -147,6 +147,12 @@
       #toolform { position: fixed; top: 270px; right: 12px; width: 250px; box-sizing: border-box; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
       #measure.aside { right: 274px; } /* an edit card that reaches the measurement card moves it left */
       #toolform[hidden] { display: none; }
+      #sectioncard { position: fixed; top: 38px; right: 274px; width: 250px; box-sizing: border-box; max-height: calc(100vh - 60px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; }
+      #sectioncard[hidden] { display: none; }
+      #sectioncard button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; text-align: left; display: block; width: 100%; margin-top: 2px; }
+      #sectioncard .title { color: #ffb878; font-weight: 600; margin-bottom: 4px; }
+      #sectioncard .row { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin: 3px 0; }
+      #sectioncard input[type=text] { width: 80px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; }
       #toolform button.active { border-color: #ff8a1f; color: #ffb878; }
       #toolform .title { color: #ffb878; font-weight: 600; margin-bottom: 4px; }
       #toolform .row { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin: 3px 0; }
@@ -308,6 +314,7 @@
     <div id="selected" title="What is selected"></div>
     <div id="sketchpanel" hidden></div>
     <div id="toolform" hidden></div>
+    <div id="sectioncard" hidden></div>
     <div id="measure" hidden></div>
     <div id="dim" hidden></div>
     <div id="palette" hidden>

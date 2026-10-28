@@ -60,6 +60,7 @@ Rules for keeping it:
 - [ ] Selection feel: shift-select and the chips (what they are for), hard-to-hit small faces and edges, double-click chains that add non-tangent edges, box select with F, E, V filters and badge.
 - [ ] Hole work with a real mouse: the Sizes preset list, push/pull and drag on a hole whose wall is two faces, and the display precision setting in tool forms, labels and drag rounding.
 - [ ] Emboss and Cut along surface on a cylinder and a wrapped region; unrolled sketch on a cone, a flat-fillet-flat chain, and across a closed cylinder's seam.
+- [ ] Section view (the cut-plane icon at the left of the view buttons above the nav cube): pick planes (Pick plane, XY/XZ/YZ, three points), drag the blue arrow and the slider through a model, Flip side, hatch angle and spacing differ per body and the lines are grey, two overlapping bodies show red where their cut faces overlap (try bodies that only touch: no red), and the view stays fast on a large imported part. Known limit: clicks still pick the hidden, cut-away part of the model.
 
 ### Decisions
 
