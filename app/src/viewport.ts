@@ -11,6 +11,7 @@ import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeome
 import type { CentreInfo, FaceRange, MeshData } from "./client";
 import { splitDrawLists } from "./slide";
 import { ghostRuns } from "./visibility";
+import { DepthProbe } from "./occlusion";
 import { Manipulator } from "./manipulator";
 import { PullGizmo } from "./pullgizmo";
 import { PullDirection, edgeVector, type Vec } from "./pulldir";
@@ -1449,6 +1450,7 @@ export class Viewport {
   /** Whether a world point is hidden behind the model (never, in see-through mode). */
   private occluded(p: THREE.Vector3): boolean {
     if (settings.seeThrough || !this.mesh) return false;
+    if (this.probe) return this.probe.hidden(p); // inside a box select: one depth picture answers every point
     const dir = p.clone().sub(this.camera.position);
     const distance = dir.length();
     this.raycaster.set(this.camera.position, dir.normalize());
@@ -1456,10 +1458,26 @@ export class Viewport {
     return !!hit && hit.distance < distance * 0.995;
   }
 
+  /** The depth picture a box select tests its points against (null outside one). */
+  private probe: DepthProbe | null = null;
+
   private itemsInBox(kind: Kind, r: Rect, crossing: boolean, rect: DOMRect): Sel[] {
     const data = this.data;
     if (!data) return [];
     this.camera.updateMatrixWorld();
+    if (!settings.seeThrough && this.mesh) {
+      this.mesh.updateMatrixWorld();
+      this.probe = new DepthProbe(this.renderer);
+      this.probe.capture(this.mesh, this.camera as THREE.PerspectiveCamera | THREE.OrthographicCamera, rect.width, rect.height, this.sectionClip);
+    }
+    try {
+      return this.itemsInBoxWith(kind, r, crossing, rect, data);
+    } finally {
+      this.probe = null;
+    }
+  }
+
+  private itemsInBoxWith(kind: Kind, r: Rect, crossing: boolean, rect: DOMRect, data: MeshData): Sel[] {
     const out: Sel[] = [];
     const proj = (x: number, y: number, z: number) => {
       const n = new THREE.Vector3(x, y, z).project(this.camera);
