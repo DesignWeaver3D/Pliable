@@ -45,9 +45,9 @@ import type { Sel, Viewport } from "./viewport";
 const DRAG_START_PX = 3;
 const POINT_SIZE_PX = 8;
 const CONSTRUCTION_DASH_PX = 8;
-const CENTRE_CROSS_PX = 5; // half the width of a circle or arc centre cross
+const CENTRE_CROSS_PX = 10; // half the width of a circle or arc centre cross
 const CONSTRUCTION_GAP_PX = 5;
-const COLORS = { line: 0xb8a4ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, centre: 0xc4cad4, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
+const COLORS = { line: 0xb8a4ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
 export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "arctan" | "arcrad" | "tancircle" | "tanarc" | "slot" | "point" | "polygon" | "ellipse" | "ellarc" | "spline" | "trim" | "extend" | "split" | "fillet" | "chamfer" | "triangle" | "pentagon" | "hexagon" | "octagon";
 /** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
@@ -138,7 +138,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private axes = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ linewidth: 1, vertexColors: true, depthTest: false, transparent: true, opacity: 0.7 }));
   private pending = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.pending, linewidth: 2, depthTest: false, transparent: true }));
   /** A small cross at the centre of every circle and arc, as in technical drawings. */
-  private centres = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.centre, linewidth: 1, depthTest: false, transparent: true }));
+  private centres = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ vertexColors: true, linewidth: 2, depthTest: false, transparent: true })); // each cross is coloured like its curve
+  private centreColours = new Map<number, number>(); // the colour of each circle's and arc's cross, set as the curves are drawn
   private centresAt = 0; // the pixel size the crosses were last built for
   private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false, transparent: true }));
   private grid: THREE.Group | null = null;
@@ -1804,7 +1805,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const lit: [number, number][][] = [];
     const open = this.showFree ? freeParts(this.s, this.freedom, this.freeSizes) : null;
     for (const e of this.s.entities) {
-      (this.isMarked({ kind: "entity", id: e.id }) ? marked : open?.entities.has(e.id) ? lit : e.construction ? guides : this.isPlaced(e) ? placed : normal).push(M.polyline(this.s, e));
+      const bucket = this.isMarked({ kind: "entity", id: e.id }) ? marked : open?.entities.has(e.id) ? lit : e.construction ? guides : this.isPlaced(e) ? placed : normal;
+      bucket.push(M.polyline(this.s, e));
+      this.centreColours.set(e.id, bucket === marked ? COLORS.selected : bucket === lit ? FREE_COLOR : bucket === guides ? COLORS.construction : bucket === placed ? COLORS.placed : COLORS.line);
     }
     this.drawCentres();
     this.drawAxes();
@@ -1860,12 +1863,17 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.centresAt = pixel;
     const arm = CENTRE_CROSS_PX * pixel;
     const lines: [number, number][][] = [];
+    const colors: number[] = [];
+    const color = new THREE.Color();
     for (const e of this.s.entities) {
       if (e.type !== "circle" && e.type !== "arc") continue;
       const c = M.pointOf(this.s, e.center);
       lines.push([[c.u - arm, c.v], [c.u + arm, c.v]], [[c.u, c.v - arm], [c.u, c.v + arm]]);
+      color.set(this.centreColours.get(e.id) ?? COLORS.line);
+      for (let k = 0; k < 4; k++) colors.push(color.r, color.g, color.b);
     }
     this.set(this.centres, this.segments(lines));
+    if (lines.length) this.centres.geometry.setColors(colors);
   }
 
   private set(line: LineSegments2, positions: number[]) {
