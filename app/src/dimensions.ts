@@ -415,15 +415,17 @@ export class DimensionOverlay {
     const at = this.drewLabel;
     // The line across a circle (to its centre or through it) is left out: its hit area would cover the centre and the curve, which stay selectable.
     const lines = drawn.filter((el) => el.tagName === "line");
-    return lines
-      .map((el, i) => {
+    const round = d.kind === "radius" || d.kind === "diameter";
+    // The line across a circle can be clicked to select the dimension, but not dragged, and not near the centre (the middle of a diameter) or the curve, which stay selectable and draggable.
+    const pieces = lines.flatMap((el, i) => (round && i === 0 ? halves(el, d.kind === "diameter").map((piece) => ({ el: piece, across: true })) : [{ el, across: false }]));
+    return pieces
+      .map(({ el, across }) => {
         const hit = el.cloneNode(false) as SVGElement;
-        if ((d.kind === "radius" || d.kind === "diameter") && i === 0) trimEnds(hit, 16); // the line across a circle can be clicked, except near the centre and the curve, which stay selectable
         hit.setAttribute("stroke", "rgba(255,138,31,0)");
         hit.setAttribute("stroke-width", "12");
         hit.setAttribute("style", `pointer-events:stroke;cursor:${d.drag ? "move" : "text"}`);
         for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup"]) hit.addEventListener(type, (e) => e.stopPropagation());
-        this.makeDraggable(hit, d);
+        if (!across) this.makeDraggable(hit, d);
         if (at && d.activate) this.activateOnDoubleTap(hit, d, () => d.activate!(at));
         if (d.select) hit.addEventListener("click", (e) => d.select!(e)); // a click on a dimension's line selects it like a click on its value
         hit.addEventListener("dblclick", (e) => {
@@ -544,6 +546,19 @@ function recolour(el: Element) {
   const style = el.getAttribute("style");
   if (style?.includes(LINE_COLOR)) el.setAttribute("style", style.split(LINE_COLOR).join(REFERENCE_COLOR));
   for (const child of Array.from(el.children)) recolour(child);
+}
+
+/** The parts of a line across a circle that may be clicked: clear of both ends, and for a diameter (which passes through the centre) of its middle too. */
+function halves(el: SVGElement, throughCentre: boolean): SVGElement[] {
+  const [x1, y1, x2, y2] = ["x1", "y1", "x2", "y2"].map((k) => Number(el.getAttribute(k)));
+  const [mx, my] = [(x1 + x2) / 2, (y1 + y2) / 2];
+  const piece = (ax: number, ay: number, bx: number, by: number) => {
+    const copy = el.cloneNode(false) as SVGElement;
+    for (const [k, v] of [["x1", ax], ["y1", ay], ["x2", bx], ["y2", by]] as const) copy.setAttribute(k, String(v));
+    trimEnds(copy, 16);
+    return copy;
+  };
+  return throughCentre ? [piece(x1, y1, mx, my), piece(mx, my, x2, y2)] : [piece(x1, y1, x2, y2)];
 }
 
 /** Shorten a drawn line (x1..y2 attributes) by `by` pixels at each end; a line shorter than that has no hit area. */
