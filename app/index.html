@@ -32,7 +32,7 @@
       #toolform select.sizes { width: 52px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; font-size: 11px; } #toolform .eyedropper { padding: 0; width: 24px; height: 22px; flex: none; margin: 0; display: flex; align-items: center; justify-content: center; } #toolform .row > span { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } #toolform .row > input, #toolform .row > select { flex: none; } #toolform .eyedropper.armed { background: #ff8a1f; color: #000; }
       /* Every element of the bar is one height and sits flush to the top; the icon inside a button is plain, not a second box. */
       #bar > button, #bar > select, #bar > span, #bar > input, #bar #menuwrap > button { height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; margin: 0; padding-top: 0; padding-bottom: 0; }
-      #bar > #status, #bar > #selected, #bar > #latency { font-size: 12px; }
+      #bar > #status, #bar > #latency { font-size: 12px; }
       #bar button .icon { background: none; border: 0; padding: 0; }
       #bar [hidden] { display: none !important; }
       #bar span:empty { display: none; }
@@ -164,6 +164,7 @@
       #sketchbar { position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%); z-index: 1; display: flex; gap: 6px; align-items: center; color: #aaa; }
       #sketchbar button, #sketchpanel button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; }
       #sketchbar button:disabled { color: #666; }
+      #selected { position: fixed; bottom: 10px; right: 12px; z-index: 1; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #ccc; pointer-events: none; }
       #sketchpanel { position: fixed; top: 270px; right: 12px; width: 250px; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; font-size: 13px; }
       #sketchpanel[hidden] { display: none; }
       #sketchpanel .crows { max-height: max(120px, calc(100vh - 560px)); overflow-y: auto; } /* the constraint rows scroll on their own so the card stays put */
@@ -279,7 +280,6 @@
       <button id="redo" disabled title="Redo the change you undid (Ctrl+Y)">Redo</button>
       <span id="status">connecting...</span>
       <button id="reconnect" hidden title="Try to reach the core again now">Reconnect</button>
-      <span id="selected"></span>
       <span id="latency"></span>
       <input id="palette-input" title="Search every tool, setting and command (Ctrl+K or /)" placeholder="Search tools (Ctrl+K, ? for shortcuts)" autocomplete="off" spellcheck="false" />
     </div>
@@ -305,6 +305,7 @@
       </section>
     <button id="drawerbtn" type="button" aria-label="Tools" aria-expanded="false" aria-controls="drawer" title="Tools (T)&#10;Open or close the list of every tool, grouped."></button>
     <div id="sketchbar"></div>
+    <div id="selected" title="What is selected"></div>
     <div id="sketchpanel" hidden></div>
     <div id="toolform" hidden></div>
     <div id="measure" hidden></div>

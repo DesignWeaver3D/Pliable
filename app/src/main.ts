@@ -46,6 +46,7 @@ import { usage, type Surface } from "./usage";
 import { bodiesOf } from "./visibility";
 import { showNumber } from "./precision.ts";
 import { createSelection } from "./selection";
+import { followMeasureCard } from "./selectedreadout";
 import { createModelView } from "./modelview";
 import { createItemDrag } from "./itemdrag";
 
@@ -57,6 +58,7 @@ new MutationObserver(() => {
   if (status.classList.contains("warn") && status.textContent !== warnedText) status.classList.remove("warn");
 }).observe(status, { childList: true, characterData: true, subtree: true });
 const selected = $("selected");
+followMeasureCard(selected, $("measure"));
 const DEV = new URLSearchParams(location.search).has("dev"); // ?dev=1 shows triangle counts and timings
 const latency = $("latency");
 if (!DEV) latency.hidden = true;
@@ -420,7 +422,7 @@ async function settleOpenArray(): Promise<"apply" | "discard" | null> {
 }
 
 
-const { setSelection, selectionPayload, mappedSelection } = createSelection({
+const { setSelection, selectionPayload, mappedSelection, describe } = createSelection({
   viewport, core, navCube, measurePanel, dimensionOverlay, selected,
   get toolPanel() { return toolPanel; },
   get bodyList() { return bodyList; },
@@ -807,6 +809,7 @@ chooseSketchTool = (tool) => sketch.selectTool(tool);
 sketchConstraints = () => sketch.constraintChoices();
 chooseConstraint = (label) => sketch.chooseConstraint(label);
 sketch.onToolChange = () => {
+  selected.textContent = sketch.active ? sketch.selectionText() : describe(app.currentSels); // the readout bottom right names what is selected
   renderToolbar();
   syncHistoryButtons();
   navCube.fitSelectedButton.disabled = sketch.active ? !sketch.selection.length : app.currentSels.length === 0; // in a sketch the fit button follows the sketch selection

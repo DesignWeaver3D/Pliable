@@ -25,6 +25,7 @@ import { ellipseThroughPoint, splitEllipse } from "./sketchsplitellipse";
 import { isFreeCircle, draggedRadius } from "./sketchcircledrag";
 import { loadSketchOptions, OPTIONS_KEY } from "./sketchoptions";
 import { chooseAtCursor } from "./sketchmenu";
+import { sketchSelectionText } from "./selectedreadout";
 import { CONSTRAINT_HELP } from "./sketchconstrainthelp";
 import { buildConstraintList, buildToolOptions, button, el, type PanelContext } from "./sketchpanelparts";
 import { openSketchSettings } from "./sketchsettings";
@@ -145,6 +146,11 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private settingsDialog: HTMLDialogElement | null = null;
   /** Called when the active drawing tool, or whether a sketch is open, changes (the top strip redraws). */
   onToolChange: (() => void) | null = null;
+
+  /** The names of the selected points and curves, for the readout bottom right. */
+  selectionText(): string {
+    return sketchSelectionText(this.s, this.selection);
+  }
 
   get activeTool(): Tool {
     return this.tool;
