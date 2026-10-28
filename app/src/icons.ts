@@ -98,6 +98,7 @@ export const TOOL_ICONS: Record<string, Spec> = {
   pattern_hole: spec("hole", "array"),
   pattern_hole_circular: spec("hole", "ring"),
   fill_hole: spec("hole", "dot"),
+  thread_hole: spec("hole", "step"),
   linear_array: spec("body", "array"),
   circular_array: spec("body", "ring"),
   concentric_array: spec("body", "ring"),

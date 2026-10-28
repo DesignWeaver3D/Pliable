@@ -3159,6 +3159,94 @@
   "keeps_body_order": false
  },
  {
+  "id": "thread_hole",
+  "label": "Thread hole",
+  "description": "Cuts a thread (a helical groove) into the wall of a round hole. Select the hole's round wall, then pick a standard size or type a pitch; the groove runs the whole wall unless you give a length.",
+  "accepts": {
+   "faces": [
+    1,
+    1
+   ],
+   "edges": [
+    0,
+    0
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "axes": [
+    0,
+    0
+   ],
+   "any_of": false
+  },
+  "params": [
+   {
+    "name": "size",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Custom",
+     "M3",
+     "M4",
+     "M5",
+     "M6",
+     "M8",
+     "M10",
+     "M12",
+     "M14",
+     "M16",
+     "M20"
+    ]
+   },
+   {
+    "name": "pitch",
+    "kind": "length",
+    "default": 1.25,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "depth",
+    "kind": "length",
+    "default": 0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "length",
+    "kind": "length",
+    "default": 0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "hand",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Right",
+     "Left"
+    ]
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
   "id": "path_array",
   "label": "Array along path",
   "description": "Needs an edge selected, or a kept sketch chosen with Shift-click on its curve (it does not show in the tool strip otherwise). Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model), or the round walls of holes or bosses to copy just those features; the count includes the original.",

@@ -879,3 +879,31 @@ def test_helical_sweep_adds_and_cuts_a_thread():
     assert all(volume(x) < volume(cylinder) - 50 for x in solids_of(subtracted))
     with pytest.raises(OperationError):
         tool.run(topology, sel, {**base, "pitch": 0}, False)
+
+
+def test_thread_hole_cuts_a_helical_groove_into_the_wall():
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Cylinder
+    from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut
+    from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt
+
+    block = BRepPrimAPI_MakeBox(gp_Pnt(-15, -15, 0), 30, 30, 20).Shape()
+    bore = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(0, 0, -1), gp_Dir(0, 0, 1)), 2.5, 22).Shape()  # an M6 tap drill
+    shape = BRepAlgoAPI_Cut(block, bore).Shape()
+    topology = Topology(shape)
+    wall = next(i for i, f in topology.faces() if BRepAdaptor_Surface(f).GetType() == GeomAbs_Cylinder)
+    tool = get_tool("thread_hole")
+    sel = Selection(faces=[wall])
+    assert tool.applies(topology, sel)
+    values = {"size": 4, "pitch": 1, "depth": 0, "length": 0, "hand": 0}  # M6
+    threaded = tool.run(topology, sel, values, False).shape
+    assert volume(threaded) < volume(shape) - 20  # a groove of about 0.54 x 0.75 x turns x circumference
+    left = tool.run(topology, sel, {**values, "hand": 1}, False).shape
+    assert volume(left) == pytest.approx(volume(threaded), rel=0.02)
+    short = tool.run(topology, sel, {**values, "length": 8}, False).shape
+    assert volume(threaded) < volume(short) < volume(shape)
+    with pytest.raises(OperationError):
+        tool.run(topology, sel, {**values, "size": 0, "pitch": 0}, False)
+    with pytest.raises(OperationError):
+        tool.run(topology, sel, {**values, "length": 0.5, "pitch": 1}, False)

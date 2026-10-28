@@ -73,6 +73,8 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Fixed to axes (commit 27f3f6c): the distances from the origin are the point's current absolute offsets; the side stays whichever side the point is on when solved, and a point exactly on an axis gets a plain Horizontal or Vertical constraint.
 - Drag steps (commit 853a33b): an abrupt drag is solved in up to 40 steps of 5% of the sketch size; a longer jump than 2 sketch sizes takes bigger steps and may still flip.
 
+- Thread hole (commit: see git log for "Add the Thread hole tool"): the groove is a trapezoid (0.75 pitch wide at the wall, 0.125 at its root, 0.5413 pitch deep) wound by the Helical sweep code, one whole turn at a time; it does not check that the hole diameter suits the chosen size, and a wall split into several faces is refused. Symptom if wrong: a groove that breaks through a thin wall or a thread that does not match a screw.
+
 ## Keys and settings
 
 - Bare keys need an engaged viewport (pointer over the view, a recent exit, or a click in it; `ENGAGE_GRACE_MS = 1500`). Symptom: a view key does nothing right after using a panel.

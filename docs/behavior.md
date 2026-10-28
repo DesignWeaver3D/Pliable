@@ -111,6 +111,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Right-click a Fixed mark: Dimension to the axes replaces it with the point's horizontal and vertical distances from the origin; right-click one of those distances: Fix the point turns the pair back into Fixed. (owner, 2026-10-27)
 - Horizontal / vertical works on a single selected line as well as on several. (owner, 2026-10-27)
 - The drop list under a constraint button opens under the whole button group with the button's own text size. Every constraint button's tooltip says what it does and what to select; "does not fit the current selection" is only a warning shown when the button is clicked. (owner, 2026-10-27)
+- Thread hole (a Holes tool, owner request 2026-10-27): select a hole's whole round wall and it cuts a helical groove into it, the length of the wall unless a length is given; the size list gives the standard pitch, Custom uses the Pitch box, Right or Left hand.
 
 ## Layout
 
