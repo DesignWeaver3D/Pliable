@@ -215,15 +215,19 @@ function nearHorizontal(s: SketchData, l: Extract<SketchEntity, { type: "line" }
   return Math.abs(b.u - a.u) >= Math.abs(b.v - a.v);
 }
 
+/** Horizontal or vertical for each selected line, whichever its slope is nearer to (one line, or several free ones). */
+function autoAxis(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[] {
+  const es = entities(s, sel);
+  const lines = es.length === 1 && only(es, "line") && !es[0].reference ? [es[0] as Extract<SketchEntity, { type: "line" }>] : freeLines(s, sel);
+  return lines.map((l) => ({ type: nearHorizontal(s, l) ? "horizontal" : "vertical", entity: l.id }));
+}
+
 /** The table that decides which constraint buttons appear for a selection. Edit here to add or reorder. */
 export const CONSTRAINT_OPTIONS: ConstraintOption[] = [
   {
     label: "Horizontal / vertical",
-    build: (s, sel) => {
-      const l = freeLines(s, sel)[0];
-      return l ? { type: nearHorizontal(s, l) ? "horizontal" : "vertical", entity: l.id } : null;
-    },
-    buildMany: (s, sel) => freeLines(s, sel).map((l) => ({ type: nearHorizontal(s, l) ? "horizontal" : "vertical", entity: l.id })),
+    build: (s, sel) => autoAxis(s, sel)[0] ?? null,
+    buildMany: autoAxis,
   },
   {
     label: "Horizontal",

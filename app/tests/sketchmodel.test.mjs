@@ -116,8 +116,8 @@ test("horizontal and vertical apply to several selected lines, each as detected"
   const byLabel = (l) => optionsFor(s, sel).find((o) => o.label === l);
   assert.deepEqual(byLabel("Horizontal / vertical").buildMany(s, sel), [{ type: "horizontal", entity: 10 }, { type: "vertical", entity: 11 }]);
   assert.deepEqual(byLabel("Vertical").buildMany(s, sel), [{ type: "vertical", entity: 10 }, { type: "vertical", entity: 11 }]);
-  // one line keeps the old single button and no combined one
-  assert.ok(!optionsFor(s, [sel[0]]).some((o) => o.label === "Horizontal / vertical"));
+  // one line takes the combined button too (owner, 2026-10-27)
+  assert.deepEqual(optionsFor(s, [sel[0]]).find((o) => o.label === "Horizontal / vertical").build(s, [sel[0]]), { type: "horizontal", entity: 10 });
   // a line that already has one is left out
   const held = { ...s, constraints: [{ id: 5, type: "horizontal", entity: 10 }] };
   assert.deepEqual(optionsFor(held, sel).find((o) => o.label === "Vertical").buildMany(held, sel), [{ type: "vertical", entity: 11 }]);

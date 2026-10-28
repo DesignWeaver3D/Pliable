@@ -1,9 +1,9 @@
 /** A small menu next to the cursor for choosing among several fits (the smart dimension). Closes on a choice, Escape or a click elsewhere. */
-export function chooseAtCursor<T extends { label: string }>(at: { x: number; y: number }, items: T[]): Promise<T | null> {
+export function chooseAtCursor<T extends { label: string }>(at: { x: number; y: number }, items: T[], fontPx = 13): Promise<T | null> {
   return new Promise((resolve) => {
     const menu = document.createElement("div");
     menu.setAttribute("role", "menu");
-    menu.style.cssText = `position:fixed;left:${Math.round(at.x + 8)}px;top:${Math.round(at.y + 8)}px;z-index:30;display:flex;flex-direction:column;gap:2px;padding:4px;background:#2a2d34;border:1px solid #555;border-radius:6px;font:13px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.5)`;
+    menu.style.cssText = `position:fixed;left:${Math.round(at.x + 8)}px;top:${Math.round(at.y + 8)}px;z-index:30;display:flex;flex-direction:column;gap:2px;padding:4px;background:#2a2d34;border:1px solid #555;border-radius:6px;font:${fontPx}px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.5)`;
     const done = (choice: T | null) => {
       window.removeEventListener("pointerdown", outside, true);
       window.removeEventListener("keydown", key, true);

@@ -92,8 +92,9 @@ export function createToolStrip(d: StripDeps) {
         caret.title = `${c.label} variants: ${c.menu.map((m) => m.label).join(", ")}`;
         caret.setAttribute("aria-haspopup", "menu");
         caret.addEventListener("click", async () => {
-          const r = caret.getBoundingClientRect();
-          const picked = await chooseAtCursor({ x: r.left - 8, y: r.bottom - 8 }, c.menu!);
+          // Opens under the whole button group (its tool first), with the text the size of the buttons' own.
+          const [r, from] = [caret.getBoundingClientRect(), button.getBoundingClientRect()];
+          const picked = await chooseAtCursor({ x: from.left - 8, y: r.bottom - 8 }, c.menu!, 11);
           if (picked) d.chooseConstraint(picked.label);
         });
         return [button, caret];
