@@ -32,12 +32,6 @@ Rules for keeping it:
 
 ### Sketch: drawing and dimensions (look and feel)
 
-- [ ] Typed sizes while drawing: the shape previews at the typed sizes, the typed number has a caret and is orange, dimension text steps away from the pointer.
-- [ ] Dimension drawing: angle dimension as an arc, outside arrows past an extension line, point-to-line dimension, value gaps cut only the dimension's own lines (length, diameter, radius, angle tags, over a tinted face or the grid), long decimals on a leader stay upright, dragging a dimension by its text or lines.
-- [ ] Dimension and constraint marks: tags sit above arc and circle centres so a selected centre stays visible; the arc radius leader points at the arc and drags freely, with a dashed extension past an end point; the click-to-light degrees-of-freedom message in yellow.
-- [ ] Sketch list and views: hovering a row, curves or a region lights it white; double-click selects the whole sketch; watch for lag with a very large sketch; construction curves dashed and under normal ones; sketch origin drawn over every curve.
-- [ ] Fully constrained colouring on a larger dimensioned sketch (a circle with only its centre placed is a known exception).
-- [ ] Smart dimension cursor menu (two points: distance, horizontal, vertical; three or more items: symmetric, midpoint, equal, collinear, concentric), and Shift/Ctrl picking several tinted regions.
 
 ### Sketch: tools
 

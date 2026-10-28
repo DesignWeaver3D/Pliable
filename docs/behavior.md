@@ -98,6 +98,11 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Every dimensional constraint (any constraint holding a number) is editable on screen by double-clicking its dimension leader or its number.
 - When a numeric constraint is created, its dimension appears immediately with the as-created value prefilled and ready for editing.
 - Fillet and Chamfer work on a corner of two lines or arcs (click the corner point or one of its curves), and on any two lines, arcs or circles picked one after the other: the fillet is the arc of the typed radius tangent to both whose centre is nearest the second click, each curve is cut or stretched to its tangent point, and tangent constraints are added; the chamfer joins the points at the typed distance along each curve (along the arc for an arc) from the corner, on the second click's side where the curves cross. A circle is cut into an arc where the fillet or chamfer meets it. Curves that do not meet are refused by Chamfer.
+- An angle dimension is drawn as an arc; a point-to-line dimension is available; a dimension can be dragged by its text or its lines; long decimals on a leader stay upright. (owner, 2026-10-27)
+- An arc radius leader starts at the middle of the arc, points at the arc and drags freely, with a dashed extension of the arc past an end point. (owner, 2026-10-27)
+- Clicking the degrees-of-freedom message in the Sketch card highlights the unconstrained geometry in yellow. (owner, 2026-10-27)
+- Hovering a row in the Sketch list lights that sketch's geometry in the scene, and hovering geometry lights its row; selection lights both. Double-clicking a sketch edge in the scene selects the whole sketch, and Delete removes it. (owner, 2026-10-27)
+- Geometry that is fully constrained is drawn in the fully-constrained colour. (owner, 2026-10-27)
 
 ## Layout
 
