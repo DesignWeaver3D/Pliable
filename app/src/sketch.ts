@@ -26,6 +26,7 @@ import { isFreeCircle, draggedRadius } from "./sketchcircledrag";
 import { loadSketchOptions, OPTIONS_KEY } from "./sketchoptions";
 import { chooseAtCursor } from "./sketchmenu";
 import { sketchSelectionText } from "./selectedreadout";
+import { axesToFixed, fixedToAxes } from "./sketchfixedaxes";
 import { CONSTRAINT_HELP } from "./sketchconstrainthelp";
 import { buildConstraintList, buildToolOptions, button, el, type PanelContext } from "./sketchpanelparts";
 import { openSketchSettings } from "./sketchsettings";
@@ -1342,6 +1343,15 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.render(false);
   }
 
+  /** Right-click on a constraint mark: a Fixed point can be held by its two distances to the axes, and such a pair can be turned back into Fixed. */
+  private async markMenu(id: number, e: MouseEvent) {
+    const toAxes = fixedToAxes(this.s, id);
+    const toFixed = axesToFixed(this.s, id);
+    const items = [...(toAxes ? [{ label: "Dimension to the axes", to: toAxes }] : []), ...(toFixed ? [{ label: "Fix the point (remove the distances to the axes)", to: toFixed }] : [])];
+    const picked = items.length ? await chooseAtCursor({ x: e.clientX, y: e.clientY }, items) : null;
+    if (picked) await this.changeConstraints(() => picked.to, "That conflicts with other constraints, so it was not changed");
+  }
+
   /** Right-click on a dimension's value: switch it (and the other selected dimensions, when it is one of them) between driving and reference. */
   private async dimensionMenu(id: number, e: MouseEvent) {
     const ids = this.selectedDimensions.has(id) ? [...this.selectedDimensions] : [id];
@@ -1351,13 +1361,16 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.render(false);
     }
     const dims = this.s.constraints.filter((c) => ids.includes(c.id) && c.value !== undefined);
-    const items: { label: string; reference?: boolean; switchRound?: boolean }[] = [];
+    const items: { label: string; reference?: boolean; switchRound?: boolean; toFixed?: M.SketchConstraint[] }[] = [];
+    const toFixed = axesToFixed(this.s, id);
+    if (toFixed) items.push({ label: "Fix the point (remove the distances to the axes)", toFixed });
     if (dims.some((c) => !c.reference)) items.push({ label: "Make reference (measure only)", reference: true });
     if (dims.some((c) => c.reference)) items.push({ label: "Make driving", reference: false });
     const rounds = dims.filter((c) => c.type === "radius" || c.type === "diameter");
     if (rounds.length) items.push({ label: rounds.every((c) => c.type === "radius") ? "Show as diameter" : rounds.every((c) => c.type === "diameter") ? "Show as radius" : "Switch radius and diameter", switchRound: true });
     const picked = items.length ? await chooseAtCursor({ x: e.clientX, y: e.clientY }, items) : null;
-    if (picked?.switchRound) this.switchRoundDimensions(rounds.map((c) => c.id));
+    if (picked?.toFixed) await this.changeConstraints(() => picked.toFixed!, "That conflicts with other constraints, so it was not changed");
+    else if (picked?.switchRound) this.switchRoundDimensions(rounds.map((c) => c.id));
     else if (picked) await this.setReference(dims.map((c) => c.id), picked.reference!);
   }
 
@@ -1838,7 +1851,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       const marked = { selected: this.selectedDimensions.has(c.id), reference: !!c.reference, select: (e: MouseEvent) => this.selectDimension(c.id, e.shiftKey || e.ctrlKey || e.metaKey), menu: (e: MouseEvent) => void this.dimensionMenu(c.id, e) };
       return !c.reference && c.value !== undefined ? { ...d, ...marked, drag, activate: (at: { x: number; y: number }) => this.editInline(c.id, at) } : { ...d, ...marked, drag };
     });
-    this.overlay.set([...dimensions, ...(this.showMarks ? M.constraintMarks(this.s).map((m) => (m.constraint === undefined ? m : { ...m, selected: this.selectedDimensions.has(m.constraint), select: (e: MouseEvent) => this.selectDimension(m.constraint!, e.shiftKey || e.ctrlKey || e.metaKey) })) : []), ...this.liveDimensions()]);
+    this.overlay.set([...dimensions, ...(this.showMarks ? M.constraintMarks(this.s).map((m) => (m.constraint === undefined ? m : { ...m, selected: this.selectedDimensions.has(m.constraint), select: (e: MouseEvent) => this.selectDimension(m.constraint!, e.shiftKey || e.ctrlKey || e.metaKey), menu: (e: MouseEvent) => void this.markMenu(m.constraint!, e) })) : []), ...this.liveDimensions()]);
     if (panel) this.renderPanel();
     this.onToolChange?.(); // the strip's constraint row follows the selection
   }
