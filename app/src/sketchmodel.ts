@@ -343,7 +343,7 @@ function angleArc(s: SketchData, c: SketchConstraint, lines: Extract<SketchEntit
 }
 
 /** Constraints whose mark is the icon of their button (the constraint buttons' labels) rather than text. */
-const MARK_ICONS: Record<string, string> = { tangent: "Tangent / collinear", fixed: "Fixed", block: "Lock", equal: "Equal" };
+const MARK_ICONS: Record<string, string> = { tangent: "Tangent / collinear", fixed: "Fixed", block: "Lock", equal: "Equal", point_on: "Coincident", coincident: "Coincident" };
 
 const MARKS: Record<string, string> = {
   horizontal: "H",
@@ -355,6 +355,7 @@ const MARKS: Record<string, string> = {
   fixed: "Fix",
   block: "Lock",
   point_on: "On",
+  coincident: "Co",
   midpoint: "Mid",
   symmetric: "Sym",
   symmetric_point: "Sym",
@@ -397,7 +398,8 @@ export function constraintMarks(s: SketchData): Dimension[] {
       const p = s.points.find((q) => q.id === id);
       if (p) anchors.push([p.u, p.v]);
     }
-    for (const id of [...(c.entities ?? []), ...(c.entity !== undefined ? [c.entity] : [])]) {
+    // A point on a curve is marked at the point itself, not between the point and the curve's middle.
+    for (const id of c.type === "point_on" ? [] : [...(c.entities ?? []), ...(c.entity !== undefined ? [c.entity] : [])]) {
       const e = entityOf(s, id);
       if (e) anchors.push(centre(e));
     }

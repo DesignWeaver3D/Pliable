@@ -402,9 +402,10 @@ export class DimensionOverlay {
     const at = this.drewLabel;
     // The line across a circle (to its centre or through it) is left out: its hit area would cover the centre and the curve, which stay selectable.
     const lines = drawn.filter((el) => el.tagName === "line");
-    return (d.kind === "radius" || d.kind === "diameter" ? lines.slice(1) : lines)
-      .map((el) => {
+    return lines
+      .map((el, i) => {
         const hit = el.cloneNode(false) as SVGElement;
+        if ((d.kind === "radius" || d.kind === "diameter") && i === 0) trimEnds(hit, 16); // the line across a circle can be clicked, except near the centre and the curve, which stay selectable
         hit.setAttribute("stroke", "rgba(255,138,31,0)");
         hit.setAttribute("stroke-width", "12");
         hit.setAttribute("style", `pointer-events:stroke;cursor:${d.drag ? "move" : "text"}`);
@@ -530,6 +531,22 @@ function recolour(el: Element) {
   const style = el.getAttribute("style");
   if (style?.includes(LINE_COLOR)) el.setAttribute("style", style.split(LINE_COLOR).join(REFERENCE_COLOR));
   for (const child of Array.from(el.children)) recolour(child);
+}
+
+/** Shorten a drawn line (x1..y2 attributes) by `by` pixels at each end; a line shorter than that has no hit area. */
+function trimEnds(el: SVGElement, by: number) {
+  const [x1, y1, x2, y2] = ["x1", "y1", "x2", "y2"].map((k) => Number(el.getAttribute(k)));
+  const length = Math.hypot(x2 - x1, y2 - y1);
+  if (length <= 2 * by) {
+    el.setAttribute("x2", String(x1)); // nothing left to click
+    el.setAttribute("y2", String(y1));
+    return;
+  }
+  const [ux, uy] = [(x2 - x1) / length, (y2 - y1) / length];
+  el.setAttribute("x1", String(x1 + ux * by));
+  el.setAttribute("y1", String(y1 + uy * by));
+  el.setAttribute("x2", String(x2 - ux * by));
+  el.setAttribute("y2", String(y2 - uy * by));
 }
 
 function line(a: V, b: V): SVGElement {
