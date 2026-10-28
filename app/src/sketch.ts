@@ -25,6 +25,7 @@ import { ellipseThroughPoint, splitEllipse } from "./sketchsplitellipse";
 import { isFreeCircle, draggedRadius } from "./sketchcircledrag";
 import { loadSketchOptions, OPTIONS_KEY } from "./sketchoptions";
 import { chooseAtCursor } from "./sketchmenu";
+import { CONSTRAINT_HELP } from "./sketchconstrainthelp";
 import { buildConstraintList, buildToolOptions, button, el, type PanelContext } from "./sketchpanelparts";
 import { openSketchSettings } from "./sketchsettings";
 import { parseValue } from "./dimedit";
@@ -1151,7 +1152,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   chooseConstraint(label: string) {
     const chosen = M.allConstraintOptions(this.s, this.selection).find((c) => c.option.label === label);
     if (chosen?.enabled || label === M.SMART_DIMENSION.label) void this.applyConstraint(chosen?.option ?? M.SMART_DIMENSION); // the smart dimension says what to select when nothing fits
-    else if (chosen) this.host.status(`${label} does not fit the current selection`, "warn");
+    else if (chosen) this.host.status(`${label} does not fit the current selection. Needs: ${CONSTRAINT_HELP[label]?.needs ?? "a different selection"}`, "warn");
   }
 
   /** Where the pointer last was on the page (client pixels): the smart dimension's menu opens there. */

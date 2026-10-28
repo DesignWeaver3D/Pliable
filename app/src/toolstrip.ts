@@ -1,6 +1,6 @@
 /** The strip at the top centre of the view: the tools that work with the selection (or, in a sketch, the drawing tools
  *  and a row of constraints), fitted to the room between the bodies list and the nav cube. Moved out of main.ts. */
-import { CONSTRAINT_HELP } from "./sketchconstrainthelp";
+import { constraintTip } from "./sketchconstrainthelp";
 import { stripChoices } from "./sketchconstraintgroups";
 import { chooseAtCursor } from "./sketchmenu";
 import { fitStripCount, stripRoom } from "./stripfit";
@@ -81,8 +81,7 @@ export function createToolStrip(d: StripDeps) {
         name.className = "clabel";
         name.textContent = c.label;
         button.append(constraintIcon(c.label), name);
-        const help = CONSTRAINT_HELP[c.label] ? ` (${CONSTRAINT_HELP[c.label]})` : "";
-        button.title = c.enabled ? `Apply ${c.label} to the selection${help}` : `${c.label}: does not fit the current selection${help}`;
+        button.title = constraintTip(c.label); // what it does and what it needs; whether the selection fits is a warning when it is clicked
         button.addEventListener("click", () => d.chooseConstraint(c.label));
         if (!c.menu) return button;
         // A drop list of the strict variants beside the smart button; the button itself keeps the smart behavior.
