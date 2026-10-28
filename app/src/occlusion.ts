@@ -24,7 +24,11 @@ export class DepthProbe {
   private camera: THREE.Camera | null = null;
   private orthographic = false;
 
-  constructor(private readonly renderer: THREE.WebGLRenderer) {}
+  private readonly renderer: THREE.WebGLRenderer;
+
+  constructor(renderer: THREE.WebGLRenderer) {
+    this.renderer = renderer;
+  }
 
   /** Draw the mesh's solid triangles (material 0) as seen by the camera at the given size in CSS pixels. */
   capture(mesh: THREE.Mesh, camera: THREE.PerspectiveCamera | THREE.OrthographicCamera, width: number, height: number, clip: THREE.Plane[] | null) {
