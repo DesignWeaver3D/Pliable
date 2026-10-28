@@ -10,7 +10,7 @@ import type { Loop, SectionPlane, V3 } from "./sectionmath.ts";
 
 const HANDLE_PARAM = "section_offset";
 const HATCH_COLOUR = 0x59606b;
-const OVERLAP_RGBA = [255, 40, 40, 200];
+const OVERLAP_RGBA = [255, 0, 0, 255];
 /** Cells along the longer side of the overlap grid. */
 const OVERLAP_RESOLUTION = 768;
 /** The hatch lines of a body are about this many apart across the model's diagonal (times the body's spacing factor). */

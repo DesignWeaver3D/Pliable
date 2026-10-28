@@ -112,7 +112,7 @@ export class SectionPanel {
     };
     line(report.bodies === 0 ? "The plane does not cut any body." : `Cuts ${report.bodies} ${report.bodies === 1 ? "body" : "bodies"}.`);
     if (report.pairs.length) {
-      line(`Bodies overlap here (${showNumber(report.overlapArea, 1)} mm²):`, "#ff6b6b");
+      line(`Bodies overlap here (${showNumber(report.overlapArea, 1)} mm²):`, "#ff2a2a");
       for (const [a, b] of report.pairs) line(`Body ${a} and body ${b}`, bodyColor(a));
     } else if (report.bodies > 1) line("No overlap between the cut faces.");
   }
