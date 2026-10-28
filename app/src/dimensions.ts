@@ -46,6 +46,8 @@ export interface Dimension {
   reference?: boolean;
   /** Tags: a world direction the tag is moved along (a fixed distance on the screen), such as out of the profile. */
   outward?: number[];
+  /** Tags: other world directions to try, in order, when the outward place is taken by another mark. */
+  alternatives?: number[][];
   selected?: boolean;
   select?: (e: MouseEvent) => void;
   menu?: (e: MouseEvent) => void;
@@ -146,7 +148,7 @@ export class DimensionOverlay {
       this.clash = false;
       try {
         if (d.kind === "linear") this.linear(d, project, mine);
-        else if (d.kind === "tag") this.label(this.clearOf(this.pushed(project(d.points[0]), d, project), d, project), d.text, mine);
+        else if (d.kind === "tag") this.tag(d, project, mine);
         else if (d.kind === "angle") this.angle(d, project, mine);
         else this.leader(d, project, mine);
       } catch (e) {
@@ -164,10 +166,21 @@ export class DimensionOverlay {
     this.svg.replaceChildren(...parts);
   }
 
+  /** A tag, tried in its outward place first and then in each alternative until it does not land on another one. */
+  private tag(d: Dimension, project: (p: number[]) => V, mine: SVGElement[]) {
+    for (const way of d.outward ? [d.outward, ...(d.alternatives ?? [])] : [undefined]) {
+      mine.length = 0;
+      this.pending = [];
+      this.clash = false;
+      this.label(this.clearOf(this.pushed(project(d.points[0]), d, project, way), d, project), d.text, mine);
+      if (!this.clash) return;
+    }
+  }
+
   /** A tag's point moved a fixed distance on the screen along its outward direction (a tangent mark off the curve). */
-  private pushed(at: V, d: Dimension, project: (p: number[]) => V): V {
-    if (!d.outward) return at;
-    const toward = project(d.points[0].map((c, k) => c + d.outward![k]));
+  private pushed(at: V, d: Dimension, project: (p: number[]) => V, way = d.outward): V {
+    if (!way) return at;
+    const toward = project(d.points[0].map((c, k) => c + way[k]));
     return add(at, mul(unit(sub(toward, at)), MARK_OUT_PX));
   }
 

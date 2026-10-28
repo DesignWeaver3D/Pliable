@@ -6,6 +6,7 @@ import { showNumber } from "./precision.ts";
 import { ellipseAngle, ellipseArcPoints, ellipseSweep } from "./sketchellipse.ts";
 import { ellipseCrossings, splineCrossings } from "./sketchcrossings.ts";
 import { tangentSpots } from "./sketchtangentmarks.ts";
+import { coincidentDirection, fan } from "./sketchmarkplace.ts";
 export * from "./sketchconstraints.ts";
 export * from "./sketchsmartdim.ts";
 
@@ -370,15 +371,11 @@ export function constraintMarks(s: SketchData): Dimension[] {
     return e.type === "line" ? [(line[0][0] + line[1][0]) / 2, (line[0][1] + line[1][1]) / 2] : mid;
   };
   const out: Dimension[] = [];
-  // Marks that share a place leave it in different directions (up and right, then the next quarter turn round), so they do not sit on each other.
-  const crowd = new Map<string, number>();
-  const spread = (u: number, v: number): number[] => {
-    const key = `${u.toFixed(3)},${v.toFixed(3)}`;
-    const k = crowd.get(key) ?? 0;
-    crowd.set(key, k + 1);
-    const angle = Math.PI / 4 + (k * Math.PI) / 2;
-    const [from, to] = [toWorld(s.plane, u, v), toWorld(s.plane, u + Math.cos(angle), v + Math.sin(angle))];
-    return to.map((x, i) => x - from[i]);
+  /** The way a mark at (u, v) leaves its point: `preferred` (outside the profile where it can), then the other ways to try when that place is taken. */
+  const leaving = (u: number, v: number, preferred: [number, number]) => {
+    const from = toWorld(s.plane, u, v);
+    const [outward, ...alternatives] = fan(preferred).map((angle) => toWorld(s.plane, u + Math.cos(angle), v + Math.sin(angle)).map((x, i) => x - from[i]));
+    return { outward, alternatives };
   };
   const centres = s.entities.flatMap((e) => (e.type === "circle" || e.type === "arc" || e.type === "ellipse" ? [pointOf(s, e.center)] : [])).map((p) => toWorld(s.plane, p.u, p.v));
   for (const c of s.constraints) {
@@ -390,9 +387,7 @@ export function constraintMarks(s: SketchData): Dimension[] {
       const spots = tangentSpots(s, c);
       for (const spot of spots) {
         const at = toWorld(s.plane, spot.u, spot.v);
-        const to = toWorld(s.plane, spot.u + spot.out[0], spot.v + spot.out[1]);
-        crowd.set(`${spot.u.toFixed(3)},${spot.v.toFixed(3)}`, (crowd.get(`${spot.u.toFixed(3)},${spot.v.toFixed(3)}`) ?? 0) + 1);
-        out.push({ kind: "tag", text, points: [at], mark: true, constraint: c.id, icon, outward: to.map((x, k) => x - at[k]) });
+        out.push({ kind: "tag", text, points: [at], mark: true, constraint: c.id, icon, ...leaving(spot.u, spot.v, spot.out) });
       }
       if (spots.length) continue;
     }
@@ -417,7 +412,7 @@ export function constraintMarks(s: SketchData): Dimension[] {
     if (!anchors.length) continue;
     const [u, v] = [anchors.reduce((a, q) => a + q[0], 0) / anchors.length, anchors.reduce((a, q) => a + q[1], 0) / anchors.length];
     // A Coincident mark sits beside its point, not on it, so the point stays visible and pickable.
-    const beside = c.type === "point_on" || c.type === "coincident" ? { outward: spread(u, v) } : {};
+    const beside = c.type === "point_on" || c.type === "coincident" ? leaving(u, v, coincidentDirection(s, c, [u, v])) : {};
     out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true, avoid: centres, constraint: c.id, icon, ...beside });
   }
   return out;
