@@ -15,6 +15,9 @@ const OVERLAP_RGBA = [255, 40, 40, 200];
 const OVERLAP_RESOLUTION = 768;
 /** The hatch lines of a body are about this many apart across the model's diagonal (times the body's spacing factor). */
 const HATCH_PER_DIAGONAL = 45;
+/** The hatch lines are at least this many across a body's thinnest cut, and never closer than the model's diagonal over HATCH_FLOOR. */
+const HATCH_PER_THIN = 8;
+const HATCH_FLOOR = 1500;
 
 export interface SectionReport {
   /** Bodies the plane cuts. */
@@ -203,17 +206,12 @@ export class SectionView {
     const frame = frameOf(this.plane);
     const cut = sliceBodies(data.positions, data.indices, data.faces, frame, diagonal * 2e-6);
     const ids = [...new Set(data.faces.map((f) => f.body ?? -1))].sort((x, y) => x - y);
-    // Which way the viewer sees the cut face from: the side that was cut away.
-    const side = this.flipped ? -1 : 1;
-    const lift = diagonal * 4e-3 * side;
-    const at = (x: number, y: number, extra = 0): V3 => {
-      const k = lift * (1 + extra);
-      return [
-        frame.origin[0] + frame.u[0] * x + frame.v[0] * y + frame.n[0] * k,
-        frame.origin[1] + frame.u[1] * x + frame.v[1] * y + frame.n[1] * k,
-        frame.origin[2] + frame.u[2] * x + frame.v[2] * y + frame.n[2] * k,
-      ];
-    };
+    // Everything is drawn exactly on the plane; the cut face and the red overlay are pushed apart in depth with polygon offsets.
+    const at = (x: number, y: number): V3 => [
+      frame.origin[0] + frame.u[0] * x + frame.v[0] * y,
+      frame.origin[1] + frame.u[1] * x + frame.v[1] * y,
+      frame.origin[2] + frame.u[2] * x + frame.v[2] * y,
+    ];
 
     const capPositions: number[] = [];
     const capColours: number[] = [];
@@ -228,20 +226,20 @@ export class SectionView {
         const triangles = THREE.ShapeUtils.triangulateShape(outer, holes);
         for (const tri of triangles) {
           for (const index of tri) {
-            capPositions.push(...at(points[index].x, points[index].y, -0.5));
+            capPositions.push(...at(points[index].x, points[index].y));
             capColours.push(colour.r, colour.g, colour.b);
           }
         }
       }
       const style = hatchStyle(ids.indexOf(body));
-      const lines = hatchLines(loops, style.angle, (diagonal / HATCH_PER_DIAGONAL) * style.spacing);
+      const lines = hatchLines(loops, style.angle, hatchBase(loops, diagonal) * style.spacing);
       for (let i = 0; i < lines.length; i += 2) hatchPositions.push(...at(lines[i], lines[i + 1]));
     }
     if (capPositions.length) {
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute("position", new THREE.Float32BufferAttribute(capPositions, 3));
       geometry.setAttribute("color", new THREE.Float32BufferAttribute(capColours, 3));
-      const material = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+      const material = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 });
       this.group.add(new THREE.Mesh(geometry, material));
     }
     if (hatchPositions.length) {
@@ -268,16 +266,34 @@ export class SectionView {
         texture.needsUpdate = true;
         const x1 = grid.x0 + grid.w * grid.cell;
         const y1 = grid.y0 + grid.h * grid.cell;
-        const corners = [at(grid.x0, grid.y0, 1), at(x1, grid.y0, 1), at(x1, y1, 1), at(grid.x0, y1, 1)];
+        const corners = [at(grid.x0, grid.y0), at(x1, grid.y0), at(x1, y1), at(grid.x0, y1)];
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute("position", new THREE.Float32BufferAttribute(corners.flat(), 3));
         geometry.setAttribute("uv", new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2));
         geometry.setIndex([0, 1, 2, 0, 2, 3]);
-        const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+        const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
         this.group.add(new THREE.Mesh(geometry, material));
       }
     }
     this.report = { bodies: cut.size, overlapArea, pairs };
     this.onChange();
   }
+}
+
+/** The distance between hatch lines before the body's own factor: a fraction of the model's size, but never more than an eighth of the body's thinnest cut, so small and thin parts still get several lines. */
+function hatchBase(loops: readonly Loop[], diagonal: number): number {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const loop of loops) {
+    for (let i = 0; i < loop.length; i += 2) {
+      x0 = Math.min(x0, loop[i]);
+      x1 = Math.max(x1, loop[i]);
+      y0 = Math.min(y0, loop[i + 1]);
+      y1 = Math.max(y1, loop[i + 1]);
+    }
+  }
+  const thinnest = Math.min(x1 - x0, y1 - y0);
+  return Math.max(Math.min(diagonal / HATCH_PER_DIAGONAL, thinnest / HATCH_PER_THIN), diagonal / HATCH_FLOOR);
 }
