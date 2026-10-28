@@ -989,7 +989,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       // Enter with no tool active starts the drawing tool used last again (as in other CAD programs).
       this.setTool(this.lastDrawTool);
     } else if ((e.key === "Delete" || e.key === "Backspace") && this.selectedDimensions.size) {
-      // Dimensions picked in the view (a click on a value) are deleted; the geometry they held stays, free of them.
+      // Dimensions and constraint marks picked in the view (a click on a value or a mark) are deleted; the geometry they held stays, free of them.
       e.preventDefault();
       const ids = new Set(this.selectedDimensions);
       this.pushUndo();
@@ -997,7 +997,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.selectedDimensions.clear();
       void this.resolve();
       this.render();
-      this.host.status(`Deleted ${ids.size} dimension${ids.size === 1 ? "" : "s"} (Undo brings ${ids.size === 1 ? "it" : "them"} back)`);
+      this.host.status(`Deleted ${ids.size} constraint${ids.size === 1 ? "" : "s"} (Undo brings ${ids.size === 1 ? "it" : "them"} back)`);
     } else if ((e.key === "Delete" || e.key === "Backspace") && this.selection.length) {
       // Only points selected and something holds them to other geometry: Delete lets go of that (the lines stay).
       const released = this.selection.every((x) => x.kind === "point") ? Co.releasePoints(this.s, this.selection.map((x) => x.id)) : null;
@@ -1818,7 +1818,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       const marked = { selected: this.selectedDimensions.has(c.id), select: (e: MouseEvent) => this.selectDimension(c.id, e.shiftKey || e.ctrlKey || e.metaKey), menu: (e: MouseEvent) => void this.dimensionMenu(c.id, e) };
       return !c.reference && c.value !== undefined ? { ...d, ...marked, drag, activate: (at: { x: number; y: number }) => this.editInline(c.id, at) } : { ...d, ...marked, drag };
     });
-    this.overlay.set([...dimensions, ...(this.showMarks ? M.constraintMarks(this.s) : []), ...this.liveDimensions()]);
+    this.overlay.set([...dimensions, ...(this.showMarks ? M.constraintMarks(this.s).map((m) => (m.constraint === undefined ? m : { ...m, selected: this.selectedDimensions.has(m.constraint), select: (e: MouseEvent) => this.selectDimension(m.constraint!, e.shiftKey || e.ctrlKey || e.metaKey) })) : []), ...this.liveDimensions()]);
     if (panel) this.renderPanel();
     this.onToolChange?.(); // the strip's constraint row follows the selection
   }

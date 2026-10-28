@@ -115,7 +115,7 @@ export class DimensionOverlay {
     const cam = this.camera();
     cam.updateMatrixWorld();
     // The pointer only matters to labels that dodge it; the interactive ones (editable or explained) stay put under it.
-    const dodging = this.dims.some((d) => !d.edit && !d.editNote && !d.activate && !d.drag);
+    const dodging = this.dims.some((d) => !d.edit && !d.editNote && !d.activate && !d.drag && !d.select);
     const state = [...cam.matrixWorld.elements, ...(cam as THREE.PerspectiveCamera).projectionMatrix.elements, rect.width, rect.height, dodging ? this.pointer?.x : 0, dodging ? this.pointer?.y : 0, this.editing].join(",");
     if (state === this.drawn) return; // nothing moved: rebuilding the SVG every frame made it flicker
     this.drawn = state;
@@ -135,7 +135,7 @@ export class DimensionOverlay {
       this.clash = false;
       try {
         if (d.kind === "linear") this.linear(d, project, mine);
-        else if (d.kind === "tag") this.label(this.clearOf(project(d.points[0]), d, project), d.text, mine, true);
+        else if (d.kind === "tag") this.label(this.clearOf(project(d.points[0]), d, project), d.text, mine);
         else if (d.kind === "angle") this.angle(d, project, mine);
         else this.leader(d, project, mine);
       } catch (e) {
@@ -166,7 +166,7 @@ export class DimensionOverlay {
     const along = unit(sub(b, a));
     if (len(sub(b, a)) < 2) {
       // Seen end-on the two points coincide: only the value can be shown.
-      this.label(a, d.text, out, true);
+      this.label(a, d.text, out);
       return;
     }
     let side: V;
@@ -212,7 +212,7 @@ export class DimensionOverlay {
       slide = mul(along, pulled);
     }
     this.dimLine(a2, b2, out, Math.abs(pulled) > len(sub(b2, a2)) / 2 ? pulled : undefined);
-    this.label(add(mul(add(a2, b2), 0.5), slide), d.text, out, false);
+    this.label(add(mul(add(a2, b2), 0.5), slide), d.text, out);
   }
 
   /** An arc between the two lines with an arrowhead at each end, extension lines out to it, and the value on its middle (beside it when the arc is short). */
@@ -231,7 +231,7 @@ export class DimensionOverlay {
     for (let i = 1; i < arc.length; i++) length += len(sub(arc[i], arc[i - 1]));
     const width = textWidth(d.text);
     const away = unit(sub(mid, apex));
-    this.label(length < width + 3 * ARROW_PX ? add(mid, mul(away, width / 2 + ARROW_PX)) : mid, d.text, out, false);
+    this.label(length < width + 3 * ARROW_PX ? add(mid, mul(away, width / 2 + ARROW_PX)) : mid, d.text, out);
   }
 
   private leader(d: Dimension, project: (p: number[]) => V, out: SVGElement[]) {
@@ -258,7 +258,7 @@ export class DimensionOverlay {
       part.setAttribute("stroke-dasharray", "4 3");
       out.push(part);
     }
-    this.label(add(end, { x: side * (d.text.length * TEXT_PX * 0.275 + 6), y: 0 }), d.text, out, false);
+    this.label(add(end, { x: side * (d.text.length * TEXT_PX * 0.275 + 6), y: 0 }), d.text, out);
   }
 
   /** A dimension line with an arrowhead at each end: inside the span, or outside it when the span is too short. */
@@ -294,7 +294,7 @@ export class DimensionOverlay {
     r.setAttribute("rx", "3");
     r.setAttribute("class", (dim.edit || dim.activate ? "dimhit edit" : "dimhit") + (dim.drag ? " drag" : ""));
     const tip = document.createElementNS(NS, "title");
-    tip.textContent = dim.edit || dim.activate ? "Double-click to edit" + (dim.drag ? ", drag to move" : "") : (dim.editNote ?? (dim.drag ? "Drag to move" : ""));
+    tip.textContent = dim.edit || dim.activate ? "Double-click to edit" + (dim.drag ? ", drag to move" : "") : (dim.editNote ?? (dim.drag ? "Drag to move" : dim.mark && dim.select ? "Click to select, Delete removes it" : ""));
     r.append(tip);
     // The pointer gestures on the text belong to the text: they must not reach the viewport (which would clear the selection).
     for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup"]) r.addEventListener(type, (e) => e.stopPropagation());
@@ -429,9 +429,9 @@ export class DimensionOverlay {
     }
   }
 
-  private label(at: V, text: string, out: SVGElement[], dotted: boolean) {
+  private label(at: V, text: string, out: SVGElement[]) {
     const dim = this.dims[this.current];
-    const interactive = !!(dim?.edit || dim?.editNote || dim?.activate || dim?.drag);
+    const interactive = !!(dim?.edit || dim?.editNote || dim?.activate || dim?.drag || dim?.select);
     let p = at;
     if (!interactive && this.pointer && len(sub(p, this.pointer)) < CURSOR_CLEAR_PX) {
       p = add(this.pointer, mul(unit(sub(p, this.pointer)), CURSOR_CLEAR_PX));
@@ -441,7 +441,6 @@ export class DimensionOverlay {
     if (this.placed.some((q) => overlaps(q, box))) this.clash = true;
     this.pending.push(box);
     // Values are always drawn upright (horizontal on the screen), whatever way their line runs.
-    if (dotted && dim?.mark) out.push(dot(at)); // a value's dot would sit under its text
     if (!dim?.mark) this.gapLines(out, p, { x: half.x + GAP_PAD_PX, y: half.y + GAP_PAD_PX }); // the dimension's lines break around its value
     const g = document.createElementNS(NS, "g");
     g.setAttribute("transform", `translate(${p.x},${p.y})`);

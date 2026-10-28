@@ -373,7 +373,7 @@ export function constraintMarks(s: SketchData): Dimension[] {
       // One mark at each of the mirrored points (and at the centre point of a symmetry about a point), never at the average with the axis or line.
       for (const id of [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])]) {
         const p = s.points.find((q) => q.id === id);
-        if (p) out.push({ kind: "tag", text, points: [toWorld(s.plane, p.u, p.v)], mark: true, avoid: centres });
+        if (p) out.push({ kind: "tag", text, points: [toWorld(s.plane, p.u, p.v)], mark: true, avoid: centres, constraint: c.id });
       }
       continue;
     }
@@ -388,7 +388,7 @@ export function constraintMarks(s: SketchData): Dimension[] {
     }
     if (!anchors.length) continue;
     const [u, v] = [anchors.reduce((a, q) => a + q[0], 0) / anchors.length, anchors.reduce((a, q) => a + q[1], 0) / anchors.length];
-    out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true, avoid: centres });
+    out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true, avoid: centres, constraint: c.id });
   }
   return out;
 }
