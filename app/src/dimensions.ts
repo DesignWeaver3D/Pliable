@@ -1,6 +1,7 @@
 /** Drawing-style dimension leaders over the viewport, from the `dimensions` in the core's `measure` reply. */
 import * as THREE from "three";
 import { gapSegment } from "./dimensiongap";
+import { CONSTRAINT_ICONS } from "./icons";
 
 /** What the core says an in-place edit of this dimension means (see `dimedit.py`); `blocked` is why it would fail. */
 export interface DimEdit {
@@ -39,6 +40,10 @@ export interface Dimension {
   mark?: boolean;
   /** Tags: world points (arc and circle centres) the tag is moved clear of, so it never covers them or their selection highlight. */
   avoid?: number[][];
+  /** Tags: the constraint button whose icon is drawn instead of the text. */
+  icon?: string;
+  /** Tags: a world direction the tag is moved along (a fixed distance on the screen), such as out of the profile. */
+  outward?: number[];
   selected?: boolean;
   select?: (e: MouseEvent) => void;
   menu?: (e: MouseEvent) => void;
@@ -53,6 +58,8 @@ const LANDING_PX = 14; // the short horizontal landing the text sits at the end 
 const TEXT_PX = 13;
 const DOUBLE_TAP_MS = 450; // two taps closer in time than this are a double-click
 const DRAG_START_PX = 4; // a press that moves less than this is a click, not a drag
+const MARK_ICON_PX = 18; // a constraint mark drawn as its button's icon
+const MARK_OUT_PX = 14; // how far an outward mark sits from its point
 const CURSOR_CLEAR_PX = 28; // text moves away when the pointer is closer than this
 /** Leaders, extension lines, dimension lines, arrowheads and the values use the off-white of the UI buttons (the --ui-offwhite token in index.html). */
 const LINE_COLOR = "var(--ui-offwhite, #ddd)";
@@ -135,7 +142,7 @@ export class DimensionOverlay {
       this.clash = false;
       try {
         if (d.kind === "linear") this.linear(d, project, mine);
-        else if (d.kind === "tag") this.label(this.clearOf(project(d.points[0]), d, project), d.text, mine);
+        else if (d.kind === "tag") this.label(this.clearOf(this.pushed(project(d.points[0]), d, project), d, project), d.text, mine);
         else if (d.kind === "angle") this.angle(d, project, mine);
         else this.leader(d, project, mine);
       } catch (e) {
@@ -150,6 +157,13 @@ export class DimensionOverlay {
       this.placed.push(...this.pending);
     }
     this.svg.replaceChildren(...parts);
+  }
+
+  /** A tag's point moved a fixed distance on the screen along its outward direction (a tangent mark off the curve). */
+  private pushed(at: V, d: Dimension, project: (p: number[]) => V): V {
+    if (!d.outward) return at;
+    const toward = project(d.points[0].map((c, k) => c + d.outward![k]));
+    return add(at, mul(unit(sub(toward, at)), MARK_OUT_PX));
   }
 
   /** A tag's place moved up, out of the way of the points it must not cover (a centre point and its highlight). */
@@ -436,7 +450,8 @@ export class DimensionOverlay {
     if (!interactive && this.pointer && len(sub(p, this.pointer)) < CURSOR_CLEAR_PX) {
       p = add(this.pointer, mul(unit(sub(p, this.pointer)), CURSOR_CLEAR_PX));
     }
-    const half = { x: textWidth(text) / 2, y: TEXT_PX / 2 + 2 };
+    const icon = dim?.icon ? CONSTRAINT_ICONS[dim.icon] : undefined;
+    const half = icon ? { x: MARK_ICON_PX / 2, y: MARK_ICON_PX / 2 } : { x: textWidth(text) / 2, y: TEXT_PX / 2 + 2 };
     const box = { x0: p.x - half.x, x1: p.x + half.x, y0: p.y - half.y, y1: p.y + half.y };
     if (this.placed.some((q) => overlaps(q, box))) this.clash = true;
     this.pending.push(box);
@@ -446,6 +461,25 @@ export class DimensionOverlay {
     g.setAttribute("transform", `translate(${p.x},${p.y})`);
     if (interactive) this.drewLabel = p;
     const hidden = this.editing === this.current;
+    if (icon) {
+      // The button's icon (a 24 px drawing) scaled to the mark size, over a soft dark disc so it reads on any surface.
+      const back = document.createElementNS(NS, "circle");
+      back.setAttribute("r", String(MARK_ICON_PX / 2 + 1));
+      back.setAttribute("fill", HALO_COLOR);
+      back.setAttribute("fill-opacity", "0.6");
+      const art = document.createElementNS(NS, "g");
+      art.setAttribute("transform", `translate(${-MARK_ICON_PX / 2},${-MARK_ICON_PX / 2}) scale(${MARK_ICON_PX / 24})`);
+      art.setAttribute("fill", "none");
+      art.setAttribute("stroke-width", "1.8");
+      art.setAttribute("stroke-linecap", "round");
+      art.setAttribute("stroke-linejoin", "round");
+      art.setAttribute("style", `stroke: ${dim?.selected ? "#ff8a1f" : LINE_COLOR}; color: ${dim?.selected ? "#ff8a1f" : LINE_COLOR}`);
+      art.innerHTML = icon;
+      g.append(back, art);
+      if (interactive && !hidden) g.append(this.hitArea(half, dim, p));
+      out.push(g);
+      return;
+    }
     const t = document.createElementNS(NS, "text");
     t.textContent = hidden ? "" : text;
     t.setAttribute("text-anchor", "middle");

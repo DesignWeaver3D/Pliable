@@ -5,6 +5,7 @@ import { measure, radiusOf } from "./sketchconstraints.ts";
 import { showNumber } from "./precision.ts";
 import { ellipseAngle, ellipseArcPoints, ellipseSweep } from "./sketchellipse.ts";
 import { ellipseCrossings, splineCrossings } from "./sketchcrossings.ts";
+import { tangentSpots } from "./sketchtangentmarks.ts";
 export * from "./sketchconstraints.ts";
 export * from "./sketchsmartdim.ts";
 
@@ -341,6 +342,9 @@ function angleArc(s: SketchData, c: SketchConstraint, lines: Extract<SketchEntit
   return { kind: "angle", text, points, extend };
 }
 
+/** Constraints whose mark is the icon of their button (the constraint buttons' labels) rather than text. */
+const MARK_ICONS: Record<string, string> = { tangent: "Tangent / collinear", fixed: "Fixed", block: "Lock", equal: "Equal" };
+
 const MARKS: Record<string, string> = {
   horizontal: "H",
   vertical: "V",
@@ -369,11 +373,22 @@ export function constraintMarks(s: SketchData): Dimension[] {
   for (const c of s.constraints) {
     const text = MARKS[c.type];
     if (!text) continue;
+    const icon = MARK_ICONS[c.type];
+    if (c.type === "tangent") {
+      // At the point where the curves touch, a little off the curve, not at the average of their middles.
+      const spots = tangentSpots(s, c);
+      for (const spot of spots) {
+        const at = toWorld(s.plane, spot.u, spot.v);
+        const to = toWorld(s.plane, spot.u + spot.out[0], spot.v + spot.out[1]);
+        out.push({ kind: "tag", text, points: [at], mark: true, constraint: c.id, icon, outward: to.map((x, k) => x - at[k]) });
+      }
+      if (spots.length) continue;
+    }
     if (c.type === "symmetric" || c.type === "symmetric_point") {
       // One mark at each of the mirrored points (and at the centre point of a symmetry about a point), never at the average with the axis or line.
       for (const id of [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])]) {
         const p = s.points.find((q) => q.id === id);
-        if (p) out.push({ kind: "tag", text, points: [toWorld(s.plane, p.u, p.v)], mark: true, avoid: centres, constraint: c.id });
+        if (p) out.push({ kind: "tag", text, points: [toWorld(s.plane, p.u, p.v)], mark: true, avoid: centres, constraint: c.id, icon });
       }
       continue;
     }
@@ -388,7 +403,7 @@ export function constraintMarks(s: SketchData): Dimension[] {
     }
     if (!anchors.length) continue;
     const [u, v] = [anchors.reduce((a, q) => a + q[0], 0) / anchors.length, anchors.reduce((a, q) => a + q[1], 0) / anchors.length];
-    out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true, avoid: centres, constraint: c.id });
+    out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true, avoid: centres, constraint: c.id, icon });
   }
   return out;
 }
