@@ -370,6 +370,16 @@ export function constraintMarks(s: SketchData): Dimension[] {
     return e.type === "line" ? [(line[0][0] + line[1][0]) / 2, (line[0][1] + line[1][1]) / 2] : mid;
   };
   const out: Dimension[] = [];
+  // Marks that share a place leave it in different directions (up and right, then the next quarter turn round), so they do not sit on each other.
+  const crowd = new Map<string, number>();
+  const spread = (u: number, v: number): number[] => {
+    const key = `${u.toFixed(3)},${v.toFixed(3)}`;
+    const k = crowd.get(key) ?? 0;
+    crowd.set(key, k + 1);
+    const angle = Math.PI / 4 + (k * Math.PI) / 2;
+    const [from, to] = [toWorld(s.plane, u, v), toWorld(s.plane, u + Math.cos(angle), v + Math.sin(angle))];
+    return to.map((x, i) => x - from[i]);
+  };
   const centres = s.entities.flatMap((e) => (e.type === "circle" || e.type === "arc" || e.type === "ellipse" ? [pointOf(s, e.center)] : [])).map((p) => toWorld(s.plane, p.u, p.v));
   for (const c of s.constraints) {
     const text = MARKS[c.type];
@@ -381,6 +391,7 @@ export function constraintMarks(s: SketchData): Dimension[] {
       for (const spot of spots) {
         const at = toWorld(s.plane, spot.u, spot.v);
         const to = toWorld(s.plane, spot.u + spot.out[0], spot.v + spot.out[1]);
+        crowd.set(`${spot.u.toFixed(3)},${spot.v.toFixed(3)}`, (crowd.get(`${spot.u.toFixed(3)},${spot.v.toFixed(3)}`) ?? 0) + 1);
         out.push({ kind: "tag", text, points: [at], mark: true, constraint: c.id, icon, outward: to.map((x, k) => x - at[k]) });
       }
       if (spots.length) continue;
@@ -405,7 +416,9 @@ export function constraintMarks(s: SketchData): Dimension[] {
     }
     if (!anchors.length) continue;
     const [u, v] = [anchors.reduce((a, q) => a + q[0], 0) / anchors.length, anchors.reduce((a, q) => a + q[1], 0) / anchors.length];
-    out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true, avoid: centres, constraint: c.id, icon });
+    // A Coincident mark sits beside its point, not on it, so the point stays visible and pickable.
+    const beside = c.type === "point_on" || c.type === "coincident" ? { outward: spread(u, v) } : {};
+    out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true, avoid: centres, constraint: c.id, icon, ...beside });
   }
   return out;
 }
