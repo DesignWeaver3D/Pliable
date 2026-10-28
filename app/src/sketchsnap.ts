@@ -30,7 +30,9 @@ export function nearestPoint(ctx: SnapContext, e: PointerEvent): M.SketchPoint |
   let bestD = SNAP_PX;
   for (const p of ctx.s.points) {
     const d = ctx.screenOf(p.u, p.v).distanceTo(m);
-    if (d < bestD) {
+    // The sketch origin wins over a vertex sitting on it, so a new constraint can always reach the origin.
+    const origin = p.fixed && Math.hypot(p.u, p.v) < 1e-6;
+    if (d < bestD || (origin && best && d <= bestD + 0.5)) {
       best = p;
       bestD = d;
     }

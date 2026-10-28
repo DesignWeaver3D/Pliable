@@ -1679,3 +1679,19 @@ def test_old_ellipse_without_axis_ends_counts_its_short_radius_as_a_degree_of_fr
     assert free["status"] == "ok" and free["dof"] == 1
     sized = sketch.solve(sketch_of(points, entities, fixed + [{"id": 22, "type": "minor_radius", "entity": 10, "value": 5}]))
     assert sized["dof"] == 0
+
+
+def test_equal_on_circles_and_arcs():
+    points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 0, "v": 10}, {"id": 4, "u": 30, "v": 0}, {"id": 5, "u": 40, "v": 0}, {"id": 6, "u": 30, "v": 6}, {"id": 7, "u": 80, "v": 0}]
+    arc_a = {"id": 20, "type": "arc", "center": 1, "start": 2, "end": 3}
+    arc_b = {"id": 21, "type": "arc", "center": 4, "start": 5, "end": 6}
+    circle = {"id": 22, "type": "circle", "center": 7, "radius": 3}
+    fixed = [{"type": "fixed", "point": k} for k in (1, 4, 7)]
+    for ents, pair in (([arc_a, arc_b], [20, 21]), ([arc_a, circle], [20, 22]), ([circle, arc_a], [22, 20])):
+        result = sketch.solve(sketch_of(points, ents, fixed + [{"type": "equal", "entities": pair}]))
+        assert result["status"] == "ok", result
+        at = {p["id"]: p for p in result["points"]}
+        if pair == [20, 21]:
+            assert math.hypot(at[2]["u"], at[2]["v"]) == pytest.approx(math.hypot(at[5]["u"] - 30, at[5]["v"]))
+        else:
+            assert result["radii"][22] == pytest.approx(math.hypot(at[2]["u"], at[2]["v"]))

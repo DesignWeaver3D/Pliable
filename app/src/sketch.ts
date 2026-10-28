@@ -43,8 +43,9 @@ import type { Sel, Viewport } from "./viewport";
 const DRAG_START_PX = 3;
 const POINT_SIZE_PX = 8;
 const CONSTRUCTION_DASH_PX = 8;
+const CENTRE_CROSS_PX = 5; // half the width of a circle or arc centre cross
 const CONSTRUCTION_GAP_PX = 5;
-const COLORS = { line: 0x7fd1ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
+const COLORS = { line: 0xb8a4ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, centre: 0xc4cad4, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
 export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "arctan" | "arcrad" | "tancircle" | "tanarc" | "slot" | "point" | "polygon" | "ellipse" | "ellarc" | "spline" | "trim" | "extend" | "split" | "fillet" | "chamfer" | "triangle" | "pentagon" | "hexagon" | "octagon";
 /** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
@@ -134,6 +135,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   /** The model's principal axes as they project onto the sketch plane (red x, green y, blue z). */
   private axes = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ linewidth: 1, vertexColors: true, depthTest: false, transparent: true, opacity: 0.7 }));
   private pending = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.pending, linewidth: 2, depthTest: false, transparent: true }));
+  /** A small cross at the centre of every circle and arc, as in technical drawings. */
+  private centres = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.centre, linewidth: 1, depthTest: false, transparent: true }));
+  private centresAt = 0; // the pixel size the crosses were last built for
   private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false, transparent: true }));
   private grid: THREE.Group | null = null;
   options = loadSketchOptions();
@@ -175,7 +179,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     window.addEventListener("pointermove", (e) => (this.lastPointer = { x: e.clientX, y: e.clientY }), true);
     window.addEventListener("resize", () => { if (this.active) this.placePanel(); });
     for (const o of [this.normal, this.placed, this.construction, this.points]) o.userData.extent = true; // counted by the origin axes' length
-    for (const o of [this.axes, this.normal, this.placed, this.construction, this.free, this.marked, this.pending, this.points]) {
+    for (const o of [this.axes, this.normal, this.placed, this.construction, this.free, this.marked, this.pending, this.centres, this.points]) {
       o.renderOrder = 5;
       o.frustumCulled = false;
       this.group.add(o);
@@ -1746,8 +1750,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
 
   private onFrame() {
     const size = this.viewport.renderer.getSize(new THREE.Vector2());
-    for (const l of [this.axes, this.normal, this.placed, this.construction, this.free, this.marked, this.pending]) l.material.resolution.set(size.x, size.y);
+    for (const l of [this.axes, this.normal, this.placed, this.construction, this.free, this.marked, this.pending, this.centres]) l.material.resolution.set(size.x, size.y);
     const pixel = this.pixelAt(0, 0); // dashes keep their screen size as the view zooms
+    if (this.active && Math.abs(pixel - this.centresAt) > this.centresAt * 0.01) this.drawCentres(); // so do the centre crosses
     this.construction.material.dashSize = CONSTRUCTION_DASH_PX * pixel;
     this.construction.material.gapSize = CONSTRUCTION_GAP_PX * pixel;
   }
@@ -1791,7 +1796,10 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const placed: [number, number][][] = [];
     const lit: [number, number][][] = [];
     const open = this.showFree ? freeParts(this.s, this.freedom, this.freeSizes) : null;
-    for (const e of this.s.entities) (this.isMarked({ kind: "entity", id: e.id }) ? marked : open?.entities.has(e.id) ? lit : e.construction ? guides : this.isPlaced(e) ? placed : normal).push(M.polyline(this.s, e));
+    for (const e of this.s.entities) {
+      (this.isMarked({ kind: "entity", id: e.id }) ? marked : open?.entities.has(e.id) ? lit : e.construction ? guides : this.isPlaced(e) ? placed : normal).push(M.polyline(this.s, e));
+    }
+    this.drawCentres();
     this.drawAxes();
     this.set(this.normal, this.segments(normal));
     this.set(this.construction, this.segments(guides));
@@ -1803,7 +1811,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const positions: number[] = [];
     const colors: number[] = [];
     const color = new THREE.Color();
-    for (const p of this.s.points) {
+    // The sketch origin goes last so it is drawn over any vertex that sits on it.
+    const atOrigin = (p: M.SketchPoint) => p.fixed && Math.hypot(p.u, p.v) < 1e-6;
+    for (const p of [...this.s.points.filter((q) => !atOrigin(q)), ...this.s.points.filter(atOrigin)]) {
       positions.push(...this.world(p.u, p.v).toArray());
       color.set(this.isMarked({ kind: "point", id: p.id }) ? COLORS.selected : open?.points.has(p.id) ? FREE_COLOR : this.cursor?.id === p.id ? COLORS.hover : p.fixed ? COLORS.construction : this.freedom.get(p.id) === 0 ? COLORS.placed : COLORS.line);
       colors.push(color.r, color.g, color.b);
@@ -1836,6 +1846,19 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     if (!positions.length) return;
     this.axes.geometry.dispose();
     this.axes.geometry = new LineSegmentsGeometry().setPositions(positions).setColors(colors);
+  }
+
+  private drawCentres() {
+    const pixel = this.pixelAt(0, 0);
+    this.centresAt = pixel;
+    const arm = CENTRE_CROSS_PX * pixel;
+    const lines: [number, number][][] = [];
+    for (const e of this.s.entities) {
+      if (e.type !== "circle" && e.type !== "arc") continue;
+      const c = M.pointOf(this.s, e.center);
+      lines.push([[c.u - arm, c.v], [c.u + arm, c.v]], [[c.u, c.v - arm], [c.u, c.v + arm]]);
+    }
+    this.set(this.centres, this.segments(lines));
   }
 
   private set(line: LineSegments2, positions: number[]) {

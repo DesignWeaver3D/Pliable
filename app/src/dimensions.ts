@@ -388,7 +388,7 @@ export class DimensionOverlay {
         const hit = el.cloneNode(false) as SVGElement;
         hit.setAttribute("stroke", "rgba(255,138,31,0)");
         hit.setAttribute("stroke-width", "12");
-        hit.setAttribute("style", "pointer-events:stroke;cursor:text");
+        hit.setAttribute("style", `pointer-events:stroke;cursor:${d.drag ? "move" : "text"}`);
         for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup"]) hit.addEventListener(type, (e) => e.stopPropagation());
         this.makeDraggable(hit, d);
         if (at && d.activate) this.activateOnDoubleTap(hit, d, () => d.activate!(at));
@@ -465,7 +465,7 @@ export class DimensionOverlay {
 
 const HIT_STYLE = (() => {
   const style = document.createElementNS(NS, "style");
-  style.textContent = ".dimhit { fill: rgba(255,138,31,0); stroke: none; pointer-events: all; } .dimhit.edit { cursor: text; } .dimhit.drag { cursor: move; } .dimhit.edit:hover { fill: rgba(255,138,31,0.16); stroke: #ff8a1f; stroke-width: 1; }";
+  style.textContent = ".dimhit { fill: rgba(255,138,31,0); stroke: none; pointer-events: all; } .dimhit.drag { cursor: move; } .dimhit.edit { cursor: text; } .dimhit.edit:hover { fill: rgba(255,138,31,0.16); stroke: #ff8a1f; stroke-width: 1; }";
   return style;
 })();
 
