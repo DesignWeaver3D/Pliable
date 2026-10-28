@@ -32,7 +32,8 @@ Rules for keeping it:
 
 ### Sketch: drawing and dimensions (look and feel)
 
-
+- [ ] Look at the changes from your 2026-10-27 review: the lavender for under-constrained geometry (is the shade right on the dark theme?), the centre crosses on circles and arcs, the gray parenthesised sizes while drawing a rectangle and a circle, tangent / Fixed / Lock / Equal marks as button icons (tangent between a line and two circles), the bottom-right list of selected objects, and the drop list under the Horizontal / vertical and Dimension buttons. Default if unanswered: all stay as built.
+- [ ] Right-click a Fixed mark > Dimension to the axes, then right-click one of the two distances > Fix the point; click a mark and press Delete to remove one constraint.
 ### Sketch: tools
 
 - [ ] Fillet and Chamfer sketch tools, Trim (piece between a line end and an arc), Split at a point on a line, Rectangle corner styles (Square, Rounded, Bevelled), sketch-only keys C E S H T L R.

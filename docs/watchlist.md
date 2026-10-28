@@ -66,6 +66,13 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 
 - Sketch point drag snapping (`sketchsnap.ts` `snapDragged`): only single-point drags snap, with the same 10 px reach as drawing; dragging whole curves or several items does not snap, and a point dropped on another point does not join it. Symptom: a dragged end that is meant to meet another point needs the Coincident button.
 
+- Sketch constraint marks drawn as icons (commit 0462f89 "Draw tangent, fixed, lock and equal marks"): a tangent mark sits at the touching point, moved 14 px along the outward direction chosen in `sketchtangentmarks.ts` (out of the circle for a line and a circle; sideways along the contact for two curves), so with two curves "outside the profile" is a guess. Marks that land on one already drawn are left out. Fixed, lock and equal marks keep their old places.
+- Live sizes while drawing (commit b90aadd "Draw live sizes as gray reference dimensions"): only rectangles, circles and polygons show them as leaders; a line keeps its length-and-angle tag, other tools show nothing until typed.
+- Centre crosses (commit 813d385): drawn for circles and arcs only (not ellipses), 10 px arms, rebuilt when the zoom changes by more than 1%.
+- The sketch origin wins a pick over a vertex within half a pixel of the nearest one (`nearestPoint` in `sketchsnap.ts`), so a vertex that is drawn slightly nearer the pointer than the origin can still be chosen.
+- Fixed to axes (commit 27f3f6c): the distances from the origin are the point's current absolute offsets; the side stays whichever side the point is on when solved, and a point exactly on an axis gets a plain Horizontal or Vertical constraint.
+- Drag steps (commit 853a33b): an abrupt drag is solved in up to 40 steps of 5% of the sketch size; a longer jump than 2 sketch sizes takes bigger steps and may still flip.
+
 ## Keys and settings
 
 - Bare keys need an engaged viewport (pointer over the view, a recent exit, or a click in it; `ENGAGE_GRACE_MS = 1500`). Symptom: a view key does nothing right after using a panel.

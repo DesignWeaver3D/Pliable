@@ -103,11 +103,20 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Clicking the degrees-of-freedom message in the Sketch card highlights the unconstrained geometry in yellow. (owner, 2026-10-27)
 - Hovering a row in the Sketch list lights that sketch's geometry in the scene, and hovering geometry lights its row; selection lights both. Double-clicking a sketch edge in the scene selects the whole sketch, and Delete removes it. (owner, 2026-10-27)
 - Geometry that is fully constrained is drawn in the fully-constrained colour. (owner, 2026-10-27)
+- Over a dimension's text the cursor is the text cursor (double-click edits); over its lines it is the move cursor (drag moves it). (owner, 2026-10-27)
+- The centre of every circle and arc in a sketch has a small cross in the colour of its curve, the same size on screen at any zoom. (owner, 2026-10-27)
+- Under-constrained sketch geometry is lavender (so it is not mistaken for the blue Z axis). (owner, 2026-10-27; the shade is for the owner to judge)
+- The sketch origin is drawn over vertices that sit on it and wins a pick over them, so a new constraint can always reach it. (owner, 2026-10-27)
+- Constraint marks have no dot under them. Tangent, Fixed, Lock and Equal marks are the icon of their button; a tangent mark sits at the point where its curves touch, a little off the curve. Every mark can be clicked to select its constraint (Shift or Ctrl adds) and Delete removes it. (owner, 2026-10-27)
+- Right-click a Fixed mark: Dimension to the axes replaces it with the point's horizontal and vertical distances from the origin; right-click one of those distances: Fix the point turns the pair back into Fixed. (owner, 2026-10-27)
+- Horizontal / vertical works on a single selected line as well as on several. (owner, 2026-10-27)
+- The drop list under a constraint button opens under the whole button group with the button's own text size. Every constraint button's tooltip says what it does and what to select; "does not fit the current selection" is only a warning shown when the button is clicked. (owner, 2026-10-27)
 
 ## Layout
 
 - The tool strip is fixed at top centre. The context strip has no box behind it, fills each row from the left, spans from the bodies list to the nav cube group, wraps to two rows, and shows "... More" only when a third row would be needed.
 - The Tools handle sits on the left edge of the 3D view.
+- The names of the selected objects (a model selection, or in a sketch the points and curves by kind and count) are printed bottom right, between the sketch group and the measurement card, and follow the card as it grows. (owner, 2026-10-27)
 - Edit cards (tool forms) sit at the right under the nav cube group like the sketch card; the measurement card moves left only when an edit card reaches it.
 - The measurement card starts collapsed and sits bottom right. 
 - Dark theme only for now.
@@ -126,8 +135,9 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Hovering a sketch in the sketches list lights its row and its curves in the view (white); a picked sketch is orange in both. Hovering a sketch's curves or tinted region in the view lights it the same way. Double-clicking a sketch row opens it for editing; renaming and deleting are in its right-click menu.
 - Double-clicking a sketch's curves or tinted region in the 3D view selects the whole sketch (the Delete key then removes it).
 - A visible sketch region drawn over a coplanar face of the model comes first: hovering it does not light the face, and pressing it picks the region instead of starting a drag of the face (unless that face is already selected).
-- While numbers are typed for a shape being drawn, the shape is previewed at the typed sizes and each size is drawn as a real dimension (extension lines and dimension line for a rectangle's width and height, a line's or slot's length and width; a radius leader for a circle, polygon or ellipse; an angle arc for an arc's sweep) holding its value; the number being typed has a caret and is orange.
-- A circle's default dimension (typed while drawing, and its live size tag) is its diameter; an arc's is its radius; polygons keep the radius. Right-clicking a radius or diameter value offers Show as diameter or Show as radius (the size is kept). Two circles or arcs selected offer the distance between the centres and, when they do not overlap, the gap between the rims.
+- While numbers are typed for a shape being drawn, the shape is previewed at the typed sizes and each size is drawn as a real dimension (extension lines and dimension line for a rectangle's width and height, a line's or slot's length and width; a radius leader for a circle, polygon or ellipse; an angle arc for an arc's sweep) holding its value; the number being typed is orange (no caret).
+- A circle's default dimension (typed while drawing, and its live size) is its diameter; an arc's is its radius; polygons keep the radius. Right-clicking a radius or diameter value offers Show as diameter or Show as radius (the size is kept). Two circles or arcs selected offer the distance between the centres and, when they do not overlap, the gap between the rims.
+- While a rectangle, circle or polygon is drawn (before anything is typed) its current sizes are drawn as real dimension leaders in the construction gray with the value in parentheses, like reference dimensions; reference dimensions are gray everywhere. (owner, 2026-10-27)
 - A dimension value clicked in the sketch view is selected (orange; Shift or Ctrl adds) and the Delete key removes it, undoable; the geometry stays.
 - The smart dimension on two separated points is the length between them (no menu); horizontal distance and vertical distance are in the drop list under the Dimension button.
 - In a sketch, Enter with no drawing tool active (the Select tool, nothing being typed) starts the drawing tool used last again; Enter while a line chain is open still ends the chain (owner, 2026-10-24).

@@ -22,42 +22,16 @@ Tool group CORE:
 
 ## Review of 2026-10-27 session A (owner review of author-guidance sketch items; quotes are the owner's words)
 
-Related existing items checked: Ideas "A parity checklist" (its scenario set that must solve without flips touches the sketch flipping row). Behavior.md Sketch entries on reference dimensions (parentheses, no geometric reference constraints), the dimension text gap and Delete on points are touched by the rows below and stay as they are unless the owner says otherwise. All rows: discuss the visible design with the owner before coding.
+Related existing items checked: Ideas "A parity checklist" (its scenario set that must solve without flips touches the sketch flipping row). The rest of this review is built (see the commit log, "Record the sketch review results and rows" onward); what is left:
 
 Tool group SKETCH:
 
-- **Typed size display while drawing.** Owner: "The value turns orange and starts looking like dimensions once I start typing but there is no caret, nor should there be but there is a dot under the text that makes the text hard to read. I don't know what the dot is even for. Drawing a circle, the dimension number has fair placement but follows the mouse around and I'm not sure I like that. When drawing a rectangle the dimension values are on the top line and that makes it really hard to see. i'd rather see the actual dimension leaders and perhaps use the construction gray and in parenthesis to indicate that they're reference (plus all reference constraints should be gray)."
-  - [ ] Find what the dot under the typed text is and remove it (or say what it is for).
-  - [ ] Typed sizes show real dimension leaders (not bare numbers on the shape's top line), drawn in the construction gray with the value in parentheses.
-  - [ ] Circle: decide with the owner whether the number should follow the mouse.
-  - [ ] Reference dimensions (parentheses) drawn in gray everywhere; ask whether "all reference constraints" means only dimensions (behavior.md: there are no geometric reference constraints).
-- **Dimension cursors are swapped.** Owner: "You can drag a dimension by either its text or lines, but the mouse pointer juxtaposed, it shows move arrows with cursor over the text and it shows text cursor over the lines."
-  - [ ] Over a dimension's lines the move cursor; over its text the text cursor (double-click edits).
-- **Circle and arc centre crosses.** Owner: "Sometimes that circle centers are hard to see when dimensions are drawn over them. I think all circle and arc centers should be represented by a cross like you see in technical drawings."
-  - [ ] Every circle and arc centre drawn as a small cross; check it against the tags above centres and the selected-centre highlight.
 - **Sketch flipping.** Owner: "Unrelated to this line item but I get some sketch flipping if i move not fully constrained profile geometry around abruptly. [Another CAD program] has made a lot of strides recently in mitigating sketch flipping."
-  - [ ] Reproduce with an abrupt drag of a not fully constrained profile; keep the solution nearest the previous one (limit the step or retry from the last good state). Add the case to the no-flip scenario set when it is built.
-- **Origin always on top and selectable.** Owner: "Origin point is drawn above all lines but not vertices. Generally, even if other geometry is coincident constrained to the origin point, if I'm making a new constraint I want that to also be to the origin point whichis why it needs to always be drawn and selectable on top."
-  - [ ] Origin point drawn and picked above vertices too, even where geometry is coincident with it.
-- **Under-constrained colour.** Owner: "The blue underconstrained geometry is difficult to distinguish from the sketch axes, especially the Z-axis which is also blue. Let's try lavender instead, a shade that pops in dark theme."
-  - [ ] Under-constrained geometry in a lavender that reads in the dark theme (and the light one); the owner judges the shade.
-- **Selected objects readout.** Owner: "I want the currently selected object(s) printed in the bottom right of the 3d view between the Sketch on group and the measure card."
-  - [ ] Names of the selected objects shown bottom right between the Sketch-on group and the measure card; check Layout in behavior.md first.
-- **Constraint marks.** Owner: "Sketch tangent constraint mark should be the same icon as its button and should be at the point where the two lines touch and drawn outside the profile where possible, so if a line is drawn between two circles and is tangent to both, then the tangent icon marks should be next to the touching point of both circles. Coincident constraint mark shoul be its tool button icon and be adjacent to the location" (the sentence ends there in the owner's text; ask for the rest). "Fix constraint should have a on screen toggle to convert it to vertical and horizontal dimensions to the axes and back. The mark should match its button icon. Lock constraint mark should match its button icon. Equal constraint mark should be the equal sign, like its icon for its button. No sketch constrain mark should have a dot underneath its mark icon. I have no idea what those dots are for. All constraints should be selectable by their mark instead of the mark dodging the cursor. Current behavior makes it impossible for user to select and delet a single geometric constraint from the scene."
-  - [ ] Each mark uses its button's icon: tangent (at the touch point, outside the profile where possible; for a line tangent to two circles one mark at each touch point), coincident (finish after asking for the rest of the sentence), Fixed, Lock, Equal (the equal sign).
-  - [ ] Remove the dot under every mark.
-  - [ ] Marks are clickable and selectable (they no longer dodge the cursor), so one geometric constraint can be selected and deleted from the scene.
-  - [ ] Fixed on-screen toggle: the point's offsets from the axes as horizontal and vertical dimensions, and back. Discuss the form first.
-- **Tool variant drop lists.** Owner: "tool variant drop list text is larger than the text on the button. The drop list goes below and right, which seems odd becuase the tool they are limted variants of is to the left."
-  - [ ] Drop list text the same size as the button text.
-  - [ ] Placement of the list relative to its tool (ask which side the owner wants).
-- **Horizontal/Vertical on one edge.** Owner: "Why does the combination Horizontal/Vertical not work on single edge selctions. I really expected there to not need separate horizontal and vertical tools, but I'm concerned there could be an edge case where the combined tool doesn't work right."
-  - [ ] Find why the combined tool refuses a single selected line (behavior.md: it applies to several lines as detected) and answer the owner; if separate tools can go, list the edge cases a test must cover first.
-- **Tooltips explain; warnings warn.** Owner: "I have no idea what the midpoint constraint does because the tooltip always says "does not fit the current selection" rather than telling me what the selection should be or what it does. "does not fit the current selection" should be a warning message (which it is) not a tooltip, concept applies to all tools in or out of sketcher. Tooltip should explain concisely what the tool does and what selection it needs."
-  - [ ] Every tool and constraint button (sketch and model) has a concise tooltip: what it does and what to select; the "does not fit" text appears only as a warning message.
-  - [ ] Start with the sketch constraint buttons (Midpoint first), then the model tools.
+  - [ ] Dragging was already solved in steps; the step cap is now 40 instead of 12. Not reproduced: ask for the sketch that flips, then keep the solution nearest the previous one (limit the step or retry from the last good state) and add the case to the no-flip scenario set.
+- **Coincident constraint mark.** Owner: "Coincident constraint mark shoul be its tool button icon and be adjacent to the location" (the sentence ends there in the owner's text).
+  - [ ] Ask for the rest of the sentence; coincident points have no mark today (only an automatic Coincident row in the list), so a mark at every shared point could crowd the sketch.
 - **Equal on arcs and circles (bug).** Owner: "Equal constraint didn't work on arcs or circles but definitely should."
-  - [ ] Reproduce for two circles, two arcs, and an arc with a circle (the button's selection check in `sketchconstraints.ts` already allows non-line pairs, so look at the solver and the core); add a test.
+  - [ ] Not reproduced: the button's selection check and the core solver both accept two circles, two arcs, and an arc with a circle, and a core test covers them. Ask for the failing selection (for example an ellipse, a dimensioned radius, or an automatic constraint in the way) and the message shown.
 
 ## Review of 2026-10-26 session B (owner review; quotes are the owner's words)
 
