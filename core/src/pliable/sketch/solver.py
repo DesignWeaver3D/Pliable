@@ -567,7 +567,7 @@ def point_freedom(sketch: dict, budget: float | None = None) -> dict[int, int]:
 MAX_DRAG_STEP = 0.05  # a drag longer than this fraction of the sketch's size is solved in steps
 
 
-MAX_DRAG_STEPS = 12
+MAX_DRAG_STEPS = 40  # an abrupt drag across the whole sketch still moves in steps of about a twentieth of its size
 
 
 def _extent(sketch: dict) -> float:
