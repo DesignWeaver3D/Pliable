@@ -1437,7 +1437,18 @@ export class Viewport {
     // With no filter (no key held, the setting on All) the box takes faces, edges and vertices together.
     const only: Kind | null = this.heldKind ?? (settings.boxKind === "auto" ? null : settings.boxKind);
     const kinds: Kind[] = only ? [only] : ["vertex", "edge", "face"];
-    const found = kinds.flatMap((kind) => this.itemsInBox(kind, r, crossing, rect));
+    let found: Sel[];
+    this.camera.updateMatrixWorld();
+    if (!settings.seeThrough && this.mesh) {
+      this.mesh.updateMatrixWorld();
+      this.probe = new DepthProbe(this.renderer); // one depth picture serves the vertex, edge and face passes
+      this.probe.capture(this.mesh, this.camera as THREE.PerspectiveCamera | THREE.OrthographicCamera, rect.width, rect.height, this.sectionClip);
+    }
+    try {
+      found = kinds.flatMap((kind) => this.itemsInBox(kind, r, crossing, rect));
+    } finally {
+      this.probe = null;
+    }
     let next = found;
     if (b.additive) {
       const same = this.selected.filter((s) => kinds.includes(s.kind as Kind));
@@ -1464,23 +1475,10 @@ export class Viewport {
   private itemsInBox(kind: Kind, r: Rect, crossing: boolean, rect: DOMRect): Sel[] {
     const data = this.data;
     if (!data) return [];
-    this.camera.updateMatrixWorld();
-    if (!settings.seeThrough && this.mesh) {
-      this.mesh.updateMatrixWorld();
-      this.probe = new DepthProbe(this.renderer);
-      this.probe.capture(this.mesh, this.camera as THREE.PerspectiveCamera | THREE.OrthographicCamera, rect.width, rect.height, this.sectionClip);
-    }
-    try {
-      return this.itemsInBoxWith(kind, r, crossing, rect, data);
-    } finally {
-      this.probe = null;
-    }
-  }
-
-  private itemsInBoxWith(kind: Kind, r: Rect, crossing: boolean, rect: DOMRect, data: MeshData): Sel[] {
     const out: Sel[] = [];
+    const scratch = new THREE.Vector3();
     const proj = (x: number, y: number, z: number) => {
-      const n = new THREE.Vector3(x, y, z).project(this.camera);
+      const n = scratch.set(x, y, z).project(this.camera);
       return { x: ((n.x + 1) / 2) * rect.width, y: ((1 - n.y) / 2) * rect.height, behind: n.z > 1 };
     };
     /** An item is visible if any of a few sample points on it (spread along it) is not behind the model. */
