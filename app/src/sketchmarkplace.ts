@@ -53,3 +53,20 @@ export function coincidentDirection(s: SketchData, c: SketchConstraint, at: UV):
   }
   return ids.length ? awayFromNeighbours(s, ids[0]) : unit([1, 1]);
 }
+
+/** A direction turned by `angle` radians (positive is a left turn, looking along it). */
+export const turn = (d: UV, angle: number): UV => [d[0] * Math.cos(angle) - d[1] * Math.sin(angle), d[0] * Math.sin(angle) + d[1] * Math.cos(angle)];
+
+/** Where a Coincident mark is drawn from: the point itself (a point on a curve), or the middle of the points joined. */
+export function coincidentSpot(s: SketchData, c: SketchConstraint): UV | null {
+  const ids = [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])];
+  if (!ids.length || (c.type !== "point_on" && c.type !== "coincident")) return null;
+  const at = ids.map((id) => pointOf(s, id));
+  return [at.reduce((a, q) => a + q.u, 0) / at.length, at.reduce((a, q) => a + q.v, 0) / at.length];
+}
+
+/** Whether two places in the sketch are the same vertex. */
+export const sameSpot = (a: UV, b: UV): boolean => Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-6;
+
+/** Where a vertex has both a Coincident and a Tangent mark they sit side by side on either side of the one outside direction: Coincident on the left, Tangent on the right. */
+export const PAIRED_TURN = Math.PI / 4;

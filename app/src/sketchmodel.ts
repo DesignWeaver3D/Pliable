@@ -6,7 +6,7 @@ import { showNumber } from "./precision.ts";
 import { ellipseAngle, ellipseArcPoints, ellipseSweep } from "./sketchellipse.ts";
 import { ellipseCrossings, splineCrossings } from "./sketchcrossings.ts";
 import { tangentSpots } from "./sketchtangentmarks.ts";
-import { coincidentDirection, fan } from "./sketchmarkplace.ts";
+import { coincidentDirection, coincidentSpot, fan, PAIRED_TURN, sameSpot, turn } from "./sketchmarkplace.ts";
 export * from "./sketchconstraints.ts";
 export * from "./sketchsmartdim.ts";
 
@@ -378,6 +378,9 @@ export function constraintMarks(s: SketchData): Dimension[] {
     return { outward, alternatives };
   };
   const centres = s.entities.flatMap((e) => (e.type === "circle" || e.type === "arc" || e.type === "ellipse" ? [pointOf(s, e.center)] : [])).map((p) => toWorld(s.plane, p.u, p.v));
+  // A vertex with both a Coincident and a Tangent mark shows them side by side about its one outside direction, so each starts from the places the other uses.
+  const coincidents = s.constraints.flatMap((c) => { const at = coincidentSpot(s, c); return at ? [{ at, dir: coincidentDirection(s, c, at) }] : []; });
+  const tangents = s.constraints.flatMap((c) => (c.type === "tangent" ? tangentSpots(s, c).map((t): [number, number] => [t.u, t.v]) : []));
   for (const c of s.constraints) {
     const text = MARKS[c.type];
     if (!text) continue;
@@ -387,7 +390,8 @@ export function constraintMarks(s: SketchData): Dimension[] {
       const spots = tangentSpots(s, c);
       for (const spot of spots) {
         const at = toWorld(s.plane, spot.u, spot.v);
-        out.push({ kind: "tag", text, points: [at], mark: true, constraint: c.id, icon, ...leaving(spot.u, spot.v, spot.out) });
+        const withCoincident = coincidents.find((k) => sameSpot(k.at, [spot.u, spot.v]));
+        out.push({ kind: "tag", text, points: [at], mark: true, constraint: c.id, icon, ...leaving(spot.u, spot.v, withCoincident ? turn(withCoincident.dir, -PAIRED_TURN) : spot.out) });
       }
       if (spots.length) continue;
     }
@@ -412,7 +416,8 @@ export function constraintMarks(s: SketchData): Dimension[] {
     if (!anchors.length) continue;
     const [u, v] = [anchors.reduce((a, q) => a + q[0], 0) / anchors.length, anchors.reduce((a, q) => a + q[1], 0) / anchors.length];
     // A Coincident mark sits beside its point, not on it, so the point stays visible and pickable.
-    const beside = c.type === "point_on" || c.type === "coincident" ? leaving(u, v, coincidentDirection(s, c, [u, v])) : {};
+    const outside = c.type === "point_on" || c.type === "coincident" ? coincidentDirection(s, c, [u, v]) : null;
+    const beside = outside ? leaving(u, v, tangents.some((t) => sameSpot(t, [u, v])) ? turn(outside, PAIRED_TURN) : outside) : {};
     out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true, avoid: centres, constraint: c.id, icon, ...beside });
   }
   return out;
