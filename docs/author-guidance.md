@@ -21,6 +21,8 @@ Rules for keeping it:
 
 ### Gizmos and handles that need a real mouse (hold the button down)
 
+- [ ] Push/pull card and modes (new): drag a sketch region on a body face outward (adds) and inward (cuts); hold Alt during the drag (New body: the result stays a separate body, mode buttons show it, releasing Alt restores the mode); Flip swaps which direction adds; the red subtract arrow sits opposite the normal arrow; a subtract through empty space shows the red ghost (judge its look: 35% red with outline) and the status line says "Nothing to subtract" when it reaches no body; the card opens on every push/pull drag; typed distance then Apply. Default if unanswered: stays as built.
+- [ ] Sketch card Flip (new): on an origin plane (for example XZ) and on a face sketch with geometry drawn, Flip keeps the drawing in place, the view turns to the other side, Undo reverses it; Finish then extruding goes toward the new normal; a kept sketch reopens flipped.
 - [ ] Push/pull: dragging the face arrow handle behaves like dragging the face (M or right-click edge measure, typed value, Shift symmetric); a slanted edge pick sets the direction.
 - [ ] Move/Rotate on slanted and chamfer edges (single straight edges between planar faces pass), on sketches (rows or tinted regions; several sketches at once), and Move hole/boss arrows.
 - [ ] Round face edges, Divide face (edge grip, angle, grid).
