@@ -122,6 +122,11 @@ class OpResult:
     unified: bool = False
     # Whole-body transforms: the gp_Trsf applied to each solid, by index of the solid in the input (see recipes.py).
     moved: dict = field(default_factory=dict)
+    # Push/pull: the volumes that cut (for the preview's ghost, see pushpull_modes.py), the ghost shape built from them,
+    # and a plain note for the preview when the operation changed nothing.
+    cutters: list = field(default_factory=list)
+    ghost: TopoDS_Shape | None = None
+    notice: str | None = None
 
 
 def _follow(history_op, shapes: list[TopoDS_Shape]) -> list[TopoDS_Shape]:
@@ -257,6 +262,8 @@ def push_pull(
     follow_vertices: list[TopoDS_Shape] | None = None,
     symmetric: bool = False,
     direction=None,
+    mode: str = "auto",
+    flip: bool = False,
 ) -> OpResult:
     """Push/pull acting only on the solid that contains the face(s).
 
@@ -268,11 +275,15 @@ def push_pull(
     faces = face if isinstance(face, list) else [face]
     sheets = [f for f in faces if not any(_contains(solid, f) for solid in solids)] if solids or _is_sheet_model(shape, faces) else []
     if sheets and len(sheets) == len(faces):
-        return _push_pull_sheets(shape, faces, distance, symmetric, direction)
+        return _push_pull_sheets(shape, faces, distance, symmetric, direction, preview, mode, flip)
     if sheets:
         raise OperationError("Select either faces of a solid or loose faces made from a sketch, not both")
+    if mode == "new" and faces:
+        from .pushpull_modes import new_bodies
+
+        return new_bodies(shape, faces, distance, symmetric, direction)
     if len(solids) < 2 or not faces:
-        return _push_pull(shape, face, distance, preview, follow_edges, follow_vertices, direction)
+        return _push_pull(shape, face, distance, preview, follow_edges, follow_vertices, direction, mode, flip)
     owners = set()
     for f in faces:
         for i, solid in enumerate(solids):
@@ -284,12 +295,13 @@ def push_pull(
     changed, results = {}, []
     for index in sorted(owners):  # each solid is pushed or pulled on its own (faces of several solids, such as coplanar ones, move together)
         own = [f for f in faces if _contains(solids[index], f)]
-        result = _push_pull(solids[index], own if len(own) > 1 else own[0], distance, preview, follow_edges if not results else None, follow_vertices if not results else None, direction)
+        result = _push_pull(solids[index], own if len(own) > 1 else own[0], distance, preview, follow_edges if not results else None, follow_vertices if not results else None, direction, mode, flip)
         changed[index] = result.shape
         results.append(result)
     result = results[0]
     for other in results[1:]:
         result.tracked_faces = result.tracked_faces + other.tracked_faces
+        result.cutters = result.cutters + other.cutters
     compound, builder = TopoDS_Compound(), BRep_Builder()
     builder.MakeCompound(compound)
     for i, solid in enumerate(solids):
@@ -319,62 +331,11 @@ def _volume_of(shape: TopoDS_Shape) -> float:
     return props.Mass()
 
 
-def _push_pull_sheets(shape: TopoDS_Shape, faces: list[TopoDS_Face], distance: float, symmetric: bool = False, direction=None) -> OpResult:
-    """Push/pull on loose faces (regions of a closed sketch): extrude them along their normal into solids.
-    A negative distance cuts into the model where the face overlaps it; otherwise (and for positive
-    distances) the new solid is fused with what it touches or stands on its own. Symmetric: the face's own plane is the
-    middle and it is pushed `distance` to each side (the cap that follows the pointer is on the normal's side)."""
-    if abs(distance) < MIN_DISTANCE:
-        return OpResult(shape, list(faces), unified=True)
-    prisms, caps = [], []
-    for f in faces:
-        normal = planar_normal(f)
-        if normal is None:
-            raise OperationError("Push/pull currently supports planar faces only")
-        start, vector = f, pull_direction(normal, direction).Multiplied(distance)
-        if symmetric:
-            trsf = gp_Trsf()
-            trsf.SetTranslation(gp_Vec(normal).Multiplied(-distance))
-            start, vector = BRepBuilderAPI_Transform(f, trsf, True).Shape(), gp_Vec(normal).Multiplied(2 * distance)
-        prism = BRepPrimAPI_MakePrism(start, vector)
-        prism.Build()
-        if not prism.IsDone():
-            raise OperationError("Could not build extrusion")
-        prisms.append(prism.Shape())
-        caps.append(prism.LastShape())
-    solids = solids_of(shape)
-    others = [f for f in _faces_of(shape) if not any(f.IsSame(p) for p in faces) and not any(_contains(solid, f) for solid in solids)]
-    builder = BRep_Builder()
-    tool = TopoDS_Compound()
-    builder.MakeCompound(tool)
-    for p in prisms:
-        builder.Add(tool, p)
-    combined = TopoDS_Compound()
-    builder.MakeCompound(combined)
-    if solids:
-        # Booleans run on the solids alone; free faces (other sketch regions) are put back afterwards.
-        body = TopoDS_Compound()
-        builder.MakeCompound(body)
-        for solid in solids:
-            builder.Add(body, solid)
-        boolean = None
-        if distance < 0:
-            cut = _boolean(body, tool, False, glue=False)
-            if cut is not None and _volume_of(cut.Shape()) < _volume_of(body) - 1e-6:
-                boolean = cut
-        if boolean is None:
-            boolean = _boolean(body, tool, True, glue=False)
-        if boolean is None:
-            raise OperationError("Boolean operation failed")
-        builder.Add(combined, boolean.Shape())
-        tracked = _follow(boolean, caps)
-    else:
-        for p in prisms:
-            builder.Add(combined, p)
-        tracked = caps
-    for f in others:
-        builder.Add(combined, f)
-    return unify_result(OpResult(combined, tracked))
+def _push_pull_sheets(shape: TopoDS_Shape, faces: list[TopoDS_Face], distance: float, symmetric: bool = False, direction=None, preview: bool = False, mode: str = "auto", flip: bool = False) -> OpResult:
+    """Push/pull on loose faces (regions of a closed sketch): extrude them along their normal into solids; see pushpull_modes.py."""
+    from .pushpull_modes import push_pull_sheets
+
+    return push_pull_sheets(shape, faces, distance, symmetric, direction, preview, mode, flip)
 
 
 def _contains(solid: TopoDS_Shape, face: TopoDS_Face) -> bool:
@@ -434,6 +395,8 @@ def _push_pull(
     follow_edges: list[TopoDS_Shape] | None = None,
     follow_vertices: list[TopoDS_Shape] | None = None,
     direction=None,
+    mode: str = "auto",
+    flip: bool = False,
 ) -> OpResult:
     """Extrude a planar face along its outward normal (or along `direction`, see pull_direction).
 
@@ -475,25 +438,34 @@ def _push_pull(
         for p in prisms:
             builder.Add(tool, p)
 
+    from .pushpull_modes import nothing_to_subtract, push_role
+
+    fuse = push_role(mode, flip, distance) == "add"
+    ordinary = fuse == (distance > 0)  # the extrusion is added when pulled and cut when pushed, as the extrusion's own side suggests
     boolean = None
-    if preview:
-        boolean = _boolean(shape, tool, distance > 0, glue=True)
+    if preview and ordinary:
+        boolean = _boolean(shape, tool, fuse, glue=True)
         if boolean is not None and not BRepCheck_Analyzer(boolean.Shape()).IsValid():
             boolean = None
         # Glue mode can return the solid unchanged when a cut reaches past the far side; the exact boolean cuts through.
-        if boolean is not None and distance < 0 and _volume_of(boolean.Shape()) > _volume_of(shape) - 1e-6:
+        if boolean is not None and not fuse and _volume_of(boolean.Shape()) > _volume_of(shape) - 1e-6:
             boolean = None
     if boolean is None:
-        boolean = _boolean(shape, tool, distance > 0, glue=False)
+        boolean = _boolean(shape, tool, fuse, glue=False)
     if boolean is None:
         raise OperationError("Boolean operation failed")
-    if distance < 0 and not solids_of(boolean.Shape()):
+    if not fuse and not solids_of(boolean.Shape()):
         raise OperationError("That would cut away the whole solid; use a smaller distance")
+    if not fuse and not ordinary and _volume_of(boolean.Shape()) > _volume_of(shape) - 1e-6:
+        return nothing_to_subtract(shape, faces, [tool], preview)
     tracked = _follow(boolean, moved_faces)
     edges = _follow(boolean, list(follow_edges or []))
     vertices = _follow(boolean, list(follow_vertices or []))
 
-    return unify_result(OpResult(boolean.Shape(), tracked, edges, vertices))
+    result = unify_result(OpResult(boolean.Shape(), tracked, edges, vertices))
+    if not fuse:
+        result.cutters = [tool]
+    return result
 
 
 def face_normal_at_edge(face: TopoDS_Face, edge: TopoDS_Edge) -> gp_Dir | None:

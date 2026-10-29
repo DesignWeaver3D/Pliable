@@ -40,6 +40,7 @@ from OCP.gp import gp_Vec
 from .measure import measure, model_info
 from .ops import OperationError, solids_of
 from .protocol import encode_mesh  # noqa: F401  (the benchmark patches server.encode_mesh)
+from .ghost import ghost_reply
 from .edgesel import edge_loops, edge_ring, outer_loop, face_edges, face_loops, region_boundary, shared_loop, sharp_edges
 from .relations import find_related, tangent_chain
 from .tessellate import tessellate  # noqa: F401  (the benchmark patches server.tessellate)
@@ -95,6 +96,10 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
 
     def _mesh_reply(self, topology: Topology, timings: dict, **extra) -> bytes:
         start = time.perf_counter()
+        ghost = extra.pop("ghost_shape", None)  # a subtracting push/pull preview: the cutting volume outside the bodies
+        extra_buffers = None
+        if ghost is not None:
+            extra["ghost"], extra_buffers = ghost_reply(ghost)
         mesh = tessellate(topology, preview=bool(extra.get("preview")))
         timings["meshMs"] = _ms(start)
         header = {"kind": "mesh", "timings": timings, **extra}
@@ -104,7 +109,7 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             header["sketches"] = self.document.sketch_list()
             header["datums"] = self.document.datum_list()
             header["mirror"] = self.document.mirror
-        return encode_mesh(header, mesh)
+        return encode_mesh(header, mesh, extra_buffers)
 
     @staticmethod
     def _read_cad(reader, request):

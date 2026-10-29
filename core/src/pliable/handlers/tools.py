@@ -120,6 +120,10 @@ class ToolHandlers:
             dimensions = self._preview_dimensions(request_selection, selection, target)
             if dimensions is not None:
                 extra["dimensions"] = dimensions
+            if result.notice:
+                extra["notice"] = result.notice  # a plain note for the status line (a subtract that removes nothing)
+            if result.ghost is not None:
+                extra["ghost_shape"] = result.ghost
             if tool.id == "cut_plane":
                 extra["sides"] = side_bodies(document, topology, request_selection, request.get("params") or {}, change)  # the form colours Side 1 and Side 2 like these bodies
         return self._mesh_reply(target, timings, preview=not commit, selection=selection.to_json(), handles=handles, **extra)

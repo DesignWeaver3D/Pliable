@@ -1,6 +1,8 @@
 """The Push/Pull tool."""
 
 from ..ops import face_handle_point, MIN_DISTANCE, OperationError, OpResult, planar_normal, pull_direction, push_pull
+from ..ghost import attach_ghost
+from ..pushpull_modes import MODES
 from ..symmetric import symmetric_faces
 from .base import Accepts, Handle, Param, register, Tool
 
@@ -17,6 +19,11 @@ class PushPull(Tool):
     def bind(self, raw):
         values = super().bind(raw)
         values["symmetric"] = 1.0 if raw.get("symmetric") else 0.0  # set by a Shift drag; not a form field
+        mode = raw.get("mode", "auto")  # "auto", "add", "subtract" or "new" (not a form field)
+        if mode not in MODES:
+            raise OperationError(f"Push/pull mode must be one of {', '.join(MODES)}")
+        values["mode"] = mode
+        values["flip"] = 1.0 if raw.get("flip") else 0.0  # reverses which drag direction adds and which subtracts
         # A chosen pull direction (not a form field): unit components, all three or none.
         if all(k in raw for k in ("ux", "uy", "uz")):
             values.update({k: float(raw[k]) for k in ("ux", "uy", "uz")})
@@ -61,7 +68,9 @@ class PushPull(Tool):
         direction = _chosen(values)
         if direction is not None and symmetric:
             raise OperationError("Symmetric push/pull uses the face normal; reset the pull direction first")
-        result = push_pull(topology.shape, faces if len(faces) > 1 else faces[0], values["distance"], preview=preview, symmetric=symmetric and loose, direction=direction)
+        result = push_pull(topology.shape, faces if len(faces) > 1 else faces[0], values["distance"], preview=preview, symmetric=symmetric and loose, direction=direction, mode=values["mode"], flip=values["flip"] >= 0.5)
+        if preview:
+            attach_ghost(result, topology.shape)
         result.tracked_faces = result.tracked_faces[:1]  # keep a single face selected, the related ones are found again
         return result
 

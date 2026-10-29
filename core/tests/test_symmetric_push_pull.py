@@ -67,12 +67,15 @@ def test_two_parallel_faces_move_together_about_their_midplane():
 
 
 def test_a_sketch_face_is_pushed_to_both_sides_of_its_plane():
+    # Auto mode: the normal side adds and the opposite side subtracts (nothing to cut in an empty model); mode "add" fills both sides.
     session = Session()
     session.document = Document(Rectangle(10, 10).wrapped)  # a loose face in the XY plane
     face_id = 0
     normal = sketch.face_plane(session.document.current.face(face_id))["normal"]
     push(session, [face_id], distance=3, symmetric=1)
-    box = Bnd_Box()
-    BRepBndLib.Add_s(session.document.current.shape, box)
-    assert (round(box.CornerMin().Z(), 3), round(box.CornerMax().Z(), 3)) == (-3, 3) and abs(normal[2]) > 0.999
+    assert z_range(session) == (0, 3) and abs(normal[2]) > 0.999
+    session = Session()
+    session.document = Document(Rectangle(10, 10).wrapped)
+    push(session, [face_id], distance=3, symmetric=1, mode="add")
+    assert z_range(session) == (-3, 3)
 
