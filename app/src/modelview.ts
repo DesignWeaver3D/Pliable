@@ -48,6 +48,7 @@ export function createModelView(d: ModelViewDeps) {
     viewport.setMesh(filterHidden(mesh, bodyView.hidden), frame);
     viewport.setGhosted(bodyView.ghost);
     viewport.subtractGhost.set(mesh.header.preview ? (mesh.ghost ?? null) : null); // the red subtract volume only during a preview
+    if (mesh.header.preview && mesh.header.notice) status.textContent = mesh.header.notice; // a preview that changes nothing says why
     if (!mesh.header.preview) {
       d.bodyList.setBodies(bodiesOf(mesh), bodyView.hidden, bodyView.ghost, bodyView.focus?.body ?? null);
       d.onSketches(mesh.header.sketches ?? []);
