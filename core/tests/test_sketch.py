@@ -299,6 +299,48 @@ def test_regions_away_from_the_model_are_loose_faces_that_push_pull_into_a_solid
     assert len(pulled.tracked_faces) == 1
 
 
+@pytest.mark.parametrize("flip", [False, True])
+@pytest.mark.parametrize("face_index", range(6))
+def test_region_on_a_body_face_pulls_out_to_add_and_pushes_in_to_cut(face_index, flip):
+    """A sketch region lying on a face of a body acts like that face: away from the body adds (and stays one body),
+    into the body cuts, whichever way the sketch plane's own normal points."""
+    from pliable.ops import planar_normal, push_pull, solids_of
+    from pliable.topology import Topology
+
+    shape = load_demo("block")
+    face = list(Topology(shape).faces())[face_index][1]
+    plane = dict(sketch.face_plane(face))
+    if flip:
+        plane["normal"] = [-c for c in plane["normal"]]
+    outward = planar_normal(face)
+    disc = sketch_of([{"id": 1, "u": 0, "v": 0}], [{"id": 10, "type": "circle", "center": 1, "radius": 2}], plane=plane)
+    result, _ = sketch.add_regions(shape, disc, 0)
+    loose = next(f for _, f in Topology(result).faces() if _face_area(f) == pytest.approx(12.566, abs=0.05))
+    normal = planar_normal(loose)
+    along = 1 if normal.Dot(outward) > 0 else -1  # the sign of the distance that moves the region away from the body
+    out = push_pull(result, loose, 3 * along)
+    assert _solid_volume(out.shape) == pytest.approx(volume(shape) + 12.566 * 3, rel=1e-3)
+    assert len(solids_of(out.shape)) == 1
+    into = push_pull(result, loose, -3 * along)
+    assert _solid_volume(into.shape) == pytest.approx(volume(shape) - 12.566 * 3, rel=1e-3)
+    assert len(solids_of(into.shape)) == 1
+
+
+def test_symmetric_pull_of_a_region_on_a_body_face_adds_outside_and_cuts_inside():
+    from pliable.ops import push_pull, solids_of
+    from pliable.topology import Topology
+
+    shape = load_demo("block")
+    face = list(Topology(shape).faces())[5][1]
+    disc = sketch_of([{"id": 1, "u": 0, "v": 0}], [{"id": 10, "type": "circle", "center": 1, "radius": 2}], plane=sketch.face_plane(face))
+    result, _ = sketch.add_regions(shape, disc, 0)
+    loose = next(f for _, f in Topology(result).faces() if _face_area(f) == pytest.approx(12.566, abs=0.05))
+    out = push_pull(result, loose, 3, symmetric=True)
+    assert _solid_volume(out.shape) == pytest.approx(volume(shape), rel=1e-6)  # a boss of 3 on top, a pocket of 3 below it
+    assert len(solids_of(out.shape)) == 2  # the boss stands on the mouth of the pocket, so it touches the block nowhere
+    assert len(out.tracked_faces) == 1
+
+
 def test_imprinted_region_pulls_like_a_face():
     from pliable.ops import push_pull
     from pliable.topology import Topology

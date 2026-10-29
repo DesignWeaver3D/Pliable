@@ -29,6 +29,7 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 
 ## Modeling
 
+- Push/pull of a loose sketch region that lies on a solid's face (commit: see git log for "Let a sketch region on a body face add or subtract"): the first region that shares area with a flat face of any solid decides the direction for the whole selection (away from that face adds, into it cuts); a symmetric drag adds on the outer side and cuts on the inner side, so the boss stands over the pocket's mouth and comes out as a second solid. A through-cut of a body that splits it keeps both pieces. Regions that lie on no face keep the earlier rule (a negative distance cuts if it removes volume, otherwise the extrusion fuses).
 - Topology ids change after each operation; anything that keeps an id across edits (Edit last, chips) is re-derived. Symptom: an edit lands on the wrong face after undo/redo.
 - Holes and bosses are edited by fusing or cutting cylinders; a hole partly cut by another feature resizes oddly. Resize hole takes a typed diameter and does not show the current one.
 - Shell, draft, delete face and remove fillet use OpenCASCADE defeaturing/offset, which can fail or give degenerate results; only shell has a volume check. Check Model info when a tool reports success but nothing changed.

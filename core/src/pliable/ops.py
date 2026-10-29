@@ -326,6 +326,10 @@ def _push_pull_sheets(shape: TopoDS_Shape, faces: list[TopoDS_Face], distance: f
     middle and it is pushed `distance` to each side (the cap that follows the pointer is on the normal's side)."""
     if abs(distance) < MIN_DISTANCE:
         return OpResult(shape, list(faces), unified=True)
+    solids = solids_of(shape)
+    host = _host_outward(solids, faces)
+    if host is not None:
+        return _push_pull_on_host(shape, solids, faces, distance, symmetric, direction, host)
     prisms, caps = [], []
     for f in faces:
         normal = planar_normal(f)
@@ -342,7 +346,6 @@ def _push_pull_sheets(shape: TopoDS_Shape, faces: list[TopoDS_Face], distance: f
             raise OperationError("Could not build extrusion")
         prisms.append(prism.Shape())
         caps.append(prism.LastShape())
-    solids = solids_of(shape)
     others = [f for f in _faces_of(shape) if not any(f.IsSame(p) for p in faces) and not any(_contains(solid, f) for solid in solids)]
     builder = BRep_Builder()
     tool = TopoDS_Compound()
@@ -372,6 +375,87 @@ def _push_pull_sheets(shape: TopoDS_Shape, faces: list[TopoDS_Face], distance: f
         for p in prisms:
             builder.Add(combined, p)
         tracked = caps
+    for f in others:
+        builder.Add(combined, f)
+    return unify_result(OpResult(combined, tracked))
+
+
+def _area_of(shape: TopoDS_Shape) -> float:
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+
+    props = GProp_GProps()
+    BRepGProp.SurfaceProperties_s(shape, props)
+    return props.Mass()
+
+
+def _host_outward(solids: list[TopoDS_Shape], faces: list[TopoDS_Face]) -> gp_Dir | None:
+    """The outward normal of the solid face a loose face lies on (same plane, some shared area), or None when it lies
+    on no face of any solid. The first loose face that lies on a face decides."""
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Common
+    from OCP.TopoDS import TopoDS
+
+    for f in faces:
+        normal = planar_normal(f)
+        if normal is None:
+            continue
+        plane = BRepAdaptor_Surface(f).Plane()
+        for solid in solids:
+            for candidate in _faces_of(solid):
+                host = TopoDS.Face(candidate)
+                host_normal = planar_normal(host)
+                if host_normal is None or not host_normal.IsParallel(normal, 1e-6):
+                    continue
+                if abs(plane.Distance(BRepAdaptor_Surface(host).Plane().Location())) > 1e-5:
+                    continue
+                common = BRepAlgoAPI_Common(f, host)
+                if common.IsDone() and not common.Shape().IsNull() and _area_of(common.Shape()) > 1e-6:
+                    return host_normal
+    return None
+
+
+def _push_pull_on_host(shape, solids, faces, distance, symmetric, direction, host: gp_Dir) -> OpResult:
+    """Push/pull of loose faces that lie on a face of a solid acts as a push/pull of that face: the extrusion away from
+    the solid adds material and fuses with everything it meets, the extrusion into it removes material from everything
+    it meets. Symmetric does both, each side by that rule."""
+    adds, cuts, caps = [], [], []
+    for f in faces:
+        normal = planar_normal(f)
+        if normal is None:
+            raise OperationError("Push/pull currently supports planar faces only")
+        if symmetric:
+            halves = [gp_Vec(normal).Multiplied(distance), gp_Vec(normal).Multiplied(-distance)]
+        else:
+            halves = [pull_direction(normal, direction).Multiplied(distance)]
+        for index, vector in enumerate(halves):
+            prism = BRepPrimAPI_MakePrism(f, vector)
+            prism.Build()
+            if not prism.IsDone():
+                raise OperationError("Could not build extrusion")
+            (adds if vector.Dot(gp_Vec(host)) > 0 else cuts).append(prism.Shape())
+            if index == 0:
+                caps.append(prism.LastShape())
+    others = [f for f in _faces_of(shape) if not any(f.IsSame(p) for p in faces) and not any(_contains(solid, f) for solid in solids)]
+    builder = BRep_Builder()
+    result, tracked = TopoDS_Compound(), caps
+    builder.MakeCompound(result)
+    for solid in solids:
+        builder.Add(result, solid)
+    for tools, fuse in ((cuts, False), (adds, True)):
+        if not tools:
+            continue
+        tool = TopoDS_Compound()
+        builder.MakeCompound(tool)
+        for t in tools:
+            builder.Add(tool, t)
+        boolean = _boolean(result, tool, fuse, glue=False)
+        if boolean is None:
+            raise OperationError("Boolean operation failed")
+        tracked = _follow(boolean, tracked)
+        result = boolean.Shape()
+    combined = TopoDS_Compound()
+    builder.MakeCompound(combined)
+    builder.Add(combined, result)
     for f in others:
         builder.Add(combined, f)
     return unify_result(OpResult(combined, tracked))
