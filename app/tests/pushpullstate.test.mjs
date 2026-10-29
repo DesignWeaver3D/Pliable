@@ -42,3 +42,10 @@ test("Flip swaps which arrow adds", () => {
   assert.deepEqual(arrowRoles(false), { normalSide: "add", oppositeSide: "subtract" });
   assert.deepEqual(arrowRoles(true), { normalSide: "subtract", oppositeSide: "add" });
 });
+
+test("the subtract arrow is red, the add arrow keeps the handle colour, and Flip swaps them", async () => {
+  const { arrowColors, ADD_COLOR, SUBTRACT_COLOR } = await import("../src/pushpullcolors.ts");
+  assert.deepEqual(arrowColors(false), { normalSide: ADD_COLOR, oppositeSide: SUBTRACT_COLOR });
+  assert.deepEqual(arrowColors(true), { normalSide: SUBTRACT_COLOR, oppositeSide: ADD_COLOR });
+  assert.equal(SUBTRACT_COLOR, 0xe5484d);
+});
