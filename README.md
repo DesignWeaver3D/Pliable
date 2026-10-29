@@ -2,7 +2,7 @@
 
 **A free, open-source direct modeler for hobbyists, makers, and students**
 
-> ⚠️ **Alpha software. Not for serious work. Data can be lost. The interface and behaviour will change rapidly without notice.**
+> ⚠️ **Alpha software. Not for serious work. Data can be lost. The interface and behavior will change rapidly without notice.**
 > Sketching is incomplete and unsupported. See [known limitations](docs/known-limitations.md). Report problems with the [bug report template](https://github.com/DesignWeaver3D/Pliable/issues/new?template=bug_report.md) (use **Copy diagnostics** in the app). Third-party licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ⚠️ **Status: Alpha software, rebuilt on a new architecture. The current alpha is v0.4.0, a portable desktop app; expect rough edges.**

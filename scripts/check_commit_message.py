@@ -5,7 +5,7 @@ Used by .githooks/commit-msg (one message file) and by the commit-lint workflow
 
 Rules:
 - No commercial product names (other CAD programs, AI tools and vendors) and no
-  attribution lines. Describe behaviour instead of naming the product.
+  attribution lines. Describe behavior instead of naming the product.
 - Subject: 12 to 72 characters, starts with a capital letter, no trailing period,
   no label prefixes such as "S22:", "feat:", "Progress:" or "WIP".
 - Commits that touch 3 or more files need a body that says what changed and why.
@@ -47,7 +47,7 @@ def check(message, files_changed=None):
     for rx in BANNED:
         m = rx.search(message)
         if m:
-            problems.append(f"names a product or tool ('{m.group(0)}'); describe the behaviour instead")
+            problems.append(f"names a product or tool ('{m.group(0)}'); describe the behavior instead")
     if not 12 <= len(subject) <= 72:
         problems.append(f"subject is {len(subject)} characters; use 12 to 72")
     if not subject[:1].isupper():

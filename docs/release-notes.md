@@ -1,4 +1,4 @@
-> **Alpha software. Not for serious work. Data can be lost. The interface and behaviour will change rapidly without notice.**
+> **Alpha software. Not for serious work. Data can be lost. The interface and behavior will change rapidly without notice.**
 
 Pliable is a direct-modeling CAD tool: open a STEP file, then push/pull faces, round edges, edit holes and more.
 
