@@ -325,7 +325,7 @@ export class ToolPanel {
       };
       const pickBase = document.createElement("button");
       pickBase.textContent = "Pick base point";
-      pickBase.title = "Click the point of the new shape (a corner, edge midpoint, face centre or the centre) or any other point (a vertex, edge, axis, hole centre or the origin) that goes to the destination";
+      pickBase.title = "Click the point of the shape that will be placed: a corner, edge midpoint, face center or center, or any vertex, edge, axis, hole center or the origin. Then click where it goes.";
       pickBase.addEventListener("click", async () => {
         const list = this.host.anchors ? await this.host.anchors(tool, this.values()) : [];
         if (this.open !== tool) return;
@@ -381,7 +381,7 @@ export class ToolPanel {
       };
       const pickBase = document.createElement("button");
       pickBase.textContent = "Pick base point";
-      pickBase.title = "Click the point the move starts from (a vertex, edge, face centre, hole centre, axis or the origin); then pick where it goes";
+      pickBase.title = "Click the point to move from: a vertex, edge, face center, hole center, axis or the origin. Then click where it goes.";
       pickBase.addEventListener("click", async () => {
         const point = await this.host.pickPoint!();
         if (!point || this.open !== tool) return;
