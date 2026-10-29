@@ -1288,6 +1288,11 @@ export class Viewport {
   }
 
   /** The bodies drawn see-through (view only). Solid bodies inside them stay visible; their faces never hide picks behind them. */
+  /** Hide (or show again) every gizmo, so none is in the way of a point pick. */
+  setGizmosHidden(hidden: boolean) {
+    this.manipulator.hidden = this.pullGizmo.hidden = this.mirrorArrow.hidden = hidden;
+  }
+
   setGhosted(ids: ReadonlySet<number>) {
     this.ghosted = ids;
     this.applyGhost();

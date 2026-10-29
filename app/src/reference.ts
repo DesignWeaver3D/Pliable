@@ -227,6 +227,8 @@ export interface PickOptions {
   from?: number[];
 }
 
+const GIZMOS_HIDDEN = "Gizmos hidden during pick action.";
+
 /** Lets the user click a reference snap in the 3D view; resolves with the point, or null when cancelled. */
 export class PointPicker {
   private marker = new THREE.Points(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3()]), new THREE.PointsMaterial({ color: 0xffd36b, size: 12, sizeAttenuation: false, depthTest: false }));
@@ -267,7 +269,8 @@ export class PointPicker {
     const extra = (options.extra ?? []).map((e) => ({ point: new THREE.Vector3(...e.point), label: e.label }));
     const from = options.from ? new THREE.Vector3(...options.from) : null;
     if (from) this.showBase(options.from!);
-    this.status("Pick a point: hover the origin, an axis or a face; click to use it, Escape to cancel");
+    this.viewport.setGizmosHidden(true);
+    this.status(`Pick a point: hover the origin, an axis or a face; click to use it, Escape to cancel. ${GIZMOS_HIDDEN}`);
     return new Promise((resolve) => {
       this.done = resolve;
       this.viewport.interceptor = {
@@ -279,7 +282,7 @@ export class PointPicker {
           if (this.current) {
             this.marker.position.copy(this.current.point);
             if (from) this.line.geometry.setFromPoints([from, this.current.point]);
-            this.status(`${this.current.label}: ${this.current.point.toArray().map((x) => showNumber(x)).join(", ")}`);
+            this.status(`${this.current.label}: ${this.current.point.toArray().map((x) => showNumber(x)).join(", ")} | ${GIZMOS_HIDDEN}`);
           }
         },
         up: () => this.finish(this.current ? this.current.point.toArray() : null, !this.current),
@@ -292,6 +295,7 @@ export class PointPicker {
     const done = this.done;
     this.done = null;
     this.viewport.interceptor = null;
+    this.viewport.setGizmosHidden(false);
     this.marker.visible = false;
     this.line.visible = false;
     done(point);

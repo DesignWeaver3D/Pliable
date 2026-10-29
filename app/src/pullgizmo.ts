@@ -52,6 +52,8 @@ export class PullGizmo {
   onFrame: () => void = () => {};
 
   private readonly group = new THREE.Group();
+  /** Set while a point is being picked (see Viewport.setGizmosHidden). */
+  hidden = false;
   private readonly arcs: THREE.Line[] = [];
   private readonly pick: HTMLButtonElement;
   private readonly label: HTMLElement;
@@ -127,7 +129,7 @@ export class PullGizmo {
   /** Per frame: follow the push/pull arrow, keep a constant size on screen, show the lean while there is one. */
   update() {
     const handle = this.manipulator.pushPullHandle();
-    if (!handle || this.manipulator.dragging) return this.hide();
+    if (!handle || this.manipulator.dragging || this.hidden) return this.hide();
     if (!this.state.dir) this.state.normal = handle.direction;
     const direction = this.live ?? handle.direction;
     const base = new THREE.Vector3(...handle.anchor);

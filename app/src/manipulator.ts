@@ -64,6 +64,8 @@ export class Manipulator {
 
   /** The colour of the push/pull arrow at rest, when something else decides it (Flip turns it red, see pushpullarrows.ts); null: the handle's own colour. */
   pushPullRest: number | null = null;
+  /** Set while a point is being picked: the handles and their labels are neither drawn nor grabbed (see Viewport.setGizmosHidden). */
+  hidden = false;
 
   private readonly root = new THREE.Group();
   private items: Item[] = [];
@@ -337,6 +339,8 @@ export class Manipulator {
 
   /** Per frame: keep handles a constant size on screen and put the value labels beside them. */
   update() {
+    this.root.visible = !this.hidden;
+    this.layer.style.display = this.hidden ? "none" : "";
     const rect = this.dom.getBoundingClientRect();
     for (const item of this.items) {
       if (item.declared?.ring && item.axis && item !== this.active?.item) {

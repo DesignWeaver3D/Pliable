@@ -7,6 +7,8 @@ import type { PushPullState } from "./pushpullstate.ts";
 
 export class MirrorArrow {
   private readonly group = new THREE.Group();
+  /** Set while a point is being picked (see Viewport.setGizmosHidden). */
+  hidden = false;
   private readonly tip: THREE.Mesh;
   private readonly arm: THREE.Line;
 
@@ -36,7 +38,7 @@ export class MirrorArrow {
     const handle = this.manipulator.pushPullHandle();
     const colors = arrowColors(this.state.flip);
     this.manipulator.pushPullRest = colors.normalSide;
-    this.group.visible = handle !== null;
+    this.group.visible = handle !== null && !this.hidden;
     if (!handle) return;
     const dir = new THREE.Vector3(...handle.direction).multiplyScalar(-1);
     const anchor = new THREE.Vector3(...handle.anchor);
