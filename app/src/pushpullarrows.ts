@@ -1,5 +1,5 @@
 /** The mirrored arrow of push/pull: the face-normal arrow (the manipulator's push/pull handle) shows where a drag adds, this one starts at the same anchor and points
- *  the opposite way to show where a drag subtracts, in red. Flip swaps the roles (and so the colours). It is only drawn, never grabbed. */
+ *  the opposite way to show where a drag subtracts, in red. Flip swaps the roles (and so the colours). Pressing it grabs the arrow (see pushpullhit.ts and Manipulator.hit); the drag is the arrow's own, so dragging along the red arrow gives the opposite sign. */
 import * as THREE from "three";
 import { ARM_PX, HANDLE_OUTLINE, PUSH_PULL_ARM_RATIO, type Manipulator } from "./manipulator.ts";
 import { arrowColors, SUBTRACT_COLOR } from "./pushpullcolors.ts";

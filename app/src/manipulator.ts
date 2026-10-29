@@ -5,6 +5,7 @@ import * as THREE from "three";
 import type { HandleInfo } from "./tools";
 import { gridCounts, gridShift, planePoint } from "./gridgrip.ts";
 import { TypedFields, typedCounts } from "./typedentry.ts";
+import { mirrorEnd, segmentPx } from "./pushpullhit.ts";
 import { ARM_PX, GRAB_PX, PUSH_PULL_ARM_RATIO, isPushPullArrow, MOVE_ARM_PX, AXIS_LINE, HANDLE_OUTLINE, pickScore, grabFraction, handleColors, handleValue, snapValue, linkedValues, travelFor, typedTravel, typedStep, lineParam, formatValue, ARC_RADIUS_PX, ARC_HALF_SPAN, ARC_STEPS, ARC_REST_OPACITY, COLOR_SNAPPED, snappedIndex, RING_VIEW_FRACTION, refitRing } from "./handlemath.ts";
 import { roundValue } from "./precision.ts";
 import { pieAngleAt, pieLines, piePoint, pieTangent } from "./piegizmo.ts";
@@ -460,6 +461,16 @@ export class Manipulator {
       if (d < bestD) {
         bestD = d;
         best = item;
+      }
+      if (isPushPullArrow(item.info)) {
+        // The red mirrored arrow (pushpullarrows.ts) is the same handle seen from its other side: grabbing it grabs this one.
+        const anchor = new THREE.Vector3(...item.info.anchor);
+        const far = mirrorEnd(item.info.anchor, item.info.direction, this.pixelSizeAt(anchor) * ARM_PX * PUSH_PULL_ARM_RATIO);
+        const m = segmentPx({ x: pointer.x, y: pointer.y }, this.screen(anchor), this.screen(new THREE.Vector3(...far)));
+        if (m < bestD) {
+          bestD = m;
+          best = item;
+        }
       }
     }
     return best;
