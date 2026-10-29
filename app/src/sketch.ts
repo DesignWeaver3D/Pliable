@@ -1060,8 +1060,36 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.s = JSON.parse(next);
     this.selection = [];
     this.chain = [];
+    this.syncPlane();
     this.resolve();
     this.render();
+  }
+
+  /** Bring the picking plane, the grid and the plane gizmos in line with the sketch's plane (after a flip, or an undo or redo of one). */
+  private syncPlane() {
+    const f = M.frame(this.s.plane);
+    this.plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(...f.n), new THREE.Vector3(...f.origin));
+    this.buildGrid(f);
+    this.showPlaneHandles();
+  }
+
+  /** Flip the sketch to the other side of its plane: the core reverses the normal and converts the points so nothing moves in space; one undo step, and the view turns to look from the new side. */
+  private async flip() {
+    this.pushUndo();
+    try {
+      const reply = await this.core.request<{ sketch: M.SketchData }>("sketch_flip", { sketch: this.s });
+      this.s = reply.sketch;
+    } catch (e) {
+      this.undoStack.pop();
+      this.host.status(`Could not flip the sketch: ${e instanceof Error ? e.message : String(e)}`, true);
+      return;
+    }
+    this.selection = [];
+    this.chain = [];
+    this.syncPlane();
+    await this.resolve();
+    this.render();
+    this.viewport.lookFromOrthographic(new THREE.Vector3(...M.frame(this.s.plane).n));
   }
 
   /** The id of an existing or new point for a clicked position. */
@@ -1947,6 +1975,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.renderPanel();
     }, this.options.snapGrid);
     const look = iconButton("lookAt", "Turn the view square to the sketch plane in orthographic projection (entering a sketch does not move the view). Turning the camera afterwards goes back to the projection you had", () => this.viewport.lookFromOrthographic(new THREE.Vector3(...M.frame(this.s.plane).n)));
+    const flip = iconButton("flipSketch", "Flip the sketch to the other side of its plane: the plane's normal reverses and the drawing stays where it is in space, then the view looks from the new side", () => void this.guard(() => this.flip()));
     const gizmos = iconButton("gizmos", this.gizmosShown ? "Hide the sketch plane's move and turn gizmos" : "Show the sketch plane's move and turn gizmos", () => {
       this.gizmosShown = !this.gizmosShown;
       this.showPlaneHandles();
@@ -1958,7 +1987,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     gear.style.marginLeft = "auto";
     header.append(el("span", "title", this.kept ? this.kept.name : "Sketch"), gear);
     const icons = el("div", "head");
-    icons.append(look, gizmos, base, target, grid, snap);
+    icons.append(look, ...(this.unwrapFace === null ? [flip] : []), gizmos, base, target, grid, snap);
     const status = el("div", "dof", this.failed.size ? `Conflict: ${this.s.constraints.filter((c) => this.failed.has(c.id)).map((c) => M.describeConstraint(this.s, c)).join("; ") || [...this.failed].join(", ")}. Remove one (red rows below)` : this.dof === null ? "" : this.dof === 0 ? "Fully constrained" : `${this.dof} degrees of freedom left`);
     if (this.failed.size) status.classList.add("bad");
     else if (this.dof) {

@@ -187,6 +187,7 @@ export const UI_ICONS: Record<string, string> = {
   grid: '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 9.3h16M4 14.7h16M9.3 4v16M14.7 4v16"/>',
   gridSnap: '<path d="M4 8h16M4 16h16M8 4v16M16 4v16" opacity=".5"/><circle cx="16" cy="16" r="2.6" fill="currentColor"/><path d="M5 5l7.5 7.5" />',
   lookAt: '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 9h16" opacity=".4"/><path d="M12 9v11" opacity=".4"/><circle cx="12" cy="12" r="2"/>',
+  flipSketch: '<path d="M4 12h16" opacity=".5"/><path d="M12 10V4M9.5 6.5L12 4l2.5 2.5"/><path d="M12 14v6M9.5 17.5L12 20l2.5-2.5"/>',
   gizmos: '<path d="M6 18V5M3.5 7.5L6 5l2.5 2.5"/><path d="M6 18h13M16.5 15.5L19 18l-2.5 2.5"/><circle cx="6" cy="18" r="1.6" fill="currentColor"/>',
   eyedropper: '<path d="M15 4.5l4.5 4.5M17 3a2.1 2.1 0 0 1 4 .5 2.1 2.1 0 0 1-.6 1.6l-2 2-4.5-4.5 2-2A2.1 2.1 0 0 1 17 3zM14 7.5L5.5 16 4.5 20l4-1L17 10.5"/>',
   pickBase: '<circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>',
