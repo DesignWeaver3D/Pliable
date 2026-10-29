@@ -17,6 +17,7 @@ import { PullGizmo } from "./pullgizmo";
 import { PullDirection, edgeVector, type Vec } from "./pulldir";
 import { PushPullState } from "./pushpullstate";
 import { MirrorArrow } from "./pushpullarrows";
+import { SubtractGhost } from "./subtractghost";
 import type { HandleInfo } from "./tools";
 import { onSettingsChange, settings, updateSettings } from "./settings";
 import { canJoinSelection, parentBodies, similarTo, type SimilarKind } from "./selfilter";
@@ -226,6 +227,8 @@ export class Viewport {
   readonly pullGizmo: PullGizmo;
   /** The red arrow opposite the push/pull arrow: the subtract direction. */
   private readonly mirrorArrow: MirrorArrow;
+  /** The translucent red solid of a subtract preview through empty space (subtractghost.ts). */
+  readonly subtractGhost: SubtractGhost;
 
   /** While set (sketch mode), left-button pointer events go here instead of selection and tool drags. */
   interceptor: { down(e: PointerEvent): void; move(e: PointerEvent): void; up(e: PointerEvent): void } | null = null;
@@ -479,6 +482,7 @@ export class Viewport {
     this.controls.zoomToCursor = true;
     const dom = this.renderer.domElement;
     this.manipulator = new Manipulator(this.scene, () => this.camera, dom, (p) => this.pixelSizeAt(p));
+    this.subtractGhost = new SubtractGhost(this.scene);
     this.mirrorArrow = new MirrorArrow(this.scene, (p) => this.pixelSizeAt(p), this.manipulator, this.pushPull);
     this.pullGizmo = new PullGizmo(this.scene, () => this.camera, dom, (p) => this.pixelSizeAt(p), this.manipulator, this.pullDirection);
     let down: { x: number; y: number } | null = null;

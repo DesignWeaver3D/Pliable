@@ -101,7 +101,7 @@ export function createItemDrag(d: ItemDragDeps) {
         // Keep showing the last size that worked (smooth), but say plainly that the
         // requested size is past the limit; releasing commits the last good size.
         previewFailed = true;
-        status.textContent = lastGood === null ? e.message : `limit reached (${e.message})`;
+        status.textContent = lastGood === null || /^Nothing to subtract/.test(e.message) ? e.message : `limit reached (${e.message})`; // a subtract that removes nothing says so, it is no size limit
         status.classList.add("error");
       })
       .finally(() => {

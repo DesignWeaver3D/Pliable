@@ -1,3 +1,4 @@
+import { ghostOf, type GhostBuffers } from "./ghostbuffers.ts";
 // WebSocket client for the Python core. Binary mesh frames follow a small
 // JSON reply frame carrying the request id (see core/src/pliable/protocol.py).
 
@@ -52,6 +53,8 @@ export interface MeshData {
   vertices: VertexInfo[];
   centres: CentreInfo[];
   bounds: number[];
+  /** The red ghost of a push/pull subtract preview (the cutting volume outside every body), if the reply has one. */
+  ghost?: GhostBuffers | null;
 }
 
 export function decodeMesh(frame: ArrayBuffer): MeshData {
@@ -74,6 +77,7 @@ export function decodeMesh(frame: ArrayBuffer): MeshData {
     vertices: header.vertices ?? [],
     centres: header.centres ?? [],
     bounds: header.bounds,
+    ghost: ghostOf(header, arrays),
   };
 }
 
