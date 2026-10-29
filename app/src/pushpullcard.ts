@@ -87,11 +87,11 @@ export class PushPullCard {
     this.vector.forEach((input) => {
       input.type = "number";
       input.step = "any";
-      input.style.width = "52px";
+      input.style.width = "40px";
       input.addEventListener("input", () => this.typedVector());
     });
     const vectorRow = row("Direction", "The direction the face is pushed along (x, y, z), turned to point out of the face. The target at the arrow's tip picks it from an edge", ...this.vector);
-    vectorRow.style.gap = "4px";
+    vectorRow.style.gap = "3px";
     const buttons = document.createElement("div");
     buttons.className = "buttons";
     const apply = document.createElement("button");
