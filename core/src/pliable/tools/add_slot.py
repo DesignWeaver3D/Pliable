@@ -76,11 +76,17 @@ class AddSlot(_PlanarFace):
         axes = gp_Ax2(lead, down, along_dir)  # local X along the slot, local Y = down x X
         side = gp_Vec(axes.YDirection())
         corner = lead.Translated(gp_Vec(along_dir).Multiplied(-straight / 2)).Translated(side.Multiplied(-width / 2))
-        parts = [BRepPrimAPI_MakeBox(gp_Ax2(corner, down, along_dir), straight, width, depth + margin).Shape()] if straight > MIN_DISTANCE else []
-        for sign in (-1, 1):
-            end = lead.Translated(gp_Vec(along_dir).Multiplied(sign * straight / 2))
-            parts.append(_cylinder(end, down, width / 2, depth + margin))
+        def cutting_parts(origin, corner, lead_in):
+            parts = [BRepPrimAPI_MakeBox(gp_Ax2(corner, down, along_dir), straight, width, depth + lead_in).Shape()] if straight > MIN_DISTANCE else []
+            for sign in (-1, 1):
+                end = origin.Translated(gp_Vec(along_dir).Multiplied(sign * straight / 2))
+                parts.append(_cylinder(end, down, width / 2, depth + lead_in))
+            return parts
+
         shape = topology.shape
-        for part in parts:
+        for part in cutting_parts(lead, corner, margin):
             shape = _combine(shape, part, fuse=False)
-        return finish(shape)
+        ghost = []  # the preview's ghost: the same parts starting on the face; a through slot has no real end to draw
+        if preview and values["depth"] > MIN_DISTANCE:
+            ghost = cutting_parts(centre, corner.Translated(gp_Vec(normal).Multiplied(-margin)), 0.0)
+        return finish(shape, ghost)

@@ -31,4 +31,4 @@ class SweepFace(Tool):
             raise OperationError(f"Could not sweep along this edge: {e}") from None
         if not pipe.IsDone() or pipe.Shape().IsNull() or _volume(pipe.Shape()) < 1e-9:
             raise OperationError("Could not sweep this face along this edge")
-        return finish(_combine(topology.shape, pipe.Shape(), fuse=mode == 0))
+        return finish(_combine(topology.shape, pipe.Shape(), fuse=mode == 0), [pipe.Shape()] if mode == 1 else ())

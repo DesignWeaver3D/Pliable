@@ -363,6 +363,10 @@ class Tool:
             if not result.unified and result.shape is not topology.shape:
                 result = unify_result(result)  # tools that skip finish() still leave no redundant faces or edges
             result.shape = keep_compound(topology.shape, result.shape)
+            if preview and result.cutters:
+                from ..ghost import attach_ghost
+
+                attach_ghost(result, topology.shape)  # the part of the cutting volumes in empty space, drawn by the preview
             return result
         except OperationError:
             raise
