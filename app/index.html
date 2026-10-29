@@ -159,6 +159,15 @@
       #toolform select { background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; color-scheme: dark; } #toolform select option { background: #1b1d22; }
       #toolform input { width: 80px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; }
       #toolform .buttons { display: flex; gap: 6px; margin-top: 6px; }
+      #ppcard button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; text-align: left; display: block; width: 100%; margin-top: 2px; }
+      #ppcard { position: fixed; top: 270px; right: 12px; width: 250px; box-sizing: border-box; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
+      #ppcard[hidden] { display: none; }
+      #ppcard button.active { border-color: #ff8a1f; color: #ffb878; }
+      #ppcard .title { color: #ffb878; font-weight: 600; margin-bottom: 4px; }
+      #ppcard .row { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin: 3px 0; }
+      #ppcard input { width: 80px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; }
+      #ppcard .buttons { display: flex; gap: 6px; margin-top: 6px; }
+      #ppcard input[type=checkbox] { width: auto; }
       #hintline { position: absolute; left: 50%; bottom: calc(44px + var(--chips-h, 0px)); transform: translateX(-50%); z-index: 1; display: flex; gap: 14px; white-space: nowrap; font-size: 11px; color: #8a8f98; pointer-events: none; }
       #hintline button { pointer-events: auto; background: none; border: 0; color: #8a8f98; cursor: pointer; font: inherit; padding: 0 4px; }
       #hintline kbd { background: #2a2d34; border: 1px solid #3a3e47; border-radius: 3px; padding: 0 4px; margin-right: 3px; color: #bbb; font: inherit; }
@@ -314,6 +323,7 @@
     <div id="selected" title="What is selected"></div>
     <div id="sketchpanel" hidden></div>
     <div id="toolform" hidden></div>
+    <div id="ppcard" hidden></div>
     <div id="sectioncard" hidden></div>
     <div id="measure" hidden></div>
     <div id="dim" hidden></div>

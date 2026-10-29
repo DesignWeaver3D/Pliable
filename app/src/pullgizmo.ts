@@ -48,6 +48,8 @@ interface ArcDrag {
 export class PullGizmo {
   /** Called when the pick icon is pressed. */
   onPick: () => void = () => {};
+  /** Called at the end of every frame the gizmo is shown (the Push/Pull card follows the tilts). */
+  onFrame: () => void = () => {};
 
   private readonly group = new THREE.Group();
   private readonly arcs: THREE.Line[] = [];
@@ -154,6 +156,28 @@ export class PullGizmo {
       this.label.style.left = `${icon.x - rect.left + 12}px`;
       this.label.style.top = `${icon.y - rect.top}px`;
     }
+    this.onFrame();
+  }
+
+  /** The tilt of the chosen direction along the red and green arcs in degrees from the face normal (what the Push/Pull card shows), or null while the gizmo is not shown. */
+  tilts(): [number, number] | null {
+    const layout = this.layout;
+    const normal = this.state.normal;
+    if (!layout || !normal) return null;
+    const sides = layout.axes.map((axis) => sideToward(normal, axis));
+    return [tiltAlong(normal, sides[0], this.state.dir), tiltAlong(normal, sides[1], this.state.dir)];
+  }
+
+  /** Set the tilt along one or both arcs from typed degrees (null keeps that arc's angle), like typing on a held arc. */
+  setTilts(red: number | null, green: number | null) {
+    const layout = this.layout;
+    const normal = this.state.normal;
+    if (!layout || !normal) return;
+    const [a, b] = layout.axes.map((axis) => sideToward(normal, axis));
+    let dir = this.state.dir;
+    if (red !== null) dir = typedTiltKeeping(normal, a, b, dir, red);
+    if (green !== null) dir = typedTiltKeeping(normal, b, a, dir, green);
+    this.state.set(dir);
   }
 
   /** The arc under the pointer, if the gizmo is shown. */

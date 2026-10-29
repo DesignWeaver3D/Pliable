@@ -29,6 +29,8 @@ export interface ItemDragDeps {
   selectionPayload(sels: Sel[]): Record<string, unknown>;
   mappedSelection(mesh: MeshData): Sel[];
   rememberOp(tool: ToolInfo | null, sels: Sel[], distance: number): void;
+  /** The Push/Pull card: opened when a push/pull drag starts, it shows the distance the drag is at. */
+  pushPullCard: { open(): void; showDistance(value: number): void; clearDistance(): void };
 }
 
 export function createItemDrag(d: ItemDragDeps) {
@@ -41,26 +43,36 @@ export function createItemDrag(d: ItemDragDeps) {
   let previewFailed = false; // the newest preview request failed (size past the limit)
   let dragSels: Sel[] | null = null;
 
-  // Shift held when a push/pull drag starts makes the whole drag symmetric (about a plane, see the core's symmetric push/pull).
+  // Shift held when a push/pull drag starts makes the whole drag symmetric (about a plane, see the core's symmetric push/pull); so does the card's Symmetric box.
   let shiftHeld = false;
   let dragSymmetric = false;
+  const pushPullDragging = () => dragSels !== null && dragToolFor(dragSels)?.id === "push_pull";
   for (const type of ["keydown", "keyup"] as const) {
     window.addEventListener(type, (e) => {
       shiftHeld = e.shiftKey;
+      // Alt held at any time during a push/pull drag makes it a New body (the state at release decides); letting go brings the card's choice back.
+      const altChanged = viewport.pushPull.altHeld !== e.altKey;
+      viewport.pushPull.setAlt(e.altKey);
+      if (e.key === "Alt" && pushPullDragging()) e.preventDefault(); // so the browser's menu does not take the focus
       // Pressing or letting go of Shift during a push/pull drag switches the symmetric mode from then on and previews it at once.
-      if (dragSels !== null && dragToolFor(dragSels)?.id === "push_pull" && dragSymmetric !== shiftHeld) {
-        dragSymmetric = shiftHeld;
+      const symmetric = shiftHeld || viewport.pushPull.symmetric;
+      if (pushPullDragging() && (dragSymmetric !== symmetric || altChanged)) {
+        dragSymmetric = symmetric;
         queued = dragValue;
         pump(session);
       }
     });
   }
-  window.addEventListener("blur", () => (shiftHeld = false));
+  window.addEventListener("blur", () => {
+    shiftHeld = false;
+    viewport.pushPull.setAlt(false);
+  });
 
   function toolRequest(sels: Sel[], distance: number, commit = false) {
     const tool = dragToolFor(sels)!;
-    const params: Record<string, number> = { [dragParam(tool)!]: distance };
+    const params: Record<string, number | string | boolean> = { [dragParam(tool)!]: distance };
     if (tool.id === "push_pull" && dragSymmetric) params.symmetric = 1;
+    if (tool.id === "push_pull") Object.assign(params, viewport.pushPull.params()); // mode and flip, set on the card (Alt: New body)
     if (tool.id === "push_pull") Object.assign(params, viewport.pullDirection.params()); // the chosen direction (pulldir.ts), for the arrow handle and the face drag alike
     // Pulling a just-picked sketch region: the pick and the extrusion are one undo step.
     const foldPick = commit && app.pendingProfile !== null && app.committed === app.pendingProfile.mesh ? { foldPick: true } : {};
@@ -199,14 +211,19 @@ export function createItemDrag(d: ItemDragDeps) {
       dimLabel.hidden = false;
       measurePanel.hide();
       app.measuredDims = []; app.previewDimsShown = false; dimensionOverlay.set([]);
+      if (dragToolFor(sels)?.id === "push_pull") d.pushPullCard.showDistance(distance);
       dimLabel.style.left = `${x + DIM_OFFSET_PX}px`;
       dimLabel.style.top = `${y + DIM_OFFSET_PX}px`;
       renderDim();
       if (dragSels === null) {
         lastGood = null;
         previewFailed = false;
-        dragSymmetric = shiftHeld;
+        dragSymmetric = shiftHeld || viewport.pushPull.symmetric;
         const dragTool = dragToolFor(sels)!;
+        if (dragTool.id === "push_pull") {
+          d.pushPullCard.open(); // a push/pull drag always opens its card
+          d.pushPullCard.showDistance(distance);
+        }
         if (d.armedTool !== dragTool.id) usage.record(dragTool.id, "start", "drag"); // an armed tool already counted its start
       }
       dragSels = sels;
@@ -218,6 +235,7 @@ export function createItemDrag(d: ItemDragDeps) {
     if (phase === "end" && typed !== null) distance = effectiveValue();
     else if (phase === "end") distance = dragValue;
     hideDim();
+    d.pushPullCard.clearDistance();
     session++;
     queued = null;
     try {

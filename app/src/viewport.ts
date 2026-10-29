@@ -15,6 +15,7 @@ import { DepthProbe } from "./occlusion";
 import { Manipulator } from "./manipulator";
 import { PullGizmo } from "./pullgizmo";
 import { PullDirection, edgeVector, type Vec } from "./pulldir";
+import { PushPullState } from "./pushpullstate";
 import type { HandleInfo } from "./tools";
 import { onSettingsChange, settings, updateSettings } from "./settings";
 import { canJoinSelection, parentBodies, similarTo, type SimilarKind } from "./selfilter";
@@ -219,6 +220,8 @@ export class Viewport {
   readonly manipulator: Manipulator;
   /** The push/pull direction (see pulldir.ts) and the gizmo that sets it. */
   readonly pullDirection = new PullDirection();
+  /** What the Push/Pull card chose: mode, flip, symmetric, and the Alt override (pushpullstate.ts). */
+  readonly pushPull = new PushPullState();
   readonly pullGizmo: PullGizmo;
 
   /** While set (sketch mode), left-button pointer events go here instead of selection and tool drags. */
