@@ -45,12 +45,12 @@ def push_role(mode: str, flip: bool, distance: float) -> str:
     return "add" if (distance > 0) != bool(flip) else "cut"
 
 
-def nothing_to_subtract(shape, faces, cutters, preview: bool) -> OpResult:
+def nothing_to_subtract(shape, faces, cutters, preview: bool, message: str = NOTHING_TO_SUBTRACT) -> OpResult:
     """A subtract that removes nothing changes nothing. A commit refuses with a message; a preview keeps the model as
     it is, carries the note and still gives the cutting volumes, so the empty-space ghost can be drawn."""
     if not preview:
-        raise OperationError(NOTHING_TO_SUBTRACT)
-    return OpResult(shape, list(faces), unified=True, cutters=list(cutters), notice=NOTHING_TO_SUBTRACT)
+        raise OperationError(message)
+    return OpResult(shape, list(faces), unified=True, cutters=list(cutters), notice=message)
 
 
 @dataclass

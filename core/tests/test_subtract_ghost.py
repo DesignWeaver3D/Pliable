@@ -114,3 +114,45 @@ def test_cutting_along_a_surface_has_no_ghost_inside_the_body():
     face = next(i for i, _ in Topology(ball).faces())
     header, _ = reply(ball, "push_pull_surface", {"faces": [face]}, {"distance": -3})
     assert "ghost" not in header
+
+
+def empty_space_profile():
+    """Only a loose face in the model, no solid at all."""
+    profile = BRepBuilderAPI_MakeFace(BRepBuilderAPI_MakePolygon(gp_Pnt(9, 0, 0), gp_Pnt(12, 0, 1), gp_Pnt(12, 0, 2), gp_Pnt(9, 0, 3), True).Wire()).Face()
+    shape = TopoDS_Compound()
+    BRep_Builder().MakeCompound(shape)
+    BRep_Builder().Add(shape, profile)
+    return shape, max(i for i, _ in Topology(shape).faces())
+
+
+def test_helical_sweep_subtract_in_empty_space_draws_the_ghost_and_refuses_to_commit():
+    from pliable.ops import OperationError
+    from pliable.tools import TOOLS, Selection
+
+    shape, face = empty_space_profile()
+    params = {"pitch": 5, "turns": 3, "hand": 0, "axis": 2, "axis_edge": -1, "mode": 1}
+    header, _ = reply(shape, "helical_sweep", {"faces": [face], "axes": [2]}, params)
+    assert header.get("ghost") is not None and "no solid" in header.get("notice", "")
+    with pytest.raises(OperationError):
+        TOOLS["helical_sweep"].execute(Topology(shape), Selection(faces=[face], axes=[2]), params, False)
+
+
+def test_helical_sweep_subtract_clear_of_the_body_draws_the_ghost():
+    far = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(100, 0, 0), gp_Dir(0, 0, 1)), 10, 40).Shape()  # the thread never reaches this body
+    profile = BRepBuilderAPI_MakeFace(BRepBuilderAPI_MakePolygon(gp_Pnt(9, 0, 0), gp_Pnt(12, 0, 1), gp_Pnt(12, 0, 2), gp_Pnt(9, 0, 3), True).Wire()).Face()
+    shape = TopoDS_Compound()
+    builder = BRep_Builder()
+    builder.MakeCompound(shape)
+    builder.Add(shape, far)
+    builder.Add(shape, profile)
+    face = max(i for i, _ in Topology(shape).faces())
+    header, _ = reply(shape, "helical_sweep", {"faces": [face], "axes": [2]}, {"pitch": 5, "turns": 3, "hand": 0, "axis": 2, "axis_edge": -1, "mode": 1})
+    assert header.get("ghost") is not None and header.get("notice")
+
+
+def test_revolve_face_subtract_in_empty_space_draws_the_ghost():
+    shape, face = empty_space_profile()
+    topology = Topology(shape)
+    edge = next(iter(range(topology.edge_count)))
+    header, _ = reply(shape, "revolve_face", {"faces": [face], "edges": [edge]}, {"angle": 90, "mode": 1})
+    assert header.get("ghost") is not None and header.get("notice")

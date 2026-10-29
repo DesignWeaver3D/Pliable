@@ -8,6 +8,7 @@ from OCP.GeomAbs import GeomAbs_Line
 from OCP.gp import gp_Ax1, gp_Pnt, gp_Trsf, gp_Vec
 
 from ..ops import _contains, _faces_of, OperationError, face_handle_point, solids_of
+from ..pushpull_modes import nothing_to_subtract
 from ..shared.arrayaxis import AXIS_CHOICES, array_axis
 from ..shared.solids import _combine, _compound, _volume, finish
 from ..sketch import SketchError, regions
@@ -105,9 +106,12 @@ class RevolveFace(Tool):
         elif mode == 0:
             result = tool_shape
         else:
-            raise OperationError("There is no solid to cut")
+            return nothing_to_subtract(topology.shape, [], [tool_shape], preview, "There is no solid to cut")
         if loose:
             result = _compound([result, *[f for f in loose if (face is None or not f.IsSame(face))]])
         if abs(_volume(result) - before) < 1e-9:
-            raise OperationError("Revolving changed nothing: the swept volume is already inside or outside the model")
+            message = "Revolving changed nothing: the swept volume is already inside or outside the model"
+            if mode == 1:
+                return nothing_to_subtract(topology.shape, [], [tool_shape], preview, message)
+            raise OperationError(message)
         return finish(result, [tool_shape] if mode == 1 else ())

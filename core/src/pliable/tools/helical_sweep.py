@@ -12,6 +12,7 @@ from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS
 
 from ..ops import _contains, _faces_of, OperationError, face_handle_point, solids_of
+from ..pushpull_modes import nothing_to_subtract
 from ..shared.arrayaxis import AXIS_CHOICES
 from ..shared.helix import helix_wire
 from ..shared.solids import _combine, _compound, _volume, finish
@@ -157,7 +158,7 @@ class HelicalSweep(RevolveFace):
                 result = _apply(result, piece, fuse=True)
         else:
             if not solids:
-                raise OperationError("There is no solid to subtract from")
+                return nothing_to_subtract(topology.shape, [], coils, preview, "There is no solid to subtract from")
             pieces, changed = [], False
             for solid in solids:  # every solid the coil meets loses that part; the others stay as they are
                 cut = solid
@@ -169,7 +170,7 @@ class HelicalSweep(RevolveFace):
                 else:
                     pieces.append(solid)
             if not changed:
-                raise OperationError("The coil does not meet any solid, so nothing was subtracted")
+                return nothing_to_subtract(topology.shape, [], coils, preview, "The coil does not meet any solid, so nothing was subtracted")
             result = _compound(pieces)
         if kept:
             result = _compound([result, *kept])
