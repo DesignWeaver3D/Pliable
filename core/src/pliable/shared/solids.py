@@ -29,15 +29,16 @@ from ..tools import Param
 TOL = 1e-6
 
 
-def finish(shape: TopoDS_Shape) -> OpResult:
-    """Merge faces that share a surface, check the result, and return it (the selection is not carried over)."""
+def finish(shape: TopoDS_Shape, cutters=()) -> OpResult:
+    """Merge faces that share a surface, check the result, and return it (the selection is not carried over).
+    `cutters` are the tool volumes a subtract removed; the preview draws the part of them in empty space as a ghost."""
     copy = BRepBuilderAPI_Copy(shape, False, True)  # UnifySameDomain edits its input in place
     unify = ShapeUpgrade_UnifySameDomain(copy.Shape(), True, True, True)
     unify.Build()
     result = unify.Shape()
     if result.IsNull() or not BRepCheck_Analyzer(result).IsValid():
         raise OperationError("Operation produced invalid geometry")
-    return OpResult(result, [], unified=True)
+    return OpResult(result, [], unified=True, cutters=list(cutters))
 
 
 def _combine(shape: TopoDS_Shape, tool: TopoDS_Shape, fuse: bool) -> TopoDS_Shape:

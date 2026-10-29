@@ -110,4 +110,4 @@ class RevolveFace(Tool):
             result = _compound([result, *[f for f in loose if (face is None or not f.IsSame(face))]])
         if abs(_volume(result) - before) < 1e-9:
             raise OperationError("Revolving changed nothing: the swept volume is already inside or outside the model")
-        return finish(result)
+        return finish(result, [tool_shape] if mode == 1 else ())

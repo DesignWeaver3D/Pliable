@@ -173,4 +173,4 @@ class HelicalSweep(RevolveFace):
             result = _compound(pieces)
         if kept:
             result = _compound([result, *kept])
-        return finish(result)
+        return finish(result, coils if mode == 1 else ())

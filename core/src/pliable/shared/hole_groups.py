@@ -133,7 +133,12 @@ class _HoleOnFace(_PlanarFace):
         shape = _combine(topology.shape, _cylinder(lead, normal.Reversed(), values["diameter"] / 2, depth + margin), fuse=False)
         for cutter in self.extra_cutters(start, normal, values, depth, margin):
             shape = _combine(shape, cutter, fuse=False)
-        return finish(shape)
+        return finish(shape, self._ghost_cutters(start, normal, values, depth) if preview and values["depth"] > MIN_DISTANCE else ())
+
+    def _ghost_cutters(self, start: gp_Pnt, normal: gp_Dir, values: dict, depth: float) -> list[TopoDS_Shape]:
+        """The cutting shapes for the preview's ghost: as cut, but starting on the face (no lead-in) so a hole inside the model has none.
+        A through hole (depth 0) has no real end, so its cutting length past the model is not drawn."""
+        return [_cylinder(start, normal.Reversed(), values["diameter"] / 2, depth), *self.extra_cutters(start, normal, values, depth, 0.0)]
 
 
 class _HoleGroup(_CylinderFaces):

@@ -1,7 +1,6 @@
 """The Push/Pull tool."""
 
 from ..ops import face_handle_point, MIN_DISTANCE, OperationError, OpResult, planar_normal, pull_direction, push_pull
-from ..ghost import attach_ghost
 from ..pushpull_modes import MODES
 from ..symmetric import symmetric_faces
 from .base import Accepts, Handle, Param, register, Tool
@@ -69,8 +68,6 @@ class PushPull(Tool):
         if direction is not None and symmetric:
             raise OperationError("Symmetric push/pull uses the face normal; reset the pull direction first")
         result = push_pull(topology.shape, faces if len(faces) > 1 else faces[0], values["distance"], preview=preview, symmetric=symmetric and loose, direction=direction, mode=values["mode"], flip=values["flip"] >= 0.5)
-        if preview:
-            attach_ghost(result, topology.shape)
         result.tracked_faces = result.tracked_faces[:1]  # keep a single face selected, the related ones are found again
         return result
 
