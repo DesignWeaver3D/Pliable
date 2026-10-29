@@ -173,9 +173,9 @@ def test_hole_centre_and_centre_distances(bracket):
     holes = [i for i in range(bracket.face_count) if measure(bracket, Selection(faces=[i]))["items"][0]["title"] == "Cylinder" and abs(measure(bracket, Selection(faces=[i]))["items"][0]["rows"][0]["value"] - 4) < 1e-6]
     assert len(holes) == 4
     rows = {r["label"]: r["value"] for r in measure(bracket, Selection(faces=[holes[0]]))["items"][0]["rows"]}
-    assert {"Centre X", "Centre Y", "Centre Z"} <= set(rows)
+    assert {"Center X", "Center Y", "Center Z"} <= set(rows)
     pair = measure(bracket, Selection(faces=holes[:2]))
-    distances = {round(r["value"], 3) for r in pair["summary"] if r["label"] == "Centre distance"}
+    distances = {round(r["value"], 3) for r in pair["summary"] if r["label"] == "Center distance"}
     assert distances and distances <= {28.0, 35.0, round(math.hypot(35, 28), 3)}
     assert pair["dimensions"][0]["kind"] == "linear"
 

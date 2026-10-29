@@ -100,7 +100,7 @@ class _CylinderFaces(Tool):
 
 
 class _HoleOnFace(_PlanarFace):
-    """Shared placement for holes cut into a flat face: positioned from the face centre, running inward."""
+    """Shared placement for holes cut into a flat face: positioned from the face center, running inward."""
 
     accepts = Accepts(faces=(1, 1))
     params = [Param("diameter", "length", 6), Param("depth", "length"), Param("offset_u", "length"), Param("offset_v", "length")]

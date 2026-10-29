@@ -94,7 +94,7 @@ class CutPlane(Tool):
 
     id = "cut_plane"
     label = "Cut with plane"
-    description = "Cuts the model with a plane and keeps one side or both. Drag the arrow to slide the plane and the two rings to tilt it (tilt_u, tilt_v). Axis 0, 1, 2 is X, Y, Z; axis 3 uses the direction nx, ny, nz. Position is the plane's distance from the origin along its direction. Remove side picks Side 1 (the part on the direction's side), Side 2 (the other part) or None, which keeps both as two separate bodies. Pick plane (a flat face), a datum plane, an origin plane or a sketch button sets the plane from that object. The names of Side 1 and Side 2 take the colours of the bodies they give. Select bodies to cut only those; with nothing selected every body is cut."
+    description = "Cuts the model with a plane and keeps one side or both. Drag the arrow to slide the plane and the two rings to tilt it (tilt_u, tilt_v). Axis 0, 1, 2 is X, Y, Z; axis 3 uses the direction nx, ny, nz. Position is the plane's distance from the origin along its direction. Remove side picks Side 1 (the part on the direction's side), Side 2 (the other part) or None, which keeps both as two separate bodies. Pick plane (a flat face), a datum plane, an origin plane or a sketch button sets the plane from that object. The names of Side 1 and Side 2 take the colors of the bodies they give. Select bodies to cut only those; with nothing selected every body is cut."
     accepts = Accepts(faces=(0, None), bodies=(0, None))
     params = [Param("axis", "number", 2), Param("position", "length"), Param("remove_side", "number", 0, options=SIDE_CHOICES), Param("nx", "number", 0), Param("ny", "number", 0), Param("nz", "number", 1), *TILT]
 

@@ -62,7 +62,7 @@ def wall_chain(topology, face_id: int) -> list[int]:
 
 
 def split_centre(topology, face_id: int):
-    """(position, axis, length) of the centre record of a face that is one part of a wall split into several faces (every
+    """(position, axis, length) of the center record of a face that is one part of a wall split into several faces (every
     part gets the same record, so a press on any part finds the hole); None for any other face."""
     face = topology.face(face_id)
     cylinder = _cylinder_of(face)

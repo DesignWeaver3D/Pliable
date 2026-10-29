@@ -85,8 +85,8 @@ def edge_curve(edge: TopoDS_Edge):
 
 
 def face_handle_point(face: TopoDS_Face) -> gp_Pnt:
-    """A point on a planar face to hang an on-screen handle on: the centre of mass when it lies on the face, else the
-    middle of the face's longest boundary edge (an L-shaped or ring-shaped face has its centre of mass off the face)."""
+    """A point on a planar face to hang an on-screen handle on: the center of mass when it lies on the face, else the
+    middle of the face's longest boundary edge (an L-shaped or ring-shaped face has its center of mass off the face)."""
     from OCP.BRepClass import BRepClass_FaceClassifier
     from OCP.BRepGProp import BRepGProp
     from OCP.GProp import GProp_GProps

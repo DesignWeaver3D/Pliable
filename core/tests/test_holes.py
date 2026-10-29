@@ -284,7 +284,7 @@ def test_circular_and_elliptical_edges_report_their_centres():
     assert len(centres) == 4  # two mouths of each hole
     flat = [c for c in centres if abs(c[0] - 10) < 1e-6]
     assert len(flat) == 2 and sorted(round(c[2], 6) for c in flat) == [-5, 5]
-    angled = [c for c in centres if abs(c[0] + 10) < 1e-6]  # the elliptical mouths: centre where the axis meets the face
+    angled = [c for c in centres if abs(c[0] + 10) < 1e-6]  # the elliptical mouths: center where the axis meets the face
     assert sorted(round(c[2], 6) for c in angled) == [-5, 5] and all(abs(c[1]) < 6 for c in angled)
     assert all(e["centre"] is None for e in mesh.edges if e["count"] == 2)  # straight edges have none
 

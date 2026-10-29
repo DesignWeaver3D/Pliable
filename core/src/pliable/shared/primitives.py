@@ -10,7 +10,7 @@ from ..tools import Handle, Param
 
 def _position_handles(values, size: float) -> list[Handle]:
     """Three move arrows at a primitive's reference point, one per axis, each starting there and pointing the positive
-    way along its axis (drawn in the axis colour), like an axis gizmo."""
+    way along its axis (drawn in the axis color), like an axis gizmo."""
     x, y, z = values["x"], values["y"], values["z"]
     return [
         Handle("x", "Move along X", (x, y, z), (1, 0, 0), kind="move"),

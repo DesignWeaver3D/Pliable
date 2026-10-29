@@ -9,7 +9,7 @@ from .hole_edit import _perpendicular
 
 
 class Frame:
-    """The new feature's place: `start` on the face (the face centre moved by offset_u, offset_v), the face's outward `normal`
+    """The new feature's place: `start` on the face (the face center moved by offset_u, offset_v), the face's outward `normal`
     and the two in-plane directions `u` and `v`, all as plain tuples."""
 
     def __init__(self, face, values):

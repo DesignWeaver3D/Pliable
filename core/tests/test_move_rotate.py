@@ -1,4 +1,4 @@
-"""Move/Rotate: one tool moves and turns a body (turn about its own centre first, then the move)."""
+"""Move/Rotate: one tool moves and turns a body (turn about its own center first, then the move)."""
 
 import math
 
@@ -49,7 +49,7 @@ def test_rotate_then_translate_through_execute():
 
     old = _centre_size(solids_of(topology.shape)[1])
     new = _centre_size(solids_of(result.shape)[1])
-    assert new[0] == pytest.approx([old[0][0] + 5, old[0][1] - 2, old[0][2] + 7], abs=1e-6)  # centre moved by exactly the vector
+    assert new[0] == pytest.approx([old[0][0] + 5, old[0][1] - 2, old[0][2] + 7], abs=1e-6)  # center moved by exactly the vector
     assert new[1] == pytest.approx([old[1][1], old[1][0], old[1][2]], abs=1e-6)  # 90 degrees about Z swaps X and Y extents
 
 
@@ -88,7 +88,7 @@ def test_rotation_rings_declare_axis_ring_and_degrees():
     ring = handles["rz"]
     cx, cy, cz, radius = ring["ring"]
     assert ring["axis"] == [0.0, 0.0, 1.0] and ring["unit"] == "°"
-    assert (cx, cy, cz) == pytest.approx((105, 10, 15))  # the body's centre
+    assert (cx, cy, cz) == pytest.approx((105, 10, 15))  # the body's center
     x, y, z = (a - c for a, c in zip(ring["anchor"], (cx, cy, cz)))
     assert math.hypot(x, y) == pytest.approx(radius) and z == pytest.approx(0)
     assert math.degrees(math.atan2(y, x)) == pytest.approx(45 + 30)

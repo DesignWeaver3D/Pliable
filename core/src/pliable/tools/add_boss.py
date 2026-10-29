@@ -11,11 +11,11 @@ from ..tools import Accepts, Handle, Param, register
 
 @register
 class AddBoss(_PlanarFace):
-    """A round boss standing out of a flat face, positioned from the face centre."""
+    """A round boss standing out of a flat face, positioned from the face center."""
 
     id = "add_boss"
     label = "Add boss"
-    description = "Adds a round post standing on a flat face, placed from the face centre. Select one flat face."
+    description = "Adds a round post standing on a flat face, placed from the face center. Select one flat face."
     accepts = Accepts(faces=(1, 1))
     params = [Param("diameter", "length", 10), Param("height", "length", 5), Param("offset_u", "length"), Param("offset_v", "length")]
 

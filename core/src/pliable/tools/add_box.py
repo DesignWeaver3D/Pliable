@@ -33,8 +33,8 @@ class AddBox(Tool):
 
     def anchors(self, values):
         w, d, h = values["width"], values["depth"], values["height"]
-        found = [("Corner (lowest X, Y and Z)", (0, 0, 0)), ("Centre", (w / 2, d / 2, h / 2)), ("Bottom centre", (w / 2, d / 2, 0)), ("Top centre", (w / 2, d / 2, h))]
-        found += [("Centre of low X face", (0, d / 2, h / 2)), ("Centre of high X face", (w, d / 2, h / 2)), ("Centre of low Y face", (w / 2, 0, h / 2)), ("Centre of high Y face", (w / 2, d, h / 2))]
+        found = [("Corner (lowest X, Y and Z)", (0, 0, 0)), ("Center", (w / 2, d / 2, h / 2)), ("Bottom center", (w / 2, d / 2, 0)), ("Top center", (w / 2, d / 2, h))]
+        found += [("Center of low X face", (0, d / 2, h / 2)), ("Center of high X face", (w, d / 2, h / 2)), ("Center of low Y face", (w / 2, 0, h / 2)), ("Center of high Y face", (w / 2, d, h / 2))]
         for ix in (0, 1):
             for iy in (0, 1):
                 for iz in (0, 1):

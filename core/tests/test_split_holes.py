@@ -1,4 +1,4 @@
-"""A hole whose cylinder is split into two faces (never merged) still has a centre and moves, resizes and pulls."""
+"""A hole whose cylinder is split into two faces (never merged) still has a center and moves, resizes and pulls."""
 
 import math
 

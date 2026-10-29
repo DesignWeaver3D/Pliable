@@ -14,7 +14,7 @@ from ..shared.solids import _compound, _volume, finish
 from ..tools import Accepts, Param, register, Tool
 from .helical_sweep import HelicalSweep, _apply
 
-# The metric coarse pitch of each standard size (millimetres); "Custom" uses the Pitch box.
+# The metric coarse pitch of each standard size (millimeters); "Custom" uses the Pitch box.
 SIZES = ("Custom", "M3", "M4", "M5", "M6", "M8", "M10", "M12", "M14", "M16", "M20")
 COARSE = (None, 0.5, 0.7, 0.8, 1.0, 1.25, 1.5, 1.75, 2.0, 2.0, 2.5)
 FULL_TURN = 2 * math.pi - 1e-6

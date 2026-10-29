@@ -10,7 +10,7 @@ class AlignHoles(_HoleGroup):
 
     id = "align_holes"
     label = "Align holes / bosses"
-    description = "Lines up holes or bosses so their centres match the first one you selected, along the chosen axis (0 = X, 1 = Y, 2 = Z). Select two or more round faces."
+    description = "Lines up holes or bosses so their centers match the first one you selected, along the chosen axis (0 = X, 1 = Y, 2 = Z). Select two or more round faces."
     accepts = Accepts(faces=(2, None))
     params = [Param("axis", "number", 0)]
 

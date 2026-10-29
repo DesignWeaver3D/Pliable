@@ -25,7 +25,7 @@ def extrude(shape, sketch: dict, distance: float, mode: str, symmetric: bool = F
     _, _, _, normal = frame(sketch["plane"])
     direction = gp_Vec(*normal)
     if symmetric:
-        # Centred on the sketch plane: start half the distance behind it and run the full distance forward.
+        # Centered on the sketch plane: start half the distance behind it and run the full distance forward.
         start = BRepBuilderAPI_Transform(face.wrapped, _translation(direction.Multiplied(-abs(distance) / 2)), True).Shape()
         prism = BRepPrimAPI_MakePrism(start, direction.Multiplied(abs(distance)))
     elif mode == "cut":

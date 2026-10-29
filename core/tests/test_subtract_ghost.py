@@ -18,7 +18,7 @@ from pliable.protocol import decode_binary
 from pliable.server import Session
 from pliable.topology import Topology
 
-BLOCK = load_demo("block")  # 40 x 30 x 20 centred on the origin
+BLOCK = load_demo("block")  # 40 x 30 x 20 centered on the origin
 TOP = next(i for i, f in Topology(BLOCK).faces() if planar_normal(f) is not None and planar_normal(f).Z() > 0.99)
 
 

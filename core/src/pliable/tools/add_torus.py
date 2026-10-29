@@ -11,7 +11,7 @@ from ..tools import Accepts, Param, register, round_handles, Tool
 
 @register
 class AddTorus(Tool):
-    """A torus lying on the XY plane, centred at (x, y, z). `major` is the ring's centre-line diameter."""
+    """A torus lying on the XY plane, centered at (x, y, z). `major` is the ring's center-line diameter."""
 
     id = "add_torus"
     body_kind = "Torus"
@@ -25,7 +25,7 @@ class AddTorus(Tool):
 
     def anchors(self, values):
         t = values["minor"] / 2
-        return [("Centre", (0, 0, 0)), ("Bottom", (0, 0, -t)), ("Top", (0, 0, t))]
+        return [("Center", (0, 0, 0)), ("Bottom", (0, 0, -t)), ("Top", (0, 0, t))]
 
     def handles(self, topology, selection, values):
         x, y, z, major, minor = (values[k] for k in ("x", "y", "z", "major", "minor"))

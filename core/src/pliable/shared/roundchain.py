@@ -35,7 +35,7 @@ def _tangent_neighbours(topology, face):
 
 
 def round_chain(topology, face):
-    """The fillet faces tangent-connected to `face` that have its radius, and the faces they roll between (their other tangent neighbours)."""
+    """The fillet faces tangent-connected to `face` that have its radius, and the faces they roll between (their other tangent neighbors)."""
     radius = _round_radius(face)
     chain = [face]
     if radius is not None:

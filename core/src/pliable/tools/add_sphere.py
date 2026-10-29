@@ -23,7 +23,7 @@ class AddSphere(Tool):
 
     def anchors(self, values):
         r = values["diameter"] / 2
-        return [("Centre", (0, 0, 0)), ("Bottom", (0, 0, -r)), ("Top", (0, 0, r))]
+        return [("Center", (0, 0, 0)), ("Bottom", (0, 0, -r)), ("Top", (0, 0, r))]
 
     def handles(self, topology, selection, values):
         x, y, z, d = (values[k] for k in ("x", "y", "z", "diameter"))

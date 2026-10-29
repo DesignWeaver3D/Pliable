@@ -1,4 +1,4 @@
-"""Which circles (and ellipses without axis ends) still have a free size: a circle whose centre is placed is not fully constrained until its size is too."""
+"""Which circles (and ellipses without axis ends) still have a free size: a circle whose center is placed is not fully constrained until its size is too."""
 
 from .solver import SOLVE_GROUP, _Solver, free_ellipse_minors
 

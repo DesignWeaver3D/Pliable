@@ -257,7 +257,7 @@ def test_every_region_stays_pickable_after_a_neighbour_is_extruded_or_its_body_d
 
     (face,) = pick(0)
     extruded = decode_binary(session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": [face]}, "params": {"distance": 5}}))[0]
-    assert len(pick(1)) == 1  # the neighbour of the extruded region
+    assert len(pick(1)) == 1  # the neighbor of the extruded region
     session.handle({"type": "undo"})
     body = max(b["id"] for b in extruded["bodies"])
     deleted = decode_binary(session.handle({"type": "delete_body", "body": body}))[0]

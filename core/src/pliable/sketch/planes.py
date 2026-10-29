@@ -50,7 +50,7 @@ def _quaternion(x, y, z) -> tuple[float, float, float, float]:
 
 def face_plane(face_shape) -> dict:
     """A sketch plane on a flat TopoDS face: the middle of the face's extent along the plane's own axes (the sketch
-    origin sits at the centre of the face you see, not at its area centroid, which drifts toward the heavy side of
+    origin sits at the center of the face you see, not at its area centroid, which drifts toward the heavy side of
     an L shape or a face with holes), its outward normal and a direction in the plane."""
     from OCP.BRepAdaptor import BRepAdaptor_Surface
     from OCP.BRepTools import BRepTools
@@ -199,7 +199,7 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
         return True
 
     def ellipse_arc(centre, tip, minor: float, curve, first: float, last: float) -> bool:
-        """Add the part of the flattened ellipse (centre, the tip of its major half-axis, minor radius) that the edge covers, as an elliptical arc running
+        """Add the part of the flattened ellipse (center, the tip of its major half-axis, minor radius) that the edge covers, as an elliptical arc running
         counterclockwise in the sketch; False when the ellipse has no size."""
         (cu, cv), (tu, tv) = uv(centre), uv(tip)
         a = math.hypot(tu - cu, tv - cv)
@@ -309,7 +309,7 @@ def face_reference(face_shape, plane: dict, project: bool = False) -> dict:
         while vertices.More():
             point(BRep_Tool.Pnt_s(TopoDS.Vertex(vertices.Current())))
             vertices.Next()
-    if not project:  # the face centre, for centre-snapping and constraining a sketch to the middle of a face
+    if not project:  # the face center, for center-snapping and constraining a sketch to the middle of a face
         from OCP.BRepGProp import BRepGProp
         from OCP.GProp import GProp_GProps
 

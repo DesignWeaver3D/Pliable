@@ -53,7 +53,7 @@ def edge_handles(topology, selection, values) -> list:
     here = tuple(sum(line[0][k] for line in lines) / len(lines) for k in range(3))
     out = [_arrow("Move along gizmo Y", here, u), _arrow("Move along gizmo Z", here, v)]
     _, u0, v0 = base_frame(original[0][1])
-    theta = math.radians(45 + values["rx"])  # the arc sits between the arrows, centred 45 degrees round from the first
+    theta = math.radians(45 + values["rx"])  # the arc sits between the arrows, centered 45 degrees round from the first
     radial = tuple(math.cos(theta) * u0[k] + math.sin(theta) * v0[k] for k in range(3))
     tangent = tuple(-math.sin(theta) * u0[k] + math.cos(theta) * v0[k] for k in range(3))
     radius = max(max(line[2] for line in lines) * 0.6, 8.0)

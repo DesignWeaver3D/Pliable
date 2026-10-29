@@ -1,4 +1,4 @@
-"""Which body each side of a cutting plane would give, so the form can colour the names of the sides like those bodies."""
+"""Which body each side of a cutting plane would give, so the form can color the names of the sides like those bodies."""
 
 from .ops import solids_of
 from .shared.planes import _cut_target, _model_middle

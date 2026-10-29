@@ -110,13 +110,13 @@ def _defeature(topology, selection, what: str) -> OpResult:
     except Exception as e:  # the kernel can raise instead of reporting a failed run
         raise OperationError(f"Could not {what}: the kernel refused ({e})") from e
     if not operation.IsDone() or operation.Shape().IsNull():
-        raise OperationError(f"Could not {what}: the neighbouring faces cannot be extended to close the gap")
+        raise OperationError(f"Could not {what}: the neighboring faces cannot be extended to close the gap")
     from ..topology import Topology
 
     result = operation.Shape()
     if abs(_volume(result) - _volume(topology.shape)) < 1e-9 and Topology(result).face_count == topology.face_count:
         raise OperationError(
-            f"Could not {what}: nothing changed because the neighbouring faces do not close over this face. "
+            f"Could not {what}: nothing changed because the neighboring faces do not close over this face. "
             "Select a feature such as a pocket, boss, hole or round, not an outside wall of the body"
         )
     return finish(result)

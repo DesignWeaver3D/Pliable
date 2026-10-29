@@ -111,7 +111,7 @@ def test_resize_chamfer():
     assert volume(block.shape) - volume(only_first.shape) == pytest.approx(0.5 * 6 * 3 * 40, rel=1e-3)
     with pytest.raises(OperationError):
         run("resize_chamfer", chamfered, faces=[face], first=0, second=3)
-    # a gizmo for each distance, each on the neighbour face it is measured along and moving only its own value
+    # a gizmo for each distance, each on the neighbor face it is measured along and moving only its own value
     handles = {h["param"]: h for h in get_tool("resize_chamfer").handle_list(chamfered, Selection(faces=[face]), {"first": 5, "second": 3})}
     assert set(handles) == {"first", "second"}
     first, second = handles["first"], handles["second"]
@@ -132,7 +132,7 @@ def test_resize_chamfer():
 def test_cut_plane_with_a_tilted_plane_and_keep_both():
     from pliable.ops import OperationError, solids_of
 
-    block = Topology(load_demo("block"))  # 40 x 30 x 20, centred on the origin
+    block = Topology(load_demo("block"))  # 40 x 30 x 20, centered on the origin
     diagonal = (1.0, 1.0, 0.0)  # a plane through the origin across the corner: half the block either side
     kept = run("cut_plane", block, axis=3, nx=diagonal[0], ny=diagonal[1], nz=diagonal[2], position=0, remove_side=1)
     assert 0 < volume(kept.shape) < 24000
@@ -149,7 +149,7 @@ def test_cut_plane_with_a_tilted_plane_and_keep_both():
 
 
 def test_cut_plane_offset_body_and_round_face():
-    block = Topology(load_demo("block"))  # 40 x 30 x 20, centred on the origin
+    block = Topology(load_demo("block"))  # 40 x 30 x 20, centered on the origin
     cut = run("cut_plane", block, axis=2, position=0, remove_side=1)
     assert volume(cut.shape) == pytest.approx(12000, rel=1e-4)
     low = run("cut_plane", block, axis=0, position=10, remove_side=-1)

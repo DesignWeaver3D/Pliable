@@ -140,7 +140,7 @@
  {
   "id": "delete_face",
   "label": "Defeature",
-  "description": "Removes a feature (a pocket, boss, hole, slot or round) by deleting its faces and extending the neighbouring faces to close the gap. Select one or more faces of the feature; if the faces cannot be closed over, it says why.",
+  "description": "Removes a feature (a pocket, boss, hole, slot or round) by deleting its faces and extending the neighboring faces to close the gap. Select one or more faces of the feature; if the faces cannot be closed over, it says why.",
   "accepts": {
    "faces": [
     1,
@@ -533,7 +533,7 @@
  {
   "id": "add_hole",
   "label": "Add hole",
-  "description": "Drills a round hole into a flat face, placed from the face centre. Select one flat face; depth 0 = through.",
+  "description": "Drills a round hole into a flat face, placed from the face center. Select one flat face; depth 0 = through.",
   "accepts": {
    "faces": [
     1,
@@ -793,7 +793,7 @@
  {
   "id": "align_holes",
   "label": "Align holes / bosses",
-  "description": "Lines up holes or bosses so their centres match the first one you selected, along the chosen axis (0 = X, 1 = Y, 2 = Z). Select two or more round faces.",
+  "description": "Lines up holes or bosses so their centers match the first one you selected, along the chosen axis (0 = X, 1 = Y, 2 = Z). Select two or more round faces.",
   "accepts": {
    "faces": [
     2,
@@ -883,7 +883,7 @@
  {
   "id": "add_boss",
   "label": "Add boss",
-  "description": "Adds a round post standing on a flat face, placed from the face centre. Select one flat face.",
+  "description": "Adds a round post standing on a flat face, placed from the face center. Select one flat face.",
   "accepts": {
    "faces": [
     1,
@@ -949,7 +949,7 @@
  {
   "id": "add_slot",
   "label": "Add slot",
-  "description": "Cuts a slot with rounded ends into a flat face, placed from the face centre. Select one flat face; angle turns the slot.",
+  "description": "Cuts a slot with rounded ends into a flat face, placed from the face center. Select one flat face; angle turns the slot.",
   "accepts": {
    "faces": [
     1,
@@ -1428,7 +1428,7 @@
  {
   "id": "patch_fill",
   "label": "Patch fill",
-  "description": "Closes a gap bounded by selected edges with a smooth filled surface. Needs three or more selected edges forming a closed gap; continuity 1 = tangent to neighbours, 0 = just touching.",
+  "description": "Closes a gap bounded by selected edges with a smooth filled surface. Needs three or more selected edges forming a closed gap; continuity 1 = tangent to neighbors, 0 = just touching.",
   "accepts": {
    "faces": [
     0,
@@ -1510,7 +1510,7 @@
  {
   "id": "unify",
   "label": "Refine bodies",
-  "description": "Unify: merges neighbouring faces that lie on the same surface, for example after opening a file made of many small faces. Select bodies (or any face of them) to refine only those, which is much faster on a model with many bodies; with nothing selected every body is refined.",
+  "description": "Unify: merges neighboring faces that lie on the same surface, for example after opening a file made of many small faces. Select bodies (or any face of them) to refine only those, which is much faster on a model with many bodies; with nothing selected every body is refined.",
   "accepts": {
    "faces": [
     0,
@@ -1756,7 +1756,7 @@
  {
   "id": "move_body",
   "label": "Move/Rotate",
-  "description": "Moves and turns a whole solid in one step. Drag the arrows (or type distances) to move along X, Y and Z, and drag the rings (or type degrees) to turn about X, Y and Z through the body's centre; the turn is applied first, then the move. Select bodies from the list, any face of the solid, or nothing to move the whole model. With edges selected it moves only the edges (the faces beside them follow): the gizmo sits at the edge middle with two arrows square to the edge and one arc between them that turns the arrows about the edge (Rotate X, which never moves the edge), snapping square to the faces beside the edge. Move X, Y and Z are the edge's world move; Rotate Y and Z are not used.",
+  "description": "Moves and turns a whole solid in one step. Drag the arrows (or type distances) to move along X, Y and Z, and drag the rings (or type degrees) to turn about X, Y and Z through the body's center; the turn is applied first, then the move. Select bodies from the list, any face of the solid, or nothing to move the whole model. With edges selected it moves only the edges (the faces beside them follow): the gizmo sits at the edge middle with two arrows square to the edge and one arc between them that turns the arrows about the edge (Rotate X, which never moves the edge), snapping square to the faces beside the edge. Move X, Y and Z are the edge's world move; Rotate Y and Z are not used.",
   "accepts": {
    "faces": [
     0,
@@ -1840,7 +1840,7 @@
  {
   "id": "rotate_body",
   "label": "Rotate body",
-  "description": "Rotates a whole solid about the X, Y or Z axis (0 = X, 1 = Y, 2 = Z): through the origin, or through the body's centre when you select bodies from the list. Select bodies, any face of a solid, or nothing for the whole model.",
+  "description": "Rotates a whole solid about the X, Y or Z axis (0 = X, 1 = Y, 2 = Z): through the origin, or through the body's center when you select bodies from the list. Select bodies, any face of a solid, or nothing for the whole model.",
   "accepts": {
    "faces": [
     0,
@@ -1892,7 +1892,7 @@
  {
   "id": "scale_body",
   "label": "Scale body",
-  "description": "Scales a whole solid evenly, about the origin or about the body's centre when you select bodies from the list. Select bodies, any face of a solid, or nothing for the whole model; 2 doubles the size.",
+  "description": "Scales a whole solid evenly, about the origin or about the body's center when you select bodies from the list. Select bodies, any face of a solid, or nothing for the whole model; 2 doubles the size.",
   "accepts": {
    "faces": [
     0,
@@ -2699,7 +2699,7 @@
  {
   "id": "chamfer_two_distances",
   "label": "Chamfer (two distances)",
-  "description": "Bevels edges with a different distance on each side. Select one face (it sets which side is first) and one or more edges; an edge that does not border that face is measured from its own first neighbouring face.",
+  "description": "Bevels edges with a different distance on each side. Select one face (it sets which side is first) and one or more edges; an edge that does not border that face is measured from its own first neighboring face.",
   "accepts": {
    "faces": [
     1,
@@ -3398,7 +3398,7 @@
  {
   "id": "cut_plane",
   "label": "Cut with plane",
-  "description": "Cuts the model with a plane and keeps one side or both. Drag the arrow to slide the plane and the two rings to tilt it (tilt_u, tilt_v). Axis 0, 1, 2 is X, Y, Z; axis 3 uses the direction nx, ny, nz. Position is the plane's distance from the origin along its direction. Remove side picks Side 1 (the part on the direction's side), Side 2 (the other part) or None, which keeps both as two separate bodies. Pick plane (a flat face), a datum plane, an origin plane or a sketch button sets the plane from that object. The names of Side 1 and Side 2 take the colours of the bodies they give. Select bodies to cut only those; with nothing selected every body is cut.",
+  "description": "Cuts the model with a plane and keeps one side or both. Drag the arrow to slide the plane and the two rings to tilt it (tilt_u, tilt_v). Axis 0, 1, 2 is X, Y, Z; axis 3 uses the direction nx, ny, nz. Position is the plane's distance from the origin along its direction. Remove side picks Side 1 (the part on the direction's side), Side 2 (the other part) or None, which keeps both as two separate bodies. Pick plane (a flat face), a datum plane, an origin plane or a sketch button sets the plane from that object. The names of Side 1 and Side 2 take the colors of the bodies they give. Select bodies to cut only those; with nothing selected every body is cut.",
   "accepts": {
    "faces": [
     0,
@@ -3732,7 +3732,7 @@
  {
   "id": "divide_face",
   "label": "Divide face",
-  "description": "Adds a dividing line straight across a flat face so each side can be moved on its own. Select one flat face; across picks the direction (0 or 1), offset the position from the centre and angle turns the line by degrees. Set columns and/or rows above 1 to divide the face into an even grid instead.",
+  "description": "Adds a dividing line straight across a flat face so each side can be moved on its own. Select one flat face; across picks the direction (0 or 1), offset the position from the center and angle turns the line by degrees. Set columns and/or rows above 1 to divide the face into an even grid instead.",
   "accepts": {
    "faces": [
     1,

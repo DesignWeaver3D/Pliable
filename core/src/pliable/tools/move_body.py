@@ -37,7 +37,7 @@ def move_handles(lo, hi, values) -> list:
         Handle(name, f"Move along {label}", tuple(centre[k] + now[k] + axes[i][k] * reach[i] for k in range(3)), axes[i], kind="move")
         for i, (name, label) in enumerate((("dx", "X"), ("dy", "Y"), ("dz", "Z")))
     ]
-    # One ring per axis around the body's (moved) centre; each grip sits 45 degrees round from the axis arrows' directions
+    # One ring per axis around the body's (moved) center; each grip sits 45 degrees round from the axis arrows' directions
     # and turns with the angle, its direction the tangent there, so a drag along it adds degrees (scale = degrees per unit).
     here = [centre[k] + now[k] for k in range(3)]
     radius = max(math.sqrt(sum(((hi[k] - lo[k]) / 2) ** 2 for k in range(3))) * 1.15, 8.0)
@@ -54,7 +54,7 @@ def move_handles(lo, hi, values) -> list:
 @register
 class MoveBody(Tool):
     """Move and rotate the selected solids (the whole model when nothing is selected): each is first turned about its
-    own centre by rx, ry and rz degrees (X, then Y, then Z), then shifted by (dx, dy, dz)."""
+    own center by rx, ry and rz degrees (X, then Y, then Z), then shifted by (dx, dy, dz)."""
 
     id = "move_body"
     whole_model_needs_one_body = True
@@ -62,7 +62,7 @@ class MoveBody(Tool):
     label = "Move/Rotate"
     description = (
         "Moves and turns a whole solid in one step. Drag the arrows (or type distances) to move along X, Y and Z, and drag the rings (or type degrees) "
-        "to turn about X, Y and Z through the body's centre; the turn is applied first, then the move. Select bodies from the list, any face of the solid, or nothing to move the whole model. "
+        "to turn about X, Y and Z through the body's center; the turn is applied first, then the move. Select bodies from the list, any face of the solid, or nothing to move the whole model. "
         "With edges selected it moves only the edges (the faces beside them follow): the gizmo sits at the edge middle with two arrows square to the edge and one arc between them that turns the arrows about the edge (Rotate X, which never moves the edge), snapping square to the faces beside the edge. Move X, Y and Z are the edge's world move; Rotate Y and Z are not used."
     )
     accepts = Accepts(faces=(0, None), edges=(0, None), bodies=(0, None))

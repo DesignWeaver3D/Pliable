@@ -171,7 +171,7 @@ def insert_solid(solid, end_face, offset: gp_Vec):
 
 @register
 class Stretch(Tool):
-    """Move the selected end faces by (dx, dy, dz); neighbouring faces are re-fitted so the end keeps its size
+    """Move the selected end faces by (dx, dy, dz); neighboring faces are re-fitted so the end keeps its size
     (mode 0), or the end's section is extruded or cut straight along its normal (mode 1)."""
 
     id = "stretch"
@@ -206,7 +206,7 @@ class Stretch(Tool):
                 changed = stretch_solid(body, selected, offset)
             except OperationError:
                 # A flat end moved straight along its normal gives the same shape whether the sides are re-fitted or the section is extruded,
-                # so when the sides cannot be re-fitted (curved neighbours, such as fillets) the extrusion is used instead of refusing.
+                # so when the sides cannot be re-fitted (curved neighbors, such as fillets) the extrusion is used instead of refusing.
                 normal = planar_normal(selected[0]) if len(selected) == 1 else None
                 if normal is None or (offset - gp_Vec(normal).Multiplied(gp_Vec(normal).Dot(offset))).Magnitude() > 1e-6:
                     raise

@@ -57,7 +57,7 @@ def _cut_target(topology, selection):
 
 
 def _plane_handles(topology, selection, values) -> list[Handle]:
-    """An arrow that slides the plane along its untilted normal and a ring for each of the two tilts, centred where the plane
+    """An arrow that slides the plane along its untilted normal and a ring for each of the two tilts, centered where the plane
     is nearest the model's middle. A tilt grip sits where the plane's normal points after that turn alone."""
     base = _plane_normal(values)
     target = _cut_target(topology, selection)[1]

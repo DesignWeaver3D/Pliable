@@ -199,7 +199,7 @@ def find_void(topology, face_id: int, reach: bool = True) -> VoidInfo:
 
 def _try_axis(topology, face_id, seed, axis: gp_Dir, reach: bool):
     seeds = [face_id] if _is_wall(seed, axis) else []
-    if not seeds:  # a floor: its walls are the neighbours
+    if not seeds:  # a floor: its walls are the neighbors
         for edge in _edges(seed):
             for other in topology.edge_faces(edge):
                 oid = topology.face_id(other)

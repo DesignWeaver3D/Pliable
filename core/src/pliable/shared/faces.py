@@ -13,7 +13,7 @@ from .solids import finish
 
 
 def _plane_axes(face) -> tuple[gp_Pnt, gp_Dir, gp_Dir, gp_Dir]:
-    """Centre of a planar face, its outward normal and two in-plane directions."""
+    """Center of a planar face, its outward normal and two in-plane directions."""
     normal = planar_normal(face)
     if normal is None:
         raise OperationError("Select a flat face")
@@ -30,7 +30,7 @@ class _PlanarFace(Tool):
 
 def _chamfer_with_face(topology, selection, add, per_edge_face: bool = False) -> OpResult:
     """Chamfer the selected edges, measuring from the selected face, which every edge must border. With `per_edge_face` an edge
-    that does not border it is measured from its own first neighbouring face instead."""
+    that does not border it is measured from its own first neighboring face instead."""
     from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer
 
     face = topology.face(selection.faces[0])
@@ -55,10 +55,10 @@ def _chamfer_with_face(topology, selection, add, per_edge_face: bool = False) ->
 
 
 def _rebuild_round(topology, face, neighbours: list, size: float, chamfer: bool, end_size: float = 0.0, second_size: float | None = None) -> OpResult:
-    """Remove a fillet or chamfer face (its two neighbours extend back to a sharp edge), then round that edge
+    """Remove a fillet or chamfer face (its two neighbors extend back to a sharp edge), then round that edge
     again with `size` (a fillet radius or chamfer leg); size 0 leaves the sharp edge. A fillet with `end_size`
     above 0 is variable: `size` at the edge's first vertex growing or shrinking to `end_size` at its last.
-    A chamfer with `second_size` has two legs: `size` along the first neighbour face and `second_size` along the second."""
+    A chamfer with `second_size` has two legs: `size` along the first neighbor face and `second_size` along the second."""
     from ..ops import _follow, fillet_chamfer
     from ..topology import Topology
 
@@ -101,7 +101,7 @@ def _rebuild_round(topology, face, neighbours: list, size: float, chamfer: bool,
         from OCP.TopoDS import TopoDS
 
         maker = BRepFilletAPI_MakeChamfer(sharp)
-        maker.Add(size, second_size, TopoDS.Edge(shared[0]), TopoDS.Face(modified[0]))  # `size` is measured on the first neighbour's face
+        maker.Add(size, second_size, TopoDS.Edge(shared[0]), TopoDS.Face(modified[0]))  # `size` is measured on the first neighbor's face
         try:
             maker.Build()
         except Exception as e:  # OCCT raises Standard_Failure for impossible sizes

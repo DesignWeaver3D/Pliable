@@ -68,7 +68,7 @@ def test_region_across_the_seam_of_a_full_cylinder():
     topology = Topology(shape)
     side = _side_face(topology)
     width = 2 * math.pi * 10
-    # a rectangle centred on the edge of the unrolled strip: it wraps round the seam
+    # a rectangle centered on the edge of the unrolled strip: it wraps round the seam
     result, count = unwrap.wrap_regions(shape, topology, side, _rectangle(12, 8, cx=width / 2))
     after = Topology(result)
     assert count == 1
@@ -110,7 +110,7 @@ def test_chain_of_flat_and_rounded_faces_unrolls_as_one_strip():
     length = 16 + 16 + math.pi / 2 * 4  # two 16 mm flats and the quarter round
     ref = unrolling.reference
     assert max(p["u"] for p in ref["points"]) - min(p["u"] for p in ref["points"]) == pytest.approx(length, rel=1e-6)
-    # a 12 wide rectangle centred on the rounded part crosses both joins
+    # a 12 wide rectangle centered on the rounded part crosses both joins
     result, count = unwrap.wrap_regions(shape, topology, ids, _rectangle(12, 8))
     after = Topology(result)
     assert after.face_count == topology.face_count + 4  # the rounded face also leaves a strip above and below the piece

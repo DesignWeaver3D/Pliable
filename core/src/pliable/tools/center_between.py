@@ -47,7 +47,7 @@ def _opposite_flat(topology, flat, hole: "Hole"):
 
 @register
 class CenterBetween(Tool):
-    """Centre a hole or boss between two parallel flat faces; the three faces can be picked in any order. With only
+    """Center a hole or boss between two parallel flat faces; the three faces can be picked in any order. With only
     one flat face picked, the nearest flat face facing it across the hole is used (so only one side needs to be seen)."""
 
     id = "center_between"
@@ -87,7 +87,7 @@ class CenterBetween(Tool):
         normal = planar_normal(a)
         axis_along = abs(hole.direction.Dot(normal))
         if axis_along > 1 - 1e-6:
-            raise OperationError("The hole runs along the faces' normal, so it cannot be centred between them")
+            raise OperationError("The hole runs along the faces' normal, so it cannot be centered between them")
         offsets = [_plane_offset(f, normal) for f in (a, b)]
         middle = hole.origin.Translated(gp_Vec(hole.direction).Multiplied(hole.length / 2))
         here = gp_Vec(gp_Pnt(0, 0, 0), middle).Dot(gp_Vec(normal))

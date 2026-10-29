@@ -48,7 +48,7 @@ class _Solver:
         self.entities: dict[int, tuple[str, int]] = {}
         self.radii: dict[int, int] = {}
         self.minors: dict[int, float] = {}  # ellipse id -> short semi-axis set by a minor_radius dimension
-        self.frames: dict[int, tuple] = {}  # ellipse id -> (centre, major end, opposite major end, minor end, opposite minor end) point handles
+        self.frames: dict[int, tuple] = {}  # ellipse id -> (center, major end, opposite major end, minor end, opposite minor end) point handles
         self.held_on_ellipse: set[tuple] = set()  # (ellipse frame, point id) of the arc ends already held on their ellipse
         self.foci: dict[int, tuple] = {}  # ellipse id -> its two focus points and the major axis (made when a point is put on the ellipse)
         for e in sketch.get("entities", []):
@@ -79,7 +79,7 @@ class _Solver:
             for pid in (_entity_point_ids(e) if kind == "ellipse" else e["points"]):
                 self._point(pid)
             self.entities[e["id"]] = (kind, None)  # drawn from its points; only those points take part in constraints
-            if kind == "ellipse" and "minor1" in e:  # four axis ends: the centre is the middle of both axes, which are square to each other
+            if kind == "ellipse" and "minor1" in e:  # four axis ends: the center is the middle of both axes, which are square to each other
                 self._ellipse_frame(e)
                 if "start" in e:  # an elliptical arc: its two end points stay on the ellipse
                     for end in {e["start"], e["end"]}:  # (one point can be both ends of a closed arc, and an end of two arcs cut from one ellipse)
@@ -94,9 +94,9 @@ class _Solver:
         return tuple(s.getParam(s.getEntityParam(handle, k)).val for k in range(2))
 
     def _ellipse_frame(self, e: dict) -> tuple:
-        """The ellipse's centre, major end, opposite major end, minor end and opposite minor end as slvs points. An ellipse
-        drawn with its four ends has them as sketch points; an older one (a centre, a major end and a minor radius) gets
-        hidden ones. Either way the ends are held square to each other about the centre."""
+        """The ellipse's center, major end, opposite major end, minor end and opposite minor end as slvs points. An ellipse
+        drawn with its four ends has them as sketch points; an older one (a center, a major end and a minor radius) gets
+        hidden ones. Either way the ends are held square to each other about the center."""
         key = _frame_key(e)
         if key in self.frames:
             return self.frames[key]
@@ -129,7 +129,7 @@ class _Solver:
         if key not in self.foci:
             (cu, cv), (mu, mv), (nu, nv) = self._coords_of(centre), self._coords_of(major), self._coords_of(minor1)
             a, b = math.hypot(mu - cu, mv - cv), math.hypot(nu - cu, nv - cv)
-            # the foci lie on the longer axis, as far from the centre as the square root of the difference of the squares of the semi-axes
+            # the foci lie on the longer axis, as far from the center as the square root of the difference of the squares of the semi-axes
             if a >= b:
                 far, far2, near, (du, dv) = major, major2, minor1, ((mu - cu) / (a or 1), (mv - cv) / (a or 1))
             else:
@@ -275,7 +275,7 @@ class _Solver:
         elif kind == "minor_radius":
             self._entity_kind(c["entity"], "ellipse")
             ellipse = next(e for e in self.sketch["entities"] if e["id"] == c["entity"])
-            if "minor1" in ellipse:  # the minor end is a point: the short radius is its distance from the centre
+            if "minor1" in ellipse:  # the minor end is a point: the short radius is its distance from the center
                 h = s.addPointsDistance(float(value), self._point(ellipse["center"]), self._point(ellipse["minor1"]), wp, g)
             else:
                 self.minors[c["entity"]] = float(value)
@@ -325,7 +325,7 @@ class _Solver:
 
         With a line: if a line end already lies on the round entity, its radius to that end is made perpendicular
         to the line; otherwise a hidden touching point on both, with the radius to it perpendicular to the line.
-        With another round entity: a hidden touching point on both and on the line through the centres.
+        With another round entity: a hidden touching point on both and on the line through the centers.
         """
         s, wp, g = self.system, self.workplane, SOLVE_GROUP
         entities = {e["id"]: e for e in self.sketch["entities"]}
@@ -357,7 +357,7 @@ class _Solver:
             t = ((centre[0] - p0[0]) * dx + (centre[1] - p0[1]) * dy) / (dx * dx + dy * dy or 1.0)
             guess = (p0[0] + t * dx, p0[1] + t * dy)
         else:
-            for x, idx, idy in ((a, id_a, id_b), (b, id_b, id_a)):  # an arc end held on the other round entity touches it on the line through the centres
+            for x, idx, idy in ((a, id_a, id_b), (b, id_b, id_a)):  # an arc end held on the other round entity touches it on the line through the centers
                 held = [q for q in (x.get("start"), x.get("end")) if q is not None and any(c.get("type") == "point_on" and c.get("point") == q and c.get("entity") == idy for c in self.sketch.get("constraints", []))]
                 if x["type"] == "arc" and held:
                     through = s.addLineSegment(self._point(a["center"]), self._point(b["center"]), g)
@@ -380,7 +380,7 @@ class _Solver:
 
     def _round_gap(self, id_a: int, id_b: int, gap: float):
         """The spacing between two circles or arcs (the shortest way across the space between them): a hidden point on each,
-        both on the line through the centres, and the distance between those points."""
+        both on the line through the centers, and the distance between those points."""
         s, wp, g = self.system, self.workplane, SOLVE_GROUP
         entities = {e["id"]: e for e in self.sketch["entities"]}
         a, b = entities[id_a], entities[id_b]
@@ -393,7 +393,7 @@ class _Solver:
         ra, rb = radius(a), radius(b)
         d = math.dist(ca, cb)
         toward = ((cb[0] - ca[0]) / d, (cb[1] - ca[1]) / d) if d > 1e-9 else (1.0, 0.0)  # concentric: any direction gives the same gap
-        if d <= abs(ra - rb):  # one inside the other: both points lie the same way from the centres, on the outer one's rim and the inner one's
+        if d <= abs(ra - rb):  # one inside the other: both points lie the same way from the centers, on the outer one's rim and the inner one's
             sign = 1.0 if ra >= rb else -1.0
             guess_a = (ca[0] + sign * toward[0] * ra, ca[1] + sign * toward[1] * ra)
             guess_b = (cb[0] + sign * toward[0] * rb, cb[1] + sign * toward[1] * rb)
@@ -402,7 +402,7 @@ class _Solver:
             guess_b = (cb[0] - toward[0] * rb, cb[1] - toward[1] * rb)
         near_a = s.addPoint2dV(wp, guess_a[0], guess_a[1], g)
         near_b = s.addPoint2dV(wp, guess_b[0], guess_b[1], g)
-        # The line the two points lie on: through both centres, or (concentric) out from the centre through the first point.
+        # The line the two points lie on: through both centers, or (concentric) out from the center through the first point.
         through = s.addLineSegment(self._point(a["center"]), self._point(b["center"]) if d > 1e-9 else near_a, g)
         return [
             s.addPointOnCircle(near_a, self.entities[id_a][1], g),
@@ -463,7 +463,7 @@ class _Solver:
 
 def _solved(sketch: dict, drag: dict | None = None, skip: int | None = None) -> tuple[_Solver, dict]:
     """`_solved_once`; when that fails, a Symmetric constraint whose middle-on-the-line or square-to-the-line part is already implied by the rest of the
-    sketch (an ellipse's minor ends about an axis its fixed centre lies on) is tried again without that part, and kept if the skipped part then holds."""
+    sketch (an ellipse's minor ends about an axis its fixed center lies on) is tried again without that part, and kept if the skipped part then holds."""
     first = _solved_once(sketch, drag, skip)
     if first[1]["status"] == "ok":
         return first

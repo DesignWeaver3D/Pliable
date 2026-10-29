@@ -17,19 +17,19 @@ from ..tools import Accepts, Handle, Param, register
 @register
 class DivideFace(_PlanarFace):
     """Add a dividing edge straight across a flat face, parallel to its first (`across` = 0) or second
-    (`across` = 1) in-plane axis, `offset` from the face centre, so each side can be moved on its own. `angle` turns the
+    (`across` = 1) in-plane axis, `offset` from the face center, so each side can be moved on its own. `angle` turns the
     line (and the offset direction) about the face normal by that many degrees. With `columns` or `rows` above 1 the
     face is instead divided into an even grid of that many pieces along each (turned) axis, ignoring `offset`."""
 
     id = "divide_face"
     label = "Divide face"
-    description = "Adds a dividing line straight across a flat face so each side can be moved on its own. Select one flat face; across picks the direction (0 or 1), offset the position from the centre and angle turns the line by degrees. Set columns and/or rows above 1 to divide the face into an even grid instead."
+    description = "Adds a dividing line straight across a flat face so each side can be moved on its own. Select one flat face; across picks the direction (0 or 1), offset the position from the center and angle turns the line by degrees. Set columns and/or rows above 1 to divide the face into an even grid instead."
     accepts = Accepts(faces=(1, 1))
     params = [Param("across", "number", 0), Param("offset", "length"), Param("angle", "number", 0), Param("columns", "number", 0), Param("rows", "number", 0)]
 
     @staticmethod
     def _axes(face, angle: float):
-        """The face centre, its normal and its two in-plane axes turned by `angle` degrees about the normal."""
+        """The face center, its normal and its two in-plane axes turned by `angle` degrees about the normal."""
         centre, normal, u, v = _plane_axes(face)
         if abs(angle) > 1e-9:
             turn = gp_Ax1(centre, normal)
@@ -70,7 +70,7 @@ class DivideFace(_PlanarFace):
         centre, _, u, v = self._axes(face, values.get("angle", 0))
         reach = _bounds_diagonal(face) * 2
         columns, rows = self._grid(values)
-        # Each line is (direction it runs along, how far it sits from the centre across it).
+        # Each line is (direction it runs along, how far it sits from the center across it).
         lines = []
         if (columns, rows) == (1, 1):
             along, step = (u, v) if int(values["across"]) == 0 else (v, u)

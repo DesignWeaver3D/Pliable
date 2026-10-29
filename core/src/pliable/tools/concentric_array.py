@@ -12,7 +12,7 @@ from ..tools import Accepts, Handle, Param, register, Tool
 
 
 def _radial(topology, selection, axis):
-    """The body's centre, the point of the axis nearest it and the unit direction from that point out to the centre (a sideways direction when the body is centred on the axis)."""
+    """The body's center, the point of the axis nearest it and the unit direction from that point out to the center (a sideways direction when the body is centered on the axis)."""
     lo, hi = _body_bounds(topology, selection)
     centre = gp_Pnt(*((a + b) / 2 for a, b in zip(lo, hi)))
     direction, origin = axis.Direction(), axis.Location()

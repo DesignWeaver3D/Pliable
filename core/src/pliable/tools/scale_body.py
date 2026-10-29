@@ -19,7 +19,7 @@ class ScaleBody(Tool):
     whole_model_needs_one_body = True
     keeps_body_order = True
     label = "Scale body"
-    description = "Scales a whole solid evenly, about the origin or about the body's centre when you select bodies from the list. Select bodies, any face of a solid, or nothing for the whole model; 2 doubles the size."
+    description = "Scales a whole solid evenly, about the origin or about the body's center when you select bodies from the list. Select bodies, any face of a solid, or nothing for the whole model; 2 doubles the size."
     accepts = Accepts(faces=(0, None), bodies=(0, None))
     params = [Param("factor", "number", 1)]
 

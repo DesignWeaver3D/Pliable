@@ -183,7 +183,7 @@ ANGULAR_RANGE = (0.01, 1.5)
 
 def write_mesh(shape: TopoDS_Shape, fmt: str, linear: float = MESH_LINEAR_DEFLECTION, angular: float = MESH_ANGULAR_DEFLECTION) -> bytes:
     """Triangle-mesh export (STL, OBJ, 3MF). Lossy compared with STEP: curved faces become triangles.
-    `linear` is the largest distance (model units) between the surface and its triangles; `angular` the largest angle (radians) between neighbouring triangles' normals.
+    `linear` is the largest distance (model units) between the surface and its triangles; `angular` the largest angle (radians) between neighboring triangles' normals.
     The export meshes a copy of the shape, so what is drawn in the view is not affected."""
     from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
 
@@ -282,7 +282,7 @@ def open_loops(shell: TopoDS_Shape) -> list[bool]:
 
 def _open_body_line(name: str, loops: list[bool]) -> str:
     if not loops:
-        return f"Open body '{name}': boundary loops could not be analysed"
+        return f"Open body '{name}': boundary loops could not be analyzed"
     flat = sum(loops)
     return f"Open body '{name}': {len(loops)} open loop{'s' if len(loops) != 1 else ''}, {flat} flat"
 

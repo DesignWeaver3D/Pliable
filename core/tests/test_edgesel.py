@@ -170,7 +170,7 @@ def test_face_frame_then_divide_through_the_server():
     session = Session()
     session.handle({"type": "open_demo", "name": "block"})
     frame = session.handle({"type": "face_frame", "face": 0})
-    # the dividing line placed where a drag would put it: a point 3 along the second axis from the centre
+    # the dividing line placed where a drag would put it: a point 3 along the second axis from the center
     point = [c + 3 * v for c, v in zip(frame["centre"], frame["v"])]
     offset = sum((p - c) * v for p, c, v in zip(point, frame["centre"], frame["v"]))
     before = session.document.current.face_count

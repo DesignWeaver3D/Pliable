@@ -80,7 +80,7 @@ def test_stretch_with_curved_neighbours_extrudes_straight_moves_and_refuses_the_
     plate = Topology(load_demo("perforated_plate"))
     side = face_with_normal(plate, [1.0, 0.0, 0.0])
     with pytest.raises(OperationError, match="Insert"):
-        run(plate, [side], dx=0, dy=0, dz=5, mode=0)  # sliding the end sideways cannot re-fit curved neighbours
+        run(plate, [side], dx=0, dy=0, dz=5, mode=0)  # sliding the end sideways cannot re-fit curved neighbors
     longer = run(plate, [side], dx=5, dy=0, dz=0, mode=0)  # straight along the normal: the end's section is extruded instead
     same = run(plate, [side], dx=5, dy=0, dz=0, mode=1)
     assert volume(longer.shape) > volume(plate.shape)

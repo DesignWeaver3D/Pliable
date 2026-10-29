@@ -136,7 +136,7 @@ def test_profile_area_with_hole_and_extrude_join_and_cut():
     sk = sketch_of(points + hole_points, lines + hole)
     face = sketch.profile_face(sk)
     assert face.area == pytest.approx(1200 - math.pi * 25, rel=1e-6)
-    base = load_demo("block")  # 40 x 30 x 20 centred on the origin
+    base = load_demo("block")  # 40 x 30 x 20 centered on the origin
     top_plane = {"origin": [0, 0, 10], "normal": [0, 0, 1], "xdir": [1, 0, 0]}
     on_top = dict(sk, plane=top_plane)
     # profile coordinates start at the plane origin, so shift the sketch by using a moved origin
@@ -238,7 +238,7 @@ def test_face_reference_outline_snaps_and_stays_fixed():
     top = next(i for i in range(6) if measure(block, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0])
     plane = sketch.face_plane(block.face(top))
     ref = sketch.face_reference(block.face(top), plane)
-    assert len(ref["points"]) == 5 and len(ref["entities"]) == 4  # four corners and the face centre
+    assert len(ref["points"]) == 5 and len(ref["entities"]) == 4  # four corners and the face center
     assert (ref["points"][-1]["u"], ref["points"][-1]["v"]) == pytest.approx((0, 0), abs=1e-6)
     assert all(p["fixed"] for p in ref["points"]) and all(e["construction"] for e in ref["entities"])
     # the fixed outline survives a solve, and a profile ignores it
@@ -443,7 +443,7 @@ def test_circle_tangent_to_line_and_to_circle():
 def test_line_tangent_to_circle_and_arc_away_from_an_end_point():
     points = [
         {"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 4, "v": 10},  # line, end on the circle
-        {"id": 3, "u": 10, "v": 10}, {"id": 4, "u": 15, "v": 10}, {"id": 5, "u": 10, "v": 15},  # arc: centre, start, end
+        {"id": 3, "u": 10, "v": 10}, {"id": 4, "u": 15, "v": 10}, {"id": 5, "u": 10, "v": 15},  # arc: center, start, end
         {"id": 6, "u": 30, "v": 0}, {"id": 7, "u": 40, "v": 3},  # second line touching the arc mid-way
     ]
     entities = [
@@ -518,7 +518,7 @@ def test_dragging_free_geometry_moves_only_what_was_dragged():
     assert after[2] == pytest.approx((15, -4))
     assert {k: v for k, v in after.items() if k != 2} == pytest.approx({k: v for k, v in before.items() if k != 2})
     assert radii[102] == pytest.approx(4)
-    # a free circle's centre: nothing else changes, the radius stays
+    # a free circle's center: nothing else changes, the radius stays
     after, radii = _drag(session, sk, 3, 40, 9)
     assert after[3] == pytest.approx((40, 9))
     assert {k: v for k, v in after.items() if k != 3} == pytest.approx({k: v for k, v in before.items() if k != 3})
@@ -550,7 +550,7 @@ def test_connected_ids_follow_entities_and_constraints_only():
     sk = _free_sketch()
     sk["constraints"].append({"id": 300, "type": "point_on", "point": 2, "entity": 102})
     reached = sketch._connected_ids(sk, {2})
-    assert {1, 2, 3, 101, 102} <= reached  # the line, the circle it touches and the circle's centre
+    assert {1, 2, 3, 101, 102} <= reached  # the line, the circle it touches and the circle's center
     assert not reached & {4, 5, 6, 7, 103, 104}  # the separate rectangle is not tied to them
     # a drag result is forced back for anything outside that group
     result = {"points": [{"id": 4, "u": 99, "v": 99}], "radii": {}}
@@ -831,7 +831,7 @@ def test_reference_dimension_is_not_solved():
 
 
 def test_slot_made_of_two_lines_and_two_tangent_arcs_solves_and_extrudes():
-    # end centres 1 and 2 at (0,0) and (10,0), half-width 2: corners 3-6, drawn as the slot tool builds it
+    # end centers 1 and 2 at (0,0) and (10,0), half-width 2: corners 3-6, drawn as the slot tool builds it
     points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 10, "v": 0}, {"id": 3, "u": 0, "v": 2}, {"id": 4, "u": 0, "v": -2}, {"id": 5, "u": 10, "v": 2}, {"id": 6, "u": 10, "v": -2}]
     entities = [
         {"id": 20, "type": "line", "a": 3, "b": 5},
@@ -979,7 +979,7 @@ def test_plane_square_to_an_edge_at_a_fraction_along_it():
     from pliable.server import Session
 
     session = Session()
-    session.handle({"type": "open_demo", "name": "block"})  # a 40 x 30 x 20 box centred on the origin
+    session.handle({"type": "open_demo", "name": "block"})  # a 40 x 30 x 20 box centered on the origin
     topology = session.document.current
     v1, v2 = TopoDS_Vertex(), TopoDS_Vertex()
     TopExp.Vertices_s(topology.edge(0), v1, v2)
@@ -1223,7 +1223,7 @@ def test_gap_between_two_circles_and_two_arcs():
     result = sketch.solve(sketch_of(points, circles, [{"id": 1, "type": "round_gap", "entities": [10, 11], "value": 6}, *sizes]))
     assert result["status"] == "ok"
     assert next(p for p in result["points"] if p["id"] == 2)["u"] == pytest.approx(3 + 6 + 4, abs=1e-5)
-    # an arc and a circle: the arc's radius is the distance from its centre to its start
+    # an arc and a circle: the arc's radius is the distance from its center to its start
     arc_points = [{"id": 1, "u": 30, "v": 0}, {"id": 3, "u": 40, "v": 0, "fixed": True}, {"id": 4, "u": 40, "v": 5, "fixed": True}, {"id": 5, "u": 35, "v": 0}]
     arc = {"id": 12, "type": "arc", "center": 3, "start": 5, "end": 4}
     result = sketch.solve(sketch_of(arc_points, [circles[0], arc], [{"id": 1, "type": "round_gap", "entities": [10, 12], "value": 2}, sizes[0]]))
@@ -1241,9 +1241,9 @@ def test_gap_between_concentric_circles():
 
 
 def test_a_centre_rectangle_centre_point_stays_in_the_middle():
-    """What the centre rectangle tool makes: the shape's four constraints and a centre point symmetric about two opposite corners."""
+    """What the center rectangle tool makes: the shape's four constraints and a center point symmetric about two opposite corners."""
     points, lines = rectangle()
-    points.append({"id": 9, "u": 5, "v": 5})  # clicked off-centre, the solver puts it back
+    points.append({"id": 9, "u": 5, "v": 5})  # clicked off-center, the solver puts it back
     constraints = [{"type": "horizontal", "entity": 101}, {"type": "vertical", "entity": 102}, {"type": "horizontal", "entity": 103}, {"type": "vertical", "entity": 104},
                    {"type": "symmetric_point", "points": [1, 3], "point": 9}, {"type": "fixed", "point": 9}]
     result = sketch.solve(sketch_of(points, lines, constraints))
@@ -1311,7 +1311,7 @@ def _ellipse_with_axis_lines():
 def test_dragging_a_major_end_of_an_ellipse_moves_the_minor_axis_too():
     sk = _ellipse_with_axis_lines()
     at = coords(sketch.solve(sk, {"point": 2, "u": 9, "v": 4}))
-    # the minor ends turn with the major axis instead of staying where they were (the old behaviour until release)
+    # the minor ends turn with the major axis instead of staying where they were (the old behavior until release)
     assert at[5] != pytest.approx((0, 5), abs=1e-3) and at[6] != pytest.approx((0, -5), abs=1e-3)
     along = (at[2][0] - at[4][0], at[2][1] - at[4][1])
     across = (at[5][0] - at[6][0], at[5][1] - at[6][1])
@@ -1351,7 +1351,7 @@ def test_symmetric_about_an_axis_mirrors_about_that_axis(horizontal):
 
 def test_an_ellipse_axis_line_takes_symmetric_about_the_vertical_axis():
     sk = _ellipse_with_ends()
-    sk["points"][0].update(u=3, v=2)  # the centre is free
+    sk["points"][0].update(u=3, v=2)  # the center is free
     axis_points, axis_line = _axis(-2, False)
     sk["points"] += axis_points
     sk["entities"] += [{"id": 9, "type": "line", "a": 2, "b": 4, "construction": True}, axis_line]
@@ -1418,7 +1418,7 @@ def test_quadrant_points_take_symmetric_about_the_axis_they_can_mirror_about():
 
 
 def test_three_pieces_joined_by_neighbour_collinear_constraints_solve():
-    """What Trim leaves on a line cut at two crossings: each automatic collinear constraint joins neighbouring pieces."""
+    """What Trim leaves on a line cut at two crossings: each automatic collinear constraint joins neighboring pieces."""
     points = [{"id": 1, "u": 0, "v": 0}, {"id": 2, "u": 3, "v": 0}, {"id": 3, "u": 7, "v": 0}, {"id": 4, "u": 10, "v": 0}]
     lines = [{"id": 10, "type": "line", "a": 1, "b": 2}, {"id": 11, "type": "line", "a": 2, "b": 3}, {"id": 12, "type": "line", "a": 3, "b": 4}]
     constraints = [{"id": 5, "type": "collinear", "entities": [10, 11], "auto": True}, {"id": 6, "type": "collinear", "entities": [11, 12], "auto": True}]
@@ -1451,7 +1451,7 @@ def test_ellipse_without_axis_ends_has_a_free_size_until_its_minor_radius_is_dim
 
 
 def _app_ellipse_about_axis(centre, pair, horizontal, fixed_centre, turn=0.0):
-    """The sketch the app sends for an ellipse (centre, four axis ends, two construction axis lines) and a Symmetric about a sketch axis."""
+    """The sketch the app sends for an ellipse (center, four axis ends, two construction axis lines) and a Symmetric about a sketch axis."""
     sk = _ellipse_with_ends(23.0, 11.5)
     c, s = math.cos(turn), math.sin(turn)
     for p, (u, v) in zip(sk["points"], [(0, 0), (23, 0), (-23, 0), (0, 11.5), (0, -11.5)]):
@@ -1466,7 +1466,7 @@ def _app_ellipse_about_axis(centre, pair, horizontal, fixed_centre, turn=0.0):
 
 @pytest.mark.parametrize("centre", [(0, 0), (30, 0)])
 def test_minor_ends_of_an_ellipse_centred_on_the_x_axis_take_symmetric_about_it(centre):
-    """The fixed centre on the axis already puts the middle of the minor ends on it, so only the squareness is new: it is not reported as a conflict."""
+    """The fixed center on the axis already puts the middle of the minor ends on it, so only the squareness is new: it is not reported as a conflict."""
     from pliable.server import Session
 
     for fixed in (True, False):
@@ -1497,7 +1497,7 @@ def test_a_turned_ellipse_with_a_fixed_centre_on_the_axis_turns_to_mirror_its_mi
 def test_symmetric_that_really_conflicts_is_still_refused():
     from pliable.server import Session
 
-    # the centre is fixed off the axis: the minor ends cannot mirror about it
+    # the center is fixed off the axis: the minor ends cannot mirror about it
     assert Session().handle({"type": "sketch_solve", "sketch": _app_ellipse_about_axis((30, -20), (5, 6), True, True)})["status"] == "failed"
     # two ends of an axis line that lies along the mirror axis
     assert Session().handle({"type": "sketch_solve", "sketch": _app_ellipse_about_axis((0, 0), (2, 4), True, True)})["status"] == "failed"
@@ -1519,7 +1519,7 @@ def test_line_arc_fillet_corner_solves_with_tangents():
     result = sketch.solve(sketch_of(points, entities, constraints))
     assert result["status"] == "ok"
     c = coords(result)
-    # the fillet centre stays 3 from the line and 7 from the arc's centre (tangent inside the arc's circle)
+    # the fillet center stays 3 from the line and 7 from the arc's center (tangent inside the arc's circle)
     assert c[15][1] == pytest.approx(-3, abs=1e-6)
     assert math.dist(c[15], c[3]) == pytest.approx(7, abs=1e-6)
     assert c[12][0] == pytest.approx(c[15][0], abs=1e-6)

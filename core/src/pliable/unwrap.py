@@ -80,7 +80,7 @@ class Unrolling:
 
 def unwrap_plane(shape=None, reference: dict | None = None) -> dict:
     """The sketch plane the unrolled faces are drawn on: the XY plane, moved sideways to lie beside the model
-    (past its largest x, centred on y) so the flat outline does not sit over it. Sketch coordinates stay
+    (past its largest x, centered on y) so the flat outline does not sit over it. Sketch coordinates stay
     relative to the plane origin, and `wrap_regions` undoes the shift."""
     plane = dict(STANDARD_PLANES["XY"])
     if shape is None or not reference or not reference.get("points"):

@@ -1,6 +1,6 @@
 """Measurements of a whole body (a solid chosen from the body list): its volume and, from a material density, its mass.
 
-Lengths are millimetres, so volume is in mm3. A density is in kilograms per cubic metre (see the app's materials),
+Lengths are millimeters, so volume is in mm3. A density is in kilograms per cubic meter (see the app's materials),
 and 1 kg/m3 is 1e-6 g/mm3, so mass in grams = volume * density * 1e-6.
 """
 

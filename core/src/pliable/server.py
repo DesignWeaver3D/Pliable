@@ -212,7 +212,7 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             except (KeyError, ValueError, TypeError) as e:
                 raise RequestError("Unknown face") from e
         if kind == "face_frame":
-            # Where a flat face sits: its centre, normal and the two in-plane axes the Divide face tool measures from.
+            # Where a flat face sits: its center, normal and the two in-plane axes the Divide face tool measures from.
             from .shared.faces import _plane_axes
             topology = self._require_document().current
             try:

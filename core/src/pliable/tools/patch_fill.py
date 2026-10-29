@@ -10,18 +10,18 @@ from ..tools import Accepts, Param, register, Tool
 
 @register
 class PatchFill(Tool):
-    """Close a boundary of selected edges with a filled surface patch (continuity 0 = touching, 1 = tangent to the neighbouring faces).
+    """Close a boundary of selected edges with a filled surface patch (continuity 0 = touching, 1 = tangent to the neighboring faces).
     Seals the patch to the model; if that closes a shell the result becomes a solid."""
 
     id = "patch_fill"
     label = "Patch fill"
-    description = "Closes a gap bounded by selected edges with a smooth filled surface. Needs three or more selected edges forming a closed gap; continuity 1 = tangent to neighbours, 0 = just touching."
+    description = "Closes a gap bounded by selected edges with a smooth filled surface. Needs three or more selected edges forming a closed gap; continuity 1 = tangent to neighbors, 0 = just touching."
     accepts = Accepts(edges=(3, None))
     params = [Param("continuity", "number", 1)]
 
     def run(self, topology, selection, values, preview):
         fill = None
-        # Tangent patches fail where the neighbouring faces cannot be matched (e.g. a sharp box corner): retry touching only.
+        # Tangent patches fail where the neighboring faces cannot be matched (e.g. a sharp box corner): retry touching only.
         for tangent in ([True, False] if values["continuity"] >= 0.5 else [False]):
             candidate = BRepFill_Filling()
             for edge_id in selection.edges:

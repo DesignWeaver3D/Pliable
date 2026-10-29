@@ -13,14 +13,14 @@ from ..tools import Accepts, Handle, Param, register, Tool
 
 @register
 class RotateBody(Tool):
-    """Rotate the selected solids (the whole model when nothing is selected) about an axis through the origin (axis: 0 = X, 1 = Y, 2 = Z), or through each selected body's centre when bodies are selected."""
+    """Rotate the selected solids (the whole model when nothing is selected) about an axis through the origin (axis: 0 = X, 1 = Y, 2 = Z), or through each selected body's center when bodies are selected."""
 
     id = "rotate_body"
     hidden = True  # Move/Rotate does this; the id stays for old documents and requests
     whole_model_needs_one_body = True
     keeps_body_order = True
     label = "Rotate body"
-    description = "Rotates a whole solid about the X, Y or Z axis (0 = X, 1 = Y, 2 = Z): through the origin, or through the body's centre when you select bodies from the list. Select bodies, any face of a solid, or nothing for the whole model."
+    description = "Rotates a whole solid about the X, Y or Z axis (0 = X, 1 = Y, 2 = Z): through the origin, or through the body's center when you select bodies from the list. Select bodies, any face of a solid, or nothing for the whole model."
     accepts = Accepts(faces=(0, None), bodies=(0, None))
     params = [Param("axis", "number", 2), Param("angle", "angle", 90)]
 

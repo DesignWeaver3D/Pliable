@@ -164,7 +164,7 @@ def _circle_edges(face) -> list | None:
 
 def _floor_axis(topology, face):
     """The axis of a flat face that is the bottom or shoulder of a round hole (a disk or ring of circles that share
-    one axis, every neighbour a hole wall), else None. The opening's own face and the top of a round post fail this."""
+    one axis, every neighbor a hole wall), else None. The opening's own face and the top of a round post fail this."""
     surface = BRepAdaptor_Surface(face)
     if surface.GetType() != GeomAbs_Plane:
         return None

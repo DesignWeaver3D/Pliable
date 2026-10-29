@@ -18,7 +18,7 @@ class AddSlot(_PlanarFace):
 
     id = "add_slot"
     label = "Add slot"
-    description = "Cuts a slot with rounded ends into a flat face, placed from the face centre. Select one flat face; angle turns the slot."
+    description = "Cuts a slot with rounded ends into a flat face, placed from the face center. Select one flat face; angle turns the slot."
     accepts = Accepts(faces=(1, 1))
     params = [
         Param("length", "length", 20),

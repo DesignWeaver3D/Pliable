@@ -118,7 +118,7 @@ def test_body_selection_moves_rotates_and_scales_about_each_centre():
     assert first == first_before and second[2] == pytest.approx(second_before[2] + 50)
     assert header["selection"]["bodies"] == [2]
     assert [b[0] for b in bodies(header)] == [1, 2]
-    # scale about the body's own centre keeps its centre
+    # scale about the body's own center keeps its center
     centre = [(second[k] + second[k + 3]) / 2 for k in range(3)]
     commit(session, "scale_body", {"factor": 2}, {"bodies": [2]})
     _, scaled = solids()

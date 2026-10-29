@@ -6,7 +6,7 @@ Only dimensions with one clear meaning are editable:
 - `fillet_radius`: a fillet face, or an arc edge of a fillet (Resize fillet).
 - `edge_length`: a straight edge of a box-like corner; the flat face at one end moves (Push/Pull).
 - `face_distance`: two parallel flat faces; one moves, the other stays (Push/Pull). `flip` swaps which.
-- `hole_distance`: two holes or bosses, centre to centre; one moves along the line between them (Move hole).
+- `hole_distance`: two holes or bosses, center to center; one moves along the line between them (Move hole).
 - `face_angle`: a nearly upright flat face, its draft angle about the Z pull direction (Draft).
 
 `annotate` adds an `edit` object (or an `editNote` reason) to each dimension of a `measure` reply; `resolve` turns an
@@ -175,7 +175,7 @@ def _hole_distance_plan(topology: Topology, selection: Selection, flip: bool) ->
     vector = gp_Vec(centres[fixed], centres[mover])
     distance = vector.Magnitude()
     if distance < 1e-9:
-        raise OperationError("these holes share a centre, so there is no direction to move along")
+        raise OperationError("these holes share a center, so there is no direction to move along")
     unit = vector.Normalized()
 
     def params(v: float) -> dict:
@@ -186,7 +186,7 @@ def _hole_distance_plan(topology: Topology, selection: Selection, flip: bool) ->
 
 
 def _tag_point(face, anchor) -> list[float]:
-    """Where a wall's draft angle tag sits: near the top of the face, so it stays off the push/pull arrow that stands on the face's centre."""
+    """Where a wall's draft angle tag sits: near the top of the face, so it stays off the push/pull arrow that stands on the face's center."""
     box = Bnd_Box()
     BRepBndLib.AddOptimal_s(face, box, False, False)
     z_low, z_high = box.CornerMin().Z(), box.CornerMax().Z()

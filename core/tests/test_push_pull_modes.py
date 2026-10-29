@@ -16,7 +16,7 @@ from pliable.topology import Topology
 RADIUS = 3.0
 AREA = 3.14159265 * RADIUS**2
 GAP = 5.0
-# The six faces of the 40 x 30 x 20 block: (outward normal, a direction in the face, distance from the centre).
+# The six faces of the 40 x 30 x 20 block: (outward normal, a direction in the face, distance from the center).
 FACES = [((1, 0, 0), (0, 1, 0), 20), ((-1, 0, 0), (0, 1, 0), 20), ((0, 1, 0), (1, 0, 0), 15), ((0, -1, 0), (1, 0, 0), 15), ((0, 0, 1), (1, 0, 0), 10), ((0, 0, -1), (1, 0, 0), 10)]
 
 

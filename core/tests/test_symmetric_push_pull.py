@@ -42,7 +42,7 @@ def test_plain_push_pull_is_unchanged():
 
 
 def test_one_face_is_mirrored_about_the_origin_plane():
-    session = session_with(Box(10, 10, 10))  # centred on the origin: the XY origin plane is its mid-plane
+    session = session_with(Box(10, 10, 10))  # centered on the origin: the XY origin plane is its mid-plane
     push(session, [z_face(session, 5, True)], symmetric=1)
     assert z_range(session) == (-7, 7)
 

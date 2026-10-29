@@ -33,7 +33,7 @@ class AddCone(Tool):
 
     def anchors(self, values):
         h = values["height"]
-        return [("Bottom centre", (0, 0, 0)), ("Centre", (0, 0, h / 2)), ("Top centre", (0, 0, h))]
+        return [("Bottom center", (0, 0, 0)), ("Center", (0, 0, h / 2)), ("Top center", (0, 0, h))]
 
     def handles(self, topology, selection, values):
         x, y, z, bd, td, h = (values[k] for k in ("x", "y", "z", "bottom_diameter", "top_diameter", "height"))

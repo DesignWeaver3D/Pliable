@@ -39,16 +39,16 @@ class CircularArray(Tool):
         centre = gp_Pnt(*((a + b) / 2 for a, b in zip(lo, hi)))
         direction, origin = axis.Direction(), axis.Location()
         along = gp_Vec(origin, centre).Dot(gp_Vec(direction))
-        foot = origin.Translated(gp_Vec(direction).Multiplied(along))  # the point of the axis nearest the body's centre
+        foot = origin.Translated(gp_Vec(direction).Multiplied(along))  # the point of the axis nearest the body's center
         radius = foot.Distance(centre)
-        if radius < 1e-6:  # the body is centred on the axis: ride on a ring of the body's own size
+        if radius < 1e-6:  # the body is centered on the axis: ride on a ring of the body's own size
             radius = max(math.dist(lo, hi) / 2, 1.0)
             side = gp_Vec(direction).Crossed(gp_Vec(0, 0, 1) if abs(direction.Z()) < 0.9 else gp_Vec(1, 0, 0))
             side.Normalize()
             centre = foot.Translated(side.Multiplied(radius))
 
         def at(degrees):
-            """The point of the ring `degrees` round from the body's centre, and the tangent there."""
+            """The point of the ring `degrees` round from the body's center, and the tangent there."""
             turn = gp_Trsf()
             turn.SetRotation(axis, math.radians(degrees))
             p = centre.Transformed(turn)

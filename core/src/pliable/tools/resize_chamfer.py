@@ -11,7 +11,7 @@ from ..tools import Accepts, Handle, Param, register, Tool
 
 
 def _sides(topology, face) -> list[tuple]:
-    """The chamfer face's two long edges, each with the face on its other side: [(edge, neighbour face), ...]."""
+    """The chamfer face's two long edges, each with the face on its other side: [(edge, neighbor face), ...]."""
     edges = list(_face_edges(face))
     if len(edges) != 4:
         raise OperationError("That face is not a simple chamfer (it should have four edges)")
@@ -33,7 +33,7 @@ def _sides(topology, face) -> list[tuple]:
 @register
 class ResizeChamfer(Tool):
     """Change the size of a chamfer from the chamfer face: it is removed and the sharp edge chamfered again with
-    two distances, `first` along the first neighbour face and `second` along the other (both 0 leaves the sharp
+    two distances, `first` along the first neighbor face and `second` along the other (both 0 leaves the sharp
     edge). Each distance has its own handle."""
 
     id = "resize_chamfer"
@@ -46,7 +46,7 @@ class ResizeChamfer(Tool):
         return planar_normal(topology.face(selection.faces[0])) is not None
 
     def handles(self, topology, selection, values):
-        """One handle per leg, on the neighbour face it is measured along, sliding away from the sharp edge the chamfer cut off."""
+        """One handle per leg, on the neighbor face it is measured along, sliding away from the sharp edge the chamfer cut off."""
         (edge_a, face_a), (edge_b, face_b) = _sides(topology, topology.face(selection.faces[0]))
         planes = [BRepAdaptor_Surface(f) for f in (face_a, face_b)]
         if any(p.GetType().name != "GeomAbs_Plane" for p in planes):
@@ -58,7 +58,7 @@ class ResizeChamfer(Tool):
             loc = plane.Location()
             normals.append(gp_Vec(n.X(), n.Y(), n.Z()))
             offsets.append(gp_Vec(loc.X(), loc.Y(), loc.Z()).Dot(gp_Vec(n.X(), n.Y(), n.Z())))
-        along = normals[0].Crossed(normals[1])  # the sharp edge's direction (where the two neighbour planes meet)
+        along = normals[0].Crossed(normals[1])  # the sharp edge's direction (where the two neighbor planes meet)
         square = along.SquareMagnitude()
         if square < 1e-12:
             return []

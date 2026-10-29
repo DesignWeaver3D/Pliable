@@ -420,7 +420,7 @@ def test_primitives_offer_anchor_points_with_the_default_at_the_placement_point(
         assert anchors and anchors[0]["offset"] == [0.0, 0.0, 0.0]
         assert len({a["label"] for a in anchors}) == len(anchors)
     box = {a["label"]: a["offset"] for a in session.handle({"type": "tool_handles", "tool": "add_box", "params": {"width": 4, "depth": 6, "height": 8}})["anchors"]}
-    assert box["Centre"] == [2.0, 3.0, 4.0] and box["Corner (high X, high Y, high Z)"] == [4.0, 6.0, 8.0]
+    assert box["Center"] == [2.0, 3.0, 4.0] and box["Corner (high X, high Y, high Z)"] == [4.0, 6.0, 8.0]
     assert len(box) == 27
     assert box["Middle of Z edge (high X, low Y)"] == [4.0, 0.0, 4.0]
     assert box["Middle of X edge (low Y, high Z)"] == [2.0, 0.0, 8.0]

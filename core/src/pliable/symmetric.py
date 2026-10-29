@@ -1,7 +1,7 @@
 """Symmetric push/pull: which faces move together, and the plane they are symmetric about.
 
 A face of a solid has a counterpart on the other side of a mirror plane when the model is symmetric there: a face
-with the opposite outward normal, the same area, centred where the first face's mirror image is. The mirror
+with the opposite outward normal, the same area, centered where the first face's mirror image is. The mirror
 plane is the nearest origin plane or datum plane parallel to the face (see `mirror_candidates`)."""
 
 import math

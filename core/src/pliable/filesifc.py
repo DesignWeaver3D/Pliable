@@ -3,7 +3,7 @@
 Import triangulates every product that has a body (IfcOpenShell's geometry iterator), sews the triangles into a shell and makes
 a solid where the shell closes; coplanar triangles are merged back into whole faces. Openings, spaces and products without
 geometry are skipped and the import says how many. Export writes each solid as an IfcBuildingElementProxy named after the
-body, with a faceted B-rep body in millimetres; curved faces become triangles, so the file is lossy like a mesh file."""
+body, with a faceted B-rep body in millimeters; curved faces become triangles, so the file is lossy like a mesh file."""
 
 from __future__ import annotations
 
@@ -79,7 +79,7 @@ def read_ifc(data: bytes) -> tuple[Shape, list[str]]:
             model = ifcopenshell.open(path)
         except Exception as e:
             raise ValueError("Could not read that ifc file") from e
-    scale = 1000.0  # the geometry iterator always returns metres; the model works in millimetres
+    scale = 1000.0  # the geometry iterator always returns meters; the model works in millimeters
     settings = ifcopenshell.geom.settings()
     settings.set("use-world-coords", True)
     products = [p for p in model.by_type("IfcProduct") if p.Representation is not None and not any(p.is_a(c) for c in SKIPPED_CLASSES)]
@@ -122,7 +122,7 @@ def read_ifc(data: bytes) -> tuple[Shape, list[str]]:
 
 
 def write_ifc(shape: TopoDS_Shape, names: list[str] | None = None, linear: float = 0.005, angular: float = 0.1) -> bytes:
-    """The model as an .ifc file: one IfcBuildingElementProxy per solid with a faceted B-rep body, in millimetres."""
+    """The model as an .ifc file: one IfcBuildingElementProxy per solid with a faceted B-rep body, in millimeters."""
     ifcopenshell = _import_ifc()
     import ifcopenshell.api
 

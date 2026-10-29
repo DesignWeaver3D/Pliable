@@ -12,7 +12,7 @@ from ..tools import Accepts, Handle, Param, register, Tool
 
 @register
 class ResizeFillet(Tool):
-    """Change the radius of a fillet from the fillet face itself: the round is removed (neighbours extended back
+    """Change the radius of a fillet from the fillet face itself: the round is removed (neighbors extended back
     to a sharp edge) and that edge is filleted again. A radius of 0 leaves the sharp edge. Works on constant and
     variable fillets: an end radius of 0 makes the fillet constant, above 0 makes it variable (radius at the
     edge's first vertex growing or shrinking to the end radius at its last)."""

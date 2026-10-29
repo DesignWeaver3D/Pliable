@@ -13,7 +13,7 @@ class ChamferTwoDistances(Tool):
 
     id = "chamfer_two_distances"
     label = "Chamfer (two distances)"
-    description = "Bevels edges with a different distance on each side. Select one face (it sets which side is first) and one or more edges; an edge that does not border that face is measured from its own first neighbouring face."
+    description = "Bevels edges with a different distance on each side. Select one face (it sets which side is first) and one or more edges; an edge that does not border that face is measured from its own first neighboring face."
     accepts = Accepts(faces=(1, 1), edges=(1, None))
     params = [Param("first", "length", 2), Param("second", "length", 1), Param("swap", "number", 0)]  # swap 1 puts `first` on the other side
 

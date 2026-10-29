@@ -68,7 +68,7 @@ def _frustum(sides: int, x: float, y: float, z: float, bottom: float, top: float
 
 @register
 class AddPrism(Tool):
-    """A prism standing on the XY plane at (x, y, z): a regular polygon base (one corner on the +X side of the centre) with a top of its own size above it. The diameters are the circles through the corners; a top of 0 is a pyramid."""
+    """A prism standing on the XY plane at (x, y, z): a regular polygon base (one corner on the +X side of the center) with a top of its own size above it. The diameters are the circles through the corners; a top of 0 is a pyramid."""
 
     id = "add_prism"
     body_kind = "Prism"
@@ -94,7 +94,7 @@ class AddPrism(Tool):
 
     def anchors(self, values):
         h = values["height"]
-        return [("Bottom centre", (0, 0, 0)), ("Centre", (0, 0, h / 2)), ("Top centre", (0, 0, h))]
+        return [("Bottom center", (0, 0, 0)), ("Center", (0, 0, h / 2)), ("Top center", (0, 0, h))]
 
     def handles(self, topology, selection, values):
         x, y, z, bd, td, h = (values[k] for k in ("x", "y", "z", "bottom_diameter", "top_diameter", "height"))

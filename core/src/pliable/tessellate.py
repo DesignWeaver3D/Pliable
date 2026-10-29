@@ -47,8 +47,8 @@ class Mesh:
 
 
 def _edge_centre(edge) -> list[float] | None:
-    """The centre of a circular or elliptical edge (a full curve or an arc), else None. A hole cut at an angle has an
-    elliptical mouth whose centre is where the hole's axis meets the face."""
+    """The center of a circular or elliptical edge (a full curve or an arc), else None. A hole cut at an angle has an
+    elliptical mouth whose center is where the hole's axis meets the face."""
     from OCP.BRepAdaptor import BRepAdaptor_Curve
     from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Ellipse
 
@@ -153,7 +153,7 @@ display_cache = _Cache()
 
 
 def _face_display(face, deflection: float):
-    """Everything the mesh needs from one face except offsets: arrays, centroid, planar normal and hole centre."""
+    """Everything the mesh needs from one face except offsets: arrays, centroid, planar normal and hole center."""
     triangulation = BRep_Tool.Triangulation_s(face, TopLoc_Location())
     state = None if triangulation is None else triangulation.Deflection()
     key = _Key(face, "f", deflection, state)
@@ -338,7 +338,7 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
     for face_id, face in topology.faces():
         data, normal, centre = _face_display(face, deflection)
         if centre is None:
-            centre = split_centre(topology, face_id)  # a hole wall split into several faces: one centre, on its first face
+            centre = split_centre(topology, face_id)  # a hole wall split into several faces: one center, on its first face
         start = index_count
         centroid = None
         if data is not None:

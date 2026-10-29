@@ -125,7 +125,7 @@ class ToolHandlers:
             if result.ghost is not None:
                 extra["ghost_shape"] = result.ghost
             if tool.id == "cut_plane":
-                extra["sides"] = side_bodies(document, topology, request_selection, request.get("params") or {}, change)  # the form colours Side 1 and Side 2 like these bodies
+                extra["sides"] = side_bodies(document, topology, request_selection, request.get("params") or {}, change)  # the form colors Side 1 and Side 2 like these bodies
         return self._mesh_reply(target, timings, preview=not commit, selection=selection.to_json(), handles=handles, **extra)
 
     @staticmethod

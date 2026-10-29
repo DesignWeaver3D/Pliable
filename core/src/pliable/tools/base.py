@@ -152,7 +152,7 @@ class Handle:
     unit: str = "mm"
     max: float | None = None
     toggle: bool = False
-    # How the view draws it: "arrow" (a plain drag arrow), "move" (an arrow in its axis colour that moves something along
+    # How the view draws it: "arrow" (a plain drag arrow), "move" (an arrow in its axis color that moves something along
     # that axis) or "resize" (a square grip that changes a size).
     kind: str = "arrow"
     # Other parameters that change together with this one, as (parameter, change per unit of travel). A box face handle
@@ -166,7 +166,7 @@ class Handle:
     # a radius), led by `symbol` ("R" or the diameter sign) so the typed value's meaning is clear.
     factor: float = 1.0
     symbol: str = ""
-    # A rotation handle: the axis it turns about (the view colours it by that axis) and the ring it runs on, (cx, cy, cz, radius).
+    # A rotation handle: the axis it turns about (the view colors it by that axis) and the ring it runs on, (cx, cy, cz, radius).
     axis: tuple[float, float, float] | None = None
     ring: tuple[float, float, float, float] | None = None
     # A grid grip: the two step vectors (u, v) of the grid it sits on. The view drags it in their plane; whole steps along u
@@ -273,7 +273,7 @@ class Tool:
     # Relationship rules (see relations.py) whose matching faces join the selection when the user has them on.
     related: tuple[str, ...] = ()
     # Names of three length parameters that together are a point in space; the view offers to fill them by
-    # clicking a reference snap (origin, axis, face centre) instead of typing.
+    # clicking a reference snap (origin, axis, face center) instead of typing.
     placement: tuple[str, str, str] | None = None
     # Names of three length parameters that are a displacement (move, copy step); the view offers to pick a base point
     # and a destination point and fills them with destination minus base.

@@ -1,4 +1,4 @@
-"""Helpers for tools that act on whole bodies: choosing solids, centres and pivots."""
+"""Helpers for tools that act on whole bodies: choosing solids, centers and pivots."""
 
 from OCP.BRep import BRep_Builder
 from OCP.BRepBndLib import BRepBndLib
@@ -63,8 +63,8 @@ def _pivot_point(topology, selection) -> tuple[float, float, float]:
 
 def _on_bodies(topology, selection, change, pivot: bool = False, trsf=None, record: dict | None = None, centre_always: bool = False) -> TopoDS_Shape:
     """Apply `change` (shape -> shape) to the selected bodies, else to the solids that contain the selected faces; with
-    no selection, to the whole model. With `pivot` and bodies selected, `change(shape, centre)` also gets each body's own centre.
-    With `trsf` (centre -> gp_Trsf) and `record`, the transform applied to each solid is stored in `record` by solid index,
+    no selection, to the whole model. With `pivot` and bodies selected, `change(shape, center)` also gets each body's own center.
+    With `trsf` (center -> gp_Trsf) and `record`, the transform applied to each solid is stored in `record` by solid index,
     so editable primitives can follow the move (see recipes.py)."""
     if not selection.faces and not selection.bodies:
         if record is not None and trsf is not None:

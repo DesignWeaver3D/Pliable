@@ -64,7 +64,7 @@ def _same_direction(a, b) -> bool:
 
 
 def _face_signature(face) -> tuple[str, float, tuple[float, float, float]]:
-    """(surface type, area, centre of mass) used to find a face's mirror image."""
+    """(surface type, area, center of mass) used to find a face's mirror image."""
     from OCP.BRepGProp import BRepGProp
     from OCP.GProp import GProp_GProps
 
@@ -76,7 +76,7 @@ def _face_signature(face) -> tuple[str, float, tuple[float, float, float]]:
 
 def _symmetric_faces(topology: Topology, face_id: int) -> list[int]:
     """Faces that are the mirror image of the face across a mid-plane of the model's bounding box (one of the
-    three planes through the box centre), of the same surface type and area. A face on the plane is its own mirror."""
+    three planes through the box center), of the same surface type and area. A face on the plane is its own mirror."""
     from OCP.Bnd import Bnd_Box
     from OCP.BRepBndLib import BRepBndLib
 

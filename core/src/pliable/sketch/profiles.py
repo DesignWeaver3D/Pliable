@@ -314,7 +314,7 @@ def _host_face(shape, zone: Face):
         if abs(abs(host.normal_at().dot(zone_normal)) - 1) > 1e-6 or abs(host.distance_to(point) if False else (host.center() - point).dot(zone_normal)) > 1e-5:
             continue
         if host.is_inside(zone.outer_wire().position_at(0.25)) or host.is_inside(probe):
-            # Touching only along an edge is not lying on the face (a neighbouring region of the same sketch): some area must overlap.
+            # Touching only along an edge is not lying on the face (a neighboring region of the same sketch): some area must overlap.
             common = zone.intersect(host)
             if common is not None and getattr(common, "area", 0) > 1e-6:
                 return host
@@ -370,7 +370,7 @@ def add_regions(shape, sketch: dict, only: int | list[int] | None = None):
 
 def region_face(shape, sketch: dict, index: int):
     """The face of `shape` (the result of `add_regions` with `only=index`) that is the sketch's region `index`: the
-    flat face in the region's plane with its area and centre, or None."""
+    flat face in the region's plane with its area and center, or None."""
     from OCP.TopAbs import TopAbs_FACE
     from OCP.TopExp import TopExp_Explorer
 
