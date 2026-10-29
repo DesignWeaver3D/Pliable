@@ -40,6 +40,14 @@ Lasting technical notes moved out of `progress.md` so the plan stays short. Read
 - Body ids after an operation are matched by shape and volume (see the watchlist); the draft-angle dimension assumes a Z pull direction.
 - Prototype preserved at tag `v0.1.0`. Closest open-source competitor is Ductile (Rust, MIT, young); Chili3D is AGPL-3.0 so its code may be reused (`docs/research/landscape.md`).
 
+## Push/pull modes and ghost
+
+- Request params of `push_pull` (beside `distance`, `symmetric`, `ux uy uz`): `mode` is a string, `"auto"` (default), `"add"`, `"subtract"` or `"new"`; `flip` is a bool.
+- Auto: the extrusion of a face is a tool volume; a drag along the face normal (distance > 0) fuses it with every body it meets, a drag against it cuts every body it meets and also removes nothing from empty space. `flip` reverses which direction adds and which subtracts; it never changes a face normal. Symmetric: the normal side adds, the opposite side subtracts.
+- `add` always fuses, `subtract` always cuts, whatever the direction; `new` adds the extrusion as its own separate solid with no boolean (faces of a solid and loose sketch regions alike).
+- A subtract that removes nothing changes nothing: the tool fails with "Nothing to subtract..." (a preview error keeps the last good state, a commit leaves the model as it is).
+- Reply (preview only): when the extrusion subtracts, the mesh header carries `ghost`: `{"triangles": n, "bounds": [xmin, ymin, zmin, xmax, ymax, zmax]}` and the binary buffers `ghostPositions` (f32, n*3 per vertex), `ghostNormals` (f32) and `ghostIndices` (u32), the same layout as the body buffers. The ghost is the cutting volume minus all bodies (the part in empty space). The field and buffers are absent when nothing is outside the bodies or the operation does not subtract.
+
 ## Desktop shell (Tauri)
 
 - Layout and build steps are in the Desktop shell section of `CONTRIBUTING.md`. The shell is `desktop/src-tauri/src/main.rs`; it sets `PLIABLE_DATA` (the core's saved files go to `data/core` beside the program) and `PLIABLE_SHELL` (the version, so the diagnostics report says it runs in the window). `PLIABLE_PORT` forces the core's port (the smoke test uses it) and `PLIABLE_CORE` points at a core program to run instead of `core/pliable` (development).
