@@ -51,6 +51,7 @@ import { createSelection } from "./selection";
 import { followMeasureCard } from "./selectedreadout";
 import { createModelView } from "./modelview";
 import { createItemDrag } from "./itemdrag";
+import { createPushPullCard } from "./pushpullwire.ts";
 
 const $ = (id: string) => document.getElementById(id)!;
 const status = $("status");
@@ -88,14 +89,14 @@ core.onBusy = (busy) => {
 const measurePanel = new MeasurePanel($("measure"));
 // An edit card (under the nav cube, like the sketch card) that reaches down to the measurement card pushes it left.
 {
-  const card = $("toolform");
+  const cards = [$("toolform"), $("ppcard")];
   const dodge = () => {
     const m = $("measure");
     m.classList.remove("aside");
-    if (!card.hidden && !m.hidden && card.getBoundingClientRect().bottom > m.getBoundingClientRect().top) m.classList.add("aside");
+    if (cards.some((card) => !card.hidden && !m.hidden && card.getBoundingClientRect().bottom > m.getBoundingClientRect().top)) m.classList.add("aside");
   };
   const watch = new MutationObserver(dodge);
-  for (const el of [card, $("measure")]) watch.observe(el, { attributes: true, attributeFilter: ["hidden"], childList: true, subtree: true });
+  for (const el of [...cards, $("measure")]) watch.observe(el, { attributes: true, attributeFilter: ["hidden"], childList: true, subtree: true });
   window.addEventListener("resize", dodge);
 }
 const dimensionOverlay = new DimensionOverlay($("viewport"), () => viewport.camera);
@@ -381,6 +382,7 @@ function armTool(tool: ToolInfo, surface: Surface) {
   }
   usage.record(tool.id, "start", surface);
   armedTool = tool.id;
+  if (tool.id === "push_pull") pushPullCard.open(); // the Push/Pull button always opens its card
   renderChips();
   void refreshSelectionHandles();
   renderToolbar();
@@ -468,10 +470,14 @@ async function load(name: string) {
   setCommitted(await core.openDemo(name), true);
 }
 
+const pushPullCard = createPushPullCard({
+  viewport, el: $("ppcard"), selection: () => app.currentSels, armedTool: () => armedTool,
+});
 const itemDrag = createItemDrag({
   viewport, core, status, latency, dimLabel: $("dim"), measurePanel, dimensionOverlay,
   get armedTool() { return armedTool; },
   dragToolFor, show, setCommitted, setSelection, selectionPayload, mappedSelection, rememberOp,
+  pushPullCard,
 });
 
 viewport.onSelect = setSelection;
@@ -1281,6 +1287,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   },
   cancelEyedrop,
   changed: () => {
+    if (toolPanel.isOpen) pushPullCard.close(); // another tool's form takes the card's place
     if (!toolPanel.isOpen) {
       viewport.manipulator.clear();
       void refreshSelectionHandles(); // back to the selection's own handles

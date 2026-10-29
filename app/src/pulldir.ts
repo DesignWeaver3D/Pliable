@@ -81,6 +81,8 @@ export class PullDirection {
   /** The face's own normal, kept so the arrow can come back to it and tilts can be limited. */
   normal: Vec | null = null;
   onChange: () => void = () => {};
+  /** Called when the direction is forgotten because the selection changed (the Push/Pull card follows). */
+  onReset: () => void = () => {};
 
   set(direction: Vec | null) {
     this.dir = direction;
@@ -91,6 +93,7 @@ export class PullDirection {
   reset() {
     this.dir = null;
     this.normal = null;
+    this.onReset();
   }
 
   /** The tool parameters that carry it: none for the normal. */

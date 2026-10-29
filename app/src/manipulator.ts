@@ -61,6 +61,9 @@ export class Manipulator {
   /** Called with the new parameter value while a handle is dragged, then once more with phase "end". */
   onDrag: (param: string, value: number, phase: "move" | "end" | "cancel", x: number, y: number, linked: Record<string, number>) => void = () => {};
 
+  /** The colour of the push/pull arrow at rest, when something else decides it (Flip turns it red, see pushpullarrows.ts); null: the handle's own colour. */
+  pushPullRest: number | null = null;
+
   private readonly root = new THREE.Group();
   private items: Item[] = [];
   private hot: Item | null = null;
@@ -380,7 +383,7 @@ export class Manipulator {
       }
       const hot = item === this.hot || item === this.active?.item;
       const colors = handleColors(info);
-      const color = hot ? colors.hot : colors.rest;
+      const color = hot ? colors.hot : isPushPullArrow(info) && this.pushPullRest !== null ? this.pushPullRest : colors.rest;
       (item.tip.material as THREE.MeshBasicMaterial).color.setHex(color);
       (item.arm.material as THREE.LineBasicMaterial).color.setHex(color);
       const snapped = info.arc ? snappedIndex(handleValue(info, item.travel), info.snaps) : -1;
