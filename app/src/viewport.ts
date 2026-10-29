@@ -30,7 +30,7 @@ export type Kind = "face" | "edge" | "vertex" | "body" | "axis";
 export interface Sel {
   kind: Kind;
   id: number;
-  /** A face selection made through the hole's centre dot: the same hole for every tool, shown as the dot alone (no tint on the wall). */
+  /** A face selection made through the hole's center dot: the same hole for every tool, shown as the dot alone (no tint on the wall). */
   centre?: boolean;
 }
 
@@ -41,7 +41,7 @@ interface Hit extends Sel {
 }
 
 const EDGE_TIE_PX = 2; // edges this close on screen are told apart by depth
-const CENTRE_HANDLE_PX = 7; // pressing this close to a hole centre dot starts moving the hole
+const CENTRE_HANDLE_PX = 7; // pressing this close to a hole center dot starts moving the hole
 const MEASURE_PICK_PX = 10; // pick radius for measurement edges in measure mode
 const MEASURE_TOL = 1e-3; // model units: on-plane / parallel tolerance when finding measurable edges
 
@@ -139,7 +139,7 @@ export class Viewport {
   private studioEnv: THREE.Texture | null = null;
   private edgeMaterial: THREE.LineBasicMaterial | null = null;
   private hovered: Sel | null = null;
-  /** Hole centres currently shown: those of the hovered or selected hole faces and the centres of circular edges. */
+  /** Hole centers currently shown: those of the hovered or selected hole faces and the centers of circular edges. */
   private centresShown: CentreInfo[] = [];
   private centreDots: THREE.Points | null = null;
   private selected: Sel[] = [];
@@ -192,7 +192,7 @@ export class Viewport {
   /** While set, the next click picks an item for this callback instead of selecting it (eyedropper). */
   eyedropper: ((sel: Sel) => void) | null = null;
   onEyedropCancel: () => void = () => {};
-  /** Dragging a hole centre moves the hole in the plane across its axis; offset is in model units. */
+  /** Dragging a hole center moves the hole in the plane across its axis; offset is in model units. */
   onCentreDrag: (face: number, offset: THREE.Vector3, phase: "start" | "move" | "end" | "cancel") => void = () => {};
   /** While the Divide face form is open: pressing and dragging over the model places the dividing line (see startDivideDrag). */
   divideFrame: { face: number; centre: THREE.Vector3; u: THREE.Vector3; v: THREE.Vector3; normal: THREE.Vector3 } | null = null;
@@ -876,7 +876,7 @@ export class Viewport {
 
   /**
    * View direction for a non-planar face: the area-weighted mean of its triangle normals (cylinder, cone, sphere, freeform).
-   * Faces that wrap around (full cylinder) average to nothing, so they use the direction from the model centre to the face centre.
+   * Faces that wrap around (full cylinder) average to nothing, so they use the direction from the model center to the face center.
    */
   private averageFaceDirection(range: { start: number; count: number }): THREE.Vector3 | null {
     if (!this.mesh) return null;
@@ -896,7 +896,7 @@ export class Viewport {
       centre.addScaledVector(a.clone().add(b).add(c), n.length() / 3);
     }
     if (area === 0) return null;
-    if (sum.length() > area * 0.1) return sum; // normalised by the caller
+    if (sum.length() > area * 0.1) return sum; // normalized by the caller
     const axis = this.wrapAxis(range);
     if (axis) {
       // Look along the axis from the side the camera is already on.
@@ -1026,7 +1026,7 @@ export class Viewport {
     this.edgeLines = new THREE.LineSegments(edges, this.edgeMaterial);
     this.model.add(this.edgeLines);
     this.moving = null;
-    // Hole centre dots are drawn only for the hovered or selected hole (see refreshCentres).
+    // Hole center dots are drawn only for the hovered or selected hole (see refreshCentres).
     this.centreDots = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: 0x4fc3f7, size: 7, sizeAttenuation: false, depthTest: false }));
     this.centreDots.renderOrder = 3;
     this.model.add(this.centreDots);
@@ -1140,7 +1140,7 @@ export class Viewport {
       mark.edge.geometry.setPositions([-end.x, -end.y, -end.z, end.x, end.y, end.z]);
       mark.edge.visible = true;
     } else if (sel.kind === "face" && sel.centre) {
-      // A hole picked by its centre dot shows the dot only.
+      // A hole picked by its center dot shows the dot only.
       const centre = this.data.centres.find((c) => c.face === sel.id);
       if (!centre) return;
       mark.vertex.geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(centre.position), 3));
@@ -1245,7 +1245,7 @@ export class Viewport {
     m.needsUpdate = true;
   }
 
-  /** Random body colours: the per-vertex body tint multiplies a white base; off gives the plain steel-blue surface. */
+  /** Random body colors: the per-vertex body tint multiplies a white base; off gives the plain steel-blue surface. */
   private applyBodyColors() {
     const m = this.surfaceMaterial;
     if (!m) return;
@@ -1545,7 +1545,7 @@ export class Viewport {
           pts.push(q);
         }
         if (behind || !trianglesInBox(pts, r, crossing)) continue;
-        // Sample the centre of each triangle that is inside or overlaps the box.
+        // Sample the center of each triangle that is inside or overlaps the box.
         const samples: THREE.Vector3[] = [];
         for (let i = 0; i + 2 < face.count; i += 3) {
           if (crossing && !triangleHitsRect(pts[i], pts[i + 1], pts[i + 2], r)) continue;
@@ -1723,7 +1723,7 @@ export class Viewport {
     return this.raycaster.ray.clone();
   }
 
-  /** Pressing on a hole centre dot (not just near the hole) begins moving that hole; returns whether it did. */
+  /** Pressing on a hole center dot (not just near the hole) begins moving that hole; returns whether it did. */
   private startCentreDrag(e: PointerEvent): boolean {
     if (!this.centresShown.length || e.ctrlKey || e.metaKey) return false;
     const rect = this.renderer.domElement.getBoundingClientRect();
@@ -1793,7 +1793,7 @@ export class Viewport {
     this.onCentreDrag(c.face, offset, "move");
   }
 
-  /** A hole or boss centre near the pointer picks that hole's face (centres sit inside the hole, so no depth test). */
+  /** A hole or boss center near the pointer picks that hole's face (centers sit inside the hole, so no depth test). */
   private nearestCentre(px: number, py: number, rect: DOMRect): Hit | null {
     let best: Hit | null = null;
     let bestDistance = settings.vertexPickPx;
@@ -1918,7 +1918,7 @@ export class Viewport {
     return best;
   }
 
-  /** The centre of a circular edge, found from the hole centres: every point of the edge is one radius from it. */
+  /** The center of a circular edge, found from the hole centers: every point of the edge is one radius from it. */
   private circleCentre(edgeId: number): CentreInfo | null {
     const data = this.data;
     const edge = data?.edges.find((e) => e.id === edgeId);
@@ -1948,7 +1948,7 @@ export class Viewport {
     return null;
   }
 
-  /** Show centre dots only for the hovered or selected holes and circular edges. */
+  /** Show center dots only for the hovered or selected holes and circular edges. */
   private refreshCentres() {
     const shown: CentreInfo[] = [];
     for (const sel of [this.hovered, ...this.selected]) {
@@ -1968,7 +1968,7 @@ export class Viewport {
     }
   }
 
-  /** World points of the hole and circle centres currently shown, for use as snap targets. */
+  /** World points of the hole and circle centers currently shown, for use as snap targets. */
   get shownCentres(): THREE.Vector3[] {
     return this.centresShown.map((c) => new THREE.Vector3(...c.position));
   }
@@ -2100,7 +2100,7 @@ export class Viewport {
     const center = new THREE.Vector3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
     const radius = Math.max(Math.hypot(x1 - x0, y1 - y0, z1 - z0) / 2, 1e-3);
     let distance = radius / Math.sin((PERSPECTIVE_FOV * Math.PI) / 360);
-    // The box sphere fills the view's height; shrink it into the free area and move its centre to that area's middle.
+    // The box sphere fills the view's height; shrink it into the free area and move its center to that area's middle.
     let shift = { x: 0, y: 0 };
     const rect = this.renderer.domElement.getBoundingClientRect();
     if (inside && rect.height > 0 && rect.width > 0) {
@@ -2121,7 +2121,7 @@ export class Viewport {
     direction.normalize();
     const focus = center.clone();
     if (shift.x || shift.y) {
-      // Move the looked-at point so the box's centre lands on the middle of the free area (screen y runs down).
+      // Move the looked-at point so the box's center lands on the middle of the free area (screen y runs down).
       const toward = direction.clone().negate();
       const right = toward.clone().cross(new THREE.Vector3(0, 0, 1));
       if (right.lengthSq() < 1e-12) right.set(1, 0, 0);

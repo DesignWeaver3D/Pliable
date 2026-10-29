@@ -74,13 +74,13 @@ export function buildGridGroup(options: Pick<SketchOptions, "major" | "minor" | 
         vPlane = (a + (b - a) * t).xy;
         float strength = lines(uMajor) * 0.6;
         if (uMinor > 0.0) strength = max(strength, lines(uMinor) * 0.25);
-        vec2 centred = (gl_FragCoord.xy / uResolution - 0.5) * 2.0;
-        float away = length(centred * vec2(uResolution.x / uResolution.y, 1.0)) / 1.0;
+        vec2 centered = (gl_FragCoord.xy / uResolution - 0.5) * 2.0;
+        float away = length(centered * vec2(uResolution.x / uResolution.y, 1.0)) / 1.0;
         float fadeOut = 1.0 - smoothstep(uFade.x, uFade.y, away);
         float alpha = strength * fadeOut;
         if (alpha < 0.003) discard;
         gl_FragColor = vec4(uColor, alpha);
-        #include <colorspace_fragment> // the colour is given as on screen, as the old line grid was; without this it came out far darker
+        #include <colorspace_fragment> // the color is given as on screen, as the old line grid was; without this it came out far darker
       }`,
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);

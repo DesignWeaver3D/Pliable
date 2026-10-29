@@ -48,7 +48,7 @@ test("a slot takes length then width, or only its width when the second end is p
 
 test("an ellipse takes the major width then the minor width", () => {
   const [major, side] = typedTargets("ellipse", [{ u: 0, v: 0 }], { u: 1, v: 0 }, [20, 8]);
-  near(major.u, 10); // the typed numbers are full widths, the points sit half of each from the centre
+  near(major.u, 10); // the typed numbers are full widths, the points sit half of each from the center
   near(Math.abs(side.v), 4);
 });
 

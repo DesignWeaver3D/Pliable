@@ -1,4 +1,4 @@
-/** The arc tools that take numbers from the sketch card: the centre Arc's start angle and sweep, and the radius of "Arc by ends and radius"
+/** The arc tools that take numbers from the sketch card: the center Arc's start angle and sweep, and the radius of "Arc by ends and radius"
  *  (two end points, a radius, and the pointer choosing which of the four arcs of that radius is meant). No DOM. */
 import * as M from "./sketchmodel.ts";
 import type { BuilderContext } from "./sketchbuilders.ts";
@@ -20,7 +20,7 @@ const turn = (centre: UV, from: UV, radians: number): UV => {
   return { u: centre.u + r * Math.cos(a), v: centre.v + r * Math.sin(a) };
 };
 
-/** The centre arc's click, with a typed start angle or sweep applied: the second click keeps its distance but takes the start angle, the
+/** The center arc's click, with a typed start angle or sweep applied: the second click keeps its distance but takes the start angle, the
  *  third is placed at the sweep from the start. `chainLength` is how many points are placed. */
 export function arcClick(chain: UV[], snap: Snap, options: ArcOptions): Snap {
   if (chain.length === 1 && options.startAngle !== null) {
@@ -33,7 +33,7 @@ export function arcClick(chain: UV[], snap: Snap, options: ArcOptions): Snap {
   return snap;
 }
 
-/** The two ends of the arc of radius `radius` between `s` and `e`, the one nearest the pointer among the four (two centres, near or far side). */
+/** The two ends of the arc of radius `radius` between `s` and `e`, the one nearest the pointer among the four (two centers, near or far side). */
 export interface RadiusArc {
   centre: UV;
   /** Counterclockwise from `from` to `to`. */

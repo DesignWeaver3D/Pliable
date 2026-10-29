@@ -18,7 +18,7 @@ test("a circle with a dimension or relation on it moves instead", () => {
   assert.equal(isFreeCircle(sk([{ id: 3, type: "tangent", entities: [2, 9] }]), 2), false);
 });
 
-test("the dragged radius is the distance from the centre and never zero", () => {
+test("the dragged radius is the distance from the center and never zero", () => {
   assert.equal(draggedRadius({ u: 1, v: 1 }, 4, 5), 5);
   assert.ok(draggedRadius({ u: 1, v: 1 }, 1, 1) > 0);
 });

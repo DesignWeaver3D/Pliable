@@ -1,5 +1,5 @@
 /** Standard hole sizes offered as a preset list beside a hole form's diameter fields: metric clearance and tap drill
- *  diameters (coarse thread) and the counterbore diameters for socket head cap screws. Values are millimetres. */
+ *  diameters (coarse thread) and the counterbore diameters for socket head cap screws. Values are millimeters. */
 export interface HoleSize {
   label: string;
   diameter: number;

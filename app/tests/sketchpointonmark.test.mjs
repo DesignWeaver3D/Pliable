@@ -43,5 +43,5 @@ test("a vertex with a Coincident and a Tangent mark shows them either side of on
   const gap = angle(coincident.outward) - angle(tangent.outward);
   assert.ok(Math.abs(gap - Math.PI / 2) < 1e-9); // a quarter turn apart, the Coincident on the left
   const middle = (angle(coincident.outward) + angle(tangent.outward)) / 2;
-  assert.ok(Math.abs(Math.cos(middle) - 1) < 1e-9); // centred on the outside of the circle, here to the right
+  assert.ok(Math.abs(Math.cos(middle) - 1) < 1e-9); // centered on the outside of the circle, here to the right
 });

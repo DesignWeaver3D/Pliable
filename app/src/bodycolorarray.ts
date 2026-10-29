@@ -2,10 +2,10 @@ import * as THREE from "three";
 import type { MeshData } from "./client";
 import { bodyColor } from "./bodycolors";
 
-/** Neutral surface colour used by loose faces and sheets, which belong to no body. */
+/** Neutral surface color used by loose faces and sheets, which belong to no body. */
 const NEUTRAL = new THREE.Color(0x9db4cc);
 
-/** Per-vertex colours for a mesh: each face's vertices take their body's colour; faces without a body stay neutral. */
+/** Per-vertex colors for a mesh: each face's vertices take their body's color; faces without a body stay neutral. */
 export function bodyColorArray(mesh: MeshData): Float32Array {
   const out = new Float32Array(mesh.positions.length);
   for (let i = 0; i < out.length; i += 3) NEUTRAL.toArray(out, i);

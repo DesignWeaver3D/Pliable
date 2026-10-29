@@ -26,8 +26,8 @@ export type SketchEntity =
   | { id: number; type: "line"; a: number; b: number; construction?: boolean; reference?: boolean; axis?: boolean }
   | { id: number; type: "circle"; center: number; radius: number; construction?: boolean; reference?: boolean }
   | { id: number; type: "arc"; center: number; start: number; end: number; construction?: boolean; reference?: boolean }
-  /** Centre, the ends of the major axis (`major`, `major2`) and of the minor axis (`minor1`, `minor2`, four points the solver keeps square about the centre), and the minor radius
-   *  (follows the minor ends). An older ellipse has only the centre, `major` and `minor`. With `start` and `end` (points the solver keeps on the ellipse) it is an
+  /** Center, the ends of the major axis (`major`, `major2`) and of the minor axis (`minor1`, `minor2`, four points the solver keeps square about the center), and the minor radius
+   *  (follows the minor ends). An older ellipse has only the center, `major` and `minor`. With `start` and `end` (points the solver keeps on the ellipse) it is an
    *  elliptical arc: the part counterclockwise from `start` to `end`. */
   | { id: number; type: "ellipse"; center: number; major: number; major2?: number; minor1?: number; minor2?: number; minor: number; start?: number; end?: number; construction?: boolean; reference?: boolean }
   /** A smooth curve through its points in order (a closed one joins last to first). Only its points take constraints. */
@@ -235,11 +235,11 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
         const [ca, cb] = [world(ea.center), world(eb.center)];
         const [ra, rb] = [radiusOf(s, ea), radiusOf(s, eb)];
         const apart = Math.hypot(...sub(cb, ca));
-        // The spacing runs along the line of the centres, from rim to rim; concentric circles use the sketch's horizontal direction.
+        // The spacing runs along the line of the centers, from rim to rim; concentric circles use the sketch's horizontal direction.
         const along = apart > 1e-9 ? norm(sub(cb, ca)) : f.x;
         const nested = apart <= Math.abs(ra - rb);
         const [outer, inner] = ra >= rb ? [[ca, ra], [cb, rb]] : [[cb, rb], [ca, ra]];
-        const way = nested ? (ra >= rb ? along : along.map((x) => -x)) : along; // nested: from the outer centre toward the inner one
+        const way = nested ? (ra >= rb ? along : along.map((x) => -x)) : along; // nested: from the outer center toward the inner one
         const [pa, pb] = nested
           ? [(outer[0] as number[]).map((x, k) => x + way[k] * (outer[1] as number)), (inner[0] as number[]).map((x, k) => x + way[k] * (inner[1] as number))]
           : [ca.map((x, k) => x + along[k] * ra), cb.map((x, k) => x - along[k] * rb)];
@@ -285,7 +285,7 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
   return out;
 }
 
-/** The unit direction (in sketch coordinates) an arc's radius leader leaves the centre in, and the dashed segments that carry the arc's circle
+/** The unit direction (in sketch coordinates) an arc's radius leader leaves the center in, and the dashed segments that carry the arc's circle
  *  from the nearer end to that direction when it lies outside the arc's sweep. `place` is where the leader was dragged (null: the arc's middle). */
 export function arcLeaderWay(s: SketchData, arc: Extract<SketchEntity, { type: "arc" }>, place: [number, number] | null): { way: [number, number]; extension: [[number, number], [number, number]][] } {
   const c = pointOf(s, arc.center);
@@ -396,7 +396,7 @@ export function constraintMarks(s: SketchData): Dimension[] {
       if (spots.length) continue;
     }
     if (c.type === "symmetric" || c.type === "symmetric_point") {
-      // One mark at each of the mirrored points (and at the centre point of a symmetry about a point), never at the average with the axis or line.
+      // One mark at each of the mirrored points (and at the center point of a symmetry about a point), never at the average with the axis or line.
       for (const id of [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])]) {
         const p = s.points.find((q) => q.id === id);
         if (p) out.push({ kind: "tag", text, points: [toWorld(s.plane, p.u, p.v)], mark: true, avoid: centres, constraint: c.id, icon });
@@ -609,8 +609,8 @@ export function axisLines(plane: PlaneData): { u: number; v: number; du: number;
 }
 
 /**
- * The sketch's own axes: through the plane origin (the centre of the face the sketch is made on) along its u and v
- * directions. `axis` is the model axis (0 x, 1 y, 2 z) each runs closest to, which gives its colour.
+ * The sketch's own axes: through the plane origin (the center of the face the sketch is made on) along its u and v
+ * directions. `axis` is the model axis (0 x, 1 y, 2 z) each runs closest to, which gives its color.
  */
 export function sketchAxes(plane: PlaneData): { u: number; v: number; du: number; dv: number; axis: number }[] {
   const f = frame(plane);

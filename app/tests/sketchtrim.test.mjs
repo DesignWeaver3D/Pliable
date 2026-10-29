@@ -49,7 +49,7 @@ test("a line with no crossing becomes one marked piece, then is deleted", () => 
 });
 
 test("an arc cuts the line where the line meets the arc's own sweep, not the rest of its circle", () => {
-  // upper half arc centred at (5,0) radius 3 (counterclockwise from (8,0) to (2,0)); a line along y=0 from 0 to 10 meets that circle at x=2 and x=8, both arc ends
+  // upper half arc centered at (5,0) radius 3 (counterclockwise from (8,0) to (2,0)); a line along y=0 from 0 to 10 meets that circle at x=2 and x=8, both arc ends
   // and a second line from (0,2) to (10,2) crosses the upper arc at two places and the lower half of the circle nowhere
   const s = {
     plane: { origin: [0, 0, 0], normal: [0, 0, 1], xdir: [1, 0, 0] },
@@ -69,7 +69,7 @@ test("an arc cuts the line where the line meets the arc's own sweep, not the res
   assert.equal(trimClick(under, 10, 1, -2, new Set()).sketch.entities.filter((e) => e.type === "line").length, 1);
 });
 
-test("cutting at two crossings joins only neighbouring pieces with collinear constraints", () => {
+test("cutting at two crossings joins only neighboring pieces with collinear constraints", () => {
   const first = trimClick(crossed(), 10, 1, 0, new Set());
   const ends = (id) => { const e = first.sketch.entities.find((x) => x.id === id); return new Set([e.a, e.b]); };
   const collinear = first.sketch.constraints.filter((c) => c.type === "collinear");

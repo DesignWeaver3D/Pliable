@@ -1,4 +1,4 @@
-/** The strip at the top centre of the view: the tools that work with the selection (or, in a sketch, the drawing tools
+/** The strip at the top center of the view: the tools that work with the selection (or, in a sketch, the drawing tools
  *  and a row of constraints), fitted to the room between the bodies list and the nav cube. Moved out of main.ts. */
 import { constraintTip } from "./sketchconstrainthelp";
 import { stripChoices } from "./sketchconstraintgroups";

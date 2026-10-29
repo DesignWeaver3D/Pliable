@@ -19,7 +19,7 @@ test("a three-point arc runs counterclockwise from whichever end comes first tha
   near(under.radius, 5);
 });
 
-test("slot corners lie either side of the axis between the end centres", () => {
+test("slot corners lie either side of the axis between the end centers", () => {
   const s = slotCorners({ u: 0, v: 0 }, { u: 10, v: 0 }, 2);
   assert.deepEqual([s.aLeft.v, s.aRight.v, s.bLeft.u], [2, -2, 10]);
   assert.equal(slotCorners({ u: 1, v: 1 }, { u: 1, v: 1 }, 2), null);

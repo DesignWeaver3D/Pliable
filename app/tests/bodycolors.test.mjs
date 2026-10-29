@@ -10,11 +10,11 @@ function hsl(hex) {
   return { s: s * 100, l: l * 100 };
 }
 
-test("every colour is readable on the dark background (contrast at least 7:1)", () => {
+test("every color is readable on the dark background (contrast at least 7:1)", () => {
   for (let id = 1; id <= 500; id++) assert.ok(contrast(bodyColor(id), BACKGROUND) >= 7, `id ${id} ${bodyColor(id)}`);
 });
 
-test("colours stay muted: saturation and lightness inside the bounds", () => {
+test("colors stay muted: saturation and lightness inside the bounds", () => {
   for (let id = 1; id <= 500; id++) {
     const { s, l } = hsl(bodyColor(id));
     assert.ok(s >= 28 && s <= 47, `saturation ${s} for id ${id}`);
@@ -30,7 +30,7 @@ test("the first twelve ids have clearly different hues", () => {
     }
 });
 
-test("the same id always gives the same colour", () => {
+test("the same id always gives the same color", () => {
   assert.equal(bodyColor(7), bodyColor(7, 3));
   assert.match(bodyColor(1), /^#[0-9a-f]{6}$/);
 });

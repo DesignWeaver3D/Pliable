@@ -1,6 +1,6 @@
 /** Fillet and Chamfer where a corner involves an arc or a circle: line and arc, arc and arc, and either with a circle. Two lines stay in `roundCorner`
  *  (sketchmodel.ts). The curves may meet at a shared end point (a corner), cross, or not touch at all (fillet only). The fillet circle is the one of the
- *  typed radius, tangent to both curves, whose centre is nearest the pointer; each curve is cut or stretched to its tangent point. */
+ *  typed radius, tangent to both curves, whose center is nearest the pointer; each curve is cut or stretched to its tangent point. */
 import { dropOrphans, entityPoints, nextId, pointOf } from "./sketchmodel.ts";
 import type { SketchConstraint, SketchData, SketchEntity, SketchPoint } from "./sketchmodel.ts";
 
@@ -22,7 +22,7 @@ const unit = (a: Pt): Pt => {
 const at = (s: SketchData, id: number): Pt => [pointOf(s, id).u, pointOf(s, id).v];
 const mod = (x: number) => ((x % TWO_PI) + TWO_PI) % TWO_PI;
 
-/** The centre and radius of an arc or circle. */
+/** The center and radius of an arc or circle. */
 function roundOf(s: SketchData, e: Round): { c: Pt; r: number } {
   const c = at(s, e.center);
   return { c, r: e.type === "circle" ? e.radius : len(sub(at(s, e.start), c)) };
@@ -87,7 +87,7 @@ function geoOf(s: SketchData, e: Curve): Geo {
   const { c, r } = roundOf(s, e);
   return { line: false, c, r };
 }
-/** The curves parallel to `g` at distance r on either side: the centre of a fillet circle of radius r lies on one from each curve. */
+/** The curves parallel to `g` at distance r on either side: the center of a fillet circle of radius r lies on one from each curve. */
 function offsets(g: Geo, r: number): Geo[] {
   if (g.line) {
     const n: Pt = [-g.d[1] * r, g.d[0] * r];
@@ -97,7 +97,7 @@ function offsets(g: Geo, r: number): Geo[] {
   if (Math.abs(g.r - r) > EPS) out.push({ line: false, c: g.c, r: Math.abs(g.r - r) });
   return out;
 }
-/** Where a circle of radius r centred at p touches the curve g. */
+/** Where a circle of radius r centered at p touches the curve g. */
 function touch(g: Geo, p: Pt, r: number): Pt {
   if (g.line) {
     const k = dot(sub(p, g.p), g.d);

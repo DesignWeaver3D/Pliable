@@ -1,7 +1,7 @@
 /**
  * Materials for model bodies. A material has a name, a group, a density and the numbers the 3D view uses
  * to draw it. `render` feeds the viewport directly, so a new material only needs new numbers.
- * `density` (kg per cubic metre) gives a selected body its mass in the measurement card (the chosen material's density).
+ * `density` (kg per cubic meter) gives a selected body its mass in the measurement card (the chosen material's density).
  * The Default material setting applies to every body without its own choice; a body can be given its own material
  * from the body list menu (stored with the body in the project). The 3D view draws every body with the default material's look.
  */
@@ -11,12 +11,12 @@ export interface Material {
   id: string;
   name: string;
   group: MaterialGroup;
-  /** Kilograms per cubic metre; the measurement card's mass for a body. */
+  /** Kilograms per cubic meter; the measurement card's mass for a body. */
   density: number;
   /** Where the density comes from and how much it varies. */
   note?: string;
   render: {
-    /** Surface colour as sRGB hex. For metals it is the metal's own colour; plastics and resins are tinted per body (or use this colour when body colours are off). */
+    /** Surface color as sRGB hex. For metals it is the metal's own color; plastics and resins are tinted per body (or use this color when body colors are off). */
     color: number;
     roughness: number;
     metalness: number;
@@ -27,7 +27,7 @@ export interface Material {
   };
 }
 
-const BLUE = 0x9db4cc; // the steel-blue of the plain (uncoloured) surface
+const BLUE = 0x9db4cc; // the steel-blue of the plain (uncolored) surface
 
 const plastic = (id: string, name: string, density: number, note: string, roughness: number, clearcoat: number, clearcoatRoughness: number): Material => ({
   id,
@@ -88,7 +88,7 @@ export function materialOrDefault(id: string): Material {
   return getMaterial(id) ?? defaultMaterial();
 }
 
-/** Metals show their own colour; plastics and resins take the per-body tint. */
+/** Metals show their own color; plastics and resins take the per-body tint. */
 export function usesBodyColors(m: Material): boolean {
   return m.group !== "Metal";
 }

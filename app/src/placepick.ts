@@ -34,12 +34,12 @@ export function moveHandlesAt<T extends { kind?: string; anchor: [number, number
   return handles.map((h) => (h.kind === "move" ? { ...h, anchor: [point[0], point[1], point[2]] as [number, number, number] } : h));
 }
 
-/** The hole and circle centres a point pick may snap to: every centre of the model (not only those of the hovered hole, which the pick never hovers) that passes the visibility test. */
+/** The hole and circle centers a point pick may snap to: every center of the model (not only those of the hovered hole, which the pick never hovers) that passes the visibility test. */
 export function snapCentres(all: { position: number[] }[], visible: (p: Vec3) => boolean): Vec3[] {
   return all.map((c) => [c.position[0], c.position[1], c.position[2]] as Vec3).filter(visible);
 }
 
-/** Where a hole's axis meets the plane (point, normal): the hole centre on the face around its mouth, or null if the axis lies parallel to it. */
+/** Where a hole's axis meets the plane (point, normal): the hole center on the face around its mouth, or null if the axis lies parallel to it. */
 export function axisOnPlane(centre: Vec3, axis: Vec3, planePoint: Vec3, normal: Vec3): Vec3 | null {
   const along = normal[0] * axis[0] + normal[1] * axis[1] + normal[2] * axis[2];
   if (Math.abs(along) < 1e-9) return null;
@@ -47,7 +47,7 @@ export function axisOnPlane(centre: Vec3, axis: Vec3, planePoint: Vec3, normal: 
   return [centre[0] + axis[0] * t, centre[1] + axis[1] * t, centre[2] + axis[2] * t];
 }
 
-/** The hole centre on each side of the hole: where its axis meets the nearest plane square to it on either side of the centre (the faces around the two mouths). */
+/** The hole center on each side of the hole: where its axis meets the nearest plane square to it on either side of the center (the faces around the two mouths). */
 export function mouthPoints(centre: Vec3, axis: Vec3, planes: { point: Vec3; normal: Vec3 }[]): Vec3[] {
   let before: { t: number; p: Vec3 } | null = null;
   let after: { t: number; p: Vec3 } | null = null;

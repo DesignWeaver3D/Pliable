@@ -43,7 +43,7 @@ export interface FaceSlice {
 /**
  * The cut of a triangle mesh by the plane, per body (faces without a body share the key -1): closed outlines in the plane's
  * 2D coordinates. `faces` are index ranges into `indices`. A vertex exactly on the plane counts as on the side the normal
- * points to, so neighbouring triangles agree and the outlines close.
+ * points to, so neighboring triangles agree and the outlines close.
  */
 export function sliceBodies(positions: ArrayLike<number>, indices: ArrayLike<number>, faces: readonly FaceSlice[], frame: Frame, eps: number): Map<number, Loop[]> {
   const vertexCount = positions.length / 3;
@@ -240,7 +240,7 @@ export interface HatchStyle {
 const ANGLES = [45, 135, 0, 90, 22.5, 112.5, 67.5, 157.5];
 const SPACINGS = [1, 1.6, 2.3, 1.3];
 
-/** The hatch of the body at this place in the list of bodies: neighbours in the list differ in both the angle and the spacing. */
+/** The hatch of the body at this place in the list of bodies: neighbors in the list differ in both the angle and the spacing. */
 export function hatchStyle(rank: number): HatchStyle {
   const r = Math.max(0, Math.floor(rank));
   return { angle: ANGLES[r % ANGLES.length], spacing: SPACINGS[(r * 3 + 1) % SPACINGS.length] };

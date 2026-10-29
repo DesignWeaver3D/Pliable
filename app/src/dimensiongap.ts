@@ -5,7 +5,7 @@ export interface Pt {
   y: number;
 }
 
-/** The pieces of segment a-b that lie outside the rectangle of half size (halfW, halfH) centred at `centre` and turned by `angleDeg`. Pieces shorter than a pixel are dropped. */
+/** The pieces of segment a-b that lie outside the rectangle of half size (halfW, halfH) centered at `centre` and turned by `angleDeg`. Pieces shorter than a pixel are dropped. */
 export function gapSegment(a: Pt, b: Pt, centre: Pt, halfW: number, halfH: number, angleDeg: number): [Pt, Pt][] {
   const turn = (angleDeg * Math.PI) / 180;
   const [cos, sin] = [Math.cos(turn), Math.sin(turn)];

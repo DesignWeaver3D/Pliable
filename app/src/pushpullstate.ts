@@ -9,7 +9,7 @@ export const MODE_BUTTONS: readonly { id: PushPullMode; label: string; title: st
   { id: "new", label: "New body", title: "Always makes a separate new body and never cuts or merges. New body: hold Alt while dragging" },
 ];
 
-export const FLIP_TITLE = "Reverses which drag direction adds and which subtracts (the arrows swap colour); it does not change the face's normal";
+export const FLIP_TITLE = "Reverses which drag direction adds and which subtracts (the arrows swap color); it does not change the face's normal";
 export const SYMMETRIC_TITLE = "Push and pull both ways from the face. Symmetric: hold Shift while dragging";
 
 export class PushPullState {
@@ -55,7 +55,7 @@ export class PushPullState {
   }
 }
 
-/** The colour role of each arrow: the arrow on the face-normal side adds unless Flip swaps the roles. */
+/** The color role of each arrow: the arrow on the face-normal side adds unless Flip swaps the roles. */
 export function arrowRoles(flip: boolean): { normalSide: "add" | "subtract"; oppositeSide: "add" | "subtract" } {
   return flip ? { normalSide: "subtract", oppositeSide: "add" } : { normalSide: "add", oppositeSide: "subtract" };
 }

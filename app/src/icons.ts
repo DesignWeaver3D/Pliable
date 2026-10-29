@@ -1,6 +1,6 @@
 /**
  * Procedural icons: every tool icon is a base shape (what it works on) plus a small mark (what it does), drawn on a
- * 24 px grid in the current text colour, so the set reads as families and a new tool costs one line in TOOL_ICONS.
+ * 24 px grid in the current text color, so the set reads as families and a new tool costs one line in TOOL_ICONS.
  * A tool with no entry gets a rounded square with its initials, so a missing icon never blocks a tool.
  * `icons.html` (dev server) is the contact sheet for reviewing all of them at 16 and 24 px.
  */

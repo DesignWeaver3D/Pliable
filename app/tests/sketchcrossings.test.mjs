@@ -6,7 +6,7 @@ import { trimClick } from "../src/sketchtrim.ts";
 const base = () => ({ plane: { origin: [0, 0, 0], normal: [0, 0, 1], xdir: [1, 0, 0] }, points: [], entities: [], constraints: [] });
 const near = (a, b, tol = 1e-6) => assert.ok(Math.abs(a - b) < tol, `${a} vs ${b}`);
 
-// An ellipse centred on the origin with semi-axes 10 (along u) and 5, and a horizontal line y = 0 from x = -20 to x = 20.
+// An ellipse centered on the origin with semi-axes 10 (along u) and 5, and a horizontal line y = 0 from x = -20 to x = 20.
 function withEllipse(arc = false) {
   const s = base();
   s.points.push({ id: 1, u: -20, v: 0 }, { id: 2, u: 20, v: 0 }, { id: 3, u: 0, v: 0 }, { id: 4, u: 10, v: 0 }, { id: 5, u: -10, v: 0 }, { id: 6, u: 0, v: 5 }, { id: 7, u: 0, v: -5 });

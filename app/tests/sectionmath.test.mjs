@@ -88,7 +88,7 @@ test("hatch lines skip the hole of a ring", () => {
   assert.ok(Math.abs(length - 96) < 2.5, `length ${length}`);
 });
 
-test("neighbouring bodies in the list get different angles and spacings", () => {
+test("neighboring bodies in the list get different angles and spacings", () => {
   for (let r = 0; r < 20; r++) {
     const a = hatchStyle(r);
     const b = hatchStyle(r + 1);

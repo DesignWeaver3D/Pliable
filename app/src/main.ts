@@ -504,7 +504,7 @@ const dimensionEditor = new DimensionEditor({
 void dimensionEditor;
 viewport.onHoverBody = (id) => bodyList.setHovered(id);
 
-// Moving a hole by dragging its centre dot: previews the Move hole tool (latest request wins) and commits on release.
+// Moving a hole by dragging its center dot: previews the Move hole tool (latest request wins) and commits on release.
 type CentreMove = { face: number; offset: { x: number; y: number; z: number } };
 function centreRequest(face: number, o: { x: number; y: number; z: number }) {
   const tool = tools.find((t) => t.id === "move_hole");
@@ -943,7 +943,7 @@ viewport.onSketchCurveClick = (id) => {
     app.keepingChosen = false;
   }
 };
-reference.keptSnaps = () => keptSketches.snapData(); // point picks snap to the ends, centres, midpoints and curves of kept sketches
+reference.keptSnaps = () => keptSketches.snapData(); // point picks snap to the ends, centers, midpoints and curves of kept sketches
 viewport.onProfileHover = (at, curve) => {
   keptSketches.setHoveredRegion(at);
   keptSketches.setHovered(curve ?? at?.id ?? null);
@@ -1060,7 +1060,7 @@ async function runPreview(tool: ToolInfo, values: Record<string, ParamValue>, ed
     show(mesh);
     toolPanel.setSideColours(mesh.header.sides);
     if (slideLive && sentValue !== undefined) {
-      // Which bodies a move arrow moves is read off two previews of the same drag (their centres shift along the arrow).
+      // Which bodies a move arrow moves is read off two previews of the same drag (their centers shift along the arrow).
       const centres = bodyCentres(mesh.vertices);
       const before = slideTrack;
       const moving = before && before.value !== sentValue ? movedBodies(before.centres, centres, slideLive.info.direction, 1e-4, (sentValue - before.value) / (slideLive.info.scale || 1)) : before?.moving ?? null;

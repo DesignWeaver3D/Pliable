@@ -145,7 +145,7 @@ export class ToolPanel {
     return this.open?.id ?? null;
   }
 
-  /** Colour the Remove side names like the bodies the open cutting plane would give (from the preview's `sides`). */
+  /** Color the Remove side names like the bodies the open cutting plane would give (from the preview's `sides`). */
   setSideColours(sides: readonly (number | null)[] | undefined) {
     const list = this.inputs.remove_side;
     if (this.open?.id === "cut_plane" && list instanceof HTMLSelectElement) colourSides(list, sides);
@@ -343,7 +343,7 @@ export class ToolPanel {
       });
       const pick = document.createElement("button");
       pick.textContent = "Pick destination point";
-      pick.title = "Click a vertex, edge, face centre, hole centre, axis or the origin; the base point goes there";
+      pick.title = "Click a vertex, edge, face center, hole center, axis or the origin; the base point goes there";
       pick.addEventListener("click", () => void pickDestination());
       for (const name of placement)
         inputs[name].addEventListener("input", () => {
@@ -430,7 +430,7 @@ export class ToolPanel {
         showAxis();
         this.schedulePreview(0);
       });
-      // Like the plane forms (Cut with plane): Pick axis first, centred, the three global axes in a row under it; the axis list and the edge id are not shown.
+      // Like the plane forms (Cut with plane): Pick axis first, centered, the three global axes in a row under it; the axis list and the edge id are not shown.
       pickEdge.style.textAlign = "center";
       const axisRow = document.createElement("div");
       axisRow.style.cssText = "display:flex;gap:4px";
@@ -484,7 +484,7 @@ export class ToolPanel {
         if (plane && this.open === tool) usePlaneIn(plane.origin, plane.normal);
       });
       if (planeNames.length === 5) {
-        // The one-position plane forms (Cut with plane): Pick plane first, centred, the three origin planes in a row under it; the Axis field is not shown (the buttons and the direction fields set it).
+        // The one-position plane forms (Cut with plane): Pick plane first, centered, the three origin planes in a row under it; the Axis field is not shown (the buttons and the direction fields set it).
         pickPlane.style.textAlign = "center";
         const originRow = document.createElement("div");
         originRow.style.cssText = "display:flex;gap:4px";

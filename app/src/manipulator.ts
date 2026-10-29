@@ -62,7 +62,7 @@ export class Manipulator {
   /** Called with the new parameter value while a handle is dragged, then once more with phase "end". */
   onDrag: (param: string, value: number, phase: "move" | "end" | "cancel", x: number, y: number, linked: Record<string, number>) => void = () => {};
 
-  /** The colour of the push/pull arrow at rest, when something else decides it (Flip turns it red, see pushpullarrows.ts); null: the handle's own colour. */
+  /** The color of the push/pull arrow at rest, when something else decides it (Flip turns it red, see pushpullarrows.ts); null: the handle's own color. */
   pushPullRest: number | null = null;
   /** Set while a point is being picked: the handles and their labels are neither drawn nor grabbed (see Viewport.setGizmosHidden). */
   hidden = false;
@@ -191,7 +191,7 @@ export class Manipulator {
       }
       this.root.add(axis);
     } else if (info.ring && info.axis) {
-      // The ring a rotation handle runs on, around the thing it turns: a thin circle in the axis colour.
+      // The ring a rotation handle runs on, around the thing it turns: a thin circle in the axis color.
       axis = new THREE.Group();
       axis.renderOrder = 9;
       const [cx, cy, cz, radius] = info.ring;
@@ -286,7 +286,7 @@ export class Manipulator {
     item.arm.geometry.setFromPoints([new THREE.Vector3(), dir]);
   }
 
-  /** Swing a turn arc round its ring so that it stays centred on the handle: where the tool declared the grip, plus the turn made since. */
+  /** Swing a turn arc round its ring so that it stays centered on the handle: where the tool declared the grip, plus the turn made since. */
   private turnArc(item: Item) {
     const declared = item.declared!;
     const circle = item.axis!.children[0] as THREE.Line;

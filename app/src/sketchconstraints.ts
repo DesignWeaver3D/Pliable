@@ -105,7 +105,7 @@ export function constraintsToAdd(option: ConstraintOption, s: SketchData, sel: S
 type Line = Extract<SketchEntity, { type: "line" }>;
 
 /** Symmetry for a selection of points and lines: two points about a line; three points (the first two opposite each other about the third, which is the fixed
- * one such as the origin, else the one nearest the others' middle); one line's ends about another line or an axis; two circles, arcs or ellipses (their centres) about a line or a point; two lines about a third line (the sketch axis or a construction line if there is one, else
+ * one such as the origin, else the one nearest the others' middle); one line's ends about another line or an axis; two circles, arcs or ellipses (their centers) about a line or a point; two lines about a third line (the sketch axis or a construction line if there is one, else
  * the last selected), or about a point. The lines' ends are paired whichever way fits the drawn shape best. */
 export function symmetries(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[] {
   const es = entities(s, sel);
@@ -120,7 +120,7 @@ export function symmetries(s: SketchData, sel: SketchSel[]): Omit<SketchConstrai
     const centre = p.find((id) => uv(id).fixed) ?? [...p].sort((x, y) => offMiddle(x) - offMiddle(y))[0];
     return [{ type: "symmetric_point", points: p.filter((id) => id !== centre), point: centre }];
   }
-  // Two circles, arcs or ellipses (their centres) about a line or a point, and one line (its two ends) about another line or an axis.
+  // Two circles, arcs or ellipses (their centers) about a line or a point, and one line (its two ends) about another line or an axis.
   const roundOf = es.filter((e) => e.type === "circle" || e.type === "arc" || e.type === "ellipse");
   const straight = es.filter((e) => e.type === "line") as Line[];
   if (roundOf.length === 2 && roundOf.length + straight.length === es.length && straight.length + p.length === 1) {

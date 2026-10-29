@@ -1,4 +1,4 @@
-/** Snap points of a kept sketch for the 3D point picks (move, array, rotate base and destination points): its ends, centres and midpoints, and its curves. */
+/** Snap points of a kept sketch for the 3D point picks (move, array, rotate base and destination points): its ends, centers and midpoints, and its curves. */
 import * as M from "./sketchmodel.ts";
 
 export interface SketchSnapPoint {
@@ -6,7 +6,7 @@ export interface SketchSnapPoint {
   label: string;
 }
 
-/** The points a pick may snap to: every end or centre of a drawn curve (construction and projected reference curves left out) and the middle of each line. */
+/** The points a pick may snap to: every end or center of a drawn curve (construction and projected reference curves left out) and the middle of each line. */
 export function sketchSnapPoints(data: M.SketchData): SketchSnapPoint[] {
   const out: SketchSnapPoint[] = [];
   const seen = new Set<number>();
@@ -24,13 +24,13 @@ export function sketchSnapPoints(data: M.SketchData): SketchSnapPoint[] {
       const a = M.pointOf(data, e.a);
       const b = M.pointOf(data, e.b);
       out.push({ point: M.toWorld(data.plane, (a.u + b.u) / 2, (a.v + b.v) / 2), label: "Sketch midpoint" });
-    } else if (e.type === "circle") add(e.center, "Sketch centre");
+    } else if (e.type === "circle") add(e.center, "Sketch center");
     else if (e.type === "arc") {
-      add(e.center, "Sketch centre");
+      add(e.center, "Sketch center");
       add(e.start, "Sketch point");
       add(e.end, "Sketch point");
     } else if (e.type === "ellipse") {
-      add(e.center, "Sketch centre");
+      add(e.center, "Sketch center");
       if (e.start !== undefined && e.end !== undefined) {
         add(e.start, "Sketch point");
         add(e.end, "Sketch point");

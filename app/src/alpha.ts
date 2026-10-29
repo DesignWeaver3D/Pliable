@@ -3,7 +3,7 @@
 import { recentMessages } from "./messagelog";
 import { usage, usageLines, type UsageRow } from "./usage";
 
-export const ALPHA_NOTICE = "Alpha software. Not for serious work. Data can be lost. The interface and behaviour will change rapidly without notice.";
+export const ALPHA_NOTICE = "Alpha software. Not for serious work. Data can be lost. The interface and behavior will change rapidly without notice.";
 export const USAGE_NOTICE = "Pliable counts which tools you start and finish, on this computer only. The counts leave it only if you copy them from the diagnostics report yourself.";
 const ISSUES_URL = "https://github.com/DesignWeaver3D/Pliable/issues/new?template=bug_report.md";
 

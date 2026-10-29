@@ -22,7 +22,7 @@ export interface EdgeRange {
   normal: [number, number, number] | null;
   solid?: number;
   body?: number | null;
-  /** Centre of a circular or elliptical edge (an arc too): a snap and measure anchor. */
+  /** Center of a circular or elliptical edge (an arc too): a snap and measure anchor. */
   centre?: [number, number, number] | null;
 }
 
@@ -34,7 +34,7 @@ export interface VertexInfo {
 }
 
 export interface CentreInfo {
-  /** The hole or boss face this centre belongs to; picking the centre selects that face. */
+  /** The hole or boss face this center belongs to; picking the center selects that face. */
   face: number;
   position: [number, number, number];
   axis: [number, number, number];

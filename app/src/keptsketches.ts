@@ -27,10 +27,10 @@ export interface KeptHost {
 }
 
 const CURVE_COLOR = 0x9bb7d4;
-/** A sketch under the pointer (its row or its curves) and a picked one: the same colours as the model's hover and selection. */
+/** A sketch under the pointer (its row or its curves) and a picked one: the same colors as the model's hover and selection. */
 const HOVER_COLOR = 0xffffff;
 const PICKED_COLOR = 0xff8a1f;
-/** Closed regions are drawn as tinted faces that belong to no model: this colour is used for nothing else. */
+/** Closed regions are drawn as tinted faces that belong to no model: this color is used for nothing else. */
 const PROFILE_COLOR = 0x2fd4c0;
 
 export class KeptSketches {
@@ -72,7 +72,7 @@ export class KeptSketches {
     void this.sync();
   }
 
-  /** The sketch chosen in the view with Shift or Ctrl+click on its curve (null for none): its curves are drawn in the selection colour. */
+  /** The sketch chosen in the view with Shift or Ctrl+click on its curve (null for none): its curves are drawn in the selection color. */
   setChosen(id: number | null) {
     this.chosen = id;
     this.paint();
@@ -98,7 +98,7 @@ export class KeptSketches {
     this.paint();
   }
 
-  /** Colour the rows and the drawn curves for the hovered and picked sketch without rebuilding anything (a rebuilt row would break a double-click). */
+  /** Color the rows and the drawn curves for the hovered and picked sketch without rebuilding anything (a rebuilt row would break a double-click). */
   private paint() {
     for (const [id, row] of this.rows) {
       row.classList.toggle("selected", this.picked === id);
@@ -111,7 +111,7 @@ export class KeptSketches {
     }
   }
 
-  /** What a 3D point pick may snap to on the visible sketches: their ends, centres and midpoints, and the world segments of their curves. */
+  /** What a 3D point pick may snap to on the visible sketches: their ends, centers and midpoints, and the world segments of their curves. */
   snapData(): { points: SketchSnapPoint[]; curves: ArrayLike<number>[] } {
     const points: SketchSnapPoint[] = [];
     const curves: ArrayLike<number>[] = [];

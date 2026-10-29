@@ -86,13 +86,13 @@ export function smartChoices(s: SketchData, sel: SketchSel[], near: number): Con
             return x === y ? [] : [{ type: "coincident", points: [x, y] }];
           }));
         } else {
-          add(dimension("Distance between the centres", (s2, sel2) => ({ type: "distance", points: centres(s2, sel2) }), (s2, sel2) => dist(s2, centres(s2, sel2)[0], centres(s2, sel2)[1])));
+          add(dimension("Distance between the centers", (s2, sel2) => ({ type: "distance", points: centres(s2, sel2) }), (s2, sel2) => dist(s2, centres(s2, sel2)[0], centres(s2, sel2)[1])));
         }
         // The spacing between the rims (also for concentric or nested circles), when the two do not overlap.
         const gap = (s2: SketchData, sel2: SketchSel[]) => measure(s2, { id: 0, type: "round_gap", entities: entities(s2, sel2).map((e) => e.id) });
         if ((gap(s, sel) ?? 0) > 1e-9) add(dimension("Gap between the rims", (s2, sel2) => ({ type: "round_gap", entities: entities(s2, sel2).map((e) => e.id) }), (s2, sel2) => Math.round((gap(s2, sel2) ?? 0) * 1000) / 1000));
       } else if (es.some((e) => e.type === "line") && es.some(isRound)) {
-        add(pointLine("Centre to line distance", (s2, sel2) => centreOf(entities(s2, sel2).find(isRound)!), (s2, sel2) => entities(s2, sel2).find((e) => e.type === "line") as Line));
+        add(pointLine("Center to line distance", (s2, sel2) => centreOf(entities(s2, sel2).find(isRound)!), (s2, sel2) => entities(s2, sel2).find((e) => e.type === "line") as Line));
       }
     } else {
       const [e, p] = [es[0], ps[0]];
@@ -101,8 +101,8 @@ export function smartChoices(s: SketchData, sel: SketchSel[], near: number): Con
         if (pointLineDistance(s, p, e) <= near) add(named("Point on"));
       } else if (isRound(e) && !entityHas(e, p)) {
         const centre = centreOf(e)!;
-        if (dist(s, p, centre) <= near) add(constraint("Coincident with the centre", () => [{ type: "coincident", points: [p, centre] }]));
-        else add(dimension("Distance to the centre", () => ({ type: "distance", points: [p, centre] }), () => dist(s, p, centre)));
+        if (dist(s, p, centre) <= near) add(constraint("Coincident with the center", () => [{ type: "coincident", points: [p, centre] }]));
+        else add(dimension("Distance to the center", () => ({ type: "distance", points: [p, centre] }), () => dist(s, p, centre)));
         if (Math.abs(dist(s, p, centre) - radiusOf(s, e)) <= near) add(named("Point on"));
       } else if (e.type === "ellipse" && !entityPoints(e).includes(p) && distanceTo(s, e, pointOf(s, p).u, pointOf(s, p).v) <= near) {
         add(named("Point on"));

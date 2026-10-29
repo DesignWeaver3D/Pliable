@@ -1,6 +1,6 @@
-/** Principal axes of the model: shared colours and the rule for how long the origin axes are drawn. */
+/** Principal axes of the model: shared colors and the rule for how long the origin axes are drawn. */
 
-/** Colour of each principal axis; the origin axes and the navigation cube's origin edges both use these. */
+/** Color of each principal axis; the origin axes and the navigation cube's origin edges both use these. */
 export const AXIS_COLORS = { x: 0xe5484d, y: 0x46a758, z: 0x3e8bff } as const;
 
 export const MIN_HALF_LENGTH = 25;

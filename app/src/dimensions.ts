@@ -38,7 +38,7 @@ export interface Dimension {
   /** Sketch dimensions: drawn highlighted when selected, a click on the text selects it, and a right-click on the text opens its menu. */
   /** Not a dimension value: a constraint tag (H, V, =) or a live size tag while drawing. Its lines are not cut around it. */
   mark?: boolean;
-  /** Tags: world points (arc and circle centres) the tag is moved clear of, so it never covers them or their selection highlight. */
+  /** Tags: world points (arc and circle centers) the tag is moved clear of, so it never covers them or their selection highlight. */
   avoid?: number[][];
   /** Tags: the constraint button whose icon is drawn instead of the text. */
   icon?: string;
@@ -184,7 +184,7 @@ export class DimensionOverlay {
     return add(at, mul(unit(sub(toward, at)), MARK_OUT_PX));
   }
 
-  /** A tag's place moved up, out of the way of the points it must not cover (a centre point and its highlight). */
+  /** A tag's place moved up, out of the way of the points it must not cover (a center point and its highlight). */
   private clearOf(at: V, d: Dimension, project: (p: number[]) => V): V {
     const half = { x: textWidth(d.text) / 2 + 6, y: TEXT_PX / 2 + 8 };
     let p = at;
@@ -269,7 +269,7 @@ export class DimensionOverlay {
   private leader(d: Dimension, project: (p: number[]) => V, out: SVGElement[]) {
     const a = project(d.points[0]);
     const b = project(d.points[1]);
-    // The rim point the leader touches and the way it leaves the feature (away from the centre).
+    // The rim point the leader touches and the way it leaves the feature (away from the center).
     const rim = b;
     const outDir = unit(sub(b, a));
     if (d.kind === "diameter") {
@@ -413,10 +413,10 @@ export class DimensionOverlay {
   /** Wide invisible copies of a dimension's lines, so double-clicking the leader or dimension line edits it like the text does. */
   private lineHits(d: Dimension, drawn: SVGElement[]): SVGElement[] {
     const at = this.drewLabel;
-    // The line across a circle (to its centre or through it) is left out: its hit area would cover the centre and the curve, which stay selectable.
+    // The line across a circle (to its center or through it) is left out: its hit area would cover the center and the curve, which stay selectable.
     const lines = drawn.filter((el) => el.tagName === "line");
     const round = d.kind === "radius" || d.kind === "diameter";
-    // The line across a circle can be clicked to select the dimension, but not dragged, and not near the centre (the middle of a diameter) or the curve, which stay selectable and draggable.
+    // The line across a circle can be clicked to select the dimension, but not dragged, and not near the center (the middle of a diameter) or the curve, which stay selectable and draggable.
     const pieces = lines.flatMap((el, i) => (round && i === 0 ? halves(el, d.kind === "diameter").map((piece) => ({ el: piece, across: true })) : [{ el, across: false }]));
     return pieces
       .map(({ el, across }) => {
@@ -541,14 +541,14 @@ function textWidth(text: string) {
   return text.length * TEXT_PX * 0.55 + 8;
 }
 
-/** Swap the dimension colour for the reference gray in an element and what it holds (the selected orange is left alone). */
+/** Swap the dimension color for the reference gray in an element and what it holds (the selected orange is left alone). */
 function recolour(el: Element) {
   const style = el.getAttribute("style");
   if (style?.includes(LINE_COLOR)) el.setAttribute("style", style.split(LINE_COLOR).join(REFERENCE_COLOR));
   for (const child of Array.from(el.children)) recolour(child);
 }
 
-/** The parts of a line across a circle that may be clicked: clear of both ends, and for a diameter (which passes through the centre) of its middle too. */
+/** The parts of a line across a circle that may be clicked: clear of both ends, and for a diameter (which passes through the center) of its middle too. */
 function halves(el: SVGElement, throughCentre: boolean): SVGElement[] {
   const [x1, y1, x2, y2] = ["x1", "y1", "x2", "y2"].map((k) => Number(el.getAttribute(k)));
   const [mx, my] = [(x1 + x2) / 2, (y1 + y2) / 2];

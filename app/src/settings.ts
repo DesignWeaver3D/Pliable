@@ -5,7 +5,7 @@ import { MATERIALS, DEFAULT_MATERIAL_ID, getMaterial } from "./materials.ts";
 export interface Settings {
   /** Pick radius in pixels for edges. */
   edgePickPx: number;
-  /** Pick radius in pixels for vertices and hole centres. */
+  /** Pick radius in pixels for vertices and hole centers. */
   vertexPickPx: number;
   /** Draw the model translucent and let edges and faces behind it be picked (see-through). */
   seeThrough: boolean;
@@ -15,7 +15,7 @@ export interface Settings {
   sharpAngle: number;
   /** What a box selection picks: "auto" follows the current selection (edges when empty). */
   boxKind: "auto" | "edge" | "face" | "vertex";
-  /** Give every body its own muted colour in the 3D view and the body list. */
+  /** Give every body its own muted color in the 3D view and the body list. */
   randomBodyColors: boolean;
   /** Draw bodies as semi-gloss plastic with studio reflections; off gives the previous flat look. */
   glossyLook: boolean;
@@ -71,13 +71,13 @@ export function setHintsBinding(b: { get: () => boolean; set: (on: boolean) => v
 /** Every row of the settings window, for the command search. `id` is the row's data-setting value. */
 export const SETTING_ENTRIES: { id: string; label: string; keywords: string[] }[] = [
   { id: "edgePickPx", label: "Edge pick range", keywords: ["select", "radius", "reach", "pixels"] },
-  { id: "vertexPickPx", label: "Point pick range", keywords: ["vertex", "hole centre", "snap", "radius", "pixels"] },
+  { id: "vertexPickPx", label: "Point pick range", keywords: ["vertex", "hole center", "snap", "radius", "pixels"] },
   { id: "displayDecimals", label: "Display precision", keywords: ["decimals", "rounding", "digits", "places", "numbers", "dimensions"] },
   { id: "sharpAngle", label: "Sharp edge angle", keywords: ["crease", "select edges", "degrees"] },
   { id: "boxKind", label: "Box selects", keywords: ["marquee", "rubber band", "drag box", "edges", "faces", "vertices"] },
   { id: "seeThrough", label: "See-through", keywords: ["transparent", "x ray", "hidden edges"] },
   { id: "seeThroughOpacity", label: "See-through opacity", keywords: ["transparency", "alpha", "faces"] },
-  { id: "randomBodyColors", label: "Random body colours", keywords: ["colour", "color", "muted", "bodies", "solids", "names", "tint"] },
+  { id: "randomBodyColors", label: "Random body colors", keywords: ["colour", "color", "muted", "bodies", "solids", "names", "tint"] },
   { id: "glossyLook", label: "Glossy plastic look", keywords: ["material", "shiny", "gloss", "realistic", "reflection", "flat", "graphics", "slow"] },
   { id: "material", label: "Default material", keywords: ["body", "plastic", "pla", "petg", "abs", "asa", "resin", "metal", "steel", "aluminium", "copper", "gold", "silver", "titanium", "cobalt", "look", "density"] },
   { id: "hints", label: "Hints", keywords: ["tips", "help line", "learning", "turn off"] },
@@ -175,13 +175,13 @@ export function createSettingsWindow(host: HTMLElement) {
   boxSelect.onchange = () => updateSettings({ boxKind: boxSelect.value as Settings["boxKind"] });
   boxRow.append(boxText, boxSelect);
   const colorsRow = document.createElement("label");
-  colorsRow.title = "Give every body its own muted colour in the 3D view, with its name in the body list in the same colour";
+  colorsRow.title = "Give every body its own muted color in the 3D view, with its name in the body list in the same color";
   const colorsCheck = document.createElement("input");
   colorsCheck.type = "checkbox";
   colorsCheck.checked = settings.randomBodyColors;
   colorsCheck.title = colorsRow.title;
   colorsCheck.onchange = () => updateSettings({ randomBodyColors: colorsCheck.checked });
-  colorsRow.append(colorsCheck, " Random body colours");
+  colorsRow.append(colorsCheck, " Random body colors");
   onSettingsChange(() => (colorsCheck.checked = settings.randomBodyColors));
   const glossRow = document.createElement("label");
   glossRow.title = "Draw bodies as semi-gloss plastic with soft reflections. Turn off for the flat look, which is lighter on slow graphics";
@@ -193,7 +193,7 @@ export function createSettingsWindow(host: HTMLElement) {
   glossRow.append(glossCheck, " Glossy plastic look");
   onSettingsChange(() => (glossCheck.checked = settings.glossyLook));
   const matRow = document.createElement("label");
-  matRow.title = "The material of every body that has none of its own (right-click a body in the body list to give it one) and what the bodies look like. Plastics and resins keep the random body colours; metals show their own colour and ignore them. Needs the glossy plastic look (off gives the flat look for every material)";
+  matRow.title = "The material of every body that has none of its own (right-click a body in the body list to give it one) and what the bodies look like. Plastics and resins keep the random body colors; metals show their own color and ignore them. Needs the glossy plastic look (off gives the flat look for every material)";
   const matText = document.createElement("span");
   matText.textContent = "Default material ";
   const matSelect = document.createElement("select");
@@ -253,7 +253,7 @@ export function createSettingsWindow(host: HTMLElement) {
   const rows = () => [
     heading,
     slider("Edge pick range", "edgePickPx", 1, 14, "How close the pointer must be to an edge to pick it. Lower it to reach small faces."),
-    slider("Point pick range", "vertexPickPx", 1, 16, "How close the pointer must be to a vertex or hole centre to pick it."),
+    slider("Point pick range", "vertexPickPx", 1, 16, "How close the pointer must be to a vertex or hole center to pick it."),
     slider("Display precision", "displayDecimals", 1, MAX_DECIMALS, "How many decimals lengths and values show and how finely mouse drags round, up to 8. It covers measurements, dimensions, tool forms and handle labels. Zeros after the last digit are never shown, so 10 stays 10. The core always works at full precision."),
     slider("Sharp edge angle", "sharpAngle", 5, 90, "Sharp edges selects connected edges whose faces meet at this angle or more."),
     boxRow,

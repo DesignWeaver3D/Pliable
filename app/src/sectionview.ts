@@ -1,5 +1,5 @@
 /** The section view: the model is cut away on one side of a plane in the view only (the geometry kernel is not asked),
- *  each body's cut face is drawn in its colour with grey hatch lines (a different angle and spacing per body), and where the
+ *  each body's cut face is drawn in its color with gray hatch lines (a different angle and spacing per body), and where the
  *  cut faces of two bodies overlap the overlap is painted red, which shows that the bodies intersect. */
 import * as THREE from "three";
 import { bodyColor } from "./bodycolors";

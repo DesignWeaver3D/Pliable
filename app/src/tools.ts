@@ -42,7 +42,7 @@ export interface HandleInfo {
   max: number | null;
   /** A yes/no marker (0 or 1): clicking flips the value instead of dragging. */
   toggle: boolean;
-  /** How it is drawn: a plain arrow, a move arrow in its axis colour, a square resize grip, or a click marker. */
+  /** How it is drawn: a plain arrow, a move arrow in its axis color, a square resize grip, or a click marker. */
   kind?: "arrow" | "move" | "resize" | "toggle";
   unit: string;
   /** An axis handle: the other end of the line drawn from here (a hole's opening), or null. */
@@ -51,7 +51,7 @@ export interface HandleInfo {
   extension?: [number, number, number] | null;
   /** Drawn as an arrowhead at the end of its line with the value in the middle of the line (a length dimension). */
   arrowhead?: boolean;
-  /** A rotation handle: the axis it turns about (it is drawn in that axis's colour) and the ring it runs on: centre and radius. */
+  /** A rotation handle: the axis it turns about (it is drawn in that axis's color) and the ring it runs on: center and radius. */
   axis?: [number, number, number] | null;
   ring?: [number, number, number, number] | null;
   /** A rotation handle: the angles (degrees) the drag snaps to when it passes close to one. */

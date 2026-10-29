@@ -83,7 +83,7 @@ export function typedTargets(tool: Tool, chain: UV[], cursor: UV | null, numbers
     return h === undefined ? [end] : [end, beside(first, end, h / 2)];
   }
   if (tool === "ellarc") {
-    // The arc starts at the end of the long axis and sweeps the typed degrees counterclockwise, measured about the centre.
+    // The arc starts at the end of the long axis and sweeps the typed degrees counterclockwise, measured about the center.
     const sweep = numbers[numbers.length - 1];
     if (chain.length === 4) return [turned(first, chain[3], sweep)];
     const major = chain.length === 1 ? along(first, w / 2) : chain[1];

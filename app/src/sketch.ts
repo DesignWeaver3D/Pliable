@@ -46,37 +46,37 @@ import type { Sel, Viewport } from "./viewport";
 const DRAG_START_PX = 3;
 const POINT_SIZE_PX = 8;
 const CONSTRUCTION_DASH_PX = 8;
-const CENTRE_CROSS_PX = 10; // half the width of a circle or arc centre cross
+const CENTRE_CROSS_PX = 10; // half the width of a circle or arc center cross
 const CONSTRUCTION_GAP_PX = 5;
 const COLORS = { line: 0xb8a4ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
 export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "arctan" | "arcrad" | "tancircle" | "tanarc" | "slot" | "point" | "polygon" | "ellipse" | "ellarc" | "spline" | "trim" | "extend" | "split" | "fillet" | "chamfer" | "triangle" | "pentagon" | "hexagon" | "octagon";
-/** Regular polygon tools: the centre then a corner; the number of sides is the only difference between them. */
+/** Regular polygon tools: the center then a corner; the number of sides is the only difference between them. */
 const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5, hexagon: 6, octagon: 8 };
 export const SKETCH_TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "select", label: "Select", hint: "Click to select, drag points, Delete removes" },
   { id: "line", label: "Line", hint: "Click points; Enter or right-click ends the chain" },
   { id: "rectangle", label: "Rectangle", hint: "Click two opposite corners; square, rounded or bevelled corners and their size are chosen in the sketch card" },
-  { id: "rectcentre", label: "Centre rectangle", hint: "Click the centre, then a corner; square, rounded or bevelled corners and their size are chosen in the sketch card" },
-  { id: "circle", label: "Circle", hint: "Click the centre, then a point on the circle" },
+  { id: "rectcentre", label: "Center rectangle", hint: "Click the center, then a corner; square, rounded or bevelled corners and their size are chosen in the sketch card" },
+  { id: "circle", label: "Circle", hint: "Click the center, then a point on the circle" },
   { id: "circle3", label: "Circle by 3 points", hint: "Click three points the circle passes through" },
-  { id: "arc", label: "Arc", hint: "Click the centre, the start, then the end; the arc runs the way the pointer moves from the start" },
+  { id: "arc", label: "Arc", hint: "Click the center, the start, then the end; the arc runs the way the pointer moves from the start" },
   { id: "arc3", label: "Arc by 3 points", hint: "Click the start, the end, then a point the arc passes through" },
   { id: "arcrad", label: "Arc by ends and radius", hint: "Set the radius in the sketch card, click the start and the end, then a point on the side the arc bulges to; of the arcs of that radius the one nearest the pointer is made" },
   { id: "tancircle", label: "Circle tangent to curves", hint: "Pick three lines, arcs or circles to touch (the circle nearest your last click is made), or two and then click empty space for a circle of the radius in the sketch card" },
   { id: "tanarc", label: "Arc tangent to curves", hint: "Pick two lines, arcs or circles, then click where the arc goes; its radius is set in the sketch card" },
   { id: "arctan", label: "Tangent arc", hint: "Click the end of a line or arc (or the curve itself), then the end of the new arc, which leaves the curve tangentially" },
-  { id: "slot", label: "Slot", hint: "Click the centre of one end, the centre of the other end, then a point for the width" },
+  { id: "slot", label: "Slot", hint: "Click the center of one end, the center of the other end, then a point for the width" },
   { id: "point", label: "Point", hint: "Click to place a point; it can be snapped to and constrained" },
-  { id: "ellipse", label: "Ellipse", hint: "Click the centre, the end of the long axis, then a point for the short radius" },
-  { id: "ellarc", label: "Ellipse arc", hint: "Click the centre, the end of the long axis, a point for the short radius, then the start and the end of the arc; the arc runs the way the pointer moves from the start" },
+  { id: "ellipse", label: "Ellipse", hint: "Click the center, the end of the long axis, then a point for the short radius" },
+  { id: "ellarc", label: "Ellipse arc", hint: "Click the center, the end of the long axis, a point for the short radius, then the start and the end of the arc; the arc runs the way the pointer moves from the start" },
   { id: "spline", label: "Spline", hint: "Click points the curve passes through; Enter or right-click ends it, clicking the first point closes it" },
   { id: "trim", label: "Trim", hint: "Click a line to cut it at its crossings and mark that piece; click the marked piece again to delete it" },
   { id: "split", label: "Split", hint: "Click a line, an ellipse or an elliptical arc where it should be cut" },
   { id: "fillet", label: "Fillet", hint: "Click a corner where two lines or arcs meet (or one of its curves), or pick two curves, to round it; the radius is set in the sketch card" },
   { id: "chamfer", label: "Chamfer", hint: "Click a corner where two lines or arcs meet (or one of its curves), or pick two curves, to bevel it; the distance is set in the sketch card" },
   { id: "extend", label: "Extend", hint: "Click near the end of a line to stretch it to the next curve" },
-  { id: "polygon", label: "Polygon", hint: "Click the centre, then a corner; the number of sides is set in the sketch card (3 to 64)" },
+  { id: "polygon", label: "Polygon", hint: "Click the center, then a corner; the number of sides is set in the sketch card (3 to 64)" },
 ];
 
 export { loadSketchOptions, OPTIONS_KEY, type SketchOptions } from "./sketchoptions";
@@ -122,7 +122,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   failed = new Set<number>();
   /** Directions each point can still move in (0 = placed by the constraints); empty until the first settled solve. */
   private freedom = new Map<number, number>();
-  /** Circles whose radius is not fixed yet: not drawn as fully constrained even when their centre is placed. */
+  /** Circles whose radius is not fixed yet: not drawn as fully constrained even when their center is placed. */
   private freeSizes = new Set<number>();
   /** Set by clicking the degrees of freedom message: the points and curves that still have freedom light up yellow. */
   private showFree = false;
@@ -138,9 +138,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   /** The model's principal axes as they project onto the sketch plane (red x, green y, blue z). */
   private axes = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ linewidth: 1, vertexColors: true, depthTest: false, transparent: true, opacity: 0.7 }));
   private pending = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.pending, linewidth: 2, depthTest: false, transparent: true }));
-  /** A small cross at the centre of every circle and arc, as in technical drawings. */
-  private centres = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ vertexColors: true, linewidth: 2, depthTest: false, transparent: true })); // each cross is coloured like its curve
-  private centreColours = new Map<number, number>(); // the colour of each circle's and arc's cross, set as the curves are drawn
+  /** A small cross at the center of every circle and arc, as in technical drawings. */
+  private centres = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ vertexColors: true, linewidth: 2, depthTest: false, transparent: true })); // each cross is colored like its curve
+  private centreColours = new Map<number, number>(); // the color of each circle's and arc's cross, set as the curves are drawn
   private centresAt = 0; // the pixel size the crosses were last built for
   private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false, transparent: true }));
   private grid: THREE.Group | null = null;
@@ -242,7 +242,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     // The model origin and the places where the principal axes meet the plane are fixed points too.
     this.unwrapFace = kept ? (kept.sketch.unwrap ?? null) : unwrapFace;
     if (this.unwrapFace === null) {
-      // The sketch origin is the centre of the face (or the plane's origin): a fixed point to snap to and constrain against; every flat sketch has it, a kept one too.
+      // The sketch origin is the center of the face (or the plane's origin): a fixed point to snap to and constrain against; every flat sketch has it, a kept one too.
       if (!this.s.points.some((p) => Math.hypot(p.u, p.v) < 1e-6)) this.s.points.push({ id: M.nextId(this.s), u: 0, v: 0, fixed: true });
       if (!kept) for (const o of M.originPoints(plane, this.s.points)) this.s.points.push({ id: M.nextId(this.s), u: o.u, v: o.v, fixed: true });
     }
@@ -624,7 +624,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       const resized = this.drag.resize !== undefined ? this.s.entities.find((x) => x.id === this.drag!.resize) : undefined;
       if (uv && resized && resized.type === "circle") {
         const c = this.s.points.find((p) => p.id === resized.center);
-        if (c) resized.radius = draggedRadius(c, uv[0], uv[1]); // a free circle dragged by its rim: the centre stays, the radius follows the pointer
+        if (c) resized.radius = draggedRadius(c, uv[0], uv[1]); // a free circle dragged by its rim: the center stays, the radius follows the pointer
         this.render();
       } else if (uv && body) this.resolve({ points: body.points.map((p) => ({ point: p.id, u: p.u + uv[0] - body.u, v: p.v + uv[1] - body.v })) });
       else if (uv) {
@@ -693,7 +693,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       }
       const entity = this.s.entities.find((x) => x.id === it.id);
       if (!entity || entity.reference) continue;
-      // An ellipse is held by its centre and major end only: its other axis ends follow, and pinning all five over-constrains the solver (many retries, a laggy drag).
+      // An ellipse is held by its center and major end only: its other axis ends follow, and pinning all five over-constrains the solver (many retries, a laggy drag).
       const held = (entity.type === "ellipse" ? [entity.center, entity.major, ...(entity.start !== undefined ? [entity.start, entity.end!] : [])] : M.entityPoints(entity)).map(point);
       if (M.entityPoints(entity).every((id) => !point(id)?.fixed) && held.every((p) => p)) for (const p of held) ids.add(p!.id);
     }
@@ -1115,7 +1115,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   /** Curves picked so far for the Tangent circle and Arc tangent to curves tools. */
   private tanPicks: number[] = [];
   rectOptions: { corner: "none" | "fillet" | "chamfer"; size: number } = { corner: "none", size: 5 };
-  /** Numbers of the arc tools kept in the sketch card (start angle and sweep of the centre arc, radius of the arc by ends and radius). */
+  /** Numbers of the arc tools kept in the sketch card (start angle and sweep of the center arc, radius of the arc by ends and radius). */
   arcOptions = defaultArcOptions();
   status(text: string, error?: boolean | "warn") {
     this.host.status(text, error);
@@ -1534,8 +1534,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       const a = await this.askForm("Row", [{ label: "Count", value: 3, integer: true }, { label: "Step across", value: 10 }, { label: "Step up", value: 0 }]);
       if (a && a.values[0] >= 2 && a.values[0] <= 200) await this.applyEdit(() => E.repeat(this.s, sel, Math.round(a.values[0]), (k) => ({ map: E.translation(k * a.values[1], k * a.values[2]) })));
     });
-    add("Circle of copies…", "Repeat the selection around a centre", async () => {
-      const a = await this.askForm("Around", [{ label: "Count", value: 6, integer: true }, { label: "Total degrees", value: 360 }, { label: "Centre across", value: cu }, { label: "Centre up", value: cv }]);
+    add("Circle of copies…", "Repeat the selection around a center", async () => {
+      const a = await this.askForm("Around", [{ label: "Count", value: 6, integer: true }, { label: "Total degrees", value: 360 }, { label: "Center across", value: cu }, { label: "Center up", value: cv }]);
       if (!a || a.values[0] < 2 || a.values[0] > 200) return;
       const count = Math.round(a.values[0]);
       const full = Math.abs(a.values[1]) >= 360;
@@ -1558,7 +1558,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
 
   private freedomSeq = 0;
 
-  /** How free each point still is (its colour), worked out after the solve so the shape and its dimensions update first; a newer solve discards an older answer. */
+  /** How free each point still is (its color), worked out after the solve so the shape and its dimensions update first; a newer solve discards an older answer. */
   private async refreshFreedom() {
     const seq = ++this.freedomSeq;
     try {
@@ -1568,7 +1568,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.freeSizes = new Set(reply.free_sizes ?? []);
       this.render(false);
     } catch {
-      // the points keep their earlier colours
+      // the points keep their earlier colors
     }
   }
 
@@ -1801,7 +1801,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const size = this.viewport.renderer.getSize(new THREE.Vector2());
     for (const l of [this.axes, this.normal, this.placed, this.construction, this.free, this.marked, this.pending, this.centres]) l.material.resolution.set(size.x, size.y);
     const pixel = this.pixelAt(0, 0); // dashes keep their screen size as the view zooms
-    if (this.active && Math.abs(pixel - this.centresAt) > this.centresAt * 0.01) this.drawCentres(); // so do the centre crosses
+    if (this.active && Math.abs(pixel - this.centresAt) > this.centresAt * 0.01) this.drawCentres(); // so do the center crosses
     this.construction.material.dashSize = CONSTRUCTION_DASH_PX * pixel;
     this.construction.material.gapSize = CONSTRUCTION_GAP_PX * pixel;
   }
@@ -1981,7 +1981,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.showPlaneHandles();
       this.renderPanel();
     }, this.gizmosShown);
-    const base = iconButton("pickBase", "Pick base point: click the point the sketch plane moves from (a vertex, edge, face centre, axis or the origin); then use Pick move to location", () => void this.pickMoveFrom(), this.moveFrom !== null);
+    const base = iconButton("pickBase", "Pick base point: click the point the sketch plane moves from (a vertex, edge, face center, axis or the origin); then use Pick move to location", () => void this.pickMoveFrom(), this.moveFrom !== null);
     const target = iconButton("pickTarget", "Pick move to location: click where the sketch plane goes (it moves by the offset from the base point, or from its own origin when none was picked)", () => void this.pickMoveTo());
     const gear = iconButton("gear", "Sketch settings", () => this.openSettings());
     gear.style.marginLeft = "auto";

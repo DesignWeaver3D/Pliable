@@ -41,7 +41,7 @@ test("a rectangle is four lines, horizontal and vertical when shape constraints 
   assert.equal(off.s.constraints.length, 0);
 });
 
-test("a centred rectangle spans both sides of its centre; a flat one is refused", () => {
+test("a centered rectangle spans both sides of its center; a flat one is refused", () => {
   const ctx = context();
   addRectangle(ctx, { u: 0, v: 0 }, { u: 2, v: 1 }, true);
   const us = ctx.s.points.map((p) => p.u).sort((a, b) => a - b);
@@ -83,7 +83,7 @@ test("a polygon, circle and slot add their curves", () => {
   assert.equal(slot.s.entities.filter((e) => e.type === "line").length, 2);
 });
 
-test("an arc by centre follows the pointer: counterclockwise or clockwise from the start", () => {
+test("an arc by center follows the pointer: counterclockwise or clockwise from the start", () => {
   const sweepOf = (ctx) => {
     const arc = ctx.s.entities.find((e) => e.type === "arc");
     const at = (id) => ctx.s.points.find((p) => p.id === id);
@@ -115,8 +115,8 @@ test("an ellipse gets two construction lines joining the opposite ends of its ax
   assert.deepEqual(ends, [[ellipse.major, ellipse.major2].sort((x, y) => x - y), [ellipse.minor1, ellipse.minor2].sort((x, y) => x - y)].sort());
 });
 
-test("a rectangle drawn from its centre always gets a centre point held symmetric about two opposite corners", () => {
-  const ctx = context("none"); // automatic constraints off: the centre's constraints are made anyway, the shape's are not
+test("a rectangle drawn from its center always gets a center point held symmetric about two opposite corners", () => {
+  const ctx = context("none"); // automatic constraints off: the center's constraints are made anyway, the shape's are not
   addRectangle(ctx, { u: 3, v: 2 }, { u: 7, v: 5 }, true);
   assert.equal(ctx.s.points.length, 5);
   const centre = ctx.s.points.find((p) => p.u === 3 && p.v === 2);
@@ -129,7 +129,7 @@ test("a rectangle drawn from its centre always gets a centre point held symmetri
   assert.notDeepEqual([p.u, p.v], [q.u, q.v]);
 });
 
-test("a centre clicked on a curve, a sketch axis or a point is made coincident with it; rounded corners get the same centre", () => {
+test("a center clicked on a curve, a sketch axis or a point is made coincident with it; rounded corners get the same center", () => {
   const onLine = context("none");
   addRectangle(onLine, { u: 3, v: 2, on: { entity: 99 } }, { u: 7, v: 5 }, true);
   assert.ok(onLine.s.constraints.some((c) => c.type === "point_on" && c.entity === 99));

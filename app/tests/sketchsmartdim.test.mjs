@@ -44,16 +44,16 @@ test("two lines: an angle, or the distance between them when they are parallel",
 test("a point with a line or a circle", () => {
   assert.deepEqual(labels(s, [...ent(10), ...pt(10)]), ["Point to line distance"]);
   assert.deepEqual(labels(s, [...ent(10), ...pt(5)], 5), ["Point to line distance", "Point on"]);
-  assert.deepEqual(labels(s, [...ent(13), ...pt(1)]), ["Distance to the centre"]);
-  assert.deepEqual(labels(s, [...ent(13), ...pt(5)]), []); // its own centre
+  assert.deepEqual(labels(s, [...ent(13), ...pt(1)]), ["Distance to the center"]);
+  assert.deepEqual(labels(s, [...ent(13), ...pt(5)]), []); // its own center
 });
 
-test("circles and arcs: centre distances, or concentric when the centres sit together; a line and a circle", () => {
-  assert.deepEqual(labels(s, ent(13, 14)), ["Distance between the centres", "Gap between the rims"]);
-  assert.deepEqual(built(s, ent(13, 14), "Distance between the centres"), [{ type: "distance", points: [5, 6] }]);
+test("circles and arcs: center distances, or concentric when the centers sit together; a line and a circle", () => {
+  assert.deepEqual(labels(s, ent(13, 14)), ["Distance between the centers", "Gap between the rims"]);
+  assert.deepEqual(built(s, ent(13, 14), "Distance between the centers"), [{ type: "distance", points: [5, 6] }]);
   assert.deepEqual(labels(s, ent(14, 16)), ["Concentric", "Gap between the rims"]);
   assert.deepEqual(built(s, ent(14, 16), "Concentric"), [{ type: "coincident", points: [6, 11] }]);
-  assert.deepEqual(labels(s, ent(13, 10)), ["Centre to line distance"]);
+  assert.deepEqual(labels(s, ent(13, 10)), ["Center to line distance"]);
 });
 
 test("three or more items offer only constraints that take that many arguments", () => {
@@ -133,26 +133,26 @@ test("the sketch axes can be dimensioned to", () => {
   assert.equal(labels(e, ent(10, -2)).includes("Angle"), true);
 });
 
-test("two circles or arcs offer the distance between the centres and the gap between the rims", () => {
+test("two circles or arcs offer the distance between the centers and the gap between the rims", () => {
   const e = sketch([P(1, 0, 0), P(2, 20, 0), P(3, 5, 0), P(4, 25, 0), P(5, 0, 5), P(6, 20, 4)], [
     { id: 10, type: "circle", center: 1, radius: 3 }, { id: 11, type: "circle", center: 2, radius: 4 },
     { id: 12, type: "arc", center: 1, start: 3, end: 5 }, { id: 13, type: "arc", center: 2, start: 4, end: 6 },
   ]);
-  assert.deepEqual(labels(e, ent(10, 11)), ["Distance between the centres", "Gap between the rims"]);
-  assert.deepEqual(labels(e, ent(12, 13)), ["Distance between the centres", "Gap between the rims"]);
+  assert.deepEqual(labels(e, ent(10, 11)), ["Distance between the centers", "Gap between the rims"]);
+  assert.deepEqual(labels(e, ent(12, 13)), ["Distance between the centers", "Gap between the rims"]);
   assert.deepEqual(built(e, ent(10, 11), "Gap between the rims"), [{ type: "round_gap", entities: [10, 11] }]);
   const gap = smartChoices(e, ent(10, 11), 0.5).find((o) => o.label === "Gap between the rims");
   assert.equal(gap.initial(e, ent(10, 11)), 13);
   // overlapping circles have no gap to dimension
   const touching = sketch([P(1, 0, 0), P(2, 5, 0)], [{ id: 10, type: "circle", center: 1, radius: 3 }, { id: 11, type: "circle", center: 2, radius: 4 }]);
-  assert.deepEqual(labels(touching, ent(10, 11)), ["Distance between the centres"]);
+  assert.deepEqual(labels(touching, ent(10, 11)), ["Distance between the centers"]);
 });
 
 test("concentric and nested circles offer the gap between their rims", () => {
   const e = sketch([P(1, 0, 0), P(2, 1, 0)], [{ id: 10, type: "circle", center: 1, radius: 3 }, { id: 11, type: "circle", center: 1, radius: 5 }, { id: 12, type: "circle", center: 2, radius: 1 }]);
   assert.deepEqual(labels(e, ent(10, 11)), ["Gap between the rims"]);
   assert.equal(smartChoices(e, ent(10, 11), 0.5).find((o) => o.label === "Gap between the rims").initial(e, ent(10, 11)), 2);
-  assert.deepEqual(labels(e, ent(11, 12)), ["Distance between the centres", "Gap between the rims"]); // 12 sits inside 11: 5 - 1 - 1
+  assert.deepEqual(labels(e, ent(11, 12)), ["Distance between the centers", "Gap between the rims"]); // 12 sits inside 11: 5 - 1 - 1
 });
 
 test("an ellipse with axis ends offers its two widths, and a point near its rim can be put on it", () => {

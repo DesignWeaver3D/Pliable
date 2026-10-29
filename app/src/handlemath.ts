@@ -1,4 +1,4 @@
-/** The maths and constants of the on-screen manipulators that need no camera or scene: pick scores, handle colours, value
+/** The maths and constants of the on-screen manipulators that need no camera or scene: pick scores, handle colors, value
  *  and typed-entry arithmetic, and the turn arc and ring helpers. Moved out of manipulator.ts unchanged (that file re-exports
  *  all of it); exported for tests (`node --test app/tests`). */
 import * as THREE from "three";
@@ -23,7 +23,7 @@ export const COLOR_TOGGLE = 0x6fd3ff;
 /** The line a hole's axis handle draws from its opening to its far grip. */
 export const AXIS_LINE = 0xffb347;
 export const HANDLE_OUTLINE = 0x1b1d22; // the dark outline under grips, as under the dimension lines
-/** Resize grips are neutral squares (orange on hover) so they never read as the coloured move arrows. */
+/** Resize grips are neutral squares (orange on hover) so they never read as the colored move arrows. */
 export const COLOR_RESIZE = 0xc8ccd4;
 export const COLOR_RESIZE_HOT = 0xffb347;
 
@@ -45,23 +45,23 @@ export function grabFraction(kind: string | undefined, toggle: boolean | undefin
   return null;
 }
 
-/** The origin-axis colour of a direction (its largest component), or white-ish for none. */
+/** The origin-axis color of a direction (its largest component), or white-ish for none. */
 export function axisColorOf(d: readonly number[]): number {
   const a = d.map(Math.abs);
   const k = a.indexOf(Math.max(...a));
   return [AXIS_COLORS.x, AXIS_COLORS.y, AXIS_COLORS.z][k];
 }
 
-/** The look of a handle: its resting and hover colour. */
+/** The look of a handle: its resting and hover color. */
 export function handleColors(info: Pick<HandleInfo, "kind" | "toggle" | "direction"> & { axis?: readonly number[] | null }): { rest: number; hot: number } {
   if (info.toggle || info.kind === "toggle") return { rest: COLOR_TOGGLE, hot: COLOR_HOT };
-  if (info.axis) return { rest: axisColorOf(info.axis), hot: COLOR_HOT }; // a rotation handle wears the colour of its axis
+  if (info.axis) return { rest: axisColorOf(info.axis), hot: COLOR_HOT }; // a rotation handle wears the color of its axis
   if (info.kind === "move") return { rest: axisColorOf(info.direction), hot: COLOR_HOT };
   if (info.kind === "resize") return { rest: COLOR_RESIZE, hot: COLOR_RESIZE_HOT };
   return { rest: COLOR, hot: COLOR_HOT };
 }
 
-/** The parameter value a handle shows after travelling `travel` (model units along the handle line). */
+/** The parameter value a handle shows after traveling `travel` (model units along the handle line). */
 export function handleValue(h: Pick<HandleInfo, "value" | "scale" | "min"> & { max?: number | null }, travel: number): number {
   const v = h.value + h.scale * travel;
   if (h.min !== null && v < h.min) return h.min;
@@ -86,7 +86,7 @@ export function snapValue(value: number, snaps: readonly number[] | undefined): 
   return best;
 }
 
-/** The values of a handle's linked parameters after travelling `travel`. */
+/** The values of a handle's linked parameters after traveling `travel`. */
 export function linkedValues(h: Pick<HandleInfo, "links">, travel: number): Record<string, number> {
   const out: Record<string, number> = {};
   for (const l of h.links ?? []) out[l.param] = roundValue(l.value + l.scale * travel);
@@ -133,12 +133,12 @@ export function formatValue(v: number): string {
   return showNumber(v);
 }
 
-/** A turn arc (see HandleInfo.arc) runs this many pixels from its centre, 120 degrees of it, beyond the move arrows' tips. */
+/** A turn arc (see HandleInfo.arc) runs this many pixels from its center, 120 degrees of it, beyond the move arrows' tips. */
 export const ARC_RADIUS_PX = 110;
 export const ARC_HALF_SPAN = Math.PI / 3;
 export const ARC_STEPS = 24;
 export const ARC_REST_OPACITY = 0.9;
-/** A turn arc whose value is this close (degrees) to a snap angle counts as sitting on it; it is drawn in this colour then. */
+/** A turn arc whose value is this close (degrees) to a snap angle counts as sitting on it; it is drawn in this color then. */
 export const SNAPPED_DEGREES = 0.5;
 export const COLOR_SNAPPED = 0x6be36b;
 
@@ -150,7 +150,7 @@ export function snappedIndex(value: number, snaps: readonly number[] | undefined
 /** A rotation ring's diameter is this fraction of the shortest side of the 3D view, so it never runs off screen. */
 export const RING_VIEW_FRACTION = 0.5;
 
-/** A rotation handle moved onto a ring of another radius about the same centre: its grip keeps its angle round the ring,
+/** A rotation handle moved onto a ring of another radius about the same center: its grip keeps its angle round the ring,
  *  and its degrees per unit of travel follow the new radius. `ring` is [cx, cy, cz, radius]. */
 export function refitRing(
   ring: readonly number[],

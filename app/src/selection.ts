@@ -88,7 +88,7 @@ export function createSelection(d: SelectionDeps) {
       return;
     }
     // Wait for the core's answers and render once: rendering the count-only guess first, then the refined set,
-    // made tools flip between enabled and greyed and the chips blink on every face click.
+    // made tools flip between enabled and grayed and the chips blink on every face click.
     const rules = sels.length === 1 && sels[0].kind === "face" ? core.request<{ rules: RelatedRule[] }>("related", { face: sels[0].id }) : Promise.resolve({ rules: [] as RelatedRule[] });
     const available = core.request<{ tools: string[] }>("available_tools", { selection: selectionPayload(sels) });
     Promise.allSettled([rules, available]).then(([rulesReply, availableReply]) => {

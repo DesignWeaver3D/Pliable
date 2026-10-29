@@ -23,7 +23,7 @@ export function tangentSpots(s: SketchData, c: SketchConstraint): TangentSpot[] 
   const ra = round(a);
   const rb = round(b);
   if (ra && rb) {
-    // The touching point lies on the line of centres: out from the first centre for outside contact, along the other side for inside contact.
+    // The touching point lies on the line of centers: out from the first center for outside contact, along the other side for inside contact.
     const along = unit([rb.centre.u - ra.centre.u, rb.centre.v - ra.centre.v]);
     const toward: UV = [ra.centre.u + along[0] * ra.r, ra.centre.v + along[1] * ra.r];
     const away: UV = [ra.centre.u - along[0] * ra.r, ra.centre.v - along[1] * ra.r];
@@ -37,6 +37,6 @@ export function tangentSpots(s: SketchData, c: SketchConstraint): TangentSpot[] 
   const [p, q] = [pointOf(s, line.a), pointOf(s, line.b)];
   const d = unit([q.u - p.u, q.v - p.v]);
   const t = (curve.centre.u - p.u) * d[0] + (curve.centre.v - p.v) * d[1];
-  const foot: UV = [p.u + d[0] * t, p.v + d[1] * t]; // the point of the line nearest the round curve's centre
+  const foot: UV = [p.u + d[0] * t, p.v + d[1] * t]; // the point of the line nearest the round curve's center
   return [{ u: foot[0], v: foot[1], out: unit([foot[0] - curve.centre.u, foot[1] - curve.centre.v]) }];
 }

@@ -32,7 +32,7 @@ export function liveDimensions(ctx: PreviewContext): Dimension[] {
   const du = c.u - a.u;
   const dv = c.v - a.v;
   if (ctx.typed) {
-    // Typed sizes are drawn as real dimensions (extension lines, dimension lines, leaders) holding the typed values; the labelled tag is the fallback.
+    // Typed sizes are drawn as real dimensions (extension lines, dimension lines, leaders) holding the typed values; the labeled tag is the fallback.
     const drawn = typedDimensions(ctx);
     return drawn.length ? drawn : tag((a.u + c.u) / 2, (a.v + c.v) / 2, typedTag(typedLabels(ctx.tool, ctx.chain.length, !!ctx.sidesOf(ctx.tool)), ctx.typed));
   }

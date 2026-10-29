@@ -5,7 +5,7 @@ export interface UV {
   v: number;
 }
 
-/** Centre and radius of the circle through three points, or null when they are (nearly) on one line. */
+/** Center and radius of the circle through three points, or null when they are (nearly) on one line. */
 export function circumcircle(a: UV, b: UV, c: UV): { u: number; v: number; radius: number } | null {
   const d = 2 * (a.u * (b.v - c.v) + b.u * (c.v - a.v) + c.u * (a.v - b.v));
   const scale = Math.hypot(b.u - a.u, b.v - a.v) * Math.hypot(c.u - a.u, c.v - a.v);
@@ -17,7 +17,7 @@ export function circumcircle(a: UV, b: UV, c: UV): { u: number; v: number; radiu
 }
 
 /**
- * The counterclockwise arc from `start` through `through` to `end`: its centre and which of the two ends it runs
+ * The counterclockwise arc from `start` through `through` to `end`: its center and which of the two ends it runs
  * from. Arcs always run counterclockwise, so when the three points turn clockwise the ends swap roles.
  */
 export function arcThrough(start: UV, through: UV, end: UV): { centre: UV; from: "start" | "end"; radius: number } | null {
@@ -29,7 +29,7 @@ export function arcThrough(start: UV, through: UV, end: UV): { centre: UV; from:
 
 /**
  * The turn from the arc's start to where the pointer is, the short way round: positive is counterclockwise, negative clockwise
- * (between -180 and 180 degrees). The centre-start-end arc tool follows it, so the arc grows the way the pointer moves from the start.
+ * (between -180 and 180 degrees). The center-start-end arc tool follows it, so the arc grows the way the pointer moves from the start.
  */
 export function arcSweepToward(centre: UV, start: UV, end: UV): number {
   const turn = Math.atan2(end.v - centre.v, end.u - centre.u) - Math.atan2(start.v - centre.v, start.u - centre.u);
@@ -37,7 +37,7 @@ export function arcSweepToward(centre: UV, start: UV, end: UV): number {
 }
 
 /**
- * A slot from end centre `a` to end centre `b` with the given half-width: the four tangent points and the two
+ * A slot from end center `a` to end center `b` with the given half-width: the four tangent points and the two
  * arcs' counterclockwise ends. Lines run a-side to b-side along each edge.
  */
 export function slotCorners(a: UV, b: UV, halfWidth: number): { aLeft: UV; aRight: UV; bLeft: UV; bRight: UV } | null {

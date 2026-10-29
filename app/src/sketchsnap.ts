@@ -82,7 +82,7 @@ export function snap(ctx: SnapContext, e: PointerEvent): Snap | null {
       if (on) return { u: on[0], v: on[1], on: { entity: en.id } };
     }
   }
-  // The sketch's own axes, through the centre of the face (its origin).
+  // The sketch's own axes, through the center of the face (its origin).
   for (const a of M.sketchAxes(ctx.s.plane)) {
     const t = (u - a.u) * a.du + (v - a.v) * a.dv;
     const on: [number, number] = [a.u + t * a.du, a.v + t * a.dv];

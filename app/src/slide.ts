@@ -50,7 +50,7 @@ export function bodyCentres(vertices: { body?: number | null; position: [number,
   return new Map([...sums].map(([b, s]) => [b, s.p.map((c) => c / s.n) as [number, number, number]]));
 }
 
-/** The bodies whose centre moved between two meshes by a shift along `direction` (a move handle's axis); null if none did. With `expected`, only bodies that moved by that distance count. */
+/** The bodies whose center moved between two meshes by a shift along `direction` (a move handle's axis); null if none did. With `expected`, only bodies that moved by that distance count. */
 export function movedBodies(before: Map<number, [number, number, number]>, after: Map<number, [number, number, number]>, direction: readonly number[], eps = 1e-4, expected?: number): Set<number> | null {
   const moved = new Set<number>();
   for (const [body, p] of after) {

@@ -26,7 +26,7 @@ test("helpers keep their room, and one tool stays even in a very narrow strip", 
   assert.equal(fitStripCount(w([]), 500), 0);
 });
 
-test("the strip is centred in the room between the left and right sides", () => {
+test("the strip is centered in the room between the left and right sides", () => {
   assert.deepEqual(stripRoom(1400, 240, 200), { width: 960, centre: 720 });
   assert.deepEqual(stripRoom(1400, 540, 160), { width: 700, centre: 890 });
   assert.equal(stripRoom(300, 240, 240).width, 120);

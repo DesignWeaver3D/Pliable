@@ -1,4 +1,4 @@
-/** The in-page prompt for the mesh export's tessellation: how far the triangles may stray from the surface (linear) and how sharply neighbours may bend (angular). */
+/** The in-page prompt for the mesh export's tessellation: how far the triangles may stray from the surface (linear) and how sharply neighbors may bend (angular). */
 
 /** The slicer's own defaults for importing a STEP file (see docs/decisions-log.md); the core uses the same numbers when none are sent. */
 export const DEFAULT_LINEAR = 0.003;
@@ -56,7 +56,7 @@ export function askMeshOptions(format: string): Promise<MeshOptions | null> {
     };
     card.append(title, note);
     const linear = field("Linear deflection (mm)", "The largest distance between the true surface and the triangles that stand in for it", start.linear);
-    const angular = field("Angular deflection (radians)", "The largest angle between the normals of neighbouring triangles on a curved face", start.angular);
+    const angular = field("Angular deflection (radians)", "The largest angle between the normals of neighboring triangles on a curved face", start.angular);
     const error = document.createElement("p");
     error.style.cssText = "color:#f66;font-size:12px;min-height:1em";
     const row = document.createElement("div");

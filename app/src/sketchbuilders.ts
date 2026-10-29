@@ -21,7 +21,7 @@ export interface BuilderContext {
   resolve(drag?: Drag): Promise<boolean>;
   /** The id of an existing or new point for a clicked position. */
   pointFor(snap: Snap): number;
-  /** "always" constraints are added whatever the automatic-constraints option says (the centre rectangle's centre point). */
+  /** "always" constraints are added whatever the automatic-constraints option says (the center rectangle's center point). */
   addConstraintRaw(c: Omit<M.SketchConstraint, "id">, kind?: "snap" | "shape" | "always"): void;
   status(text: string, error?: boolean | "warn"): void;
 }
@@ -45,7 +45,7 @@ export function addLine(ctx: BuilderContext, a: Snap, b: Snap): boolean {
   return closed;
 }
 
-/** Corner to corner, or (centred) from the centre to a corner; optional rounded or bevelled corners. */
+/** Corner to corner, or (centered) from the center to a corner; optional rounded or bevelled corners. */
 export function addRectangle(ctx: BuilderContext, a: Snap, b: Snap, centred = false) {
   const [u0, u1] = centred ? [2 * a.u - b.u, b.u].sort((x, y) => x - y) : [a.u, b.u].sort((x, y) => x - y);
   const [v0, v1] = centred ? [2 * a.v - b.v, b.v].sort((x, y) => x - y) : [a.v, b.v].sort((x, y) => x - y);
@@ -94,7 +94,7 @@ export function addRectangle(ctx: BuilderContext, a: Snap, b: Snap, centred = fa
 }
 
 /**
- * The centre of a rectangle drawn from its centre is a point of its own, held halfway between two opposite corners (symmetric about it).
+ * The center of a rectangle drawn from its center is a point of its own, held halfway between two opposite corners (symmetric about it).
  * If it was clicked on a point it is that point; if on a curve or a sketch axis it is also made coincident with it. These constraints are
  * always made, whatever the automatic-constraints option says (owner, 2026-10-25).
  */
@@ -138,7 +138,7 @@ export function addPolygon(ctx: BuilderContext, center: Snap, corner: Snap, side
     return id;
   });
   // What makes it a regular polygon (always added, whatever the automatic constraint option): equal sides, every corner on a
-  // construction circle about the centre (the major circle), and a second construction circle (the minor one) tangent to a
+  // construction circle about the center (the major circle), and a second construction circle (the minor one) tangent to a
   // side. Dimension a side, or either circle, and the whole polygon follows. The circles show only while the sketch is edited.
   const centre = ctx.pointFor(center);
   const radius = Math.hypot(corner.u - center.u, corner.v - center.v);
@@ -200,7 +200,7 @@ function makeEllipse(ctx: BuilderContext, center: Snap, major: Snap, side: Snap)
   return entity;
 }
 
-/** An elliptical arc: the ellipse of the first three clicks (centre, long axis end, a point for the short radius) and the part of it between the
+/** An elliptical arc: the ellipse of the first three clicks (center, long axis end, a point for the short radius) and the part of it between the
  *  start and end clicks, which are taken to the ellipse by angle. It follows the pointer from the start like an arc; `counterclockwise` forces the direction. */
 export function addEllipseArc(ctx: BuilderContext, center: Snap, major: Snap, side: Snap, start: Snap, end: Snap, counterclockwise = false) {
   const minor = shortRadius(center, major, side);
@@ -260,7 +260,7 @@ export function addCircleThrough(ctx: BuilderContext, a: Snap, b: Snap, c: Snap)
   ctx.resolve();
 }
 
-/** Two end centres and a width: two straight edges and two half-circle ends that stay tangent and equal. */
+/** Two end centers and a width: two straight edges and two half-circle ends that stay tangent and equal. */
 export function addSlot(ctx: BuilderContext, a: Snap, b: Snap, side: Snap) {
   const corners = Sh.slotCorners(a, b, Sh.distanceToAxis(a, b, side));
   if (!corners) return;
@@ -292,7 +292,7 @@ export function addArc(ctx: BuilderContext, center: Snap, start: Snap, end: Snap
   const arcId = M.nextId(ctx.s);
   const clockwise = !counterclockwise && Sh.arcSweepToward(center, start, end) < 0; // arcs are stored counterclockwise, so a clockwise one runs from the pointer's end back to the start
   ctx.s.entities.push({ id: arcId, type: "arc", center: c, start: clockwise ? e : s, end: clockwise ? s : e });
-  // An arc that starts on the end of a line, with its centre square to the line there, continues it tangentially.
+  // An arc that starts on the end of a line, with its center square to the line there, continues it tangentially.
   const meets = ctx.s.entities.find((x) => x.type === "line" && !x.reference && (x.a === s || x.b === s));
   if (meets && meets.type === "line") {
     const other = M.pointOf(ctx.s, meets.a === s ? meets.b : meets.a);

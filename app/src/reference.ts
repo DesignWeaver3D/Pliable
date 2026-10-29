@@ -125,7 +125,7 @@ export class ReferenceView {
   /** The kept sketches' snap points and curves (set by the page; none until then). */
   keptSnaps: () => { points: SketchSnapPoint[]; curves: ArrayLike<number>[] } = () => ({ points: [], curves: [] });
 
-  /** Reference snap nearest the pointer: origin, then a point where an axis meets the face under it, the face centre, or a point along an axis. */
+  /** Reference snap nearest the pointer: origin, then a point where an axis meets the face under it, the face center, or a point along an axis. */
   snapAt(e: PointerEvent, extra: ReferenceSnap[] = []): ReferenceSnap | null {
     const rect = this.viewport.renderer.domElement.getBoundingClientRect();
     const here = new THREE.Vector2(e.clientX - rect.left, e.clientY - rect.top);
@@ -134,7 +134,7 @@ export class ReferenceView {
     const range = face ? this.viewport.meshData?.faces.find((f) => f.id === face.id) : undefined;
     if (range?.centroid) {
       const centre = new THREE.Vector3(...range.centroid);
-      candidates.push({ point: centre, label: "Face centre" });
+      candidates.push({ point: centre, label: "Face center" });
       if (range.normal) {
         const normal = new THREE.Vector3(...range.normal);
         for (const axis of AXES) {
@@ -147,37 +147,37 @@ export class ReferenceView {
     const data = this.viewport.meshData;
     const hitDistance = face ? this.viewport.camera.position.distanceTo(face.point) : Infinity;
     const visible = (p: THREE.Vector3) => !face || this.viewport.camera.position.distanceTo(p) <= hitDistance * 1.01 + this.viewport.pixelSizeAt(p) * SNAP_PX;
-    // Every hole's axis: its middle and its two end points (the circle centres at both openings).
+    // Every hole's axis: its middle and its two end points (the circle centers at both openings).
     for (const c of data?.centres ?? []) {
       for (const [xyz, label] of holeAxisPoints(c)) {
         const p = new THREE.Vector3(...xyz);
-        if (label === "Hole centre" || visible(p)) candidates.push({ point: p, label });
+        if (label === "Hole center" || visible(p)) candidates.push({ point: p, label });
       }
     }
-    // Hole centres of every hole, not just the hovered one: a pick in progress never hovers, so none would be shown. A
-    // centre sits at mid-depth inside its hole, behind the face under the pointer, so the hidden-point test does not apply.
-    for (const p of snapCentres(data?.centres ?? [], () => true)) candidates.push({ point: new THREE.Vector3(...p), label: "Hole centre" });
-    // The same centres carried along their axes to the faces around each mouth: the hole centre as it appears on the surface.
+    // Hole centers of every hole, not just the hovered one: a pick in progress never hovers, so none would be shown. A
+    // center sits at mid-depth inside its hole, behind the face under the pointer, so the hidden-point test does not apply.
+    for (const p of snapCentres(data?.centres ?? [], () => true)) candidates.push({ point: new THREE.Vector3(...p), label: "Hole center" });
+    // The same centers carried along their axes to the faces around each mouth: the hole center as it appears on the surface.
     const planes = (data?.faces ?? []).filter((f) => f.centroid && f.normal).map((f) => ({ point: f.centroid as [number, number, number], normal: f.normal as [number, number, number] }));
     for (const c of data?.centres ?? []) {
       if (!c.axis) continue;
       for (const p of mouthPoints(c.position as [number, number, number], c.axis as [number, number, number], planes)) {
         const point = new THREE.Vector3(...p);
-        if (visible(point)) candidates.push({ point, label: "Hole centre" });
+        if (visible(point)) candidates.push({ point, label: "Hole center" });
       }
     }
-    // The centre of every circular or elliptical edge, so an arc or a slanted hole's mouth has its centre to snap to.
+    // The center of every circular or elliptical edge, so an arc or a slanted hole's mouth has its center to snap to.
     for (const e of data?.edges ?? []) {
       if (!e.centre) continue;
       const p = new THREE.Vector3(...e.centre);
-      if (visible(p)) candidates.push({ point: p, label: "Centre" });
+      if (visible(p)) candidates.push({ point: p, label: "Center" });
     }
     for (const v of data?.vertices ?? []) {
       const p = new THREE.Vector3(...v.position);
       if (visible(p)) candidates.push({ point: p, label: "Vertex" });
     }
     const kept = this.keptSnaps();
-    for (const k of kept.points) candidates.push({ point: new THREE.Vector3(...k.point), label: k.label }); // the ends, centres and midpoints of kept sketches
+    for (const k of kept.points) candidates.push({ point: new THREE.Vector3(...k.point), label: k.label }); // the ends, centers and midpoints of kept sketches
     let best: (ReferenceSnap & { px: number }) | null = null;
     for (const c of candidates) {
       const px = this.viewport.toScreen(c.point).distanceTo(here);
@@ -221,7 +221,7 @@ export class ReferenceView {
 }
 
 export interface PickOptions {
-  /** More snap points to offer (the corners, edge midpoints, face centres and centre of a shape being previewed). */
+  /** More snap points to offer (the corners, edge midpoints, face centers and center of a shape being previewed). */
   extra?: { point: number[]; label: string }[];
   /** A point already chosen: a line is drawn from it to the snap under the pointer. */
   from?: number[];

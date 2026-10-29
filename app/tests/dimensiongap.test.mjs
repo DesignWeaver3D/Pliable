@@ -33,7 +33,7 @@ test("the rectangle turns with the text: a slanted line is cut where it crosses 
   const pieces = gapSegment(P(0, 0), P(100, 0), P(50, 0), 10, 6, 90);
   near(pieces[0][1].x, 44);
   near(pieces[1][0].x, 56);
-  // a vertical line at the centre through a text turned 90 degrees is cut over the full text width
+  // a vertical line at the center through a text turned 90 degrees is cut over the full text width
   const vertical = gapSegment(P(50, -50), P(50, 50), P(50, 0), 10, 6, 90);
   near(vertical[0][1].y, -10);
   near(vertical[1][0].y, 10);

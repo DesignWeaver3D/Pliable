@@ -17,7 +17,7 @@ export function selected(s: SketchData, sel: SketchSel[]): { entities: SketchEnt
   return { entities, points: [...points] };
 }
 
-/** The middle of the selected points: the default centre for rotating and scaling. */
+/** The middle of the selected points: the default center for rotating and scaling. */
 export function centroid(s: SketchData, sel: SketchSel[]): [number, number] {
   const ids = selected(s, sel).points;
   if (!ids.length) return [0, 0];

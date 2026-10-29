@@ -1,5 +1,5 @@
 /** The mirrored arrow of push/pull: the face-normal arrow (the manipulator's push/pull handle) shows where a drag adds, this one starts at the same anchor and points
- *  the opposite way to show where a drag subtracts, in red. Flip swaps the roles (and so the colours). Pressing it grabs the arrow (see pushpullhit.ts and Manipulator.hit); the drag is the arrow's own, so dragging along the red arrow gives the opposite sign. */
+ *  the opposite way to show where a drag subtracts, in red. Flip swaps the roles (and so the colors). Pressing it grabs the arrow (see pushpullhit.ts and Manipulator.hit); the drag is the arrow's own, so dragging along the red arrow gives the opposite sign. */
 import * as THREE from "three";
 import { ARM_PX, HANDLE_OUTLINE, PUSH_PULL_ARM_RATIO, type Manipulator } from "./manipulator.ts";
 import { arrowColors, SUBTRACT_COLOR } from "./pushpullcolors.ts";
@@ -33,7 +33,7 @@ export class MirrorArrow {
     scene.add(this.group);
   }
 
-  /** Per frame: follow the push/pull arrow, point the other way, and wear the colour of the role Flip gives this side; the arrow itself takes its colour from the same roles. */
+  /** Per frame: follow the push/pull arrow, point the other way, and wear the color of the role Flip gives this side; the arrow itself takes its color from the same roles. */
   update() {
     const handle = this.manipulator.pushPullHandle();
     const colors = arrowColors(this.state.flip);

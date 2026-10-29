@@ -1,6 +1,6 @@
 /** The Tangent circle and Tangent arc between curves tools: a circle touching two or three picked lines, arcs or circles, solved here from the curves' present
  *  positions and then held by tangent constraints. With two curves the radius comes from the card; with three it is whatever touches all of them.
- *  Of the (up to eight) solutions the one whose centre is nearest the pointer is made. No DOM. */
+ *  Of the (up to eight) solutions the one whose center is nearest the pointer is made. No DOM. */
 import * as M from "./sketchmodel.ts";
 
 type Pt = [number, number];
@@ -39,7 +39,7 @@ function solve3(a: number[][], b: number[]): number[] | null {
   return [0, 1, 2].map((k) => det(a.map((row, i) => row.map((x, j) => (j === k ? b[i] : x)))) / d);
 }
 
-/** Every circle (centre, radius > 0) touching all the curves; `radius` fixes the radius (null leaves it free, which needs three curves). */
+/** Every circle (center, radius > 0) touching all the curves; `radius` fixes the radius (null leaves it free, which needs three curves). */
 export function tangentCircles(s: M.SketchData, ids: number[], radius: number | null): TangentSolution[] {
   const curves = ids.map((id) => s.entities.find((e) => e.id === id)).filter(isCurve);
   if (curves.length !== ids.length || ids.length + (radius === null ? 0 : 1) !== 3) return [];
@@ -107,7 +107,7 @@ export function tangentCircles(s: M.SketchData, ids: number[], radius: number | 
           return [g.p[0] + t * g.d[0], g.p[1] + t * g.d[1]];
         }
         const dist = Math.hypot(x - g.c[0], y - g.c[1]) || 1;
-        // The touching point is on the line through both centres: the near side of the circle, or the far side when it lies inside ours.
+        // The touching point is on the line through both centers: the near side of the circle, or the far side when it lies inside ours.
         const [ux, uy] = [(x - g.c[0]) / dist, (y - g.c[1]) / dist];
         const near: Pt = [g.c[0] + ux * g.r, g.c[1] + uy * g.r];
         const far: Pt = [g.c[0] - ux * g.r, g.c[1] - uy * g.r];
@@ -123,7 +123,7 @@ export function tangentCircles(s: M.SketchData, ids: number[], radius: number | 
   return out;
 }
 
-/** The solution whose centre is nearest the pointer, or null. */
+/** The solution whose center is nearest the pointer, or null. */
 export function nearestSolution(solutions: TangentSolution[], pointer: Pt): TangentSolution | null {
   let best: TangentSolution | null = null;
   let gap = Infinity;

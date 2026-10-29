@@ -1,4 +1,4 @@
-/** Ellipse geometry in sketch coordinates, no DOM and no sketch data: the frame of an ellipse (centre, unit major direction, radii), the angle of a
+/** Ellipse geometry in sketch coordinates, no DOM and no sketch data: the frame of an ellipse (center, unit major direction, radii), the angle of a
  *  point on it (the angle on the circle it is stretched from) and the point at an angle. An elliptical arc runs counterclockwise between two such angles. */
 export interface EllipseFrame {
   u: number;

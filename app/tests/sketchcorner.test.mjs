@@ -28,7 +28,7 @@ test("the corner a click names can be rounded and bevelled", () => {
   assert.equal(bevelled.entities.filter((e) => e.type === "line").length, 3);
 });
 
-// A line coming in from the left to (0, 0), where an arc (centre (10, 0), radius 10) leaves downward, and a second arc beside it.
+// A line coming in from the left to (0, 0), where an arc (center (10, 0), radius 10) leaves downward, and a second arc beside it.
 const lineArc = () => ({
   plane: { origin: [0, 0, 0], normal: [0, 0, 1], xdir: [1, 0, 0] },
   points: [{ id: 1, u: -10, v: 0 }, { id: 2, u: 0, v: 0 }, { id: 3, u: 10, v: 0 }, { id: 4, u: 10, v: -10 }],

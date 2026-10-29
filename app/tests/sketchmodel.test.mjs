@@ -82,7 +82,7 @@ test("an ellipse offers a short radius dimension that reads its minor axis", () 
   assert.deepEqual(tag.points[0].map((x) => Math.round(x * 1e6) / 1e6), [0, 3, 0]);
 });
 
-test("the sketch's own axes pass through its origin and take the colour of the nearest model axis", () => {
+test("the sketch's own axes pass through its origin and take the color of the nearest model axis", () => {
   // a plane on a face of a part standing on its side: u runs along model y, v along model z
   const axes = sketchAxes(plane([30, 5, 8], [1, 0, 0], [0, 1, 0]));
   assert.deepEqual(axes.map((a) => [a.u, a.v, a.du, a.dv]), [[0, 0, 1, 0], [0, 0, 0, 1]]);
@@ -340,7 +340,7 @@ test("symmetric takes a line or an axis as the item the others are mirrored abou
   assert.deepEqual(symmetries(s, e(12, 13, -2)), [{ type: "symmetric", points: [5, 6], entity: -2 }]);
 });
 
-test("constraint tags list the arc and circle centres they must stay clear of", () => {
+test("constraint tags list the arc and circle centers they must stay clear of", () => {
   const s = {
     plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
     points: [{ id: 1, u: 3, v: 4 }],

@@ -1,9 +1,9 @@
-// Random muted body colours. A body's colour depends only on its stable id, so it keeps the colour through operations,
+// Random muted body colors. A body's color depends only on its stable id, so it keeps the color through operations,
 // the whole session and reloads of the same document.
 //
 // Guarantees (tested in tests/bodycolors.test.mjs): hue = id * 137.508 degrees (golden angle), saturation 32-42 %,
-// lightness 62-80 % (raised per hue until the colour has a WCAG contrast of at least 7:1 against the app's dark
-// background), so every colour is readable as text and pleasant as a surface.
+// lightness 62-80 % (raised per hue until the color has a WCAG contrast of at least 7:1 against the app's dark
+// background), so every color is readable as text and pleasant as a surface.
 
 export const BACKGROUND = "#1b1d22";
 const MIN_CONTRAST = 7.2;
@@ -12,7 +12,7 @@ function channel(c: number): number {
   return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
 }
 
-/** WCAG relative luminance of a "#rrggbb" colour. */
+/** WCAG relative luminance of a "#rrggbb" color. */
 export function luminance(hex: string): number {
   const n = parseInt(hex.slice(1), 16);
   return 0.2126 * channel(((n >> 16) & 255) / 255) + 0.7152 * channel(((n >> 8) & 255) / 255) + 0.0722 * channel((n & 255) / 255);
@@ -38,7 +38,7 @@ export function bodyHue(id: number): number {
 
 const cache = new Map<number, string>();
 
-/** CSS hex colour of the body with this stable id. `index` (the body's place in the list) is not used: the id alone decides. */
+/** CSS hex color of the body with this stable id. `index` (the body's place in the list) is not used: the id alone decides. */
 export function bodyColor(id: number, index?: number): string {
   void index;
   const hit = cache.get(id);

@@ -30,13 +30,13 @@ test("a fillet between a line and an arc is tangent to both and touches them at 
   const c = ptsOf(made, fillet.center);
   const ts = [ptsOf(made, fillet.start), ptsOf(made, fillet.end)];
   for (const t of ts) near(Math.hypot(t[0] - c[0], t[1] - c[1]), 3);
-  // the line now ends on the fillet circle's tangent point with the line: directly above or below the centre
+  // the line now ends on the fillet circle's tangent point with the line: directly above or below the center
   const line = made.entities.find((e) => e.id === 10);
   const lineEnd = ptsOf(made, line.b);
   near(lineEnd[1], 0);
   near(lineEnd[0], c[0]);
   near(Math.abs(c[1]), 3);
-  // the original arc stays on its circle and the fillet arc is tangent to it (distance between centres = 10 +- 3)
+  // the original arc stays on its circle and the fillet arc is tangent to it (distance between centers = 10 +- 3)
   const big = made.entities.find((e) => e.id === 11);
   const bc = ptsOf(made, big.center); // (10,0)
   const d = Math.hypot(c[0] - bc[0], c[1] - bc[1]);
@@ -73,7 +73,7 @@ test("a fillet between two arcs sharing an end is tangent to both", () => {
   const fillet = made.entities.find((e) => e.type === "arc" && e.id > 11);
   const c = ptsOf(made, fillet.center);
   const d = (id, p) => Math.hypot(c[0] - pointOf(made, id).u, c[1] - pointOf(made, id).v) + 0 * p;
-  // tangent to a circle of radius 10 about (0,10) and one about (10,0): the centre distances are 10 +- 2
+  // tangent to a circle of radius 10 about (0,10) and one about (10,0): the center distances are 10 +- 2
   const d1 = Math.hypot(c[0], c[1] - 10);
   const d2 = Math.hypot(c[0] - 10, c[1]);
   assert.ok(Math.abs(d1 - 12) < 1e-6 || Math.abs(d1 - 8) < 1e-6);

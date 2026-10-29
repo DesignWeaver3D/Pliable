@@ -65,7 +65,7 @@ export function typedDimensions(ctx: PreviewContext, live = false): Dimension[] 
   } else if (ctx.tool === "line") {
     linear(0, last, target, null);
   } else if (ctx.tool === "slot") {
-    // First stage: the length between the two centres, and the width across the second centre. Second stage: the width across the first centre.
+    // First stage: the length between the two centers, and the width across the second center. Second stage: the width across the first center.
     const [a, b] = ctx.chain.length === 2 ? [first, ctx.chain[1]] : [first, target];
     if (ctx.chain.length === 1) linear(0, a, b, null);
     const side = ctx.chain.length === 2 ? target : targets[1];

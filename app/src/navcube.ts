@@ -74,7 +74,7 @@ export class NavCube {
 
   /**
    * The three cube edges that meet at the model's origin corner (the corner at -X, -Y, -Z, where the positive axes
-   * leave it), coloured like the origin axes. The cube's own frame is CSS: x = world X, y(down) = world -Z, z = world -Y.
+   * leave it), colored like the origin axes. The cube's own frame is CSS: x = world X, y(down) = world -Z, z = world -Y.
    */
   private addOriginEdges() {
     const half = CUBE_PX / 2;

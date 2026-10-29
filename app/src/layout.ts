@@ -15,7 +15,7 @@ export const TOOL_GROUPS: { title: string; tools: string[] }[] = [
 export const SKETCH_PLANES = ["XY", "XZ", "YZ"];
 
 /** The global axes that become the sketch's X (along the bottom of the button) and Y (up its left edge) on each plane;
- * the buttons draw them in the axis colours (the --axis-x, --axis-y and --axis-z tokens in index.html). */
+ * the buttons draw them in the axis colors (the --axis-x, --axis-y and --axis-z tokens in index.html). */
 export const SKETCH_PLANE_AXES: Record<string, { bottom: "x" | "y" | "z"; left: "x" | "y" | "z" }> = {
   XY: { bottom: "x", left: "y" },
   XZ: { bottom: "x", left: "z" },

@@ -9,7 +9,7 @@ import { ARM_PX, type Manipulator } from "./manipulator.ts";
 import { angleFromNormal, sideFrame, sideToward, tiltAlong, tiltFromDrag, typedTiltKeeping, type PullDirection, type Vec } from "./pulldir.ts";
 import { TypedFields } from "./typedentry.ts";
 
-const COLOR_HOT = 0xffffff; // the hover colour of the move and rotate gizmos
+const COLOR_HOT = 0xffffff; // the hover color of the move and rotate gizmos
 /** The pick icon (the target) sits where the two arcs cross: on the arc sphere, straight above the arrow's base (see PUSH_PULL_ARM_RATIO: the arrow's stem runs on past it). */
 const ICON_AT = 1;
 /** The sphere the arcs lie on is a little larger than the arrow, so the arcs stand clear of its head (in arrow lengths). */
@@ -17,9 +17,9 @@ const SPHERE = 1.5;
 const ARC_HALF_SPAN = Math.PI / 3;
 const ARC_STEPS = 24;
 const ARC_GRAB_PX = 8;
-/** The red arc swings toward the face's x axis, the green one toward its y axis (the colours of those axes). */
+/** The red arc swings toward the face's x axis, the green one toward its y axis (the colors of those axes). */
 const ARC_COLORS = [AXIS_COLORS.x, AXIS_COLORS.y];
-const REST_OPACITY = 0.9; // stronger than the rotation rings (0.55): the arcs are short and cross a coloured face
+const REST_OPACITY = 0.9; // stronger than the rotation rings (0.55): the arcs are short and cross a colored face
 
 interface Layout {
   base: THREE.Vector3;

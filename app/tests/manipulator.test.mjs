@@ -46,7 +46,7 @@ test("labels show at most three decimals", () => {
   assert.equal(formatValue(10), "10");
 });
 
-test("move arrows take the origin-axis colour of their direction and resize grips are neutral", async () => {
+test("move arrows take the origin-axis color of their direction and resize grips are neutral", async () => {
   const { AXIS_COLORS } = await import("../src/axes.ts");
   assert.equal(axisColorOf([1, 0, 0]), AXIS_COLORS.x);
   assert.equal(axisColorOf([0, -1, 0]), AXIS_COLORS.y);
@@ -171,7 +171,7 @@ test("typing on a handle pushed to a negative value keeps the negative sign", ()
   assert.equal(m.active.negative, true);
 });
 
-test("a rotation ring handle wears its axis colour and a typed number is the angle in degrees", () => {
+test("a rotation ring handle wears its axis color and a typed number is the angle in degrees", () => {
   const ring = { kind: "arrow", toggle: false, direction: [0, 1, 0], axis: [1, 0, 0] };
   assert.equal(handleColors(ring).rest, axisColorOf([1, 0, 0]));
   assert.notEqual(handleColors(ring).rest, handleColors({ ...ring, axis: null }).rest);

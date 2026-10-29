@@ -15,9 +15,9 @@ const data = {
   constraints: [],
 };
 
-test("a sketch offers its line ends and middles and circle centres, not construction lines", () => {
+test("a sketch offers its line ends and middles and circle centers, not construction lines", () => {
   const labels = sketchSnapPoints(data).map((p) => `${p.label} ${p.point.join(",")}`);
-  assert.deepEqual(labels, ["Sketch point 0,0,5", "Sketch point 10,0,5", "Sketch midpoint 5,0,5", "Sketch centre 20,5,5"]);
+  assert.deepEqual(labels, ["Sketch point 0,0,5", "Sketch point 10,0,5", "Sketch midpoint 5,0,5", "Sketch center 20,5,5"]);
 });
 
 test("the nearest point on a drawn segment is found in screen space", () => {

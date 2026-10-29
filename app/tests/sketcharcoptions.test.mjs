@@ -28,12 +28,12 @@ test("a typed sweep places the end that many degrees counterclockwise from the s
 });
 
 test("the pointer picks which of the four arcs of the radius is made", () => {
-  // Ends (-3, 0) and (3, 0), radius 5: centres at (0, 4) and (0, -4).
+  // Ends (-3, 0) and (3, 0), radius 5: centers at (0, 4) and (0, -4).
   const s = { u: -3, v: 0 };
   const e = { u: 3, v: 0 };
-  const up = arcByRadius(s, e, 5, { u: 0, v: 1 }); // a shallow arc bulging up: centre below
+  const up = arcByRadius(s, e, 5, { u: 0, v: 1 }); // a shallow arc bulging up: center below
   assert.deepEqual([up.centre.u, up.centre.v], [0, -4]);
-  const upBig = arcByRadius(s, e, 5, { u: 0, v: 8.5 }); // a large arc bulging up: centre above
+  const upBig = arcByRadius(s, e, 5, { u: 0, v: 8.5 }); // a large arc bulging up: center above
   assert.deepEqual([upBig.centre.u, upBig.centre.v], [0, 4]);
   const down = arcByRadius(s, e, 5, { u: 0, v: -1 });
   assert.deepEqual([down.centre.u, down.centre.v], [0, 4]);
@@ -44,7 +44,7 @@ test("Arc by ends and radius makes a counterclockwise arc between the clicked po
   const ctx = context();
   const a = { u: -3, v: 0 };
   const b = { u: 3, v: 0 };
-  addArcRadius(ctx, a, b, { u: 0, v: -1 }, 5); // bulging down, shallow: centre above, runs left to right counterclockwise
+  addArcRadius(ctx, a, b, { u: 0, v: -1 }, 5); // bulging down, shallow: center above, runs left to right counterclockwise
   const arc = ctx.s.entities[0];
   assert.equal(ctx.s.points.find((p) => p.id === arc.start).u, -3);
   assert.equal(ctx.s.points.find((p) => p.id === arc.end).u, 3);

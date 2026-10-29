@@ -9,7 +9,7 @@ test("the move vector is destination minus base", () => {
 });
 
 test("the origin puts the chosen anchor at the destination", () => {
-  // a 10 x 10 x 10 box placed by its centre at (20, 20, 0) starts at (15, 15, -5)
+  // a 10 x 10 x 10 box placed by its center at (20, 20, 0) starts at (15, 15, -5)
   assert.deepEqual(originFor([20, 20, 0], [5, 5, 5]), [15, 15, -5]);
   assert.deepEqual(originFor([7, 8, 9], [0, 0, 0]), [7, 8, 9]);
 });
@@ -37,7 +37,7 @@ test("move arrows relocate to the picked base point, other handles stay", async 
   assert.equal(moveHandlesAt(hs, null), hs);
 });
 
-test("every hole centre is a snap candidate unless hidden", async () => {
+test("every hole center is a snap candidate unless hidden", async () => {
   const { snapCentres } = await import("../src/placepick.ts");
   const centres = [{ position: [1, 2, 3] }, { position: [9, 9, 9] }];
   assert.equal(snapCentres(centres, () => true).length, 2);
@@ -46,12 +46,12 @@ test("every hole centre is a snap candidate unless hidden", async () => {
 
 test("a hole axis is carried onto the face around its mouth", async () => {
   const { axisOnPlane } = await import("../src/placepick.ts");
-  // a vertical hole centred at (5, 5, 3) in a plate whose top face is z = 10
+  // a vertical hole centered at (5, 5, 3) in a plate whose top face is z = 10
   assert.deepEqual(axisOnPlane([5, 5, 3], [0, 0, 1], [0, 0, 10], [0, 0, 1]), [5, 5, 10]);
   assert.equal(axisOnPlane([5, 5, 3], [1, 0, 0], [0, 0, 10], [0, 0, 1]), null);
 });
 
-test("hole mouth centres come from the nearest square planes on each side", async () => {
+test("hole mouth centers come from the nearest square planes on each side", async () => {
   const { mouthPoints } = await import("../src/placepick.ts");
   const planes = [
     { point: [0, 0, 10], normal: [0, 0, 1] },

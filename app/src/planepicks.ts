@@ -1,5 +1,5 @@
 // Extra ways to choose a tool's plane in its form (beside Pick plane and the datum plane buttons): the origin planes and
-// the kept sketches. Also the colours of a cutting plane's two sides, shown on the names in the Remove side list.
+// the kept sketches. Also the colors of a cutting plane's two sides, shown on the names in the Remove side list.
 import { bodyColor } from "./bodycolors";
 
 export interface PickedPlane {
@@ -40,7 +40,7 @@ export function planeButtons(source: PlaneSource, use: (origin: number[], normal
   return [...origins, ...sketches];
 }
 
-/** Colour the names in the Remove side list: Side 1 and Side 2 like the bodies they would give (`sides` from the preview), None unchanged. */
+/** Color the names in the Remove side list: Side 1 and Side 2 like the bodies they would give (`sides` from the preview), None unchanged. */
 export function colourSides(list: HTMLSelectElement, sides: readonly (number | null)[] | undefined) {
   const paint = () => {
     list.style.color = list.options[list.selectedIndex]?.style.color ?? "";
