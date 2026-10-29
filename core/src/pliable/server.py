@@ -280,6 +280,11 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             except (KeyError, TypeError, ValueError) as e:
                 raise RequestError(f"Malformed sketch: {e!r}") from e
             return result
+        if kind == "sketch_flip":
+            try:
+                return {"sketch": sketch.flip_sketch(request["sketch"])}
+            except (KeyError, TypeError, ValueError, sketch.SketchError) as e:
+                raise RequestError(f"Malformed sketch: {e!r}") from e
         if kind == "sketch_freedom":
             try:
                 return {"freedom": point_freedom_by_part(request["sketch"], budget=1.0), "free_sizes": free_circle_sizes(request["sketch"])}
