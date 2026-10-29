@@ -39,6 +39,10 @@ from .planes import (
     STANDARD_PLANES,
     tangent_plane,
 )  # noqa: F401
+from .flip import (
+    flip_plane,
+    flip_sketch,
+)  # noqa: F401
 from .errors import (
     SketchError,
 )  # noqa: F401
