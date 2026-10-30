@@ -75,6 +75,10 @@ Tool group CORE:
   - [ ] Read `server.py` and list its jobs (connection handling, request dispatch in `_handle`, document and autosave state, file and export requests).
   - [ ] If it mixes jobs, propose which parts move to their own modules (the way `handlers/` already holds sketch, datum and tool requests) and bring the proposal to the owner before moving anything.
 
+- **Share one volume helper in the core.** Owner (2026-10-30): "Make a progress line for that cleanup candidate" (after the question "Are we getting volume from OCCT directly?"; answer: yes, through six copies of the same few lines). Related existing items checked: none in Parked or Ideas. Cleanup only: no change to any result.
+  - [ ] Replace the copies of the kernel volume call (`shared/solids.py` `_volume`, `ops.py` `_volume_of`, `bodies.py` `_volume`, `files.py` `_volume`, `measure.py`, `measurebody.py`, and the test helpers) with one shared function, keeping each caller's inputs and outputs the same (check which take a solid, a compound or a face selection first).
+  - [ ] Tests unchanged and passing; no tolerance in any test changes.
+
 ## Review of 2026-10-27 session A (owner review of author-guidance sketch items; quotes are the owner's words)
 
 Related existing items checked: Ideas "A parity checklist" (its scenario set that must solve without flips touches the sketch flipping row). The rest of this review is built (see the commit log, "Record the sketch review results and rows" onward); what is left:
