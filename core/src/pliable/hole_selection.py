@@ -48,7 +48,7 @@ def classify(topology, selection) -> dict:
         if len(distinct) == 1:
             return {"kind": "hole", "wall": _whole_wall(topology, found[0])}
         walls_only = not selection.edges and all(BRepAdaptor_Surface(topology.face(i)).GetType() == GeomAbs_Cylinder for i in selection.faces)
-        return {"kind": "holes"} if walls_only else {"kind": "none"}
+        return {"kind": "holes", "count": len(distinct)} if walls_only else {"kind": "none"}
     if selection.edges or any(h is not None for h in found):
         return {"kind": "none"}
     if len(picks) == 1 and planar_normal(topology.face(selection.faces[0])) is not None:

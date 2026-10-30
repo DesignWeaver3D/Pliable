@@ -42,7 +42,7 @@ def test_several_holes_need_their_walls_and_a_boss_is_not_a_hole(block):
     part = drilled(block, "add_hole", diameter=4, depth=0)
     part = Topology(run("add_hole", part, faces=[top_of(part)], diameter=4, depth=0, offset_u=10).shape)
     walls = faces_where(part, "Cylinder", Radius=2)
-    assert len(walls) == 2 and kind(part, faces=walls) == "holes"
+    assert len(walls) == 2 and kind(part, faces=walls) == "holes" and classify(part, Selection(faces=walls))["count"] == 2
     boss = Topology(run("add_cylinder", block, diameter=10, height=10, x=0, y=0, z=10).shape)
     (wall,) = faces_where(boss, "Cylinder", Radius=5)
     assert kind(boss, faces=[wall]) == "boss"

@@ -49,6 +49,7 @@ export function createSelection(d: SelectionDeps) {
       if (!app.askingArray) void d.toolPanel.apply();
       return;
     }
+    if (d.toolPanel.isCard) d.toolPanel.close(); // the Hole Editor card closes like the push/pull card when the selection changes: nothing is applied, then the new selection may open it again
     if (d.toolPanel.isOpen && clickAway(sels) === "ignore") { viewport.selectItems(app.currentSels); return; } // another item: the open tool card stays as it is
     // The picked region stays a pick while it is still selected, alone or with an edge or global axis added to it (Revolve face from a sketch).
     if (app.pendingProfile && (app.committed !== app.pendingProfile.mesh || !app.pendingProfile.faces.every((f) => sels.some((s) => s.kind === "face" && s.id === f)) || sels.some((s) => s.kind === "face" ? !app.pendingProfile!.faces.includes(s.id) : s.kind !== "edge" && s.kind !== "axis"))) {

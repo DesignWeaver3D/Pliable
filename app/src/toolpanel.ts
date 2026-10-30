@@ -54,6 +54,8 @@ export interface ToolPanelHost {
   settleOpenForm?(): Promise<void>;
   /** The open form changed (opened or closed). */
   changed?(): void;
+  /** For a form opened as a card (openForm's `card`): the header drawn in place of the plain title, or null for none. */
+  cardHeader?(tool: ToolInfo): HTMLElement | null;
 }
 
 const PREVIEW_DELAY_MS = 150;
@@ -87,6 +89,7 @@ const TOOL_PARAM_HELP: Record<string, Record<string, { label: string; title: str
 
 export class ToolPanel {
   private open: ToolInfo | null = null;
+  private card = false; // the open form is a card (the Hole Editor): it opens by itself on a selection, so it starts no preview and a click on empty space closes it
   private editBody: number | undefined; // set while an existing primitive body is being edited (its id)
   private timer = 0;
   private inputs: Record<string, HTMLInputElement | HTMLSelectElement> = {};
@@ -160,6 +163,11 @@ export class ToolPanel {
     return this.open !== null;
   }
 
+  /** The open form is a card that opened by itself on a selection (not a tool the user started). */
+  get isCard(): boolean {
+    return this.open !== null && this.card;
+  }
+
   /** The picked base point's current position, or null (then the tool's own handle positions stand). */
   basePosition(): Vec3 | null {
     return this.baseNow ? this.baseNow() : null;
@@ -170,6 +178,7 @@ export class ToolPanel {
     if (!this.open) return;
     if (restore) usage.record(this.open.id, "cancel");
     this.open = null;
+    this.card = false;
     this.baseNow = null;
     this.editBody = undefined;
     this.host.cancelEyedrop();
@@ -182,10 +191,11 @@ export class ToolPanel {
   }
 
   /** Open the form for a tool; `initial` pre-fills values (used to re-edit the last operation). */
-  openForm(tool: ToolInfo, initial: Record<string, ParamValue> = {}, surface: Surface = "other", editBody?: number) {
+  openForm(tool: ToolInfo, initial: Record<string, ParamValue> = {}, surface: Surface = "other", editBody?: number, card = false) {
     this.close();
     usage.record(tool.id, "start", surface);
     this.open = tool;
+    this.card = card;
     this.editBody = editBody;
     this.baseNow = null;
     const inputs: Record<string, HTMLInputElement | HTMLSelectElement> = {};
@@ -247,7 +257,7 @@ export class ToolPanel {
         });
         input.before(dropper);
       }
-      if (hasSizes(tool.id, p.name)) {
+      if (!card && hasSizes(tool.id, p.name)) { // a card has its own fastener presets in its header
         const sizes = document.createElement("select");
         sizes.className = "sizes";
         sizes.title = "Standard sizes: metric clearance and tap drill diameters";
@@ -298,7 +308,8 @@ export class ToolPanel {
       two.addEventListener("click", () => this.host.twoDistances!(parseFloat((inputs.distance as HTMLInputElement).value) || 0));
       buttons.prepend(two);
     }
-    this.formEl.replaceChildren(title, ...rows, buttons);
+    const header = card ? (this.host.cardHeader?.(tool) ?? null) : null;
+    this.formEl.replaceChildren(header ?? title, ...rows, buttons);
     const placement = tool.placement;
     if (placement && placement.length === 3 && this.host.pickPoint) {
       const note = document.createElement("div");
@@ -518,7 +529,7 @@ export class ToolPanel {
     this.inputs = inputs;
     this.pairInputs = pairInputs;
     (Object.values(inputs)[0] ?? Object.values(pairInputs)[0]?.[0]?.[0] ?? apply).focus();
-    this.schedulePreview(0);
+    if (!card) this.schedulePreview(0); // a card shows the unchanged model until a value changes
     this.host.changed?.();
   }
 
@@ -558,6 +569,11 @@ export class ToolPanel {
     });
     store[p.name] = pairs;
     return box;
+  }
+
+  /** Move the cursor to one field of the open form (a label of the Hole Editor's picture was clicked). */
+  focusField(name: string) {
+    this.inputs[name]?.focus();
   }
 
   /** Put values into the open form's fields (a drag in the viewport fills them) and refresh the preview. */

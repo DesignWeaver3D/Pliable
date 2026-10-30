@@ -116,3 +116,30 @@ export function fastenerNamed(name: string): Fastener | undefined {
 export function defaultClearance(f: Fastener): Clearance {
   return f.clearance.find((c) => c.label === "medium" || c.label === "normal") ?? f.clearance[0];
 }
+
+/** One entry of a preset list: what to show and the form fields it fills. */
+export interface HolePreset {
+  label: string;
+  system: FitSystem;
+  values: Record<string, number>;
+}
+
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
+
+/** Hole diameters: every clearance class, then the tap drill, of each fastener. */
+export function diameterPresets(): HolePreset[] {
+  return FASTENERS.flatMap((f) => [
+    ...f.clearance.map((c) => ({ label: `${f.name} clearance, ${c.label} (${round3(c.diameter)})`, system: f.system, values: { diameter: c.diameter } })),
+    { label: `${f.name} tap drill (${round3(f.tap)})`, system: f.system, values: { diameter: f.tap } },
+  ]);
+}
+
+/** Counterbores for socket head cap screws: the recess diameter and depth. */
+export function counterborePresets(): HolePreset[] {
+  return FASTENERS.filter((f) => f.counterbore).map((f) => ({ label: `${f.name} cap screw (${round3(f.counterbore!.diameter)} x ${round3(f.counterbore!.depth)})`, system: f.system, values: { bore_by: 0, bore_diameter: f.counterbore!.diameter, bore_depth: f.counterbore!.depth } }));
+}
+
+/** Countersinks for flat head screws: the cone's diameter at the surface and its included angle. */
+export function countersinkPresets(): HolePreset[] {
+  return FASTENERS.filter((f) => f.countersink).map((f) => ({ label: `${f.name} flat head (${round3(f.countersink!.diameter)}, ${f.countersink!.angle}°)`, system: f.system, values: { sink_by: 0, sink_diameter: f.countersink!.diameter, sink_angle: f.countersink!.angle } }));
+}

@@ -53,6 +53,7 @@ import { followMeasureCard } from "./selectedreadout";
 import { createModelView } from "./modelview";
 import { createItemDrag } from "./itemdrag";
 import { createPushPullCard } from "./pushpullwire.ts";
+import { createHoleEditor } from "./holeeditorcard.ts";
 
 const $ = (id: string) => document.getElementById(id)!;
 const status = $("status");
@@ -471,6 +472,7 @@ const { setSelection, selectionPayload, mappedSelection, describe } = createSele
   selectionSettled() {
     const tool = waitingTool.take(fitsSelection); // the selection now fits the tool chosen before it
     if (tool) armTool(tool, "drawer");
+    else void holeEditor.maybeOpen(app.currentSels); // a selected hole opens the Hole Editor
   },
 });
 
@@ -1130,6 +1132,14 @@ function twoDistances(distance: number) {
   );
 }
 
+// The Hole Editor: opens on a selected hole in the tool form's place (see holeeditorcard.ts); it needs the tool form below, which calls back into it.
+const holeEditor = createHoleEditor({
+  toolPanel: () => toolPanel,
+  tools: () => tools,
+  classify: (sels) => core.request<{ kind: string; count?: number }>("hole_selection", { selection: selectionPayload(sels) }),
+  selection: () => app.currentSels,
+  busy: () => armedTool !== null || !!viewport.interceptor,
+});
 const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   selectedEdges: () => app.currentSels.filter((s) => s.kind === "edge").map((s) => s.id),
   pickPoint: (options) => pointPicker.pick(options),
@@ -1142,6 +1152,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     }
   },
   tools: () => tools,
+  cardHeader: (tool) => holeEditor.header(tool),
   waitFor: (tool) => waitForSelection(tool),
   usable: (tool) => (acceptsSelection(tool, expand(tool, app.currentSels)) || acceptsWithRail(tool, expand(tool, app.currentSels), app.chosenSketch) || (tool.id === "move_body" && movableSketch() !== null)) && (app.refined === null || app.refined.includes(tool.id)),
   preview(tool, values, editBody) {
