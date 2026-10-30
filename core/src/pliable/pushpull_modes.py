@@ -171,14 +171,36 @@ def push_pull_sheets(shape, faces, distance: float, symmetric: bool, direction, 
     return result
 
 
-def push_pull_mixed(shape, faces, sheets, distance: float, preview: bool, follow_edges, follow_vertices, symmetric: bool, direction, mode: str, flip: bool) -> OpResult:
+def align_to_first(faces, sheets):
+    """Faces of a mixed selection that face the other way than the first selected face are treated as if they had its
+    normal (owner ruling, 2026-10-29). A loose face is turned around; the faces of a solid cannot be, so they are
+    pushed by the negated distance instead (returned as the sign). Returns (faces, sheets, solid_sign)."""
+    from OCP.TopoDS import TopoDS
+
+    reference = planar_normal(faces[0])
+    if reference is None:
+        return faces, sheets, 1.0
+    turned, signs = [], set()
+    for f in faces:
+        normal = planar_normal(f)
+        opposed = normal is not None and normal.IsOpposite(reference, 1e-6)
+        loose = any(f.IsSame(s) for s in sheets)
+        turned.append(TopoDS.Face(f.Reversed()) if opposed and loose else f)
+        if not loose:
+            signs.add(-1.0 if opposed else 1.0)
+    if len(signs) > 1:
+        raise OperationError("The faces of the body face opposite ways; select faces that face the same way")
+    return turned, [f for f in turned if any(f.IsSame(s) for s in sheets)], signs.pop() if signs else 1.0
+
+
+def push_pull_mixed(shape, faces, sheets, distance: float, preview: bool, follow_edges, follow_vertices, symmetric: bool, direction, mode: str, flip: bool, solid_sign: float = 1.0) -> OpResult:
     """A selection of faces of a solid together with loose sketch regions: the solid faces are pushed or pulled first, in
     the bodies alone, then the regions are extruded into the result, so the outcome is what doing each in turn gives.
     The loose faces other than the picked regions are put back untouched."""
     solid_faces = [f for f in faces if not any(f.IsSame(s) for s in sheets)]
     bodies = compound_of(solids_of(shape))
     loose = [f for f in _faces_of(shape) if not any(_contains(solid, f) for solid in solids_of(shape))]
-    first = push_pull(bodies, solid_faces, distance, preview, follow_edges, follow_vertices, symmetric, direction, mode, flip)
+    first = push_pull(bodies, solid_faces, distance * solid_sign, preview, follow_edges, follow_vertices, symmetric, direction, mode, flip)
     rest = compound_of([first.shape] + loose)
     second = push_pull_sheets(rest, sheets, distance, symmetric, direction, preview, mode, flip, keep=first.tracked_faces)
     second.cutters = first.cutters + second.cutters

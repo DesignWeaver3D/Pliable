@@ -89,3 +89,46 @@ def test_a_mixed_selection_in_new_body_mode_makes_a_body_of_each():
     region = next(i for i, f in topology.faces() if sketch.Face(f).center().Z == pytest.approx(15))
     result = push_pull(shape, [topology.face(top), topology.face(region)], 4, mode="new")
     assert len(solids_of(result.shape)) == 3
+
+
+def _minus_x_face_and_plus_x_region():
+    """The block's -X face and a loose disc on it whose normal is +X (it faces the other way)."""
+    plane = {"origin": [-20, 0, 0], "normal": [1, 0, 0], "xdir": [0, 1, 0]}
+    disc = {"plane": plane, "points": [{"id": 1, "u": 0, "v": 0}], "entities": [{"id": 10, "type": "circle", "center": 1, "radius": 3}], "constraints": []}
+    block = load_demo("block")
+    shape, _ = sketch.add_regions(block, disc)
+    topology = Topology(shape)
+    side = next(i for i, f in topology.faces() if sketch.Face(f).center().X == pytest.approx(-20) and sketch.Face(f).area == pytest.approx(600))
+    region = next(i for i, f in topology.faces() if sketch.Face(f).center().X == pytest.approx(-20) and sketch.Face(f).area == pytest.approx(3.14159265 * 9, rel=1e-3))
+    return shape, topology, side, region, volume(block)
+
+
+def test_faces_facing_opposite_ways_pull_along_the_first_faces_normal_block_face_first():
+    shape, topology, side, region, base = _minus_x_face_and_plus_x_region()
+    result = push_pull(shape, [topology.face(side), topology.face(region)], 4)  # along the block face's normal, -X: outward
+    assert volume(result.shape) == pytest.approx(base + 600 * 4, rel=1e-3)  # the disc's column lies inside the grown block
+
+
+def test_a_region_facing_the_other_way_is_extruded_along_the_first_faces_normal():
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+
+    plane = {"origin": [-30, 0, 0], "normal": [1, 0, 0], "xdir": [0, 1, 0]}
+    disc = {"plane": plane, "points": [{"id": 1, "u": 0, "v": 0}], "entities": [{"id": 10, "type": "circle", "center": 1, "radius": 3}], "constraints": []}
+    shape, _ = sketch.add_regions(load_demo("block"), disc)
+    topology = Topology(shape)
+    side = next(i for i, f in topology.faces() if sketch.Face(f).center().X == pytest.approx(-20) and sketch.Face(f).area == pytest.approx(600))
+    region = next(i for i, f in topology.faces() if sketch.Face(f).center().X == pytest.approx(-30))
+    result = push_pull(shape, [topology.face(side), topology.face(region)], 4)
+    lowest = []
+    for solid in solids_of(result.shape):
+        box = Bnd_Box()
+        BRepBndLib.Add_s(solid, box)
+        lowest.append(box.CornerMin().X())
+    assert min(lowest) == pytest.approx(-34)  # the disc grew toward -X, the block face's normal, though its own normal is +X
+
+
+def test_faces_facing_opposite_ways_pull_along_the_first_faces_normal_region_first():
+    shape, topology, side, region, base = _minus_x_face_and_plus_x_region()
+    result = push_pull(shape, [topology.face(region), topology.face(side)], 4)  # along the region's normal, +X: the block face moves inward
+    assert volume(result.shape) == pytest.approx(base - 600 * 4 + 3.14159265 * 9 * 4, rel=1e-3)  # the face cut inward, the disc's column left standing where it was

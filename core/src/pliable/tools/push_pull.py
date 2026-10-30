@@ -52,7 +52,12 @@ class PushPull(Tool):
         normals = [planar_normal(topology.face(i)) for i in selection.faces]
         if len(normals) == 2 and all(n is not None for n in normals) and normals[0].IsOpposite(normals[1], 1e-6):
             return True  # two parallel faces facing away from each other: only a symmetric push/pull moves them (see run)
-        return all(n is not None for n in normals) and all(n.IsParallel(normals[0], 1e-6) and not n.IsOpposite(normals[0], 1e-6) for n in normals)
+        if not all(n is not None for n in normals):
+            return False
+        if not all(n.IsParallel(normals[0], 1e-6) for n in normals):
+            return False
+        loose = any(not _in_solid(topology.shape, topology.face(i)) for i in selection.faces)
+        return loose or not any(n.IsOpposite(normals[0], 1e-6) for n in normals)  # a loose region facing the other way takes the first face's normal (see run)
 
     def run(self, topology, selection, values, preview):
         if _all_round_walls(topology, selection):
@@ -60,9 +65,10 @@ class PushPull(Tool):
         faces = [topology.face(i) for i in selection.faces]
         symmetric = values["symmetric"] >= 0.5
         loose = not any(_in_solid(topology.shape, f) for f in faces)
+        loose_count = sum(1 for f in faces if not _in_solid(topology.shape, f))
         if symmetric and not loose:
             faces = symmetric_faces(topology, faces, getattr(topology, "datums", []))
-        elif len(faces) == 2 and planar_normal(faces[0]).IsOpposite(planar_normal(faces[1]), 1e-6):
+        elif len(faces) == 2 and loose_count == 0 and planar_normal(faces[0]).IsOpposite(planar_normal(faces[1]), 1e-6):
             raise OperationError("These two faces face away from each other; hold Shift while dragging to push/pull them symmetrically")
         direction = _chosen(values)
         if direction is not None and symmetric:

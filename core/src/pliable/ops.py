@@ -274,12 +274,17 @@ def push_pull(
     solids = solids_of(shape)
     faces = face if isinstance(face, list) else [face]
     sheets = [f for f in faces if not any(_contains(solid, f) for solid in solids)] if solids or _is_sheet_model(shape, faces) else []
+    solid_sign = 1.0
+    if sheets and len(faces) > 1 and not symmetric and direction is None and mode != "new":
+        from .pushpull_modes import align_to_first
+
+        faces, sheets, solid_sign = align_to_first(faces, sheets)  # faces facing the other way take the first face's normal
     if sheets and len(sheets) == len(faces):
         return _push_pull_sheets(shape, faces, distance, symmetric, direction, preview, mode, flip)
     if sheets and mode != "new":
         from .pushpull_modes import push_pull_mixed
 
-        return push_pull_mixed(shape, faces, sheets, distance, preview, follow_edges, follow_vertices, symmetric, direction, mode, flip)
+        return push_pull_mixed(shape, faces, sheets, distance, preview, follow_edges, follow_vertices, symmetric, direction, mode, flip, solid_sign)
     if mode == "new" and faces:
         from .pushpull_modes import new_bodies
 

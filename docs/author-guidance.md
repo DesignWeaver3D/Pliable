@@ -75,7 +75,6 @@ Rules for keeping it:
 
 ### Decisions
 
-- Should a sketch region lying inside one flat face of a body be imprinted on that face again (the face is split along the region's outline)? `_host_face` in `sketch/profiles.py` can no longer find a host since the "Keep sketch regions pickable next to an extruded region" change (the overlap test reads `.area` of a list, so it is always false), so every picked region is a loose face laid over the body face and the face is never split. Default if unanswered: leave regions loose (what the app does now, and what behavior.md describes as "a region on a body face needs no coplanar test").
 (none open; the session B review is in the plan, see progress.md "Review of 2026-10-26 session B")
 
 
