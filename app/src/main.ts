@@ -766,8 +766,12 @@ function commands(): Command[] {
     keywords: toolKeywords(tool.id),
     title: toolTooltip(tool),
     hint: usable.has(tool.id) ? "drag the selection" : `select ${describeNeeds(tool)}`,
-    enabled: usable.has(tool.id),
-    run: () => armTool(tool, "search"),
+    enabled: true, // never hidden or blocked: a tool whose selection does not fit waits for one
+    nofit: !usable.has(tool.id),
+    run: () => {
+      if (fitsSelection(tool)) return armTool(tool, "search");
+      void settleOpenArray().then(() => { if (waitForSelection(tool)) toolPanel.close(); }); // same wait as the drawer: the open form is dropped
+    },
   }));
   const demos: Command[] = [...select.options].filter((option) => option.value).map((option) => ({
     label: `Open sample model: ${option.value}`,

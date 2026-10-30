@@ -69,3 +69,18 @@ test("Unify, Patch fill, Bridge and Path array are found by their tool names", (
   assert.equal(searchItems(list, "bridge")[0].label, "Bridge edges");
   assert.equal(searchItems(list, "path array")[0].label, "Array along path");
 });
+
+test("a tool the selection does not fit is still found, after equal matches that fit", () => {
+  const list = [
+    { label: "Move hole", scope: "tool", nofit: true },
+    { label: "Move body", scope: "tool", nofit: false },
+    { label: "Move face", scope: "tool", nofit: true },
+  ];
+  assert.deepEqual(searchItems(list, "move").map((i) => i.label), ["Move body", "Move hole", "Move face"]);
+  assert.equal(searchItems(list, "face").length, 1);
+});
+
+test("remove fillet, chamfer and round find Defeature", () => {
+  const defeature = { label: "Defeature", scope: "tool", keywords: toolKeywords("delete_face") };
+  for (const word of ["remove fillet", "remove chamfer", "remove round"]) assert.equal(searchItems([defeature], word)[0]?.label, "Defeature", word);
+});

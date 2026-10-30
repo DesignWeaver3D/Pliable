@@ -12,6 +12,8 @@ export interface Command {
   scope?: Scope;
   /** Extra search words (other names for the command). */
   keywords?: string[];
+  /** A tool whose selection does not fit: listed dimmed after equal matches and still runs (it waits for the selection). */
+  nofit?: boolean;
   /** Disabled commands are listed but cannot run. */
   enabled: boolean;
   run: () => void;
@@ -108,7 +110,7 @@ export class Palette {
       if (recentCount && i === 0) children.push(Object.assign(document.createElement("div"), { className: "group", textContent: "Recent" }));
       if (recentCount && i === recentCount) children.push(Object.assign(document.createElement("div"), { className: "group", textContent: "All commands" }));
       const row = document.createElement("div");
-      row.className = "row" + (i === this.active ? " active" : "") + (command.enabled ? "" : " disabled");
+      row.className = "row" + (i === this.active ? " active" : "") + (command.enabled ? "" : " disabled") + (command.nofit ? " nofit" : "");
       const label = document.createElement("span");
       label.textContent = command.label;
       if (command.title) row.title = command.title;

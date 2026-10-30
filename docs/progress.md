@@ -17,7 +17,7 @@ Tool group CORE:
   - [x] The drawer's graying is a mild dim (`nofit`), never disabled; the tooltip still says what to select; "usable now" still filters.
   - [x] Recorded in `behavior.md`; tests in `toolwaiting.test.mjs`.
   - [ ] Hand-check in the app (listed in `author-guidance.md`).
-  - [ ] Limits left: Escape does not end a wait (choosing another tool does); a tool that opens its form on the first fitting selection (for example 1+ edges) does not take further picks as post-selection; the strip is unchanged (still lists only fitting tools); the Ctrl+K search still shows misfits as unavailable (its use of the core's availability check is unchanged).
+  - [ ] Limits left: Escape does not end a wait (choosing another tool does); a tool that opens its form on the first fitting selection (for example 1+ edges) does not take further picks as post-selection; the strip is unchanged (still lists only fitting tools).
 
 - **Helix tools.** Owner (2026-10-27): "We need helix tools added". Scope picked by the owner: coil / helical sweep and helical cut / groove (a helix curve in sketch and threads on cylinders were not picked). Related existing items checked: the Holes row (threads: not asked, stays parked), Ideas "Sweep along a rail and arrays along a path" (a helix is a rail; keep Sweep as is).
   - [x] Coil and helical cut: the Helical sweep tool (mode adds or cuts; built, tested in core, in the Solids tool group).

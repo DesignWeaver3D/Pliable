@@ -63,6 +63,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Dimension values, leaders and arrowheads are off-white, and they and the handle grips sit on a thin, 60% opaque dark outline (approved), so they stay readable over light bodies without looking hard-edged.
 - When Inset face edges offsets overlap (a hole band meets the outer band or another hole band), the outlines merge into one combined outline: the inset face is the face minus every band, cut-off islands stay separate faces, and a distance that covers the whole face reports "The inset is larger than the face".
 - Every tool in the all tools drawer can be chosen at any time and works with a correct preselection or a selection made after choosing it: tools that do not fit the current selection are only dimmed (never blocked), choosing one says in the status line what to select, and it starts as soon as the selection fits. (owner, 2026-10-29)
+- The Ctrl+K command search lists every tool matching the typed text whatever the selection: a tool whose selection does not fit is only dimmed and sorted after equal matches that fit, and choosing it waits for a selection like the drawer does. (owner, 2026-10-29)
 
 ## Bodies
 

@@ -15,6 +15,8 @@ export interface Searchable {
   label: string;
   scope?: Scope;
   keywords?: string[];
+  /** A tool the current selection does not fit: still listed and runnable, only sorted after equal matches that do fit. */
+  nofit?: boolean;
 }
 
 /** Split "t:fil" into its scope and the text after the colon. An unknown prefix is left as plain text. */
@@ -64,7 +66,7 @@ export function searchItems<T extends Searchable>(items: T[], raw: string, recen
   return pool
     .map((item, n) => ({ item, n, rank: matchRank(item, text) }))
     .filter((x) => x.rank !== null)
-    .sort((a, b) => a.rank! - b.rank! || a.n - b.n)
+    .sort((a, b) => a.rank! - b.rank! || Number(!!a.item.nofit) - Number(!!b.item.nofit) || a.n - b.n)
     .map((x) => x.item);
 }
 
