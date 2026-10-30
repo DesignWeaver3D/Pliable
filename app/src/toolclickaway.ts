@@ -6,3 +6,9 @@ export type ClickAway = "apply" | "ignore";
 export function clickAway(next: readonly unknown[]): ClickAway {
   return next.length === 0 ? "apply" : "ignore";
 }
+
+/** A card that opened on a selection (the Hole Editor) and was never changed has nothing to apply, so a selection change just closes it (it may open again on the new selection).
+ *  Once a value has been changed it follows `clickAway` like every other tool card: empty space applies it, another item leaves it open. */
+export function closesUnchangedCard(isCard: boolean, hasPreview: boolean): boolean {
+  return isCard && !hasPreview;
+}

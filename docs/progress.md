@@ -49,6 +49,10 @@ Tool group CORE:
   - [x] Cause and fix: the groove started and ended half a pitch inside the wall and was only three quarters of a pitch wide, so the last turn at each end left material; it now goes one turn further at each open end. Tested by core tests.
   - [ ] Hand-check in the app (author-guidance).
 
+- **Hole Editor: empty click discards the threads.** Owner (2026-10-29): "Hole editor clicking in empty 3d space with threads being drawn didn't commit the change, nor did it warn that changes would be kept, and the threads disappeared from the model." Related Parked/Ideas items: none found. Cause: `selection.ts` closed any card on a selection change before the open-tool rule ran, so the empty click discarded the preview instead of calling `toolPanel.apply()`.
+  - [x] A card with a preview follows the open-tool rule: empty space applies it (thread step included, same Apply path), another item leaves it open; an unchanged card just closes. Tested (`toolclickaway.test.mjs`).
+  - [ ] Hand-check with a real mouse (item in `author-guidance.md`, Hole Editor).
+
 - **Hole patterns belong to the array tools.** Owner (2026-10-29): "No patterning in the Hole Editor, those should remain in the array tools. If hole patterns existed and the current array tools can't cover the functionality, we need to find a way to merge the hole patterns into the array tools, which means that the array tools need to be able to understand what a hole is, use that as a tool for patterning, and replicate it including its Hole features." Related: Ideas "Stored array parameters" (section 5); decisions-log 2026-10-26 (arrays on features copy round hole walls).
   - [ ] Array tools replicate a hole with its counterbore, countersink and thread.
   - [ ] Then remove the Pattern hole / boss and Circular pattern buttons (kept for now so no capability is lost). Not started.

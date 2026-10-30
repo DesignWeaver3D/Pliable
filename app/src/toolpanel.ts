@@ -91,7 +91,8 @@ const TOOL_PARAM_HELP: Record<string, Record<string, { label: string; title: str
 
 export class ToolPanel {
   private open: ToolInfo | null = null;
-  private card = false; // the open form is a card (the Hole Editor): it opens by itself on a selection, so it starts no preview and a click on empty space closes it
+  private card = false; // the open form is a card (the Hole Editor): it opens by itself on a selection, so it starts no preview until a value changes
+  private previewed = false; // a preview was requested since the form opened (a changed card has something to apply)
   private editBody: number | undefined; // set while an existing primitive body is being edited (its id)
   private timer = 0;
   private inputs: Record<string, HTMLInputElement | HTMLSelectElement> = {};
@@ -170,6 +171,11 @@ export class ToolPanel {
     return this.open !== null && this.card;
   }
 
+  /** The open form has shown a preview since it opened: a card that opened on a selection and was never changed has not. */
+  get hasPreview(): boolean {
+    return this.open !== null && this.previewed;
+  }
+
   /** The picked base point's current position, or null (then the tool's own handle positions stand). */
   basePosition(): Vec3 | null {
     return this.baseNow ? this.baseNow() : null;
@@ -181,6 +187,7 @@ export class ToolPanel {
     if (restore) usage.record(this.open.id, "cancel");
     this.open = null;
     this.card = false;
+    this.previewed = false;
     this.baseNow = null;
     this.editBody = undefined;
     this.host.cancelEyedrop();
@@ -198,6 +205,7 @@ export class ToolPanel {
     usage.record(tool.id, "start", surface);
     this.open = tool;
     this.card = card;
+    this.previewed = false;
     this.editBody = editBody;
     this.baseNow = null;
     const inputs: Record<string, HTMLInputElement | HTMLSelectElement> = {};
@@ -594,6 +602,7 @@ export class ToolPanel {
     clearTimeout(this.timer);
     const tool = this.open;
     if (!tool) return;
+    this.previewed = true;
     this.timer = window.setTimeout(() => this.host.preview(tool, this.values(), this.editBody), delay);
   }
 
