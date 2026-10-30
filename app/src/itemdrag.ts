@@ -30,7 +30,7 @@ export interface ItemDragDeps {
   mappedSelection(mesh: MeshData): Sel[];
   rememberOp(tool: ToolInfo | null, sels: Sel[], distance: number): void;
   /** The Push/Pull card: opened when a push/pull drag starts, it shows the distance the drag is at. */
-  pushPullCard: { open(): void; showDistance(value: number): void; clearDistance(): void };
+  pushPullCard: { readonly isOpen: boolean; open(): void; showDistance(value: number): void; clearDistance(): void };
 }
 
 export function createItemDrag(d: ItemDragDeps) {
@@ -50,10 +50,15 @@ export function createItemDrag(d: ItemDragDeps) {
   for (const type of ["keydown", "keyup"] as const) {
     window.addEventListener(type, (e) => {
       shiftHeld = e.shiftKey;
-      // Alt held at any time during a push/pull drag makes it a New body (the state at release decides); letting go brings the card's choice back.
-      const altChanged = viewport.pushPull.altHeld !== e.altKey;
-      viewport.pushPull.setAlt(e.altKey);
-      if (e.key === "Alt" && pushPullDragging()) e.preventDefault(); // so the browser's menu does not take the focus
+      // A press of Alt while Push/Pull is in use (a drag, or its card open) switches New body on, the next press off (the state at release decides).
+      let altChanged = false;
+      if (e.key === "Alt" && (pushPullDragging() || d.pushPullCard.isOpen)) {
+        e.preventDefault(); // so the browser's menu does not take the focus
+        if (type === "keydown" && !e.repeat) {
+          viewport.pushPull.toggleAlt();
+          altChanged = true;
+        }
+      }
       // Pressing or letting go of Shift during a push/pull drag switches the symmetric mode from then on and previews it at once.
       const symmetric = shiftHeld || viewport.pushPull.symmetric;
       if (pushPullDragging() && (dragSymmetric !== symmetric || altChanged)) {
@@ -65,7 +70,6 @@ export function createItemDrag(d: ItemDragDeps) {
   }
   window.addEventListener("blur", () => {
     shiftHeld = false;
-    viewport.pushPull.setAlt(false);
   });
 
   function toolRequest(sels: Sel[], distance: number, commit = false) {
@@ -276,6 +280,7 @@ export function createItemDrag(d: ItemDragDeps) {
       status.classList.add("error");
     }
     dragSymmetric = false;
+    if (dragTool?.id === "push_pull") viewport.pushPull.reset(); // applied or cancelled: Flip is off the next time
   }
 
   return { isDragging: () => dragSels !== null, installKeys, onItemDrag };

@@ -67,7 +67,7 @@ export class PushPullCard {
     }
     const modeHead = document.createElement("div");
     modeHead.className = "row";
-    modeHead.title = "How the pushed or pulled volume meets the bodies. New body: hold Alt while dragging";
+    modeHead.title = "How the pushed or pulled volume meets the bodies. New body: press Alt to switch it on or off";
     modeHead.textContent = "Mode";
     this.flipButton.textContent = "Flip";
     this.flipButton.title = FLIP_TITLE;
@@ -105,7 +105,11 @@ export class PushPullCard {
     // The card's own keys: Enter applies a typed distance, Escape closes; nothing here reaches the view's shortcuts.
     el.addEventListener("keydown", (e) => {
       e.stopPropagation();
-      if (e.key === "Enter") this.apply();
+      if (e.key === "Alt") {
+        // A press of Alt toggles New body (itemdrag.ts does the same outside the card); the default is stopped so the browser's menu does not take the focus.
+        e.preventDefault();
+        if (!e.repeat) host.state.toggleAlt();
+      } else if (e.key === "Enter") this.apply();
       else if (e.key === "Escape") this.close();
     });
     el.replaceChildren(
@@ -138,6 +142,7 @@ export class PushPullCard {
   close() {
     if (this.el.hidden) return;
     this.el.hidden = true;
+    this.host.state.reset(); // Flip is off the next time
     if (this.typedDistance) this.host.cancelDistance();
     this.typedDistance = false;
     this.distance.value = "";
