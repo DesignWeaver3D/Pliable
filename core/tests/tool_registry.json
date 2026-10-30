@@ -3158,6 +3158,248 @@
   "keeps_body_order": false
  },
  {
+  "id": "hole_features",
+  "label": "Hole features",
+  "description": "Makes a round hole in a flat face, or changes an existing hole, with any or all of a counterbore, a countersink and a thread in one step. For a new hole, depth 0 is through; for an existing hole, 0 leaves a size unchanged. A counterbore and a countersink can't share an end: on a through hole one can be at the opening and the other at the far end.",
+  "accepts": {
+   "faces": [
+    0,
+    1
+   ],
+   "edges": [
+    0,
+    1
+   ],
+   "vertices": [
+    0,
+    0
+   ],
+   "bodies": [
+    0,
+    0
+   ],
+   "axes": [
+    0,
+    0
+   ],
+   "any_of": true
+  },
+  "params": [
+   {
+    "name": "diameter",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "depth",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "start",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "offset_u",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "offset_v",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dx",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dy",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "dz",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "counterbore",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Off",
+     "On"
+    ]
+   },
+   {
+    "name": "bore_by",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Diameter",
+     "Offset from hole"
+    ]
+   },
+   {
+    "name": "bore_diameter",
+    "kind": "length",
+    "default": 11,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "bore_offset",
+    "kind": "length",
+    "default": 2.5,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "bore_depth",
+    "kind": "length",
+    "default": 4,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "bore_end",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Opening",
+     "Far end"
+    ]
+   },
+   {
+    "name": "countersink",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Off",
+     "On"
+    ]
+   },
+   {
+    "name": "sink_by",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Diameter",
+     "Offset from hole"
+    ]
+   },
+   {
+    "name": "sink_diameter",
+    "kind": "length",
+    "default": 12,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "sink_offset",
+    "kind": "length",
+    "default": 3,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "sink_angle",
+    "kind": "angle",
+    "default": 90,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "sink_end",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Opening",
+     "Far end"
+    ]
+   },
+   {
+    "name": "thread",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Off",
+     "On"
+    ]
+   },
+   {
+    "name": "thread_size",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Custom",
+     "M3",
+     "M4",
+     "M5",
+     "M6",
+     "M8",
+     "M10",
+     "M12",
+     "M14",
+     "M16",
+     "M20"
+    ]
+   },
+   {
+    "name": "thread_pitch",
+    "kind": "length",
+    "default": 1.25,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "thread_hand",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "Right",
+     "Left"
+    ]
+   }
+  ],
+  "related": [],
+  "placement": null,
+  "move_vector": null,
+  "starts_from": "selection",
+  "hidden": false,
+  "whole_model_needs_one_body": false,
+  "body_kind": "Body",
+  "keeps_body_order": false
+ },
+ {
   "id": "path_array",
   "label": "Array along path",
   "description": "Needs an edge selected, or a kept sketch chosen with Shift-click on its curve (it does not show in the tool strip otherwise). Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model), or the round walls of holes or bosses to copy just those features; the count includes the original.",
