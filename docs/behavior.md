@@ -122,6 +122,8 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Horizontal / vertical works on a single selected line as well as on several. (owner, 2026-10-27)
 - The drop list under a constraint button opens under the whole button group with the button's own text size. Every constraint button's tooltip says what it does and what to select; "does not fit the current selection" is only a warning shown when the button is clicked. (owner, 2026-10-27)
 - Thread hole (a Holes tool, owner request 2026-10-27): select a hole's whole round wall and it cuts a helical groove into it, the length of the wall unless a length is given; the size list gives the standard pitch, Custom uses the Pitch box, Right or Left hand.
+- A hole can have a thread together with a counterbore or a countersink: in the Hole Editor a counterbore or countersink can be added and the thread cut afterwards (the thread always goes into the hole's bore, whichever face of the hole is picked), and a new hole can be applied with a thread chosen, as one undo step. After Apply the hole stays selected. (owner, 2026-10-29)
+- A hole's thread runs the length of its bore plus one extra turn out of each open end: a through hole is cut clear out of both openings, a blind hole out of its opening, and its bottom stops where it did. (owner, 2026-10-29)
 
 ## Layout
 

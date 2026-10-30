@@ -40,6 +40,15 @@ Tool group CORE:
   - [ ] Hand-check in the app (listed in `author-guidance.md`); the unchecked preset values; nothing was checked in a browser.
   - [ ] Limits left: a single hole picked by several faces opens no card; Fill fills the picked round wall only (a counterbore step wall fills just that step); the diagram is a fixed schematic, not drawn from the hole's own numbers; the docked panel is not built.
 
+- **Hole Editor: thread with a counterbore or countersink.** Owner (2026-10-29): "hole editor doesn't allow thread and countersink or counterbore at the same time". Related Parked/Ideas items: none found. Cause: each section ran one helper tool and Apply cleared the selection, so after a counterbore the hole had to be picked again, and Thread was offered only when the picked face was itself a whole round wall (a shoulder, cone or counterbore wall picked after the change did not offer it, and threading the counterbore wall cut the wrong wall); a new hole had no thread option at all.
+  - [x] Existing hole: counterbore, countersink and new holes keep the bore selected after Apply, Thread is offered for any face of a hole whose bore is a whole wall and always threads the bore.
+  - [x] New hole: thread list in the card, Apply cuts hole and thread as one undo step.
+  - [ ] Hand-check in the app (author-guidance). Limit: adding a counterbore or countersink to an already threaded hole works but the groove crosses the new shoulder, so the hole is no longer read as one hole (watchlist).
+
+- **Hole Editor: thread runs through the hole.** Owner (2026-10-29): "Also, the hole threads do not pass all the way through. They appear to stop one turn short in both directions. Through all hole should have threads cut the length of the hole plus an extra helix turn on both ends, but a blind hole should have its thread cut stop where its stopping now at the bottom of the hole and cut through an extra turn at the top where the hole is open."
+  - [x] Cause and fix: the groove started and ended half a pitch inside the wall and was only three quarters of a pitch wide, so the last turn at each end left material; it now goes one turn further at each open end. Tested by core tests.
+  - [ ] Hand-check in the app (author-guidance).
+
 - **Hole patterns belong to the array tools.** Owner (2026-10-29): "No patterning in the Hole Editor, those should remain in the array tools. If hole patterns existed and the current array tools can't cover the functionality, we need to find a way to merge the hole patterns into the array tools, which means that the array tools need to be able to understand what a hole is, use that as a tool for patterning, and replicate it including its Hole features." Related: Ideas "Stored array parameters" (section 5); decisions-log 2026-10-26 (arrays on features copy round hole walls).
   - [ ] Array tools replicate a hole with its counterbore, countersink and thread.
   - [ ] Then remove the Pattern hole / boss and Circular pattern buttons (kept for now so no capability is lost). Not started.
