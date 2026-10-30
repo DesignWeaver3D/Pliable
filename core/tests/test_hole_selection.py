@@ -50,3 +50,13 @@ def test_several_holes_need_their_walls_and_a_boss_is_not_a_hole(block):
     (wall,) = faces_where(boss, "Cylinder", Radius=5)
     assert kind(boss, faces=[wall]) == "boss"
     assert kind(boss, faces=[wall, top_of(boss)]) == "none"
+
+
+def test_the_server_answers_the_hole_selection_request():
+    from pliable.server import Session
+
+    session = Session()
+    session.handle({"type": "open_demo", "name": "block"})
+    block = Topology(load_demo("block"))
+    reply = session.handle({"type": "hole_selection", "selection": {"faces": [top_of(block)]}})
+    assert reply["kind"] == "new"

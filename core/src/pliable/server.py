@@ -41,6 +41,7 @@ from .measure import measure, model_info
 from .ops import OperationError, solids_of
 from .protocol import encode_mesh  # noqa: F401  (the benchmark patches server.encode_mesh)
 from .ghost import ghost_reply
+from .hole_selection import classify as classify_hole_selection
 from .edgesel import edge_loops, edge_ring, outer_loop, face_edges, face_loops, region_boundary, shared_loop, sharp_edges
 from .relations import find_related, tangent_chain
 from .tessellate import tessellate  # noqa: F401  (the benchmark patches server.tessellate)
