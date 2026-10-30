@@ -2,6 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { sectionsFor } from "../src/holeeditor.ts";
 import { diameterPresets, counterborePresets, countersinkPresets } from "../src/holepresets.ts";
+import { holeEditorTool } from "../src/holeeditortool.ts";
+import { acceptsSelection } from "../src/tools.ts";
+
+test("the Hole Editor entry fits one face, many faces or one edge, and nothing else", () => {
+  const tool = holeEditorTool();
+  const face = (id) => ({ kind: "face", id });
+  assert.ok(acceptsSelection(tool, [face(1)]));
+  assert.ok(acceptsSelection(tool, [face(1), face(2), face(3)]));
+  assert.ok(acceptsSelection(tool, [{ kind: "edge", id: 4 }]));
+  assert.ok(!acceptsSelection(tool, []));
+  assert.ok(!acceptsSelection(tool, [{ kind: "edge", id: 4 }, { kind: "edge", id: 5 }]));
+  assert.ok(!acceptsSelection(tool, [{ kind: "body", id: 1 }]));
+});
 
 test("one hole is edited with the Edit hole form, several with the Resize form", () => {
   assert.equal(sectionsFor("hole")[0].tool, "edit_hole");

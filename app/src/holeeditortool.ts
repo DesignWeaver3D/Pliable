@@ -9,7 +9,7 @@ export function holeEditorTool(): ToolInfo {
     id: HOLE_EDITOR_ID,
     label: "Hole Editor",
     description: "Makes a round hole in a flat face or changes an existing hole: size, depth, counterbore, countersink, thread, fill and position, with metric and inch fastener presets. Select a flat face for a new hole, or a hole to edit it.",
-    accepts: { faces: [1, null], edges: [1, 1], anyOf: true },
+    accepts: { faces: [0, null], edges: [0, 1], anyOf: true }, // the ranges say how many of each kind are allowed; anyOf asks for something selected
     params: [],
     startsFrom: "selection",
     hasHandles: false,
