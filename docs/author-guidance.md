@@ -69,7 +69,7 @@ Rules for keeping it:
 ### Hole Editor (new)
 
 - [ ] Hole Editor entry and sections: choose Hole Editor in the drawer (and the search) with a flat face selected (a new hole: Simple, Counterbore, Countersink, preview at once, presets fill the hole and screw sizes), with a hole selected (Size & position, Counterbore, Countersink, Thread on a whole wall, Fill), and with several hole walls selected (Size, Move, Align, Distribute, Fill); check the picture labels focus their fields and that the old hole buttons are gone from the drawer, the strip and the search. Default if unanswered: stays as built.
-- [ ] Preset values to verify against the standards (the standard texts are paid and could not be read): metric clearance holes fine, medium and coarse (ISO 273 series), metric 90 degree and inch 82 degree flat head countersink diameters, and the inch tap drills other than 1/2-13. Checked from a published chart: inch close and normal clearance, cap screw counterbore depths, inch counterbore diameters, M3 and M6 counterbores, metric tap drills (major minus pitch). The table is `app/src/holepresets.ts`; the header comment says which are which. Default if unanswered: the values stay as entered.
+- [ ] Preset values still unverified (no readable source): inch 82 degree flat head countersink diameters, and the inch tap drills other than 1/2-13 (the number and letter drills; published tables only list metric-rounded drills that agree within rounding). The metric clearance series and metric 90 degree countersinks are now checked against published tables. The table is `app/src/holepresets.ts`; the header comment says which are which. Default if unanswered: the values stay as entered.
 
 ### Decisions
 

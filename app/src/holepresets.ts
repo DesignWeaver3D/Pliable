@@ -2,14 +2,16 @@
  *  (no view code), so the card, the Sizes lists of the hole forms and a later docked panel all read one table. Values are millimeters.
  *
  *  Where each number comes from:
- *  - Clearance holes, metric: fine, medium and coarse series of the clearance-hole standard (ISO 273). NOT VERIFIED against the standard text
- *    (it is paid; the web copies found were unreadable). Entered from the published series; listed in author-guidance.md.
+ *  - Clearance holes, metric: fine, medium and coarse series of the clearance-hole standard (ISO 273), checked against published fastener
+ *    dimension tables.
  *  - Clearance holes, inch: close and normal fit drills, checked against a published inch counterbore chart (amesweb.info).
  *  - Tap drills: metric = the standard drill nearest major diameter minus the coarse pitch (a published rule: 6.75 is drilled as 6.8, 10.2 for M12); 1/2-13 checked (27/64). The other inch drills are the
- *    usual 75 percent thread drills and NOT VERIFIED.
+ *    usual 75 percent thread drills (number and letter drills); the published tables list only metric-rounded drills, which agree within
+ *    rounding but cannot confirm them, so they stay NOT VERIFIED.
  *  - Counterbores for socket head cap screws: depth = head height (the screw size for metric, the major diameter for inch; checked against
  *    a published chart); metric diameters are the common cap screw counterbore series (M3 and M6 checked); inch diameters checked.
- *  - Countersinks: metric 90 degree and inch 82 degree flat head diameters. NOT VERIFIED.
+ *  - Countersinks: metric 90 degree flat head diameters (the flat head socket screw standard, ISO 10642) checked against published
+ *    tables; the inch 82 degree diameters are NOT VERIFIED.
  */
 export type FitSystem = "metric" | "inch";
 

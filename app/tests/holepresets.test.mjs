@@ -24,3 +24,10 @@ test("known values", () => {
   assert.equal(quarter.major, 6.35);
   assert.equal(quarter.countersink.angle, 82);
 });
+
+test("metric clearance series and 90 degree countersinks match the published tables", () => {
+  const clearance = { M2: [2.2, 2.4, 2.6], "M2.5": [2.7, 2.9, 3.1], M3: [3.2, 3.4, 3.6], M4: [4.3, 4.5, 4.8], M5: [5.3, 5.5, 5.8], M6: [6.4, 6.6, 7], M8: [8.4, 9, 10], M10: [10.5, 11, 12], M12: [13, 13.5, 14.5], M14: [15, 15.5, 16.5], M16: [17, 17.5, 18.5], M20: [21, 22, 24], M24: [25, 26, 28] };
+  for (const [name, series] of Object.entries(clearance)) assert.deepEqual(fastenerNamed(name).clearance.map((c) => c.diameter), series, name);
+  const sinks = { M3: 6.7, M4: 9, M5: 11.2, M6: 13.4, M8: 17.9, M10: 22.4, M12: 26.9, M14: 30.8, M16: 33.6, M20: 40.3 };
+  for (const [name, d] of Object.entries(sinks)) assert.ok(Math.abs(fastenerNamed(name).countersink.diameter - d) < 0.1, name);
+});
