@@ -66,6 +66,8 @@ Rules for keeping it:
 - [ ] Section view (the cut-plane icon at the left of the view buttons above the nav cube): pick planes (Pick plane, XY/XZ/YZ, three points), drag the blue arrow and the slider through a model, Flip side, hatch angle and spacing differ per body and the lines are grey, two overlapping bodies show red where their cut faces overlap (try bodies that only touch: no red), and the view stays fast on a large imported part. Known limit: clicks still pick the hidden, cut-away part of the model.
 - [ ] All tools usable at all times (new): with nothing selected open the tools drawer; the misfit tools should look only slightly dimmer, not blocked. Click Push/Pull or Extrude-like tools, Fillet and a two-face tool with the wrong selection: the status line says what to select, then select it and the tool's card or arrow appears as if preselected. Click another tool while one waits (the wait ends). Check the tooltip, and the "usable now" box still hides the dimmed ones. Default if unanswered: stays as built.
 
+- [ ] Region picking over a coplanar body face (owner report 2026-10-29: "why is the solid face getting selected instead of the sketch area face?"): with a kept sketch moved onto a body face (YZ sketch moved to the -X face, so the region normal opposes the face's outward normal), hover and plain-click, Ctrl-click, and Shift-click a region over the face, with the face not selected and then selected. Expected (behavior.md): the region lights and is picked, never the face. The code reads right (`profileUnder` uses a double-sided fill and a 1.001x distance test, `clickOrProfile` and the hover prefer it over a face), so the cause was not found without a browser; the one known way a face wins is a face that is already selected (pressing it starts its drag). Note what was selected before the failing click.
+
 ### Hole Editor (new)
 
 - [ ] Hole Editor entry and sections: choose Hole Editor in the drawer (and the search) with a flat face selected (a new hole: Simple, Counterbore, Countersink, preview at once, presets fill the hole and screw sizes), with a hole selected (Size & position, Counterbore, Countersink, Thread on a whole wall, Fill), and with several hole walls selected (Size, Move, Align, Distribute, Fill); check the picture labels focus their fields and that the old hole buttons are gone from the drawer, the strip and the search. Default if unanswered: stays as built.
@@ -73,6 +75,7 @@ Rules for keeping it:
 
 ### Decisions
 
+- Should a sketch region lying inside one flat face of a body be imprinted on that face again (the face is split along the region's outline)? `_host_face` in `sketch/profiles.py` can no longer find a host since the "Keep sketch regions pickable next to an extruded region" change (the overlap test reads `.area` of a list, so it is always false), so every picked region is a loose face laid over the body face and the face is never split. Default if unanswered: leave regions loose (what the app does now, and what behavior.md describes as "a region on a body face needs no coplanar test").
 (none open; the session B review is in the plan, see progress.md "Review of 2026-10-26 session B")
 
 

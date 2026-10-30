@@ -276,8 +276,10 @@ def push_pull(
     sheets = [f for f in faces if not any(_contains(solid, f) for solid in solids)] if solids or _is_sheet_model(shape, faces) else []
     if sheets and len(sheets) == len(faces):
         return _push_pull_sheets(shape, faces, distance, symmetric, direction, preview, mode, flip)
-    if sheets:
-        raise OperationError("Select either faces of a solid or loose faces made from a sketch, not both")
+    if sheets and mode != "new":
+        from .pushpull_modes import push_pull_mixed
+
+        return push_pull_mixed(shape, faces, sheets, distance, preview, follow_edges, follow_vertices, symmetric, direction, mode, flip)
     if mode == "new" and faces:
         from .pushpull_modes import new_bodies
 

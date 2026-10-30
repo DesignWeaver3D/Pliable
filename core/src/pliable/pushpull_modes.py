@@ -26,6 +26,7 @@ from .ops import (
     _volume_of,
     planar_normal,
     pull_direction,
+    push_pull,
     solids_of,
     unify_result,
 )
@@ -113,12 +114,13 @@ def _follow_one(history, cap) -> list:
         return [cap]
 
 
-def push_pull_sheets(shape, faces, distance: float, symmetric: bool, direction, preview: bool, mode: str, flip: bool) -> OpResult:
+def push_pull_sheets(shape, faces, distance: float, symmetric: bool, direction, preview: bool, mode: str, flip: bool, keep=()) -> OpResult:
     """Push/pull on loose faces (regions of a closed sketch): each is extruded along its normal. Cutting volumes cut
     every body they meet, adding volumes are fused with the bodies they meet (or stand alone), new volumes are separate
-    solids. A subtract that removes nothing changes nothing (see `nothing_to_subtract`)."""
+    solids. A subtract that removes nothing changes nothing (see `nothing_to_subtract`). `keep` are faces of the bodies
+    that stay tracked through the operation (the faces of a mixed selection that were already pushed or pulled)."""
     if abs(distance) < MIN_DISTANCE:
-        return OpResult(shape, list(faces), unified=True)
+        return OpResult(shape, list(faces) + list(keep), unified=True)
     parts = _parts(faces, distance, symmetric, direction, mode, flip)
     cutters = [p.prism for p in parts if p.role == "cut"]
     adders = [p.prism for p in parts if p.role == "add"]
@@ -160,9 +162,27 @@ def push_pull_sheets(shape, faces, distance: float, symmetric: bool, direction, 
     tracked = [p.cap for p in contributing if p.tracked] or [p.cap for p in contributing]
     for history in histories:
         tracked = [kept for cap in tracked for kept in _follow_one(history, cap)]
+    kept_faces = list(keep)
+    for history in histories:
+        kept_faces = [kept for face in kept_faces for kept in _follow_one(history, face)]
+    tracked = tracked + [f for f in kept_faces if _contains(combined, f)]
     result = unify_result(OpResult(combined, tracked))
     result.cutters = cutters
     return result
+
+
+def push_pull_mixed(shape, faces, sheets, distance: float, preview: bool, follow_edges, follow_vertices, symmetric: bool, direction, mode: str, flip: bool) -> OpResult:
+    """A selection of faces of a solid together with loose sketch regions: the solid faces are pushed or pulled first, in
+    the bodies alone, then the regions are extruded into the result, so the outcome is what doing each in turn gives.
+    The loose faces other than the picked regions are put back untouched."""
+    solid_faces = [f for f in faces if not any(f.IsSame(s) for s in sheets)]
+    bodies = compound_of(solids_of(shape))
+    loose = [f for f in _faces_of(shape) if not any(_contains(solid, f) for solid in solids_of(shape))]
+    first = push_pull(bodies, solid_faces, distance, preview, follow_edges, follow_vertices, symmetric, direction, mode, flip)
+    rest = compound_of([first.shape] + loose)
+    second = push_pull_sheets(rest, sheets, distance, symmetric, direction, preview, mode, flip, keep=first.tracked_faces)
+    second.cutters = first.cutters + second.cutters
+    return second
 
 
 def new_bodies(shape, faces, distance: float, symmetric: bool, direction) -> OpResult:
