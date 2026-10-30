@@ -76,7 +76,7 @@ Rules for keeping it:
 ### Decisions
 
 (none open; the session B review is in the plan, see progress.md "Review of 2026-10-26 session B")
-
+- Flip on a plain body face: should Apply say more than "Nothing to subtract"? With Flip on, pulling a body face out subtracts and removes nothing, so Apply (and a click in empty space) changes nothing; pushing in adds material that is already solid, so it changes nothing and says nothing. Options: keep as built; show the "Nothing to subtract" / "Nothing to add" message in the Push/Pull card itself; or make Flip swap only the arrow colors and the Alt/Subtract meaning on loose regions. Default if unanswered: keep as built.
 
 ## Future
 
