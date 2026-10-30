@@ -12,6 +12,13 @@ State (2026-10-29): `main` is the development branch and the only long-lived one
 
 Tool group CORE:
 
+- **All tools usable at all times.** Owner (2026-10-29): "I want all tools in the all tools drawer to be usable at all times. I want the graying to be less prominent, so they will still attempt to lead the user to tools matching the current selection but will not block user if current selection is wrong. I want a new behavior recorded that all tools should work with correct preselection or post selection. That is something I really like about [another CAD program]." Related existing items checked: Ideas "Status line names the armed or default tool" and "Named slots for tools with several picks" (the waiting hint is a small part of the first; named slots would be the proper fix for the multi-pick limit below); Parked: none touch it.
+  - [x] Every tool in the drawer can be clicked at any time; one whose selection does not fit waits (`toolwaiting.ts`), says what to select in the status line, and starts when the selection fits. A fitting preselection behaves as before.
+  - [x] The drawer's graying is a mild dim (`nofit`), never disabled; the tooltip still says what to select; "usable now" still filters.
+  - [x] Recorded in `behavior.md`; tests in `toolwaiting.test.mjs`.
+  - [ ] Hand-check in the app (listed in `author-guidance.md`).
+  - [ ] Limits left: Escape does not end a wait (choosing another tool does); a tool that opens its form on the first fitting selection (for example 1+ edges) does not take further picks as post-selection; the strip is unchanged (still lists only fitting tools); the Ctrl+K search still shows misfits as unavailable (its use of the core's availability check is unchanged).
+
 - **Helix tools.** Owner (2026-10-27): "We need helix tools added". Scope picked by the owner: coil / helical sweep and helical cut / groove (a helix curve in sketch and threads on cylinders were not picked). Related existing items checked: the Holes row (threads: not asked, stays parked), Ideas "Sweep along a rail and arrays along a path" (a helix is a rail; keep Sweep as is).
   - [x] Coil and helical cut: the Helical sweep tool (mode adds or cuts; built, tested in core, in the Solids tool group).
   - [x] Owner (2026-10-27): Mode reads Add / Subtract, directly under the axis buttons; Subtract cuts every solid the coil meets; a chosen sketch works as the profile. Done for Helical sweep.

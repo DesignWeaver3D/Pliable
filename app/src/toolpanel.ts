@@ -18,6 +18,8 @@ export interface ToolPanelHost {
   selectedEdges?(): number[];
   tools(): ToolInfo[];
   usable(tool: ToolInfo): boolean;
+  /** A tool chosen in the list whose selection does not fit yet: the host makes it wait for one and returns true (the form then does not open). */
+  waitFor?(tool: ToolInfo): boolean;
   /** Run the tool with these values without committing (live preview). */
   preview(tool: ToolInfo, values: Record<string, ParamValue>, editBody?: number): Promise<void>;
   commit(tool: ToolInfo, values: Record<string, ParamValue>, editBody?: number): Promise<void>;
@@ -111,7 +113,7 @@ export class ToolPanel {
     ].filter((g) => g.tools.length);
     const key = groups.map((g) => `${g.title}:${g.tools.map((t) => t.id).join(",")}`).join("|");
     if (key === this.listKey) {
-      for (const [id, button] of this.listButtons) button.disabled = !this.host.usable(tools.find((t) => t.id === id)!);
+      for (const [id, button] of this.listButtons) button.classList.toggle("nofit", !this.host.usable(tools.find((t) => t.id === id)!));
       return;
     }
     this.listKey = key;
@@ -126,9 +128,12 @@ export class ToolPanel {
         for (const tool of group.tools) {
           const button = document.createElement("button");
           button.append(toolIcon(tool.id, tool.label), tool.label);
-          button.disabled = !this.host.usable(tool);
+          button.classList.toggle("nofit", !this.host.usable(tool)); // only dimmed: every tool can be chosen, a misfit one waits for its selection
           button.title = toolTooltip(tool);
-          button.addEventListener("click", () => void (this.host.settleOpenForm?.() ?? Promise.resolve()).then(() => this.openForm(tool, {}, "drawer")));
+          button.addEventListener("click", () => void (this.host.settleOpenForm?.() ?? Promise.resolve()).then(() => {
+            if (this.host.waitFor?.(tool)) this.close(); // the open form (if any) is dropped; the tool starts when the selection fits
+            else this.openForm(tool, {}, "drawer");
+          }));
           this.listButtons.set(tool.id, button);
           box.append(button);
         }

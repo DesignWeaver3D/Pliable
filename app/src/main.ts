@@ -45,6 +45,7 @@ import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type HandleInf
 import { switchToTwoDistances } from "./twodistances";
 import { Viewport, type Sel } from "./viewport";
 import { usage, type Surface } from "./usage";
+import { createWaitingTool, waitingHint } from "./toolwaiting";
 import { bodiesOf } from "./visibility";
 import { showNumber } from "./precision.ts";
 import { createSelection } from "./selection";
@@ -160,6 +161,7 @@ function logOnce(kind: string, e: unknown) {
 // Tool registry from the core, the current selection, and which tool a drag runs.
 let tools: ToolInfo[] = [];
 let armedTool: string | null = null; // tool the user chose in the toolbar or palette
+const waitingTool = createWaitingTool(); // a tool chosen from the drawer before its selection exists
 
 /** The tool the chips speak for: the armed tool, else the open form's tool, else none (a choice for all tools). */
 function chipTool(): string | null {
@@ -186,6 +188,23 @@ function renderChips() {
 /** Tools usable with the current selection: counts checked here, the core's extra checks once it replies. */
 function usableTools(): ToolInfo[] {
   return tools.filter((t) => (acceptsSelection(t, expand(t, app.currentSels)) || acceptsWithRail(t, expand(t, app.currentSels), app.chosenSketch) || (t.id === "move_body" && movableSketch() !== null)) && (app.refined === null || app.refined.includes(t.id)));
+}
+
+/** Whether the selection has what the tool takes (the counts, the chosen rail or a movable sketch), whatever the core adds. */
+function fitsSelection(t: ToolInfo): boolean {
+  return acceptsSelection(t, expand(t, app.currentSels)) || acceptsWithRail(t, expand(t, app.currentSels), app.chosenSketch) || (t.id === "move_body" && movableSketch() !== null);
+}
+
+/** A tool chosen in the drawer: with a fitting selection it starts as usual; otherwise it waits and says what to select. */
+function waitForSelection(tool: ToolInfo): boolean {
+  if (fitsSelection(tool)) {
+    waitingTool.cancel();
+    return false;
+  }
+  waitingTool.wait(tool);
+  status.classList.remove("error");
+  status.textContent = waitingHint(tool);
+  return true;
 }
 
 /** The kept sketch Move/Rotate would move: the sketch whose row was picked, or whose region was picked in the view. */
@@ -367,6 +386,7 @@ async function editPrimitive(id: number) {
 }
 
 function armTool(tool: ToolInfo, surface: Surface) {
+  waitingTool.cancel();
   if (isArrayTool(toolPanel.openToolId)) {
     void settleOpenArray().then(() => armTool(tool, surface));
     return;
@@ -448,6 +468,10 @@ const { setSelection, selectionPayload, mappedSelection, describe } = createSele
   get toolPanel() { return toolPanel; },
   get bodyList() { return bodyList; },
   renderChips, renderToolbar, renderSketchBar, settleOpenArray, dropPendingProfile, setChosenSketch, pickRow, refreshSelectionHandles, logOnce,
+  selectionSettled() {
+    const tool = waitingTool.take(fitsSelection); // the selection now fits the tool chosen before it
+    if (tool) armTool(tool, "drawer");
+  },
 });
 
 /** Tells the list of kept sketches what the document holds; set once that list exists. */
@@ -693,6 +717,7 @@ installFileOpening(
     endTool: () => {
       if (toolPanel.isOpen) toolPanel.close(false); // an open tool form would be applied to the new model by the selection reset
       armedTool = null;
+      waitingTool.cancel();
       viewport.cancelDrag();
       viewport.manipulator.cancel();
       viewport.pullGizmo.cancel();
@@ -1113,6 +1138,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     }
   },
   tools: () => tools,
+  waitFor: (tool) => waitForSelection(tool),
   usable: (tool) => (acceptsSelection(tool, expand(tool, app.currentSels)) || acceptsWithRail(tool, expand(tool, app.currentSels), app.chosenSketch) || (tool.id === "move_body" && movableSketch() !== null)) && (app.refined === null || app.refined.includes(tool.id)),
   preview(tool, values, editBody) {
     // One preview in flight at a time, the newest request waiting behind it (latest wins): the core answers in order, so

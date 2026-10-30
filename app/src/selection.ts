@@ -35,6 +35,8 @@ export interface SelectionDeps {
   pickRow(row: RowRef | null): void;
   refreshSelectionHandles(): Promise<void>;
   logOnce(kind: string, e: unknown): void;
+  /** The selection and the core's answers about it are in place: a tool waiting for a selection may start. */
+  selectionSettled(): void;
 }
 
 export function createSelection(d: SelectionDeps) {
@@ -100,6 +102,7 @@ export function createSelection(d: SelectionDeps) {
       renderToolbar();
       d.toolPanel.renderList();
       renderSketchBar();
+      d.selectionSettled();
     });
     core
       .request<MeasureReply>("measure", { selection: selectionPayload(sels), density: materialOrDefault(settings.material).density, densities: ownDensities(app.committed ? bodiesOf(app.committed) : []) }) // the density gives a selected body its mass
