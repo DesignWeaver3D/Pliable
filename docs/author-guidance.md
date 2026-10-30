@@ -66,6 +66,10 @@ Rules for keeping it:
 - [ ] Section view (the cut-plane icon at the left of the view buttons above the nav cube): pick planes (Pick plane, XY/XZ/YZ, three points), drag the blue arrow and the slider through a model, Flip side, hatch angle and spacing differ per body and the lines are grey, two overlapping bodies show red where their cut faces overlap (try bodies that only touch: no red), and the view stays fast on a large imported part. Known limit: clicks still pick the hidden, cut-away part of the model.
 - [ ] All tools usable at all times (new): with nothing selected open the tools drawer; the misfit tools should look only slightly dimmer, not blocked. Click Push/Pull or Extrude-like tools, Fillet and a two-face tool with the wrong selection: the status line says what to select, then select it and the tool's card or arrow appears as if preselected. Click another tool while one waits (the wait ends). Check the tooltip, and the "usable now" box still hides the dimmed ones. Default if unanswered: stays as built.
 
+### Hole Editor (new)
+
+- [ ] Preset values to verify against the standards (the standard texts are paid and could not be read): metric clearance holes fine, medium and coarse (ISO 273 series), metric 90 degree and inch 82 degree flat head countersink diameters, and the inch tap drills other than 1/2-13. Checked from a published chart: inch close and normal clearance, cap screw counterbore depths, inch counterbore diameters, M3 and M6 counterbores, metric tap drills (major minus pitch). The table is `app/src/holepresets.ts`; the header comment says which are which. Default if unanswered: the values stay as entered.
+
 ### Decisions
 
 (none open; the session B review is in the plan, see progress.md "Review of 2026-10-26 session B")
