@@ -13,7 +13,8 @@ test("a counterbore, countersink, thread and fill section follow the pick", () =
   assert.deepEqual(ids("other"), ["edit_hole", "convert_to_counterbore", "convert_to_countersink"]);
   assert.deepEqual(ids("cylinder"), ["edit_hole", "convert_to_counterbore", "convert_to_countersink", "fill_hole"]);
   assert.deepEqual(ids("wall"), ["edit_hole", "convert_to_counterbore", "convert_to_countersink", "thread_hole", "fill_hole"]);
-  assert.deepEqual(sectionsFor("holes", 2).map((s) => s.tool), ["resize_hole", "fill_hole"]);
+  assert.deepEqual(sectionsFor("holes", 2).map((s) => s.tool), ["resize_hole", "move_hole", "align_holes", "fill_hole"]);
+  assert.deepEqual(sectionsFor("holes", 4).map((s) => s.tool), ["resize_hole", "move_hole", "align_holes", "distribute_holes", "fill_hole"]);
 });
 
 test("preset lists fill the fields their forms have", () => {

@@ -16,9 +16,12 @@ export interface HoleSection {
   presets?: () => HolePreset[];
 }
 
-const SIZE: HoleSection = { tool: "edit_hole", label: "Size", title: "Change the diameter, depth, start and position of the hole", shape: "simple", presets: diameterPresets };
+const SIZE: HoleSection = { tool: "edit_hole", label: "Size & position", title: "Change the diameter, depth, start and position of the hole", shape: "simple", presets: diameterPresets };
 const SIZE_ALL: HoleSection = { tool: "resize_hole", label: "Size", title: "Change the diameter of every selected hole", shape: "simple", presets: diameterPresets };
 
+const MOVE_ALL: HoleSection = { tool: "move_hole", label: "Move", title: "Move every selected hole by distances along X, Y and Z", shape: "simple" };
+const ALIGN: HoleSection = { tool: "align_holes", label: "Align", title: "Line the holes up with the first one you selected along an axis", shape: "simple" };
+const DISTRIBUTE: HoleSection = { tool: "distribute_holes", label: "Distribute", title: "Space the holes evenly between the two outermost along an axis", shape: "simple" };
 const COUNTERBORE: HoleSection = { tool: "convert_to_counterbore", label: "Counterbore", title: "Widen the opening into a flat-bottomed step for a screw head", shape: "counterbore", presets: counterborePresets };
 const COUNTERSINK: HoleSection = { tool: "convert_to_countersink", label: "Countersink", title: "Cut a cone into the opening for a flat head screw", shape: "countersink", presets: countersinkPresets };
 const THREAD: HoleSection = { tool: "thread_hole", label: "Thread", title: "Cut a helical thread into the round wall", shape: "simple", thread: true, presets: threadPresets };
@@ -30,7 +33,7 @@ export type HolePick = "wall" | "cylinder" | "other";
 /** The sections offered for a selection: one hole (picked as `pick`), or several (`count` holes). */
 export function sectionsFor(kind: HoleKind, count = 1, pick: HolePick = "other"): HoleSection[] {
   if (kind === "hole") return [SIZE, COUNTERBORE, COUNTERSINK, ...(pick === "wall" ? [THREAD] : []), ...(pick !== "other" ? [FILL] : [])];
-  return count >= 1 ? [SIZE_ALL, FILL] : [];
+  return count >= 1 ? [SIZE_ALL, MOVE_ALL, ...(count >= 2 ? [ALIGN] : []), ...(count >= 3 ? [DISTRIBUTE] : []), FILL] : [];
 }
 
 export interface HoleEditorDeps {
