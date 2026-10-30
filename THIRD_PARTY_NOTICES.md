@@ -9,6 +9,9 @@ Pliable is licensed under the GNU Affero General Public License v3 or later (see
 | [build123d](https://github.com/gumyr/build123d) | CAD helpers on top of OCP | Apache-2.0 |
 | [py-slvs](https://github.com/realthunder/slvs_py) (SolveSpace solver) | Sketch constraint solver | GPL-3.0 |
 | [websockets](https://github.com/python-websockets/websockets) | Core to browser connection | BSD-3-Clause |
+| [rhino3dm](https://github.com/mcneel/rhino3dm) | Reads and writes .3dm files | MIT |
+| [IfcOpenShell](https://ifcopenshell.org/) | Reads .ifc files (optional `ifc` extra, also used by the tests) | LGPL-3.0-or-later |
+| IfcOpenShell's Python dependencies: [shapely](https://github.com/shapely/shapely), [lark](https://github.com/lark-parser/lark), [isodate](https://github.com/gweis/isodate), [python-dateutil](https://github.com/dateutil/dateutil), [six](https://github.com/benjaminp/six), [tzdata](https://github.com/python/tzdata) | Support libraries for the .ifc reader | BSD-3-Clause, MIT, BSD, BSD, MIT, Apache-2.0 |
 | [Three.js](https://threejs.org/) | Viewport | MIT |
 | [Vite](https://vite.dev/) and TypeScript | Frontend build (not shipped in the page) | MIT / Apache-2.0 |
 | [Tauri](https://tauri.app/) with WRY and TAO | Desktop window around the app | MIT OR Apache-2.0 |
@@ -17,4 +20,4 @@ Pliable is licensed under the GNU Affero General Public License v3 or later (see
 
 The desktop window uses the operating system's webview (Microsoft WebView2 on Windows, WebKit on macOS, WebKitGTK on Linux); it is not bundled. Portable builds bundle the other components. OpenCASCADE is LGPL: its libraries ship as separate files in the build so they can be replaced. The AGPL source for Pliable is at https://github.com/DesignWeaver3D/Pliable.
 
-<!-- lock fingerprints: desktop/src-tauri/Cargo.lock=0acc4fc288cc core/uv.lock=c6ebfb808ced app/package-lock.json=e7dd29074a56 desktop/package-lock.json=01a653602ff9 -->
+<!-- lock fingerprints: desktop/src-tauri/Cargo.lock=0acc4fc288cc core/uv.lock=d3510d26c44c app/package-lock.json=e7dd29074a56 desktop/package-lock.json=01a653602ff9 -->
