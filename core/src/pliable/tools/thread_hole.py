@@ -8,7 +8,8 @@ from OCP.BRepTools import BRepTools
 from OCP.GeomAbs import GeomAbs_Cylinder
 from OCP.gp import gp_Ax1, gp_Dir, gp_Pnt, gp_Vec
 
-from ..holes import NOT_ROUND, _inward
+from ..hole_bore import bore_wall
+from ..holes import find_hole, NOT_ROUND, _inward
 from ..ops import _contains, OperationError, solids_of
 from ..shared.solids import _compound, _volume, finish
 from ..tools import Accepts, Param, register, Tool
@@ -32,15 +33,33 @@ class ThreadHole(Tool):
     accepts = Accepts(faces=(1, 1))
     params = [Param("size", "number", 0, options=SIZES), Param("pitch", "length", 1.25), Param("depth", "length", 0), Param("length", "length", 0), Param("hand", "number", 0, options=("Right", "Left"))]
 
+    @staticmethod
+    def _wall(topology, selection) -> int:
+        """The face to thread: the bore wall of the hole the picked face belongs to (so a counterbore wall, a shoulder or a cone leads to the bore), else the picked face."""
+        return bore_wall(topology, selection.faces[0]) if bore_wall(topology, selection.faces[0]) is not None else selection.faces[0]
+
+    @staticmethod
+    def _open_ends(topology, face, direction) -> tuple[bool, bool]:
+        """(low, high): whether the hole is open at the wall's low and high end along the axis. A through hole is open at both; a blind hole
+        only where it starts; a wall that is not part of a hole counts as open at both ends."""
+        try:
+            info = find_hole(topology, face_id=topology.face_id(face), reach=False)
+        except OperationError:
+            return True, True
+        if info.through:
+            return True, True
+        opens_low = info.direction.Dot(direction) > 0
+        return opens_low, not opens_low
+
     def applies(self, topology, selection):
-        surface = BRepAdaptor_Surface(topology.face(selection.faces[0]))
-        return surface.GetType() == GeomAbs_Cylinder and _inward(topology.face(selection.faces[0]))
+        face = topology.face(self._wall(topology, selection))
+        return BRepAdaptor_Surface(face).GetType() == GeomAbs_Cylinder and _inward(face)
 
     def refusal(self, topology, selection):
         return NOT_ROUND if self.accepts.matches(selection) else None
 
     def run(self, topology, selection, values, preview):
-        face = topology.face(selection.faces[0])
+        face = topology.face(self._wall(topology, selection))
         surface = BRepAdaptor_Surface(face)
         if surface.GetType() != GeomAbs_Cylinder or not _inward(face):
             raise OperationError(NOT_ROUND)
@@ -57,7 +76,12 @@ class ThreadHole(Tool):
         room = (v1 - v0) if values["length"] <= 1e-9 else min(values["length"], v1 - v0)
         if room < 1.5 * pitch:
             raise OperationError("The hole wall is too short for even one turn of this pitch")
-        turns = (room - pitch) / pitch  # the groove's middle runs from half a pitch in to half a pitch short of the end
+        # The groove's middle runs from half a pitch in to half a pitch short of the end; at an open end of the hole it goes one turn
+        # further, so the cut leaves through the opening (a blind hole's bottom keeps its stop).
+        low_open, high_open = self._open_ends(topology, face, axis.Direction())
+        start = (0.5 - (1 if low_open else 0)) * pitch
+        stop = room - 0.5 * pitch + (pitch if high_open and room >= v1 - v0 - 1e-9 else 0)
+        turns = (stop - start) / pitch
         direction = axis.Direction()
         across = gp_Dir(direction.Crossed(gp_Dir(1, 0, 0))) if abs(direction.X()) < 0.9 else gp_Dir(direction.Crossed(gp_Dir(0, 1, 0)))
 
@@ -67,7 +91,7 @@ class ThreadHole(Tool):
         # The groove's profile in a plane through the axis: wide at the wall (three quarters of the pitch), narrow at its root; it starts a little
         # inside the hole so the cut opens cleanly.
         inside = 0.1 * depth
-        first = 0.5 * pitch
+        first = start
         polygon = BRepBuilderAPI_MakePolygon(at(first - 0.375 * pitch, radius - inside), at(first + 0.375 * pitch, radius - inside), at(first + 0.0625 * pitch, radius + depth), at(first - 0.0625 * pitch, radius + depth), True)
         profile = BRepBuilderAPI_MakeFace(polygon.Wire()).Face()
         coils = HelicalSweep()._coil(profile, gp_Ax1(axis.Location(), direction), {"pitch": pitch, "turns": turns, "hand": values["hand"]})

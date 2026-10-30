@@ -4,6 +4,7 @@ from OCP.BRepAdaptor import BRepAdaptor_Surface
 from OCP.BRepTools import BRepTools
 from OCP.GeomAbs import GeomAbs_Cylinder
 
+from .hole_bore import bore_wall
 from .holes import FULL_TURN, find_hole
 from .ops import OperationError, planar_normal
 from .shared.hole_groups import Hole
@@ -49,7 +50,8 @@ def _pick_kind(topology, selection) -> str:
 def classify(topology, selection) -> dict:
     """{"kind": ...} where kind is "new" (one flat face: a place for a new hole), "hole" (one hole, picked by any of its faces, its rim or
     its center dot), "holes" (several holes, each picked by its round wall), "boss" (boss walls only) or "none" (empty, mixed or anything else).
-    A single hole also reports "wall", a whole round wall of it (or null), and "pick", how the picked face sits in it (the helpers that fill or thread need a round wall picked)."""
+    A single hole also reports "wall", a whole round wall of it (or null), "pick", how the picked face sits in it (Fill needs a round wall picked), and "thread",
+    whether one picked face leads to a bore wall that Thread hole can cut (any face of the hole will do, a counterbore or countersink included)."""
     picks = [(i, None) for i in selection.faces] + [(None, e) for e in selection.edges]
     if not picks:
         return {"kind": "none"}
@@ -57,7 +59,8 @@ def classify(topology, selection) -> dict:
     if all(h is not None for h in found):
         distinct = set(found)
         if len(distinct) == 1:
-            return {"kind": "hole", "wall": _whole_wall(topology, found[0]), "pick": _pick_kind(topology, selection)}
+            threadable = len(selection.faces) == 1 and not selection.edges and bore_wall(topology, selection.faces[0]) is not None
+            return {"kind": "hole", "wall": _whole_wall(topology, found[0]), "pick": _pick_kind(topology, selection), "thread": threadable}
         walls_only = not selection.edges and all(BRepAdaptor_Surface(topology.face(i)).GetType() == GeomAbs_Cylinder for i in selection.faces)
         return {"kind": "holes", "count": len(distinct)} if walls_only else {"kind": "none"}
     if selection.edges or any(h is not None for h in found):

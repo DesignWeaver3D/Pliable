@@ -10,6 +10,7 @@ from OCP.TopAbs import TopAbs_REVERSED
 from OCP.TopoDS import TopoDS_Shape
 from OCP.gp import gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 
+from ..holes import walls_on_axis
 from ..ops import MIN_DISTANCE, OperationError, OpResult
 from ..splitwalls import wall_chain
 from ..tools import Accepts, Param, Tool
@@ -133,7 +134,10 @@ class _HoleOnFace(_PlanarFace):
         shape = _combine(topology.shape, _cylinder(lead, normal.Reversed(), values["diameter"] / 2, depth + margin), fuse=False)
         for cutter in self.extra_cutters(start, normal, values, depth, margin):
             shape = _combine(shape, cutter, fuse=False)
-        return finish(shape, self._ghost_cutters(start, normal, values, depth) if preview and values["depth"] > MIN_DISTANCE else ())
+        result = finish(shape, self._ghost_cutters(start, normal, values, depth) if preview and values["depth"] > MIN_DISTANCE else ())
+        if not preview:  # the new hole's bore stays selected, so the Hole Editor opens on it (and a thread can follow)
+            result.tracked_faces += walls_on_axis(result.shape, start, normal, values["diameter"] / 2)
+        return result
 
     def _ghost_cutters(self, start: gp_Pnt, normal: gp_Dir, values: dict, depth: float) -> list[TopoDS_Shape]:
         """The cutting shapes for the preview's ghost: as cut, but starting on the face (no lead-in) so a hole inside the model has none.

@@ -2,7 +2,7 @@
 
 import math
 
-from ..holes import find_hole, HoleInfo, NOT_ROUND
+from ..holes import find_hole, follow_cylinder, HoleInfo, NOT_ROUND
 from ..ops import OperationError
 from ..tools import Accepts, Tool
 
@@ -70,3 +70,10 @@ def _check_room(info: HoleInfo, depth: float, far: bool) -> None:
     other = max((s["depth"] for s in (info.end_stages if not far else info.stages)), default=0.0)
     if depth + other >= info.depth - CLEARANCE:
         raise OperationError("The countersink or counterbore is deeper than the hole allows; use a smaller depth" if not other else "The two ends would meet; use a smaller depth at one of them")
+
+
+def _keep_bore(result, topology, info: HoleInfo):
+    """Keep the hole's bore selected after a change that leaves it where it was (so the Hole Editor stays open on the hole)."""
+    for i in info.faces:
+        result.tracked_faces += follow_cylinder(result.shape, topology.face(i), None, only_radius=info.diameter / 2)
+    return result

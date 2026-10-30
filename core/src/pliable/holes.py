@@ -483,3 +483,18 @@ def follow_cylinder(shape, face, offset: gp_Vec | None, radius: float | None = N
         if gp_Lin(cylinder.Axis()).Distance(origin) < 1e-5:
             found.append(candidate)
     return found
+
+
+def walls_on_axis(shape, origin: gp_Pnt, direction: gp_Dir, radius: float) -> list:
+    """The cylinder faces of `shape` of this radius about the line through `origin` along `direction` (a new hole's bore)."""
+    from .topology import Topology
+
+    found = []
+    for _, candidate in Topology(shape).faces():
+        s = BRepAdaptor_Surface(candidate)
+        if s.GetType() != GeomAbs_Cylinder:
+            continue
+        cylinder = s.Cylinder()
+        if abs(cylinder.Radius() - radius) < 1e-6 and cylinder.Axis().Direction().IsParallel(direction, 1e-6) and gp_Lin(cylinder.Axis()).Distance(origin) < 1e-5:
+            found.append(candidate)
+    return found

@@ -4,7 +4,7 @@ import math
 
 from ..holes import rebuild_hole
 from ..ops import MIN_DISTANCE, OperationError
-from ..shared.hole_edit import _check_room, _end_changes, _entered_diameter, _HoleTool, _perpendicular, CLEARANCE, SIZE_BY
+from ..shared.hole_edit import _check_room, _end_changes, _entered_diameter, _HoleTool, _keep_bore, _perpendicular, CLEARANCE, SIZE_BY
 from ..shared.solids import finish
 from ..tools import Handle, Param, register, round_handles
 
@@ -32,7 +32,7 @@ class ConvertToCountersink(_HoleTool):
         if any(s["type"] == "counterbore" for s in (info.end_stages if far else info.stages)):
             raise OperationError("This end of the hole has a counterbore; a countersink can't be added to it")
         stage = {"type": "countersink", "diameter": sink, "angle": angle, "depth": height}
-        return finish(rebuild_hole(topology.shape, info, None, **_end_changes(info, stage, far)))
+        return _keep_bore(finish(rebuild_hole(topology.shape, info, None, **_end_changes(info, stage, far))), topology, info)
 
     def handles(self, topology, selection, values):
         info = self.hole(topology, selection)
