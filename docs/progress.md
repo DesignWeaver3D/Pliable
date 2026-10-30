@@ -89,6 +89,13 @@ Tool group CORE:
   - [ ] Inventory every direct manipulation today: face drag (Push/Pull), edge handle (Fillet/Chamfer), hole arrows and center-dot drag, body move handles, sketch region pulls; for each, what the select-first version would be.
   - [ ] Bring the owner a proposal with the cost of each change and the `behavior.md` lines it replaces; no behavior is changed before the owner approves it.
 
+- **Linux AppImage build.** Owner (2026-10-30): "Is the linux build an appimage?" The answer was no (a portable `.zip` from `scripts/build_desktop.py`; `bundle.active` is false in `desktop/src-tauri/tauri.conf.json`), and the owner then asked for it to be added to the plan. Related Parked/Ideas items checked: Parked "Alpha release" (the `v0.4.0` series is the Tauri portable build); nothing else touches it.
+  - [ ] Discuss with the owner first: AppImage in addition to the zip, or instead of it, and whether Windows and macOS get installers too.
+  - [ ] Decide how the AppImage gets its web view: WebKitGTK is not bundled today (see `THIRD_PARTY_NOTICES.md`); bundling it makes the file much larger.
+  - [ ] Keep the LGPL libraries (OpenCASCADE, and IfcOpenShell if it is bundled) replaceable and update the note in `THIRD_PARTY_NOTICES.md`.
+  - [ ] Check whether the Linux zip keeps the executable bit on `Pliable` after unzipping (`shutil.make_archive` may drop it); fix it if not.
+  - [ ] Smoke-test the AppImage in the release and desktop workflows like the zip, attach it to the draft release, and add a test or script check where no browser is needed.
+
 ## Review of 2026-10-27 session A (owner review of author-guidance sketch items; quotes are the owner's words)
 
 Related existing items checked: Ideas "A parity checklist" (its scenario set that must solve without flips touches the sketch flipping row). The rest of this review is built (see the commit log, "Record the sketch review results and rows" onward); what is left:
