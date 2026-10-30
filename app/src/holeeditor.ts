@@ -4,7 +4,7 @@
 import { counterborePresets, countersinkPresets, diameterPresets, threadPresets, type HolePreset } from "./holepresets.ts";
 import { holeDiagram, type HoleShape } from "./holediagram.ts";
 
-export type HoleKind = "hole" | "holes";
+export type HoleKind = "hole" | "holes" | "new";
 
 export interface HoleSection {
   /** The tool this section runs (its form is drawn under the header). */
@@ -30,8 +30,13 @@ const FILL: HoleSection = { tool: "fill_hole", label: "Fill", title: "Fill the p
 /** How the one picked face sits in its hole (the core's `pick`): Thread needs a whole round wall, Fill a round wall. */
 export type HolePick = "wall" | "cylinder" | "other";
 
-/** The sections offered for a selection: one hole (picked as `pick`), or several (`count` holes). */
+const NEW_SIMPLE: HoleSection = { tool: "add_hole", label: "Simple", title: "A plain round hole, blind or through", shape: "simple", presets: diameterPresets };
+const NEW_COUNTERBORE: HoleSection = { tool: "add_counterbore", label: "Counterbore", title: "A hole with a flat-bottomed step for a screw head", shape: "counterbore", presets: () => counterborePresets(true) };
+const NEW_COUNTERSINK: HoleSection = { tool: "add_countersink", label: "Countersink", title: "A hole with a cone-shaped opening for a flat head screw", shape: "countersink", presets: () => countersinkPresets(true) };
+
+/** The sections offered for a selection: a flat face for a new hole, one hole (picked as `pick`), or several (`count` holes). */
 export function sectionsFor(kind: HoleKind, count = 1, pick: HolePick = "other"): HoleSection[] {
+  if (kind === "new") return [NEW_SIMPLE, NEW_COUNTERBORE, NEW_COUNTERSINK];
   if (kind === "hole") return [SIZE, COUNTERBORE, COUNTERSINK, ...(pick === "wall" ? [THREAD] : []), ...(pick !== "other" ? [FILL] : [])];
   return count >= 1 ? [SIZE_ALL, MOVE_ALL, ...(count >= 2 ? [ALIGN] : []), ...(count >= 3 ? [DISTRIBUTE] : []), FILL] : [];
 }

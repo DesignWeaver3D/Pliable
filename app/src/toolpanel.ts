@@ -56,6 +56,8 @@ export interface ToolPanelHost {
   changed?(): void;
   /** For a form opened as a card (openForm's `card`): the header drawn in place of the plain title, or null for none. */
   cardHeader?(tool: ToolInfo): HTMLElement | null;
+  /** A tool with no form of its own (the Hole Editor entry) chosen from the list while its selection fits: the host starts it and returns true. */
+  startOwn?(tool: ToolInfo): boolean;
 }
 
 const PREVIEW_DELAY_MS = 150;
@@ -135,7 +137,7 @@ export class ToolPanel {
           button.title = toolTooltip(tool);
           button.addEventListener("click", () => void (this.host.settleOpenForm?.() ?? Promise.resolve()).then(() => {
             if (this.host.waitFor?.(tool)) this.close(); // the open form (if any) is dropped; the tool starts when the selection fits
-            else this.openForm(tool, {}, "drawer");
+            else if (!this.host.startOwn?.(tool)) this.openForm(tool, {}, "drawer");
           }));
           this.listButtons.set(tool.id, button);
           box.append(button);

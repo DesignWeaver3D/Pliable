@@ -54,6 +54,7 @@ import { createModelView } from "./modelview";
 import { createItemDrag } from "./itemdrag";
 import { createPushPullCard } from "./pushpullwire.ts";
 import { createHoleEditor } from "./holeeditorcard.ts";
+import { HOLE_EDITOR_ID, holeEditorTool } from "./holeeditortool.ts";
 
 const $ = (id: string) => document.getElementById(id)!;
 const status = $("status");
@@ -390,6 +391,14 @@ function armTool(tool: ToolInfo, surface: Surface) {
   waitingTool.cancel();
   if (isArrayTool(toolPanel.openToolId)) {
     void settleOpenArray().then(() => armTool(tool, surface));
+    return;
+  }
+  if (tool.id === HOLE_EDITOR_ID) {
+    usage.record(tool.id, "start", surface);
+    void holeEditor.start(app.currentSels).then((why) => {
+      status.classList.toggle("error", why !== null);
+      if (why !== null) status.textContent = why;
+    });
     return;
   }
   const movable = tool.id === "move_body" ? movableSketch() : null;
@@ -1153,6 +1162,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   },
   tools: () => tools,
   cardHeader: (tool) => holeEditor.header(tool),
+  startOwn: (tool) => (tool.id === HOLE_EDITOR_ID ? (armTool(tool, "drawer"), true) : false),
   waitFor: (tool) => waitForSelection(tool),
   usable: (tool) => (acceptsSelection(tool, expand(tool, app.currentSels)) || acceptsWithRail(tool, expand(tool, app.currentSels), app.chosenSketch) || (tool.id === "move_body" && movableSketch() !== null)) && (app.refined === null || app.refined.includes(tool.id)),
   preview(tool, values, editBody) {
@@ -1416,6 +1426,7 @@ function waitRetry(ms: number): Promise<void> {
 async function syncWithCore(hadModel: boolean) {
   void showLaunchNotice(core);
   tools = (await core.request<{ tools: ToolInfo[] }>("list_tools")).tools.filter((t) => !t.hidden);
+  tools.push(holeEditorTool()); // the one Hole Editor entry (no tool of its own in the core)
   renderToolbar();
   toolPanel.renderList();
   const { restore, resume } = await core.request<{ restore?: { name: string; steps: number; saved?: number }; resume?: { name: string } }>("hello");

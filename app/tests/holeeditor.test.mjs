@@ -24,3 +24,14 @@ test("preset lists fill the fields their forms have", () => {
   assert.deepEqual(Object.keys(counterborePresets()[0].values), ["bore_by", "bore_diameter", "bore_depth"]);
   assert.deepEqual(Object.keys(countersinkPresets()[0].values), ["sink_by", "sink_diameter", "sink_angle"]);
 });
+
+test("the Hole Editor entry is found by hole, drill and bore", async () => {
+  const { searchItems, toolKeywords } = await import("../src/search.ts");
+  const items = [{ label: "Hole Editor", scope: "tool", keywords: toolKeywords("hole_editor") }];
+  for (const word of ["hole", "drill", "bore"]) assert.deepEqual(searchItems(items, word).map((i) => i.label), ["Hole Editor"]);
+});
+
+test("a flat face offers the three ways of making a new hole", () => {
+  assert.deepEqual(sectionsFor("new").map((s) => s.tool), ["add_hole", "add_counterbore", "add_countersink"]);
+  assert.ok(counterborePresets(true)[0].values.diameter > 0 && !("diameter" in counterborePresets()[0].values));
+});

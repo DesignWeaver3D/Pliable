@@ -26,6 +26,17 @@ export function createHoleEditor(d: HoleEditorDeps) {
     if (tool) d.toolPanel().openForm(tool, {}, "other", undefined, true);
   }
 
+  /** Open the sections the core's answer calls for; false when the answer is not a hole or a flat face for one. Only `explicit` (the user chose Hole Editor) opens a new hole. */
+  function show(reply: { kind: string; count?: number; pick?: HolePick }, sels: Sel[], explicit: boolean): boolean {
+    if (reply.kind === "hole" && sels.length !== 1) return false; // one hole picked by several faces: the tools take one pick
+    if (reply.kind !== "hole" && reply.kind !== "holes" && !(explicit && reply.kind === "new")) return false;
+    sections = sectionsFor(reply.kind as HoleKind, reply.count ?? 1, reply.pick);
+    if (!sections.length) return false;
+    openSection(sections[0]);
+    if (reply.kind === "new") d.toolPanel().setValues({}); // a new hole is previewed at once
+    return true;
+  }
+
   return {
     /** Open the editor for the selection when it is one hole (picked by one face, rim or center dot) or several holes (picked by their walls). */
     async maybeOpen(sels: Sel[]) {
@@ -37,10 +48,18 @@ export function createHoleEditor(d: HoleEditorDeps) {
         return; // the card is a convenience; the tools still work
       }
       if (d.selection() !== sels || d.busy() || d.toolPanel().isOpen) return; // the selection moved on or a tool started while the core answered
-      if (reply.kind === "hole" && sels.length !== 1) return; // one hole picked by several faces: the tools take one pick
-      if (reply.kind !== "hole" && reply.kind !== "holes") return;
-      sections = sectionsFor(reply.kind as HoleKind, reply.count ?? 1, reply.pick);
-      if (sections.length) openSection(sections[0]);
+      show(reply, sels, false);
+    },
+    /** The user chose Hole Editor: edit the selected hole(s) or start a new hole on the selected flat face. Returns why not, or null. */
+    async start(sels: Sel[]): Promise<string | null> {
+      let reply: { kind: string; count?: number; pick?: HolePick };
+      try {
+        reply = await d.classify(sels);
+      } catch (e) {
+        return (e as Error).message;
+      }
+      if (d.selection() !== sels) return null; // the selection moved on while the core answered
+      return show(reply, sels, true) ? null : "Hole Editor: select a flat face for a new hole, or a hole to edit it";
     },
     /** The header drawn above the fields of a tool opened as a card (null for a tool that has no section). */
     header(tool: ToolInfo): HTMLElement | null {

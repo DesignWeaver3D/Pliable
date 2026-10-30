@@ -80,6 +80,7 @@ export const TOOL_ICONS: Record<string, Spec> = {
   fillet_per_edge: spec("edge", "round"),
   chamfer_two_distances: spec("edge", "chamfer2"),
   chamfer_distance_angle: spec("edge", "chamfer"),
+  hole_editor: spec("hole", "minus"),
   add_hole: spec("hole", "minus"),
   add_counterbore: spec("hole", "step"),
   add_countersink: spec("hole", "cone"),
