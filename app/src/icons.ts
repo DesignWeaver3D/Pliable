@@ -114,9 +114,7 @@ export const TOOL_ICONS: Record<string, Spec> = {
   bridge: spec("edge", "bridge"),
   offset_body: spec("body", "offset"),
   cut_plane: spec("body", "cut"),
-  split_plane: spec("body", "cut"),
   move_body: spec("body", "move"),
-  rotate_body: spec("body", "rotate"),
   scale_body: spec("body", "scale"),
 };
 

@@ -259,7 +259,7 @@ def test_body_transforms(block):
     assert volume(moved.shape) == pytest.approx(24000)
     box = measure(Topology(moved.shape), Selection(vertices=[0]))["items"][0]["anchor"]
     assert max(abs(box[0]), abs(box[2])) > 9
-    rotated = run("rotate_body", block, axis=2, angle=90)
+    rotated = run("move_body", block, rz=90)
     assert volume(rotated.shape) == pytest.approx(24000)
     scaled = run("scale_body", block, factor=2)
     assert volume(scaled.shape) == pytest.approx(24000 * 8)
@@ -433,14 +433,14 @@ def test_body_boolean_takes_bodies_and_a_body_with_faces():
     assert volume(result.shape) == pytest.approx(20 * 30 * 20, rel=1e-3)
 
 
-def test_split_plane_makes_two_solids(block):
+def test_cut_plane_keeping_both_makes_two_solids(block):
     from pliable.ops import solids_of
 
-    result = run("split_plane", block, axis=2, position=8)
+    result = run("cut_plane", block, axis=2, position=8, remove_side=0)
     assert len(solids_of(result.shape)) == 2
     assert volume(result.shape) == pytest.approx(24000)
     with pytest.raises(OperationError):
-        run("split_plane", block, axis=2, position=500)
+        run("cut_plane", block, axis=2, position=500, remove_side=0)
 
 
 def test_variable_fillet_removes_material(block):
@@ -728,12 +728,11 @@ def test_cut_plane_tilts_and_offers_move_and_tilt_handles(block):
     from pliable.bodies import box_of
     from pliable.tools import Selection
 
-    for tool_id in ("cut_plane", "split_plane"):
-        tool = get_tool(tool_id)
-        values = {"axis": 2, "position": 0.0, "remove_side": 0.0}
-        handles = tool.handles(block, Selection(), {**values, "tilt_u": 0.0, "tilt_v": 0.0, "nx": 0, "ny": 0, "nz": 1})
-        assert [h.param for h in handles] == ["position", "tilt_u", "tilt_v"]
-        assert handles[0].kind == "move" and handles[1].ring is not None
+    tool = get_tool("cut_plane")
+    values = {"axis": 2, "position": 0.0, "remove_side": 0.0}
+    handles = tool.handles(block, Selection(), {**values, "tilt_u": 0.0, "tilt_v": 0.0, "nx": 0, "ny": 0, "nz": 1})
+    assert [h.param for h in handles] == ["position", "tilt_u", "tilt_v"]
+    assert handles[0].kind == "move" and handles[1].ring is not None
     flat = run("cut_plane", block, axis=2, position=0.0, remove_side=1.0)
     tilted = run("cut_plane", block, axis=2, position=0.0, remove_side=1.0, tilt_u=20.0)
     # A tilted plane through the middle leaves a different shape than the level one.

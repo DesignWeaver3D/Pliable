@@ -116,7 +116,7 @@ const TOOL_WORDS: [RegExp, string[]][] = [
   [/array|pattern/, ["array", "pattern", "copy", "repeat", "duplicate"]],
   [/mirror/, ["mirror", "symmetry", "flip"]],
   [/boolean/, ["union", "subtract", "cut", "intersect", "join", "merge"]],
-  [/cut_plane|split/, ["cut", "split", "slice", "section"]],
+  [/cut_plane/, ["cut", "split", "slice", "section"]],
   [/draft/, ["draft", "taper", "angle", "mold"]],
   [/revolve|sweep|loft/, ["revolve", "sweep", "loft", "lathe", "spin"]],
   [/add_prism/, ["prism", "hexagon", "polygon", "hex", "pentagon", "octagon", "extruded polygon"]],

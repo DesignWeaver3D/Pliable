@@ -8,7 +8,7 @@ from OCP.BRepBndLib import BRepBndLib
 
 from pliable.protocol import decode_binary
 from pliable.server import Session
-from pliable.tools import TOOLS, Selection, get_tool
+from pliable.tools import Selection, get_tool
 from test_features import volume
 
 
@@ -35,7 +35,7 @@ def test_one_tool_moves_and_rotates():
     tool = get_tool("move_body")
     assert tool.label == "Move/Rotate"
     assert [p.name for p in tool.params] == ["dx", "dy", "dz", "rx", "ry", "rz"]
-    assert TOOLS["rotate_body"].describe()["hidden"] is True and not tool.describe()["hidden"]
+    assert not tool.describe()["hidden"]
 
 
 def test_rotate_then_translate_through_execute():

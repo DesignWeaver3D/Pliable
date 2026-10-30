@@ -260,9 +260,9 @@ def test_scale_rotate_offset_selected_body_only():
     vols = sorted(round(volume(s)) for s in solids_of(session.document.current.shape))
     assert vols[0] == 1000 and vols[1] > 1000
     session = _two_apart_session()
-    _tool(session, "rotate_body", [_face_at(session, 24, 36)], {"axis": 2, "angle": 90})
+    _tool(session, "move_body", [_face_at(session, 24, 36)], {"rz": 90})
     assert len(solids_of(session.document.current.shape)) == 2
-    assert _centres(session) == [0.0, 0.0]
+    assert _centres(session) == [0.0, 30.0]  # turned about its own center
 
 
 def test_push_pull_moves_coplanar_faces_of_several_solids_together():

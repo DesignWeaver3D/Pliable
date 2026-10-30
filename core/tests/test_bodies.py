@@ -124,7 +124,7 @@ def test_body_selection_moves_rotates_and_scales_about_each_centre():
     _, scaled = solids()
     assert [(scaled[k] + scaled[k + 3]) / 2 for k in range(3)] == pytest.approx(centre)
     assert scaled[3] - scaled[0] == pytest.approx(20)
-    commit(session, "rotate_body", {"axis": 2, "angle": 90}, {"bodies": [2]})
+    commit(session, "move_body", {"rz": 90}, {"bodies": [2]})
     _, turned = solids()
     assert [(turned[k] + turned[k + 3]) / 2 for k in range(3)] == pytest.approx(centre)
 
@@ -133,10 +133,10 @@ def test_body_selection_availability():
     session = make()
     commit(session, "add_box", {"width": 10, "depth": 10, "height": 10, "x": 100, "new_body": 1})
     tools = session.handle({"type": "available_tools", "selection": {"bodies": [2]}})["tools"]
-    assert {"move_body", "rotate_body", "scale_body", "offset_body"} <= set(tools)
+    assert {"move_body", "scale_body", "offset_body"} <= set(tools)
     assert "push_pull" not in tools and "add_hole" not in tools
     assert session.handle({"type": "available_tools", "selection": {"bodies": [99]}})["tools"] == []
-    handles = session.handle({"type": "tool_handles", "tool": "rotate_body", "selection": {"bodies": [2]}, "params": {}})["handles"]
+    handles = session.handle({"type": "tool_handles", "tool": "move_body", "selection": {"bodies": [2]}, "params": {}})["handles"]
     assert handles and abs(handles[0]["anchor"][0] - 105) < 30
 
 

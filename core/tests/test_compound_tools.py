@@ -40,7 +40,7 @@ def test_start_is_a_compound_and_a_plain_body():
     assert sorted(_kinds(_document())) == [False, True]
 
 
-@pytest.mark.parametrize("tool,params", [("move_body", {"dx": 7, "dy": 3}), ("move_body", {"rz": 30, "dx": 5}), ("rotate_body", {"axis": 2, "angle": 45})])
+@pytest.mark.parametrize("tool,params", [("move_body", {"dx": 7, "dy": 3}), ("move_body", {"rz": 30, "dx": 5}), ("move_body", {"rz": 45})])
 def test_move_and_rotate_keep_the_compound(tool, params):
     document = _document()
     compound_id = next(b.id for b, k in zip(document.current.bodies.bodies, _kinds(document)) if k)

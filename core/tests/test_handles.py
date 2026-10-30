@@ -183,22 +183,6 @@ def test_move_body_has_a_handle_per_axis_that_follows_its_distance():
     assert before["dz"]["direction"] == [0.0, 0.0, 1.0] and before["dz"]["scale"] == 1.0
 
 
-def test_rotate_body_handle_sits_on_a_ring_at_the_current_angle():
-    for angle in (0, 35, -120):
-        h = _body_handles("rotate_body", {"axis": 2, "angle": angle})["angle"]
-        x, y, z = h["anchor"]
-        assert z == 0 and math.degrees(math.atan2(y, x)) == pytest.approx(angle)
-        # the tangent is square to the radius, and travel along it turns by scale degrees per unit
-        assert h["direction"][0] * x + h["direction"][1] * y == pytest.approx(0, abs=1e-9)
-        assert h["unit"] == "°" and h["scale"] == pytest.approx(math.degrees(1 / math.hypot(x, y)))
-    about_x = _body_handles("rotate_body", {"axis": 0, "angle": 0})["angle"]
-    assert about_x["anchor"][0] == 0 and about_x["direction"][0] == 0
-
-
-def test_rotate_body_handle_needs_a_valid_axis():
-    assert _body_handles("rotate_body", {"axis": 5}) == {}
-
-
 def test_scale_body_handle_stays_on_the_line_through_the_corner_and_follows_the_factor():
     h1 = _body_handles("scale_body", {"factor": 1})["factor"]
     h2 = _body_handles("scale_body", {"factor": 2})["factor"]

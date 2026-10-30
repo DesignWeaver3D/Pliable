@@ -22,8 +22,8 @@ def test_nothing_selected_offers_only_tools_that_need_no_selection():
         # new primitives
         "add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus", "add_prism",
         # whole-model tools (the demo has a single body, so "the whole model" is unambiguous)
-        "unify", "cut_plane", "split_plane", "offset_body", "linear_array", "circular_array", "concentric_array", "mirror",
-        "move_body", "rotate_body", "scale_body",
+        "unify", "cut_plane", "offset_body", "linear_array", "circular_array", "concentric_array", "mirror",
+        "move_body", "scale_body",
     }  # fmt: skip
     for hole_tool in ("edit_hole", "convert_to_countersink", "resize_hole", "move_hole", "fill_hole"):
         assert hole_tool not in got

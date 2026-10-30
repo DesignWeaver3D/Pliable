@@ -74,7 +74,7 @@ def test_edit_one_undo_step():
 
 def test_rotation_and_uniform_scale_keep_it_editable():
     session, _ = make()
-    header = commit(session, "rotate_body", {"axis": 2, "angle": 30}, {"bodies": [2]})
+    header = commit(session, "move_body", {"rz": 30}, {"bodies": [2]})
     assert info(header, 2)["editable"] and info(header, 2)["recipe"]["rotated"]
     header = commit(session, "scale_body", {"factor": 2}, {"bodies": [2]})
     box = info(header, 2)

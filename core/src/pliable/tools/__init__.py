@@ -33,7 +33,6 @@ from . import unify  # noqa: F401
 from . import draft  # noqa: F401
 from . import align_face  # noqa: F401
 from . import move_body  # noqa: F401
-from . import rotate_body  # noqa: F401
 from . import scale_body  # noqa: F401
 from . import add_sphere  # noqa: F401
 from . import add_cone  # noqa: F401
@@ -56,7 +55,6 @@ from . import path_array  # noqa: F401
 from . import resize_fillet  # noqa: F401
 from . import resize_chamfer  # noqa: F401
 from . import cut_plane  # noqa: F401
-from . import split_plane  # noqa: F401
 from . import offset_body  # noqa: F401
 from . import round_face  # noqa: F401
 from . import inset_face  # noqa: F401
