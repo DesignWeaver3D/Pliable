@@ -46,6 +46,10 @@ Tool group CORE:
 
 - **Boss editing needs its own home.** Owner (2026-10-29): "Why are bosses being lumped into hole editor? they're not holes." Resize, Move and Fill hole / boss still serve bosses and keep their buttons; the Move tool will cover moving a boss; no other decision yet.
 
+- **Check whether `server.py` mixes jobs.** Owner (2026-10-29): "yes" (to a Planned row after the commit hook reported `core/src/pliable/server.py` at 542 lines). Related existing items checked: none in Parked or Ideas. Line count alone is not a reason to split.
+  - [ ] Read `server.py` and list its jobs (connection handling, request dispatch in `_handle`, document and autosave state, file and export requests).
+  - [ ] If it mixes jobs, propose which parts move to their own modules (the way `handlers/` already holds sketch, datum and tool requests) and bring the proposal to the owner before moving anything.
+
 ## Review of 2026-10-27 session A (owner review of author-guidance sketch items; quotes are the owner's words)
 
 Related existing items checked: Ideas "A parity checklist" (its scenario set that must solve without flips touches the sketch flipping row). The rest of this review is built (see the commit log, "Record the sketch review results and rows" onward); what is left:
