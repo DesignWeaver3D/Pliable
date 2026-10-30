@@ -344,3 +344,76 @@ def test_countersink_angle_gizmo_turns_the_cone_about_its_mouth(block):
     offset = tool.bind({"sink_by": 1, "sink_offset": 3, "sink_angle": 90})
     labels = [h.label for h in tool.handles(part, Selection(faces=[wall]), offset)]
     assert "Countersink offset" in labels and "Countersink angle" in labels and not any(l.startswith("Countersink radius") for l in labels)
+
+
+def _round_body_with_hole(through: bool, ridge: bool = False):
+    """A round bar lying along Y (radius 20) with a 6 mm hole down from the top at x = 8, off the crown, so a wider
+    step at the opening reaches under the higher curved surface."""
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut
+    from OCP.BRepPrimAPI import BRepPrimAPI_MakeCylinder
+    from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt
+
+    bar = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(0, -20, 0), gp_Dir(0, 1, 0)), 20, 40).Shape()
+    low = -40 if through else -5
+    bore = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(8, 0, low), gp_Dir(0, 0, 1)), 3, 80 if through else 40).Shape()
+    if ridge:  # a small block standing on the crown, inside the circle of a wide step
+        from OCP.BRepAlgoAPI import BRepAlgoAPI_Fuse
+        from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
+
+        bar = BRepAlgoAPI_Fuse(bar, BRepPrimAPI_MakeBox(gp_Pnt(2.5, -1, 15), 2, 2, 15).Shape()).Shape()
+    return Topology(BRepAlgoAPI_Cut(bar, bore).Shape())
+
+
+def _common_volume(shape, x, z, radius, height, down=False):
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Common
+    from OCP.BRepPrimAPI import BRepPrimAPI_MakeCylinder
+    from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt
+
+    cutter = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(x, 0, z), gp_Dir(0, 0, -1 if down else 1)), radius, height).Shape()
+    return volume(BRepAlgoAPI_Common(shape, cutter).Shape())
+
+
+@pytest.mark.parametrize("tool, params", [
+    ("convert_to_counterbore", {"bore_diameter": 12, "bore_depth": 6}),
+    ("convert_to_countersink", {"sink_diameter": 12, "sink_angle": 90}),
+])
+def test_step_at_the_opening_continues_up_through_a_curved_face(tool, params):
+    part = _round_body_with_hole(False)
+    hole = only_hole(part)
+    assert hole.direction.Z() < 0
+    cut = Topology(run(tool, part, faces=[hole.faces[0]], **params).shape)
+    entry_z = only_hole(cut).entry.Z()
+    assert _common_volume(cut.shape, 8, entry_z, 6, 60) == pytest.approx(0, abs=1e-3)
+    assert volume(cut.shape) < volume(part.shape)
+    # editing the diameter and resizing still work on the result
+    edited = Topology(run("edit_hole", cut, faces=[only_hole(cut).faces[0]], diameter=8).shape)
+    assert only_hole(edited).diameter == pytest.approx(8)
+    if tool == "convert_to_counterbore":  # (a cone cut into a curved face is not re-read as a step after an edit; unrelated to this change)
+        assert only_hole(edited).stages
+        assert _common_volume(edited.shape, 8, only_hole(edited).entry.Z(), 6, 60) == pytest.approx(0, abs=1e-3)
+
+
+def test_step_at_the_far_end_continues_down_through_a_curved_face():
+    part = _round_body_with_hole(True)
+    hole = only_hole(part)
+    assert hole.through and hole.direction.Z() < 0
+    cut = Topology(run("convert_to_counterbore", part, faces=[hole.faces[0]], bore_diameter=12, bore_depth=6, end=1).shape)
+    h = only_hole(cut)
+    far_z = min(h.entry.Z(), h.entry.Z() + h.depth * h.direction.Z())  # the wide end is now the opening, so find the lower end
+    assert _common_volume(cut.shape, 8, far_z, 6, 60, down=True) == pytest.approx(0, abs=1e-3)
+
+
+def test_flat_top_step_volume_is_unchanged_by_the_continuation(block):
+    part = drilled(block, "add_hole", diameter=6, depth=8)
+    base = volume(part.shape)
+    both = Topology(run("convert_to_counterbore", part, faces=[hole_wall(part)], bore_diameter=12, bore_depth=3).shape)
+    assert base - volume(both.shape) == pytest.approx(math.pi * (36 - 9) * 3, rel=1e-6)
+
+
+def test_step_continuation_removes_other_faces_above_the_opening():
+    part = _round_body_with_hole(False, ridge=True)
+    hole = only_hole(part)
+    cut = Topology(run("convert_to_counterbore", part, faces=[hole.faces[0]], bore_diameter=12, bore_depth=6).shape)
+    # a ridge standing in the step's path is a different face, and is removed too, up through the rest of the body
+    assert _common_volume(cut.shape, 8, only_hole(cut).entry.Z(), 6, 60) == pytest.approx(0, abs=1e-3)
+    assert volume(cut.shape) < volume(part.shape) - 2 * 2 * 5

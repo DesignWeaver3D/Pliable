@@ -14,10 +14,12 @@ import math
 from dataclasses import dataclass, field
 
 from OCP.BRep import BRep_Tool
+from OCP.BRepBndLib import BRepBndLib
 from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
 from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon
 from OCP.BRepPrimAPI import BRepPrimAPI_MakeRevol
 from OCP.BRepTools import BRepTools
+from OCP.Bnd import Bnd_Box
 from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Plane
 from OCP.IntCurvesFace import IntCurvesFace_ShapeIntersector
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_REVERSED
@@ -360,9 +362,12 @@ def find_hole(topology, face_id: int | None = None, edge_id: int | None = None, 
 
 def hole_profile(info: HoleInfo, margin: float = 0.0, diameter: float | None = None, depth: float | None = None,
                  through: bool | None = None, stages: list[dict] | None = None, start: float = 0.0,
-                 end_stages: list[dict] | None = None) -> list[tuple[float, float]]:
+                 end_stages: list[dict] | None = None, behind: float = 0.0, beyond: float = 0.0) -> list[tuple[float, float]]:
     """The cross-section of a hole as (s, r) points from the axis at the opening round to the axis at the far end,
-    `margin` longer than the opening (and, for a through hole, than the far end) so booleans cut cleanly."""
+    `margin` longer than the opening (and, for a through hole, than the far end) so booleans cut cleanly.
+    With a `margin`, a counterbore or countersink at the opening continues as a cylinder of its major diameter
+    `behind` the opening plane (the body's extent above it), and one at the far end of a through hole continues to
+    `beyond` (the body's extent along the axis from the opening), so a curved face does not leave part of it buried."""
     radius = (info.diameter if diameter is None else diameter) / 2
     is_through = info.through if through is None else through
     length = info.depth if depth is None else depth
@@ -396,12 +401,17 @@ def hole_profile(info: HoleInfo, margin: float = 0.0, diameter: float | None = N
         add(top_s, radius)
     elif top[0] == "cone":
         _, r_top, height, half = top
-        add(-margin, 0.0)
-        add(-margin, r_top + margin * math.tan(half))
+        wide = r_top + margin * math.tan(half)
+        up = max(margin, behind + margin) if margin > 0 else margin
+        add(-up, 0.0)
+        add(-up, wide)
+        add(-margin, wide)
         add(height, radius)
     else:
         _, r_top, bore_depth, _ = top
-        add(-margin, 0.0)
+        up = max(margin, behind + margin) if margin > 0 else margin
+        add(-up, 0.0)
+        add(-up, r_top)
         add(-margin, r_top)
         add(bore_depth, r_top)
         add(bore_depth, radius)
@@ -411,10 +421,14 @@ def hole_profile(info: HoleInfo, margin: float = 0.0, diameter: float | None = N
         if st["type"] == "countersink":
             half = math.radians(st["angle"]) / 2
             add(length - (wide - radius) / math.tan(half), radius)
-            add(end, wide + margin * math.tan(half))
+            wide += margin * math.tan(half)
+            add(end, wide)
         else:
             add(length - st["depth"], radius)
             add(length - st["depth"], wide)
+            add(end, wide)
+        if margin > 0 and beyond + margin > end:
+            end = beyond + margin
             add(end, wide)
         add(end, 0.0)
         return points
@@ -445,6 +459,20 @@ def hole_solid(info: HoleInfo, offset: gp_Vec | None = None, **changes):
     return _revolved(info, hole_profile(info, 0.0, **changes), offset)
 
 
+def _body_extent(shape, info: HoleInfo, offset: gp_Vec | None = None) -> tuple[float, float]:
+    """How far the body reaches along the hole's axis behind the opening plane and beyond it (from the opening, in the
+    direction the hole runs), from its bounding box; the moved hole's opening when `offset` is given."""
+    box = Bnd_Box()
+    BRepBndLib.Add_s(shape, box)
+    if box.IsVoid():
+        return 0.0, 0.0
+    origin = info.entry if offset is None else info.entry.Translated(offset)
+    d = gp_Vec(info.direction)
+    lo, hi = box.CornerMin(), box.CornerMax()
+    along = [gp_Vec(origin, gp_Pnt(x, y, z)).Dot(d) for x in (lo.X(), hi.X()) for y in (lo.Y(), hi.Y()) for z in (lo.Z(), hi.Z())]
+    return max(0.0, -min(along)), max(0.0, max(along))
+
+
 def rebuild_hole(shape, info: HoleInfo, offset: gp_Vec | None = None, **changes):
     """The model with this hole filled and cut again with changes (`diameter`, `depth`, `through`, `stages`, `start`) and moved
     by `offset`. Returns the new shape (not yet unified)."""
@@ -453,7 +481,8 @@ def rebuild_hole(shape, info: HoleInfo, offset: gp_Vec | None = None, **changes)
     size = max(info.pass_length, info.depth, info.diameter)
     margin = 0.01 * size + 1e-3
     filled = _combine(shape, _revolved(info, hole_profile(info, 0.0)), fuse=True)
-    new = _revolved(info, hole_profile(info, margin, **changes), offset)
+    behind, beyond = _body_extent(shape, info, offset)
+    new = _revolved(info, hole_profile(info, margin, behind=behind, beyond=beyond, **changes), offset)
     return _combine(filled, new, fuse=False)
 
 
