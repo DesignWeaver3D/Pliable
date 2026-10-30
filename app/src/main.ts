@@ -55,6 +55,7 @@ import { createItemDrag } from "./itemdrag";
 import { createPushPullCard } from "./pushpullwire.ts";
 import { createHoleEditor } from "./holeeditorcard.ts";
 import { HOLE_EDITOR_ID, holeEditorTool } from "./holeeditortool.ts";
+import { HOLE_EDITOR_HELPERS } from "./layout.ts";
 
 const $ = (id: string) => document.getElementById(id)!;
 const status = $("status");
@@ -187,9 +188,14 @@ function renderChips() {
   }
 }
 
+/** The tools with a button (the Hole Editor's helper tools are run by its card only). */
+function listedTools(): ToolInfo[] {
+  return tools.filter((t) => !HOLE_EDITOR_HELPERS.has(t.id));
+}
+
 /** Tools usable with the current selection: counts checked here, the core's extra checks once it replies. */
 function usableTools(): ToolInfo[] {
-  return tools.filter((t) => (acceptsSelection(t, expand(t, app.currentSels)) || acceptsWithRail(t, expand(t, app.currentSels), app.chosenSketch) || (t.id === "move_body" && movableSketch() !== null)) && (app.refined === null || app.refined.includes(t.id)));
+  return listedTools().filter((t) => (acceptsSelection(t, expand(t, app.currentSels)) || acceptsWithRail(t, expand(t, app.currentSels), app.chosenSketch) || (t.id === "move_body" && movableSketch() !== null)) && (app.refined === null || app.refined.includes(t.id)));
 }
 
 /** Whether the selection has what the tool takes (the counts, the chosen rail or a movable sketch), whatever the core adds. */
@@ -771,7 +777,7 @@ select.addEventListener("change", () => {
 
 function commands(): Command[] {
   const usable = new Set(usableTools().map((t) => t.id));
-  const toolCommands: Command[] = tools.map((tool) => ({
+  const toolCommands: Command[] = listedTools().map((tool) => ({
     label: tool.label,
     scope: "tool" as const,
     keywords: toolKeywords(tool.id),
@@ -1160,7 +1166,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       return [];
     }
   },
-  tools: () => tools,
+  tools: () => listedTools(),
   cardHeader: (tool) => holeEditor.header(tool),
   startOwn: (tool) => (tool.id === HOLE_EDITOR_ID ? (armTool(tool, "drawer"), true) : false),
   waitFor: (tool) => waitForSelection(tool),
