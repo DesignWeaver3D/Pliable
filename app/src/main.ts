@@ -1136,7 +1136,7 @@ function twoDistances(distance: number) {
 const holeEditor = createHoleEditor({
   toolPanel: () => toolPanel,
   tools: () => tools,
-  classify: (sels) => core.request<{ kind: string; count?: number }>("hole_selection", { selection: selectionPayload(sels) }),
+  classify: (sels) => core.request<{ kind: string; count?: number; pick?: "wall" | "cylinder" | "other" }>("hole_selection", { selection: selectionPayload(sels) }),
   selection: () => app.currentSels,
   busy: () => armedTool !== null || !!viewport.interceptor,
 });

@@ -139,6 +139,11 @@ export function counterborePresets(): HolePreset[] {
   return FASTENERS.filter((f) => f.counterbore).map((f) => ({ label: `${f.name} cap screw (${round3(f.counterbore!.diameter)} x ${round3(f.counterbore!.depth)})`, system: f.system, values: { bore_by: 0, bore_diameter: f.counterbore!.diameter, bore_depth: f.counterbore!.depth } }));
 }
 
+/** Thread pitches: the coarse pitch of each fastener, for the Thread section's pitch field (the size list is left on Custom). */
+export function threadPresets(): HolePreset[] {
+  return FASTENERS.map((f) => ({ label: `${f.name} thread, pitch ${round3(f.pitch)}`, system: f.system, values: { size: 0, pitch: f.pitch } }));
+}
+
 /** Countersinks for flat head screws: the cone's diameter at the surface and its included angle. */
 export function countersinkPresets(): HolePreset[] {
   return FASTENERS.filter((f) => f.countersink).map((f) => ({ label: `${f.name} flat head (${round3(f.countersink!.diameter)}, ${f.countersink!.angle}°)`, system: f.system, values: { sink_by: 0, sink_diameter: f.countersink!.diameter, sink_angle: f.countersink!.angle } }));

@@ -35,10 +35,21 @@ def _whole_wall(topology, faces: tuple[int, ...]) -> int | None:
     return None
 
 
+def _pick_kind(topology, selection) -> str:
+    """How a single picked face sits in its hole: "wall" (one whole round wall), "cylinder" (part of a split wall or a step) or "other"."""
+    if len(selection.faces) != 1 or selection.edges:
+        return "other"
+    face = topology.face(selection.faces[0])
+    if BRepAdaptor_Surface(face).GetType() != GeomAbs_Cylinder:
+        return "other"
+    u0, u1, _, _ = BRepTools.UVBounds_s(face)
+    return "wall" if u1 - u0 >= FULL_TURN else "cylinder"
+
+
 def classify(topology, selection) -> dict:
     """{"kind": ...} where kind is "new" (one flat face: a place for a new hole), "hole" (one hole, picked by any of its faces, its rim or
     its center dot), "holes" (several holes, each picked by its round wall), "boss" (boss walls only) or "none" (empty, mixed or anything else).
-    A single hole also reports "wall", a whole round wall of it (or null), because some helpers only take a wall."""
+    A single hole also reports "wall", a whole round wall of it (or null), and "pick", how the picked face sits in it (the helpers that fill or thread need a round wall picked)."""
     picks = [(i, None) for i in selection.faces] + [(None, e) for e in selection.edges]
     if not picks:
         return {"kind": "none"}
@@ -46,7 +57,7 @@ def classify(topology, selection) -> dict:
     if all(h is not None for h in found):
         distinct = set(found)
         if len(distinct) == 1:
-            return {"kind": "hole", "wall": _whole_wall(topology, found[0])}
+            return {"kind": "hole", "wall": _whole_wall(topology, found[0]), "pick": _pick_kind(topology, selection)}
         walls_only = not selection.edges and all(BRepAdaptor_Surface(topology.face(i)).GetType() == GeomAbs_Cylinder for i in selection.faces)
         return {"kind": "holes", "count": len(distinct)} if walls_only else {"kind": "none"}
     if selection.edges or any(h is not None for h in found):

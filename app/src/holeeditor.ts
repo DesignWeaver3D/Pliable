@@ -1,7 +1,7 @@
 /** The Hole Editor's content: its title, the section buttons, the picture and the preset list. It knows nothing of where it is shown
  *  (a floating card now, a docked panel later); the host passes what happens when a section or a preset is chosen. The values
  *  themselves are the ordinary form of the section's tool, which the host draws under this header. */
-import { diameterPresets, type HolePreset } from "./holepresets.ts";
+import { counterborePresets, countersinkPresets, diameterPresets, threadPresets, type HolePreset } from "./holepresets.ts";
 import { holeDiagram, type HoleShape } from "./holediagram.ts";
 
 export type HoleKind = "hole" | "holes";
@@ -19,9 +19,18 @@ export interface HoleSection {
 const SIZE: HoleSection = { tool: "edit_hole", label: "Size", title: "Change the diameter, depth, start and position of the hole", shape: "simple", presets: diameterPresets };
 const SIZE_ALL: HoleSection = { tool: "resize_hole", label: "Size", title: "Change the diameter of every selected hole", shape: "simple", presets: diameterPresets };
 
-/** The sections offered for a selection: one hole, or several (`count` holes). */
-export function sectionsFor(kind: HoleKind, count = 1): HoleSection[] {
-  return kind === "hole" ? [SIZE] : count >= 1 ? [SIZE_ALL] : [];
+const COUNTERBORE: HoleSection = { tool: "convert_to_counterbore", label: "Counterbore", title: "Widen the opening into a flat-bottomed step for a screw head", shape: "counterbore", presets: counterborePresets };
+const COUNTERSINK: HoleSection = { tool: "convert_to_countersink", label: "Countersink", title: "Cut a cone into the opening for a flat head screw", shape: "countersink", presets: countersinkPresets };
+const THREAD: HoleSection = { tool: "thread_hole", label: "Thread", title: "Cut a helical thread into the round wall", shape: "simple", thread: true, presets: threadPresets };
+const FILL: HoleSection = { tool: "fill_hole", label: "Fill", title: "Fill the picked round wall with material", shape: "simple" };
+
+/** How the one picked face sits in its hole (the core's `pick`): Thread needs a whole round wall, Fill a round wall. */
+export type HolePick = "wall" | "cylinder" | "other";
+
+/** The sections offered for a selection: one hole (picked as `pick`), or several (`count` holes). */
+export function sectionsFor(kind: HoleKind, count = 1, pick: HolePick = "other"): HoleSection[] {
+  if (kind === "hole") return [SIZE, COUNTERBORE, COUNTERSINK, ...(pick === "wall" ? [THREAD] : []), ...(pick !== "other" ? [FILL] : [])];
+  return count >= 1 ? [SIZE_ALL, FILL] : [];
 }
 
 export interface HoleEditorDeps {

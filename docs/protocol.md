@@ -49,7 +49,7 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 | `edge_chain` | `edge` id | `{edges: [ids]}`: the edge and every edge joined to it through smooth vertices (a rim or outline) |
 | `edge_selection` | `mode`: `face_edges` or `face_loops` with `face`; `shared_loop` with `first` and `second` edge ids | `{edges}` (all edges of the face; the loop of a face both edges border) or `{loops}` (one id list per boundary loop, outer first) |
 | `available_tools` | `selection` | `{tools: [id]}` tools usable with that selection |
-| `hole_selection` | `selection` | `{kind, wall?}` what the Hole Editor card makes of it: `new` (one flat face), `hole`, `holes`, `boss` or `none`; `wall` is a whole round wall of a single hole or null; `count` the number of holes for `holes` |
+| `hole_selection` | `selection` | `{kind, wall?}` what the Hole Editor card makes of it: `new` (one flat face), `hole`, `holes`, `boss` or `none`; `wall` is a whole round wall of a single hole or null, `pick` how the one picked face sits in it (`wall`, `cylinder` or `other`); `count` the number of holes for `holes` |
 | `dimension_edit` | `selection`, `dimension`, `value`, `commit`, `flip?` | the same mesh reply as `tool_preview` / `tool_commit`: sets an editable dimension (see `edit` below) through the matching tool; `commit` false is the live preview, true is one undo step; an impossible edit is an error reply with a one-line reason |
 | `measure` | `selection` | `{items: [Measured], summary: [Row]}` measurements of the selection (one kind of item at a time) |
 | `tool_handles` | `tool`, `selection`, `params` | `{handles: [Handle], startsFrom}`: the on-screen manipulators for those values (see Handles); empty for a tool without any |

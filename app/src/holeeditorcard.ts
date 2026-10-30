@@ -6,13 +6,13 @@
 import type { Sel } from "./viewport";
 import type { ToolInfo } from "./tools.ts";
 import type { ToolPanel } from "./toolpanel.ts";
-import { buildHoleEditor, sectionsFor, type HoleKind, type HoleSection } from "./holeeditor.ts";
+import { buildHoleEditor, sectionsFor, type HoleKind, type HolePick, type HoleSection } from "./holeeditor.ts";
 
 export interface HoleEditorDeps {
   toolPanel(): ToolPanel;
   tools(): ToolInfo[];
   /** The core's answer for the selection: what the Hole Editor makes of it. */
-  classify(sels: Sel[]): Promise<{ kind: string; count?: number }>;
+  classify(sels: Sel[]): Promise<{ kind: string; count?: number; pick?: HolePick }>;
   selection(): Sel[];
   /** A tool the user armed, or a sketch open: no card then. */
   busy(): boolean;
@@ -30,7 +30,7 @@ export function createHoleEditor(d: HoleEditorDeps) {
     /** Open the editor for the selection when it is one hole (picked by one face, rim or center dot) or several holes (picked by their walls). */
     async maybeOpen(sels: Sel[]) {
       if (!sels.length || d.busy() || d.toolPanel().isOpen) return;
-      let reply: { kind: string; count?: number };
+      let reply: { kind: string; count?: number; pick?: HolePick };
       try {
         reply = await d.classify(sels);
       } catch {
@@ -39,7 +39,7 @@ export function createHoleEditor(d: HoleEditorDeps) {
       if (d.selection() !== sels || d.busy() || d.toolPanel().isOpen) return; // the selection moved on or a tool started while the core answered
       if (reply.kind === "hole" && sels.length !== 1) return; // one hole picked by several faces: the tools take one pick
       if (reply.kind !== "hole" && reply.kind !== "holes") return;
-      sections = sectionsFor(reply.kind as HoleKind, reply.count ?? 1);
+      sections = sectionsFor(reply.kind as HoleKind, reply.count ?? 1, reply.pick);
       if (sections.length) openSection(sections[0]);
     },
     /** The header drawn above the fields of a tool opened as a card (null for a tool that has no section). */
@@ -48,7 +48,10 @@ export function createHoleEditor(d: HoleEditorDeps) {
       return buildHoleEditor({
         sections,
         active: tool.id,
-        choose: openSection,
+        choose: (section) => {
+          openSection(section);
+          d.toolPanel().setValues({}); // a chosen section shows its preview at once (the card opened on a selection shows none)
+        },
         fill: (values) => d.toolPanel().setValues(values),
         focus: (param) => d.toolPanel().focusField(param),
       });

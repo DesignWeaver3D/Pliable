@@ -34,6 +34,9 @@ def test_any_face_the_rim_or_a_split_wall_of_a_hole_is_that_hole(block):
     assert kind(part, edges=[hole.rim_edges[0]]) == "hole"
     assert kind(part, faces=list(hole.faces)) == "hole"
     assert classify(part, Selection(faces=[hole.faces[0]]))["wall"] is not None
+    assert classify(part, Selection(edges=[hole.rim_edges[0]]))["pick"] == "other"
+    picks = {classify(part, Selection(faces=[f]))["pick"] for f in hole.faces}
+    assert picks == {"wall", "other"}
     split = split_hole_block()
     assert kind(split, faces=halves(split)) == "hole" and kind(split, faces=halves(split)[:1]) == "hole"
 
