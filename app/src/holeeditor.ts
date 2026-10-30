@@ -1,9 +1,10 @@
 /** The Hole Editor's content: its title, the section buttons, the picture and the preset list. It knows nothing of where it is shown
  *  (a floating card now, a docked panel later); the host passes what happens when a section or a preset is chosen. The values
- *  themselves are the ordinary form of the section's tool, which the host draws under this header. */
-import { counterborePresets, countersinkPresets, diameterPresets, threadPresets, type HolePreset } from "./holepresets.ts";
-import type { HoleThread } from "./holethread.ts";
-import { holeDiagram, type HoleShape } from "./holediagram.ts";
+ *  themselves are the ordinary form of the section's tool, which the host draws under this header. A new hole or one hole is one
+ *  form (the Hole features tool: size, counterbore, countersink, thread); Fill is a separate section. */
+import { diameterPresets, type HolePreset } from "./holepresets.ts";
+import { featurePresets, FEATURES_TOOL, type HoleFeatures } from "./holefeatures.ts";
+import { holeDiagram } from "./holediagram.ts";
 
 export type HoleKind = "hole" | "holes" | "new";
 
@@ -12,33 +13,25 @@ export interface HoleSection {
   tool: string;
   label: string;
   title: string;
-  shape: HoleShape;
-  thread?: boolean;
-  presets?: () => HolePreset[];
+  /** The preset list; `threadNames` are the standard thread sizes of the core's thread list. */
+  presets?: (threadNames: string[]) => HolePreset[];
 }
 
-const SIZE: HoleSection = { tool: "edit_hole", label: "Size & position", title: "Change the diameter, depth, start and position of the hole", shape: "simple", presets: diameterPresets };
-const SIZE_ALL: HoleSection = { tool: "resize_hole", label: "Size", title: "Change the diameter of every selected hole", shape: "simple", presets: diameterPresets };
+const FEATURES: HoleSection = { tool: FEATURES_TOOL, label: "Hole", title: "Size, counterbore, countersink, thread and position of the hole, applied together", presets: featurePresets };
+const SIZE_ALL: HoleSection = { tool: "resize_hole", label: "Size", title: "Change the diameter of every selected hole", presets: diameterPresets };
 
-const MOVE_ALL: HoleSection = { tool: "move_hole", label: "Move", title: "Move every selected hole by distances along X, Y and Z", shape: "simple" };
-const ALIGN: HoleSection = { tool: "align_holes", label: "Align", title: "Line the holes up with the first one you selected along an axis", shape: "simple" };
-const DISTRIBUTE: HoleSection = { tool: "distribute_holes", label: "Distribute", title: "Space the holes evenly between the two outermost along an axis", shape: "simple" };
-const COUNTERBORE: HoleSection = { tool: "convert_to_counterbore", label: "Counterbore", title: "Widen the opening into a flat-bottomed step for a screw head", shape: "counterbore", presets: counterborePresets };
-const COUNTERSINK: HoleSection = { tool: "convert_to_countersink", label: "Countersink", title: "Cut a cone into the opening for a flat head screw", shape: "countersink", presets: countersinkPresets };
-const THREAD: HoleSection = { tool: "thread_hole", label: "Thread", title: "Cut a helical thread into the round wall", shape: "simple", thread: true, presets: threadPresets };
-const FILL: HoleSection = { tool: "fill_hole", label: "Fill", title: "Fill the picked round wall with material", shape: "simple" };
+const MOVE_ALL: HoleSection = { tool: "move_hole", label: "Move", title: "Move every selected hole by distances along X, Y and Z" };
+const ALIGN: HoleSection = { tool: "align_holes", label: "Align", title: "Line the holes up with the first one you selected along an axis" };
+const DISTRIBUTE: HoleSection = { tool: "distribute_holes", label: "Distribute", title: "Space the holes evenly between the two outermost along an axis" };
+const FILL: HoleSection = { tool: "fill_hole", label: "Fill", title: "Fill the picked round wall with material" };
 
-/** How the one picked face sits in its hole (the core's `pick`): Thread needs a whole round wall, Fill a round wall. */
+/** How the one picked face sits in its hole (the core's `pick`): Fill needs a round wall. */
 export type HolePick = "wall" | "cylinder" | "other";
 
-const NEW_SIMPLE: HoleSection = { tool: "add_hole", label: "Simple", title: "A plain round hole, blind or through", shape: "simple", presets: diameterPresets };
-const NEW_COUNTERBORE: HoleSection = { tool: "add_counterbore", label: "Counterbore", title: "A hole with a flat-bottomed step for a screw head", shape: "counterbore", presets: () => counterborePresets(true) };
-const NEW_COUNTERSINK: HoleSection = { tool: "add_countersink", label: "Countersink", title: "A hole with a cone-shaped opening for a flat head screw", shape: "countersink", presets: () => countersinkPresets(true) };
-
-/** The sections offered for a selection: a flat face for a new hole, one hole (picked as `pick`; `threadable` when the core finds a bore wall to thread, whichever face of the hole is picked), or several (`count` holes). */
-export function sectionsFor(kind: HoleKind, count = 1, pick: HolePick = "other", threadable = pick === "wall"): HoleSection[] {
-  if (kind === "new") return [NEW_SIMPLE, NEW_COUNTERBORE, NEW_COUNTERSINK];
-  if (kind === "hole") return [SIZE, COUNTERBORE, COUNTERSINK, ...(threadable ? [THREAD] : []), ...(pick !== "other" ? [FILL] : [])];
+/** The sections offered for a selection: a flat face for a new hole (one form), one hole (picked as `pick`: its one form, and Fill when a round wall was picked), or several (`count` holes). */
+export function sectionsFor(kind: HoleKind, count = 1, pick: HolePick = "other"): HoleSection[] {
+  if (kind === "new") return [FEATURES];
+  if (kind === "hole") return [FEATURES, ...(pick !== "other" ? [FILL] : [])];
   return count >= 1 ? [SIZE_ALL, MOVE_ALL, ...(count >= 2 ? [ALIGN] : []), ...(count >= 3 ? [DISTRIBUTE] : []), FILL] : [];
 }
 
@@ -51,11 +44,20 @@ export interface HoleEditorDeps {
   fill(values: Record<string, number>): void;
   /** A label of the picture was clicked: focus that field. */
   focus(param: string): void;
-  /** For a new hole: the thread cut together with it. The list names the standard sizes; `size` is the chosen one (0 = none). */
-  thread?: { sizes: string[]; value: HoleThread; change(value: HoleThread): void };
+  /** The standard sizes of the thread list, for the presets. */
+  threadNames: string[];
 }
 
-export function buildHoleEditor(d: HoleEditorDeps): HTMLElement {
+/** The built header and a way to redraw its picture for the features now switched on. */
+export interface HoleEditorView {
+  element: HTMLElement;
+  draw(features: HoleFeatures): void;
+}
+
+const NONE: HoleFeatures = { bore: null, sink: null, thread: false };
+const HINT = "A counterbore and a countersink can't share an end: the one switched on last replaces the other (on a through hole, put one at the far end).";
+
+export function buildHoleEditor(d: HoleEditorDeps): HoleEditorView {
   const box = document.createElement("div");
   const title = document.createElement("div");
   title.className = "title";
@@ -77,14 +79,22 @@ export function buildHoleEditor(d: HoleEditorDeps): HTMLElement {
     }
     box.append(tabs);
   }
-  if (!section) return box;
-  const picture = holeDiagram(section.shape, section.thread);
-  picture.addEventListener("click", (e) => {
+  const view: HoleEditorView = { element: box, draw: () => {} };
+  if (!section) return view;
+  let picture = holeDiagram(NONE);
+  const click = (e: Event) => {
     const param = (e.target as Element).closest("[data-param]")?.getAttribute("data-param");
     if (param) d.focus(param);
-  });
+  };
+  picture.addEventListener("click", click);
   box.append(picture);
-  const presets = section.presets?.();
+  view.draw = (features) => {
+    const next = holeDiagram(features);
+    next.addEventListener("click", click);
+    picture.replaceWith(next);
+    picture = next;
+  };
+  const presets = section.presets?.(d.threadNames);
   if (presets?.length) {
     const list = document.createElement("select");
     list.title = "Metric and inch fastener sizes: choosing one fills the fields below";
@@ -104,29 +114,12 @@ export function buildHoleEditor(d: HoleEditorDeps): HTMLElement {
     list.addEventListener("keydown", (e) => e.stopPropagation());
     box.append(list);
   }
-  if (d.thread) box.append(threadRow(d.thread));
-  return box;
-}
-
-/** The thread list of a new hole: "No thread" or a standard size, and a left-hand box. */
-function threadRow(thread: NonNullable<HoleEditorDeps["thread"]>): HTMLElement {
-  const row = document.createElement("div");
-  row.style.cssText = "display:flex;gap:6px;align-items:center;margin:2px 0 4px";
-  row.title = "Cut a thread into the new hole's bore when you apply it (one step for the hole and the thread)";
-  const list = document.createElement("select");
-  list.style.cssText = "flex:1 1 auto";
-  list.append(new Option("No thread", "0"));
-  thread.sizes.forEach((name, i) => list.append(new Option(`Thread ${name}`, String(i + 1))));
-  list.value = String(thread.value.size);
-  const left = document.createElement("input");
-  left.type = "checkbox";
-  left.checked = thread.value.left;
-  const label = document.createElement("label");
-  label.append(left, " Left hand");
-  const send = () => thread.change({ size: Number(list.value), left: left.checked });
-  list.addEventListener("change", send);
-  left.addEventListener("change", send);
-  list.addEventListener("keydown", (e) => e.stopPropagation());
-  row.append(list, label);
-  return row;
+  if (section.tool === FEATURES_TOOL) {
+    const hint = document.createElement("div");
+    hint.className = "row";
+    hint.style.cssText = "font-size:11px;opacity:0.75;margin:2px 0 4px";
+    hint.textContent = HINT;
+    box.append(hint);
+  }
+  return view;
 }

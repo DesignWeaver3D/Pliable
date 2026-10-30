@@ -40,7 +40,7 @@ export const COUNTERSINK_ANGLES: readonly { angle: number; label: string }[] = [
 
 /** The countersink tools whose angle gets the list of standard head angles. */
 export function hasAngles(toolId: string, param: string): boolean {
-  return param === "sink_angle" && (toolId === "add_countersink" || toolId === "convert_to_countersink");
+  return param === "sink_angle" && (toolId === "add_countersink" || toolId === "convert_to_countersink" || toolId === "hole_features");
 }
 
 /** Whether a tool's parameter gets a preset list. */

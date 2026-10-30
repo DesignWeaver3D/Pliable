@@ -12,7 +12,7 @@ export const TOOL_GROUPS: { title: string; tools: string[] }[] = [
 ];
 
 /** Tools that only the Hole Editor card runs: they stay registered in the core as its helpers, but have no button in the drawer, the strip or the search. */
-export const HOLE_EDITOR_HELPERS: ReadonlySet<string> = new Set(["add_hole", "add_counterbore", "add_countersink", "convert_to_counterbore", "convert_to_countersink", "edit_hole", "thread_hole", "align_holes", "distribute_holes"]);
+export const HOLE_EDITOR_HELPERS: ReadonlySet<string> = new Set(["add_hole", "add_counterbore", "add_countersink", "convert_to_counterbore", "convert_to_countersink", "edit_hole", "thread_hole", "hole_features", "align_holes", "distribute_holes"]);
 
 /** World planes offered for starting a sketch (besides the selected flat face). */
 export const SKETCH_PLANES = ["XY", "XZ", "YZ"];

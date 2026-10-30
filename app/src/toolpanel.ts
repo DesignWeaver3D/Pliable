@@ -56,6 +56,8 @@ export interface ToolPanelHost {
   changed?(): void;
   /** For a form opened as a card (openForm's `card`): the header drawn in place of the plain title, or null for none. */
   cardHeader?(tool: ToolInfo): HTMLElement | null;
+  /** For a card's form: after `changed` was changed (none: the form opened or a preset filled it), the values to force and the fields to hide. */
+  cardForm?(tool: ToolInfo, values: Record<string, ParamValue>, changed?: string): { set: Record<string, number>; hidden: string[] } | null;
   /** A tool with no form of its own (the Hole Editor entry) chosen from the list while its selection fits: the host starts it and returns true. */
   startOwn?(tool: ToolInfo): boolean;
 }
@@ -77,6 +79,21 @@ const PARAM_HELP: Record<string, { label: string; title: string }> = {
 
 /** Labels for the parameters of one tool (by tool id), where the bare names are unclear: the linear array's columns, rows and planar shifts. */
 const TOOL_PARAM_HELP: Record<string, Record<string, { label: string; title: string }>> = {
+  hole_features: {
+    diameter: { label: "Hole diameter (mm)", title: "The hole's diameter. For an existing hole 0 leaves it as it is." },
+    depth: { label: "Depth (mm)", title: "How deep the hole goes. 0 is through for a new hole and leaves the depth as it is for an existing one." },
+    start: { label: "Start (mm)", title: "How far from the opening the bore starts (0 = at the opening)." },
+    offset_u: { label: "Offset across (mm)", title: "Moves a new hole sideways from the center of the face." },
+    offset_v: { label: "Offset along (mm)", title: "Moves a new hole up or down from the center of the face." },
+    counterbore: { label: "Counterbore", title: "Widens the hole into a flat-bottomed step for a screw head." },
+    countersink: { label: "Countersink", title: "Cuts a cone into the hole for a flat head screw." },
+    thread: { label: "Thread", title: "Cuts a helical thread into the hole's bore." },
+    bore_end: { label: "counterbore at", title: "The opening, or the far end of a through hole." },
+    sink_end: { label: "countersink at", title: "The opening, or the far end of a through hole." },
+    thread_size: { label: "Thread size", title: "A standard metric size sets the pitch; Custom uses the pitch box." },
+    thread_pitch: { label: "Thread pitch (mm)", title: "The distance between turns, used when the thread size is Custom." },
+    thread_hand: { label: "Thread hand", title: "Right-hand or left-hand thread." },
+  },
   linear_array: {
     count: { label: "Columns", title: "How many copies in the column direction, the source included." },
     dx: { label: "Column spacing (mm)", title: "The distance between one column and the next (the X part of the column step)." },
@@ -96,6 +113,7 @@ export class ToolPanel {
   private editBody: number | undefined; // set while an existing primitive body is being edited (its id)
   private timer = 0;
   private inputs: Record<string, HTMLInputElement | HTMLSelectElement> = {};
+  private rowOf: Record<string, HTMLElement> = {}; // the row of each field, so a card can hide those a switch makes unneeded
   /** Where the picked base point is now (the move arrows are drawn there); null until a base is picked. */
   private baseNow: (() => Vec3 | null) | null = null;
   private pairInputs: Record<string, HTMLInputElement[][]> = {}; // per_edge parameters: [start, end] inputs per edge
@@ -213,10 +231,12 @@ export class ToolPanel {
     title.className = "title";
     title.textContent = editBody === undefined ? tool.label : `Edit ${tool.label.replace(/^Add /, "").toLowerCase()}`;
     const pairInputs: Record<string, HTMLInputElement[][]> = {};
+    const rowOf: Record<string, HTMLElement> = {};
     const rows = tool.params.map((p) => {
       if (p.kind === "per_edge") return this.perEdgeRows(p, initial[p.name], pairInputs);
       const row = document.createElement("label");
       row.className = "row";
+      rowOf[p.name] = row;
       const name = document.createElement("span");
       const help = TOOL_PARAM_HELP[tool.id]?.[p.name] ?? PARAM_HELP[p.name];
       name.textContent = help?.label ?? `${p.name.replace(/_/g, " ")}${UNITS[p.kind] ? ` (${UNITS[p.kind]})` : ""}`;
@@ -225,7 +245,10 @@ export class ToolPanel {
         const list = document.createElement("select");
         p.options.forEach((label, i) => list.append(new Option(label, String(i))));
         list.value = String(typeof initial[p.name] === "number" ? initial[p.name] : p.default);
-        list.addEventListener("change", () => this.schedulePreview(0));
+        list.addEventListener("change", () => {
+          this.refreshCard(p.name);
+          this.schedulePreview(0);
+        });
         list.addEventListener("keydown", (e) => {
           e.stopPropagation(); // typing must not trigger view shortcuts or tools
           if (e.key === "Enter") this.apply();
@@ -239,7 +262,10 @@ export class ToolPanel {
       input.type = "number";
       input.step = "any";
       input.value = String(typeof initial[p.name] === "number" ? initial[p.name] : p.default);
-      input.addEventListener("input", () => this.schedulePreview());
+      input.addEventListener("input", () => {
+        this.refreshCard(p.name);
+        this.schedulePreview();
+      });
       input.addEventListener("keydown", (e) => {
         e.stopPropagation(); // typing must not trigger view shortcuts or tools
         if (e.key === "Enter") this.apply();
@@ -537,7 +563,9 @@ export class ToolPanel {
     }
     this.formEl.hidden = false;
     this.inputs = inputs;
+    this.rowOf = rowOf;
     this.pairInputs = pairInputs;
+    this.refreshCard();
     (Object.values(inputs)[0] ?? Object.values(pairInputs)[0]?.[0]?.[0] ?? apply).focus();
     if (!card) this.schedulePreview(0); // a card shows the unchanged model until a value changes
     this.host.changed?.();
@@ -589,7 +617,19 @@ export class ToolPanel {
   /** Put values into the open form's fields (a drag in the viewport fills them) and refresh the preview. */
   setValues(values: Record<string, number>) {
     for (const [name, value] of Object.entries(values)) if (this.inputs[name]) this.inputs[name].value = String(roundValue(value));
+    this.refreshCard();
     this.schedulePreview(0);
+  }
+
+  /** A card's form after a field changed: apply the values its host forces and hide the rows it says are not needed. */
+  private refreshCard(changed?: string) {
+    const tool = this.open;
+    if (!tool || !this.card) return;
+    const answer = this.host.cardForm?.(tool, this.values(), changed);
+    if (!answer) return;
+    for (const [name, value] of Object.entries(answer.set)) if (this.inputs[name]) this.inputs[name].value = String(value);
+    const hidden = new Set(answer.hidden);
+    for (const [name, row] of Object.entries(this.rowOf)) row.style.display = hidden.has(name) ? "none" : "";
   }
 
   private values(): Record<string, ParamValue> {
