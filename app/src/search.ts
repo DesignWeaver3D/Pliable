@@ -122,6 +122,7 @@ const TOOL_WORDS: [RegExp, string[]][] = [
   [/add_prism/, ["prism", "hexagon", "polygon", "hex", "pentagon", "octagon", "extruded polygon"]],
   [/add_/, ["add", "create", "new", "primitive", "make"]],
   [/delete_face|unify|fill_hole|patch/, ["delete", "remove", "defeature", "heal", "repair"]],
+  [/^delete_face$/, ["remove fillet", "remove chamfer", "remove round"]],
   [/^unify$/, ["unify", "refine", "merge faces", "coplanar", "simplify"]],
   [/^patch_fill$/, ["patch fill", "patch_fill", "fill gap", "cap", "close gap", "surface"]],
   [/^bridge$/, ["bridge", "bridge edges", "join edges", "ruled surface"]],

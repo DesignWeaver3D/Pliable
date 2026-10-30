@@ -10,7 +10,6 @@ from . import push_pull  # noqa: F401
 from . import push_pull_surface  # noqa: F401
 from . import fillet_chamfer  # noqa: F401
 from . import delete_face  # noqa: F401
-from . import remove_round  # noqa: F401
 from . import fill_hole  # noqa: F401
 from . import resize_hole  # noqa: F401
 from . import move_hole  # noqa: F401

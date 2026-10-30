@@ -29,12 +29,6 @@ Tool group CORE:
   - Owner refinement (2026-10-28): "I wonder if the auto mode should just always go into subtract mode on push (opposite of face normal) and add on pull (same as face normal). This approach need no coplanar requirement or profile overlap detection." Adopted; the earlier face-sharing detection was reverted. Owner: "Yes on dropping the old fallback behavior" (a push in empty space that removes nothing no longer makes a body).
   - Built and merged to `main` (2026-10-28, tested: 688 core, 366 frontend); open only the owner's hand-check listed in `author-guidance.md` (Push/pull card, Alt and Flip; Sketch card Flip; red arrow Flip/Escape/typed value). The behavior is recorded in `behavior.md` (provisional lines marked); the ghost and the red arrow are approved. Delete this row once the hand-check passes. The red ghost also shows for Helical sweep, Revolve face, Sweep face, the hole tools and Emboss/Cut along surface (Subtract mode, previews only; Boolean subtract, Cut with plane and the fillets have none), and the red push/pull arrow can be grabbed. Candidate behavior lines are in the commit messages and `docs/decisions-log.md`.
 
-- **Remove tools that Defeature replaces.** Owner (2026-10-29): "you just listed fill_hole which I thought was removed because it does the same thing as defeature ... I think there were a couple others that were redundant because defeature did the job." Audit (read-only): only `remove_round` and `fill_hole` are duplicates; both only call `_defeature` (`shared/solids.py`) or give the same result on the bracket. Related existing items checked: `decisions-log.md` (2026-10-26) kept both beside Defeature as a default adopted without asking; the owner has now overruled it. Parked/Ideas: none touch it.
-  - [ ] Check Defeature on harder cases first (a boss blended into a curved surface, a hole crossing another feature) so nothing is lost; the audit compared only the bracket.
-  - [ ] Delete `remove_round.py` and `fill_hole.py`, their registration, toolbar entries (`layout.ts`), icons, tests and `tool_registry.json` entry. Keep the helpers in `shared/hole_groups.py` (used by move_hole, align_holes, distribute_holes, center_between, arrays).
-  - [ ] Keep the search words "fill hole", "remove fillet", "remove boss" and "remove chamfer" finding Defeature.
-  - [ ] Update the `decisions-log.md` entry that kept them.
-
 - **Remove the hidden old-name aliases.** Owner (2026-10-29): "yes" to removing the leftovers from the Cut with plane merge and similar. `split_plane` (hidden, forwards to `cut_plane` with keep-both) and `rotate_body` (hidden) stay only for old documents; alpha has no backward compatibility.
   - [ ] Delete `split_plane.py` and `rotate_body.py` after reading `rotate_body`'s callers (check the Move tool does not use it), with registration, `icons.ts:118`, the `search.ts` regex, `tool_registry.json` and the tests that name them (`test_features.py` split_plane cases).
   - [ ] Cut with plane with "keep both" still works (covered by its own test).
@@ -83,6 +77,7 @@ Tool group CORE (follow-up):
 Ideas from the local research notes in `docs/research/` (untracked), written in our own words, by behavior only. Nothing here is approved or scheduled. Questions they raise go to [author-guidance.md](author-guidance.md) only if a choice is needed.
 
 - Mouse-modifier shortcuts (owner, 2026-10-24): direct manipulation such as dragging a face is a shortcut for a tool the arrow handle or the tool strip also starts, with the same options; more shortcuts using mouse modifiers are expected, with the modifiers not decided yet.
+- Fold Fill hole / remove boss into the Hole tool as a mode later (Defeature fails on blind holes, curved bosses and filleted bosses, so the tool stays for now).
 - Sweep along a rail and arrays along a path using kept sketch curves.
 - Imperial units: lengths are millimetres through `LENGTH_UNIT` in `app/src/units.ts`; grid spacing and dimensions should follow a unit setting later.
 - Per-body see-through is view-only per session; it is not saved with the document.

@@ -175,43 +175,6 @@
   "keeps_body_order": false
  },
  {
-  "id": "remove_round",
-  "label": "Remove fillet/chamfer",
-  "description": "Takes away a rounded or beveled edge and restores the sharp corner. Select the rounded or beveled face.",
-  "accepts": {
-   "faces": [
-    1,
-    null
-   ],
-   "edges": [
-    0,
-    0
-   ],
-   "vertices": [
-    0,
-    0
-   ],
-   "bodies": [
-    0,
-    0
-   ],
-   "axes": [
-    0,
-    0
-   ],
-   "any_of": false
-  },
-  "params": [],
-  "related": [],
-  "placement": null,
-  "move_vector": null,
-  "starts_from": "selection",
-  "hidden": false,
-  "whole_model_needs_one_body": false,
-  "body_kind": "Body",
-  "keeps_body_order": false
- },
- {
   "id": "fill_hole",
   "label": "Fill hole / remove boss",
   "description": "Fills a hole with material, or cuts a boss back flush. Select the round face of the hole or boss.",

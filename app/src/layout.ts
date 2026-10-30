@@ -5,7 +5,7 @@
  */
 export const TOOL_GROUPS: { title: string; tools: string[] }[] = [
   { title: "Edit faces", tools: ["push_pull", "delete_face", "align_face", "draft", "round_face"] },
-  { title: "Edges", tools: ["fillet_chamfer", "resize_fillet", "resize_chamfer", "variable_fillet", "fillet_per_edge", "chamfer_two_distances", "chamfer_distance_angle", "remove_round"] },
+  { title: "Edges", tools: ["fillet_chamfer", "resize_fillet", "resize_chamfer", "variable_fillet", "fillet_per_edge", "chamfer_two_distances", "chamfer_distance_angle"] },
   { title: "Holes", tools: ["add_hole", "add_counterbore", "add_countersink", "add_slot", "add_boss", "edit_hole", "edit_void", "thread_hole", "convert_to_countersink", "convert_to_counterbore", "resize_hole", "move_hole", "center_between", "align_holes", "distribute_holes", "pattern_hole", "pattern_hole_circular", "fill_hole"] },
   { title: "Solids", tools: ["add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus", "add_prism", "linear_array", "circular_array", "concentric_array", "path_array", "revolve_face", "loft_faces", "sweep_face", "helical_sweep", "body_boolean", "shell", "mirror", "unify", "patch_fill", "bridge", "offset_body", "cut_plane"] },
   { title: "Move, rotate, scale", tools: ["move_body", "scale_body"] },

@@ -50,7 +50,7 @@ def test_delete_face_heals_a_corner_fillet(bracket):
     assert volume(result.shape) - before == pytest.approx((1 - math.pi / 4) * 36 * 10, rel=1e-3)
 
 
-def test_remove_round_on_block_chamfer(block):
+def test_delete_face_removes_a_block_chamfer(block):
     from pliable.ops import fillet_chamfer
 
     chamfered = Topology(fillet_chamfer(block.shape, [block.edge(0)], -3).shape)
@@ -60,7 +60,7 @@ def test_remove_round_on_block_chamfer(block):
         return all(abs(c) > 0.1 for c in normal if abs(c) > 1e-9) and sum(abs(c) > 1e-9 for c in normal) == 2
 
     chamfer = next(i for i in range(chamfered.face_count) if diagonal(i))
-    result = run("remove_round", chamfered, faces=[chamfer])
+    result = run("delete_face", chamfered, faces=[chamfer])
     assert volume(result.shape) == pytest.approx(volume(block.shape))
 
 

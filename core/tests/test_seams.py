@@ -92,7 +92,7 @@ def test_round_then_remove(distance):
     assert_no_seams(rounded)
     assert rounded.face_count == start.face_count + 1
     new_face = _new_face(start, rounded)
-    back = run(rounded, "remove_round", Selection(faces=[new_face]))
+    back = run(rounded, "delete_face", Selection(faces=[new_face]))
     assert counts(back) == counts(start)
     assert_no_seams(back)
 
