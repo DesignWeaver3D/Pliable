@@ -100,7 +100,7 @@ test("sketch keys obey the guards: text fields, engagement, repeat; Escape needs
 test("sketch keys are fixed and may share Ctrl+Z with the app undo", () => {
   const undo = KEY_COMMANDS.find((c) => c.id === "history.undo");
   const sk = KEY_COMMANDS.find((c) => c.id === "sketch.undo");
-  assert.equal(validateBinding(sk, "Ctrl+K", {}).ok, false);
+  assert.equal(validateBinding(sk, "Ctrl+J", {}).ok, false);
   const km = new Keymap();
   assert.equal(validateBinding(undo, "Ctrl+Z", km.all()).ok, true); // its own key
   const top = KEY_COMMANDS.find((c) => c.id === "view.top");

@@ -40,7 +40,7 @@ test("getting started lists six items and shows once while hints are on", async 
   const { gettingStartedItems, shouldAutoShowGettingStarted, GETTING_STARTED_ID } = await import("../src/hints.ts");
   const items = gettingStartedItems((id) => (id === "ui.shortcuts" ? "Shift+?" : ""));
   assert.equal(items.length, 6);
-  assert.ok(items.some((i) => i.keys === "Ctrl+K") && items.some((i) => i.keys === "T") && items.some((i) => i.keys === "Shift+?"));
+  assert.ok(items.some((i) => i.keys === "/") && items.some((i) => i.keys === "T") && items.some((i) => i.keys === "Shift+?"));
   assert.equal(shouldAutoShowGettingStarted({ on: true, dismissed: [] }), true);
   assert.equal(shouldAutoShowGettingStarted({ on: true, dismissed: [GETTING_STARTED_ID] }), false);
   assert.equal(shouldAutoShowGettingStarted({ on: false, dismissed: [] }), false);

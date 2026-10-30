@@ -78,7 +78,7 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 ## Keys and settings
 
 - Bare keys need an engaged viewport (pointer over the view, a recent exit, or a click in it; `ENGAGE_GRACE_MS = 1500`). Symptom: a view key does nothing right after using a panel.
-- Rules are enforced at assignment and load only. Digit view keys ignore Shift. Only the first chord shows as the hint; rebinding replaces all chords. Ctrl+K may clash with a browser's own search in browsers other than Chrome.
+- Rules are enforced at assignment and load only. Digit view keys ignore Shift. Only the first chord shows as the hint; rebinding replaces all chords.
 - Leaving the page warns whenever undo steps exist or a sketch is open (an export does not clear it); opening another file over edits does not warn.
 - Touch gaps: hide, isolate, show all, look at face and see-through have a key or search entry but no visible button; right-click, hover and keyboard-only paths have no touch equivalent.
 - Touch sizing is a CSS rule for coarse pointers only (40 px targets for the bar, tool strip, view controls, Tools handle and search rows); not tried on a real touch screen. The Getting started card and search chips have no touch-specific layout.

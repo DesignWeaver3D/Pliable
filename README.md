@@ -57,7 +57,7 @@ Open the page (Chrome is the browser used for development), pick a demo or impor
 - **Select:** click a face, edge or vertex (Ctrl+click to add to the selection).
 - **Push/pull a face:** drag it. **Fillet/chamfer an edge:** drag it outward (fillet) or inward (chamfer).
 - **Exact values:** type a number during a drag, Enter to commit, Escape to cancel.
-- **Tools:** the toolbar shows what applies to the selection; Ctrl+K searches all commands.
+- **Tools:** the toolbar shows what applies to the selection; / searches all commands.
 - **Navigate:** wheel zooms, right-drag orbits, middle-drag pans. The cube at the top right (or keys **0** iso, **1** front, **2** top, **3** right, **4** rear, **5** bottom, **6** left) sets the view; **P** toggles perspective/orthographic; **V** looks straight at the selected flat face.
 - **All tools:** the list at the left holds every tool (grouped in `app/src/layout.ts`); tools without a drag open a form with live preview. **Edit last** undoes the newest operation and reopens its form.
 - **Related faces:** selecting a face highlights related ones (coplanar, equal radius, coaxial); the chips at the bottom switch each rule on or off. Push/pull and the hole tools act on the matches too.

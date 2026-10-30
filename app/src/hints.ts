@@ -36,7 +36,7 @@ export function hintItems(ctx: HintContext, mods: Modifiers, keyText: (id: strin
   } else if (mods.ctrl) {
     items = [
       { keys: "Ctrl+click", text: "add or remove from the selection" },
-      { keys: "Ctrl+K", text: "search commands" },
+      { keys: "/", text: "search commands" },
       { keys: k("history.undo", "Ctrl+Z"), text: "undo" },
     ];
   } else if (mods.shift && ctx.hasSelection) {
@@ -72,7 +72,7 @@ export function gettingStartedItems(keyText: (id: string) => string): HintItem[]
     { keys: "Click", text: "select a face, edge or point (Ctrl+click adds, drag a box selects several)" },
     { keys: "Drag", text: "push or pull a selected face; the arrow on the model changes its size" },
     { keys: "0-9", text: "while dragging, type an exact value and press Enter" },
-    { keys: "Ctrl+K", text: "search every tool, setting and command (t: tools, s: settings)" },
+    { keys: "/", text: "search every tool, setting and command (t: tools, s: settings)" },
     { keys: "T", text: "browse all tools in the drawer on the left" },
     { keys: k("ui.shortcuts", "?"), text: "see and change the keyboard shortcuts" },
   ];

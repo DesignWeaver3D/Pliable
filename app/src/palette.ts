@@ -1,4 +1,4 @@
-// Command search: a permanent field in the top bar (Ctrl+K or / focuses it) with a results list under it. Type to filter, arrows to move, Enter to run, Escape to close.
+// Command search: a permanent field in the top bar (/ focuses it, as does clicking it) with a results list under it. Type to filter, arrows to move, Enter to run, Escape to close.
 
 import { loadRecents, pushRecent, saveRecents, searchItems, SCOPES, parseQuery, type Scope } from "./search";
 
@@ -40,10 +40,7 @@ export class Palette {
       if (e.target === this.root) this.close();
     });
     window.addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        this.isOpen ? this.close() : this.open();
-      } else if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping(e.target)) {
+      if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping(e.target)) {
         e.preventDefault();
         this.open();
       }

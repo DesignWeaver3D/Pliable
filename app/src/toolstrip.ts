@@ -124,7 +124,7 @@ export function createToolStrip(d: StripDeps) {
     if (usable.length === 0 && helpers.length === 0) {
       const hint = document.createElement("span");
       hint.className = "none";
-      hint.textContent = d.selection().length ? "No tools for this selection" : "Select a face or edge (Ctrl+K for commands)";
+      hint.textContent = d.selection().length ? "No tools for this selection" : "Select a face or edge (/ searches commands)";
       const browse = document.createElement("button");
       browse.append(uiIcon("more"), "... More");
       browse.className = "more";

@@ -59,7 +59,7 @@ The foundations every tool depends on: the document model, undo/redo history, th
 *Done when:* a trivial tool can be written, tested headlessly, and used from the frontend without touching any core code.
 
 **2. Interaction Layer**
-The UX that makes Pliable approachable: a contextual floating toolbar, drag gizmos, onscreen dimensions with Tab for exact entry, a command search (Ctrl+K), hover previews, and optional rebindable shortcuts. All of it is generated from tool declarations.
+The UX that makes Pliable approachable: a contextual floating toolbar, drag gizmos, onscreen dimensions with Tab for exact entry, a command search (/), hover previews, and optional rebindable shortcuts. All of it is generated from tool declarations.
 *Done when:* a new user can find and use every available tool without reading documentation.
 
 **3. Direct Modeling Tools**
