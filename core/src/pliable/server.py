@@ -180,6 +180,8 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             selection = Selection.from_json(request.get("selection"))
             attach_rail(self.document, selection, strict=False)
             return {"tools": [t.id for t in TOOLS.values() if t.offered(topology, selection)]}
+        if kind == "hole_selection":
+            return classify_hole_selection(self._require_document().current, Selection.from_json(request.get("selection")))
         if kind == "tool_handles":
             topology = self._require_document().current
             tool = get_tool(str(request.get("tool")))
