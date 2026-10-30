@@ -2,6 +2,7 @@
  *  (a floating card now, a docked panel later); the host passes what happens when a section or a preset is chosen. The values
  *  themselves are the ordinary form of the section's tool, which the host draws under this header. */
 import { counterborePresets, countersinkPresets, diameterPresets, threadPresets, type HolePreset } from "./holepresets.ts";
+import type { HoleThread } from "./holethread.ts";
 import { holeDiagram, type HoleShape } from "./holediagram.ts";
 
 export type HoleKind = "hole" | "holes" | "new";
@@ -34,10 +35,10 @@ const NEW_SIMPLE: HoleSection = { tool: "add_hole", label: "Simple", title: "A p
 const NEW_COUNTERBORE: HoleSection = { tool: "add_counterbore", label: "Counterbore", title: "A hole with a flat-bottomed step for a screw head", shape: "counterbore", presets: () => counterborePresets(true) };
 const NEW_COUNTERSINK: HoleSection = { tool: "add_countersink", label: "Countersink", title: "A hole with a cone-shaped opening for a flat head screw", shape: "countersink", presets: () => countersinkPresets(true) };
 
-/** The sections offered for a selection: a flat face for a new hole, one hole (picked as `pick`), or several (`count` holes). */
-export function sectionsFor(kind: HoleKind, count = 1, pick: HolePick = "other"): HoleSection[] {
+/** The sections offered for a selection: a flat face for a new hole, one hole (picked as `pick`; `threadable` when the core finds a bore wall to thread, whichever face of the hole is picked), or several (`count` holes). */
+export function sectionsFor(kind: HoleKind, count = 1, pick: HolePick = "other", threadable = pick === "wall"): HoleSection[] {
   if (kind === "new") return [NEW_SIMPLE, NEW_COUNTERBORE, NEW_COUNTERSINK];
-  if (kind === "hole") return [SIZE, COUNTERBORE, COUNTERSINK, ...(pick === "wall" ? [THREAD] : []), ...(pick !== "other" ? [FILL] : [])];
+  if (kind === "hole") return [SIZE, COUNTERBORE, COUNTERSINK, ...(threadable ? [THREAD] : []), ...(pick !== "other" ? [FILL] : [])];
   return count >= 1 ? [SIZE_ALL, MOVE_ALL, ...(count >= 2 ? [ALIGN] : []), ...(count >= 3 ? [DISTRIBUTE] : []), FILL] : [];
 }
 
@@ -50,6 +51,8 @@ export interface HoleEditorDeps {
   fill(values: Record<string, number>): void;
   /** A label of the picture was clicked: focus that field. */
   focus(param: string): void;
+  /** For a new hole: the thread cut together with it. The list names the standard sizes; `size` is the chosen one (0 = none). */
+  thread?: { sizes: string[]; value: HoleThread; change(value: HoleThread): void };
 }
 
 export function buildHoleEditor(d: HoleEditorDeps): HTMLElement {
@@ -101,5 +104,29 @@ export function buildHoleEditor(d: HoleEditorDeps): HTMLElement {
     list.addEventListener("keydown", (e) => e.stopPropagation());
     box.append(list);
   }
+  if (d.thread) box.append(threadRow(d.thread));
   return box;
+}
+
+/** The thread list of a new hole: "No thread" or a standard size, and a left-hand box. */
+function threadRow(thread: NonNullable<HoleEditorDeps["thread"]>): HTMLElement {
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex;gap:6px;align-items:center;margin:2px 0 4px";
+  row.title = "Cut a thread into the new hole's bore when you apply it (one step for the hole and the thread)";
+  const list = document.createElement("select");
+  list.style.cssText = "flex:1 1 auto";
+  list.append(new Option("No thread", "0"));
+  thread.sizes.forEach((name, i) => list.append(new Option(`Thread ${name}`, String(i + 1))));
+  list.value = String(thread.value.size);
+  const left = document.createElement("input");
+  left.type = "checkbox";
+  left.checked = thread.value.left;
+  const label = document.createElement("label");
+  label.append(left, " Left hand");
+  const send = () => thread.change({ size: Number(list.value), left: left.checked });
+  list.addEventListener("change", send);
+  left.addEventListener("change", send);
+  list.addEventListener("keydown", (e) => e.stopPropagation());
+  row.append(list, label);
+  return row;
 }

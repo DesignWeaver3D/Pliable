@@ -55,6 +55,7 @@ import { createItemDrag } from "./itemdrag";
 import { createPushPullCard } from "./pushpullwire.ts";
 import { createHoleEditor } from "./holeeditorcard.ts";
 import { HOLE_EDITOR_ID, holeEditorTool } from "./holeeditortool.ts";
+import { threadRequest } from "./holethread.ts";
 import { HOLE_EDITOR_HELPERS } from "./layout.ts";
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -1195,7 +1196,16 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     }
     const sels = app.currentSels;
     try {
-      const mesh = await core.request<MeshData>("tool_commit", { tool: tool.id, selection: selectionPayload(editBody === undefined ? expand(tool, sels) : []), params: values, ...(editBody === undefined ? {} : { edit_body: editBody }) });
+      let mesh = await core.request<MeshData>("tool_commit", { tool: tool.id, selection: selectionPayload(editBody === undefined ? expand(tool, sels) : []), params: values, ...(editBody === undefined ? {} : { edit_body: editBody }) });
+      const threading = threadRequest(tool.id, holeEditor.takeThread(), mappedSelection(mesh), selectionPayload); // a new hole applied with a thread chosen: thread its bore in the same undo step
+      if (threading) {
+        try {
+          mesh = await core.request<MeshData>("tool_commit", threading);
+        } catch (e) {
+          status.textContent = `The hole was made but its thread failed: ${(e as Error).message}`;
+          status.classList.add("error");
+        }
+      }
       setCommitted(mesh, false, mappedSelection(mesh));
       app.lastOp = { tool, sels, values };
       editLastButton.disabled = false;

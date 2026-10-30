@@ -48,3 +48,28 @@ test("a flat face offers the three ways of making a new hole", () => {
   assert.deepEqual(sectionsFor("new").map((s) => s.tool), ["add_hole", "add_counterbore", "add_countersink"]);
   assert.ok(counterborePresets(true)[0].values.diameter > 0 && !("diameter" in counterborePresets()[0].values));
 });
+
+test("a hole whose bore can be threaded offers Thread whichever face of it was picked", () => {
+  const ids = (pick, threadable) => sectionsFor("hole", 1, pick, threadable).map((s) => s.tool);
+  assert.ok(ids("other", true).includes("thread_hole"));
+  assert.ok(!ids("wall", false).includes("thread_hole"));
+  assert.ok(ids("wall").includes("thread_hole")); // when the core does not say, a picked whole wall can be threaded
+});
+
+test("a thread chosen with a new hole is cut on the bore the commit kept selected, in the hole's undo step", async () => {
+  const { threadRequest, threadSizeNames, NO_THREAD } = await import("../src/holethread.ts");
+  const payload = (sels) => ({ faces: sels.map((s) => s.id) });
+  const kept = [{ kind: "face", id: 7 }];
+  const m6 = { size: 4, left: false };
+  const request = threadRequest("add_counterbore", m6, kept, payload);
+  assert.deepEqual(request.selection, { faces: [7] });
+  assert.equal(request.tool, "thread_hole");
+  assert.equal(request.params.size, 4);
+  assert.equal(request.foldPick, true);
+  assert.equal(threadRequest("add_hole", { size: 4, left: true }, kept, payload).params.hand, 1);
+  assert.equal(threadRequest("add_hole", NO_THREAD, kept, payload), null); // no thread chosen
+  assert.equal(threadRequest("edit_hole", m6, kept, payload), null); // only the new-hole tools
+  assert.equal(threadRequest("add_hole", m6, [], payload), null); // nothing kept to thread
+  const tool = { id: "thread_hole", params: [{ name: "size", options: ["Custom", "M3", "M4"] }] };
+  assert.deepEqual(threadSizeNames([tool]), ["M3", "M4"]);
+});
