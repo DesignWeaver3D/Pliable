@@ -55,3 +55,15 @@ test("a dragged point lands on the grid, the axes, or in line with another point
   assert.deepEqual(snapDragged(ctx, [60, 61], [3]), { u: 60, v: 61 }); // its own place does not count
   assert.deepEqual(snapDragged(context("select", { options: { snapGrid: true, major: 10, minor: 0 } }), [42, 38], [9]), { u: 40, v: 40 });
 });
+
+test("pick puts construction curves under regular ones", () => {
+  const ctx = context();
+  ctx.s.entities = [{ id: 9, type: "line", a: 1, b: 2, construction: true }, { id: 10, type: "line", a: 1, b: 2 }];
+  assert.deepEqual(pick(ctx, at(40, 1)), { kind: "entity", id: 10 }); // the regular line wins over the construction line on it
+  ctx.s.entities = [{ id: 9, type: "line", a: 1, b: 2, construction: true }, { id: 10, type: "line", a: 1, b: 2 }];
+  ctx.s.points = [{ id: 1, u: 0, v: 0 }, { id: 2, u: 100, v: 0 }];
+  ctx.s.entities[1] = { id: 10, type: "line", a: 1, b: 2 };
+  assert.deepEqual(pick(ctx, at(40, 4)), { kind: "entity", id: 10 });
+  ctx.s.entities = [{ id: 9, type: "line", a: 1, b: 2, construction: true }];
+  assert.deepEqual(pick(ctx, at(40, 1)), { kind: "entity", id: 9 }); // alone, it can still be picked
+});

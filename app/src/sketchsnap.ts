@@ -137,14 +137,18 @@ export function pick(ctx: SnapContext, e: PointerEvent): M.SketchSel | null {
   const pixel = ctx.pixelAt(uv[0], uv[1]);
   let best: M.SketchSel | null = null;
   let bestD = PICK_PX * pixel;
-  for (const en of ctx.s.entities) {
-    const d = M.distanceTo(ctx.s, en, uv[0], uv[1]);
-    if (d < bestD) {
-      best = { kind: "entity", id: en.id };
-      bestD = d;
+  // Construction curves are always under the regular ones: any regular curve within reach wins, however much nearer a construction curve is.
+  for (const construction of [false, true]) {
+    for (const en of ctx.s.entities) {
+      if (!!en.construction !== construction) continue;
+      const d = M.distanceTo(ctx.s, en, uv[0], uv[1]);
+      if (d < bestD) {
+        best = { kind: "entity", id: en.id };
+        bestD = d;
+      }
     }
+    if (best) return best;
   }
-  if (best) return best;
   // The sketch's axes can be picked too (to dimension or constrain to), but any other curve or point nearby wins.
   for (const [i, a] of M.sketchAxes(ctx.s.plane).entries()) {
     const d = Math.abs((uv[0] - a.u) * -a.dv + (uv[1] - a.v) * a.du);
