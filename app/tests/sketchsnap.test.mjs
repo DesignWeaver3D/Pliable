@@ -67,3 +67,12 @@ test("pick puts construction curves under regular ones", () => {
   ctx.s.entities = [{ id: 9, type: "line", a: 1, b: 2, construction: true }];
   assert.deepEqual(pick(ctx, at(40, 1)), { kind: "entity", id: 9 }); // alone, it can still be picked
 });
+
+test("of stacked construction lines the shorter is picked", () => {
+  const ctx = context();
+  ctx.s.points = [{ id: 1, u: 0, v: 0 }, { id: 2, u: 100, v: 0 }, { id: 3, u: 50, v: 0 }];
+  ctx.s.entities = [{ id: 9, type: "line", a: 1, b: 2, construction: true }, { id: 10, type: "line", a: 1, b: 3, construction: true }];
+  assert.deepEqual(pick(ctx, at(25, 1)), { kind: "entity", id: 10 });
+  ctx.s.entities.reverse();
+  assert.deepEqual(pick(ctx, at(25, 1)), { kind: "entity", id: 10 });
+});

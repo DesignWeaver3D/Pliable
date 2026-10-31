@@ -142,7 +142,8 @@ export function pick(ctx: SnapContext, e: PointerEvent): M.SketchSel | null {
     for (const en of ctx.s.entities) {
       if (!!en.construction !== construction) continue;
       const d = M.distanceTo(ctx.s, en, uv[0], uv[1]);
-      if (d < bestD) {
+      const tied = construction && best !== null && Math.abs(d - bestD) < 1e-9 * Math.max(1, pixel) && M.entityLength(ctx.s, en) < M.entityLength(ctx.s, ctx.s.entities.find((x) => x.id === best!.id)!);
+      if (d < bestD - 1e-9 * Math.max(1, pixel) || tied || (best === null && d < bestD)) {
         best = { kind: "entity", id: en.id };
         bestD = d;
       }

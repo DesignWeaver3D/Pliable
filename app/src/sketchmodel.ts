@@ -465,6 +465,14 @@ function splinePolyline(s: SketchData, e: Extract<SketchEntity, { type: "spline"
   return out;
 }
 
+/** How long an entity's outline is, for ordering stacked curves. */
+export function entityLength(s: SketchData, e: SketchEntity): number {
+  const line = polyline(s, e);
+  let total = 0;
+  for (let i = 1; i < line.length; i++) total += Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]);
+  return total;
+}
+
 /** Polyline of an entity in sketch coordinates (circles and arcs sampled), for drawing and picking. */
 export function polyline(s: SketchData, e: SketchEntity, segments = 48): [number, number][] {
   if (e.type === "line") return [[pointOf(s, e.a).u, pointOf(s, e.a).v], [pointOf(s, e.b).u, pointOf(s, e.b).v]];

@@ -601,7 +601,11 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const r = { x0: Math.min(b.x0, b.x1) - rect.left, x1: Math.max(b.x0, b.x1) - rect.left, y0: Math.min(b.y0, b.y1) - rect.top, y1: Math.max(b.y0, b.y1) - rect.top };
     const found = M.itemsInBox(this.s, (u, v) => this.screenOf(u, v), r, b.x1 < b.x0);
     this.selection = b.additive ? [...this.selection, ...found.filter((f) => !this.selection.some((s) => s.kind === f.kind && s.id === f.id))] : found;
+    this.boxSelection = this.selection; // while this is still the selection, Delete treats its points as picked by a box
   }
+
+  /** The selection a box made (compared by identity: any later change replaces it). */
+  private boxSelection: M.SketchSel[] | null = null;
 
   private onMove(e: PointerEvent) {
     // A release the page never saw (focus lost, a dialog) must not leave a drag or box stuck to the pointer.
@@ -1013,6 +1017,13 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       this.render();
       this.host.status(`Deleted ${ids.size} constraint${ids.size === 1 ? "" : "s"} (Undo brings ${ids.size === 1 ? "it" : "them"} back)`);
     } else if ((e.key === "Delete" || e.key === "Backspace") && this.selection.length) {
+      // A box that took only some of a curve's points does not offer the curve for deletion: such a point is left out (a free point, or all of a curve's points, still counts).
+      if (this.selection === this.boxSelection) {
+        const chosen = new Set(this.selection.map((x) => `${x.kind}:${x.id}`));
+        const partial = (x: M.SketchSel) => x.kind === "point" && this.s.entities.some((en) => M.entityPoints(en).includes(x.id)) && !this.s.entities.some((en) => M.entityPoints(en).includes(x.id) && (chosen.has(`entity:${en.id}`) || M.entityPoints(en).every((pid) => chosen.has(`point:${pid}`))));
+        this.selection = this.selection.filter((x) => !partial(x));
+        if (!this.selection.length) return this.host.status("Only some points of the curves were boxed, so nothing was deleted (select the whole curve)");
+      }
       // Only points selected and something holds them to other geometry: Delete lets go of that (the lines stay).
       const released = this.selection.every((x) => x.kind === "point") ? Co.releasePoints(this.s, this.selection.map((x) => x.id)) : null;
       this.pushUndo();
@@ -1848,7 +1859,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const placed: [number, number][][] = [];
     const lit: [number, number][][] = [];
     const open = this.showFree ? freeParts(this.s, this.freedom, this.freeSizes) : null;
-    for (const e of this.s.entities) {
+    for (const e of [...this.s.entities].sort((p, q) => M.entityLength(this.s, q) - M.entityLength(this.s, p))) { // longer first, so a shorter curve stacked on a longer one is drawn on top
       const bucket = this.isMarked({ kind: "entity", id: e.id }) ? marked : open?.entities.has(e.id) ? lit : e.construction ? guides : this.isPlaced(e) ? placed : normal;
       bucket.push(M.polyline(this.s, e));
       this.centreColours.set(e.id, bucket === marked ? COLORS.selected : bucket === lit ? FREE_COLOR : bucket === guides ? COLORS.construction : bucket === placed ? COLORS.placed : COLORS.line);
