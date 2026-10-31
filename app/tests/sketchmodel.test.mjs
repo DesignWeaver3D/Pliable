@@ -450,6 +450,20 @@ test("removing a line keeps a free point elsewhere and its constraints", async (
   assert.equal(after.constraints.length, 1);
 });
 
+test("deleting a selected free point removes it and its constraints", async () => {
+  const { remove } = await import("../src/sketchmodel.ts");
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 5, v: 0 }],
+    entities: [{ id: 5, type: "line", a: 1, b: 2 }],
+    constraints: [{ id: 6, type: "point_on", point: 3, entity: 5 }],
+  };
+  const after = remove(s, { kind: "point", id: 3 });
+  assert.deepEqual(after.points.map((p) => p.id), [1, 2]);
+  assert.equal(after.constraints.length, 0);
+  assert.equal(after.entities.length, 1);
+});
+
 test("an Equal mark sits beside each curve, and Equal marks chain through shared curves", async () => {
   const { equalChain } = await import("../src/sketchequalchain.ts");
   const s = {
