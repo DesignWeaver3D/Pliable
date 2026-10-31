@@ -145,6 +145,7 @@ Ideas from the local research notes in `docs/research/` (untracked), written in 
 - Imperial units: lengths are millimetres through `LENGTH_UNIT` in `app/src/units.ts`; grid spacing and dimensions should follow a unit setting later.
 - Per-body see-through is view-only per session; it is not saved with the document.
 - Long term: design-intent behavior tied to the auto-chip selections, such as which face moves when a face-to-face distance is edited in place (owner, 2026-10-20: deferred).
+- Next wave, not started (owner, 2026-10-31): after sketch workflow fluidity and bug fixing, a curve and surface (NURBS) workflow with true 3D sketching, drawing on the direct-modeling and curve tools of the open-source parametric modeler's add-ins. Concept and the owner's words are in the local `docs/research/nurbs-wave.md`; do not research or build until the owner says the wave starts.
 - Long term (owner, 2026-10-31): repair or flag geometry errors when importing STEP files, so a broken body does not arrive silently unusable. Related Parked items: none found.
 - Long term: named values and expressions in sketch dimensions (owner, 2026-10-20: numbers only for now).
 
