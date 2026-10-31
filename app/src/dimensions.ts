@@ -332,7 +332,8 @@ export class DimensionOverlay {
     // The pointer gestures on the text belong to the text: they must not reach the viewport (which would clear the selection).
     for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup"]) r.addEventListener(type, (e) => e.stopPropagation());
     this.makeDraggable(r, dim);
-    if (dim.select) r.addEventListener("click", (e) => dim.select!(e));
+    // Selecting happens on the press, not on the click: the drawing is rebuilt when the pointer moves, and a click is lost when its element is replaced between press and release.
+    if (dim.select) r.addEventListener("pointerdown", (e) => e.button === 0 && dim.select!(e));
     if (dim.menu) {
       r.addEventListener("contextmenu", (e) => {
         e.preventDefault();
@@ -428,7 +429,7 @@ export class DimensionOverlay {
         for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup"]) hit.addEventListener(type, (e) => e.stopPropagation());
         if (!across) this.makeDraggable(hit, d);
         if (at && d.activate) this.activateOnDoubleTap(hit, d, () => d.activate!(at));
-        if (d.select) hit.addEventListener("click", (e) => d.select!(e)); // a click on a dimension's line selects it like a click on its value
+        if (d.select) hit.addEventListener("pointerdown", (e) => e.button === 0 && d.select!(e)); // a click on a dimension's line selects it like a click on its value
         hit.addEventListener("dblclick", (e) => {
           e.preventDefault();
           e.stopPropagation();
