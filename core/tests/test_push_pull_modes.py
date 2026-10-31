@@ -125,12 +125,12 @@ def test_a_new_body_is_never_merged_or_cut():
     assert len(pushed.tracked_faces) == 1
 
 
-def test_symmetric_adds_on_the_normal_side_and_cuts_on_the_other():
+def test_symmetric_follows_the_drag_direction_on_both_sides():
     shape, face = TOP
     auto = run(shape, face, distance=8, symmetric=True)
-    assert volume(auto.shape) == pytest.approx(BLOCK - AREA * 3 + AREA * 8, rel=1e-3)
+    assert volume(auto.shape) == pytest.approx(BLOCK + AREA * 8 + AREA * GAP, rel=1e-3)  # a pull adds on both sides
     flipped = run(shape, face, distance=8, symmetric=True, flip=True)
-    assert volume(flipped.shape) == pytest.approx(BLOCK + AREA * GAP, rel=1e-3)  # the normal side cuts empty space, the other side adds
+    assert volume(flipped.shape) == pytest.approx(BLOCK - AREA * 3, rel=1e-3)  # flip: the pull cuts on both sides
     both = run(shape, face, distance=8, symmetric=True, mode="add")
     assert volume(both.shape) == pytest.approx(BLOCK + AREA * 8 + AREA * GAP, rel=1e-3)
     new = run(shape, face, distance=8, symmetric=True, mode="new")

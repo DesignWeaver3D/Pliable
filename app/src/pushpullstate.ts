@@ -10,13 +10,13 @@ export const MODE_BUTTONS: readonly { id: PushPullMode; label: string; title: st
 ];
 
 export const FLIP_TITLE = "Reverses which drag direction adds and which subtracts (the arrows swap color); it does not change the face's normal";
-export const SYMMETRIC_TITLE = "Push and pull both ways from the face. Symmetric: hold Shift while dragging";
+export const SYMMETRIC_TITLE = "Push and pull both ways from the face. Symmetric: press Shift while dragging to toggle it";
 
 export class PushPullState {
   /** The mode chosen on the card (default Auto). */
   choice: PushPullMode = "auto";
   flip = false;
-  /** The card's Symmetric box; Shift held in a drag adds to it (itemdrag.ts). */
+  /** The card's Symmetric box; a Shift press in a drag toggles it (itemdrag.ts). */
   symmetric = false;
   /** Alt pressed once: New body until Alt is pressed again, then the choice comes back. */
   altOn = false;

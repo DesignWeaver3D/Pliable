@@ -98,10 +98,10 @@ def _parts(faces, distance: float, symmetric: bool, direction, mode: str, flip: 
             start = BRepBuilderAPI_Transform(f, trsf, True).Shape()
             prism, cap = _prism(start, gp_Vec(normal).Multiplied(2 * distance))
             parts.append(_Part(prism, cap, "new"))
-        else:  # the normal side adds and the opposite side cuts (swapped by flip); add and subtract use both sides alike
+        else:  # both sides do what the drag direction does: a pull adds on both sides, a push cuts on both (swapped by flip)
+            role = push_role(mode, flip, distance)
             for sign in (1, -1):
                 prism, cap = _prism(f, gp_Vec(normal).Multiplied(sign * abs(distance)))
-                role = push_role(mode, flip, sign)
                 parts.append(_Part(prism, cap, role, tracked=(sign > 0) == (distance > 0)))
     return parts
 

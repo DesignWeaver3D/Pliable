@@ -59,10 +59,13 @@ export function createItemDrag(d: ItemDragDeps) {
           altChanged = true;
         }
       }
-      // Pressing or letting go of Shift during a push/pull drag switches the symmetric mode from then on and previews it at once.
-      const symmetric = shiftHeld || viewport.pushPull.symmetric;
-      if (pushPullDragging() && (dragSymmetric !== symmetric || altChanged)) {
-        dragSymmetric = symmetric;
+      // A press of Shift during a push/pull drag toggles the symmetric mode from then on and previews it at once (a toggle, so digits can be typed after it).
+      let shiftChanged = false;
+      if (e.key === "Shift" && type === "keydown" && !e.repeat && pushPullDragging()) {
+        dragSymmetric = !dragSymmetric;
+        shiftChanged = true;
+      }
+      if (pushPullDragging() && (shiftChanged || altChanged)) {
         queued = dragValue;
         pump(session);
       }
