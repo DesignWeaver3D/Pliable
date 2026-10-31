@@ -76,3 +76,13 @@ test("of stacked construction lines the shorter is picked", () => {
   ctx.s.entities.reverse();
   assert.deepEqual(pick(ctx, at(25, 1)), { kind: "entity", id: 10 });
 });
+
+test("a click near a sketch axis lands on it, and near both axes on the origin, and says which", () => {
+  const ctx = context("rectangle");
+  ctx.s.points = [];
+  ctx.s.entities = [];
+  const onU = snap(ctx, at(40, 2));
+  assert.deepEqual([onU.u, onU.v, onU.axes], [40, 0, [0]]);
+  const origin = snap(ctx, at(2, 3));
+  assert.deepEqual([origin.u, origin.v, origin.axes], [0, 0, [0, 1]]);
+});

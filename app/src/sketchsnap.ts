@@ -83,10 +83,16 @@ export function snap(ctx: SnapContext, e: PointerEvent): Snap | null {
     }
   }
   // The sketch's own axes, through the center of the face (its origin).
-  for (const a of M.sketchAxes(ctx.s.plane)) {
+  const onAxes: { k: number; at: [number, number] }[] = [];
+  for (const [k, a] of M.sketchAxes(ctx.s.plane).entries()) {
     const t = (u - a.u) * a.du + (v - a.v) * a.dv;
     const on: [number, number] = [a.u + t * a.du, a.v + t * a.dv];
-    if (Math.hypot(u - on[0], v - on[1]) < reach) return { u: on[0], v: on[1] };
+    if (Math.hypot(u - on[0], v - on[1]) < reach) onAxes.push({ k, at: on });
+  }
+  if (onAxes.length) {
+    // Near both axes is the origin: the point lands there and is held on both.
+    const [u0, v0] = onAxes.length === 2 ? [0, 0] : onAxes[0].at;
+    return { u: u0, v: v0, axes: onAxes.map((x) => x.k) };
   }
   // Line up with the u or v of an existing point and show a guide to it.
   if (!axis) {

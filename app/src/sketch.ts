@@ -100,6 +100,8 @@ export interface Snap {
   axis?: "h" | "v";
   /** The curve this snap landed on, and whether it was a line's midpoint: becomes a constraint on the new point. */
   on?: { entity: number; midpoint?: boolean };
+  /** The sketch axes (0 horizontal, 1 vertical) the click landed on, both at the origin: the new point is held on them. */
+  axes?: number[];
   /** A circle being drawn touches this entity (set by the circle tool's tangent snap). */
   tangent?: number;
   /** Dotted guide lines to show: the cursor lined up with existing points. */

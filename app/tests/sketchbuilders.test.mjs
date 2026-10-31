@@ -168,3 +168,17 @@ test("an elliptical arc whose end is clicked clockwise from the start is stored 
   assert.ok(Math.abs(at(arc.start).v) < 1 && at(arc.start).u > 0); // the pointer went clockwise, so the arc starts at the clicked end
   assert.ok(Math.abs(at(arc.end).u) < 1e-9 && at(arc.end).v > 0);
 });
+
+test("a rectangle corner clicked on an axis, or on the origin, is held on it once per axis", () => {
+  const ctx = context();
+  addRectangle(ctx, { u: 0, v: 0, axes: [0, 1] }, { u: 4, v: 3 });
+  const held = ctx.s.constraints.filter((c) => c.type === "point_on");
+  assert.deepEqual(held.map((c) => c.entity).sort((x, y) => y - x), [-1, -2]); // both axes, on the one corner
+  assert.equal(new Set(held.map((c) => c.point)).size, 1);
+  const side = context();
+  addRectangle(side, { u: 1, v: 0, axes: [0] }, { u: 4, v: 3, axes: [0] }); // both clicks on the same axis would be redundant with the side's horizontal
+  assert.equal(side.s.constraints.filter((c) => c.type === "point_on").length, 1);
+  const off = context("none");
+  addRectangle(off, { u: 0, v: 0, axes: [0, 1] }, { u: 4, v: 3 });
+  assert.equal(off.s.constraints.length, 0);
+});
