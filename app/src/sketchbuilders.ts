@@ -122,6 +122,12 @@ function addCentrePoint(ctx: BuilderContext, centre: Snap, cornerA: number, corn
   ctx.addConstraintRaw({ type: "symmetric_point", points: [cornerA, cornerB], point: id }, "always");
 }
 
+/** A click that only sets a size (a radius, a width, a point on the curve) still keeps its constraint when it was on a point, a curve or an axis: it becomes that point, held on `entity`. */
+function holdOn(ctx: BuilderContext, click: Snap, entity: number) {
+  if (click.id === undefined && !click.on && !click.axes) return;
+  ctx.addConstraintRaw({ type: "point_on", point: ctx.pointFor(click), entity }, "snap");
+}
+
 export function addLineBetween(ctx: BuilderContext, a: number, b: number): number {
   const id = M.nextId(ctx.s);
   ctx.s.entities.push({ id, type: "line", a, b });
@@ -140,7 +146,7 @@ export function polygonCorners(center: { u: number; v: number }, corner: { u: nu
 export function addPolygon(ctx: BuilderContext, center: Snap, corner: Snap, sides: number) {
   if (Math.hypot(corner.u - center.u, corner.v - center.v) < 1e-6) return;
   ctx.pushUndo();
-  const p = polygonCorners(center, corner, sides).map((c) => ctx.pointFor(c as Snap));
+  const p = polygonCorners(center, corner, sides).map((c, k) => ctx.pointFor(k === 0 ? corner : (c as Snap))); // the first corner is the clicked one
   const ids = p.map((_, k) => {
     const id = M.nextId(ctx.s);
     ctx.s.entities.push({ id, type: "line", a: p[k], b: p[(k + 1) % sides] });
@@ -170,6 +176,7 @@ export function addCircle(ctx: BuilderContext, center: Snap, edge: Snap) {
   const id = M.nextId(ctx.s);
   ctx.s.entities.push({ id, type: "circle", center: c, radius });
   if (edge.tangent !== undefined) ctx.addConstraintRaw({ type: "tangent", entities: [id, edge.tangent] }, "snap");
+  else holdOn(ctx, edge, id);
   ctx.resolve();
 }
 
@@ -254,7 +261,9 @@ export function addArcThrough(ctx: BuilderContext, start: Snap, through: Snap, e
   const centre = ctx.pointFor({ u: arc.centre.u, v: arc.centre.v } as Snap);
   const a = ctx.pointFor(first);
   const b = ctx.pointFor(last);
-  ctx.s.entities.push({ id: M.nextId(ctx.s), type: "arc", center: centre, start: a, end: b });
+  const arcId = M.nextId(ctx.s);
+  ctx.s.entities.push({ id: arcId, type: "arc", center: centre, start: a, end: b });
+  holdOn(ctx, through, arcId);
   ctx.resolve();
 }
 
@@ -265,7 +274,7 @@ export function addCircleThrough(ctx: BuilderContext, a: Snap, b: Snap, c: Snap)
   const centre = ctx.pointFor({ u: circle.u, v: circle.v } as Snap);
   const id = M.nextId(ctx.s);
   ctx.s.entities.push({ id, type: "circle", center: centre, radius: circle.radius });
-  for (const snap of [a, b, c]) if (snap.id !== undefined) ctx.addConstraintRaw({ type: "point_on", point: snap.id, entity: id }, "snap"); // existing points stay on it
+  for (const snap of [a, b, c]) holdOn(ctx, snap, id); // clicks on points, curves or axes stay on it
   ctx.resolve();
 }
 
@@ -289,7 +298,7 @@ export function addSlot(ctx: BuilderContext, a: Snap, b: Snap, side: Snap) {
   if (side.id !== undefined || side.on || side.axes) { // a width click on a point, a curve or an axis keeps the straight edge through it
     const nearTop = Math.hypot(side.u - corners.aLeft.u, side.v - corners.aLeft.v) <= Math.hypot(side.u - corners.aRight.u, side.v - corners.aRight.v);
     const edge = nearTop ? top : bottom;
-    ctx.addConstraintRaw({ type: "point_on", point: ctx.pointFor(side), entity: edge }, "snap");
+    holdOn(ctx, side, edge);
   }
   ctx.resolve();
 }

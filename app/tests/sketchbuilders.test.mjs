@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addArc, addEllipse, addEllipseArc, addRectangle, addPolygon, addCircle, addSlot, polygonCorners } from "../src/sketchbuilders.ts";
+import { addArcThrough, addCircleThrough, addArc, addEllipse, addEllipseArc, addRectangle, addPolygon, addCircle, addSlot, polygonCorners } from "../src/sketchbuilders.ts";
 
 // A stand-in for the sketch mode: the same rules as SketchMode.pointFor and addConstraintRaw, with undo and solving as counters.
 function context(auto = "shape") {
@@ -186,4 +186,20 @@ test("a rectangle corner clicked on an axis, or on the origin, is held on it onc
   const off = context("none");
   addRectangle(off, { u: 0, v: 0, axes: [0, 1] }, { u: 4, v: 3 });
   assert.equal(off.s.constraints.length, 0);
+});
+
+test("size clicks on an axis stay held: circle by edge, circle through three points, arc through, polygon corner", () => {
+  const held = (ctx) => ctx.s.constraints.filter((c) => c.type === "point_on" && c.axisHold === undefined).length;
+  const edge = context();
+  addCircle(edge, { u: 0, v: 5 }, { u: 5, v: 5, axes: [] , on: { entity: 3 } });
+  assert.equal(held(edge), 1);
+  const three = context();
+  addCircleThrough(three, { u: 10, v: 0, axes: [0] }, { u: 0, v: 10 }, { u: -10, v: 0, axes: [0] });
+  assert.equal(held(three), 2);
+  const arc = context();
+  addArcThrough(arc, { u: 10, v: 0 }, { u: 0, v: 10, axes: [1] }, { u: -10, v: 0 });
+  assert.equal(held(arc), 1);
+  const poly = context();
+  addPolygon(poly, { u: 0, v: 0 }, { u: 10, v: 0, axes: [0] }, 5);
+  assert.equal(poly.s.constraints.filter((c) => c.axisHold).length, 1);
 });
