@@ -275,8 +275,9 @@ export class DimensionOverlay {
     if (d.kind === "diameter") {
       // The dimension line spans the hole; the leader leaves from its far end.
       this.dimLine(a, b, out);
+      this.gapLines(out, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, { x: CENTER_CLEAR_PX, y: CENTER_CLEAR_PX }); // the center point stays visible and pickable
     } else {
-      out.push(line(a, b), dot(a));
+      out.push(line(add(a, mul(outDir, CENTER_CLEAR_PX)), b)); // starts clear of the center point, which has no dot of the dimension on it
     }
     if (d.kind !== "diameter") out.push(arrow(rim, outDir));
     // Leader: continues past the rim, then a horizontal landing that carries the text.
@@ -518,6 +519,9 @@ export class DimensionOverlay {
   }
 }
 
+/** How far the line of a radius or diameter stays from the center point it measures from. */
+const CENTER_CLEAR_PX = 7;
+
 const HIT_STYLE = (() => {
   const style = document.createElementNS(NS, "style");
   style.textContent = ".dimhit { fill: rgba(255,138,31,0); stroke: none; pointer-events: all; } .dimhit.drag { cursor: move; } .dimhit.edit { cursor: text; } .dimhit.edit:hover { fill: rgba(255,138,31,0.16); stroke: #ff8a1f; stroke-width: 1; }";
@@ -611,17 +615,4 @@ function arrow(tip: V, dir: V): SVGElement {
   p.setAttribute("stroke-linejoin", "round");
   p.setAttribute("paint-order", "stroke");
   return p;
-}
-
-function dot(at: V): SVGElement {
-  const c = document.createElementNS(NS, "circle");
-  c.setAttribute("cx", String(at.x));
-  c.setAttribute("cy", String(at.y));
-  c.setAttribute("r", "3");
-  c.setAttribute("style", `fill: ${LINE_COLOR}`);
-  c.setAttribute("stroke", HALO_COLOR);
-  c.setAttribute("stroke-opacity", HALO_OPACITY);
-  c.setAttribute("stroke-width", "2");
-  c.setAttribute("paint-order", "stroke");
-  return c;
 }
