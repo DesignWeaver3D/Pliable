@@ -16,7 +16,7 @@ from check_commit_message import NAMES
 
 SKIP = (
     "LICENSE", "scripts/check_commit_message.py", "scripts/check_content.py",
-    "THIRD_PARTY_NOTICES.md", ".gitignore", ".gitattributes",
+    "THIRD_PARTY_NOTICES.md", "README.md", ".gitignore", ".gitattributes",
 )
 SKIP_SUFFIX = (".lock", "package-lock.json", ".png", ".ico", ".jpg", ".svg", ".woff", ".woff2")
 

@@ -8,7 +8,7 @@ Write commits for someone reading the log later.
 - Body: any commit touching 3 or more files needs a short body saying what changed and why. Wrap lines at 80 characters.
 - One commit per logical change, not one per work step.
 - Do not name commercial products or other programs (other CAD tools, AI tools, vendors); describe the behavior instead.
-- Files, not just messages, must not name other products. Describe behavior in our own words and do not say it follows or matches another program.
+- Files, not just messages, must not name other products. Describe behavior in our own words and do not say it follows or matches another program. The one exception is `README.md`, which may name other products to say how Pliable relates to them (inspiration, scope, the FOSS ecosystem) and carries a trademark disclaimer at the bottom; it never claims equivalence or parity. Alpha warning: the README warning becomes a beta warning at the beta milestone and is deleted at v1.0.
 
 `scripts/check_commit_message.py` enforces the message rules and `scripts/check_content.py` blocks other products' names in added lines. Enable the hooks once per clone:
 
