@@ -2,6 +2,7 @@
  * Sketch mode: draw on a plane in the 3D view (no separate workbench), constrain with the solver in the core,
  * then extrude the profile. All sketch rules live in sketchmodel.ts; this file is the interaction and drawing.
  */
+import { unstacked } from "./sketchstack.ts";
 import { equalChain } from "./sketchequalchain.ts";
 import * as THREE from "three";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
@@ -1865,14 +1866,18 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const placed: [number, number][][] = [];
     const lit: [number, number][][] = [];
     const open = this.showFree ? freeParts(this.s, this.freedom, this.freeSizes) : null;
+    const stacked: { a: [number, number]; b: [number, number] }[] = []; // construction lines, cut so stacked ones are dashed once
+    const pointUV = (id: number): [number, number] => [M.pointOf(this.s, id).u, M.pointOf(this.s, id).v];
     for (const e of [...this.s.entities].sort((p, q) => M.entityLength(this.s, q) - M.entityLength(this.s, p))) { // longer first, so a shorter curve stacked on a longer one is drawn on top
       const bucket = this.isMarked({ kind: "entity", id: e.id }) ? marked : open?.entities.has(e.id) ? lit : e.construction ? guides : this.isPlaced(e) ? placed : normal;
-      bucket.push(M.polyline(this.s, e));
+      if (bucket === guides && e.type === "line") stacked.push({ a: pointUV(e.a), b: pointUV(e.b) });
+      else bucket.push(M.polyline(this.s, e));
       this.centreColours.set(e.id, bucket === marked ? COLORS.selected : bucket === lit ? FREE_COLOR : bucket === guides ? COLORS.construction : bucket === placed ? COLORS.placed : COLORS.line);
     }
     this.drawCentres();
     this.drawAxes();
     this.set(this.normal, this.segments(normal));
+    guides.push(...unstacked(stacked));
     this.set(this.construction, this.segments(guides));
     this.set(this.marked, this.segments(marked));
     this.set(this.placed, this.segments(placed));
