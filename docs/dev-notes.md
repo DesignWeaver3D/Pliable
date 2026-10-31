@@ -19,6 +19,11 @@ Lasting technical notes moved out of `progress.md` so the plan stays short. Read
 7. Vite sometimes serves a stale module after files are rewritten by a script; restart `npm run dev` if the browser acts like old code.
 8. Spare-port checking recipe: core on 8805, frontend `VITE_CORE_PORT=8805 npx vite --port 5205`, `PLIABLE_DATA` in temp; stop your servers and close your tab afterwards.
 
+## Kernel avoidance (owner, 2026-10-31)
+
+- The kernel is the performance bottleneck, so anything slow for it should first be solved faster before the kernel is called: preprocess in the app or the core and pass the kernel only the minimum geometry a successful model needs. Pick or preview work that does not need the exact shape should not touch it.
+- Whether other programs' strategies for large models and curved-surface geometry apply to Pliable is open. Only trustworthy sources count; otherwise form our own approaches and measure them (`scripts/bench.py`).
+
 ## Design stance (input)
 
 - Navigation: left selects and drags tools, wheel zooms toward the cursor, right-drag orbits, middle-drag pans (also during a tool drag). Pressing on a face or edge selects it and starts its drag in one motion; a press without movement is a click.

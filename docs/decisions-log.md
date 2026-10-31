@@ -21,6 +21,8 @@ Decisions made without the owner or by the owner, grouped by topic. Each says wh
 - First alpha release is deferred by the owner (2026-10-19) until more of the current work has been tested; the build and CI stay as they are, no tag.
 - README message (owner, 2026-10-31): Pliable is a free direct modeler on professional-grade OpenCASCADE solids with STEP export, aimed at everyday CAD (more than a block modeler, short of product lifecycle work), a companion to the open-source parametric modeler, not a replacement. The README names the inspirations and comparison products and carries a trademark disclaimer at the bottom, so `README.md` is exempt from the product-name check; the name history is left out. The performance reason for leaving the workbench route did not pay off (the kernel is the bottleneck); the workflow is the reason to exist.
 
+- Research method (owner, 2026-10-31): other open-source programs are study material for patterns, mapped to verified OCP calls; repositories are cloned only with permission, into `C:\dev\reference\`; speculation about other programs is not trusted. Slow kernel work is first replaced by faster preprocessing where possible (dev-notes, "Kernel avoidance").
+
 ## View and selection
 
 - Orthographic is a true orthographic camera. The owner says it still looks off compared with another CAD program and the cause is undiagnosed; candidates are shading and lighting, orbit about the target versus the cursor, zoom toward the cursor, line widths, default isometric direction, framing on projection switch. Needs a screenshot pair.
