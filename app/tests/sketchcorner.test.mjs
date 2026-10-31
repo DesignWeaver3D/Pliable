@@ -26,6 +26,9 @@ test("the corner a click names can be rounded and bevelled", () => {
   assert.ok(rounded.entities.some((e) => e.type === "arc"));
   const bevelled = roundCorner(l(), 2, "chamfer", 2);
   assert.equal(bevelled.entities.filter((e) => e.type === "line" && !e.construction).length, 3);
+  const cuts = bevelled.entities.filter((e) => e.type === "line" && e.construction && e.a === 2 && e.id > 11);
+  assert.equal(cuts.length, 2); // the cut-off ends, held equal
+  assert.ok(bevelled.constraints.some((c) => c.type === "equal" && cuts.every((e) => c.entities.includes(e.id))));
 });
 
 test("rounding a corner keeps the corner point and the old lines as construction, with their constraints", () => {

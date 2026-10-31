@@ -772,6 +772,10 @@ export function roundCorner(s: SketchData, pointId: number, kind: "fillet" | "ch
   lines.forEach((l, k) => constraints.push({ id: id++, type: "point_on", point: t[k].id, entity: l.id, auto: true }));
   if (kind === "chamfer") {
     entities.push({ id: id++, type: "line", a: t[0].id, b: t[1].id });
+    // The cut-off ends of the two lines as construction lines held equal, so an undimensioned chamfer stays the same distance from the corner on both sides.
+    const cut = t.map((end): SketchEntity => ({ id: id++, type: "line", a: pointId, b: end.id, construction: true }));
+    entities.push(...cut);
+    constraints.push({ id: id++, type: "equal", entities: [cut[0].id, cut[1].id], auto: true });
   } else {
     const bx = arms[0].du + arms[1].du;
     const by = arms[0].dv + arms[1].dv;
