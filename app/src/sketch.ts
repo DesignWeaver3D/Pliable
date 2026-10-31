@@ -2,6 +2,7 @@
  * Sketch mode: draw on a plane in the 3D view (no separate workbench), constrain with the solver in the core,
  * then extrude the profile. All sketch rules live in sketchmodel.ts; this file is the interaction and drawing.
  */
+import { equalChain } from "./sketchequalchain.ts";
 import * as THREE from "three";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
@@ -1366,8 +1367,10 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private selectDimension(id: number, additive: boolean) {
     const had = this.selectedDimensions.has(id);
     if (!additive) this.selectedDimensions.clear();
-    if (additive && had) this.selectedDimensions.delete(id);
-    else this.selectedDimensions.add(id);
+    for (const one of equalChain(this.s.constraints, id)) { // an Equal mark selects its whole chain
+      if (additive && had) this.selectedDimensions.delete(one);
+      else this.selectedDimensions.add(one);
+    }
     this.render(false);
   }
 

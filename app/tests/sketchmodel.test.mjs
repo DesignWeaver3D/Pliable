@@ -436,3 +436,32 @@ test("an existing point on an ellipse cuts it where it is and is found from the 
   assert.equal(cut.sketch.entities[0].end, 7);
   assert.equal(cut.sketch.entities[1].start, 7);
 });
+
+test("removing a line keeps a free point elsewhere and its constraints", async () => {
+  const { remove } = await import("../src/sketchmodel.ts");
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 5, v: 5 }, { id: 4, u: 5, v: -5 }],
+    entities: [{ id: 5, type: "line", a: 1, b: 2 }],
+    constraints: [{ id: 6, type: "symmetric", points: [3, 4], entity: -1 }],
+  };
+  const after = remove(s, { kind: "entity", id: 5 });
+  assert.deepEqual(after.points.map((p) => p.id), [3, 4]);
+  assert.equal(after.constraints.length, 1);
+});
+
+test("an Equal mark sits beside each curve, and Equal marks chain through shared curves", async () => {
+  const { equalChain } = await import("../src/sketchequalchain.ts");
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 0, v: 5 }, { id: 4, u: 10, v: 5 }],
+    entities: [{ id: 5, type: "line", a: 1, b: 2 }, { id: 6, type: "line", a: 3, b: 4 }],
+    constraints: [{ id: 7, type: "equal", entities: [5, 6] }],
+  };
+  const marks = constraintMarks(s).filter((m) => m.constraint === 7);
+  assert.equal(marks.length, 2);
+  for (const m of marks) assert.ok(m.outward && Math.abs(m.outward[0]) + Math.abs(m.outward[1]) + Math.abs(m.outward[2]) > 0);
+  const more = [...s.constraints, { id: 8, type: "equal", entities: [6, 9] }, { id: 10, type: "equal", entities: [11, 12] }];
+  assert.deepEqual(equalChain(more, 7).sort(), [7, 8]);
+  assert.deepEqual(equalChain(more, 10), [10]);
+});

@@ -15,7 +15,7 @@ export const fan = (preferred: UV): number[] => {
 };
 
 /** Away from the geometry joined at the point (the bisector of the curves leaving it), or from the middle of the sketch when that says nothing. */
-function awayFromNeighbours(s: SketchData, pointId: number): UV {
+export function awayFromNeighbours(s: SketchData, pointId: number): UV {
   const p = pointOf(s, pointId);
   let sum: UV = [0, 0];
   for (const e of s.entities) {
@@ -37,7 +37,7 @@ function awayFromNeighbours(s: SketchData, pointId: number): UV {
 /** The preferred direction for a Coincident mark (a point on a curve, or points joined): outside the circle or arc, off the side of a line away from the sketch's middle, or away from the curves meeting at the point. */
 export function coincidentDirection(s: SketchData, c: SketchConstraint, at: UV): UV {
   const ids = [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])];
-  const e = c.type === "point_on" ? entityOf(s, c.entity) : undefined;
+  const e = c.type === "point_on" || c.type === "midpoint" ? entityOf(s, c.entity) : undefined;
   if (e && (e.type === "circle" || e.type === "arc")) {
     const centre = pointOf(s, e.center);
     const out = unit([at[0] - centre.u, at[1] - centre.v]);

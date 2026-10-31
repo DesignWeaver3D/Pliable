@@ -6,7 +6,7 @@ import { showNumber } from "./precision.ts";
 import { ellipseAngle, ellipseArcPoints, ellipseSweep } from "./sketchellipse.ts";
 import { ellipseCrossings, splineCrossings } from "./sketchcrossings.ts";
 import { tangentSpots } from "./sketchtangentmarks.ts";
-import { coincidentDirection, coincidentSpot, fan, PAIRED_TURN, sameSpot, turn } from "./sketchmarkplace.ts";
+import { awayFromNeighbours, coincidentDirection, coincidentSpot, fan, PAIRED_TURN, sameSpot, turn } from "./sketchmarkplace.ts";
 export * from "./sketchconstraints.ts";
 export * from "./sketchsmartdim.ts";
 
@@ -124,14 +124,16 @@ export function entityPoints(e: SketchEntity): number[] {
 export function remove(s: SketchData, sel: SketchSel): SketchData {
   let entities = s.entities;
   let constraints = s.constraints;
+  const released = new Set<number>(); // points of the removed entities: only these can become orphans (a free point elsewhere stays, with its constraints)
   const dropEntity = (id: number) => {
+    for (const e of entities.filter((e) => e.id === id)) entityPoints(e).forEach((p) => released.add(p));
     entities = entities.filter((e) => e.id !== id);
     constraints = constraints.filter((c) => c.entity !== id && !c.entities?.includes(id));
   };
   if (sel.kind === "entity") dropEntity(sel.id);
   else for (const e of entities.filter((e) => entityPoints(e).includes(sel.id))) dropEntity(e.id);
   const used = new Set(entities.flatMap(entityPoints));
-  const orphans = new Set(s.points.filter((p) => !used.has(p.id) && !p.fixed).map((p) => p.id));
+  const orphans = new Set(s.points.filter((p) => released.has(p.id) && !used.has(p.id) && !p.fixed).map((p) => p.id));
   const refs = (c: SketchConstraint) => [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])];
   constraints = constraints.filter((c) => !refs(c).some((id) => orphans.has(id)));
   return { ...s, entities, constraints, points: s.points.filter((p) => !orphans.has(p.id)) };
@@ -399,8 +401,26 @@ export function constraintMarks(s: SketchData): Dimension[] {
       // One mark at each of the mirrored points (and at the center point of a symmetry about a point), never at the average with the axis or line.
       for (const id of [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])]) {
         const p = s.points.find((q) => q.id === id);
-        if (p) out.push({ kind: "tag", text, points: [toWorld(s.plane, p.u, p.v)], mark: true, avoid: centres, constraint: c.id, icon });
+        if (p) out.push({ kind: "tag", text, points: [toWorld(s.plane, p.u, p.v)], mark: true, avoid: centres, constraint: c.id, icon, ...leaving(p.u, p.v, awayFromNeighbours(s, id)) }); // beside the point, so the vertex stays pickable
       }
+      continue;
+    }
+    const pointIds = [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])];
+    const entityIds = [...(c.entities ?? []), ...(c.entity !== undefined ? [c.entity] : [])];
+    // Equal (and any constraint on one curve alone) is marked beside each curve it names, off the curve, not between them or on the line.
+    if (c.type === "equal" || (!pointIds.length && entityIds.length === 1)) {
+      for (const id of entityIds) {
+        const e = entityOf(s, id);
+        if (!e) continue;
+        const [u, v] = centre(e);
+        out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true, avoid: centres, constraint: c.id, icon, ...leaving(u, v, coincidentDirection(s, { id: c.id, type: "point_on", entity: id }, [u, v])) });
+      }
+      continue;
+    }
+    // A constraint on one point alone (Fixed, Lock) is marked beside the point, so the vertex stays pickable.
+    if (pointIds.length === 1 && !entityIds.length) {
+      const p = s.points.find((q) => q.id === pointIds[0]);
+      if (p) out.push({ kind: "tag", text, points: [toWorld(s.plane, p.u, p.v)], mark: true, avoid: centres, constraint: c.id, icon, ...leaving(p.u, p.v, awayFromNeighbours(s, p.id)) });
       continue;
     }
     const anchors: [number, number][] = [];
@@ -409,14 +429,14 @@ export function constraintMarks(s: SketchData): Dimension[] {
       if (p) anchors.push([p.u, p.v]);
     }
     // A point on a curve is marked at the point itself, not between the point and the curve's middle.
-    for (const id of c.type === "point_on" ? [] : [...(c.entities ?? []), ...(c.entity !== undefined ? [c.entity] : [])]) {
+    for (const id of c.type === "point_on" || c.type === "midpoint" ? [] : [...(c.entities ?? []), ...(c.entity !== undefined ? [c.entity] : [])]) {
       const e = entityOf(s, id);
       if (e) anchors.push(centre(e));
     }
     if (!anchors.length) continue;
     const [u, v] = [anchors.reduce((a, q) => a + q[0], 0) / anchors.length, anchors.reduce((a, q) => a + q[1], 0) / anchors.length];
     // A Coincident mark sits beside its point, not on it, so the point stays visible and pickable.
-    const outside = c.type === "point_on" || c.type === "coincident" ? coincidentDirection(s, c, [u, v]) : null;
+    const outside = c.type === "point_on" || c.type === "midpoint" || c.type === "coincident" ? coincidentDirection(s, c, [u, v]) : null;
     const beside = outside ? leaving(u, v, tangents.some((t) => sameSpot(t, [u, v])) ? turn(outside, PAIRED_TURN) : outside) : {};
     out.push({ kind: "tag", text, points: [toWorld(s.plane, u, v)], mark: true, avoid: centres, constraint: c.id, icon, ...beside });
   }
