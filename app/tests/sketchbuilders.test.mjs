@@ -82,6 +82,10 @@ test("a polygon, circle and slot add their curves", () => {
   addSlot(slot, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 5, v: 2 });
   assert.equal(slot.s.entities.filter((e) => e.type === "arc").length, 2);
   assert.equal(slot.s.entities.filter((e) => e.type === "line").length, 2);
+  assert.equal(slot.s.constraints.filter((c) => c.type === "point_on").length, 0); // a free width click holds nothing
+  const held = context();
+  addSlot(held, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 5, v: 2, axes: [0] });
+  assert.equal(held.s.constraints.filter((c) => c.type === "point_on" && c.axisHold === undefined).length, 1); // a width click on an axis keeps the edge through it
 });
 
 test("an arc by center follows the pointer: counterclockwise or clockwise from the start", () => {

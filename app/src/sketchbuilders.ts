@@ -286,6 +286,11 @@ export function addSlot(ctx: BuilderContext, a: Snap, b: Snap, side: Snap) {
   ctx.s.entities.push({ id: endA, type: "arc", center: ca, start: aLeft, end: aRight });
   for (const [arc, line] of [[endB, top], [endB, bottom], [endA, top], [endA, bottom]]) ctx.addConstraintRaw({ type: "tangent", entities: [arc, line] });
   ctx.addConstraintRaw({ type: "equal", entities: [endA, endB] });
+  if (side.id !== undefined || side.on || side.axes) { // a width click on a point, a curve or an axis keeps the straight edge through it
+    const nearTop = Math.hypot(side.u - corners.aLeft.u, side.v - corners.aLeft.v) <= Math.hypot(side.u - corners.aRight.u, side.v - corners.aRight.v);
+    const edge = nearTop ? top : bottom;
+    ctx.addConstraintRaw({ type: "point_on", point: ctx.pointFor(side), entity: edge }, "snap");
+  }
   ctx.resolve();
 }
 
