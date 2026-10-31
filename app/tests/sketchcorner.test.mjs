@@ -25,7 +25,21 @@ test("the corner a click names can be rounded and bevelled", () => {
   assert.equal(typeof rounded, "object");
   assert.ok(rounded.entities.some((e) => e.type === "arc"));
   const bevelled = roundCorner(l(), 2, "chamfer", 2);
-  assert.equal(bevelled.entities.filter((e) => e.type === "line").length, 3);
+  assert.equal(bevelled.entities.filter((e) => e.type === "line" && !e.construction).length, 3);
+});
+
+test("rounding a corner keeps the corner point and the old lines as construction, with their constraints", () => {
+  const s = { ...l(), constraints: [{ id: 20, type: "distance", points: [1, 2], value: 10 }, { id: 21, type: "distance", points: [2, 3], value: 10 }] };
+  const rounded = roundCorner(s, 2, "fillet", 2);
+  assert.ok(rounded.points.some((p) => p.id === 2));
+  assert.deepEqual(rounded.constraints.filter((c) => c.id === 20 || c.id === 21).length, 2);
+  assert.deepEqual(rounded.entities.filter((e) => e.construction).map((e) => e.id), [10, 11]);
+  const outline = rounded.entities.filter((e) => e.type === "line" && !e.construction);
+  assert.equal(outline.length, 2);
+  assert.ok(outline.some((e) => e.a === 1) && outline.some((e) => e.a === 3)); // the far ends are shared with the old lines
+  assert.equal(rounded.constraints.filter((c) => c.type === "point_on").length, 2);
+  assert.equal(cornerAt(rounded, { kind: "point", id: 2 }, 0, 0), 2); // reported as a corner by id, but its real lines are gone
+  assert.equal(typeof roundAt(rounded, 2, "fillet", 1, 0, 0), "string"); // nothing real left to round at the old corner
 });
 
 // A line coming in from the left to (0, 0), where an arc (center (10, 0), radius 10) leaves downward, and a second arc beside it.

@@ -275,6 +275,6 @@ export function roundCurves(s: SketchData, aId: number, bId: number, kind: "fill
 
 /** The two arcs or lines that end at the point `corner`, if exactly two do. */
 export function curvesAtCorner(s: SketchData, corner: number): [number, number] | null {
-  const ends = s.entities.filter((e) => (e.type === "line" ? e.a === corner || e.b === corner : e.type === "arc" ? e.start === corner || e.end === corner : false));
+  const ends = s.entities.filter((e) => !e.construction && (e.type === "line" ? e.a === corner || e.b === corner : e.type === "arc" ? e.start === corner || e.end === corner : false));
   return ends.length === 2 && !s.entities.some((e) => !ends.includes(e) && (e.type === "ellipse" || e.type === "spline") && entityPoints(e).includes(corner)) ? [ends[0].id, ends[1].id] : null;
 }

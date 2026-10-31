@@ -741,11 +741,13 @@ export function dropOrphans(s: SketchData): SketchData {
 }
 
 /** Round (arc, `size` = radius) or bevel (line, `size` = distance along each side) the corner where exactly two
- *  lines meet at `pointId`. Returns the new sketch, or a message saying why the corner can't be changed. */
+ *  lines meet at `pointId`. The corner point and the two lines stay as construction lines with all their constraints and
+ *  dimensions, so a dimensioned shape keeps its size; the rounded outline is new lines (sharing the far ends of the old
+ *  ones, with their new ends held on the old lines) and the arc or bevel. Returns the new sketch, or a message saying why the corner can't be changed. */
 export function roundCorner(s: SketchData, pointId: number, kind: "fillet" | "chamfer", size: number): SketchData | string {
   if (!(size > 1e-6)) return "Give a size above zero";
   const point = s.points.find((p) => p.id === pointId);
-  const users = s.entities.filter((e) => entityPoints(e).includes(pointId));
+  const users = s.entities.filter((e) => entityPoints(e).includes(pointId) && !e.construction);
   if (!point || users.length !== 2 || users.some((e) => e.type !== "line")) return "Select a corner where exactly two lines meet";
   const lines = users as Extract<SketchEntity, { type: "line" }>[];
   const far = lines.map((l) => s.points.find((p) => p.id === (l.a === pointId ? l.b : l.a))!);
@@ -762,13 +764,12 @@ export function roundCorner(s: SketchData, pointId: number, kind: "fillet" | "ch
   const make = (u: number, v: number): SketchPoint => ({ id: id++, u, v });
   const t = arms.map((a) => make(point.u + a.du * reach, point.v + a.dv * reach));
   const added: SketchPoint[] = [...t];
-  const entities: SketchEntity[] = s.entities.map((e) => {
-    if (e.type !== "line") return e;
-    const k = lines.findIndex((l) => l.id === e.id);
-    if (k < 0) return e;
-    return { ...e, a: e.a === pointId ? t[k].id : e.a, b: e.b === pointId ? t[k].id : e.b };
-  });
-  const constraints = s.constraints.filter((c) => c.point !== pointId && !c.points?.includes(pointId));
+  // The old lines (and the corner point) stay whole as construction lines, so their constraints and dimensions keep meaning; the outline is made of new lines.
+  const entities: SketchEntity[] = s.entities.map((e) => (e.type === "line" && lines.some((l) => l.id === e.id) ? { ...e, construction: true } : e));
+  const outline = lines.map((l, k): SketchEntity => ({ id: id++, type: "line", a: far[k].id, b: t[k].id }));
+  entities.push(...outline);
+  const constraints = [...s.constraints];
+  lines.forEach((l, k) => constraints.push({ id: id++, type: "point_on", point: t[k].id, entity: l.id, auto: true }));
   if (kind === "chamfer") {
     entities.push({ id: id++, type: "line", a: t[0].id, b: t[1].id });
   } else {
@@ -782,9 +783,9 @@ export function roundCorner(s: SketchData, pointId: number, kind: "fillet" | "ch
     const ccw = (t[0].u - centre.u) * (t[1].v - centre.v) - (t[0].v - centre.v) * (t[1].u - centre.u) > 0;
     const arc = id++;
     entities.push({ id: arc, type: "arc", center: centre.id, start: (ccw ? t[0] : t[1]).id, end: (ccw ? t[1] : t[0]).id });
-    constraints.push({ id: id++, type: "tangent", entities: [arc, lines[0].id], auto: true }, { id: id++, type: "tangent", entities: [arc, lines[1].id], auto: true });
+    constraints.push({ id: id++, type: "tangent", entities: [arc, outline[0].id], auto: true }, { id: id++, type: "tangent", entities: [arc, outline[1].id], auto: true });
   }
-  return { ...s, points: [...s.points.filter((p) => p.id !== pointId), ...added], entities, constraints };
+  return { ...s, points: [...s.points, ...added], entities, constraints };
 }
 
 /** The sketch's points and curves a screen box selects. Window (left to right): wholly inside. Crossing (right to left): inside or touched. */
