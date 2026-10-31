@@ -6,6 +6,16 @@ How to maintain: add a line when the owner approves a behavior or corrects one, 
 
 Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner should correct or extend it.
 
+## Project principles
+
+- Every task can be done without memorized hotkeys; search is a convenience and never required. Hotkeys are limited to core, frequent tasks (sketch constraining is one). (owner, 2026-10-31)
+- There are no workbenches. Sketching is its own workspace with its own rules and hotkeys, and moving between sketch and model is as seamless as possible. (owner, 2026-10-31)
+- Pliable runs locally and portably: no cloud requirement, no account, no full operating-system installation, on Windows, macOS and Linux. A report that it does not run on an OS outranks every other work. (owner, 2026-10-31)
+- Bodies are valid BREP solids that export to STEP and open in other CAD software. (owner, 2026-10-31)
+- Out of scope: motion simulation, technical drawings, FEM, CFD and CAM; users take a STEP file to other software for these. Multiple solid bodies give static assemblies only. (owner, 2026-10-31)
+- Pliable never claims equivalence or parity with any other software, commercial or open source; the README and other text say "inspired by" at most. (owner, 2026-10-31)
+- The README warning reads Alpha until the beta milestone, then Beta, and is deleted at v1.0. (owner, 2026-10-31)
+
 ## Selection and picking
 
 - Left to right box select encloses; right to left touches. With no filter (the Box selects setting on All, nothing held) the box takes faces, edges and vertices together; holding F, E or V during a box drag restricts it to faces, edges or vertices.

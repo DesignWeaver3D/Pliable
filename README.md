@@ -1,13 +1,26 @@
 # Pliable
 
-**A free, open-source direct modeler for hobbyists, makers, and students**
+**A free, open-source direct modeler built on professional-grade solid geometry**
 
-> ⚠️ **Alpha software. Not for serious work. Data can be lost. The interface and behavior will change rapidly without notice.**
-> Sketching is incomplete and unsupported. See [known limitations](docs/known-limitations.md). Report problems with the [bug report template](https://github.com/DesignWeaver3D/Pliable/issues/new?template=bug_report.md) (use **Copy diagnostics** in the app). Third-party licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+> ⚠️ **Alpha software.** The interface and behavior will change rapidly without notice, saved `.plbl` files may not open in later versions, and application instability can cause crashes and lost work. See [known limitations](docs/known-limitations.md). Report problems with the [bug report template](https://github.com/DesignWeaver3D/Pliable/issues/new?template=bug_report.md) (use **Copy diagnostics** in the app).
 
-⚠️ **Status: Alpha software, rebuilt on a new architecture. The current alpha is v0.4.0, a portable desktop app; expect rough edges.**
+Pliable lets you shape solid geometry directly: push and pull faces, fillet and chamfer edges, and export to STEP or for 3D printing. There's no feature tree or parametric constraints to manage. Every tool is discoverable: tools appear based on what you've selected, each has a visible label and icon, and you can always search for a command by name.
 
-Pliable lets you shape solid geometry directly: push and pull faces, fillet and chamfer edges, and export to STEP or for 3D printing. There's no feature tree or parametric constraints to manage. It is designed for people who don't want to memorize dozens of keyboard shortcuts: tools appear based on what you've selected, every tool has a visible label and icon, and you can always search for a command by name.
+## What Pliable is, and isn't
+
+Pliable is a free, open-source direct modeler. You shape solid geometry directly, with no feature tree to manage, and sketch with constraint-driven, dimensioned profiles. It is built on the OpenCASCADE kernel, so the bodies it produces are exact BREP solids that export to STEP for use in any other CAD package or ecosystem. Its aim is a simplified, fully discoverable interface with a deliberately narrow scope, covering the base level of 3D design that most everyday CAD work needs. It suits hobbyists, makers and students, and is meant to be usable by professionals as well.
+
+**Where it sits.** Pliable aims to be more capable than beginner block-modeling tools such as TinkerCAD, without attempting full product lifecycle development. Its workflow is inspired by the direct-modeling approaches of Plasticity, Rhino, and Solid Edge's Synchronous Technology (design intent). Pliable is an independent project. It does not claim equivalence or parity with any other software, commercial or open source. It is also meant to work beside FreeCAD, not replace it: FreeCAD offers a parametric workflow, and Pliable offers a direct-modeling one that complements it.
+
+**Principles**
+
+- **Fully discoverable.** Every task can be done without memorized hotkeys. Tools appear based on your selection, each with a visible label and icon.
+- **Hotkeys only where they earn it.** They are limited to core, frequent tasks. Constraining sketches is one example. Search (`/`) is a convenience, never a required step.
+- **No workbenches.** Pliable does not use the workbench paradigm. Sketching is its own workspace, with its own rules and hotkeys, and the aim is to make moving between sketching and modeling as seamless as possible.
+- **Local and portable.** Pliable runs on your own computer with no cloud requirement and no account. It needs no full operating-system installation: unzip it and run it. The goal is that it runs the same way on Windows, macOS and Linux.
+- **Narrow scope.** Multiple solid bodies allow static assemblies. Motion simulation, technical drawings, FEM, CFD and CAM are out of scope. Export a STEP file and continue in FreeCAD or another suite.
+
+**Why a standalone app.** Pliable began as a proof of concept on pythonocc and was rebuilt on OCP and build123d. It is not a FreeCAD workbench, partly in the hope that avoiding FreeCAD's 3D view layer and topological system would improve performance. In practice the bottleneck is OpenCASCADE itself. The frontend is slightly faster and more fluid, but not by enough to claim a performance advantage. The value of Pliable is its workflow, not its computational speed.
 
 ## Status
 
@@ -93,6 +106,10 @@ To try the original prototype, check out the release tag and use either Conda or
 
 ## License
 
-GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later). See [LICENSE](LICENSE).
+GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later). See [LICENSE](LICENSE). Third-party licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 The v0.1.0 prototype release was published under LGPL-2.1.
+
+---
+
+*All product names, trademarks and registered trademarks mentioned in this document, including but not limited to TinkerCAD, Plasticity, Rhino, Solid Edge, Synchronous Technology, Blender and FreeCAD, are the property of their respective owners. They are used only to describe how Pliable relates to other software. Pliable is not affiliated with, endorsed by, or sponsored by any of them. Any other trademarks not listed here belong to their respective owners.*

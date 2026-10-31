@@ -19,6 +19,7 @@ Decisions made without the owner or by the owner, grouped by topic. Each says wh
 - Body list: stable body ids and auto names; a persistent plain list on the left of the 3D view, outside the drawer (not a card; the drawer opens to its right, the tool form and measurement card sit beside the list or drawer, the context strip is centered in the room between the left side and the nav cube); rows with name, eye and isolate, rename and later actions by right-click; clicking a row selects the whole body and tools use bodies directly with a body-center pivot; hover highlight both ways.
 
 - First alpha release is deferred by the owner (2026-10-19) until more of the current work has been tested; the build and CI stay as they are, no tag.
+- README message (owner, 2026-10-31): Pliable is a free direct modeler on professional-grade OpenCASCADE solids with STEP export, aimed at everyday CAD (more than a block modeler, short of product lifecycle work), a companion to the open-source parametric modeler, not a replacement. The README names the inspirations and comparison products and carries a trademark disclaimer at the bottom, so `README.md` is exempt from the product-name check; the name history is left out. The performance reason for leaving the workbench route did not pay off (the kernel is the bottleneck); the workflow is the reason to exist.
 
 ## View and selection
 
