@@ -220,6 +220,7 @@ function movableSketch(): number | null {
   if (app.pickedRow?.list === "sketch") return app.pickedRow.id;
   const pending = app.pendingProfile;
   if (pending && app.committed === pending.mesh && app.currentSels.length > 0 && app.currentSels.every((s) => s.kind === "face" && pending.faces.includes(s.id))) return pending.sketchId;
+  if (app.chosenSketch !== null && app.currentSels.length === 0) return app.chosenSketch; // chosen with Shift+click on its curve, nothing else selected
   return null;
 }
 /** The kept sketch chosen with Shift or Ctrl+click on its curve in the view; kept beside the face and edge selection. */
