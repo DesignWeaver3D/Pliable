@@ -56,20 +56,16 @@ export function addRectangle(ctx: BuilderContext, a: Snap, b: Snap, centred = fa
   if (corner === "none" || size < 1e-6) {
     // Snapped corners (existing points) stay in use; the other two are new.
     const corners: Snap[] = [{ u: u0, v: v0 }, { u: u1, v: v0 }, { u: u1, v: v1 }, { u: u0, v: v1 }].map((c) => (!centred ? [a, b].find((o) => (o.id !== undefined || o.on || o.axes) && o.u === c.u && o.v === c.v) : undefined) ?? c);
-    const fresh = corners.map((c) => c.id === undefined); // new points; pointFor gives each snap its id
     const p = corners.map((c) => ctx.pointFor(c));
-    // A corner clicked on a sketch axis is held on it (both at the origin); one corner per axis is enough, the side's own horizontal or vertical keeps the other on it.
-    if (!centred) {
-      const held = new Set<number>();
-      corners.forEach((c, k) => {
-        if (c !== a && c !== b) return;
-        for (const axis of (c as Snap).axes ?? []) {
-          if (held.has(axis)) continue;
-          held.add(axis);
-          if (fresh[k]) ctx.addConstraintRaw({ type: "point_on", point: p[k], entity: axis === 0 ? M.AXIS_U : M.AXIS_V }, "snap");
-        }
-      });
-    }
+    // Corners clicked on a sketch axis are held on it (pointFor); one corner per axis is enough, the side's own horizontal or vertical keeps the other on it.
+    const held = new Set<number>();
+    ctx.s.constraints = ctx.s.constraints.filter((c) => {
+      if (!c.axisHold || c.point === undefined || !p.includes(c.point)) return true;
+      const axis = c.entity === M.AXIS_U ? 0 : 1;
+      if (held.has(axis)) return false;
+      held.add(axis);
+      return true;
+    });
     const ids = p.map((_, k) => addLineBetween(ctx, p[k], p[(k + 1) % 4]));
     ids.forEach((id, k) => ctx.addConstraintRaw({ type: k % 2 === 0 ? "horizontal" : "vertical", entity: id }));
     if (centred) addCentrePoint(ctx, a, p[0], p[2]);

@@ -1114,6 +1114,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.s.points.push({ id, u: snap.u, v: snap.v });
     snap.id = id;
     if (snap.on) this.addConstraintRaw(snap.on.midpoint ? { type: "midpoint", point: id, entity: snap.on.entity } : { type: "point_on", point: id, entity: snap.on.entity }, "snap");
+    // A point clicked on a sketch axis (both of them at the origin) is held on it.
+    for (const k of snap.axes ?? []) this.addConstraintRaw({ type: "point_on", point: id, entity: k === 0 ? M.AXIS_U : M.AXIS_V, axisHold: true }, "snap");
     return id;
   }
 
@@ -1576,7 +1578,23 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
 
   /** Solve the constraints (latest request wins while one is in flight). Resolves true if the solver succeeded. */
   resolve(drag?: Drag): Promise<boolean> {
-    return this.solver.resolve(drag);
+    return this.solver.resolve(drag).then((ok) => (ok ? ok : this.withoutAxisHolds(drag)));
+  }
+
+  /** The solve failed: try dropping the holds on sketch axes (newest first), which can be redundant with a drawn side. Keeps them all when that does not help. */
+  private async withoutAxisHolds(drag?: Drag): Promise<boolean> {
+    const before = this.s.constraints;
+    const holds = before.filter((c) => c.axisHold);
+    for (let n = 1; n <= holds.length; n++) {
+      const drop = new Set(holds.slice(-n).map((c) => c.id));
+      this.s.constraints = before.filter((c) => !drop.has(c.id));
+      if (await this.solver.resolve(drag)) return true;
+    }
+    if (holds.length) {
+      this.s.constraints = before;
+      await this.solver.resolve(drag);
+    }
+    return false;
   }
 
   private freedomSeq = 0;

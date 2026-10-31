@@ -17,6 +17,7 @@ function context(auto = "shape") {
       const id = this.s.points.length + this.s.entities.length + this.s.constraints.length + 1;
       this.s.points.push({ id, u: snap.u, v: snap.v });
       snap.id = id;
+      for (const k of snap.axes ?? []) this.addConstraintRaw({ type: "point_on", point: id, entity: k === 0 ? -1 : -2, axisHold: true }, "snap");
       return id;
     },
     addConstraintRaw(c, kind = "shape") {

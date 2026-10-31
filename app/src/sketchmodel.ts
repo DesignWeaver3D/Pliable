@@ -46,6 +46,8 @@ export interface SketchConstraint {
   outside?: boolean;
   /** Added by a drawing tool rather than chosen by the user; shown as such and removable with one click. */
   auto?: boolean;
+  /** Added when a point was clicked on a sketch axis; dropped first if the sketch cannot be solved with it (it can be redundant with a drawn horizontal or vertical side). */
+  axisHold?: boolean;
   /** Where the user dragged this dimension's text to, in sketch coordinates (display only; the solver ignores it). */
   place?: [number, number];
 }
