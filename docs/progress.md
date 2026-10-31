@@ -90,11 +90,9 @@ Tool group CORE:
   - [ ] Bring the owner a proposal with the cost of each change and the `behavior.md` lines it replaces; no behavior is changed before the owner approves it.
 
 - **Linux AppImage build.** Owner (2026-10-30): "Is the linux build an appimage?" The answer was no (a portable `.zip` from `scripts/build_desktop.py`; `bundle.active` is false in `desktop/src-tauri/tauri.conf.json`), and the owner then asked for it to be added to the plan. Related Parked/Ideas items checked: Parked "Alpha release" (the `v0.4.0` series is the Tauri portable build); nothing else touches it.
-  - [ ] Discuss with the owner first: AppImage in addition to the zip, or instead of it, and whether Windows and macOS get installers too.
-  - [ ] Decide how the AppImage gets its web view: WebKitGTK is not bundled today (see `THIRD_PARTY_NOTICES.md`); bundling it makes the file much larger.
-  - [ ] Keep the LGPL libraries (OpenCASCADE, and IfcOpenShell if it is bundled) replaceable and update the note in `THIRD_PARTY_NOTICES.md`.
-  - [ ] Check whether the Linux zip keeps the executable bit on `Pliable` after unzipping (`shutil.make_archive` may drop it); fix it if not.
-  - [ ] Smoke-test the AppImage in the release and desktop workflows like the zip, attach it to the draft release, and add a test or script check where no browser is needed.
+  - Owner (2026-10-30, high priority): "our linux releases become AppImage". Built (not run, no Linux machine here): on Linux `scripts/build_desktop.py` makes `pliable-desktop-linux-x64.AppImage` instead of the zip (AppDir, pinned appimagetool, no FUSE needed to build); Windows and macOS keep the zip; the release and desktop workflows smoke-test it with `APPIMAGE_EXTRACT_AND_RUN=1` under xvfb and attach it to the draft release; the shell writes its data to `~/.local/share/pliable` inside an AppImage (the AppImage is read-only). The web view stays the system's WebKitGTK (not bundled); notice updated.
+  - [ ] Run the `desktop` workflow once from the Actions tab and check the Linux job (AppImage built, smoke test passes); the owner starts it on a Linux machine to check a double-click launch.
+  - [ ] Add a note to the README about the Linux download (a file to make executable and run; needs WebKitGTK 4.1 installed).
 
 ## Review of 2026-10-27 session A (owner review of author-guidance sketch items; quotes are the owner's words)
 

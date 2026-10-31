@@ -1,5 +1,5 @@
 ﻿// Pliable desktop shell: starts the packaged geometry core, waits until it answers, then shows the app it
-// serves in a native window. Portable: everything it writes goes in a `data` folder next to the program.
+// serves in a native window. Portable: everything it writes goes in a `data` folder next to the program (in the user's data folder inside a Linux AppImage).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::fs::{self, File};
@@ -30,6 +30,20 @@ fn core_program(dir: &Path) -> PathBuf {
     dir.join("core").join(if cfg!(windows) { "pliable.exe" } else { "pliable" })
 }
 
+/// Where the program writes: a `data` folder next to it, except inside a Linux AppImage (its own folder is read-only
+/// and goes away when the program ends), where it is `pliable` in the user's data folder.
+fn data_root(dir: &Path) -> PathBuf {
+    if std::env::var_os("APPIMAGE").is_some() {
+        let base = std::env::var_os("XDG_DATA_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local").join("share")));
+        if let Some(base) = base {
+            return base.join("pliable");
+        }
+    }
+    dir.join("data")
+}
+
 fn pick_port() -> u16 {
     // PLIABLE_PORT fixes the port (the packaged-app smoke test needs to know it)
     if let Some(port) = std::env::var("PLIABLE_PORT").ok().and_then(|text| text.parse().ok()) {
@@ -50,7 +64,7 @@ fn start_core(dir: &Path, port: u16) -> Result<Child, String> {
     if !program.is_file() {
         return Err(format!("The geometry core was not found at {}.", program.display()));
     }
-    let data = dir.join("data");
+    let data = data_root(dir);
     fs::create_dir_all(&data).map_err(|e| format!("Cannot create {}: {e}", data.display()))?;
     let log = File::create(data.join("core.log")).map_err(|e| format!("Cannot write the core log: {e}"))?;
     let log_err = log.try_clone().map_err(|e| e.to_string())?;
@@ -113,11 +127,11 @@ fn open_when_ready(app: tauri::AppHandle, window: WebviewWindow, port: u16) {
                 None => Some("not started".into()),
             };
             if let Some(status) = exited {
-                show_error(&window, &format!("The geometry core stopped before it was ready ({status}). See data/core.log next to the program."));
+                show_error(&window, &format!("The geometry core stopped before it was ready ({status}). See core.log in the data folder."));
                 return;
             }
             if started.elapsed() > START_TIMEOUT {
-                show_error(&window, "The geometry core did not start in time. See data/core.log next to the program.");
+                show_error(&window, "The geometry core did not start in time. See core.log in the data folder.");
                 return;
             }
             std::thread::sleep(Duration::from_millis(250));
@@ -137,7 +151,7 @@ fn main() {
                 .min_inner_size(900.0, 600.0);
             #[cfg(not(target_os = "macos"))]
             {
-                builder = builder.data_directory(dir.join("data").join("webview"));
+                builder = builder.data_directory(data_root(&dir).join("webview"));
             }
             let window = builder.build()?;
             match start_core(&dir, port) {

@@ -44,17 +44,29 @@ jobs:
       - name: Install the Tauri command line tool
         working-directory: desktop
         run: npm ci
-      - name: Assemble the portable desktop app
+      - name: Assemble the desktop app (the zip, or the AppImage on Linux)
         run: uv run --project core python scripts/build_desktop.py ${{ matrix.label }}
+      - name: Name the desktop file
+        id: asset
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then EXT=AppImage; else EXT=zip; fi
+          echo "file=desktop/dist/pliable-desktop-${{ matrix.label }}.$EXT" >> "$GITHUB_OUTPUT"
+      - name: Smoke-test the Linux AppImage
+        if: runner.os == 'Linux'
+        run: |
+          cd core
+          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a uv run python scripts/smoke.py desktop "$GITHUB_WORKSPACE/${{ steps.asset.outputs.file }}"
       - name: Unpack the archive and smoke-test the shell
+        if: runner.os != 'Linux'
         shell: bash
         run: |
           mkdir smoke && cd smoke
-          unzip -q ../desktop/dist/pliable-desktop-${{ matrix.label }}.zip
+          unzip -q ../${{ steps.asset.outputs.file }}
           EXE="$(pwd)/pliable-desktop-${{ matrix.label }}/Pliable"; [ -f "$EXE.exe" ] && EXE="$EXE.exe"
           cd ../core
-          if [ "$RUNNER_OS" = "Linux" ]; then xvfb-run -a uv run python scripts/smoke.py desktop "$EXE"; else uv run python scripts/smoke.py desktop "$EXE"; fi
+          uv run python scripts/smoke.py desktop "$EXE"
       - uses: actions/upload-artifact@v4
         with:
           name: pliable-desktop-${{ matrix.label }}
-          path: desktop/dist/pliable-desktop-${{ matrix.label }}.zip
+          path: ${{ steps.asset.outputs.file }}
