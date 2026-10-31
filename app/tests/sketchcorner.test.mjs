@@ -24,10 +24,12 @@ test("the corner a click names can be rounded and bevelled", () => {
   const rounded = roundCorner(l(), 2, "fillet", 2);
   assert.equal(typeof rounded, "object");
   assert.ok(rounded.entities.some((e) => e.type === "arc"));
+  assert.ok(rounded.constraints.some((c) => c.type === "radius" && c.value === 2)); // the radius is a driving dimension
   const bevelled = roundCorner(l(), 2, "chamfer", 2);
   assert.equal(bevelled.entities.filter((e) => e.type === "line" && !e.construction).length, 3);
   const cuts = bevelled.entities.filter((e) => e.type === "line" && e.construction && e.a === 2 && e.id > 11);
   assert.equal(cuts.length, 2); // the cut-off ends, held equal
+  assert.ok(bevelled.constraints.some((c) => c.type === "distance" && c.value === 2)); // and one driving distance
   assert.ok(bevelled.constraints.some((c) => c.type === "equal" && cuts.every((e) => c.entities.includes(e.id))));
 });
 

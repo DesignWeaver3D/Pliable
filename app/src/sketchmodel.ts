@@ -784,6 +784,7 @@ export function roundCorner(s: SketchData, pointId: number, kind: "fillet" | "ch
     const cut = t.map((end): SketchEntity => ({ id: id++, type: "line", a: pointId, b: end.id, construction: true }));
     entities.push(...cut);
     constraints.push({ id: id++, type: "equal", entities: [cut[0].id, cut[1].id], auto: true });
+    constraints.push({ id: id++, type: "distance", points: [pointId, t[0].id], value: size }); // the chamfer's size, a driving dimension
   } else {
     const bx = arms[0].du + arms[1].du;
     const by = arms[0].dv + arms[1].dv;
@@ -796,6 +797,7 @@ export function roundCorner(s: SketchData, pointId: number, kind: "fillet" | "ch
     const arc = id++;
     entities.push({ id: arc, type: "arc", center: centre.id, start: (ccw ? t[0] : t[1]).id, end: (ccw ? t[1] : t[0]).id });
     constraints.push({ id: id++, type: "tangent", entities: [arc, outline[0].id], auto: true }, { id: id++, type: "tangent", entities: [arc, outline[1].id], auto: true });
+    constraints.push({ id: id++, type: "radius", entity: arc, value: size }); // the fillet's radius, a driving dimension
   }
   return { ...s, points: [...s.points, ...added], entities, constraints };
 }

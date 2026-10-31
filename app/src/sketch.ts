@@ -1428,6 +1428,12 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.render();
   }
 
+  /** Double-click on a reference dimension's value: make it driving, then open its value entry (it stays a reference, and no entry opens, when it cannot drive). */
+  private async driveAndEdit(id: number, at: { x: number; y: number }) {
+    await this.setReference([id], false);
+    if (!this.s.constraints.find((x) => x.id === id)?.reference) this.editInline(id, at);
+  }
+
   /** Switch a dimension between driving the shape and only measuring it; a driving one starts from the current measurement. */
   async toggleReference(id: number) {
     const c = this.s.constraints.find((x) => x.id === id);
@@ -1891,7 +1897,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       if (!c) return d;
       const drag = (e: PointerEvent) => this.dragDimension(c.id, e);
       const marked = { selected: this.selectedDimensions.has(c.id), reference: !!c.reference, select: (e: MouseEvent) => this.selectDimension(c.id, e.shiftKey || e.ctrlKey || e.metaKey), menu: (e: MouseEvent) => void this.dimensionMenu(c.id, e) };
-      return !c.reference && c.value !== undefined ? { ...d, ...marked, drag, activate: (at: { x: number; y: number }) => this.editInline(c.id, at) } : { ...d, ...marked, drag };
+      return !c.reference && c.value !== undefined ? { ...d, ...marked, drag, activate: (at: { x: number; y: number }) => this.editInline(c.id, at) } : { ...d, ...marked, drag, ...(c.reference && c.value !== undefined ? { activate: (at: { x: number; y: number }) => void this.driveAndEdit(c.id, at) } : {}) };
     });
     this.overlay.set([...dimensions, ...(this.showMarks ? M.constraintMarks(this.s).map((m) => (m.constraint === undefined ? m : { ...m, selected: this.selectedDimensions.has(m.constraint), select: (e: MouseEvent) => this.selectDimension(m.constraint!, e.shiftKey || e.ctrlKey || e.metaKey), menu: (e: MouseEvent) => void this.markMenu(m.constraint!, e) })) : []), ...this.liveDimensions()]);
     if (panel) this.renderPanel();
