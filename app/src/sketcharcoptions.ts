@@ -1,5 +1,6 @@
 /** The arc tools that take numbers from the sketch card: the center Arc's start angle and sweep, and the radius of "Arc by ends and radius"
  *  (two end points, a radius, and the pointer choosing which of the four arcs of that radius is meant). No DOM. */
+import { turnCounterclockwise } from "./anglemath.ts";
 import * as M from "./sketchmodel.ts";
 import type { BuilderContext } from "./sketchbuilders.ts";
 import type { Snap } from "./sketch.ts";
@@ -58,7 +59,7 @@ export function arcByRadius(s: UV, e: UV, radius: number, pointer: UV): RadiusAr
     const gap = Math.abs(Math.hypot(pointer.u - centre.u, pointer.v - centre.v) - radius);
     // the counterclockwise arc from s to e bulges to one side of the chord; the other arc of that circle (e to s) bulges to the other
     const a0 = Math.atan2(s.v - centre.v, s.u - centre.u);
-    const sweep = (Math.atan2(e.v - centre.v, e.u - centre.u) - a0 + 4 * Math.PI) % (2 * Math.PI);
+    const sweep = turnCounterclockwise(Math.atan2(e.v - centre.v, e.u - centre.u) - a0);
     const middle = { u: centre.u + radius * Math.cos(a0 + sweep / 2), v: centre.v + radius * Math.sin(a0 + sweep / 2) };
     const arc = side(middle) * sigma > 0 ? { centre, from: s, to: e } : { centre, from: e, to: s };
     if (gap < bestGap) [best, bestGap] = [arc, gap];

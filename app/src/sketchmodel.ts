@@ -1,4 +1,5 @@
 /** Sketch data and the rules that need no DOM or WebGL: types, plane math, dimensions, trimming and snapping. Which constraints fit a selection lives in sketchconstraints.ts (re-exported here). */
+import { positiveSweep, turnCounterclockwise, TWO_PI } from "./anglemath.ts";
 import type { Dimension } from "./dimensions";
 import { pointInRect, polylineInBox, type Rect } from "./boxselect.ts";
 import { measure, radiusOf } from "./sketchconstraints.ts";
@@ -299,17 +300,15 @@ export function arcLeaderWay(s: SketchData, arc: Extract<SketchEntity, { type: "
   const c = pointOf(s, arc.center);
   const r = Math.hypot(pointOf(s, arc.start).u - c.u, pointOf(s, arc.start).v - c.v);
   const a0 = Math.atan2(pointOf(s, arc.start).v - c.v, pointOf(s, arc.start).u - c.u);
-  let sweep = Math.atan2(pointOf(s, arc.end).v - c.v, pointOf(s, arc.end).u - c.u) - a0;
-  if (sweep <= 0) sweep += 2 * Math.PI;
-  const full = 2 * Math.PI;
-  const turn = (a: number) => (((a - a0) % full) + full) % full; // counterclockwise from the start
+  const sweep = positiveSweep(Math.atan2(pointOf(s, arc.end).v - c.v, pointOf(s, arc.end).u - c.u) - a0);
+  const turn = (a: number) => turnCounterclockwise(a - a0); // counterclockwise from the start
   const angle = place && Math.hypot(place[0] - c.u, place[1] - c.v) > 1e-9 ? Math.atan2(place[1] - c.v, place[0] - c.u) : a0 + sweep / 2;
   const way: [number, number] = [Math.cos(angle), Math.sin(angle)];
   const t = turn(angle);
   if (t <= sweep) return { way, extension: [] };
   // outside the sweep: extend from the end it is nearer to (going on past the end, or back before the start)
   const past = t - sweep; // beyond the end
-  const before = full - t; // before the start
+  const before = TWO_PI - t; // before the start
   const from = past <= before ? a0 + sweep : a0;
   const to = past <= before ? a0 + sweep + past : a0 - before;
   const steps = Math.max(4, Math.ceil(Math.abs(to - from) / 0.15));
@@ -503,8 +502,7 @@ export function polyline(s: SketchData, e: SketchEntity, segments = 48): [number
   const end = pointOf(s, e.end);
   const r = Math.hypot(start.u - c.u, start.v - c.v);
   const a0 = Math.atan2(start.v - c.v, start.u - c.u);
-  let sweep = Math.atan2(end.v - c.v, end.u - c.u) - a0;
-  if (sweep <= 0) sweep += 2 * Math.PI; // arcs run counterclockwise
+  const sweep = positiveSweep(Math.atan2(end.v - c.v, end.u - c.u) - a0); // arcs run counterclockwise
   return arcSamples(c, r, a0, sweep, segments);
 }
 

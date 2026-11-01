@@ -1,5 +1,6 @@
 /** Where a line meets an ellipse (or elliptical arc) or a spline: the parameters t along the line (a + t * d, unbounded) that Trim and Extend cut at.
  *  An ellipse is solved exactly; a spline is met along a finely sampled copy of itself. */
+import { turnCounterclockwise } from "./anglemath.ts";
 import { ellipseAngle, ellipseSweep } from "./sketchellipse.ts";
 import { pointOf, polyline } from "./sketchmodel.ts";
 import type { SketchData, SketchEntity } from "./sketchmodel.ts";
@@ -34,7 +35,7 @@ export function ellipseCrossings(s: SketchData, e: Extract<SketchEntity, { type:
       // only the part of the ellipse the arc covers
       const from = ellipseAngle(frame, pointOf(s, e.start).u, pointOf(s, e.start).v);
       const sweep = ellipseSweep(from, ellipseAngle(frame, pointOf(s, e.end!).u, pointOf(s, e.end!).v));
-      const turn = ((ellipseAngle(frame, a.u + t * d.u, a.v + t * d.v) - from) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+      const turn = turnCounterclockwise(ellipseAngle(frame, a.u + t * d.u, a.v + t * d.v) - from);
       if (turn > sweep + 1e-9) continue;
     }
     out.push(t);

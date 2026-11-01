@@ -1,6 +1,7 @@
 /** The Split tool on an ellipse or an elliptical arc (an ellipse with start and end points): a whole ellipse is cut open at the point into one arc
  *  that starts and ends there; an arc is cut into two that share the point, the first keeping the arc's id. The pieces share the ellipse's axis end
  *  points, so they stay one ellipse (the solver holds each end on it). No DOM. */
+import { turnCounterclockwise } from "./anglemath.ts";
 import { ellipseAngle, ellipseFrame, ellipsePoint, ellipseSweep } from "./sketchellipse.ts";
 import type { EditResult } from "./sketchedit.ts";
 import { nextId, pointOf } from "./sketchmodel.ts";
@@ -27,7 +28,7 @@ export function splitEllipse(s: SketchData, id: number, u: number, v: number, ma
   if (e.start !== undefined) {
     const from = ellipseAngle(f, pointOf(s, e.start).u, pointOf(s, e.start).v);
     const sweep = ellipseSweep(from, ellipseAngle(f, pointOf(s, e.end!).u, pointOf(s, e.end!).v));
-    const along = ellipseSweep(from, t) % (2 * Math.PI);
+    const along = turnCounterclockwise(ellipseSweep(from, t));
     if (along < margin * sweep || along > (1 - margin) * sweep) return null; // outside the arc, or too near an end to cut
   }
   if (middle === undefined) {

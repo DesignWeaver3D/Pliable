@@ -1,5 +1,6 @@
 /** What the sketch shows while a shape is being drawn: the rubber-band outline and the live size tag.
  *  Moved out of sketch.ts; `SketchMode` is the context. Read-only. */
+import { positiveSweep } from "./anglemath.ts";
 import type { Dimension } from "./dimensions";
 import * as B from "./sketchbuilders.ts";
 import * as M from "./sketchmodel.ts";
@@ -88,7 +89,7 @@ function pendingBase(ctx: PreviewContext): [number, number][][] {
     if (ctx.chain.length < 4) return [Ell.ellipseArcPoints(f, 0, 2 * Math.PI, 48)]; // the whole ellipse until the start is clicked
     const from = Ell.ellipseAngle(f, ctx.chain[3].u, ctx.chain[3].v);
     let sweep = Ell.ellipseSweepToward(from, Ell.ellipseAngle(f, c.u, c.v)); // follows the pointer: clockwise or counterclockwise from the start
-    if (ctx.typed && sweep <= 0) sweep += 2 * Math.PI; // a typed sweep is always counterclockwise
+    if (ctx.typed) sweep = positiveSweep(sweep); // a typed sweep is always counterclockwise
     return [Ell.ellipseArcPoints(f, from, sweep, 48)];
   }
   if (ctx.tool === "arcrad") {
@@ -128,7 +129,7 @@ function pendingBase(ctx: PreviewContext): [number, number][][] {
     const radius = Math.hypot(second.u - first.u, second.v - first.v);
     const a0 = Math.atan2(second.v - first.v, second.u - first.u);
     let sweep = Sh.arcSweepToward(first, second, c); // follows the pointer: clockwise or counterclockwise from the start
-    if ((ctx.typed || ctx.arcOptions?.sweep != null) && sweep <= 0) sweep += 2 * Math.PI; // a typed sweep is always counterclockwise
+    if (ctx.typed || ctx.arcOptions?.sweep != null) sweep = positiveSweep(sweep); // a typed sweep is always counterclockwise
     return [Sh.arcSamples(first, radius, a0, sweep, 48)];
   }
   return [];

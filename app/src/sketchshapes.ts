@@ -1,5 +1,7 @@
 /** Geometry for the sketch tools that need more than a click-to-point mapping: arcs and circles through three points, and slots. No DOM. */
 
+import { turnCounterclockwise, turnShortWay } from "./anglemath.ts";
+
 export interface UV {
   u: number;
   v: number;
@@ -33,7 +35,7 @@ export function arcThrough(start: UV, through: UV, end: UV): { centre: UV; from:
  */
 export function arcSweepToward(centre: UV, start: UV, end: UV): number {
   const turn = Math.atan2(end.v - centre.v, end.u - centre.u) - Math.atan2(start.v - centre.v, start.u - centre.u);
-  return turn - 2 * Math.PI * Math.round(turn / (2 * Math.PI));
+  return turnShortWay(turn);
 }
 
 /**
@@ -66,7 +68,7 @@ export function arcSamples(centre: UV, radius: number, from: number, sweep: numb
 /** Points along the counterclockwise arc about `centre` from the point `from` to the direction of `to`; its radius is the distance to `from`. */
 export function arcBetween(centre: UV, from: UV, to: UV, segments: number): [number, number][] {
   const a0 = Math.atan2(from.v - centre.v, from.u - centre.u);
-  const sweep = (Math.atan2(to.v - centre.v, to.u - centre.u) - a0 + 4 * Math.PI) % (2 * Math.PI);
+  const sweep = turnCounterclockwise(Math.atan2(to.v - centre.v, to.u - centre.u) - a0);
   return arcSamples(centre, Math.hypot(from.u - centre.u, from.v - centre.v), a0, sweep, segments);
 }
 

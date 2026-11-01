@@ -1,5 +1,7 @@
 /** Ellipse geometry in sketch coordinates, no DOM and no sketch data: the frame of an ellipse (center, unit major direction, radii), the angle of a
  *  point on it (the angle on the circle it is stretched from) and the point at an angle. An elliptical arc runs counterclockwise between two such angles. */
+import { sweepCounterclockwise, turnShortWay } from "./anglemath.ts";
+
 export interface EllipseFrame {
   u: number;
   v: number;
@@ -30,14 +32,12 @@ export function ellipseAngle(f: EllipseFrame, u: number, v: number): number {
 
 /** The counterclockwise sweep from angle `from` to angle `to`, in (0, 2 pi]. */
 export function ellipseSweep(from: number, to: number): number {
-  const turn = (((to - from) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-  return turn || 2 * Math.PI;
+  return sweepCounterclockwise(from, to);
 }
 
 /** The signed sweep from `from` to `to` the short way round, in (-pi, pi]: which way the pointer moved from the start. */
 export function ellipseSweepToward(from: number, to: number): number {
-  const turn = to - from;
-  return turn - 2 * Math.PI * Math.round(turn / (2 * Math.PI));
+  return turnShortWay(to - from);
 }
 
 /** The points along an elliptical arc from angle `from` for `sweep` radians. */
