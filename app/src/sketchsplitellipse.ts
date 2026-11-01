@@ -9,7 +9,7 @@ import type { SketchData, SketchEntity } from "./sketchmodel.ts";
 
 type Ellipse = Extract<SketchEntity, { type: "ellipse" }>;
 
-function frameOf(s: SketchData, e: Ellipse) {
+export function frameOf(s: SketchData, e: Ellipse) {
   const c = pointOf(s, e.center);
   const m = pointOf(s, e.minor1!);
   return ellipseFrame(c, pointOf(s, e.major), Math.hypot(m.u - c.u, m.v - c.v));

@@ -99,6 +99,15 @@ export function cutClick(ctx: ClickContext, hit: M.SketchSel | null, uv: Pt | nu
     const cut = splitEllipse(ctx.s, line.id, uv[0], uv[1]);
     if (cut) apply(cut.sketch);
     else ctx.status("Click along the ellipse, away from the ends of an arc, to cut it (an old ellipse without axis ends cannot be cut)", true);
+  } else if (ctx.tool === "trim" && (line?.type === "circle" || line?.type === "arc" || line?.type === "ellipse") && uv && !line.reference) {
+    const trimmed = trimClick(ctx.s, line.id, uv[0], uv[1], ctx.trimCandidates, ctx.options.auto !== "none");
+    if (typeof trimmed === "string") ctx.status(trimmed, true);
+    else if (trimmed) {
+      ctx.pushUndo();
+      ctx.s = trimmed.sketch;
+      ctx.trimCandidates = trimmed.candidates;
+      ctx.resolve();
+    }
   } else if (line?.type === "line" && uv && !line.reference) {
     if (ctx.tool === "split") {
       const cut = E.splitLine(ctx.s, line.id, uv[0], uv[1]);
@@ -106,7 +115,7 @@ export function cutClick(ctx: ClickContext, hit: M.SketchSel | null, uv: Pt | nu
       else ctx.status("Click along the line, away from its ends, to cut it", true);
     } else if (ctx.tool === "trim") {
       const trimmed = trimClick(ctx.s, line.id, uv[0], uv[1], ctx.trimCandidates, ctx.options.auto !== "none");
-      if (trimmed) {
+      if (trimmed && typeof trimmed !== "string") {
         ctx.pushUndo();
         ctx.s = trimmed.sketch;
         ctx.trimCandidates = trimmed.candidates;

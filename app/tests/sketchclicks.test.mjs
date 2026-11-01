@@ -73,6 +73,24 @@ test("trim marks the piece on the first click and the second click deletes it", 
   assert.equal(ctx.trimCandidates.size, 0);
 });
 
+test("trim works on a circle, and says so when a whole circle has too few crossings", () => {
+  const s = {
+    plane,
+    points: [{ id: 1, u: 5, v: 0 }, { id: 2, u: -10, v: 0 }, { id: 3, u: 20, v: 0 }],
+    entities: [{ id: 10, type: "circle", center: 1, radius: 3 }, { id: 11, type: "line", a: 2, b: 3 }],
+    constraints: [],
+  };
+  const ctx = context("trim", s);
+  cutClick(ctx, { kind: "entity", id: 10 }, [5, 3]);
+  assert.equal(ctx.undos, 1);
+  assert.equal(ctx.trimCandidates.size, 1);
+  assert.equal(ctx.s.entities.filter((e) => e.type === "arc").length, 2);
+  const lone = context("trim", { plane, points: [{ id: 1, u: 5, v: 0 }], entities: [{ id: 10, type: "circle", center: 1, radius: 3 }], constraints: [] });
+  cutClick(lone, { kind: "entity", id: 10 }, [5, 3]);
+  assert.equal(lone.undos, 0);
+  assert.equal(lone.messages[0].error, true);
+});
+
 test("split cuts a line where clicked, and refuses a click at its end", () => {
   const ctx = context("split", crossed());
   cutClick(ctx, { kind: "entity", id: 10 }, [3, 0]);

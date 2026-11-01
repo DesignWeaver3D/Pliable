@@ -51,6 +51,8 @@ class _Solver:
         self.frames: dict[int, tuple] = {}  # ellipse id -> (center, major end, opposite major end, minor end, opposite minor end) point handles
         self.held_on_ellipse: set[tuple] = set()  # (ellipse frame, point id) of the arc ends already held on their ellipse
         self.foci: dict[int, tuple] = {}  # ellipse id -> its two focus points and the major axis (made when a point is put on the ellipse)
+        self._arc_ends: dict[int, dict[int, int]] = {}  # arc center point -> which of the arcs' end points are joined (union-find parents)
+        self._arc_first: dict[int, int] = {}  # arc center point -> id of the first arc made about it
         for e in sketch.get("entities", []):
             self._add_entity(e)
         self.held: set[int] = set()  # points already pinned: pinning one twice is reported as a redundancy
@@ -74,7 +76,21 @@ class _Solver:
             self.radii[e["id"]] = param
             self.entities[e["id"]] = (kind, s.addCircle(self._point(e["center"]), normal, s.addDistance(param, g), g))
         elif kind == "arc":
-            self.entities[e["id"]] = (kind, s.addArcOfCircle(self.workplane, self._point(e["center"]), self._point(e["start"]), self._point(e["end"]), g))
+            # Every arc keeps its two ends the same distance from its center, so arcs about one center that join end to end in a closed loop (a circle
+            # trimmed into arcs) would repeat that condition once more than the loop can hold, and the solve would fail as redundant: the arc that
+            # closes the loop is the circle of an arc already made, so it shares that arc's handle.
+            parent = self._arc_ends.setdefault(e["center"], {})
+            def root(x):
+                while parent.setdefault(x, x) != x:
+                    x = parent[x]
+                return x
+            first = self._arc_first.get(e["center"])
+            if first is not None and root(e["start"]) == root(e["end"]):
+                self.entities[e["id"]] = self.entities[first]
+            else:
+                parent[root(e["start"])] = root(e["end"])
+                self.entities[e["id"]] = (kind, s.addArcOfCircle(self.workplane, self._point(e["center"]), self._point(e["start"]), self._point(e["end"]), g))
+                self._arc_first.setdefault(e["center"], e["id"])
         elif kind in ("ellipse", "spline"):
             for pid in (_entity_point_ids(e) if kind == "ellipse" else e["points"]):
                 self._point(pid)

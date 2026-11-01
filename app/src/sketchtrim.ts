@@ -4,6 +4,7 @@
 import { crossingsWith, pointOf, remove } from "./sketchmodel.ts";
 import type { SketchData } from "./sketchmodel.ts";
 import { splitLine } from "./sketchedit.ts";
+import { trimCurve } from "./sketchtrimcurve.ts";
 
 export interface TrimResult {
   sketch: SketchData;
@@ -12,14 +13,15 @@ export interface TrimResult {
 }
 
 /** `hold` (the automatic-constraints option) puts each cut point on the curves that cross there. */
-export function trimClick(s: SketchData, lineId: number, u: number, v: number, candidates: ReadonlySet<number>, hold = true): TrimResult | null {
+export function trimClick(s: SketchData, lineId: number, u: number, v: number, candidates: ReadonlySet<number>, hold = true): TrimResult | string | null {
   const line = s.entities.find((e) => e.id === lineId);
-  if (!line || line.type !== "line" || line.reference) return null;
-  if (candidates.has(lineId)) {
+  if (!line || line.reference) return null;
+  if (candidates.has(lineId)) { // the marked piece, of any kind of curve, is deleted by the second click
     const rest = new Set(candidates);
     rest.delete(lineId);
     return { sketch: remove(s, { kind: "entity", id: lineId }), candidates: rest };
   }
+  if (line.type !== "line") return trimCurve(s, lineId, u, v, candidates, hold);
   const a = pointOf(s, line.a);
   const b = pointOf(s, line.b);
   const len2 = (b.u - a.u) ** 2 + (b.v - a.v) ** 2;
