@@ -6,6 +6,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { materialOrDefault, usesBodyColors } from "./materials";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import { Mark } from "./viewportmark";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { CentreInfo, FaceRange, MeshData } from "./client";
@@ -53,45 +54,6 @@ export interface Measure {
   length: number;
   /** +1 if pulling the face outward lengthens the edge, -1 if it shortens it. */
   grow: 1 | -1;
-}
-
-/** A highlight of one face, edge or vertex, drawn over the model. */
-class Mark {
-  readonly face: THREE.Mesh;
-  readonly edge: LineSegments2;
-  readonly vertex: THREE.Points;
-
-  constructor(parent: THREE.Object3D, source: THREE.BufferGeometry, color: number, opacity: number, readonly lineMaterial: LineMaterial) {
-    const faceGeometry = new THREE.BufferGeometry();
-    faceGeometry.setAttribute("position", source.getAttribute("position"));
-    faceGeometry.setIndex(new THREE.BufferAttribute(new Uint32Array(0), 1));
-    this.face = new THREE.Mesh(
-      faceGeometry,
-      new THREE.MeshBasicMaterial({
-        color,
-        opacity,
-        transparent: true,
-        depthWrite: false,
-        polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1,
-      }),
-    );
-    this.edge = new LineSegments2(new LineSegmentsGeometry(), lineMaterial);
-    this.vertex = new THREE.Points(
-      new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(new Float32Array(3), 3)),
-      new THREE.PointsMaterial({ color, size: 11, sizeAttenuation: false, depthTest: false }),
-    );
-    for (const object of [this.face, this.edge, this.vertex]) {
-      object.visible = false;
-      object.renderOrder = 2;
-      parent.add(object);
-    }
-  }
-
-  hide() {
-    this.face.visible = this.edge.visible = this.vertex.visible = false;
-  }
 }
 
 const PERSPECTIVE_FOV = 45;
