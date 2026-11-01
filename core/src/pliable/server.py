@@ -6,56 +6,32 @@ reply carrying the same id. Replies that include a mesh are binary frames
 (see protocol.py), everything else is JSON.
 """
 
-import argparse
-import asyncio
-import base64
-import faulthandler
-
-import json
-import logging
 import time
-from http import HTTPStatus
-from pathlib import Path
-from urllib.parse import unquote
 
-from websockets.asyncio.server import ServerConnection, serve
-from websockets.datastructures import Headers
-from websockets.http11 import Response
-
-from . import __version__, sketch, unwrap
+from . import sketch, unwrap
 from .sketch.freedomparts import point_freedom_by_part
 from .sketch.sizefreedom import free_circle_sizes
-from . import bodies as body_ids
-from . import dimedit, projectfile
-from . import notice
-from .autosave import Autosaver
-from .demos import load_demo
-from . import diagnostics
 from .usage import Usage
 from .document import Document
-from .shared.solids import combine
-from .files import part_names, read_step_parts, read_step_tree, write_cad, write_mesh, write_step
-from OCP.TopoDS import TopoDS_Compound
-from OCP.gp import gp_Vec
-from .measure import measure, model_info
-from .ops import OperationError, solids_of
-from .protocol import encode_mesh  # noqa: F401  (the benchmark patches server.encode_mesh)
 from .ghost import ghost_reply
-from .hole_selection import classify as classify_hole_selection
-from .edgesel import edge_loops, edge_ring, outer_loop, face_edges, face_loops, region_boundary, shared_loop, sharp_edges
-from .relations import find_related, tangent_chain
+from .autosave import Autosaver
+from .ops import solids_of
+from .protocol import encode_mesh  # noqa: F401  (the benchmark patches server.encode_mesh)
 from .tessellate import tessellate  # noqa: F401  (the benchmark patches server.tessellate)
-from .tools import TOOLS, Selection, get_tool
-from .sketch.rail import attach_rail
 from .topology import Topology
 from .handlers.sketch import SketchHandlers
 from .handlers.datum import DatumHandlers
 from .handlers.tools import ToolHandlers
-from .handlers.common import RequestError, _ms, log
+from .handlers.session import SessionHandlers, _parked  # noqa: F401  (tests reach server._parked)
+from .handlers.queries import QueryHandlers
+from .handlers.bodies import BodyHandlers
+from .handlers.files import FileHandlers
+from .handlers.common import RequestError, _ms, log  # noqa: F401
+from .ops import OperationError  # noqa: F401
+from .serving import main, run  # noqa: F401  (launcher.py imports run; the console script imports main)
 
 
-
-class Session(SketchHandlers, DatumHandlers, ToolHandlers):
+class Session(SketchHandlers, DatumHandlers, ToolHandlers, SessionHandlers, QueryHandlers, BodyHandlers, FileHandlers):
     def __init__(self, autosaver: Autosaver | None = None):
         self.document: Document | None = None
         self.autosaver = autosaver
@@ -112,14 +88,6 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
             header["mirror"] = self.document.mirror
         return encode_mesh(header, mesh, extra_buffers)
 
-    @staticmethod
-    def _read_cad(reader, request):
-        """Read the file in `request["data"]` with `reader` (read_step_parts or read_step_tree); its type comes from `request["extension"]` (STEP when missing)."""
-        try:
-            return reader(base64.b64decode(request["data"]), str(request.get("extension") or "step"))
-        except ValueError as e:
-            raise RequestError(str(e)) from e
-
     def _open(self, shape, name: str) -> bytes:
         self.document = Document(shape, name)
         self._autosave(fresh=True)
@@ -128,144 +96,51 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
     def _handle(self, request: dict) -> dict | bytes:
         kind = request.get("type")
         if kind == "hello":
-            reply = {"version": __version__}
-            parked = _parked["document"]
-            if parked is not None:  # a tab closed or refreshed on this core: its model comes back before any crash restore is offered
-                reply["resume"] = {"name": parked.name}
-            elif self.unclean:
-                reply["restore"] = self.unclean
-            return reply
+            return self._hello(request)
         if kind == "resume_session":
-            document, _parked["document"] = _parked["document"], None
-            if document is None:
-                raise RequestError("Nothing to resume")
-            self.document = document
-            self._autosave(fresh=True)
-            return self._mesh_reply(document.current, {}, name=document.name)
+            return self._resume_session(request)
         if kind == "restore_session":
-            document = self.autosaver.restore() if self.autosaver else None
-            if document is None:
-                raise RequestError("Nothing to restore")
-            self.document = document
-            self.unclean = None
-            self._autosave(fresh=True)
-            return self._mesh_reply(document.current, {}, name=document.name)
+            return self._restore_session(request)
         if kind == "open_demo":
-            return self._open(load_demo(request["name"]), request["name"])
+            return self._open_demo(request)
         if kind == "new_project":
-            return self._open(TopoDS_Compound(), "Untitled")
+            return self._new_project(request)
         if kind == "import_step":
-            start = time.perf_counter()
-            shape, warnings, named = self._read_cad(read_step_parts, request)
-            self.document = Document(shape, request.get("name", "Imported"), body_ids.fresh(shape, body_ids.namer(named)))
-            self.import_warnings = warnings
-            self._autosave(fresh=True)
-            return self._mesh_reply(self.document.current, {"importMs": _ms(start)}, name=self.document.name, warnings=warnings, solids=len(solids_of(shape)))
+            return self._import_step(request)
         if kind == "diagnostics":
-            return {"report": diagnostics.core_report(self.last_tool, self.import_warnings, self.usage.report(), self._model_summary())}
+            return self._diagnostics(request)
         if kind == "usage_event":
-            self.usage.record(request.get("tool"), request.get("event"), request.get("surface"))
-            return {}
+            return self._usage_event(request)
         if kind == "notice_get":
-            return {"acknowledged": notice.acknowledged(), "epoch": notice.NOTICE_EPOCH}
+            return self._notice_get(request)
         if kind == "notice_ack":
-            notice.acknowledge()
-            return {"acknowledged": True, "epoch": notice.NOTICE_EPOCH}
+            return self._notice_ack(request)
         if kind == "usage_clear":
-            self.usage.clear()
-            return {}
+            return self._usage_clear(request)
         if kind == "list_tools":
-            return {"tools": [tool.describe() for tool in TOOLS.values()]}
+            return self._list_tools(request)
         if kind == "available_tools":
-            topology = self._require_document().current
-            selection = Selection.from_json(request.get("selection"))
-            attach_rail(self.document, selection, strict=False)
-            return {"tools": [t.id for t in TOOLS.values() if t.offered(topology, selection)]}
+            return self._available_tools(request)
         if kind == "hole_selection":
-            return classify_hole_selection(self._require_document().current, Selection.from_json(request.get("selection")))
+            return self._hole_selection(request)
         if kind == "tool_handles":
-            topology = self._require_document().current
-            tool = get_tool(str(request.get("tool")))
-            selection = Selection.from_json(request.get("selection"))
-            attach_rail(self.document, selection, strict=False)
-            return {"handles": tool.handle_list(topology, selection, request.get("params") or {}), "startsFrom": tool.starts_from, "anchors": tool.anchor_list(request.get("params") or {})}
+            return self._tool_handles(request)
         if kind == "measure":
-            topology = self._require_document().current
-            try:
-                selection = Selection.from_json(request.get("selection"))
-                result = measure(topology, selection, request.get("density"), request.get("densities"))
-                dimedit.annotate(topology, selection, result)
-                return result
-            except KeyError as e:
-                raise RequestError(e.args[0]) from e
+            return self._measure(request)
         if kind == "combine_step":
-            document = self._require_document()
-            start = time.perf_counter()
-            root = self._read_cad(read_step_tree, request)
-            other, named = root.wrapped, part_names(root)
-            offset = gp_Vec(float(request.get("dx", 0)), float(request.get("dy", 0)), float(request.get("dz", 0)))
-            result = combine(document.current.shape, other, str(request.get("mode", "union")), offset)
-            target = document.commit(result.shape, names=body_ids.namer(named, by_size=True))
-            self._autosave()
-            return self._mesh_reply(target, {"opMs": _ms(start)}, selection=Selection().to_json())
+            return self._combine_step(request)
         if kind == "related":
-            topology = self._require_document().current
-            try:
-                return {"rules": find_related(topology, int(request["face"]))}
-            except (KeyError, ValueError, TypeError) as e:
-                raise RequestError("Unknown face") from e
+            return self._related(request)
         if kind == "face_frame":
-            # Where a flat face sits: its center, normal and the two in-plane axes the Divide face tool measures from.
-            from .shared.faces import _plane_axes
-            topology = self._require_document().current
-            try:
-                centre, normal, u, v = _plane_axes(topology.face(int(request["face"])))
-            except (KeyError, ValueError, TypeError) as e:
-                raise RequestError("Unknown face") from e
-            except OperationError as e:
-                raise RequestError(str(e)) from e
-            return {"centre": [centre.X(), centre.Y(), centre.Z()], "normal": [normal.X(), normal.Y(), normal.Z()], "u": [u.X(), u.Y(), u.Z()], "v": [v.X(), v.Y(), v.Z()]}
+            return self._face_frame(request)
         if kind == "edge_chain":
-            topology = self._require_document().current
-            try:
-                return {"edges": tangent_chain(topology, int(request["edge"]))}
-            except (KeyError, ValueError, TypeError) as e:
-                raise RequestError("Unknown edge") from e
+            return self._edge_chain(request)
         if kind == "edge_faces":
-            topology = self._require_document().current  # the faces beside an edge, for starting a two-distance chamfer from it
-            try:
-                return {"faces": [topology.face_id(f) for f in topology.edge_faces(topology.edge(int(request["edge"])))]}
-            except (KeyError, ValueError, TypeError) as e:
-                raise RequestError("Unknown edge") from e
+            return self._edge_faces(request)
         if kind == "edge_selection":
-            topology = self._require_document().current
-            mode = request.get("mode")
-            try:
-                if mode == "face_edges":
-                    return {"edges": face_edges(topology, int(request["face"]))}
-                if mode == "face_loops":
-                    return {"loops": face_loops(topology, int(request["face"]))}
-                if mode == "face_outline":
-                    return {"edges": outer_loop(topology, int(request["face"]))}
-                if mode == "ring":
-                    return {"edges": edge_ring(topology, int(request["edge"]))}
-                if mode == "edge_loops":
-                    return {"edges": edge_loops(topology, int(request["edge"]))}
-                if mode == "sharp":
-                    return {"edges": sharp_edges(topology, int(request["edge"]), float(request.get("angle", 30)))}
-                if mode == "region_boundary":
-                    return {"edges": region_boundary(topology, [int(f) for f in request["faces"]])}
-                if mode == "shared_loop":
-                    return {"edges": shared_loop(topology, int(request["first"]), int(request["second"]))}
-            except (KeyError, ValueError, TypeError) as e:
-                raise RequestError("Unknown face or edge") from e
-            raise RequestError(f"Unknown edge selection mode {mode!r}")
+            return self._edge_selection(request)
         if kind == "model_info":
-            try:
-                body = int(request["body"]) if request.get("body") is not None else None
-                return model_info(self._require_document().current, body)
-            except (ValueError, TypeError) as e:
-                raise RequestError("Unknown body") from e
+            return self._model_info(request)
         if kind == "sketch_plane" and "faces" in request:
             return self._sketch_on_faces(request)
         if kind == "sketch_plane" and "unwrap" in request:  # a cylinder face unrolled flat to sketch on
@@ -339,203 +214,24 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers):
         if kind in ("tool_preview", "tool_commit"):
             return self._run_tool(request, commit=kind == "tool_commit")
         if kind in ("undo", "redo"):
-            document = self._require_document()
-            changed = document.undo() if kind == "undo" else document.redo()
-            if not changed:
-                raise RequestError(f"Nothing to {kind}")
-            self._autosave()
-            return self._mesh_reply(document.current, {})
+            return self._undo_redo(request, kind)
         if kind == "rename_body":
-            document = self._require_document()
-            name = str(request.get("name", "")).strip()[:80]
-            if not name:
-                raise RequestError("A body needs a name")
-            try:
-                target = document.rename_body(int(request["body"]), name)
-            except (KeyError, ValueError, TypeError) as e:
-                raise RequestError("Unknown body") from e
-            self._autosave()
-            return self._mesh_reply(target, {})
+            return self._rename_body(request)
         if kind == "set_body_material":
-            document = self._require_document()
-            material = request.get("material")
-            if material is not None and not (isinstance(material, str) and 0 < len(material) <= 40):
-                raise RequestError("Unknown material")
-            try:
-                target = document.set_body_material(int(request["body"]), material)
-            except (KeyError, ValueError, TypeError) as e:
-                raise RequestError("Unknown body") from e
-            self._autosave()
-            return self._mesh_reply(target, {})
+            return self._set_body_material(request)
         if kind in ("delete_body", "duplicate_body"):
-            document = self._require_document()
-            extra: dict = {}
-            try:
-                if kind == "delete_body" and "bodies" in request:  # several bodies, one undo step
-                    target = document.delete_bodies([int(b) for b in request["bodies"]])
-                elif kind == "delete_body":
-                    target = document.delete_body(int(request["body"]))
-                else:
-                    target, extra["created"] = document.duplicate_body(int(request["body"]))
-            except (KeyError, ValueError, TypeError) as e:
-                raise RequestError("Unknown body") from e
-            self._autosave()
-            return self._mesh_reply(target, {}, **extra)
+            return self._delete_or_duplicate_body(request, kind)
         if kind == "export_step":
-            document = self._require_document()
-            data = write_step(document.current.shape)
-            return {"name": document.name, "data": base64.b64encode(data).decode()}
+            return self._export_step(request)
         if kind == "export_cad":
-            document = self._require_document()
-            try:
-                data = write_cad(document.current.shape, str(request.get("format")), [b.name for b in document.current.bodies.bodies])
-            except ValueError as e:
-                raise RequestError(str(e)) from e
-            return {"name": document.name, "data": base64.b64encode(data).decode()}
+            return self._export_cad(request)
         if kind == "save_project":
-            document = self._require_document()
-            return {"name": document.name, "data": base64.b64encode(projectfile.pack(document.to_project())).decode()}
+            return self._save_project(request)
         if kind == "open_project":
-            try:
-                project = projectfile.unpack(base64.b64decode(request["data"]))
-            except projectfile.ProjectFileError as e:
-                self.last_tool = {"tool": "open_project", "commit": True, "ok": False, "error": diagnostics.scrub(str(e))}
-                raise RequestError(str(e)) from e
-            self.last_tool = {"tool": "open_project", "commit": True, "ok": True, "error": None}
-            self.document = Document.from_project(project)
-            self._autosave(fresh=True)
-            return self._mesh_reply(self.document.current, {}, name=self.document.name)
+            return self._open_project(request)
         if kind == "export_mesh":
-            document = self._require_document()
-            try:
-                kwargs = {}
-                for key, name in (("linear", "linear"), ("angular", "angular")):
-                    if key in request:
-                        if isinstance(request[key], bool) or not isinstance(request[key], (int, float)):
-                            raise RequestError(f"{name} deflection must be a number")
-                        kwargs[name] = float(request[key])
-                data = write_mesh(document.current.shape, str(request.get("format")), **kwargs)
-            except ValueError as e:
-                raise RequestError(str(e)) from e
-            return {"name": document.name, "data": base64.b64encode(data).decode()}
+            return self._export_mesh(request)
         raise RequestError(f"Unknown request type {kind!r}")
-
-# The document of the connection that dropped last, kept so the page can pick it up again after reconnecting.
-_parked: dict = {"document": None}
-
-
-async def _handle_connection(connection: ServerConnection, autosaver: Autosaver | None = None):
-    session = Session(autosaver)
-    log.info("client connected")
-    try:
-        async for message in connection:
-            if isinstance(message, bytes):
-                continue
-            request = json.loads(message)
-            request_id = request.get("id")
-            start = time.perf_counter()
-            try:
-                # Geometry work runs off the event loop so the connection stays responsive.
-                reply = await asyncio.to_thread(session.handle, request)
-            except (RequestError, OperationError) as e:
-                reply = {"ok": False, "error": str(e)}
-            except Exception as e:
-                log.exception("request %s failed", request.get("type"))
-                reply = {"ok": False, "error": f"Internal error: {e}"}
-            if isinstance(reply, bytes):
-                # The reply id goes in a small JSON frame sent immediately before
-                # the binary frame, so the mesh header doesn't need re-encoding.
-                await connection.send(json.dumps({"id": request_id, "ok": True, "binary": True, "serverMs": _ms(start)}))
-                await connection.send(reply)
-            else:
-                reply.setdefault("ok", True)
-                reply["id"] = request_id
-                reply["serverMs"] = _ms(start)
-                await connection.send(json.dumps(reply))
-    finally:
-        if session.document is not None:
-            _parked["document"] = session.document
-    log.info("client disconnected")
-
-
-_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml",
-          ".json": "application/json", ".png": "image/png", ".ico": "image/x-icon", ".wasm": "application/wasm", ".map": "application/json"}
-
-
-def _static_handler(root: Path):
-    """HTTP handler for the websocket server: serves the built frontend, lets websocket upgrades through."""
-    root = root.resolve()
-
-    def process_request(connection, request):
-        if request.headers.get("Upgrade", "").lower() == "websocket":
-            return None
-        path = request.path.split("?", 1)[0].split("#", 1)[0]
-        target = (root / unquote(path).lstrip("/")).resolve()
-        if path in ("", "/") or target.is_dir():
-            target = root / "index.html"
-        if root not in target.parents and target != root / "index.html" or not target.is_file():
-            return connection.respond(HTTPStatus.NOT_FOUND, "Not found\n")
-        body = target.read_bytes()
-        headers = Headers([("Content-Type", _TYPES.get(target.suffix.lower(), "application/octet-stream")),
-                           ("Content-Length", str(len(body))), ("Cache-Control", "no-cache")])
-        return Response(200, "OK", headers, body)
-
-    return process_request
-
-
-async def run(host: str, port: int, autosaver: Autosaver | None = None, static_dir: Path | None = None,
-              exit_when_idle: float | None = None, ready: "asyncio.Future | None" = None):
-    """Serve the core. With `static_dir` the frontend is served too (same port). With `exit_when_idle` the server
-    stops that many seconds after the last browser tab disconnects (never before the first one connects)."""
-    autosaver = autosaver or Autosaver()
-    connections = 0
-    idle_timer: asyncio.TimerHandle | None = None
-    stop = asyncio.get_running_loop().create_future()
-
-    def stop_now():
-        if not stop.done():
-            log.info("no browser tab connected for %.0f s, shutting down", exit_when_idle)
-            stop.set_result(None)
-
-    async def handler(connection: ServerConnection):
-        nonlocal connections, idle_timer
-        connections += 1
-        if idle_timer:
-            idle_timer.cancel()
-            idle_timer = None
-        try:
-            await _handle_connection(connection, autosaver)
-        finally:
-            connections -= 1
-            if exit_when_idle is not None and connections == 0:
-                idle_timer = asyncio.get_running_loop().call_later(exit_when_idle, stop_now)
-
-    process_request = _static_handler(static_dir) if static_dir else None
-    try:
-        async with serve(handler, host, port, max_size=256 * 1024 * 1024, ping_interval=None,
-                         process_request=process_request) as server:
-            bound = server.sockets[0].getsockname()[1]
-            log.info("Pliable core %s listening on ws://%s:%d (autosave in %s)", __version__, host, bound, autosaver.folder)
-            if ready is not None and not ready.done():
-                ready.set_result(bound)
-            if exit_when_idle is None:
-                await server.serve_forever()
-            else:
-                await stop
-    finally:
-        autosaver.mark_clean()
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Pliable geometry core server")
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--verbose", action="store_true")
-    args = parser.parse_args()
-    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format="%(asctime)s %(name)s %(message)s")
-    diagnostics.install()
-    faulthandler.enable()  # a native crash leaves a traceback on the console instead of a silent exit
-    asyncio.run(run(args.host, args.port))
 
 
 if __name__ == "__main__":
