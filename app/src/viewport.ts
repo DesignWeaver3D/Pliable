@@ -24,6 +24,7 @@ import { canJoinSelection, parentBodies, similarTo, type SimilarKind } from "./s
 import { bodyColorArray } from "./bodycolorarray";
 import { fitBoxOf } from "./sketchfit";
 import { roundValue } from "./precision.ts";
+import { projectOnSegment } from "./segmentmath.ts";
 
 /** A "body" selection is a whole solid (every face of the body), chosen from the body list. An "axis" is a global axis (id 0, 1, 2 for X, Y, Z) picked in the view. */
 export type Kind = "face" | "edge" | "vertex" | "body" | "axis";
@@ -418,9 +419,7 @@ export class Viewport {
     for (const m of this.measures) {
       const a = this.toPixels(m.fixed, rect);
       const b = this.toPixels(m.anchor.clone().addScaledVector(n, this.lastDistance), rect);
-      const ab = b.clone().sub(a);
-      const t = ab.lengthSq() === 0 ? 0 : Math.max(0, Math.min(1, pointer.clone().sub(a).dot(ab) / ab.lengthSq()));
-      const d = a.add(ab.multiplyScalar(t)).distanceTo(pointer);
+      const d = projectOnSegment(pointer.x, pointer.y, a.x, a.y, b.x, b.y).dist;
       if (d < bestDistance) {
         bestDistance = d;
         best = m;
@@ -1592,9 +1591,7 @@ export class Viewport {
         const a = point(p.getX(i), p.getY(i), p.getZ(i));
         const b = point(p.getX(i + 1), p.getY(i + 1), p.getZ(i + 1));
         if (a.behind || b.behind) continue;
-        const [dx, dy] = [b.x - a.x, b.y - a.y];
-        const t = Math.max(0, Math.min(1, ((px - a.x) * dx + (py - a.y) * dy) / (dx * dx + dy * dy || 1)));
-        const d = Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
+        const d = projectOnSegment(px, py, a.x, a.y, b.x, b.y).dist;
         if (d < bestD) {
           best = id;
           bestD = d;
@@ -1868,11 +1865,7 @@ export class Viewport {
         const [ax, ay, az] = toPx(a);
         const [bx, by, bz] = toPx(b);
         if (az > 1 || bz > 1) continue;
-        const dx = bx - ax;
-        const dy = by - ay;
-        const lengthSq = dx * dx + dy * dy;
-        const t = lengthSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSq));
-        const d = Math.hypot(ax + t * dx - px, ay + t * dy - py);
+        const { t, dist: d } = projectOnSegment(px, py, ax, ay, bx, by);
         if (d >= edgePx) continue;
         const point = a.clone().lerp(b, t);
         const depth = point.distanceTo(this.camera.position);
@@ -1904,11 +1897,7 @@ export class Viewport {
       const [ax, ay, az] = toPx(a);
       const [bx, by, bz] = toPx(b);
       if (az > 1 || bz > 1) continue;
-      const dx = bx - ax;
-      const dy = by - ay;
-      const lengthSq = dx * dx + dy * dy;
-      const t = lengthSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSq));
-      const d = Math.hypot(ax + t * dx - px, ay + t * dy - py);
+      const { t, dist: d } = projectOnSegment(px, py, ax, ay, bx, by);
       if (d >= bestDistance) continue;
       const point = a.clone().lerp(b, t);
       if (point.distanceTo(this.camera.position) > depthLimit) continue;

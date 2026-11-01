@@ -1,4 +1,4 @@
-/** Reference geometry in the 3D view: the principal axes and origin, and the snap targets built from them. */
+﻿/** Reference geometry in the 3D view: the principal axes and origin, and the snap targets built from them. */
 import * as THREE from "three";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
@@ -9,6 +9,7 @@ import { mouthPoints, snapCentres } from "./placepick";
 import { nearestOnSegments, type SketchSnapPoint } from "./keptsnap";
 import { AXIS_COLORS, axisHalfLength, modelBounds, type Box6 } from "./axes";
 import { showNumber } from "./precision.ts";
+import { projectOnSegment } from "./segmentmath.ts";
 
 const AXES = [
   { name: "X axis", dir: new THREE.Vector3(1, 0, 0), color: AXIS_COLORS.x },
@@ -194,9 +195,7 @@ export class ReferenceView {
           b.fromArray(data.edgePositions, (i + 1) * 3);
           const pa = this.viewport.toScreen(a);
           const pb = this.viewport.toScreen(b);
-          const ab = pb.clone().sub(pa);
-          const t = ab.lengthSq() === 0 ? 0 : Math.max(0, Math.min(1, here.clone().sub(pa).dot(ab) / ab.lengthSq()));
-          const px = pa.clone().addScaledVector(ab, t).distanceTo(here);
+          const { t, dist: px } = projectOnSegment(here.x, here.y, pa.x, pa.y, pb.x, pb.y);
           const point = a.clone().lerp(b, t);
           if (px < SNAP_PX / 2 && visible(point) && (!best || px < best.px)) best = { point, label: "On edge", px };
         }

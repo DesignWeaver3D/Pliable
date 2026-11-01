@@ -1,5 +1,6 @@
 /** Snap points of a kept sketch for the 3D point picks (move, array, rotate base and destination points): its ends, centers and midpoints, and its curves. */
 import * as M from "./sketchmodel.ts";
+import { projectOnSegment } from "./segmentmath.ts";
 
 export interface SketchSnapPoint {
   point: [number, number, number];
@@ -48,10 +49,7 @@ export function nearestOnSegments(positions: ArrayLike<number>, toScreen: (p: [n
     const b: [number, number, number] = [positions[i + 3], positions[i + 4], positions[i + 5]];
     const pa = toScreen(a);
     const pb = toScreen(b);
-    const [dx, dy] = [pb.x - pa.x, pb.y - pa.y];
-    const len = dx * dx + dy * dy;
-    const t = len === 0 ? 0 : Math.max(0, Math.min(1, ((here.x - pa.x) * dx + (here.y - pa.y) * dy) / len));
-    const px = Math.hypot(here.x - (pa.x + t * dx), here.y - (pa.y + t * dy));
+    const { t, dist: px } = projectOnSegment(here.x, here.y, pa.x, pa.y, pb.x, pb.y);
     if (!best || px < best.px) best = { point: [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t], px };
   }
   return best;

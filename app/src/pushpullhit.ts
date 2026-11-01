@@ -4,13 +4,11 @@ export interface Pt {
   y: number;
 }
 
+import { projectOnSegment } from "./segmentmath.ts";
+
 /** Pixel distance from a point to the segment a-b (the nearest point on it, ends included). */
 export function segmentPx(p: Pt, a: Pt, b: Pt): number {
-  const abx = b.x - a.x;
-  const aby = b.y - a.y;
-  const len2 = abx * abx + aby * aby;
-  const t = len2 < 1e-6 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * abx + (p.y - a.y) * aby) / len2));
-  return Math.hypot(p.x - (a.x + abx * t), p.y - (a.y + aby * t));
+  return projectOnSegment(p.x, p.y, a.x, a.y, b.x, b.y, 1e-6).dist;
 }
 
 /** The 3D end of the red arrow's arm: the anchor moved against the arrow's direction by `reach` (model units). */

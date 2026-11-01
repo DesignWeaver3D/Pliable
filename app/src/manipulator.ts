@@ -5,6 +5,7 @@ import * as THREE from "three";
 import type { HandleInfo } from "./tools";
 import { gridCounts, gridShift, planePoint } from "./gridgrip.ts";
 import { TypedFields, typedCounts } from "./typedentry.ts";
+import { projectOnSegment } from "./segmentmath.ts";
 import { mirrorEnd, segmentPx } from "./pushpullhit.ts";
 import { ARM_PX, GRAB_PX, PUSH_PULL_ARM_RATIO, isPushPullArrow, MOVE_ARM_PX, AXIS_LINE, HANDLE_OUTLINE, pickScore, grabFraction, handleColors, handleValue, snapValue, linkedValues, travelFor, typedTravel, typedStep, lineParam, formatValue, ARC_RADIUS_PX, ARC_HALF_SPAN, ARC_STEPS, ARC_REST_OPACITY, COLOR_SNAPPED, snappedIndex, RING_VIEW_FRACTION, refitRing } from "./handlemath.ts";
 import { roundValue } from "./precision.ts";
@@ -460,7 +461,7 @@ export class Manipulator {
       const b = end;
       const ab = b.clone().sub(a);
       const only = grabFraction(item.info.kind, item.info.toggle);
-      const t = only !== null ? only : ab.lengthSq() < 1e-6 ? 0 : Math.max(0, Math.min(1, pointer.clone().sub(a).dot(ab) / ab.lengthSq()));
+      const t = only !== null ? only : projectOnSegment(pointer.x, pointer.y, a.x, a.y, b.x, b.y, 1e-6).t;
       const d = pickScore(pointer.distanceTo(a.clone().addScaledVector(ab, t)), item.info.kind, t);
       if (d < bestD) {
         bestD = d;

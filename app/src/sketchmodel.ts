@@ -6,6 +6,7 @@ import { showNumber } from "./precision.ts";
 import { ellipseAngle, ellipseArcPoints, ellipseSweep } from "./sketchellipse.ts";
 import { crossings } from "./sketchintersect.ts";
 export { crossings, crossingsWith } from "./sketchintersect.ts";
+import { projectOnSegment } from "./segmentmath.ts";
 import { arcSamples } from "./sketchshapes.ts";
 import { tangentSpots } from "./sketchtangentmarks.ts";
 import { awayFromNeighbours, coincidentDirection, coincidentSpot, fan, PAIRED_TURN, sameSpot, turn } from "./sketchmarkplace.ts";
@@ -512,12 +513,7 @@ export function distanceTo(s: SketchData, e: SketchEntity, u: number, v: number)
   const line = polyline(s, e);
   let best = Infinity;
   for (let i = 0; i + 1 < line.length; i++) {
-    const [ax, ay] = line[i];
-    const [bx, by] = line[i + 1];
-    const dx = bx - ax;
-    const dy = by - ay;
-    const t = Math.max(0, Math.min(1, ((u - ax) * dx + (v - ay) * dy) / (dx * dx + dy * dy || 1)));
-    best = Math.min(best, Math.hypot(u - (ax + t * dx), v - (ay + t * dy)));
+    best = Math.min(best, projectOnSegment(u, v, line[i][0], line[i][1], line[i + 1][0], line[i + 1][1]).dist);
   }
   return best;
 }
@@ -528,13 +524,9 @@ export function closestOn(s: SketchData, e: SketchEntity, u: number, v: number):
   let best: [number, number] | null = null;
   let bestD = Infinity;
   for (let i = 0; i + 1 < line.length; i++) {
-    const [ax, ay] = line[i];
-    const [bx, by] = line[i + 1];
-    const dx = bx - ax;
-    const dy = by - ay;
-    const t = Math.max(0, Math.min(1, ((u - ax) * dx + (v - ay) * dy) / (dx * dx + dy * dy || 1)));
-    const p: [number, number] = [ax + t * dx, ay + t * dy];
-    const d = Math.hypot(u - p[0], v - p[1]);
+    const h = projectOnSegment(u, v, line[i][0], line[i][1], line[i + 1][0], line[i + 1][1]);
+    const p: [number, number] = [h.x, h.y];
+    const d = h.dist;
     if (d < bestD) (bestD = d), (best = p);
   }
   return best;
