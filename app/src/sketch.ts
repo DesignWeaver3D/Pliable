@@ -25,6 +25,7 @@ import { COLORS } from "./sketchdraw.ts";
 import { addTangentArc, tangentStart } from "./sketchtangentarc";
 import { addArcRadius, arcClick, defaultArcOptions } from "./sketcharcoptions";
 import { isFreeCircle, draggedRadius } from "./sketchcircledrag";
+import { leaderAngle } from "./sketchleaderangle";
 import { loadSketchOptions, OPTIONS_KEY } from "./sketchoptions";
 import { chooseAtCursor } from "./sketchmenu";
 import { sketchSelectionText } from "./selectedreadout";
@@ -822,7 +823,7 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
     const plain = !made.some((x) => x.type === "arc"); // a rounded rectangle's sides are not its overall size
     let dimensions: Omit<M.SketchConstraint, "id">[] = [];
     if (tool === "line" && made[0]?.type === "line") dimensions = [{ type: "distance", entity: made[0].id, value: w }];
-    else if (tool === "circle" && made[0]?.type === "circle") dimensions = [{ type: "diameter", entity: made[0].id, value: w, side: M.leaderSide(this.s, made[0].id, pointer) }];
+    else if (tool === "circle" && made[0]?.type === "circle") dimensions = [{ type: "diameter", entity: made[0].id, value: w, angle: leaderAngle(this.s, made[0].id, "diameter", pointer) }];
     else if ((tool === "rectangle" || tool === "rectcentre") && plain && made.length >= 2) {
       dimensions = [{ type: "distance", entity: made[0].id, value: w }, { type: "distance", entity: made[1].id, value: h }];
     }
@@ -1106,8 +1107,8 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
     const addedIds = new Set<number>();
     const pointerAt = this.planeUV({ clientX: this.lastPointer.x, clientY: this.lastPointer.y } as PointerEvent);
     for (const one of M.constraintsToAdd(option, this.s, this.selection)) {
-      const side = one.type === "radius" || one.type === "diameter" ? M.leaderSide(this.s, one.entity, pointerAt ? { u: pointerAt[0], v: pointerAt[1] } : null) : undefined;
-      const added = { id: M.nextId(this.s), ...one, ...(side ? { side } : {}), ...(built.value !== undefined ? { value: built.value } : {}), ...(built.type === "angle" ? { place: built.place, outside: built.outside } : {}) };
+      const angle = one.type === "radius" || one.type === "diameter" ? leaderAngle(this.s, one.entity, one.type, pointerAt ? { u: pointerAt[0], v: pointerAt[1] } : null) : undefined;
+      const added = { id: M.nextId(this.s), ...one, ...(angle !== undefined ? { angle } : {}), ...(built.value !== undefined ? { value: built.value } : {}), ...(built.type === "angle" ? { place: built.place, outside: built.outside } : {}) };
       this.s.constraints.push(added);
       addedIds.add(added.id);
     }

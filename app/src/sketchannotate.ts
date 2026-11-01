@@ -133,12 +133,12 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
       const center = world(entity.center);
       const r = radiusOf(s, entity);
       // The way a circle's leader leaves it: toward where it was dragged, else the first 45° diagonal (so it stays off horizontal and vertical geometry) that ends outside the closed regions
-      const signs = [[1, 1], [-1, 1], [-1, -1], [1, -1]];
-      if (c.side) signs.sort((p, q) => Number(q[0] === c.side![0] && q[1] === c.side![1]) - Number(p[0] === c.side![0] && p[1] === c.side![1])); // the made-in quadrant first
-      const diagonals = signs.map(([a, b]) => norm([0, 1, 2].map((k) => a * f.x[k] + b * f.y[k])));
-      let way: number[] = diagonals[0];
+      const diagonals = [[1, 1], [-1, 1], [-1, -1], [1, -1]].map(([a, b]) => norm([0, 1, 2].map((k) => a * f.x[k] + b * f.y[k])));
+      const made = c.angle === undefined ? [] : [norm([0, 1, 2].map((k) => Math.cos(c.angle!) * f.x[k] + Math.sin(c.angle!) * f.y[k]))]; // the direction chosen when it was made, first
+      const ways = [...made, ...diagonals];
+      let way: number[] = ways[0];
       if (c.place) way = norm(sub(toWorld(s.plane, c.place[0], c.place[1]), center));
-      else if (outside) way = diagonals.find((w) => !outside.inside(...toPlane(s.plane, center.map((x, k) => x + w[k] * (r + outside.probe))))) ?? diagonals[0];
+      else if (outside) way = ways.find((w) => !outside.inside(...toPlane(s.plane, center.map((x, k) => x + w[k] * (r + outside.probe))))) ?? ways[0];
       let extend: number[][][] | undefined;
       if (entity.type === "arc") {
         // An arc's leader touches the arc where it was dragged (the middle of the arc until then); past either end it sits on an
@@ -156,14 +156,6 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
     for (const made of out.slice(first)) made.constraint = c.id;
   }
   return out;
-}
-
-/** The quadrant (signs along the sketch's x and y) of `at` around the center of circle `id`: where its new radius or diameter leader goes. Undefined for anything but a circle. */
-export function leaderSide(s: SketchData, id: number | undefined, at: { u: number; v: number } | null | undefined): [number, number] | undefined {
-  const circle = id === undefined ? undefined : s.entities.find((e) => e.id === id);
-  if (!at || circle?.type !== "circle") return undefined;
-  const c = pointOf(s, circle.center);
-  return [at.u >= c.u ? 1 : -1, at.v >= c.v ? 1 : -1];
 }
 
 /** The unit direction (in sketch coordinates) an arc's radius leader leaves the center in, and the dashed segments that carry the arc's circle

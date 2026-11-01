@@ -41,8 +41,8 @@ export interface SketchConstraint {
   axisHold?: boolean;
   /** Where the user dragged this dimension's text to, in sketch coordinates (display only; the solver ignores it). */
   place?: [number, number];
-  /** A circle's radius or diameter leader before it is dragged: the diagonal it leaves on, as signs along the sketch's x and y (the quadrant the pointer was in when it was made). Display only. */
-  side?: [number, number];
+  /** A circle's radius or diameter leader before it is dragged: the direction (radians, sketch coordinates) it leaves in, chosen when it was made (sketchleaderangle.ts). Display only. */
+  angle?: number;
 }
 export interface SketchData {
   plane: PlaneData;
