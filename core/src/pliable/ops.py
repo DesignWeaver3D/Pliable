@@ -23,6 +23,9 @@ from OCP.BRep import BRep_Builder
 from OCP.TopoDS import TopoDS_CompSolid, TopoDS_Compound, TopoDS_Edge, TopoDS_Face, TopoDS_Iterator, TopoDS_Shape
 from OCP.collections import List_TopoDS_Shape
 
+from .subshapes import sub_shapes
+from .volume import volume_of
+
 MIN_DISTANCE = 1e-4
 
 
@@ -192,11 +195,7 @@ def group(solids: list[TopoDS_Shape]) -> TopoDS_Shape:
 
 
 def _inner_solids(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
-    explorer, found = TopExp_Explorer(shape, TopAbs_SOLID), []
-    while explorer.More():
-        found.append(explorer.Current())
-        explorer.Next()
-    return found
+    return sub_shapes(shape, TopAbs_SOLID)
 
 
 def keep_compound(old: TopoDS_Shape, new: TopoDS_Shape) -> TopoDS_Shape:
@@ -322,20 +321,10 @@ def _is_sheet_model(shape: TopoDS_Shape, faces: list[TopoDS_Face]) -> bool:
 
 
 def _faces_of(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
-    explorer, faces = TopExp_Explorer(shape, TopAbs_FACE), []
-    while explorer.More():
-        faces.append(explorer.Current())
-        explorer.Next()
-    return faces
+    return sub_shapes(shape, TopAbs_FACE)
 
 
-def _volume_of(shape: TopoDS_Shape) -> float:
-    from OCP.BRepGProp import BRepGProp
-    from OCP.GProp import GProp_GProps
-
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
-    return props.Mass()
+_volume_of = volume_of
 
 
 def _push_pull_sheets(shape: TopoDS_Shape, faces: list[TopoDS_Face], distance: float, symmetric: bool = False, direction=None, preview: bool = False, mode: str = "auto", flip: bool = False) -> OpResult:

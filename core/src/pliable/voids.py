@@ -9,7 +9,6 @@ of one cylinder, so the tool refuses voids that `find_hole` accepts."""
 
 from dataclasses import dataclass, field
 
-from OCP.BRep import BRep_Tool
 from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
 from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeWire, BRepBuilderAPI_Transform
 from OCP.BRepClass import BRepClass_FaceClassifier
@@ -18,13 +17,14 @@ from OCP.BRepOffsetAPI import BRepOffsetAPI_MakeOffset
 from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
 from OCP.BRepTools import BRepTools
 from OCP.GeomAbs import GeomAbs_Arc, GeomAbs_Cylinder, GeomAbs_Line, GeomAbs_Plane
-from OCP.TopAbs import TopAbs_EDGE, TopAbs_IN, TopAbs_REVERSED, TopAbs_VERTEX, TopAbs_WIRE
+from OCP.TopAbs import TopAbs_EDGE, TopAbs_IN, TopAbs_REVERSED, TopAbs_WIRE
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS
 from OCP.gp import gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 
 from .holes import _pass_length
 from .ops import MIN_DISTANCE, OperationError, solids_of
+from .subshapes import edges_of as _edges, vertex_points as _vertices
 
 TOL = 1e-5
 NOT_A_VOID = "That is not a straight-walled cut (square, slot or similar) that goes through or ends at a flat floor"
@@ -72,20 +72,6 @@ def _is_wall(face, d: gp_Dir) -> bool:
 def _is_floor(face, d: gp_Dir) -> bool:
     surface = BRepAdaptor_Surface(face)
     return surface.GetType() == GeomAbs_Plane and _parallel(surface.Plane().Axis().Direction(), d)
-
-
-def _edges(face):
-    explorer = TopExp_Explorer(face, TopAbs_EDGE)
-    while explorer.More():
-        yield TopoDS.Edge(explorer.Current())
-        explorer.Next()
-
-
-def _vertices(shape):
-    explorer = TopExp_Explorer(shape, TopAbs_VERTEX)
-    while explorer.More():
-        yield BRep_Tool.Pnt_s(TopoDS.Vertex(explorer.Current()))
-        explorer.Next()
 
 
 def _outward(face):

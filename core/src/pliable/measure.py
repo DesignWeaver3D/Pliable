@@ -39,6 +39,7 @@ from .measurebody import measure_body
 from .ops import OperationError, edge_outward_normal, planar_normal
 from .tools import Selection
 from .topology import Topology
+from .volume import volume_of
 
 TANGENT_TOL = 1e-6  # 1 - |cos| of the angle between normals below which faces count as tangent
 FULL_TURN_TOL = 1e-6  # radians: a sweep this close to 2*pi counts as a full circle
@@ -350,8 +351,7 @@ def model_info(topology: Topology, body: int | None = None) -> dict:
     shape = topology.shape
     solids = IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher()
     TopExp.MapShapes_s(shape, TopAbs_SOLID, solids)
-    volume, area = GProp_GProps(), GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, volume)
+    area = GProp_GProps()
     BRepGProp.SurfaceProperties_s(shape, area)
     box = Bnd_Box()
     BRepBndLib.AddOptimal_s(shape, box, False, False)  # exact extents (Add_s pads by the tolerance)
@@ -365,7 +365,7 @@ def model_info(topology: Topology, body: int | None = None) -> dict:
         _row("Edges", topology.edge_count),
         _row("Vertices", topology.vertex_count),
         _row("Open edges", open_edges),
-        _row("Volume", volume.Mass()),
+        _row("Volume", volume_of(shape)),
         _row("Surface area", area.Mass()),
         _row("Size (X, Y, Z)", [hi.X() - lo.X(), hi.Y() - lo.Y(), hi.Z() - lo.Z()]),
     ]
