@@ -1,92 +1,17 @@
 /** Fillet and Chamfer where a corner involves an arc or a circle: line and arc, arc and arc, and either with a circle. Two lines stay in `roundCorner`
  *  (sketchmodel.ts). The curves may meet at a shared end point (a corner), cross, or not touch at all (fillet only). The fillet circle is the one of the
  *  typed radius, tangent to both curves, whose center is nearest the pointer; each curve is cut or stretched to its tangent point. */
-import { dropOrphans, entityPoints, nextId, pointOf } from "./sketchmodel.ts";
+import { dropOrphans, entityPoints, nextId } from "./sketchmodel.ts";
 import type { SketchConstraint, SketchData, SketchEntity, SketchPoint } from "./sketchmodel.ts";
+import { angleOf, at, dot, geoOf, inSweep, len, meet, mod, onCurve, roundOf, sub, unit } from "./sketchintersect.ts";
+import type { Curve, Geo, Pt } from "./sketchintersect.ts";
 
-type Pt = [number, number];
-type Line = Extract<SketchEntity, { type: "line" }>;
-type Round = Extract<SketchEntity, { type: "arc" | "circle" }>;
-type Curve = Line | Round;
 const EPS = 1e-9;
-const TWO_PI = 2 * Math.PI;
 
 const isCurve = (e: SketchEntity | undefined): e is Curve => !!e && (e.type === "line" || e.type === "arc" || e.type === "circle");
-const sub = (a: Pt, b: Pt): Pt => [a[0] - b[0], a[1] - b[1]];
-const dot = (a: Pt, b: Pt) => a[0] * b[0] + a[1] * b[1];
-const len = (a: Pt) => Math.hypot(a[0], a[1]);
-const unit = (a: Pt): Pt => {
-  const l = len(a) || 1;
-  return [a[0] / l, a[1] / l];
-};
-const at = (s: SketchData, id: number): Pt => [pointOf(s, id).u, pointOf(s, id).v];
-const mod = (x: number) => ((x % TWO_PI) + TWO_PI) % TWO_PI;
-
-/** The center and radius of an arc or circle. */
-function roundOf(s: SketchData, e: Round): { c: Pt; r: number } {
-  const c = at(s, e.center);
-  return { c, r: e.type === "circle" ? e.radius : len(sub(at(s, e.start), c)) };
-}
 /** Counterclockwise unit tangent of a round curve at the point t on it. */
 const ccwTangent = (c: Pt, t: Pt): Pt => unit([-(t[1] - c[1]), t[0] - c[0]]);
-const angleOf = (c: Pt, p: Pt) => Math.atan2(p[1] - c[1], p[0] - c[0]);
-function inSweep(s: SketchData, arc: Extract<SketchEntity, { type: "arc" }>, p: Pt): boolean {
-  const c = at(s, arc.center);
-  const a0 = angleOf(c, at(s, arc.start));
-  return mod(angleOf(c, p) - a0) <= (mod(angleOf(c, at(s, arc.end)) - a0) || TWO_PI) + 1e-9;
-}
-/** Whether the point (taken to lie on the curve's circle or line) is on the curve itself, not just its extension. */
-function onCurve(s: SketchData, e: Curve, p: Pt): boolean {
-  if (e.type === "circle") return true;
-  if (e.type === "arc") return inSweep(s, e, p);
-  const a = at(s, e.a);
-  const d = sub(at(s, e.b), a);
-  const t = dot(sub(p, a), d) / (dot(d, d) || 1);
-  return t >= -1e-9 && t <= 1 + 1e-9;
-}
 
-// Intersections ---------------------------------------------------------------------------------------
-
-type Geo = { line: true; p: Pt; d: Pt } | { line: false; c: Pt; r: number };
-function lineLine(a: Geo & { line: true }, b: Geo & { line: true }): Pt[] {
-  const den = a.d[0] * b.d[1] - a.d[1] * b.d[0];
-  if (Math.abs(den) < 1e-12) return [];
-  const w = sub(b.p, a.p);
-  const t = (w[0] * b.d[1] - w[1] * b.d[0]) / den;
-  return [[a.p[0] + t * a.d[0], a.p[1] + t * a.d[1]]];
-}
-function lineCircle(l: Geo & { line: true }, k: Geo & { line: false }): Pt[] {
-  const f = sub(l.p, k.c);
-  const b = dot(f, l.d);
-  const disc = b * b - (dot(f, f) - k.r * k.r);
-  if (disc < -1e-12) return [];
-  const root = Math.sqrt(Math.max(0, disc));
-  const ts = root < 1e-9 ? [-b] : [-b - root, -b + root];
-  return ts.map((t): Pt => [l.p[0] + t * l.d[0], l.p[1] + t * l.d[1]]);
-}
-function circleCircle(a: Geo & { line: false }, b: Geo & { line: false }): Pt[] {
-  const d = len(sub(b.c, a.c));
-  if (d < 1e-9 || d > a.r + b.r + 1e-9 || d < Math.abs(a.r - b.r) - 1e-9) return [];
-  const x = (d * d + a.r * a.r - b.r * b.r) / (2 * d);
-  const h = Math.sqrt(Math.max(0, a.r * a.r - x * x));
-  const u = unit(sub(b.c, a.c));
-  const m: Pt = [a.c[0] + u[0] * x, a.c[1] + u[1] * x];
-  return h < 1e-9 ? [m] : [[m[0] - u[1] * h, m[1] + u[0] * h], [m[0] + u[1] * h, m[1] - u[0] * h]];
-}
-function meet(a: Geo, b: Geo): Pt[] {
-  if (a.line && b.line) return lineLine(a, b);
-  if (a.line && !b.line) return lineCircle(a, b);
-  if (!a.line && b.line) return lineCircle(b, a);
-  return circleCircle(a as Geo & { line: false }, b as Geo & { line: false });
-}
-function geoOf(s: SketchData, e: Curve): Geo {
-  if (e.type === "line") {
-    const a = at(s, e.a);
-    return { line: true, p: a, d: unit(sub(at(s, e.b), a)) };
-  }
-  const { c, r } = roundOf(s, e);
-  return { line: false, c, r };
-}
 /** The curves parallel to `g` at distance r on either side: the center of a fillet circle of radius r lies on one from each curve. */
 function offsets(g: Geo, r: number): Geo[] {
   if (g.line) {

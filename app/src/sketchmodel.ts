@@ -4,7 +4,8 @@ import { pointInRect, polylineInBox, type Rect } from "./boxselect.ts";
 import { measure, radiusOf } from "./sketchconstraints.ts";
 import { showNumber } from "./precision.ts";
 import { ellipseAngle, ellipseArcPoints, ellipseSweep } from "./sketchellipse.ts";
-import { ellipseCrossings, splineCrossings } from "./sketchcrossings.ts";
+import { crossings } from "./sketchintersect.ts";
+export { crossings, crossingsWith } from "./sketchintersect.ts";
 import { tangentSpots } from "./sketchtangentmarks.ts";
 import { awayFromNeighbours, coincidentDirection, coincidentSpot, fan, PAIRED_TURN, sameSpot, turn } from "./sketchmarkplace.ts";
 export * from "./sketchconstraints.ts";
@@ -656,64 +657,6 @@ export function sketchAxes(plane: PlaneData): { u: number; v: number; du: number
 }
 
 // Trim ------------------------------------------------------------------------------------------------
-
-/** Whether the point (u, v), taken to lie on the arc's circle, is within the arc's counterclockwise sweep. */
-function onArc(s: SketchData, arc: Extract<SketchEntity, { type: "arc" }>, u: number, v: number): boolean {
-  const c = pointOf(s, arc.center);
-  const angle = (x: number, y: number) => Math.atan2(y - c.v, x - c.u);
-  const turn = (to: number) => ((to - angle(pointOf(s, arc.start).u, pointOf(s, arc.start).v)) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-  const sweep = turn(angle(pointOf(s, arc.end).u, pointOf(s, arc.end).v)) || 2 * Math.PI;
-  return turn(angle(u, v)) <= sweep + 1e-9;
-}
-
-/** Parameters t along line `e` (0 at its start, 1 at its end, unbounded) where it meets other lines, circles, arcs, ellipses and splines. */
-export function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line" }>): number[] {
-  return crossingsWith(s, e).map((x) => x.t);
-}
-
-/** The same crossings, each with the id of the curve that crosses the line there. */
-export function crossingsWith(s: SketchData, e: Extract<SketchEntity, { type: "line" }>): { t: number; entity: number }[] {
-  const a = pointOf(s, e.a);
-  const b = pointOf(s, e.b);
-  const dx = b.u - a.u;
-  const dy = b.v - a.v;
-  const found: { t: number; entity: number }[] = [];
-  for (const o of s.entities) {
-    if (o.id === e.id) continue;
-    const ts = { push: (...values: number[]) => found.push(...values.map((t) => ({ t, entity: o.id }))) };
-    if (o.type === "line") {
-      const c = pointOf(s, o.a);
-      const d = pointOf(s, o.b);
-      const ex = d.u - c.u;
-      const ey = d.v - c.v;
-      const den = dx * ey - dy * ex;
-      if (Math.abs(den) < 1e-12) continue;
-      const t = ((c.u - a.u) * ey - (c.v - a.v) * ex) / den;
-      const w = ((c.u - a.u) * dy - (c.v - a.v) * dx) / den;
-      if (w >= -1e-9 && w <= 1 + 1e-9) ts.push(t);
-    } else if (o.type === "ellipse") {
-      ts.push(...ellipseCrossings(s, o, a, { u: dx, v: dy }));
-    } else if (o.type === "spline") {
-      ts.push(...splineCrossings(s, o, a, { u: dx, v: dy }));
-    } else if (o.type === "circle" || o.type === "arc") {
-      const c = pointOf(s, o.center);
-      const radius = o.type === "circle" ? o.radius : Math.hypot(pointOf(s, o.start).u - c.u, pointOf(s, o.start).v - c.v);
-      const fx = a.u - c.u;
-      const fy = a.v - c.v;
-      const qa = dx * dx + dy * dy;
-      const qb = 2 * (fx * dx + fy * dy);
-      const qc = fx * fx + fy * fy - radius * radius;
-      const disc = qb * qb - 4 * qa * qc;
-      if (disc < 0 || qa < 1e-12) continue;
-      const root = Math.sqrt(disc);
-      for (const t of [(-qb - root) / (2 * qa), (-qb + root) / (2 * qa)]) {
-        if (o.type === "arc" && !onArc(s, o, a.u + t * dx, a.v + t * dy)) continue; // only the part of the circle the arc covers
-        ts.push(t);
-      }
-    }
-  }
-  return found.sort((x, y) => x.t - y.t);
-}
 
 /**
  * Extend the end of a line nearest (u, v) to the first curve it would meet beyond that end. The end
