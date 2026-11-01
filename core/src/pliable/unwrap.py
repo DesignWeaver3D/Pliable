@@ -35,13 +35,11 @@ from OCP.Geom2dAPI import Geom2dAPI_Interpolate
 from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Line, GeomAbs_Plane
 from OCP.gp import gp_Dir2d, gp_Pnt, gp_Pnt2d
 from OCP.ShapeAnalysis import ShapeAnalysis_Surface
-from OCP.TopAbs import TopAbs_EDGE, TopAbs_VERTEX
-from OCP.TopExp import TopExp_Explorer
-from OCP.TopoDS import TopoDS
 
 from .ops import OperationError
 from .tessellate import bounds
 from .sketch import STANDARD_PLANES, SketchError, regions
+from .subshapes import edges_of as _edges, vertex_points
 from .vecmath import dot as _dot
 
 CURVE_SAMPLES = 48
@@ -96,23 +94,8 @@ def unwrap_plane(shape=None, reference: dict | None = None) -> dict:
 # Geometry helpers ------------------------------------------------------------------------------------
 
 
-def _edges(face):
-    explorer = TopExp_Explorer(face, TopAbs_EDGE)
-    out = []
-    while explorer.More():
-        out.append(TopoDS.Edge(explorer.Current()))
-        explorer.Next()
-    return out
-
-
 def _vertices(shape):
-    explorer = TopExp_Explorer(shape, TopAbs_VERTEX)
-    out = []
-    while explorer.More():
-        p = BRep_Tool.Pnt_s(TopoDS.Vertex(explorer.Current()))
-        out.append((p.X(), p.Y(), p.Z()))
-        explorer.Next()
-    return out
+    return [(p.X(), p.Y(), p.Z()) for p in vertex_points(shape)]
 
 
 def _sub(a, b):
