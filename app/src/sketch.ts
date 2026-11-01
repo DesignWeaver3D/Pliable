@@ -1819,11 +1819,6 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
       this.renderPanel();
     }, this.options.snapGrid);
     const look = iconButton("lookAt", "Turn the view square to the sketch plane in orthographic projection. Turning the camera afterwards goes back to the projection you had", () => this.viewport.lookFromOrthographic(new THREE.Vector3(...M.frame(this.s.plane).n)));
-    const lookNew = iconButton("lookAtNew", this.options.lookAtNew ? "A new sketch turns the view square to its plane (orthographic): click to turn this off" : "A new sketch leaves the view where it is: click to have it turn the view square to its plane (orthographic)", () => {
-      this.options.lookAtNew = !this.options.lookAtNew;
-      this.saveOptions();
-      this.renderPanel();
-    }, this.options.lookAtNew);
     const flip = iconButton("flipSketch", "Flip the sketch to the other side of its plane: the plane's normal reverses and the drawing stays where it is in space, then the view looks from the new side", () => void this.guard(() => this.flip()));
     const gizmos = iconButton("gizmos", this.gizmosShown ? "Hide the sketch plane's move and turn gizmos" : "Show the sketch plane's move and turn gizmos", () => {
       this.gizmosShown = !this.gizmosShown;
@@ -1836,7 +1831,7 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
     gear.style.marginLeft = "auto";
     header.append(el("span", "title", this.kept ? this.kept.name : "Sketch"), gear);
     const icons = el("div", "head");
-    icons.append(look, lookNew, ...(this.unwrapFace === null ? [flip] : []), gizmos, base, target, grid, snap);
+    icons.append(look, ...(this.unwrapFace === null ? [flip] : []), gizmos, base, target, grid, snap);
     const status = el("div", "dof", this.failed.size ? `Conflict: ${this.s.constraints.filter((c) => this.failed.has(c.id)).map((c) => M.describeConstraint(this.s, c)).join("; ") || [...this.failed].join(", ")}. Remove one (red rows below)` : this.dof === null ? "" : this.dof === 0 ? "Fully constrained" : `${this.dof} degrees of freedom left`);
     if (this.failed.size) status.classList.add("bad");
     else if (this.dof) {

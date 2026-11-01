@@ -56,6 +56,14 @@ export function openSketchSettings(options: SketchOptions, hooks: SettingsHooks)
     hooks.save();
     hooks.rebuildGrid();
   });
+  const lookAtNew = document.createElement("input");
+  lookAtNew.type = "checkbox";
+  lookAtNew.checked = options.lookAtNew;
+  lookAtNew.title = "When a new sketch is created, turn the view square to its plane in orthographic projection (the same as the Look at plane button). Editing a kept sketch never moves the view";
+  lookAtNew.addEventListener("change", () => {
+    options.lookAtNew = lookAtNew.checked;
+    hooks.save();
+  });
   const title = document.createElement("h3");
   title.textContent = "Sketch settings";
   const grid = document.createElement("div");
@@ -72,6 +80,8 @@ export function openSketchSettings(options: SketchOptions, hooks: SettingsHooks)
     row("Fade at the edges", fade),
     Object.assign(document.createElement("div"), { className: "group", textContent: "Drawing" }),
     row("Automatic constraints", auto),
+    Object.assign(document.createElement("div"), { className: "group", textContent: "View" }),
+    row("Square the view to a new sketch", lookAtNew),
     done,
   );
   dialog.addEventListener("close", () => {
