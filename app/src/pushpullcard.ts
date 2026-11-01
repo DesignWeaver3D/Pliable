@@ -2,6 +2,7 @@
  *  Fields: distance, the mode buttons (highlighted like Pick plane), Flip, Symmetric, the two tilt values and the direction vector of the gizmo (linked to it like the
  *  Cut with plane form). It holds no model state: choices live in PushPullState, the direction in PullDirection, the tilts in PullGizmo. */
 import { FLIP_TITLE, MODE_BUTTONS, SYMMETRIC_TITLE, UP_TO_TITLE, type PushPullState } from "./pushpullstate.ts";
+import { extentOn, REACH_BUTTONS, type Reach } from "./pushpullextent.ts";
 import { roundValue } from "./precision.ts";
 import type { Vec } from "./pulldir.ts";
 
@@ -30,6 +31,7 @@ export class PushPullCard {
   private readonly modeButtons = new Map<string, HTMLButtonElement>();
   private readonly flipButton = document.createElement("button");
   private readonly upToButton = document.createElement("button");
+  private readonly reachButtons = new Map<Reach, HTMLButtonElement>();
   private readonly symmetric = document.createElement("input");
   private readonly distance = document.createElement("input");
   private readonly tilt: HTMLInputElement[] = [document.createElement("input"), document.createElement("input")];
@@ -82,6 +84,14 @@ export class PushPullCard {
     this.upToButton.title = UP_TO_TITLE;
     this.upToButton.style.cssText = "text-align:center;margin-top:4px";
     this.upToButton.addEventListener("click", () => void this.toggleUpTo());
+    for (const reach of REACH_BUTTONS) {
+      const button = document.createElement("button");
+      button.textContent = reach.label;
+      button.title = reach.title;
+      button.style.cssText = "text-align:center;margin-top:4px";
+      button.addEventListener("click", () => this.toggleReach(reach.id));
+      this.reachButtons.set(reach.id, button);
+    }
     this.symmetric.type = "checkbox";
     this.symmetric.addEventListener("change", () => host.state.setSymmetric(this.symmetric.checked));
     this.tilt.forEach((input, i) => {
@@ -128,6 +138,7 @@ export class PushPullCard {
       modes,
       this.flipButton,
       this.upToButton,
+      ...this.reachButtons.values(),
       row("Symmetric", SYMMETRIC_TITLE, this.symmetric),
       row("Tilt red arc (deg)", TILT_TITLES[0], this.tilt[0]),
       row("Tilt green arc (deg)", TILT_TITLES[1], this.tilt[1]),
@@ -160,6 +171,20 @@ export class PushPullCard {
     this.host.changed?.();
   }
 
+  /** Up to last or Through all: on previews the pad (no pick); off, or the other one, restores or replaces it. */
+  private toggleReach(reach: Reach) {
+    const { state } = this.host;
+    if (state.reach === reach) {
+      state.setReach(null);
+      if (this.upToPreview) this.host.cancelDistance();
+      this.upToPreview = false;
+      return;
+    }
+    state.setReach(reach);
+    this.upToPreview = true;
+    this.host.previewDistance(1); // any distance: the core extends the pad itself
+  }
+
   /** Up to face: on picks the target in the view and previews the pad ending on it; off restores the normal distance behavior. */
   private async toggleUpTo() {
     const { state } = this.host;
@@ -177,7 +202,7 @@ export class PushPullCard {
   }
 
   private apply() {
-    if (this.host.state.upTo !== null && this.upToPreview) {
+    if (extentOn(this.host.state.upTo, this.host.state.reach) && this.upToPreview) {
       this.upToPreview = false;
       this.host.applyDistance(1);
       return;
@@ -215,13 +240,14 @@ export class PushPullCard {
     const { state } = this.host;
     const tilts = this.host.tilts();
     const direction = this.host.direction();
-    const signature = JSON.stringify([state.mode, state.choice, state.flip, state.symmetric, state.upTo, tilts, direction]);
+    const signature = JSON.stringify([state.mode, state.choice, state.flip, state.symmetric, state.upTo, state.reach, tilts, direction]);
     if (!force && signature === this.shown) return;
     this.shown = signature;
     for (const [id, button] of this.modeButtons) button.classList.toggle("active", state.mode === id);
     this.flipButton.classList.toggle("active", state.flip);
     this.upToButton.classList.toggle("active", state.upTo !== null);
-    this.symmetric.disabled = state.upTo !== null;
+    for (const [id, button] of this.reachButtons) button.classList.toggle("active", state.reach === id);
+    this.symmetric.disabled = extentOn(state.upTo, state.reach);
     this.symmetric.checked = state.symmetric;
     const put = (input: HTMLInputElement, n: number | undefined) => {
       if (document.activeElement !== input) input.value = n === undefined ? "" : String(roundValue(n));
