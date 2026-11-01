@@ -218,6 +218,12 @@ function nearHorizontal(s: SketchData, l: Extract<SketchEntity, { type: "line" }
 /** Horizontal or vertical for each selected line, whichever its slope is nearer to (one line, or several free ones). */
 function autoAxis(s: SketchData, sel: SketchSel[]): Omit<SketchConstraint, "id">[] {
   const es = entities(s, sel);
+  const p = pts(sel);
+  if (p.length === 2 && !es.length) {
+    // Two points: level (horizontal) or plumb (vertical), whichever their offset is nearer to.
+    const [a, b] = [pointOf(s, p[0]), pointOf(s, p[1])];
+    return [{ type: Math.abs(b.u - a.u) >= Math.abs(b.v - a.v) ? "horizontal" : "vertical", points: p }];
+  }
   const lines = es.length === 1 && only(es, "line") && !es[0].reference ? [es[0] as Extract<SketchEntity, { type: "line" }>] : freeLines(s, sel);
   return lines.map((l) => ({ type: nearHorizontal(s, l) ? "horizontal" : "vertical", entity: l.id }));
 }

@@ -3,7 +3,7 @@ export const CONSTRAINT_HELP: Record<string, { what: string; needs: string }> = 
   Dimension: { what: "puts the fitting dimension on the selection (a menu offers the choices when several fit)", needs: "a line, circle, arc or ellipse; two points; or two curves" },
   "Horizontal distance": { what: "sets the left-right distance between two points", needs: "two points, or a line" },
   "Vertical distance": { what: "sets the up-down distance between two points", needs: "two points, or a line" },
-  "Horizontal / vertical": { what: "makes each line horizontal or vertical, whichever it is nearer", needs: "one or more lines" },
+  "Horizontal / vertical": { what: "makes each line, or the two selected points, horizontal or vertical, whichever it is nearer", needs: "one or more lines, or two points" },
   Horizontal: { what: "makes a line, or the line between two points, horizontal", needs: "a line, or two points" },
   Vertical: { what: "makes a line, or the line between two points, vertical", needs: "a line, or two points" },
   Coincident: { what: "joins points, or puts a point on a curve", needs: "two or more points, or points and a curve" },
