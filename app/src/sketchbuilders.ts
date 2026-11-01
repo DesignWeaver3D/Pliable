@@ -54,7 +54,7 @@ export function addRectangle(ctx: BuilderContext, a: Snap, b: Snap, centred = fa
   const size = Math.min(ctx.rectOptions.size, (Math.min(u1 - u0, v1 - v0) / 2) * 0.999);
   if (corner === "none" || size < 1e-6) {
     // Snapped corners (existing points) stay in use; the other two are new.
-    const corners: Snap[] = [{ u: u0, v: v0 }, { u: u1, v: v0 }, { u: u1, v: v1 }, { u: u0, v: v1 }].map((c) => (!centred ? [a, b].find((o) => (o.id !== undefined || o.on || o.axes) && o.u === c.u && o.v === c.v) : undefined) ?? c);
+    const corners: Snap[] = [{ u: u0, v: v0 }, { u: u1, v: v0 }, { u: u1, v: v1 }, { u: u0, v: v1 }].map((c) => (centred ? [b] : [a, b]).find((o) => (o.id !== undefined || o.on || o.axes) && o.u === c.u && o.v === c.v) ?? c); // a center rectangle's clicked corner is its second click; the center is its own point
     const p = corners.map((c) => ctx.pointFor(c));
     // Corners clicked on a sketch axis are held on it (pointFor); one corner per axis is enough, the side's own horizontal or vertical keeps the other on it.
     const held = new Set<number>();

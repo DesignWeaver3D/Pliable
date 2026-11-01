@@ -219,3 +219,13 @@ test("an arc by center keeps an end click that is on its circle, or on the axis 
   addArc(onCircle, { u: 0, v: 0 }, { u: 0, v: 10 }, { u: 10, v: 0, axes: [0] });
   assert.equal(held(onCircle), 1); // the end is the clicked point itself, held on the axis
 });
+
+test("a center rectangle's second click, on an axis or a point, is its corner and is held there", () => {
+  const onAxis = context();
+  addRectangle(onAxis, { u: 3, v: 2 }, { u: 7, v: 0, axes: [0] }, true);
+  assert.equal(onAxis.s.constraints.filter((c) => c.type === "point_on" && c.axisHold).length, 1);
+  const onPoint = context();
+  onPoint.s.points.push({ id: 90, u: 7, v: 5 });
+  addRectangle(onPoint, { u: 3, v: 2 }, { id: 90, u: 7, v: 5 }, true);
+  assert.equal(onPoint.s.points.length, 5); // the clicked point, the center and three new corners: no copy of the clicked one
+});
