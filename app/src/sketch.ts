@@ -20,6 +20,8 @@ import * as T from "./sketchtyped";
 import * as F from "./sketchfit";
 import * as Co from "./sketchcoincident";
 import { cornerClick, cutClick, tangentClick } from "./sketchclicks.ts";
+import * as Dr from "./sketchdraw.ts";
+import { COLORS } from "./sketchdraw.ts";
 import { addTangentArc, tangentStart } from "./sketchtangentarc";
 import { addArcRadius, arcClick, defaultArcOptions } from "./sketcharcoptions";
 import { isFreeCircle, draggedRadius } from "./sketchcircledrag";
@@ -48,9 +50,7 @@ import type { Sel, Viewport } from "./viewport";
 const DRAG_START_PX = 3;
 const POINT_SIZE_PX = 8;
 const CONSTRUCTION_DASH_PX = 8;
-const CENTRE_CROSS_PX = 10; // half the width of a circle or arc center cross
 const CONSTRUCTION_GAP_PX = 5;
-const COLORS = { line: 0xb8a4ff, selected: 0xff8a1f, hover: 0xffffff, pending: 0xffe066, construction: 0x7f8794, grid: 0x3a4150, placed: 0x8fe388, conflict: 0xff5a5a };
 
 /** Regular polygon tools: the center then a corner; the number of sides is the only difference between them. */
 const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5, hexagon: 6, octagon: 8 };
@@ -58,13 +58,13 @@ const POLYGON_SIDES: Partial<Record<Tool, number>> = { triangle: 3, pentagon: 5,
 export { loadSketchOptions, OPTIONS_KEY, type SketchOptions } from "./sketchoptions";
 
 
-export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContext, Pv.PreviewContext {
+export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapContext, PanelContext, Pv.PreviewContext {
   active = false;
   s!: M.SketchData;
   private plane = new THREE.Plane();
   tool: Tool = "select";
   selection: M.SketchSel[] = [];
-  private hover: M.SketchSel | null = null;
+  hover: M.SketchSel | null = null;
   /** Geometry lit up while the pointer is over a row of the constraint list. */
   highlight: M.SketchSel[] = [];
   chain: Snap[] = []; // points clicked so far for the current drawing
@@ -73,9 +73,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private dof: number | null = null;
   failed = new Set<number>();
   /** Directions each point can still move in (0 = placed by the constraints); empty until the first settled solve. */
-  private freedom = new Map<number, number>();
+  freedom = new Map<number, number>();
   /** Circles whose radius is not fixed yet: not drawn as fully constrained even when their center is placed. */
-  private freeSizes = new Set<number>();
+  freeSizes = new Set<number>();
   /** Set by clicking the degrees of freedom message: the points and curves that still have freedom light up yellow. */
   private showFree = false;
   /** Whether small tags (H, V, T, =, ...) show where constraints act. */
@@ -88,12 +88,12 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private free = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: FREE_COLOR, linewidth: 3, depthTest: false, transparent: true }));
   private marked = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.selected, linewidth: 3, depthTest: false, transparent: true }));
   /** The model's principal axes as they project onto the sketch plane (red x, green y, blue z). */
-  private axes = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ linewidth: 1, vertexColors: true, depthTest: false, transparent: true, opacity: 0.7 }));
+  axes = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ linewidth: 1, vertexColors: true, depthTest: false, transparent: true, opacity: 0.7 }));
   private pending = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.pending, linewidth: 2, depthTest: false, transparent: true }));
   /** A small cross at the center of every circle and arc, as in technical drawings. */
-  private centres = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ vertexColors: true, linewidth: 2, depthTest: false, transparent: true })); // each cross is colored like its curve
-  private centreColours = new Map<number, number>(); // the color of each circle's and arc's cross, set as the curves are drawn
-  private centresAt = 0; // the pixel size the crosses were last built for
+  centres = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ vertexColors: true, linewidth: 2, depthTest: false, transparent: true })); // each cross is colored like its curve
+  centreColours = new Map<number, number>(); // the color of each circle's and arc's cross, set as the curves are drawn
+  centresAt = 0; // the pixel size the crosses were last built for
   private points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: POINT_SIZE_PX, sizeAttenuation: false, vertexColors: true, depthTest: false, transparent: true }));
   private grid: THREE.Group | null = null;
   options = loadSketchOptions();
@@ -1706,21 +1706,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const size = this.viewport.renderer.getSize(new THREE.Vector2());
     for (const l of [this.axes, this.normal, this.placed, this.construction, this.free, this.marked, this.pending, this.centres]) l.material.resolution.set(size.x, size.y);
     const pixel = this.pixelAt(0, 0); // dashes keep their screen size as the view zooms
-    if (this.active && Math.abs(pixel - this.centresAt) > this.centresAt * 0.01) this.drawCentres(); // so do the center crosses
+    if (this.active && Math.abs(pixel - this.centresAt) > this.centresAt * 0.01) Dr.drawCentres(this); // so do the center crosses
     this.construction.material.dashSize = CONSTRUCTION_DASH_PX * pixel;
     this.construction.material.gapSize = CONSTRUCTION_GAP_PX * pixel;
-  }
-
-  private world(u: number, v: number): THREE.Vector3 {
-    return new THREE.Vector3(...M.toWorld(this.s.plane, u, v));
-  }
-
-  private segments(lines: [number, number][][]): number[] {
-    const out: number[] = [];
-    for (const line of lines) {
-      for (let i = 0; i + 1 < line.length; i++) out.push(...this.world(...line[i]).toArray(), ...this.world(...line[i + 1]).toArray());
-    }
-    return out;
   }
 
   lightUp(c: M.SketchConstraint | null) {
@@ -1728,18 +1716,6 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const points = c ? [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])] : [];
     this.highlight = [...points.map((id) => ({ kind: "point" as const, id })), ...ids.map((id) => ({ kind: "entity" as const, id }))];
     this.render(false); // keep the panel: rebuilding it under the pointer would end the hover
-  }
-
-  private isMarked(sel: M.SketchSel) {
-    const same = (s: M.SketchSel) => s.kind === sel.kind && s.id === sel.id;
-    return this.selection.some(same) || this.highlight.some(same) || (this.hover?.kind === sel.kind && this.hover.id === sel.id);
-  }
-
-  /** Whether the constraints already place every point of the entity (drawn green, like a fully constrained shape). */
-  private isPlaced(e: M.SketchEntity): boolean {
-    if (!this.freedom.size || this.failed.size || this.freeSizes.has(e.id)) return false;
-    const ids = M.entityPoints(e);
-    return ids.length > 0 && ids.every((id) => this.freedom.get(id) === 0);
   }
 
   render(panel = true) {
@@ -1753,20 +1729,20 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     const stacked: { a: [number, number]; b: [number, number] }[] = []; // construction lines, cut so stacked ones are dashed once
     const pointUV = (id: number): [number, number] => [M.pointOf(this.s, id).u, M.pointOf(this.s, id).v];
     for (const e of [...this.s.entities].sort((p, q) => M.entityLength(this.s, q) - M.entityLength(this.s, p))) { // longer first, so a shorter curve stacked on a longer one is drawn on top
-      const bucket = this.isMarked({ kind: "entity", id: e.id }) ? marked : open?.entities.has(e.id) ? lit : e.construction ? guides : this.isPlaced(e) ? placed : normal;
+      const bucket = Dr.isMarked(this, { kind: "entity", id: e.id }) ? marked : open?.entities.has(e.id) ? lit : e.construction ? guides : Dr.isPlaced(this, e) ? placed : normal;
       if (bucket === guides && e.type === "line") stacked.push({ a: pointUV(e.a), b: pointUV(e.b) });
       else bucket.push(M.polyline(this.s, e));
       this.centreColours.set(e.id, bucket === marked ? COLORS.selected : bucket === lit ? FREE_COLOR : bucket === guides ? COLORS.construction : bucket === placed ? COLORS.placed : COLORS.line);
     }
-    this.drawCentres();
-    this.drawAxes();
-    this.set(this.normal, this.segments(normal));
+    Dr.drawCentres(this);
+    Dr.drawAxes(this);
+    Dr.setLine(this.normal, Dr.segments(this, normal));
     guides.push(...unstacked(stacked));
-    this.set(this.construction, this.segments(guides));
-    this.set(this.marked, this.segments(marked));
-    this.set(this.placed, this.segments(placed));
-    this.set(this.free, this.segments(lit));
-    this.set(this.pending, this.segments(this.pendingShapes()));
+    Dr.setLine(this.construction, Dr.segments(this, guides));
+    Dr.setLine(this.marked, Dr.segments(this, marked));
+    Dr.setLine(this.placed, Dr.segments(this, placed));
+    Dr.setLine(this.free, Dr.segments(this, lit));
+    Dr.setLine(this.pending, Dr.segments(this, this.pendingShapes()));
 
     const positions: number[] = [];
     const colors: number[] = [];
@@ -1774,8 +1750,8 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     // The sketch origin goes last so it is drawn over any vertex that sits on it.
     const atOrigin = (p: M.SketchPoint) => p.fixed && Math.hypot(p.u, p.v) < 1e-6;
     for (const p of [...this.s.points.filter((q) => !atOrigin(q)), ...this.s.points.filter(atOrigin)]) {
-      positions.push(...this.world(p.u, p.v).toArray());
-      color.set(this.isMarked({ kind: "point", id: p.id }) ? COLORS.selected : open?.points.has(p.id) ? FREE_COLOR : this.cursor?.id === p.id ? COLORS.hover : p.fixed ? COLORS.construction : this.freedom.get(p.id) === 0 ? COLORS.placed : COLORS.line);
+      positions.push(...Dr.world(this, p.u, p.v).toArray());
+      color.set(Dr.isMarked(this, { kind: "point", id: p.id }) ? COLORS.selected : open?.points.has(p.id) ? FREE_COLOR : this.cursor?.id === p.id ? COLORS.hover : p.fixed ? COLORS.construction : this.freedom.get(p.id) === 0 ? COLORS.placed : COLORS.line);
       colors.push(color.r, color.g, color.b);
     }
     this.points.geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
@@ -1791,48 +1767,6 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     this.overlay.set([...dimensions, ...(this.showMarks ? M.constraintMarks({ ...this.s, constraints: [...this.s.constraints, ...Co.sharedMarks(this.s)] }).map((m) => (m.constraint === undefined ? m : { ...m, selected: this.selectedDimensions.has(m.constraint), select: (e: MouseEvent) => this.selectDimension(m.constraint!, e.shiftKey || e.ctrlKey || e.metaKey), menu: (e: MouseEvent) => void this.markMenu(m.constraint!, e) })) : []), ...this.liveDimensions()]);
     if (panel) this.renderPanel();
     this.onToolChange?.(); // the strip's constraint row follows the selection
-  }
-
-  private drawAxes() {
-    const reach = 400;
-    const positions: number[] = [];
-    const colors: number[] = [];
-    for (const [i, a] of M.sketchAxes(this.s.plane).entries()) {
-      positions.push(...this.world(a.u - a.du * reach, a.v - a.dv * reach).toArray(), ...this.world(a.u + a.du * reach, a.v + a.dv * reach).toArray());
-      const c = new THREE.Color(this.isMarked({ kind: "entity", id: -1 - i }) ? COLORS.selected : [0xd9534f, 0x5cb85c, 0x4a90e2][a.axis]); // the axes are the entities below zero (see M.entityOf)
-      colors.push(c.r, c.g, c.b, c.r, c.g, c.b);
-    }
-    this.axes.visible = positions.length > 0;
-    if (!positions.length) return;
-    this.axes.geometry.dispose();
-    this.axes.geometry = new LineSegmentsGeometry().setPositions(positions).setColors(colors);
-  }
-
-  private drawCentres() {
-    const pixel = this.pixelAt(0, 0);
-    this.centresAt = pixel;
-    const arm = CENTRE_CROSS_PX * pixel;
-    const lines: [number, number][][] = [];
-    const colors: number[] = [];
-    const color = new THREE.Color();
-    for (const e of this.s.entities) {
-      if (e.type !== "circle" && e.type !== "arc") continue;
-      const c = M.pointOf(this.s, e.center);
-      lines.push([[c.u - arm, c.v], [c.u + arm, c.v]], [[c.u, c.v - arm], [c.u, c.v + arm]]);
-      color.set(this.centreColours.get(e.id) ?? COLORS.line);
-      for (let k = 0; k < 4; k++) colors.push(color.r, color.g, color.b);
-    }
-    this.set(this.centres, this.segments(lines));
-    if (lines.length) this.centres.geometry.setColors(colors);
-  }
-
-  private set(line: LineSegments2, positions: number[]) {
-    line.visible = positions.length > 0;
-    if (!positions.length) return;
-    // A fresh geometry each time: reusing one whose segment count grows left it drawing only the first segments.
-    line.geometry.dispose();
-    line.geometry = new LineSegmentsGeometry().setPositions(positions);
-    if (line.material.dashed) line.computeLineDistances();
   }
 
   /** Size tags next to the cursor while a shape is being placed: length and angle, width by height, or radius. */
