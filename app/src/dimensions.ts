@@ -98,6 +98,13 @@ export class DimensionOverlay {
   ) {
     this.svg.setAttribute("style", "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:hidden");
     container.append(this.svg);
+    // The wheel zooms the view even with the pointer over a dimension or a mark (their hit areas cover the canvas): hand it to the canvas.
+    this.svg.addEventListener("wheel", (e) => {
+      const canvas = container.querySelector("canvas");
+      if (!canvas) return;
+      e.preventDefault();
+      canvas.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: e.clientX, clientY: e.clientY, deltaX: e.deltaX, deltaY: e.deltaY, deltaZ: e.deltaZ, deltaMode: e.deltaMode, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey }));
+    }, { passive: false });
     window.addEventListener("pointermove", (e) => {
       const r = this.svg.getBoundingClientRect();
       this.pointer = { x: e.clientX - r.left, y: e.clientY - r.top };
