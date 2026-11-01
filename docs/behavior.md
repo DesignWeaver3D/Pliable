@@ -33,7 +33,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Wheel zooms toward the cursor, right-drag orbits, middle-drag pans, including during a tool drag.
 - View keys: 0 iso, 1 front, 2 top, 3 right, 4 rear, 5 bottom, 6 left, P projection, V look at face.
 - Creating a new sketch turns the view square to the sketch plane in orthographic projection, unless "Square the view to a new sketch" in the sketch card's settings window is off (on by default, kept on this computer); editing a kept sketch does not move the camera. The Look at plane button does the same on request. It turns the view square to the sketch plane in orthographic projection; when the view was perspective, turning the camera away from the sketch (not zooming or panning) goes back to perspective. (owner, 2026-11-01)
-- A circle's radius or diameter dimension is first drawn at 45° (up and to the right, turning to the next diagonal when that one ends inside a closed region), not along the horizontal or vertical; arc radius leaders are unchanged. (owner, 2026-11-01)
+- A circle's radius or diameter dimension is first drawn at 45° in the quadrant (around the circle's center) the pointer was in when the dimension was made, by the dimension tool or by typing a circle's size; it is remembered, so moving the pointer later does not move it. Where that diagonal ends inside a closed region, the next diagonal is used; with no pointer to go by (older sketches) it is up and to the right. Arc radius leaders are unchanged. (owner, 2026-11-01)
 
 ## Keys
 
