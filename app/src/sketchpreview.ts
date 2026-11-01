@@ -6,7 +6,7 @@ import * as B from "./sketchbuilders.ts";
 import * as M from "./sketchmodel.ts";
 import * as Ell from "./sketchellipse.ts";
 import * as Sh from "./sketchshapes.ts";
-import type { Snap, Tool } from "./sketch.ts";
+import type { Snap, Tool } from "./sketchtypes.ts";
 import { arcByRadius, arcClick, radiusArcPoints, type ArcOptions } from "./sketcharcoptions.ts";
 import { tangentArcFor, tangentArcPoints } from "./sketchtangentarc.ts";
 import { typedLabels, typedTag } from "./sketchtyped.ts";

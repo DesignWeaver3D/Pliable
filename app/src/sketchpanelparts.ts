@@ -5,7 +5,8 @@ import * as M from "./sketchmodel";
 import * as Co from "./sketchcoincident";
 import { uiIcon } from "./icons";
 import { deleteButton } from "./deletebutton";
-import type { SketchOptions, Tool } from "./sketch";
+import type { SketchOptions } from "./sketchoptions";
+import type { Tool } from "./sketchtypes";
 import type { ArcOptions } from "./sketcharcoptions";
 
 export interface PanelContext {

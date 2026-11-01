@@ -1,5 +1,5 @@
 /** The sketch settings window (grid spacing, fade, automatic constraints). Moved out of sketch.ts. */
-import type { SketchOptions } from "./sketch";
+import type { SketchOptions } from "./sketchoptions";
 import { LENGTH_UNIT } from "./units";
 
 export interface SettingsHooks {

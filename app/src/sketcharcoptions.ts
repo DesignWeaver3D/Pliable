@@ -3,7 +3,7 @@
 import { turnCounterclockwise } from "./anglemath.ts";
 import * as M from "./sketchmodel.ts";
 import type { BuilderContext } from "./sketchbuilders.ts";
-import type { Snap } from "./sketch.ts";
+import type { Snap } from "./sketchtypes.ts";
 import { arcBetween } from "./sketchshapes.ts";
 import type { UV } from "./sketchshapes.ts";
 

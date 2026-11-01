@@ -1,7 +1,7 @@
 /** The sketch's solve loop: one request to the core in flight, the newest queued request wins, and the reply moves the points. Moved out of sketch.ts. */
 import type { CoreClient } from "./client";
 import * as M from "./sketchmodel";
-import type { Drag } from "./sketch";
+import type { Drag } from "./sketchtypes";
 
 interface SolveReply {
   status: "ok" | "failed";

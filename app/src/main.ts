@@ -7,7 +7,7 @@ import { installMessageLog } from "./messagelog";
 import type { PlaneData } from "./sketchmodel";
 import { CoreClient, type MeshData } from "./client";
 import { SketchMode } from "./sketch";
-import type { Tool as SketchTool } from "./sketch";
+import type { Tool as SketchTool } from "./sketchtypes";
 import { SketchBar } from "./sketchbar";
 import { ToolPanel, type ParamValue } from "./toolpanel";
 import { NavCube, VIEW_KEYS } from "./navcube";

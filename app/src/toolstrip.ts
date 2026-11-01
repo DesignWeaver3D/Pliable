@@ -8,7 +8,7 @@ import { constraintIcon, sketchIcon, toolIcon, uiIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
 import { toolTooltip, type ToolInfo } from "./tools";
 import type { Sel } from "./viewport";
-import { SKETCH_TOOLS, type Tool as SketchTool } from "./sketch";
+import { SKETCH_TOOLS, type Tool as SketchTool } from "./sketchtypes";
 
 export interface StripDeps {
   toolbar: HTMLElement;

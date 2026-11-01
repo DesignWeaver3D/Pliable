@@ -3,7 +3,7 @@
 import * as M from "./sketchmodel.ts";
 import * as Sh from "./sketchshapes.ts";
 import * as Ell from "./sketchellipse.ts";
-import type { Drag, Snap } from "./sketch.ts";
+import type { Drag, Snap } from "./sketchtypes.ts";
 
 /** A line drawn within this angle of horizontal/vertical becomes exactly so (also read by the arc tangent rule below). */
 export const AUTO_AXIS_DEG = 3;

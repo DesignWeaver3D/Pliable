@@ -2,7 +2,7 @@
  *  The first click is an end point of a line or arc, or the curve itself (its nearer end is taken). No DOM. */
 import * as M from "./sketchmodel.ts";
 import type { BuilderContext } from "./sketchbuilders.ts";
-import type { Snap } from "./sketch.ts";
+import type { Snap } from "./sketchtypes.ts";
 import { arcBetween } from "./sketchshapes.ts";
 import type { UV } from "./sketchshapes.ts";
 

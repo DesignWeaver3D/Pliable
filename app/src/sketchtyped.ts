@@ -1,6 +1,6 @@
 /** Typed sizes while a sketch shape is being drawn: which numbers each drawing tool takes, how keys edit the typed text
  *  (Tab or space moves to the next number), and where the typed numbers put the next points. No DOM. */
-import type { Tool } from "./sketch.ts";
+import type { Tool } from "./sketchtypes.ts";
 import type { UV } from "./sketchshapes.ts";
 
 /** The numbers the tool takes at this stage of drawing (`chainLength` points placed so far), as short names; empty when the tool takes none. */

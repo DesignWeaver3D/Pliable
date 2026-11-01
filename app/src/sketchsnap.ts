@@ -3,7 +3,8 @@
 import type * as THREE from "three";
 import * as M from "./sketchmodel.ts";
 import { AUTO_AXIS_DEG } from "./sketchbuilders.ts";
-import type { Snap, Tool, SketchOptions } from "./sketch.ts";
+import type { Snap, Tool } from "./sketchtypes.ts";
+import type { SketchOptions } from "./sketchoptions.ts";
 
 export const SNAP_PX = 10; // pointer snaps to an existing sketch point this close
 export const PICK_PX = 8; // pick radius for points and curves in the select tool
