@@ -1,5 +1,7 @@
 /** What the Push/Pull card chooses: the mode (Auto, Add, Subtract, New body), Flip and Symmetric, and the Alt override. Pure state, no DOM: the card (pushpullcard.ts),
  *  the drag (itemdrag.ts) and the arrows (pushpullarrows.ts) all read it. The core decides what each mode does (docs/dev-notes.md, "Push/pull modes and ghost"). */
+import { extentOn, extentParams, type Reach } from "./pushpullextent.ts";
+
 export type PushPullMode = "auto" | "add" | "subtract" | "new";
 
 export const MODE_BUTTONS: readonly { id: PushPullMode; label: string; title: string }[] = [
@@ -12,7 +14,7 @@ export const MODE_BUTTONS: readonly { id: PushPullMode; label: string; title: st
 export const FLIP_TITLE = "Reverses which drag direction adds and which subtracts (the arrows swap color); it does not change the face's normal";
 export const SYMMETRIC_TITLE = "Push and pull both ways from the face. Symmetric: press Shift while dragging to toggle it";
 
-export const UP_TO_TITLE = "Pull up to a face you click in the view: the pad ends exactly on that flat face and the distance is ignored. Adds material (Auto, Add or New body); not with Symmetric";
+export const UP_TO_TITLE = "Pull up to a face you click in the view: the pad ends exactly on that face (flat or curved) and the distance is ignored. Adds material (Auto, Add or New body); not with Symmetric";
 
 export class PushPullState {
   /** The mode chosen on the card (default Auto). */
@@ -22,6 +24,8 @@ export class PushPullState {
   symmetric = false;
   /** The face id Up to face pulls to, or null while the option is off. */
   upTo: number | null = null;
+  /** Up to last or Through all (no pick), or null while off; at most one of this and upTo is set. */
+  reach: Reach | null = null;
   /** Alt pressed once: New body until Alt is pressed again, then the choice comes back. */
   altOn = false;
   /** Called after any change, so the card and the arrows redraw. */
@@ -49,6 +53,13 @@ export class PushPullState {
 
   setUpTo(face: number | null) {
     this.upTo = face;
+    if (face !== null) this.reach = null;
+    this.onChange();
+  }
+
+  setReach(reach: Reach | null) {
+    this.reach = reach;
+    if (reach !== null) this.upTo = null;
     this.onChange();
   }
 
@@ -60,16 +71,16 @@ export class PushPullState {
 
   /** The tool was applied, cancelled or closed: Flip is off the next time (the arrow roles follow it). */
   reset() {
-    if (!this.flip && this.upTo === null) return;
+    if (!this.flip && !extentOn(this.upTo, this.reach)) return;
     this.flip = false;
     this.upTo = null; // the picked face belongs to the model it was picked on
+    this.reach = null;
     this.onChange();
   }
 
-  /** The request fields the core reads (mode and flip; symmetric and the direction are added by the drag). With Up to face the target goes too and Symmetric is off. */
+  /** The request fields the core reads (mode and flip; symmetric and the direction are added by the drag). With Up to face the target goes too, with Up to last or Through all the extent, and Symmetric is off. */
   params(): Record<string, number | string | boolean> {
-    if (this.upTo !== null) return { mode: this.mode, flip: this.flip, target: this.upTo, symmetric: 0 };
-    return { mode: this.mode, flip: this.flip };
+    return { mode: this.mode, flip: this.flip, ...extentParams(this.upTo, this.reach) };
   }
 }
 

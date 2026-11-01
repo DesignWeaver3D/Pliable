@@ -115,14 +115,14 @@ def test_a_target_parallel_to_the_pull_is_refused():
         commit(session, top, wall)
 
 
-def test_a_curved_target_is_refused():
+def test_a_target_the_pull_never_meets_is_refused():
     session = session_with(LOWER, Pos(0, 0, 25) * Cylinder(5, 10))
     top = find_face(session, 5, 1)
     from OCP.BRepAdaptor import BRepAdaptor_Surface
     from OCP.GeomAbs import GeomAbs_Cylinder
 
     wall = next(i for i, f in session.document.current.faces() if BRepAdaptor_Surface(f).GetType() == GeomAbs_Cylinder)
-    with pytest.raises(OperationError, match="flat"):
+    with pytest.raises(OperationError, match="does not cover"):
         commit(session, top, wall)
 
 
