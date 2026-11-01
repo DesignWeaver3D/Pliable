@@ -312,7 +312,9 @@ export function addArc(ctx: BuilderContext, center: Snap, start: Snap, end: Snap
   const angle = Math.atan2(end.v - center.v, end.u - center.u);
   const c = ctx.pointFor(center);
   const s = ctx.pointFor(start);
-  const e = ctx.pointFor({ u: center.u + radius * Math.cos(angle), v: center.v + radius * Math.sin(angle) });
+  const reach = { u: center.u + radius * Math.cos(angle), v: center.v + radius * Math.sin(angle) };
+  const e = ctx.pointFor(Math.hypot(end.u - reach.u, end.v - reach.v) < 1e-6 ? end : (reach as Snap)); // an end click on the arc's own circle is the end, with its snap
+  for (const k of end.axes ?? []) if (center.axes?.includes(k)) ctx.addConstraintRaw({ type: "point_on", point: e, entity: k === 0 ? M.AXIS_U : M.AXIS_V }, "snap"); // the center and the click share an axis, so the end lies on it
   const arcId = M.nextId(ctx.s);
   const clockwise = !counterclockwise && Sh.arcSweepToward(center, start, end) < 0; // arcs are stored counterclockwise, so a clockwise one runs from the pointer's end back to the start
   ctx.s.entities.push({ id: arcId, type: "arc", center: c, start: clockwise ? e : s, end: clockwise ? s : e });

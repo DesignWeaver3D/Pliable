@@ -209,3 +209,13 @@ test("an ellipse's third click on a minor end, keeps its snap", () => {
   addEllipse(ellipse, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 0, v: 5, axes: [1] });
   assert.equal(ellipse.s.constraints.filter((c) => c.axisHold).length, 1);
 });
+
+test("an arc by center keeps an end click that is on its circle, or on the axis its center is on", () => {
+  const held = (ctx) => ctx.s.constraints.filter((c) => c.type === "point_on").length;
+  const onAxis = context();
+  addArc(onAxis, { u: 0, v: 0, axes: [0, 1] }, { u: 0, v: 10 }, { u: 30, v: 0, axes: [0] });
+  assert.equal(onAxis.s.constraints.filter((c) => c.type === "point_on" && c.axisHold === undefined).length, 1);
+  const onCircle = context();
+  addArc(onCircle, { u: 0, v: 0 }, { u: 0, v: 10 }, { u: 10, v: 0, axes: [0] });
+  assert.equal(held(onCircle), 1); // the end is the clicked point itself, held on the axis
+});
