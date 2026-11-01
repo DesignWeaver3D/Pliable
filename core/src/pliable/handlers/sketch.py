@@ -236,6 +236,13 @@ class SketchHandlers:
             raise RequestError("No such sketch")
         if kind == "sketch_delete":
             entries.remove(entry)
+        elif kind == "sketch_duplicate":
+            # A copy right after the original, named after it (as a duplicated body is), with a fresh id.
+            sketch_id = document.new_sketch_id()
+            entries.insert(entries.index(entry) + 1, {"id": sketch_id, "name": f"{entry['name']} copy"[:80], "rev": 1, "sketch": copy.deepcopy(entry["sketch"])})
+            target = document.set_sketches(entries)
+            self._autosave()
+            return self._mesh_reply(target, {}, preview=False, sketchId=sketch_id)
         else:
             name = str(request.get("name", "")).strip()
             if not name:

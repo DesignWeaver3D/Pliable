@@ -38,6 +38,7 @@ Replies to `tool_preview`/`tool_commit` also carry `preview` (bool) and `selecti
 | `sketch_get` | `sketch_id` | `{sketch_id, name, rev, sketch}`; unknown id is an error |
 | `sketch_delete` | `sketch_id` | undoable; mesh reply |
 | `sketch_rename` | `sketch_id`, `name` | undoable (bumps `rev`); mesh reply |
+| `sketch_duplicate` | `sketch_id` | undoable; adds a copy right after the original with the next id and the name "<name> copy"; mesh reply with `sketchId` (the copy's id) |
 
 | `sketch_offset` | `sketch`, `entities` (ids), `distance` | `{points, entities}`: parallel copies of the chosen lines, arcs and circles with fresh ids and no constraints (positive grows a closed outline) |
 | `sketch_project` | `plane`, optional `faces` and `edges` (ids) | `{points, entities}`: the picked faces and edges (every model edge when none are given) flattened onto the plane as fixed reference geometry (lines square to the plane and tilted circles are left out) |

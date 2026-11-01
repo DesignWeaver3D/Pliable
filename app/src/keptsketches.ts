@@ -22,6 +22,8 @@ export interface KeptHost {
   open(id: number): void;
   remove(id: number): void;
   rename(id: number, name: string): void;
+  /** Add a copy of the sketch after it. */
+  duplicate(id: number): void;
   /** A row was clicked: the Delete key then removes it (see listdelete.ts). */
   pick?(id: number): void;
 }
@@ -196,6 +198,7 @@ export class KeptSketches {
         this.host.pick?.(k.id);
         openRowMenuItems(e.clientX, e.clientY, [
           { label: "Rename", run: () => this.rename(k, row.querySelector<HTMLElement>(".bodyname")!), title: "Rename this sketch" },
+          { label: "Duplicate", run: () => this.host.duplicate(k.id), title: "Add a copy of this sketch to the list (Undo removes it)" },
           { label: "Delete", run: () => this.host.remove(k.id), title: "Delete this sketch (Undo brings it back)" },
         ]);
       });

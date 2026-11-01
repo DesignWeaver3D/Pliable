@@ -94,6 +94,21 @@ def test_delete_and_rename_undo_redo():
         session.handle({"type": "sketch_rename", "sketch_id": 2, "name": " "})
 
 
+def test_duplicate_adds_a_copy_after_the_original_and_is_undoable():
+    session = open_session()
+    session.handle({"type": "sketch_keep", "sketch": make(session)})
+    session.handle({"type": "sketch_keep", "sketch": make(session, w=20, x0=40.0), "name": "Other"})
+    h = header(session.handle({"type": "sketch_duplicate", "sketch_id": 1}))
+    assert h["sketchId"] == 3
+    assert [(s["id"], s["name"]) for s in h["sketches"]] == [(1, "Sketch 1"), (3, "Sketch 1 copy"), (2, "Other")]
+    assert session.document.get_sketch(3)["sketch"] == session.document.get_sketch(1)["sketch"]
+    assert session.document.get_sketch(3)["sketch"] is not session.document.get_sketch(1)["sketch"]
+    assert [s["id"] for s in header(session.handle({"type": "undo"}))["sketches"]] == [1, 2]
+    assert [s["id"] for s in header(session.handle({"type": "redo"}))["sketches"]] == [1, 3, 2]
+    with pytest.raises(RequestError):
+        session.handle({"type": "sketch_duplicate", "sketch_id": 99})
+
+
 def test_other_edits_carry_sketches_forward():
     session = open_session()
     session.handle({"type": "sketch_keep", "sketch": make(session)})

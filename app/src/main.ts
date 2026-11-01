@@ -939,6 +939,7 @@ const keptSketches = new KeptSketches({
   remove: (id) => keptRequest("sketch_delete", { sketch_id: id }),
   pick: (id) => pickRow({ list: "sketch", id }),
   rename: (id, name) => keptRequest("sketch_rename", { sketch_id: id, name }),
+  duplicate: (id) => keptRequest("sketch_duplicate", { sketch_id: id }),
 });
 onSketches = (list) => keptSketches.setList(list);
 const datumPlanes = new DatumPlanes({

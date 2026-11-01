@@ -201,7 +201,7 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers, SessionHandlers, Quer
                 raise RequestError("No such sketch")
             # the reply's own "id" is the request's correlation id, so the sketch's id travels as sketch_id
             return {"sketch_id": found["id"], "name": found["name"], "rev": found["rev"], "sketch": found["sketch"]}
-        if kind in ("sketch_delete", "sketch_rename"):
+        if kind in ("sketch_delete", "sketch_rename", "sketch_duplicate"):
             return self._sketch_edit(request, kind)
         if kind == "sketch_move":
             return self._sketch_move(request)
