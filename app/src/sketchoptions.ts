@@ -3,6 +3,8 @@
 /** Sketch preferences kept on this computer: the grid and which constraints the drawing tools add on their own. */
 export interface SketchOptions {
   grid: boolean;
+  /** A new sketch turns the view square to its plane in orthographic projection (the card's Look at plane button does the same on request). */
+  lookAtNew: boolean;
   /** Pointer positions snap to the grid while drawing. */
   snapGrid: boolean;
   /** Spacing of the bold grid lines, in the length unit (mm). */
@@ -19,11 +21,12 @@ export interface SketchOptions {
 export const OPTIONS_KEY = "pliable.sketchOptions2";
 
 export function loadSketchOptions(): SketchOptions {
-  const options: SketchOptions = { grid: false, snapGrid: false, major: 10, minor: 2, fade: "subtle", sides: 6, auto: "shape" };
+  const options: SketchOptions = { grid: false, lookAtNew: true, snapGrid: false, major: 10, minor: 2, fade: "subtle", sides: 6, auto: "shape" };
   try {
     const saved = JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? "null");
     if (saved) {
       options.grid = saved.grid === true;
+      options.lookAtNew = saved.lookAtNew !== false;
       options.snapGrid = saved.snapGrid === true;
       if (Number.isFinite(saved.major) && saved.major > 0) options.major = saved.major;
       if (Number.isFinite(saved.minor) && saved.minor >= 0) options.minor = saved.minor;
