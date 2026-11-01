@@ -143,7 +143,7 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
       if (entity.type === "arc") {
         // An arc's leader touches the arc where it was dragged (the middle of the arc until then); past either end it sits on an
         // extension of the arc's circle, drawn dashed from that end (no geometry is added).
-        const arcWay = arcLeaderWay(s, entity, c.place ?? null);
+        const arcWay = arcLeaderWay(s, entity, c.place ?? null, c.angle);
         way = [0, 1, 2].map((k) => arcWay.way[0] * f.x[k] + arcWay.way[1] * f.y[k]);
         extend = arcWay.extension.map(([p, q]) => [toWorld(s.plane, ...p), toWorld(s.plane, ...q)]);
       }
@@ -158,15 +158,21 @@ export function dimensionsOf(s: SketchData, outside?: Outside): Dimension[] {
   return out;
 }
 
-/** The unit direction (in sketch coordinates) an arc's radius leader leaves the center in, and the dashed segments that carry the arc's circle
- *  from the nearer end to that direction when it lies outside the arc's sweep. `place` is where the leader was dragged (null: the arc's middle). */
-export function arcLeaderWay(s: SketchData, arc: Extract<SketchEntity, { type: "arc" }>, place: [number, number] | null): { way: [number, number]; extension: [[number, number], [number, number]][] } {
+/** An arc's center, radius, start angle and counterclockwise sweep (radians). */
+export function arcSpan(s: SketchData, arc: Extract<SketchEntity, { type: "arc" }>) {
   const c = pointOf(s, arc.center);
-  const r = Math.hypot(pointOf(s, arc.start).u - c.u, pointOf(s, arc.start).v - c.v);
-  const a0 = Math.atan2(pointOf(s, arc.start).v - c.v, pointOf(s, arc.start).u - c.u);
-  const sweep = positiveSweep(Math.atan2(pointOf(s, arc.end).v - c.v, pointOf(s, arc.end).u - c.u) - a0);
+  const [start, end] = [pointOf(s, arc.start), pointOf(s, arc.end)];
+  const a0 = Math.atan2(start.v - c.v, start.u - c.u);
+  return { c, r: Math.hypot(start.u - c.u, start.v - c.v), a0, sweep: positiveSweep(Math.atan2(end.v - c.v, end.u - c.u) - a0) };
+}
+
+/** The unit direction (in sketch coordinates) an arc's radius leader leaves the center in, and the dashed segments that carry the arc's circle
+ *  from the nearer end to that direction when it lies outside the arc's sweep. `place` is where the leader was dragged (null: `preset`, the
+ *  direction chosen when it was made, else the arc's middle). */
+export function arcLeaderWay(s: SketchData, arc: Extract<SketchEntity, { type: "arc" }>, place: [number, number] | null, preset?: number): { way: [number, number]; extension: [[number, number], [number, number]][] } {
+  const { c, r, a0, sweep } = arcSpan(s, arc);
   const turn = (a: number) => turnCounterclockwise(a - a0); // counterclockwise from the start
-  const angle = place && Math.hypot(place[0] - c.u, place[1] - c.v) > 1e-9 ? Math.atan2(place[1] - c.v, place[0] - c.u) : a0 + sweep / 2;
+  const angle = place && Math.hypot(place[0] - c.u, place[1] - c.v) > 1e-9 ? Math.atan2(place[1] - c.v, place[0] - c.u) : (preset ?? a0 + sweep / 2);
   const way: [number, number] = [Math.cos(angle), Math.sin(angle)];
   const t = turn(angle);
   if (t <= sweep) return { way, extension: [] };

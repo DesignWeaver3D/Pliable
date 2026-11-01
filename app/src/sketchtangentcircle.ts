@@ -2,6 +2,7 @@
  *  positions and then held by tangent constraints. With two curves the radius comes from the card; with three it is whatever touches all of them.
  *  Of the (up to eight) solutions the one whose center is nearest the pointer is made. No DOM. */
 import * as M from "./sketchmodel.ts";
+import { leaderAngle } from "./sketchleaderangle.ts";
 import { geoOf, isCurve } from "./sketchintersect.ts";
 import type { Pt } from "./sketchintersect.ts";
 
@@ -144,7 +145,7 @@ export function addTangentCircle(s: M.SketchData, ids: number[], radius: number 
     constraints.push({ id: id++, type: "point_on", point: a, entity: fromCurve, auto: true }, { id: id++, type: "point_on", point: b, entity: toCurve, auto: true });
   }
   for (const curve of ids) constraints.push({ id: id++, type: "tangent", entities: [circle, curve], auto: true });
-  if (radius !== null) constraints.push({ id: id++, type: "radius", entity: circle, value: radius });
+  if (radius !== null) constraints.push({ id: id++, type: "radius", entity: circle, value: radius, angle: leaderAngle({ ...s, points, entities, constraints }, circle, "radius") });
   return { ...s, points, entities, constraints };
 }
 

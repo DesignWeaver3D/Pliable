@@ -5,6 +5,7 @@ export { crossings, crossingsWith } from "./sketchintersect.ts";
 import { AXIS_LINES, AXIS_POINTS, entityPoints, nextId, pointOf } from "./sketchdata.ts";
 import type { SketchConstraint, SketchData, SketchEntity, SketchPoint, SketchSel } from "./sketchdata.ts";
 import { polyline } from "./sketchcurves.ts";
+import { leaderAngle } from "./sketchleaderangle.ts";
 export * from "./sketchdata.ts";
 export * from "./sketchcurves.ts";
 export * from "./sketchconstraints.ts";
@@ -105,7 +106,7 @@ export function roundCorner(s: SketchData, pointId: number, kind: "fillet" | "ch
     const arc = id++;
     entities.push({ id: arc, type: "arc", center: centre.id, start: (ccw ? t[0] : t[1]).id, end: (ccw ? t[1] : t[0]).id });
     constraints.push({ id: id++, type: "tangent", entities: [arc, outline[0].id], auto: true }, { id: id++, type: "tangent", entities: [arc, outline[1].id], auto: true });
-    constraints.push({ id: id++, type: "radius", entity: arc, value: size }); // the fillet's radius, a driving dimension
+    constraints.push({ id: id++, type: "radius", entity: arc, value: size, angle: leaderAngle({ ...s, points: [...s.points, ...added], entities, constraints }, arc, "radius") }); // the fillet's radius, a driving dimension
   }
   return { ...s, points: [...s.points, ...added], entities, constraints };
 }

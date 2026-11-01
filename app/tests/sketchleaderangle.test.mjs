@@ -21,7 +21,7 @@ test("A circle with no other dimension on its center gets 45° in the pointer's 
   assert.equal(deg(leaderAngle(sketchOf([]), 10, "diameter", { u: -4, v: -4 })), -135);
   assert.equal(deg(leaderAngle(sketchOf([]), 10, "radius", { u: 4, v: -1 })), -45);
   assert.equal(leaderAngle(sketchOf([]), undefined, "radius", up), undefined);
-  assert.equal(leaderAngle(sketchOf([]), 10, "radius", null), undefined);
+  assert.equal(deg(leaderAngle(sketchOf([]), 10, "radius", null)), 45); // no pointer: up and to the right
 });
 
 test("Concentric dimensions fill the quadrant from 45° outward, the 15° steps before the 7.5° gaps", () => {
@@ -62,4 +62,52 @@ test("When the pointer's quadrant is full the next quadrant is used, and when al
     for (const local of [45, 60, 30, 75, 15, 52.5, 37.5, 67.5, 22.5]) constraints.push({ id: 200 + constraints.length, type: "radius", entity: 10, value: 5, angle: Math.atan2(qy * Math.sin(local * DEG), qx * Math.cos(local * DEG)) });
   }
   assert.equal(deg(leaderAngle(sketchOf(constraints), 11, "radius", up)), 45);
+});
+
+// An arc from 0° to 120° about point 1 (middle 60°, room for slots from 7.5° to 112.5°), and a second one on the same center.
+const arcSketch = (constraints, sweepTo = 120) => ({
+  plane: { origin: [0, 0, 0], normal: [0, 0, 1], xdir: [1, 0, 0] },
+  points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 10 * Math.cos(sweepTo * DEG), v: 10 * Math.sin(sweepTo * DEG) }],
+  entities: [{ id: 20, type: "arc", center: 1, start: 2, end: 3 }, { id: 21, type: "arc", center: 1, start: 2, end: 3 }, { id: 10, type: "circle", center: 1, radius: 5 }],
+  constraints,
+});
+
+test("The first dimension on an arc is at the middle of its curve", () => {
+  assert.equal(deg(leaderAngle(arcSketch([]), 20, "radius")), 60);
+  assert.equal(deg(leaderAngle(arcSketch([]), 20, "radius", { u: -5, v: 5 })), 60);
+});
+
+test("Concentric arcs fill the curve from the middle outward, then go on past the ends alternating sides", () => {
+  const constraints = [];
+  const order = [];
+  for (let i = 0; i < 12; i++) {
+    const angle = leaderAngle(arcSketch(constraints), i % 2 ? 20 : 21, "radius", { u: 3, v: 6 }); // pointer on the end's side of the middle
+    order.push(deg(angle));
+    constraints.push({ id: 100 + i, type: "radius", entity: i % 2 ? 20 : 21, value: 10, angle });
+  }
+  // 60, then 75/45 (15° steps, the end's side first), 90/30, 105/15 (7.5° from each end is the limit), then the 7.5° gaps 67.5/52.5, 82.5/37.5 ...
+  assert.deepEqual(order.slice(0, 7), [60, 75, 45, 90, 30, 105, 15]);
+  assert.deepEqual(order.slice(7), [67.5, 52.5, 82.5, 37.5, 97.5]);
+});
+
+test("A short arc has only its middle, then the slots past its ends alternate sides at 7.5° spacing", () => {
+  const constraints = [{ id: 100, type: "radius", entity: 21, value: 10, angle: 5 * DEG }];
+  const s = () => arcSketch(constraints, 10); // 0° to 10°: middle 5°, no room inside for others
+  const next = [];
+  for (let i = 0; i < 3; i++) {
+    const angle = leaderAngle(s(), 20, "radius");
+    next.push(deg(angle));
+    constraints.push({ id: 101 + i, type: "radius", entity: 20, value: 10, angle });
+  }
+  assert.deepEqual(next, [17.5, -7.5, 25]); // past the end first (10 + 7.5), then before the start (0 - 7.5), then 10 + 15
+});
+
+test("Circles and arcs on one center avoid each other, a diameter on an arc takes the far end too, and no center means no preference", () => {
+  const withArc = arcSketch([{ id: 100, type: "radius", entity: 20, value: 10, angle: 45 * DEG }]);
+  assert.equal(deg(leaderAngle(withArc, 10, "radius", { u: 4, v: 4 })), 60); // the circle's 45° is taken by the arc's leader
+  const withCircle = arcSketch([{ id: 100, type: "radius", entity: 10, value: 5, angle: 60 * DEG }]);
+  assert.equal(deg(leaderAngle(withCircle, 20, "radius", { u: 3, v: 6 })), 75); // the arc's middle (60°) is taken by the circle's leader
+  const far = arcSketch([{ id: 100, type: "radius", entity: 10, value: 5, angle: 240 * DEG }]);
+  assert.equal(deg(leaderAngle(far, 20, "diameter")), 75); // a diameter at 60° would also use 240°
+  assert.equal(deg(leaderAngle(arcSketch([]), 10, "radius")), 45);
 });
