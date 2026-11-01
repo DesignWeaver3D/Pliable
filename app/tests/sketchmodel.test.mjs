@@ -366,7 +366,7 @@ test("an arc's radius leader sits on the arc where it was dragged, with a dashed
   assert.ok(Math.abs(before.extension[0][0][0] - 5) < 1e-9 && Math.abs(before.extension[0][0][1]) < 1e-9);
 });
 
-test("a symmetric constraint is marked at each mirrored point, not at the axis", () => {
+test("a symmetric constraint is marked at each mirrored point and on the mirror line between them, all turned along the line", () => {
   const s = {
     plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
     points: [{ id: 1, u: 10, v: 5 }, { id: 2, u: 10, v: -5 }],
@@ -374,8 +374,22 @@ test("a symmetric constraint is marked at each mirrored point, not at the axis",
     constraints: [{ id: 3, type: "symmetric", points: [1, 2], entity: -1 }],
   };
   const marks = constraintMarks(s);
-  assert.equal(marks.length, 2);
-  assert.deepEqual(marks.map((m) => m.points[0].slice(0, 2)), [[10, 5], [10, -5]]);
+  assert.equal(marks.length, 3);
+  assert.deepEqual(marks.map((m) => m.points[0].slice(0, 2)), [[10, 5], [10, -5], [10, 0]]);
+  assert.ok(marks.every((m) => m.icon === "Symmetric"));
+  for (const m of marks) assert.deepEqual(m.iconAlong.map((x) => Math.round(x * 1e6) / 1e6 + 0), [1, 0, 0]); // the mirror line here is the x axis
+});
+
+test("a symmetry about a point turns its three marks square to the line joining the points", () => {
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: -10, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 0, v: 0 }],
+    entities: [],
+    constraints: [{ id: 4, type: "symmetric_point", points: [1, 2], point: 3 }],
+  };
+  const marks = constraintMarks(s);
+  assert.equal(marks.length, 3);
+  for (const m of marks) assert.deepEqual(m.iconAlong.map((x) => Math.round(x * 1e6) / 1e6 + 0), [0, 1, 0]);
 });
 
 test("an elliptical arc is drawn only between its start and end, counterclockwise", () => {

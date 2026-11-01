@@ -42,6 +42,8 @@ export interface Dimension {
   avoid?: number[][];
   /** Tags: the constraint button whose icon is drawn instead of the text. */
   icon?: string;
+  /** Tags with an icon: a world direction the icon is turned to, so the icon's vertical centerline lies along it (the mirror line of a symmetric constraint). */
+  iconAlong?: number[];
   /** Drawn in the reference gray (a measure-only dimension, or a size shown while a shape is drawn). */
   reference?: boolean;
   /** Tags: a world direction the tag is moved along (a fixed distance on the screen), such as out of the profile. */
@@ -179,9 +181,21 @@ export class DimensionOverlay {
       mine.length = 0;
       this.pending = [];
       this.clash = false;
+      this.iconTurn = this.turnOf(d, project);
       this.label(this.clearOf(this.pushed(project(d.points[0]), d, project, way), d, project), d.text, mine);
       if (!this.clash) return;
     }
+  }
+
+  private iconTurn = 0; // degrees the icon of the tag being drawn is turned by
+
+  /** The turn (degrees) that puts an icon's vertical centerline along `iconAlong` as it looks on the screen; 0 when there is none or it is seen end-on. */
+  private turnOf(d: Dimension, project: (p: number[]) => V): number {
+    if (!d.iconAlong) return 0;
+    const a = project(d.points[0]);
+    const b = project(d.points[0].map((c, k) => c + d.iconAlong![k]));
+    const [dx, dy] = [b.x - a.x, b.y - a.y];
+    return Math.hypot(dx, dy) < 1e-6 ? 0 : (Math.atan2(dx, -dy) * 180) / Math.PI;
   }
 
   /** A tag's point moved a fixed distance on the screen along its outward direction (a tangent mark off the curve). */
@@ -498,7 +512,7 @@ export class DimensionOverlay {
       back.setAttribute("fill", HALO_COLOR);
       back.setAttribute("fill-opacity", "0.6");
       const art = document.createElementNS(NS, "g");
-      art.setAttribute("transform", `translate(${-MARK_ICON_PX / 2},${-MARK_ICON_PX / 2}) scale(${MARK_ICON_PX / 24})`);
+      art.setAttribute("transform", `rotate(${this.iconTurn}) translate(${-MARK_ICON_PX / 2},${-MARK_ICON_PX / 2}) scale(${MARK_ICON_PX / 24})`);
       art.setAttribute("fill", "none");
       art.setAttribute("stroke-width", "1.8");
       art.setAttribute("stroke-linecap", "round");
