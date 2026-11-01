@@ -95,3 +95,17 @@ test("picking: three curves make the circle at the third pick; two curves then e
   assert.equal(pickTangent(s, [], null, [1, 1], "tanarc", 0.5).message.startsWith("Pick two"), true);
   assert.deepEqual(pickTangent(s, [10], hit(10), [1, 1], "tancircle", 0.5).picks, [10]); // the same curve twice is ignored
 });
+
+test("the sketch's axes can be picked and touched like lines", () => {
+  const s = { plane: { origin: [0, 0, 0], normal: [0, 0, 1], xdir: [1, 0, 0] }, points: [], entities: [], constraints: [] };
+  const step = pickTangent(s, [-1], { kind: "entity", id: -2 }, [0, 0], "tancircle", 5);
+  assert.deepEqual(step.picks, [-1, -2]);
+  const made = pickTangent(s, [-1, -2], null, [3, 3], "tancircle", 5).made;
+  assert.equal(typeof made, "object");
+  const circle = made.entities.find((e) => e.type === "circle");
+  near(circle.radius, 5);
+  const centre = made.points.find((p) => p.id === circle.center);
+  near(centre.u, 5);
+  near(centre.v, 5);
+  assert.deepEqual(made.constraints.filter((c) => c.type === "tangent").map((c) => c.entities[1]).sort((x, y) => y - x), [-1, -2]);
+});

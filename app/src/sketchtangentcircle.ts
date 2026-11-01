@@ -22,7 +22,7 @@ function solve3(a: number[][], b: number[]): number[] | null {
 
 /** Every circle (center, radius > 0) touching all the curves; `radius` fixes the radius (null leaves it free, which needs three curves). */
 export function tangentCircles(s: M.SketchData, ids: number[], radius: number | null): TangentSolution[] {
-  const curves = ids.map((id) => s.entities.find((e) => e.id === id)).filter(isCurve);
+  const curves = ids.map((id) => M.entityOf(s, id)).filter(isCurve);
   if (curves.length !== ids.length || ids.length + (radius === null ? 0 : 1) !== 3) return [];
   const geos = curves.map((c) => geoOf(s, c));
   const out: TangentSolution[] = [];
@@ -153,7 +153,7 @@ export type TangentTool = "tancircle" | "tanarc";
 /** One click of the Tangent circle / Tangent arc between curves tools. Curves are picked one after another: Tangent circle makes the circle at the third curve,
  *  or (after two) at a click on empty space with the card's radius; Tangent arc takes two curves and then a click anywhere to choose the side. `uv` is the click. */
 export function pickTangent(s: M.SketchData, picks: number[], hit: M.SketchSel | null, uv: Pt, tool: TangentTool, radius: number): { picks: number[]; made?: M.SketchData | string; message?: string } {
-  const curve = hit && hit.kind === "entity" && isCurve(s.entities.find((e) => e.id === hit.id)) ? hit.id : null;
+  const curve = hit && hit.kind === "entity" && isCurve(M.entityOf(s, hit.id)) ? hit.id : null;
   const needTwo = tool === "tanarc";
   if (picks.length >= 2 && (needTwo || curve === null)) return { picks: [], made: addTangentCircle(s, picks.slice(0, 2), radius, uv, needTwo) };
   if (curve === null) return { picks, message: needTwo ? "Pick two lines, arcs or circles" : "Pick two or three lines, arcs or circles" };
