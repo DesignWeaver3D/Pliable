@@ -1,4 +1,4 @@
-"""Up to face: a pull that adds material from a face or sketch region and ends exactly on a chosen flat target face.
+"""Up to face: a pull that adds material from a face or sketch region and ends exactly on a chosen target face.
 
 The distance is not typed. Each profile is extruded along its pull direction to the target's plane. A target parallel to the
 profile gives the same prism as a pull of that distance; a tilted target clips the prism, so the pad ends flush on the plane.
@@ -76,18 +76,27 @@ def _dist(point, origin, normal) -> float:
 
 
 def pull_up_to_face(shape, faces, target, direction, mode: str, preview: bool) -> OpResult:
-    """Pull `faces` (planar, of a solid or loose sketch regions) up to the flat `target` face. Mode "new" adds the pad as a
+    """Pull `faces` (planar, of a solid or loose sketch regions) up to the `target` face (flat, or curved: see pushpull_curved). Mode "new" adds the pad as a
     separate solid; any other adds (fuses with every body it meets). Raises OperationError and changes nothing when the
-    target is curved, is one of the faces, lies behind the pull or cuts through a profile."""
+    target is one of the faces, lies behind the pull or cuts through a profile."""
     if mode == "subtract":
         raise OperationError("Up to face adds material; use Auto, Add or New body")
     if any(f.IsSame(target) for f in faces):
         raise OperationError("Up to face: the target is the face being pulled; pick another face")
-    origin, normal = _target_plane(target)
+    flat = BRepAdaptor_Surface(target).GetType() == GeomAbs_Plane
+    if flat:
+        origin, normal = _target_plane(target)
     pads, caps = [], []
     for face in faces:
         if planar_normal(face) is None:
             raise OperationError("Up to face needs flat faces to pull")
+        if not flat:  # a curved target: the pad ends on its surface (see pushpull_curved)
+            from .pushpull_curved import pad_to_curved_face
+
+            pad, cap = pad_to_curved_face(shape, face, target, direction)
+            pads.append(pad)
+            caps.append(cap)
+            continue
         pull, near, far = _reach(face, direction, origin, normal)
         if near <= MIN_DISTANCE:
             raise OperationError("Up to face: the target face is behind the pull direction or cuts through the face; pick a face ahead of it")
@@ -98,11 +107,17 @@ def pull_up_to_face(shape, faces, target, direction, mode: str, preview: bool) -
                 raise OperationError("Up to face: could not end the pad on the target face")
         pads.append(straight)
         caps.append(cap)
+    return assemble_pads(shape, faces, pads, caps, mode)
+
+
+def assemble_pads(shape, faces, pads, caps, mode: str) -> OpResult:
+    """Put the finished `pads` (solids, each with its end face in `caps`, or None) into `shape`: mode "new" keeps each as a
+    separate solid, any other fuses them with every body they meet. The pulled `faces` are replaced by the pads."""
     solids = solids_of(shape)
     others = [f for f in _faces_of(shape) if not any(f.IsSame(p) for p in faces) and not any(_contains(solid, f) for solid in solids)]
     combined, builder = TopoDS_Compound(), BRep_Builder()
     builder.MakeCompound(combined)
-    tracked = caps
+    tracked = [cap for cap in caps if cap is not None]
     if mode == "new":
         if shape.ShapeType() == TopAbs_COMPOUND:  # as new_bodies: everything stays, the pad is added beside it
             it = TopoDS_Iterator(shape)
@@ -118,7 +133,7 @@ def pull_up_to_face(shape, faces, target, direction, mode: str, preview: bool) -
         if fuse is None:
             raise OperationError("Boolean operation failed")
         builder.Add(combined, fuse.Shape())
-        tracked = [kept for cap in caps for kept in _follow(fuse, [cap])]
+        tracked = [kept for cap in caps if cap is not None for kept in _follow(fuse, [cap])]
     else:
         for p in pads:
             builder.Add(combined, p)
