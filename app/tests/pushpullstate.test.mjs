@@ -62,3 +62,17 @@ test("the subtract arrow is red, the add arrow keeps the handle color, and Flip 
   assert.deepEqual(arrowColors(true), { normalSide: SUBTRACT_COLOR, oppositeSide: ADD_COLOR });
   assert.equal(SUBTRACT_COLOR, 0xe5484d);
 });
+
+test("Up to face adds the target to the request, turns Symmetric off and is cleared by reset", () => {
+  const s = new PushPullState();
+  s.setSymmetric(true);
+  assert.equal("target" in s.params(), false);
+  let n = 0;
+  s.onChange = () => n++;
+  s.setUpTo(0); // a face id of 0 is a target too
+  assert.deepEqual(s.params(), { mode: "auto", flip: false, target: 0, symmetric: 0 });
+  s.reset();
+  assert.equal(s.upTo, null);
+  assert.equal(n, 2);
+  assert.deepEqual(s.params(), { mode: "auto", flip: false });
+});
