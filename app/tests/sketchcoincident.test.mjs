@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { constraintsFor, releasePoints, sharedAsConstraints, sharedPoints, splitPoint } from "../src/sketchcoincident.ts";
+import { constraintsFor, releasePoints, sharedAsConstraints, sharedMarks, sharedPoints, splitPoint } from "../src/sketchcoincident.ts";
 
 const plane = { origin: [0, 0, 0], normal: [0, 0, 1], xdir: [1, 0, 0] };
 const corner = () => ({
@@ -44,4 +44,13 @@ test("the list shows everything with nothing selected and only what belongs to t
   assert.deepEqual(constraintsFor(s, all, [{ kind: "entity", id: 10 }]).map((c) => c.id), [20, -2]);
   assert.deepEqual(constraintsFor(s, all, [{ kind: "entity", id: 11 }]).map((c) => c.id), [-2]);
   assert.deepEqual(constraintsFor(s, all, [{ kind: "point", id: 3 }]).map((c) => c.id), []);
+});
+
+test("a shared joint has a Coincident mark beside the point, and its id is minus the point's", async () => {
+  const { constraintMarks } = await import("../src/sketchmodel.ts");
+  const s = corner();
+  const marks = constraintMarks({ ...s, constraints: [...s.constraints, ...sharedMarks(s)] });
+  const joint = marks.filter((m) => m.constraint === -2);
+  assert.equal(joint.length, 1);
+  assert.equal(joint[0].text, "Co");
 });

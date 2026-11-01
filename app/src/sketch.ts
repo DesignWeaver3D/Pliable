@@ -1014,6 +1014,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       e.preventDefault();
       const ids = new Set(this.selectedDimensions);
       this.pushUndo();
+      for (const id of ids) if (id < 0) this.s = Co.splitPoint(this.s, -id); // a joint's mark: letting go of it gives each curve its own end
       this.s.constraints = this.s.constraints.filter((c) => !ids.has(c.id));
       this.selectedDimensions.clear();
       void this.resolve();
@@ -1383,7 +1384,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   private selectDimension(id: number, additive: boolean) {
     const had = this.selectedDimensions.has(id);
     if (!additive) this.selectedDimensions.clear();
-    for (const one of equalChain(this.s.constraints, id)) { // an Equal mark selects its whole chain
+    for (const one of id < 0 ? [id] : equalChain(this.s.constraints, id)) { // an Equal mark selects its whole chain
       if (additive && had) this.selectedDimensions.delete(one);
       else this.selectedDimensions.add(one);
     }
@@ -1924,7 +1925,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       const marked = { selected: this.selectedDimensions.has(c.id), reference: !!c.reference, select: (e: MouseEvent) => this.selectDimension(c.id, e.shiftKey || e.ctrlKey || e.metaKey), menu: (e: MouseEvent) => void this.dimensionMenu(c.id, e) };
       return !c.reference && c.value !== undefined ? { ...d, ...marked, drag, activate: (at: { x: number; y: number }) => this.editInline(c.id, at) } : { ...d, ...marked, drag, ...(c.reference && c.value !== undefined ? { activate: (at: { x: number; y: number }) => void this.driveAndEdit(c.id, at) } : {}) };
     });
-    this.overlay.set([...dimensions, ...(this.showMarks ? M.constraintMarks(this.s).map((m) => (m.constraint === undefined ? m : { ...m, selected: this.selectedDimensions.has(m.constraint), select: (e: MouseEvent) => this.selectDimension(m.constraint!, e.shiftKey || e.ctrlKey || e.metaKey), menu: (e: MouseEvent) => void this.markMenu(m.constraint!, e) })) : []), ...this.liveDimensions()]);
+    this.overlay.set([...dimensions, ...(this.showMarks ? M.constraintMarks({ ...this.s, constraints: [...this.s.constraints, ...Co.sharedMarks(this.s)] }).map((m) => (m.constraint === undefined ? m : { ...m, selected: this.selectedDimensions.has(m.constraint), select: (e: MouseEvent) => this.selectDimension(m.constraint!, e.shiftKey || e.ctrlKey || e.metaKey), menu: (e: MouseEvent) => void this.markMenu(m.constraint!, e) })) : []), ...this.liveDimensions()]);
     if (panel) this.renderPanel();
     this.onToolChange?.(); // the strip's constraint row follows the selection
   }

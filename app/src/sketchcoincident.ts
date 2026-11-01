@@ -20,6 +20,11 @@ export function sharedAsConstraints(s: SketchData): SketchConstraint[] {
   return sharedPoints(s).map(({ point, entities }) => ({ id: -point, type: "coincident", point, entities, auto: true }));
 }
 
+/** The shared points as marks on the view: each a Coincident row with no curves named, so its mark sits beside the point. */
+export function sharedMarks(s: SketchData): SketchConstraint[] {
+  return sharedPoints(s).map(({ point }) => ({ id: -point, type: "coincident", point, auto: true }));
+}
+
 /** Give each curve but the first its own copy of a shared point, at the same place, so they are no longer held together. */
 export function splitPoint(s: SketchData, pointId: number): SketchData {
   const shared = sharedPoints(s).find((x) => x.point === pointId);
