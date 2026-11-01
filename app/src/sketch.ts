@@ -19,11 +19,9 @@ import * as Pv from "./sketchpreview";
 import * as T from "./sketchtyped";
 import * as F from "./sketchfit";
 import * as Co from "./sketchcoincident";
-import { trimClick } from "./sketchtrim";
+import { cornerClick, cutClick, tangentClick } from "./sketchclicks.ts";
 import { addTangentArc, tangentStart } from "./sketchtangentarc";
-import { pickTangent } from "./sketchtangentcircle";
 import { addArcRadius, arcClick, defaultArcOptions } from "./sketcharcoptions";
-import { ellipseThroughPoint, splitEllipse } from "./sketchsplitellipse";
 import { isFreeCircle, draggedRadius } from "./sketchcircledrag";
 import { loadSketchOptions, OPTIONS_KEY } from "./sketchoptions";
 import { chooseAtCursor } from "./sketchmenu";
@@ -39,7 +37,7 @@ import { usage } from "./usage";
 import { showNumber } from "./precision";
 import { askForm, askNumber } from "./sketchasks";
 import { createSolver } from "./sketchsolve";
-import { cornerAt, isCurvePick, roundAt, roundPair } from "./sketchcorner";
+import { roundAt } from "./sketchcorner";
 import { automaticInTheWay } from "./sketchautowin";
 import { FREE_COLOR, freeMessage, freeParts } from "./sketchfreedom";
 import type { HandleInfo } from "./tools";
@@ -688,102 +686,17 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
     }
     if (this.tool === "select") return;
     if (this.tool === "fillet" || this.tool === "chamfer") {
-      const uv = this.planeUV(e);
-      const hit = this.pick(e);
-      const first = this.cornerFirst;
-      let made: M.SketchData | string | null = null;
-      if (!uv) made = null;
-      else if (first !== null) {
-        this.cornerFirst = null;
-        this.selection = [];
-        if (!isCurvePick(this.s, hit) || hit.id === first) this.host.status("Pick a second line, arc or circle", true);
-        else made = roundPair(this.s, first, hit.id, this.tool, this.rectOptions.size, uv[0], uv[1]);
-      } else {
-        const corner = cornerAt(this.s, hit, uv[0], uv[1]);
-        if (corner !== null) made = roundAt(this.s, corner, this.tool, this.rectOptions.size, uv[0], uv[1]);
-        else if (isCurvePick(this.s, hit)) {
-          this.cornerFirst = hit.id;
-          this.selection = [hit];
-          this.host.status(`Now click the second curve, on the side where the ${this.tool === "fillet" ? "fillet" : "bevel"} goes`);
-        } else this.host.status("Click a corner where two lines or arcs meet, or pick two curves", true);
-      }
-      if (made !== null) {
-        if (typeof made === "string") this.host.status(made, true);
-        else {
-          this.pushUndo();
-          this.s = made;
-          this.resolve();
-          this.host.status(this.tool === "fillet" ? "Rounded the corner" : "Bevelled the corner");
-        }
-        this.selection = [];
-      }
+      cornerClick(this, this.pick(e), this.planeUV(e));
       this.render();
       return;
     }
     if (this.tool === "tancircle" || this.tool === "tanarc") {
-      const uv = this.planeUV(e);
-      if (!uv) return;
-      const step = pickTangent(this.s, this.tanPicks, this.pick(e), uv, this.tool, this.arcOptions.radius);
-      this.tanPicks = step.picks;
-      this.selection = step.picks.map((id) => ({ kind: "entity" as const, id }));
-      if (step.message) this.host.status(step.message, step.made === undefined && step.picks.length === 0);
-      if (typeof step.made === "string") this.host.status(step.made, true);
-      else if (step.made) {
-        this.pushUndo();
-        this.s = step.made;
-        this.resolve();
-        this.host.status(this.tool === "tancircle" ? "Made the tangent circle" : "Made the tangent arc");
-      }
+      tangentClick(this, this.pick(e), this.planeUV(e));
       this.render();
       return;
     }
     if (this.tool === "trim" || this.tool === "extend" || this.tool === "split") {
-      const hit = this.pick(e);
-      const uv = this.planeUV(e);
-      if (this.tool === "split" && hit?.kind === "point") {
-        // a click on a point that lies on a line cuts the line exactly there (the point joins both pieces)
-        const through = E.lineThroughPoint(this.s, hit.id);
-        const at = this.s.points.find((x) => x.id === hit.id);
-        const round = through === null ? ellipseThroughPoint(this.s, hit.id) : null;
-        const cut = through !== null && at ? E.splitLine(this.s, through, at.u, at.v, 0, hit.id) : round !== null && at ? splitEllipse(this.s, round, at.u, at.v, 0, hit.id) : null;
-        if (cut) {
-          this.pushUndo();
-          this.s = cut.sketch;
-          this.resolve();
-        }
-        this.render();
-        return;
-      }
-      const line = hit?.kind === "entity" ? this.s.entities.find((x) => x.id === hit.id) : undefined;
-      if (this.tool === "split" && line?.type === "ellipse" && uv && !line.reference) {
-        const cut = splitEllipse(this.s, line.id, uv[0], uv[1]);
-        if (cut) {
-          this.pushUndo();
-          this.s = cut.sketch;
-          this.resolve();
-        } else this.host.status("Click along the ellipse, away from the ends of an arc, to cut it (an old ellipse without axis ends cannot be cut)", true);
-      } else if (line?.type === "line" && uv && !line.reference) {
-        if (this.tool === "split") {
-          const cut = E.splitLine(this.s, line.id, uv[0], uv[1]);
-          if (cut) {
-            this.pushUndo();
-            this.s = cut.sketch;
-            this.resolve();
-          } else this.host.status("Click along the line, away from its ends, to cut it", true);
-        } else if (this.tool === "trim") {
-          const trimmed = trimClick(this.s, line.id, uv[0], uv[1], this.trimCandidates, this.options.auto !== "none");
-          if (trimmed) {
-            this.pushUndo();
-            this.s = trimmed.sketch;
-            this.trimCandidates = trimmed.candidates;
-            this.resolve();
-          }
-        } else {
-          this.pushUndo();
-          this.s = M.extendLine(this.s, line.id, uv[0], uv[1]);
-          this.resolve();
-        }
-      }
+      cutClick(this, this.pick(e), this.planeUV(e));
       this.render();
       return;
     }
@@ -1079,9 +992,9 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   // Drawing tools: the work is in sketchbuilders.ts, which takes this mode as its context.
   chainStart?: Snap;
   /** The first curve picked for a Fillet or Chamfer between two curves that need not touch. */
-  private cornerFirst: number | null = null;
+  cornerFirst: number | null = null;
   /** Curves picked so far for the Tangent circle and Arc tangent to curves tools. */
-  private tanPicks: number[] = [];
+  tanPicks: number[] = [];
   rectOptions: { corner: "none" | "fillet" | "chamfer"; size: number } = { corner: "none", size: 5 };
   /** Numbers of the arc tools kept in the sketch card (start angle and sweep of the center arc, radius of the arc by ends and radius). */
   arcOptions = defaultArcOptions();
@@ -1126,7 +1039,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
   /** The drawing tool used last in this sketch; Enter with no tool active starts it again. */
   private lastDrawTool: Tool | null = null;
   /** Lines the Trim tool has marked for removal; a second click on one deletes it. */
-  private trimCandidates = new Set<number>();
+  trimCandidates = new Set<number>();
 
   private setTool(tool: Tool) {
     if (tool !== "select") this.lastDrawTool = tool;
