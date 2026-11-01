@@ -512,8 +512,30 @@ async function load(name: string) {
   setCommitted(await core.openDemo(name), true);
 }
 
+function pickItemInView(kind: "vertex" | "edge" | "face", message: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    cancelEyedrop();
+    if (app.committed) show(app.committed); // pick against the committed model, whose ids the core knows
+    status.classList.remove("error");
+    status.textContent = `${message} (Esc cancels)`;
+    eyedropResolve = () => resolve(null);
+    viewport.eyedropper = (sel) => {
+      if (sel.kind !== kind) {
+        status.textContent = `Pick a${kind === "edge" ? "n" : ""} ${kind} (Esc cancels)`;
+        status.classList.add("error");
+        return; // stays armed
+      }
+      viewport.eyedropper = null;
+      eyedropResolve = null;
+      status.textContent = "Picked";
+      resolve(sel.id);
+    };
+  });
+}
+
 const pushPullCard = createPushPullCard({
   viewport, el: $("ppcard"), selection: () => app.currentSels, armedTool: () => armedTool,
+  pickFace: () => pickItemInView("face", "Up to face: click the face to pull up to"),
 });
 const itemDrag = createItemDrag({
   viewport, core, status, latency, dimLabel: $("dim"), measurePanel, dimensionOverlay,
@@ -1302,26 +1324,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
       };
     });
   },
-  pickItem(kind, message) {
-    return new Promise((resolve) => {
-      cancelEyedrop();
-      if (app.committed) show(app.committed); // pick against the committed model, whose ids the core knows
-      status.classList.remove("error");
-      status.textContent = `${message} (Esc cancels)`;
-      eyedropResolve = () => resolve(null);
-      viewport.eyedropper = (sel) => {
-        if (sel.kind !== kind) {
-          status.textContent = `Pick a${kind === "edge" ? "n" : ""} ${kind} (Esc cancels)`;
-          status.classList.add("error");
-          return; // stays armed
-        }
-        viewport.eyedropper = null;
-        eyedropResolve = null;
-        status.textContent = "Picked";
-        resolve(sel.id);
-      };
-    });
-  },
+  pickItem: pickItemInView,
   async planeFrom(request) {
     try {
       const plane = (await core.request<{ plane: PlaneData }>("sketch_plane", request)).plane;

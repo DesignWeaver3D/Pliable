@@ -10,6 +10,8 @@ export interface PushPullWireDeps {
   selection(): Sel[];
   /** The tool the user armed in the toolbar or palette. */
   armedTool(): string | null;
+  /** Click a face in the view to pull up to (Up to face); null when cancelled. */
+  pickFace(): Promise<number | null>;
 }
 
 export function createPushPullCard(d: PushPullWireDeps): PushPullCard {
@@ -24,6 +26,7 @@ export function createPushPullCard(d: PushPullWireDeps): PushPullCard {
       if (normal && !leavesFace(direction, normal)) return; // too close to the face's own plane: the core refuses it too
       viewport.pullDirection.set(normal ? outOf(direction, normal) : direction);
     },
+    pickTarget: d.pickFace,
     // A typed distance runs the same preview and commit as a drag of that length (itemdrag.ts), from the selection the card was opened on.
     previewDistance: (value) => viewport.onItemDrag(d.selection(), value, "move", d.el.getBoundingClientRect().left - 80, d.el.getBoundingClientRect().top + 40),
     applyDistance: (value) => viewport.onItemDrag(d.selection(), value, "end"),

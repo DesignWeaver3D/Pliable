@@ -1,7 +1,7 @@
 /** The Push/Pull card: opened whenever a push/pull drag starts or the Push/Pull button is clicked, at the right under the nav cube group like the other edit cards.
  *  Fields: distance, the mode buttons (highlighted like Pick plane), Flip, Symmetric, the two tilt values and the direction vector of the gizmo (linked to it like the
  *  Cut with plane form). It holds no model state: choices live in PushPullState, the direction in PullDirection, the tilts in PullGizmo. */
-import { FLIP_TITLE, MODE_BUTTONS, SYMMETRIC_TITLE, type PushPullState } from "./pushpullstate.ts";
+import { FLIP_TITLE, MODE_BUTTONS, SYMMETRIC_TITLE, UP_TO_TITLE, type PushPullState } from "./pushpullstate.ts";
 import { roundValue } from "./precision.ts";
 import type { Vec } from "./pulldir.ts";
 
@@ -14,6 +14,8 @@ export interface PushPullCardHost {
   setTilts(red: number | null, green: number | null): void;
   /** A direction typed into the vector fields. */
   setDirection(direction: Vec): void;
+  /** Ask the user to click the face to pull up to (Esc cancels); resolves to its id or null. */
+  pickTarget(): Promise<number | null>;
   /** A distance typed in the card: preview it; Apply commits it; Close drops it. */
   previewDistance(value: number): void;
   applyDistance(value: number): void;
@@ -27,11 +29,14 @@ const TILT_TITLES = ["The direction tilted toward the face's x axis (the red arc
 export class PushPullCard {
   private readonly modeButtons = new Map<string, HTMLButtonElement>();
   private readonly flipButton = document.createElement("button");
+  private readonly upToButton = document.createElement("button");
   private readonly symmetric = document.createElement("input");
   private readonly distance = document.createElement("input");
   private readonly tilt: HTMLInputElement[] = [document.createElement("input"), document.createElement("input")];
   private readonly vector: HTMLInputElement[] = [0, 1, 2].map(() => document.createElement("input"));
   private typedDistance = false;
+  /** An Up to face preview is showing (Apply commits it, turning the option off drops it). */
+  private upToPreview = false;
   private shown = "";
 
   constructor(private readonly el: HTMLElement, private readonly host: PushPullCardHost) {
@@ -73,6 +78,10 @@ export class PushPullCard {
     this.flipButton.title = FLIP_TITLE;
     this.flipButton.style.cssText = "text-align:center;margin-top:4px";
     this.flipButton.addEventListener("click", () => host.state.setFlip(!host.state.flip));
+    this.upToButton.textContent = "Up to face";
+    this.upToButton.title = UP_TO_TITLE;
+    this.upToButton.style.cssText = "text-align:center;margin-top:4px";
+    this.upToButton.addEventListener("click", () => void this.toggleUpTo());
     this.symmetric.type = "checkbox";
     this.symmetric.addEventListener("change", () => host.state.setSymmetric(this.symmetric.checked));
     this.tilt.forEach((input, i) => {
@@ -118,6 +127,7 @@ export class PushPullCard {
       modeHead,
       modes,
       this.flipButton,
+      this.upToButton,
       row("Symmetric", SYMMETRIC_TITLE, this.symmetric),
       row("Tilt red arc (deg)", TILT_TITLES[0], this.tilt[0]),
       row("Tilt green arc (deg)", TILT_TITLES[1], this.tilt[1]),
@@ -142,14 +152,36 @@ export class PushPullCard {
   close() {
     if (this.el.hidden) return;
     this.el.hidden = true;
-    this.host.state.reset(); // Flip is off the next time
-    if (this.typedDistance) this.host.cancelDistance();
+    this.host.state.reset(); // Flip and Up to face are off the next time
+    if (this.typedDistance || this.upToPreview) this.host.cancelDistance();
     this.typedDistance = false;
+    this.upToPreview = false;
     this.distance.value = "";
     this.host.changed?.();
   }
 
+  /** Up to face: on picks the target in the view and previews the pad ending on it; off restores the normal distance behavior. */
+  private async toggleUpTo() {
+    const { state } = this.host;
+    if (state.upTo !== null) {
+      state.setUpTo(null);
+      if (this.upToPreview) this.host.cancelDistance();
+      this.upToPreview = false;
+      return;
+    }
+    const face = await this.host.pickTarget();
+    if (face === null || this.el.hidden) return;
+    state.setUpTo(face);
+    this.upToPreview = true;
+    this.host.previewDistance(1); // any distance: the core ends the pad on the target
+  }
+
   private apply() {
+    if (this.host.state.upTo !== null && this.upToPreview) {
+      this.upToPreview = false;
+      this.host.applyDistance(1);
+      return;
+    }
     const v = Number(this.distance.value);
     if (!this.typedDistance || !Number.isFinite(v)) return;
     this.typedDistance = false;
@@ -183,11 +215,13 @@ export class PushPullCard {
     const { state } = this.host;
     const tilts = this.host.tilts();
     const direction = this.host.direction();
-    const signature = JSON.stringify([state.mode, state.choice, state.flip, state.symmetric, tilts, direction]);
+    const signature = JSON.stringify([state.mode, state.choice, state.flip, state.symmetric, state.upTo, tilts, direction]);
     if (!force && signature === this.shown) return;
     this.shown = signature;
     for (const [id, button] of this.modeButtons) button.classList.toggle("active", state.mode === id);
     this.flipButton.classList.toggle("active", state.flip);
+    this.upToButton.classList.toggle("active", state.upTo !== null);
+    this.symmetric.disabled = state.upTo !== null;
     this.symmetric.checked = state.symmetric;
     const put = (input: HTMLInputElement, n: number | undefined) => {
       if (document.activeElement !== input) input.value = n === undefined ? "" : String(roundValue(n));

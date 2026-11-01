@@ -23,6 +23,8 @@ class PushPull(Tool):
             raise OperationError(f"Push/pull mode must be one of {', '.join(MODES)}")
         values["mode"] = mode
         values["flip"] = 1.0 if raw.get("flip") else 0.0  # reverses which drag direction adds and which subtracts
+        if raw.get("target") is not None:  # Up to face: the id of the face to pull up to (not a form field); the distance is then ignored
+            values["target"] = int(raw["target"])
         # A chosen pull direction (not a form field): unit components, all three or none.
         if all(k in raw for k in ("ux", "uy", "uz")):
             values.update({k: float(raw[k]) for k in ("ux", "uy", "uz")})
@@ -71,11 +73,27 @@ class PushPull(Tool):
         elif len(faces) == 2 and loose_count == 0 and planar_normal(faces[0]).IsOpposite(planar_normal(faces[1]), 1e-6):
             raise OperationError("These two faces face away from each other; hold Shift while dragging to push/pull them symmetrically")
         direction = _chosen(values)
+        if "target" in values:
+            return _pull_up_to(topology, faces, values, symmetric, direction)
         if direction is not None and symmetric:
             raise OperationError("Symmetric push/pull uses the face normal; reset the pull direction first")
         result = push_pull(topology.shape, faces if len(faces) > 1 else faces[0], values["distance"], preview=preview, symmetric=symmetric and loose, direction=direction, mode=values["mode"], flip=values["flip"] >= 0.5)
         result.tracked_faces = result.tracked_faces[:1]  # keep a single face selected, the related ones are found again
         return result
+
+
+def _pull_up_to(topology, faces, values, symmetric, direction) -> OpResult:
+    from ..pushpull_upto import pull_up_to_face
+
+    if symmetric:
+        raise OperationError("Up to face does not combine with symmetric; turn one of them off")
+    try:
+        target = topology.face(values["target"])
+    except Exception:
+        raise OperationError("Up to face: the target face is not part of the model") from None
+    result = pull_up_to_face(topology.shape, faces, target, direction, values["mode"], False)
+    result.tracked_faces = result.tracked_faces[:1]
+    return result
 
 
 def _chosen(values):

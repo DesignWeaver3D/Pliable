@@ -12,12 +12,16 @@ export const MODE_BUTTONS: readonly { id: PushPullMode; label: string; title: st
 export const FLIP_TITLE = "Reverses which drag direction adds and which subtracts (the arrows swap color); it does not change the face's normal";
 export const SYMMETRIC_TITLE = "Push and pull both ways from the face. Symmetric: press Shift while dragging to toggle it";
 
+export const UP_TO_TITLE = "Pull up to a face you click in the view: the pad ends exactly on that flat face and the distance is ignored. Adds material (Auto, Add or New body); not with Symmetric";
+
 export class PushPullState {
   /** The mode chosen on the card (default Auto). */
   choice: PushPullMode = "auto";
   flip = false;
   /** The card's Symmetric box; a Shift press in a drag toggles it (itemdrag.ts). */
   symmetric = false;
+  /** The face id Up to face pulls to, or null while the option is off. */
+  upTo: number | null = null;
   /** Alt pressed once: New body until Alt is pressed again, then the choice comes back. */
   altOn = false;
   /** Called after any change, so the card and the arrows redraw. */
@@ -43,6 +47,11 @@ export class PushPullState {
     this.onChange();
   }
 
+  setUpTo(face: number | null) {
+    this.upTo = face;
+    this.onChange();
+  }
+
   /** A press of Alt: switches New body on, the next press switches it off. */
   toggleAlt() {
     this.altOn = !this.altOn;
@@ -51,13 +60,15 @@ export class PushPullState {
 
   /** The tool was applied, cancelled or closed: Flip is off the next time (the arrow roles follow it). */
   reset() {
-    if (!this.flip) return;
+    if (!this.flip && this.upTo === null) return;
     this.flip = false;
+    this.upTo = null; // the picked face belongs to the model it was picked on
     this.onChange();
   }
 
-  /** The request fields the core reads (mode and flip; symmetric and the direction are added by the drag). */
+  /** The request fields the core reads (mode and flip; symmetric and the direction are added by the drag). With Up to face the target goes too and Symmetric is off. */
   params(): Record<string, number | string | boolean> {
+    if (this.upTo !== null) return { mode: this.mode, flip: this.flip, target: this.upTo, symmetric: 0 };
     return { mode: this.mode, flip: this.flip };
   }
 }
