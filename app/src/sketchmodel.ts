@@ -668,13 +668,19 @@ function onArc(s: SketchData, arc: Extract<SketchEntity, { type: "arc" }>, u: nu
 
 /** Parameters t along line `e` (0 at its start, 1 at its end, unbounded) where it meets other lines, circles, arcs, ellipses and splines. */
 export function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line" }>): number[] {
+  return crossingsWith(s, e).map((x) => x.t);
+}
+
+/** The same crossings, each with the id of the curve that crosses the line there. */
+export function crossingsWith(s: SketchData, e: Extract<SketchEntity, { type: "line" }>): { t: number; entity: number }[] {
   const a = pointOf(s, e.a);
   const b = pointOf(s, e.b);
   const dx = b.u - a.u;
   const dy = b.v - a.v;
-  const ts: number[] = [];
+  const found: { t: number; entity: number }[] = [];
   for (const o of s.entities) {
     if (o.id === e.id) continue;
+    const ts = { push: (...values: number[]) => found.push(...values.map((t) => ({ t, entity: o.id }))) };
     if (o.type === "line") {
       const c = pointOf(s, o.a);
       const d = pointOf(s, o.b);
@@ -706,7 +712,7 @@ export function crossings(s: SketchData, e: Extract<SketchEntity, { type: "line"
       }
     }
   }
-  return ts.sort((x, y) => x - y);
+  return found.sort((x, y) => x.t - y.t);
 }
 
 /**

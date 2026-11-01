@@ -76,3 +76,10 @@ test("cutting at two crossings joins only neighboring pieces with collinear cons
   assert.equal(collinear.length, 2);
   for (const c of collinear) assert.ok([...ends(c.entities[0])].some((p) => ends(c.entities[1]).has(p)), "pieces share an end point");
 });
+
+test("each cut point is held on the curve that crosses there, unless automatic constraints are off", () => {
+  const first = trimClick(crossed(), 10, 5, 0, new Set());
+  const held = first.sketch.constraints.filter((c) => c.type === "point_on").map((c) => [first.sketch.points.find((p) => p.id === c.point).u, c.entity]).sort((x, y) => x[0] - y[0]);
+  assert.deepEqual(held, [[3, 11], [7, 12]]);
+  assert.equal(trimClick(crossed(), 10, 5, 0, new Set(), false).sketch.constraints.some((c) => c.type === "point_on"), false);
+});

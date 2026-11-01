@@ -1,7 +1,7 @@
 /** The Trim tool in two clicks (owner, 2026-10-25): the first click on a line cuts it at every crossing with other curves and turns the
  *  piece under the click into construction geometry (the candidate); a second click on that piece deletes it. The cutting is the
  *  split tool's (`splitLine`), so the pieces keep their direction constraints. */
-import { crossings, pointOf, remove } from "./sketchmodel.ts";
+import { crossingsWith, pointOf, remove } from "./sketchmodel.ts";
 import type { SketchData } from "./sketchmodel.ts";
 import { splitLine } from "./sketchedit.ts";
 
@@ -11,7 +11,8 @@ export interface TrimResult {
   candidates: Set<number>;
 }
 
-export function trimClick(s: SketchData, lineId: number, u: number, v: number, candidates: ReadonlySet<number>): TrimResult | null {
+/** `hold` (the automatic-constraints option) puts each cut point on the curves that cross there. */
+export function trimClick(s: SketchData, lineId: number, u: number, v: number, candidates: ReadonlySet<number>, hold = true): TrimResult | null {
   const line = s.entities.find((e) => e.id === lineId);
   if (!line || line.type !== "line" || line.reference) return null;
   if (candidates.has(lineId)) {
@@ -25,7 +26,8 @@ export function trimClick(s: SketchData, lineId: number, u: number, v: number, c
   if (len2 < 1e-12) return null;
   const at = (t: number): [number, number] => [a.u + t * (b.u - a.u), a.v + t * (b.v - a.v)];
   const click = ((u - a.u) * (b.u - a.u) + (v - a.v) * (b.v - a.v)) / len2;
-  const cuts = [...new Set(crossings(s, line).filter((t) => t > 1e-6 && t < 1 - 1e-6).map((t) => Math.round(t * 1e9) / 1e9))].sort((x, y) => x - y);
+  const found = crossingsWith(s, line).filter((x) => x.t > 1e-6 && x.t < 1 - 1e-6).map((x) => ({ t: Math.round(x.t * 1e9) / 1e9, entity: x.entity }));
+  const cuts = [...new Set(found.map((x) => x.t))].sort((x, y) => x - y);
   // Cut from the far end: the first piece keeps the line's id, and each cut adds the piece beyond it.
   let sketch = s;
   const beyond = new Map<number, number>(); // cut index -> id of the piece starting at that cut
@@ -44,6 +46,16 @@ export function trimClick(s: SketchData, lineId: number, u: number, v: number, c
     const kept = sketch.constraints.filter((c) => !(c.type === "collinear" && !old.has(c.id)));
     for (let i = 0; i + 1 < ordered.length; i++) kept.push({ id: id++, type: "collinear", entities: [ordered[i], ordered[i + 1]], auto: true });
     sketch = { ...sketch, constraints: kept };
+  }
+  if (hold) { // each cut point stays on the curves that cross there, so the cut follows them
+    const held = [...sketch.constraints];
+    let next = Math.max(0, ...sketch.constraints.map((c) => c.id), ...sketch.entities.map((e) => e.id), ...sketch.points.map((p) => p.id)) + 1;
+    cuts.forEach((t, i) => {
+      const after = sketch.entities.find((e) => e.id === beyond.get(i));
+      if (after?.type !== "line") return;
+      for (const entity of new Set(found.filter((x) => x.t === t).map((x) => x.entity))) held.push({ id: next++, type: "point_on", point: after.a, entity, auto: true });
+    });
+    sketch = { ...sketch, constraints: held };
   }
   let piece = lineId; // the piece under the click: after the last cut before it
   for (let i = 0; i < cuts.length; i++) if (beyond.has(i) && click >= cuts[i]) piece = beyond.get(i)!;

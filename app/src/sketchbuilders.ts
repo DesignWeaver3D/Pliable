@@ -204,8 +204,8 @@ function makeEllipse(ctx: BuilderContext, center: Snap, major: Snap, side: Snap)
   // the other three ends of the axes are points of their own, so they can be dimensioned and constrained to; the third click's side takes the minor end
   const side1 = ((side.u - center.u) * (major.v - center.v) - (side.v - center.v) * (major.u - center.u)) / a > 0 ? -1 : 1;
   const [nu, nv] = [(-(major.v - center.v) / a) * minor * side1, ((major.u - center.u) / a) * minor * side1];
-  const end = (u: number, v: number) => ctx.pointFor({ u, v } as Snap);
-  const major2 = end(2 * center.u - major.u, 2 * center.v - major.v);
+  const end = (u: number, v: number) => ctx.pointFor(Math.hypot(side.u - u, side.v - v) < 1e-6 ? side : ({ u, v } as Snap)); // a third click right on a minor end is that end, so it keeps its snap
+  const major2 = ctx.pointFor({ u: 2 * center.u - major.u, v: 2 * center.v - major.v } as Snap);
   const minor1 = end(center.u + nu, center.v + nv);
   const minor2 = end(center.u - nu, center.v - nv);
   const entity: Extract<M.SketchEntity, { type: "ellipse" }> = { id: M.nextId(ctx.s), type: "ellipse", center: c, major: m, major2, minor1, minor2, minor };
@@ -232,7 +232,8 @@ export function addEllipseArc(ctx: BuilderContext, center: Snap, major: Snap, si
     const [u, v] = Ell.ellipsePoint(f, t);
     if (clicked.id !== undefined && Math.hypot(clicked.u - u, clicked.v - v) < 1e-6) return clicked.id; // a point already on the ellipse is the end
     const axisEnd = ends.find((id) => Math.hypot(M.pointOf(ctx.s, id).u - u, M.pointOf(ctx.s, id).v - v) < 1e-6); // an end of an axis is the end
-    return axisEnd ?? ctx.pointFor({ u, v } as Snap);
+    const onIt = Math.hypot(clicked.u - u, clicked.v - v) < 1e-6; // a click on a point, curve or axis that is on the ellipse keeps its snap
+    return axisEnd ?? ctx.pointFor(onIt ? clicked : ({ u, v } as Snap));
   };
   made.start = clockwise ? at(first, end) : at(first, start);
   made.end = clockwise ? at(last, start) : at(last, end);

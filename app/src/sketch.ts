@@ -821,7 +821,7 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
             this.resolve();
           } else this.host.status("Click along the line, away from its ends, to cut it", true);
         } else if (this.tool === "trim") {
-          const trimmed = trimClick(this.s, line.id, uv[0], uv[1], this.trimCandidates);
+          const trimmed = trimClick(this.s, line.id, uv[0], uv[1], this.trimCandidates, this.options.auto !== "none");
           if (trimmed) {
             this.pushUndo();
             this.s = trimmed.sketch;

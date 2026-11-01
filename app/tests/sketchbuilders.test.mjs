@@ -203,3 +203,9 @@ test("size clicks on an axis stay held: circle by edge, circle through three poi
   addPolygon(poly, { u: 0, v: 0 }, { u: 10, v: 0, axes: [0] }, 5);
   assert.equal(poly.s.constraints.filter((c) => c.axisHold).length, 1);
 });
+
+test("an ellipse's third click on a minor end, keeps its snap", () => {
+  const ellipse = context();
+  addEllipse(ellipse, { u: 0, v: 0 }, { u: 10, v: 0 }, { u: 0, v: 5, axes: [1] });
+  assert.equal(ellipse.s.constraints.filter((c) => c.axisHold).length, 1);
+});
