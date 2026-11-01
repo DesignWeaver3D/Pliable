@@ -26,7 +26,7 @@ export function isCurvePick(s: SketchData, hit: SketchSel | null): hit is Sketch
 export function roundAt(s: SketchData, corner: number, kind: "fillet" | "chamfer", size: number, u: number, v: number): SketchData | string {
   const pair = curvesAtCorner(s, corner);
   if (!pair) return "Select a corner where exactly two lines or arcs meet";
-  if (pair.every((id) => s.entities.find((e) => e.id === id)?.type === "line")) return roundCorner(s, corner, kind, size);
+  if (pair.every((id) => s.entities.find((e) => e.id === id)?.type === "line")) return roundCorner(s, corner, kind, size, { u, v });
   return roundCurves(s, pair[0], pair[1], kind, size, [u, v], corner);
 }
 

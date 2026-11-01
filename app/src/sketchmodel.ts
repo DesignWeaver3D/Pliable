@@ -60,8 +60,9 @@ export function dropOrphans(s: SketchData): SketchData {
 /** Round (arc, `size` = radius) or bevel (line, `size` = distance along each side) the corner where exactly two
  *  lines meet at `pointId`. The corner point and the two lines stay as construction lines with all their constraints and
  *  dimensions, so a dimensioned shape keeps its size; the rounded outline is new lines (sharing the far ends of the old
- *  ones, with their new ends held on the old lines) and the arc or bevel. Returns the new sketch, or a message saying why the corner can't be changed. */
-export function roundCorner(s: SketchData, pointId: number, kind: "fillet" | "chamfer", size: number): SketchData | string {
+ *  ones, with their new ends held on the old lines) and the arc or bevel. Returns the new sketch, or a message saying why the corner can't be changed.
+ *  `at` is the pointer, which sets the way the fillet's radius leader goes when other dimensions share its center. */
+export function roundCorner(s: SketchData, pointId: number, kind: "fillet" | "chamfer", size: number, at?: { u: number; v: number }): SketchData | string {
   if (!(size > 1e-6)) return "Give a size above zero";
   const point = s.points.find((p) => p.id === pointId);
   const users = s.entities.filter((e) => entityPoints(e).includes(pointId) && !e.construction);
@@ -106,7 +107,7 @@ export function roundCorner(s: SketchData, pointId: number, kind: "fillet" | "ch
     const arc = id++;
     entities.push({ id: arc, type: "arc", center: centre.id, start: (ccw ? t[0] : t[1]).id, end: (ccw ? t[1] : t[0]).id });
     constraints.push({ id: id++, type: "tangent", entities: [arc, outline[0].id], auto: true }, { id: id++, type: "tangent", entities: [arc, outline[1].id], auto: true });
-    constraints.push({ id: id++, type: "radius", entity: arc, value: size, angle: leaderAngle({ ...s, points: [...s.points, ...added], entities, constraints }, arc, "radius") }); // the fillet's radius, a driving dimension
+    constraints.push({ id: id++, type: "radius", entity: arc, value: size, angle: leaderAngle({ ...s, points: [...s.points, ...added], entities, constraints }, arc, "radius", at) }); // the fillet's radius, a driving dimension
   }
   return { ...s, points: [...s.points, ...added], entities, constraints };
 }

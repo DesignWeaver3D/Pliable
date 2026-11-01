@@ -111,3 +111,13 @@ test("Circles and arcs on one center avoid each other, a diameter on an arc take
   assert.equal(deg(leaderAngle(far, 20, "diameter")), 75); // a diameter at 60° would also use 240°
   assert.equal(deg(leaderAngle(arcSketch([]), 10, "radius")), 45);
 });
+
+test("A fillet's radius dimension stores the direction chosen when it was made (the arc's middle with no neighbor)", async () => {
+  const { roundCorner } = await import("../src/sketchmodel.ts");
+  const corner = { ...sketchOf([]), points: [{ id: 1, u: 0, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 0, v: 10 }], entities: [{ id: 10, type: "line", a: 1, b: 2 }, { id: 11, type: "line", a: 1, b: 3 }] };
+  const made = roundCorner(corner, 1, "fillet", 2, { u: 8, v: 8 });
+  const radius = made.constraints.find((c) => c.type === "radius");
+  assert.equal(((deg(radius.angle) % 360) + 360) % 360, 225); // the middle of the quarter arc, pointing away from the corner's inside
+  const noPointer = roundCorner(corner, 1, "fillet", 2);
+  assert.equal(((deg(noPointer.constraints.find((c) => c.type === "radius").angle) % 360) + 360) % 360, 225);
+});

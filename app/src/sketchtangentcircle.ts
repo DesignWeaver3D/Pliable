@@ -145,7 +145,7 @@ export function addTangentCircle(s: M.SketchData, ids: number[], radius: number 
     constraints.push({ id: id++, type: "point_on", point: a, entity: fromCurve, auto: true }, { id: id++, type: "point_on", point: b, entity: toCurve, auto: true });
   }
   for (const curve of ids) constraints.push({ id: id++, type: "tangent", entities: [circle, curve], auto: true });
-  if (radius !== null) constraints.push({ id: id++, type: "radius", entity: circle, value: radius, angle: leaderAngle({ ...s, points, entities, constraints }, circle, "radius") });
+  if (radius !== null) constraints.push({ id: id++, type: "radius", entity: circle, value: radius, angle: leaderAngle({ ...s, points, entities, constraints }, circle, "radius", { u: pointer[0], v: pointer[1] }) });
   return { ...s, points, entities, constraints };
 }
 

@@ -83,6 +83,6 @@ export function addArcRadius(ctx: BuilderContext, start: Snap, end: Snap, side: 
   const id = M.nextId(ctx.s);
   const first = arc.from === start;
   ctx.s.entities.push({ id, type: "arc", center: centre, start: first ? a : b, end: first ? b : a });
-  ctx.s.constraints.push({ id: M.nextId(ctx.s), type: "radius", entity: id, value: radius, angle: leaderAngle(ctx.s, id, "radius") });
+  ctx.s.constraints.push({ id: M.nextId(ctx.s), type: "radius", entity: id, value: radius, angle: leaderAngle(ctx.s, id, "radius", side) });
   ctx.resolve();
 }
