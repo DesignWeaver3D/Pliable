@@ -26,6 +26,7 @@ import { addTangentArc, tangentStart } from "./sketchtangentarc";
 import { addArcRadius, arcClick, defaultArcOptions } from "./sketcharcoptions";
 import { isFreeCircle, draggedRadius } from "./sketchcircledrag";
 import { leaderAngle } from "./sketchleaderangle";
+import { BareAltPress } from "./sketchaltpress";
 import { loadSketchOptions, OPTIONS_KEY } from "./sketchoptions";
 import { chooseAtCursor } from "./sketchmenu";
 import { sketchSelectionText } from "./selectedreadout";
@@ -138,6 +139,15 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
       refreshFreedom: () => this.refreshFreedom(),
     });
     window.addEventListener("keydown", this.onTyping, true);
+    // A bare press of Alt toggles construction on the selected curves (Alt with a click or another key does not).
+    window.addEventListener("keydown", (e) => this.altPress.down(e.key, e.repeat), true);
+    window.addEventListener("pointerdown", () => this.altPress.spoil(), true);
+    window.addEventListener("wheel", () => this.altPress.spoil(), true);
+    window.addEventListener("keyup", (e) => {
+      if (!this.altPress.up(e.key) || !this.active || this.settingsDialog?.open || this.leaveDialog?.open || (e.target as HTMLElement).closest("input, select, textarea")) return;
+      e.preventDefault(); // so the browser's menu does not take the focus
+      this.toggleConstruction();
+    }, true);
     window.addEventListener("pointermove", (e) => (this.lastPointer = { x: e.clientX, y: e.clientY }), true);
     window.addEventListener("resize", () => { if (this.active) this.placePanel(); });
     for (const o of [this.normal, this.placed, this.construction, this.points]) o.userData.extent = true; // counted by the origin axes' length
@@ -1697,6 +1707,7 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
     this.host.status(kind === "fillet" ? "Rounded the corner" : "Bevelled the corner");
   }
 
+  /** Alt, or the card's button: each selected curve switches between regular and construction. */
   private toggleConstruction() {
     const ids = new Set(this.selection.filter((x) => x.kind === "entity").map((x) => x.id));
     if (!ids.size) return;
@@ -1704,6 +1715,8 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
     for (const en of this.s.entities) if (ids.has(en.id)) en.construction = !en.construction;
     this.render();
   }
+
+  private readonly altPress = new BareAltPress();
 
   // Drawing -----------------------------------------------------------------------------------------
 
@@ -1888,7 +1901,7 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
       offsetRow.append(button("Offset", () => this.offsetSelection()), distance);
       constraintsBox.append(offsetRow);
       const construction = button("Toggle construction", () => this.toggleConstruction());
-      construction.title = "Construction geometry guides the sketch but is not part of the profile";
+      construction.title = "Construction geometry guides the sketch but is not part of the profile. Pressing Alt does the same for the selected curves";
       constraintsBox.append(construction);
     }
 

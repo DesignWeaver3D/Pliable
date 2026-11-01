@@ -39,6 +39,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 ## Keys
 
 - Bare keys may change view, display, arm a tool or change selection. Anything that changes the model or a setting at once needs Ctrl or Alt.
+- In a sketch, a bare press of Alt (pressed and released with no other key or mouse press between, so Alt+click and Alt with a key do not count) toggles construction on the selected curves, as the card's Toggle construction button does; it is one undo step and does nothing when no curve is selected. (owner, 2026-11-01)
 - Every hotkey is user-redefinable except the fixed sketch keys (Ctrl+Z, Escape, Enter, Delete/Backspace). Any mix of Ctrl, Alt and Shift is allowed.
 - Measure pick is the rebindable command "measure", default M.
 - The page warns when leaving with undo steps or an open sketch (confirmed by the owner, 2026-10-26: also when the sketch holds only geometry and nothing else changed).
