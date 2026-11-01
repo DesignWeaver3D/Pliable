@@ -867,7 +867,7 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
     } else if (e.key === "Escape") {
       if (this.chain.length) this.endChain();
       else if (this.tool !== "select") this.setTool("select");
-      else if (this.selection.length) this.selection = [], this.render();
+      else if (this.selection.length || this.selectedDimensions.size) this.selection = [], this.selectedDimensions.clear(), this.render(); // geometry, dimensions and marks alike
       else void this.leave(); // nothing left to cancel: leave the sketch (asking first if it holds work)
     } else if (e.key === "Enter" && this.chain.length) {
       this.endChain();
