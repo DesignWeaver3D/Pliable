@@ -10,6 +10,7 @@ from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 
 from .ops import OperationError, planar_normal
+from .vecmath import dot as _dot
 
 TOLERANCE = 1e-3
 ORIGIN_PLANES = (
@@ -17,10 +18,6 @@ ORIGIN_PLANES = (
     {"name": "XZ origin plane", "origin": (0.0, 0.0, 0.0), "normal": (0.0, 1.0, 0.0)},
     {"name": "YZ origin plane", "origin": (0.0, 0.0, 0.0), "normal": (1.0, 0.0, 0.0)},
 )
-
-
-def _dot(a, b) -> float:
-    return sum(x * y for x, y in zip(a, b))
 
 
 def centre_and_area(face) -> tuple[tuple[float, float, float], float]:

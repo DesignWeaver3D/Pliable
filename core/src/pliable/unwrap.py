@@ -42,6 +42,7 @@ from OCP.TopoDS import TopoDS
 from .ops import OperationError
 from .tessellate import bounds
 from .sketch import STANDARD_PLANES, SketchError, regions
+from .vecmath import dot as _dot
 
 CURVE_SAMPLES = 48
 TOL = 1e-6
@@ -112,10 +113,6 @@ def _vertices(shape):
         out.append((p.X(), p.Y(), p.Z()))
         explorer.Next()
     return out
-
-
-def _dot(a, b):
-    return sum(x * y for x, y in zip(a, b))
 
 
 def _sub(a, b):
