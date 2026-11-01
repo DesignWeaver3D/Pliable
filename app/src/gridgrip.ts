@@ -1,10 +1,11 @@
 /** The cube grip of a grid (the linear array's corner): dragged in the plane of the two step vectors, it sets the two counts
  *  independently. The pointer's point on that plane, measured from where it was pressed, is split into whole column steps
  *  along u and whole row steps along v. */
+import { cross3, dot3 } from "./vec.ts";
+
 type V3 = readonly [number, number, number];
 
-const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const [dot, cross] = [dot3, cross3];
 
 /** The point where a ray meets the plane through `anchor` spanned by u and v, or null when the ray runs along the plane or the steps are parallel. */
 export function planePoint(origin: V3, dir: V3, anchor: V3, u: V3, v: V3): V3 | null {

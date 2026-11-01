@@ -1,12 +1,10 @@
 /** Which way a constraint mark leaves its point so that it lies outside the profile where it can, and the other ways to try when that place is taken. No DOM or WebGL. */
 import { entityOf, entityPoints, pointOf, type SketchData, type SketchConstraint } from "./sketchmodel.ts";
+import { unit2OrZero, type Pt } from "./vec.ts";
 import { radiusOf } from "./sketchconstraints.ts";
 
-type UV = [number, number];
-const unit = (a: UV): UV => {
-  const n = Math.hypot(a[0], a[1]);
-  return n < 1e-9 ? [0, 0] : [a[0] / n, a[1] / n];
-};
+type UV = Pt;
+const unit = unit2OrZero;
 
 /** The angle of a direction in the sketch plane, and the angles to try after it: a quarter turn each way before half a turn, so a mark that cannot go outside goes beside. */
 export const fan = (preferred: UV): number[] => {

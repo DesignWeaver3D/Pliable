@@ -7,6 +7,7 @@ import { showNumber } from "./precision.ts";
 import { ellipseAngle, ellipseArcPoints, ellipseSweep } from "./sketchellipse.ts";
 import { crossings } from "./sketchintersect.ts";
 export { crossings, crossingsWith } from "./sketchintersect.ts";
+import { cross3, dot3, sub3, unit3, type Vec3 } from "./vec.ts";
 import { projectOnSegment } from "./segmentmath.ts";
 import { arcSamples } from "./sketchshapes.ts";
 import { tangentSpots } from "./sketchtangentmarks.ts";
@@ -63,14 +64,8 @@ export interface SketchData {
 }
 export type SketchSel = { kind: "point" | "entity"; id: number };
 
-export type Vec3 = [number, number, number];
-const sub = (a: number[], b: number[]): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a: number[], b: number[]): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const norm = (a: number[]): Vec3 => {
-  const l = Math.hypot(a[0], a[1], a[2]) || 1;
-  return [a[0] / l, a[1] / l, a[2] / l];
-};
+export type { Vec3 };
+const [sub, dot, cross, norm] = [sub3, dot3, cross3, unit3];
 
 /** Unit axes of a plane, matching the core's `frame` (x made perpendicular to the normal, y = normal x x). */
 export function frame(plane: PlaneData): { origin: Vec3; x: Vec3; y: Vec3; n: Vec3 } {

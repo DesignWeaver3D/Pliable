@@ -1,7 +1,9 @@
 /** The arithmetic of the section view (kept free of the DOM and three.js for tests): slicing a triangle mesh with a plane,
  *  joining the cut segments into loops, hatch lines inside the loops, and where the sections of different bodies overlap. */
 
-export type V3 = [number, number, number];
+import { cross3, unit3, type Vec3 } from "./vec.ts";
+
+export type V3 = Vec3;
 
 /** A closed outline in the section plane's own 2D coordinates: x0, y0, x1, y1, ... (the first point is not repeated at the end). */
 export type Loop = number[];
@@ -19,11 +21,7 @@ export interface Frame {
   v: V3;
 }
 
-const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const unit = (a: V3): V3 => {
-  const l = Math.hypot(a[0], a[1], a[2]) || 1;
-  return [a[0] / l, a[1] / l, a[2] / l];
-};
+const [cross, unit] = [cross3, unit3];
 
 /** The plane's axes: u and v lie in it, and the same normal always gives the same u and v (so a hatch pattern holds still while the plane slides along its normal). */
 export function frameOf(plane: SectionPlane): Frame {

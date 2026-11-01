@@ -1,6 +1,7 @@
 /** Construction lines stacked on one another are drawn dashed, and two dash patterns on the same stretch fill each other's gaps and look like a solid line. This cuts each line down to
  *  the stretches no shorter line already covers (the shorter one is on top), so every stretch is dashed once. No DOM. */
-type UV = [number, number];
+import type { Pt } from "./vec.ts";
+type UV = Pt;
 export interface StackedLine {
   a: UV;
   b: UV;

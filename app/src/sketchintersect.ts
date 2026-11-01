@@ -3,10 +3,11 @@
  *  (`onCurve`). Lines, circles and arcs share the primitives below; ellipses and splines are met by `sketchcrossings.ts`. */
 import { pointOf } from "./sketchmodel.ts";
 import type { SketchData, SketchEntity } from "./sketchmodel.ts";
+import { unit2, type Pt } from "./vec.ts";
 import { TWO_PI, turnCounterclockwise } from "./anglemath.ts";
 import { ellipseCrossings, splineCrossings } from "./sketchcrossings.ts";
 
-export type Pt = [number, number];
+export type { Pt };
 type Line = Extract<SketchEntity, { type: "line" }>;
 export type Round = Extract<SketchEntity, { type: "arc" | "circle" }>;
 export type Curve = Line | Round;
@@ -17,10 +18,7 @@ export const isCurve = (e: SketchEntity | undefined): e is Curve => !!e && (e.ty
 export const sub = (a: Pt, b: Pt): Pt => [a[0] - b[0], a[1] - b[1]];
 export const dot = (a: Pt, b: Pt) => a[0] * b[0] + a[1] * b[1];
 export const len = (a: Pt) => Math.hypot(a[0], a[1]);
-export const unit = (a: Pt): Pt => {
-  const l = len(a) || 1;
-  return [a[0] / l, a[1] / l];
-};
+export const unit = unit2;
 export const at = (s: SketchData, id: number): Pt => [pointOf(s, id).u, pointOf(s, id).v];
 export const mod = turnCounterclockwise;
 export const angleOf = (c: Pt, p: Pt) => Math.atan2(p[1] - c[1], p[0] - c[0]);

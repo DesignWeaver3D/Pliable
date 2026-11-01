@@ -1,17 +1,14 @@
 /** The direction a face is pushed or pulled along when it is not its own normal: the vector maths, and the one place that holds the
  *  chosen direction for the selected face. The arrow handle and the face drag both read it (see toolRequest in main.ts). */
-export type Vec = [number, number, number];
+import { cross3, dot3, unit3OrNull, type Vec3 } from "./vec.ts";
+export type Vec = Vec3;
 
 /** A pull direction closer than this (cosine) to the face's own plane would make a sliver; the core refuses it too. */
 export const MIN_PULL_COSINE = 0.1;
 
-const dot = (a: Vec, b: Vec) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a: Vec, b: Vec): Vec => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const [dot, cross] = [dot3, cross3];
 
-export function unit(v: Vec): Vec | null {
-  const length = Math.hypot(v[0], v[1], v[2]);
-  return length < 1e-9 ? null : [v[0] / length, v[1] / length, v[2] / length];
-}
+export const unit = unit3OrNull;
 
 /** The direction of a straight edge from its two end points, or null for a zero-length edge. */
 export function edgeVector(a: Vec, b: Vec): Vec | null {

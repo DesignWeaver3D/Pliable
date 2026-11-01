@@ -1,8 +1,9 @@
 /** Where a tangent constraint's curves touch, and which way is out of the profile there, for its mark. No DOM or WebGL. */
 import { pointOf, entityOf, type SketchData, type SketchConstraint } from "./sketchmodel.ts";
+import { unit2, type Pt } from "./vec.ts";
 import { radiusOf } from "./sketchconstraints.ts";
 
-type UV = [number, number];
+type UV = Pt;
 export interface TangentSpot {
   u: number;
   v: number;
@@ -10,10 +11,7 @@ export interface TangentSpot {
   out: UV;
 }
 
-const unit = (a: UV): UV => {
-  const n = Math.hypot(a[0], a[1]) || 1;
-  return [a[0] / n, a[1] / n];
-};
+const unit = unit2;
 
 /** The touching point of the two curves of a tangent constraint (none when either is not a line, circle or arc). */
 export function tangentSpots(s: SketchData, c: SketchConstraint): TangentSpot[] {
