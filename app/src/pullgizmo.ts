@@ -5,6 +5,7 @@
 import * as THREE from "three";
 import { uiIcon } from "./icons";
 import { AXIS_COLORS } from "./axes.ts";
+import { ARC_STEPS } from "./handlemath.ts";
 import { ARM_PX, type Manipulator } from "./manipulator.ts";
 import { angleFromNormal, sideFrame, sideToward, tiltAlong, tiltFromDrag, typedTiltKeeping, type PullDirection, type Vec } from "./pulldir.ts";
 import { TypedFields } from "./typedentry.ts";
@@ -15,7 +16,6 @@ const ICON_AT = 1;
 /** The sphere the arcs lie on is a little larger than the arrow, so the arcs stand clear of its head (in arrow lengths). */
 const SPHERE = 1.5;
 const ARC_HALF_SPAN = Math.PI / 3;
-const ARC_STEPS = 24;
 const ARC_GRAB_PX = 8;
 /** The red arc swings toward the face's x axis, the green one toward its y axis (the colors of those axes). */
 const ARC_COLORS = [AXIS_COLORS.x, AXIS_COLORS.y];

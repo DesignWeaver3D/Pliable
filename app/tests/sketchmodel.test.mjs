@@ -479,3 +479,11 @@ test("an Equal mark sits beside each curve, and Equal marks chain through shared
   assert.deepEqual(equalChain(more, 7).sort(), [7, 8]);
   assert.deepEqual(equalChain(more, 10), [10]);
 });
+
+test("a circle's polyline runs once around from angle 0 and closes on its start", () => {
+  const s = { plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]), points: [{ id: 1, u: 1, v: 2 }], entities: [], constraints: [] };
+  const ring = polyline(s, { id: 5, type: "circle", center: 1, radius: 2 }, 4);
+  const want = [[3, 2], [1, 4], [-1, 2], [1, 0], [3, 2]];
+  assert.equal(ring.length, 5);
+  ring.forEach((p, i) => assert.ok(Math.abs(p[0] - want[i][0]) < 1e-9 && Math.abs(p[1] - want[i][1]) < 1e-9));
+});

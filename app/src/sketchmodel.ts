@@ -491,7 +491,7 @@ export function polyline(s: SketchData, e: SketchEntity, segments = 48): [number
     return ellipseArcPoints(f, 0, 2 * Math.PI, segments);
   }
   if (e.type === "circle") {
-    return Array.from({ length: segments + 1 }, (_, i) => [c.u + e.radius * Math.cos((2 * Math.PI * i) / segments), c.v + e.radius * Math.sin((2 * Math.PI * i) / segments)]);
+    return arcSamples(c, e.radius, 0, TWO_PI, segments);
   }
   const start = pointOf(s, e.start);
   const end = pointOf(s, e.end);

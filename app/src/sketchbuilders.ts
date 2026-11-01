@@ -136,10 +136,7 @@ export function addLineBetween(ctx: BuilderContext, a: number, b: number): numbe
 export function polygonCorners(center: { u: number; v: number }, corner: { u: number; v: number }, sides: number): { u: number; v: number }[] {
   const radius = Math.hypot(corner.u - center.u, corner.v - center.v);
   const start = Math.atan2(corner.v - center.v, corner.u - center.u);
-  return Array.from({ length: sides }, (_, k) => ({
-    u: center.u + radius * Math.cos(start + (2 * Math.PI * k) / sides),
-    v: center.v + radius * Math.sin(start + (2 * Math.PI * k) / sides),
-  }));
+  return Sh.arcSamples(center, radius, start, 2 * Math.PI, sides).slice(0, sides).map(([u, v]) => ({ u, v })); // the last sample closes the circle on the first
 }
 
 export function addPolygon(ctx: BuilderContext, center: Snap, corner: Snap, sides: number) {

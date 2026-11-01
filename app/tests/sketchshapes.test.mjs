@@ -37,3 +37,13 @@ test("the shared click shapes: rectangle box, mirror, ellipse short radius and a
   assert.ok(Math.abs(quarter[2][0]) < 1e-9 && Math.abs(quarter[2][1] - 5) < 1e-9);
   assert.equal(arcSamples({ u: 0, v: 0 }, 1, 0, 2 * Math.PI, 8).length, 9);
 });
+
+test("polygon corners and circle samples come from the shared arc sampling", async () => {
+  const { polygonCorners } = await import("../src/sketchbuilders.ts");
+  const corners = polygonCorners({ u: 1, v: 1 }, { u: 3, v: 1 }, 4);
+  assert.equal(corners.length, 4);
+  const want = [[3, 1], [1, 3], [-1, 1], [1, -1]];
+  corners.forEach((c, k) => {
+    assert.ok(Math.abs(c.u - want[k][0]) < 1e-9 && Math.abs(c.v - want[k][1]) < 1e-9);
+  });
+});
