@@ -902,8 +902,8 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
         return this.host.status("Removed the coincidence at the selected points; the lines stay");
       }
       for (const sel of this.selection) {
-        const reference = sel.kind === "entity" ? M.entityOf(this.s, sel.id)?.reference : this.s.points.find((p) => p.id === sel.id)?.fixed;
-        if (!reference) this.s = M.remove(this.s, sel); // the face outline stays
+        const axis = sel.kind === "entity" && sel.id === M.AXIS_U || sel.id === M.AXIS_V; // the sketch's own axes stay; the face edges and other projected geometry can be deleted
+        if (!axis) this.s = M.remove(this.s, sel);
       }
       this.selection = [];
       this.resolve();

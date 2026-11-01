@@ -121,7 +121,7 @@ export function remove(s: SketchData, sel: SketchSel): SketchData {
   else for (const e of entities.filter((e) => entityPoints(e).includes(sel.id))) dropEntity(e.id);
   if (sel.kind === "point") released.add(sel.id); // a free point that was selected goes too
   const used = new Set(entities.flatMap(entityPoints));
-  const orphans = new Set(s.points.filter((p) => released.has(p.id) && !used.has(p.id) && !p.fixed).map((p) => p.id));
+  const orphans = new Set(s.points.filter((p) => released.has(p.id) && !used.has(p.id)).map((p) => p.id));
   const refs = (c: SketchConstraint) => [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])];
   constraints = constraints.filter((c) => !refs(c).some((id) => orphans.has(id)));
   return { ...s, entities, constraints, points: s.points.filter((p) => !orphans.has(p.id)) };

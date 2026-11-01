@@ -464,6 +464,19 @@ test("deleting a selected free point removes it and its constraints", async () =
   assert.equal(after.entities.length, 1);
 });
 
+test("deleting projected face-edge geometry removes it and the fixed points only it used", async () => {
+  const { remove } = await import("../src/sketchmodel.ts");
+  const s = {
+    plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
+    points: [{ id: 1, u: 0, v: 0, fixed: true }, { id: 2, u: 10, v: 0, fixed: true }, { id: 3, u: 10, v: 10, fixed: true }, { id: 4, u: 7, v: 7, fixed: true }],
+    entities: [{ id: 5, type: "line", a: 1, b: 2, reference: true }, { id: 6, type: "line", a: 2, b: 3, reference: true }],
+    constraints: [],
+  };
+  const after = remove(s, { kind: "entity", id: 5 });
+  assert.deepEqual(after.entities.map((e) => e.id), [6]);
+  assert.deepEqual(after.points.map((p) => p.id), [2, 3, 4]); // point 1 went with its edge; point 2 still ends the other edge; point 4 was never an edge's
+});
+
 test("an Equal mark sits beside each curve, and Equal marks chain through shared curves", async () => {
   const { equalChain } = await import("../src/sketchequalchain.ts");
   const s = {
