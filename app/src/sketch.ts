@@ -811,6 +811,7 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
     const tool = this.tool; // placing the last point can leave the tool
     const [w, h] = [numbers[0], numbers[1] ?? numbers[0]];
     const before = this.s.entities.length;
+    const pointer = this.cursor; // placing the last point clears the cursor
     this.placingTyped = true;
     try {
       for (const target of T.typedTargets(tool, this.chain, this.cursor, numbers.slice(0, this.typedLabels().length))) this.place({ ...target });
@@ -821,7 +822,7 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
     const plain = !made.some((x) => x.type === "arc"); // a rounded rectangle's sides are not its overall size
     let dimensions: Omit<M.SketchConstraint, "id">[] = [];
     if (tool === "line" && made[0]?.type === "line") dimensions = [{ type: "distance", entity: made[0].id, value: w }];
-    else if (tool === "circle" && made[0]?.type === "circle") dimensions = [{ type: "diameter", entity: made[0].id, value: w, side: M.leaderSide(this.s, made[0].id, this.cursor) }];
+    else if (tool === "circle" && made[0]?.type === "circle") dimensions = [{ type: "diameter", entity: made[0].id, value: w, side: M.leaderSide(this.s, made[0].id, pointer) }];
     else if ((tool === "rectangle" || tool === "rectcentre") && plain && made.length >= 2) {
       dimensions = [{ type: "distance", entity: made[0].id, value: w }, { type: "distance", entity: made[1].id, value: h }];
     }
