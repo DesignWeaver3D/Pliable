@@ -25,6 +25,11 @@ class PushPull(Tool):
         values["flip"] = 1.0 if raw.get("flip") else 0.0  # reverses which drag direction adds and which subtracts
         if raw.get("target") is not None:  # Up to face: the id of the face to pull up to (not a form field); the distance is then ignored
             values["target"] = int(raw["target"])
+        extent = raw.get("extent", "distance")  # "distance" (default), "face" (with target), "last" or "through" (not a form field)
+        if extent not in ("distance", "face", "last", "through"):
+            raise OperationError("Push/pull extent must be one of distance, face, last, through")
+        if extent in ("last", "through"):
+            values["extent"] = extent
         # A chosen pull direction (not a form field): unit components, all three or none.
         if all(k in raw for k in ("ux", "uy", "uz")):
             values.update({k: float(raw[k]) for k in ("ux", "uy", "uz")})
@@ -73,6 +78,8 @@ class PushPull(Tool):
         elif len(faces) == 2 and loose_count == 0 and planar_normal(faces[0]).IsOpposite(planar_normal(faces[1]), 1e-6):
             raise OperationError("These two faces face away from each other; hold Shift while dragging to push/pull them symmetrically")
         direction = _chosen(values)
+        if "extent" in values:
+            return _pull_to_extent(topology, faces, values, symmetric, direction)
         if "target" in values:
             return _pull_up_to(topology, faces, values, symmetric, direction)
         if direction is not None and symmetric:
@@ -92,6 +99,16 @@ def _pull_up_to(topology, faces, values, symmetric, direction) -> OpResult:
     except Exception:
         raise OperationError("Up to face: the target face is not part of the model") from None
     result = pull_up_to_face(topology.shape, faces, target, direction, values["mode"], False)
+    result.tracked_faces = result.tracked_faces[:1]
+    return result
+
+
+def _pull_to_extent(topology, faces, values, symmetric, direction) -> OpResult:
+    from ..pushpull_reach import pull_to_extent
+
+    if symmetric:
+        raise OperationError("Up to last and Through all do not combine with symmetric; turn one of them off")
+    result = pull_to_extent(topology.shape, faces, direction, values["mode"], values["extent"])
     result.tracked_faces = result.tracked_faces[:1]
     return result
 
