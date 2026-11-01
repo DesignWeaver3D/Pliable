@@ -366,30 +366,46 @@ test("an arc's radius leader sits on the arc where it was dragged, with a dashed
   assert.ok(Math.abs(before.extension[0][0][0] - 5) < 1e-9 && Math.abs(before.extension[0][0][1]) < 1e-9);
 });
 
-test("a symmetric constraint is marked at each mirrored point and on the mirror line between them, all turned along the line", () => {
+const round3 = (v) => v.map((x) => Math.round(x * 1e3) / 1e3 + 0);
+
+test("a symmetry about a line is marked straight out from each point, and beside the line between them turned onto the line joining the points", () => {
   const s = {
     plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
     points: [{ id: 1, u: 10, v: 5 }, { id: 2, u: 10, v: -5 }],
     entities: [],
     constraints: [{ id: 3, type: "symmetric", points: [1, 2], entity: -1 }],
   };
-  const marks = constraintMarks(s);
-  assert.equal(marks.length, 3);
-  assert.deepEqual(marks.map((m) => m.points[0].slice(0, 2)), [[10, 5], [10, -5], [10, 0]]);
-  assert.ok(marks.every((m) => m.icon === "Symmetric"));
-  for (const m of marks) assert.deepEqual(m.iconAlong.map((x) => Math.round(x * 1e6) / 1e6 + 0), [1, 0, 0]); // the mirror line here is the x axis
+  const [p, q, mid] = constraintMarks(s);
+  assert.deepEqual([p.points[0].slice(0, 2), q.points[0].slice(0, 2), mid.points[0].slice(0, 2)], [[10, 5], [10, -5], [10, 0]]);
+  assert.deepEqual([p.icon, q.icon, mid.icon], ["Symmetric end", "Symmetric end", "Symmetric center"]);
+  // The ends go straight out along the line joining the points, away from the middle; their bright triangle faces the middle.
+  assert.deepEqual(round3(p.outward), [0, 1, 0]);
+  assert.deepEqual(round3(p.iconFacing), [0, -1, 0]);
+  assert.deepEqual(round3(q.outward), [0, -1, 0]);
+  assert.deepEqual(round3(q.iconFacing), [0, 1, 0]);
+  // The middle one keeps its angle along the mirror line (the x axis here) and is moved off the line, onto the line joining the points, on the up-and-right side.
+  assert.deepEqual(round3(mid.iconAlong), [1, 0, 0]);
+  assert.deepEqual(round3(mid.outward), [0, 1, 0]);
+  assert.ok([p, q, mid].every((m) => !m.alternatives)); // never turned around its point to dodge another mark
 });
 
-test("a symmetry about a point turns its three marks square to the line joining the points", () => {
+test("a symmetry about a point marks the center beside it, off the line through the points, on the side most upward and to the right", () => {
   const s = {
     plane: plane([0, 0, 0], [0, 0, 1], [1, 0, 0]),
     points: [{ id: 1, u: -10, v: 0 }, { id: 2, u: 10, v: 0 }, { id: 3, u: 0, v: 0 }],
     entities: [],
     constraints: [{ id: 4, type: "symmetric_point", points: [1, 2], point: 3 }],
   };
-  const marks = constraintMarks(s);
-  assert.equal(marks.length, 3);
-  for (const m of marks) assert.deepEqual(m.iconAlong.map((x) => Math.round(x * 1e6) / 1e6 + 0), [0, 1, 0]);
+  const [p, q, centre] = constraintMarks(s);
+  assert.deepEqual(round3(p.outward), [-1, 0, 0]);
+  assert.deepEqual(round3(p.iconFacing), [1, 0, 0]);
+  assert.deepEqual(round3(q.outward), [1, 0, 0]);
+  assert.deepEqual(round3(q.iconFacing), [-1, 0, 0]);
+  assert.deepEqual(round3(centre.outward), [0, 1, 0]); // the line joining the points is horizontal, so up
+  assert.deepEqual(round3(centre.iconAlong), [0, 1, 0]); // its centerline points at the center point
+  // With the line joining the points vertical the center mark goes to the right.
+  const upright = { ...s, points: [{ id: 1, u: 0, v: -10 }, { id: 2, u: 0, v: 10 }, { id: 3, u: 0, v: 0 }] };
+  assert.deepEqual(round3(constraintMarks(upright)[2].outward), [1, 0, 0]);
 });
 
 test("an elliptical arc is drawn only between its start and end, counterclockwise", () => {

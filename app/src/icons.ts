@@ -228,6 +228,9 @@ export const CONSTRAINT_ICONS: Record<string, string> = {
   Perpendicular: '<path d="M12 4v16M12 20h8"/><path d="M12 16h4v4"/>',
   Equal: '<path d="M5 9h14M5 15h14"/>',
   Symmetric: '<path d="M12 3v5M12 16v5"/><circle cx="12" cy="12" r="1" fill="currentColor"/><path d="M4 7l5 5-5 5z" fill="currentColor"/><path d="M20 7l-5 5 5 5z" fill="currentColor"/>',
+  // The marks of a Symmetric constraint: the center's keeps the centerline bright, an end's only the triangle that faces the center (turned half a turn for the other end).
+  "Symmetric center": '<path d="M12 3v5M12 16v5"/><circle cx="12" cy="12" r="1" fill="currentColor"/><g opacity=".35"><path d="M4 7l5 5-5 5z" fill="currentColor"/><path d="M20 7l-5 5 5 5z" fill="currentColor"/></g>',
+  "Symmetric end": '<g opacity=".35"><path d="M12 3v5M12 16v5"/><circle cx="12" cy="12" r="1" fill="currentColor"/><path d="M20 7l-5 5 5 5z" fill="currentColor"/></g><path d="M4 7l5 5-5 5z" fill="currentColor"/>',
   "Tangent / collinear": '<circle cx="12" cy="14" r="6"/><path d="M3 8h18"/>',
   "Point on": '<path d="M3 17L21 7"/><circle cx="12" cy="12" r="2" fill="currentColor"/>',
   Midpoint: '<path d="M4 15h16"/><circle cx="4" cy="15" r="1.4" fill="currentColor"/><circle cx="20" cy="15" r="1.4" fill="currentColor"/><path d="M12 6v9"/><circle cx="12" cy="15" r="2" fill="currentColor"/>',

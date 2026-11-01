@@ -9,6 +9,7 @@ import { awayFromNeighbours, coincidentDirection, coincidentSpot, fan, PAIRED_TU
 import { AXIS_U, AXIS_V, entityOf, frame, pointOf, toPlane, toWorld } from "./sketchdata.ts";
 import type { SketchConstraint, SketchData, SketchEntity } from "./sketchdata.ts";
 import { polyline } from "./sketchcurves.ts";
+import { symmetricMarks } from "./sketchsymmetricmarks.ts";
 const [sub, dot, cross, norm] = [sub3, dot3, cross3, unit3];
 
 
@@ -273,21 +274,16 @@ export function constraintMarks(s: SketchData): Dimension[] {
       if (spots.length) continue;
     }
     if (c.type === "symmetric" || c.type === "symmetric_point") {
-      // One mark at each of the mirrored points (and at the center point of a symmetry about a point), never at the average with the axis or line.
-      // A symmetry about a line also gets one on the mirror line, halfway between the points. All of them are turned the same way, so the
-      // icon's centerline lies along the mirror line (square to the line joining the points when mirrored about a point).
-      const ends = (c.points ?? []).slice(0, 2).map((id) => s.points.find((q) => q.id === id)).filter((q): q is NonNullable<typeof q> => !!q);
-      const axis = c.entity !== undefined ? entityOf(s, c.entity) : undefined;
-      let dir: [number, number] | null = null;
-      if (axis?.type === "line") dir = [pointOf(s, axis.b).u - pointOf(s, axis.a).u, pointOf(s, axis.b).v - pointOf(s, axis.a).v];
-      else if (ends.length === 2) dir = [-(ends[1].v - ends[0].v), ends[1].u - ends[0].u];
-      const size = dir ? Math.hypot(dir[0], dir[1]) : 0;
-      const iconAlong = dir && size > 1e-9 && ends.length ? toWorld(s.plane, ends[0].u + dir[0] / size, ends[0].v + dir[1] / size).map((x, k) => x - toWorld(s.plane, ends[0].u, ends[0].v)[k]) : undefined;
+      // The two mirrored points and the center, placed and turned as sketchsymmetricmarks.ts says; where that cannot be worked out, one mark beside each point.
+      const placed = symmetricMarks(s, c, text);
+      if (placed) {
+        out.push(...placed);
+        continue;
+      }
       for (const id of [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])]) {
         const p = s.points.find((q) => q.id === id);
-        if (p) out.push({ kind: "tag", text, points: [toWorld(s.plane, p.u, p.v)], mark: true, avoid: centres, constraint: c.id, icon, iconAlong, ...leaving(p.u, p.v, awayFromNeighbours(s, id)) }); // beside the point, so the vertex stays pickable
+        if (p) out.push({ kind: "tag", text, points: [toWorld(s.plane, p.u, p.v)], mark: true, avoid: centres, constraint: c.id, icon, ...leaving(p.u, p.v, awayFromNeighbours(s, id)) }); // beside the point, so the vertex stays pickable
       }
-      if (c.type === "symmetric" && ends.length === 2) out.push({ kind: "tag", text, points: [toWorld(s.plane, (ends[0].u + ends[1].u) / 2, (ends[0].v + ends[1].v) / 2)], mark: true, constraint: c.id, icon, iconAlong });
       continue;
     }
     const pointIds = [...(c.points ?? []), ...(c.point !== undefined ? [c.point] : [])];

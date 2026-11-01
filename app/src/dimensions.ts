@@ -44,6 +44,8 @@ export interface Dimension {
   icon?: string;
   /** Tags with an icon: a world direction the icon is turned to, so the icon's vertical centerline lies along it (the mirror line of a symmetric constraint). */
   iconAlong?: number[];
+  /** Tags with an icon that is not the same turned half a turn: a world direction the icon's right-hand side faces. */
+  iconFacing?: number[];
   /** Drawn in the reference gray (a measure-only dimension, or a size shown while a shape is drawn). */
   reference?: boolean;
   /** Tags: a world direction the tag is moved along (a fixed distance on the screen), such as out of the profile. */
@@ -65,7 +67,8 @@ const TEXT_PX = 13;
 const DOUBLE_TAP_MS = 450; // two taps closer in time than this are a double-click
 const DRAG_START_PX = 4; // a press that moves less than this is a click, not a drag
 const MARK_ICON_PX = 18; // a constraint mark drawn as its button's icon
-const MARK_OUT_PX = 14; // how far an outward mark sits from its point
+const MARK_VERTEX_PX = 5; // half the size of a vertex square
+const MARK_GAP_PX = 3; // clear space between a vertex square and a mark placed beside it
 const CURSOR_CLEAR_PX = 28; // text moves away when the pointer is closer than this
 /** Leaders, extension lines, dimension lines, arrowheads and the values use the off-white of the UI buttons (the --ui-offwhite token in index.html). */
 const LINE_COLOR = "var(--ui-offwhite, #ddd)";
@@ -191,6 +194,11 @@ export class DimensionOverlay {
 
   /** The turn (degrees) that puts an icon's vertical centerline along `iconAlong` as it looks on the screen; 0 when there is none or it is seen end-on. */
   private turnOf(d: Dimension, project: (p: number[]) => V): number {
+    if (d.iconFacing) {
+      const a = project(d.points[0]);
+      const b = project(d.points[0].map((c, k) => c + d.iconFacing![k]));
+      return Math.hypot(b.x - a.x, b.y - a.y) < 1e-6 ? 0 : (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+    }
     if (!d.iconAlong) return 0;
     const a = project(d.points[0]);
     const b = project(d.points[0].map((c, k) => c + d.iconAlong![k]));
@@ -198,11 +206,18 @@ export class DimensionOverlay {
     return Math.hypot(dx, dy) < 1e-6 ? 0 : (Math.atan2(dx, -dy) * 180) / Math.PI;
   }
 
+  /** How far on the screen a mark sits from its point, the same clearance for every kind of mark: half a vertex square, the mark's own half size along the way it leaves, and a gap. */
+  private standoff(d: Dimension, way: V): number {
+    const reach = d.icon ? MARK_ICON_PX / 2 + 1 : Math.abs(way.x) * (textWidth(d.text) / 2) + Math.abs(way.y) * (TEXT_PX / 2 + 2);
+    return MARK_VERTEX_PX + reach + MARK_GAP_PX;
+  }
+
   /** A tag's point moved a fixed distance on the screen along its outward direction (a tangent mark off the curve). */
   private pushed(at: V, d: Dimension, project: (p: number[]) => V, way = d.outward): V {
     if (!way) return at;
     const toward = project(d.points[0].map((c, k) => c + way[k]));
-    return add(at, mul(unit(sub(toward, at)), MARK_OUT_PX));
+    const away = unit(sub(toward, at));
+    return add(at, mul(away, this.standoff(d, away)));
   }
 
   /** A tag's place moved up, out of the way of the points it must not cover (a center point and its highlight). */
