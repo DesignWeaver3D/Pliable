@@ -29,17 +29,16 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 
 ## Modeling
 
-- Topology ids change after each operation; anything that keeps an id across edits (Edit last, chips) is re-derived. Symptom: an edit lands on the wrong face after undo/redo.
 - Holes and bosses are edited by fusing or cutting cylinders; a hole partly cut by another feature resizes oddly. Resize hole takes a typed diameter and does not show the current one.
 - Shell, draft, delete face and remove fillet use OpenCASCADE defeaturing/offset, which can fail or give degenerate results; only shell has a volume check. Check Model info when a tool reports success but nothing changed.
 - `UnifySameDomain` runs after every tool and may merge faces you wanted separate or renumber them. Measured 0.4 s on a 231-face plate and it grows with face count (merge only near the change if large models feel slow). On very detailed solids (~2,000+ faces) it can produce invalid geometry; push/pull then keeps the plain boolean result.
 - Push/pull on multi-solid files booleans only the containing solid; faces on different solids, or in open shells, are refused. Overlap between separate solids is not resolved. Bodies that end up overlapping are not fused or checked.
 - Per-body rotate and scale pivot about the model origin, so a scaled body also drifts.
-- Resize fillet on a variable fillet maps start/end radii to the kernel's edge ends, which may mirror the original; it offers itself on any non-planar face and says so when it is not a fillet. Fillet per edge labels rows by edge id (hard to match with many edges); start 0 leaves an edge sharp; clashing radii at a shared vertex fail the preview.
+- Resize fillet on a variable fillet maps start/end radii to the kernel's edge ends, which may mirror the original; it offers itself on any non-planar face and says so when it is not a fillet. Fillet per edge labels rows by edge id (hard to match with many edges); start 0 leaves an edge sharp.
 - Inset face offsets the outer loop or one inner loop (`loop` number, order as the face reports) with sharp joins; concave corners self-intersect on large insets.
 - Resize hole also resizes same-size holes by default (owner chose this); moving a hole still moves one. Fix if reported: default off, or a hint on the chip.
 - Emboss/Cut along surface takes a form distance (no drag) and fails where the offset fails (tight curvature, distance beyond the radius of curvature).
-- Array tools fuse copies with the original (max 200); arrays act on the whole solid today (commit `abcc689`).
+- Array tools fuse copies with the original; arrays act on the whole solid today (commit `abcc689`).
 - Combine STEP places the file at its own origin. Mesh exports use a 0.01 mm chord tolerance.
 - Patch fill tries tangent (G1) only where an edge has one neighboring face and silently falls back to G0. Do not use `BRepFill.Face_s`: afterwards, fillets of unrelated shapes in the same process returned invalid geometry (cause unknown); bridge uses ruled ThruSections.
 - Import repair fixes only negative-volume solids (`ShapeFix_Solid`); closed surface bodies become solids; open ones get `ShapeFix_Shell` and sewing at 1e-3 mm, else are named in the import warning. Part names from STEP can show as garbage for non-Latin text. Loose faces outside any shell are not checked.
