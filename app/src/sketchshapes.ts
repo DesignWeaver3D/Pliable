@@ -69,3 +69,22 @@ export function arcBetween(centre: UV, from: UV, to: UV, segments: number): [num
   const sweep = (Math.atan2(to.v - centre.v, to.u - centre.u) - a0 + 4 * Math.PI) % (2 * Math.PI);
   return arcSamples(centre, Math.hypot(from.u - centre.u, from.v - centre.v), a0, sweep, segments);
 }
+
+/** The point opposite `p` about `centre`. */
+export function mirror(centre: UV, p: UV): UV {
+  return { u: 2 * centre.u - p.u, v: 2 * centre.v - p.v };
+}
+
+/** The box of a rectangle from two clicks: opposite corners, or (centered) the center and one corner. */
+export function rectBox(a: UV, b: UV, centred: boolean): { u0: number; u1: number; v0: number; v1: number } {
+  const other = centred ? mirror(a, b) : a;
+  return { u0: Math.min(other.u, b.u), u1: Math.max(other.u, b.u), v0: Math.min(other.v, b.v), v1: Math.max(other.v, b.v) };
+}
+
+/** The short radius of the ellipse of three clicks (how far the third is from the long axis), or null when the clicks give it no size. */
+export function ellipseShortRadius(center: UV, major: UV, side: UV): number | null {
+  const a = Math.hypot(major.u - center.u, major.v - center.v);
+  if (a < 1e-6) return null;
+  const minor = Math.abs(((side.u - center.u) * (major.v - center.v) - (side.v - center.v) * (major.u - center.u)) / a);
+  return minor < 1e-6 ? null : minor;
+}

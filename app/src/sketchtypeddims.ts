@@ -3,7 +3,7 @@
 import type { Dimension } from "./dimensions";
 import * as M from "./sketchmodel.ts";
 import { typedLabels, typedTargets } from "./sketchtyped.ts";
-import { arcSamples } from "./sketchshapes.ts";
+import { arcSamples, mirror } from "./sketchshapes.ts";
 import type { UV } from "./sketchshapes.ts";
 import type { PreviewContext } from "./sketchpreview.ts";
 import { showNumber } from "./precision.ts";
@@ -53,14 +53,14 @@ export function typedDimensions(ctx: PreviewContext, live = false): Dimension[] 
   if (!target) return [];
 
   if (ctx.tool === "rectangle" || ctx.tool === "rectcentre") {
-    const corner = ctx.tool === "rectcentre" ? { u: 2 * first.u - target.u, v: 2 * first.v - target.v } : first;
+    const corner = ctx.tool === "rectcentre" ? mirror(first, target) : first;
     const sideU = Math.sign(target.u - corner.u) || 1;
     const sideV = Math.sign(target.v - corner.v) || 1;
     linear(0, corner, { u: target.u, v: corner.v }, [0, -sideV]);
     linear(1, { u: target.u, v: corner.v }, target, [sideU, 0]);
   } else if (ctx.tool === "circle") {
     // The typed number is the diameter: the line runs across the circle and the leader leaves from its far end.
-    out.push({ kind: "diameter", text: shown(0, 2 * Math.hypot(target.u - first.u, target.v - first.v), "Ø"), points: [world({ u: 2 * first.u - target.u, v: 2 * first.v - target.v }), world(target)], selected: 0 === active });
+    out.push({ kind: "diameter", text: shown(0, 2 * Math.hypot(target.u - first.u, target.v - first.v), "Ø"), points: [world(mirror(first, target)), world(target)], selected: 0 === active });
   } else if (ctx.sidesOf(ctx.tool)) {
     radius(0, first, target);
   } else if (ctx.tool === "line") {
@@ -71,7 +71,7 @@ export function typedDimensions(ctx: PreviewContext, live = false): Dimension[] 
     if (ctx.chain.length === 1) linear(0, a, b, null);
     const side = ctx.chain.length === 2 ? target : targets[1];
     if (side) {
-      const mirrored = { u: 2 * a.u - side.u, v: 2 * a.v - side.v };
+      const mirrored = mirror(a, side);
       const [du, dv] = [side.u - a.u, side.v - a.v];
       linear(ctx.chain.length === 2 ? 0 : 1, mirrored, side, [-dv, du], 2 * Math.hypot(du, dv));
     }

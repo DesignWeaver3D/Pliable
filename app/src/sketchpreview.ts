@@ -58,10 +58,9 @@ function pendingBase(ctx: PreviewContext): [number, number][][] {
     const last = ctx.chain[ctx.chain.length - 1];
     return [[[last.u, last.v], [c.u, c.v]]];
   }
-  if (ctx.tool === "rectangle") return [[[first.u, first.v], [c.u, first.v], [c.u, c.v], [first.u, c.v], [first.u, first.v]]];
-  if (ctx.tool === "rectcentre") {
-    const [x, y] = [2 * first.u - c.u, 2 * first.v - c.v];
-    return [[[x, y], [c.u, y], [c.u, c.v], [x, c.v], [x, y]]];
+  if (ctx.tool === "rectangle" || ctx.tool === "rectcentre") {
+    const { u0, u1, v0, v1 } = Sh.rectBox(first, c, ctx.tool === "rectcentre");
+    return [[[u0, v0], [u1, v0], [u1, v1], [u0, v1], [u0, v0]]];
   }
   const sides = ctx.sidesOf(ctx.tool);
   if (sides) {
@@ -74,18 +73,18 @@ function pendingBase(ctx: PreviewContext): [number, number][][] {
     return [M.polyline(probe, { id: 0, type: "spline", points: through.map((_, i) => -1 - i) }, 48)];
   }
   if (ctx.tool === "ellipse") {
-    const probe: M.SketchData = { ...ctx.s, points: [{ id: -1, u: first.u, v: first.v }, { id: -2, u: (ctx.chain[1] ?? c).u, v: (ctx.chain[1] ?? c).v }] };
-    const a = Math.hypot(probe.points[1].u - first.u, probe.points[1].v - first.v);
-    if (!ctx.chain[1] || a < 1e-9) return [[[first.u, first.v], [c.u, c.v]]];
-    const minor = Math.abs(((c.u - first.u) * (probe.points[1].v - first.v) - (c.v - first.v) * (probe.points[1].u - first.u)) / a);
-    return [M.polyline(probe, { id: 0, type: "ellipse", center: -1, major: -2, minor: Math.max(minor, 1e-6) }, 48)];
+    const major = ctx.chain[1];
+    if (!major) return [[[first.u, first.v], [c.u, c.v]]];
+    const minor = Sh.ellipseShortRadius(first, major, c);
+    if (minor === null) return [[[first.u, first.v], [major.u, major.v]]];
+    const probe: M.SketchData = { ...ctx.s, points: [{ id: -1, u: first.u, v: first.v }, { id: -2, u: major.u, v: major.v }] };
+    return [M.polyline(probe, { id: 0, type: "ellipse", center: -1, major: -2, minor }, 48)];
   }
   if (ctx.tool === "ellarc") {
     const second = ctx.chain[1];
     if (!second || Math.hypot(second.u - first.u, second.v - first.v) < 1e-9) return [[[first.u, first.v], [c.u, c.v]]];
     const side = ctx.chain[2] ?? c;
-    const minor = Math.abs(((side.u - first.u) * (second.v - first.v) - (side.v - first.v) * (second.u - first.u)) / Math.hypot(second.u - first.u, second.v - first.v));
-    const f = Ell.ellipseFrame(first, second, Math.max(minor, 1e-6));
+    const f = Ell.ellipseFrame(first, second, Sh.ellipseShortRadius(first, second, side) ?? 1e-6);
     if (ctx.chain.length < 4) return [Ell.ellipseArcPoints(f, 0, 2 * Math.PI, 48)]; // the whole ellipse until the start is clicked
     const from = Ell.ellipseAngle(f, ctx.chain[3].u, ctx.chain[3].v);
     let sweep = Ell.ellipseSweepToward(from, Ell.ellipseAngle(f, c.u, c.v)); // follows the pointer: clockwise or counterclockwise from the start

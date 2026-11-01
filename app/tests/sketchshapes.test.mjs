@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { arcThrough, circumcircle, distanceToAxis, slotCorners } from "../src/sketchshapes.ts";
+import { arcBetween, arcSamples, arcThrough, circumcircle, distanceToAxis, ellipseShortRadius, mirror, rectBox, slotCorners } from "../src/sketchshapes.ts";
 
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} != ${b}`);
 
@@ -24,4 +24,16 @@ test("slot corners lie either side of the axis between the end centers", () => {
   assert.deepEqual([s.aLeft.v, s.aRight.v, s.bLeft.u], [2, -2, 10]);
   assert.equal(slotCorners({ u: 1, v: 1 }, { u: 1, v: 1 }, 2), null);
   near(distanceToAxis({ u: 0, v: 0 }, { u: 10, v: 0 }, { u: 3, v: -4 }), 4);
+});
+
+test("the shared click shapes: rectangle box, mirror, ellipse short radius and arc points", () => {
+  assert.deepEqual(rectBox({ u: 4, v: 5 }, { u: 1, v: 9 }, false), { u0: 1, u1: 4, v0: 5, v1: 9 });
+  assert.deepEqual(rectBox({ u: 0, v: 0 }, { u: 3, v: 2 }, true), { u0: -3, u1: 3, v0: -2, v1: 2 });
+  assert.deepEqual(mirror({ u: 1, v: 1 }, { u: 4, v: -2 }), { u: -2, v: 4 });
+  assert.equal(ellipseShortRadius({ u: 0, v: 0 }, { u: 10, v: 0 }, { u: 3, v: -4 }), 4);
+  assert.equal(ellipseShortRadius({ u: 0, v: 0 }, { u: 10, v: 0 }, { u: 3, v: 0 }), null);
+  const quarter = arcBetween({ u: 0, v: 0 }, { u: 5, v: 0 }, { u: 0, v: 9 }, 2);
+  assert.equal(quarter.length, 3);
+  assert.ok(Math.abs(quarter[2][0]) < 1e-9 && Math.abs(quarter[2][1] - 5) < 1e-9);
+  assert.equal(arcSamples({ u: 0, v: 0 }, 1, 0, 2 * Math.PI, 8).length, 9);
 });
