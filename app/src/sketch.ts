@@ -1542,12 +1542,12 @@ export class SketchMode implements B.BuilderContext, Sn.SnapContext, PanelContex
       const a = await this.askForm("Scale", [{ label: "Factor", value: 2 }, { label: "About across", value: cu }, { label: "About up", value: cv }], false);
       if (a && a.values[0] > 0) await this.applyEdit(() => E.transform(this.s, sel, E.scaling(a.values[0], a.values[1], a.values[2]), { copy: a.copy, scale: a.values[0] }));
     });
-    const lines = sel.filter((x) => x.kind === "entity" && this.s.entities.find((e) => e.id === x.id)?.type === "line");
+    const lines = sel.filter((x) => x.kind === "entity" && M.entityOf(this.s, x.id)?.type === "line");
     const rest = sel.filter((x) => !lines.length || x !== lines[lines.length - 1]);
     if (lines.length && E.selected(this.s, rest).points.length) {
       const axis = lines[lines.length - 1].id;
       add("Mirror", "Add a mirror image of the selection across the last line you selected, kept symmetric by constraints", () => {
-        const l = this.s.entities.find((e) => e.id === axis) as Extract<M.SketchEntity, { type: "line" }>;
+        const l = M.entityOf(this.s, axis) as Extract<M.SketchEntity, { type: "line" }>;
         const [a, b] = [M.pointOf(this.s, l.a), M.pointOf(this.s, l.b)];
         return this.applyEdit(() => E.transform(this.s, rest, E.reflection(a.u, a.v, b.u - a.u, b.v - a.v), { copy: true, mirror: true, axis }));
       });

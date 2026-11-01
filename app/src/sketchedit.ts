@@ -1,5 +1,5 @@
 /** Editing a selection of sketch geometry as a whole: move, rotate, scale, mirror, and repeat in a line or around a point. No DOM. */
-import { entityPoints, nextId, pointOf } from "./sketchmodel.ts";
+import { entityOf, entityPoints, nextId, pointOf } from "./sketchmodel.ts";
 import type { SketchData, SketchEntity, SketchSel } from "./sketchmodel.ts";
 
 export type Map2 = (u: number, v: number) => [number, number];
@@ -89,7 +89,7 @@ export function transform(s: SketchData, sel: SketchSel[], map: Map2, o: { copy:
     created.push({ kind: "entity", id: copy.id });
   }
   if (o.axis !== undefined) {
-    const axis = s.entities.find((e) => e.id === o.axis);
+    const axis = entityOf(s, o.axis);
     if (axis && axis.type === "line") {
       for (const pid of points) {
         const [a, b] = [pointOf(s, axis.a), pointOf(s, axis.b)];

@@ -44,6 +44,16 @@ test("a mirrored copy flips its arc and is tied to the axis by symmetric constra
   assert.equal(made.sketch.constraints.filter((c) => c.type === "symmetric").length, 3);
 });
 
+test("a copy can be mirrored across a sketch axis, tied to it by symmetric constraints", () => {
+  const s = sketch();
+  s.points.push({ id: 6, u: 4, v: 3 });
+  s.entities.push({ id: 13, type: "line", a: 1, b: 6 });
+  const made = transform(s, [{ kind: "entity", id: 13 }], reflection(0, 0, 1, 0), { copy: true, mirror: true, axis: -1 });
+  const symmetric = made.sketch.constraints.filter((c) => c.type === "symmetric" && c.entity === -1);
+  assert.equal(symmetric.length, 1); // point 6 is off the axis; point 1 is on it, so it is coincident instead
+  assert.equal(made.sketch.constraints.filter((c) => c.type === "coincident").length, 1);
+});
+
 test("a linear array adds count minus one spaced copies", () => {
   const made = repeat(sketch(), [{ kind: "entity", id: 10 }], 4, (k) => ({ map: translation(0, 5 * k) }));
   const lines = made.sketch.entities.filter((e) => e.type === "line");
