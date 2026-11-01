@@ -129,6 +129,11 @@ const TOOL_WORDS: [RegExp, string[]][] = [
   [/^bridge$/, ["bridge", "bridge edges", "join edges", "ruled surface"]],
   [/^concentric_array$/, ["concentric array", "concentric circles", "rings", "radial pattern", "polar", "circular pattern"]],
   [/^path_array$/, ["path array", "array along path", "along edge", "along curve", "path"]],
+  [/^center_between$/, ["center between", "centre between", "center hole", "middle", "halfway", "equidistant"]],
+  [/^align_face$/, ["align face", "flush", "line up", "make flush", "coplanar", "level"]],
+  [/^inset_face$/, ["inset", "inner outline", "offset edges", "border", "margin", "frame"]],
+  [/^divide_face$/, ["divide face", "split face", "dividing line", "imprint", "score", "partition"]],
+  [/^edit_void$/, ["edit cut", "pocket", "slot", "resize cut", "cut depth", "void"]],
 ];
 
 export function toolKeywords(id: string): string[] {

@@ -20,11 +20,14 @@ from . import __version__
 LOG_LINES = 50
 STARTED = time.time()
 _PATH = re.compile(r"(?:[A-Za-z]:)?(?:[\\/][^\\/\s'\x22]+)+[\\/]([^\\/\s'\x22]+)")
+# A path that starts at a drive or under Users/home can have spaces in its folder names ("C:\Users\Jane Doe\My Models\part.step"); the file name at
+# the end has none. A folder name stops where another drive path starts.
+_SPACED_PATH = re.compile(r"(?:[A-Za-z]:[\\/]|[\\/](?:Users|home)[\\/])(?:(?:(?!\s[A-Za-z]:[\\/])[^\\/'\x22\r\n])+[\\/])*([^\\/\s'\x22]+)")
 
 
 def scrub(text: str) -> str:
     """Reduce file paths to base names and drop the account name."""
-    text = _PATH.sub(r"\1", text)
+    text = _PATH.sub(r"\1", _SPACED_PATH.sub(r"\1", text))
     try:
         user = getpass.getuser()
     except Exception:

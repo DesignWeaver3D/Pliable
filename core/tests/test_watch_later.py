@@ -122,11 +122,11 @@ def sweep(topology, face, **values):
     return get_tool("helical_sweep").run(topology, Selection(faces=[face], axes=[2]), {**SWEEP, **values}, False)
 
 
-@pytest.mark.xfail(strict=True, reason="watch list: a profile that crosses the axis is not refused; Add returns the model unchanged (no volume added), Subtract says the coil does not meet the solid")
 def test_a_helical_profile_that_crosses_the_axis_is_refused():
     crossing, face, _ = helical_shape([(-3, 0, 0), (5, 0, 0), (5, 0, 3), (-3, 0, 3)])
-    with pytest.raises(OperationError):
-        sweep(crossing, face)
+    for mode in (0, 1):  # Add and Subtract both refuse it
+        with pytest.raises(OperationError, match="crosses the axis"):
+            sweep(crossing, face, mode=mode)
 
 
 def test_a_helical_profile_centred_on_the_axis_is_refused_and_a_normal_one_adds_a_thread():

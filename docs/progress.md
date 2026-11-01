@@ -100,11 +100,6 @@ Tool group CORE:
   - [ ] An arc-by-center end click anywhere else only sets the angle, and an ellipse third click off the minor axis sets only the short radius; both need a constraint the solver does not have (collinear with the center, tangent to the ellipse). Ask the owner whether they are wanted.
   - [ ] Hand-check each tool in the app: click the size point on the origin, an axis, a point and a curve, and see the Coincident mark; the fallback that drops axis holds when a solve fails has no test.
 
-- **Bugs found by the watch list tests (2026-10-31).** Strict expected failures in `core/tests/test_watch_*.py`; remove the marker when fixed. Related: none in Parked or Ideas.
-  - [ ] Diagnostics scrubbing leaks a user name when a path has spaces: "C:\Users\Jane Doe\My Models\part.step" becomes "Jane Doe\My Models\part.step".
-  - [ ] A helical sweep whose profile crosses the axis is not refused: Add returns the model unchanged, Subtract says the coil does not meet the solid.
-  - [ ] Five tools match no search keyword (`center_between`, `align_face`, `inset_face`, `divide_face`, `edit_void`); add words in `search.ts`.
-
 - **Hand-check the sketch joints, trim, mirror and tangent-axis changes.** Owner (2026-10-31): "Trim did not automatically apply coincident to the intersecting lines", "add the mark for the shared joint ... there is no way to separate those two lines at that shared point without deleting one or both lines", "Circle tangent to curves doesn't let me select the origin axes", "fix the mirror axes too". Built with tests, not checked in the app.
   - [ ] Trim a line across other lines, a circle and an ellipse: each cut point gets a Coincident mark and follows the crossing curve when it is dragged; the marks follow the automatic-constraints option.
   - [ ] Every shared joint shows a Coincident mark beside the point; the mark selects on press; Delete on it splits the joint and keeps both lines; a rectangle's corners are not too crowded.

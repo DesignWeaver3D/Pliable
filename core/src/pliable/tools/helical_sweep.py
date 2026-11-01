@@ -1,5 +1,6 @@
 """The Helical sweep tool."""
 
+from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.BRepBndLib import BRepBndLib
 from OCP.Bnd import Bnd_Box
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
@@ -7,7 +8,7 @@ from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepOffsetAPI import BRepOffsetAPI_MakePipeShell
 from OCP.gp import gp_Pnt, gp_Trsf, gp_Vec
-from OCP.TopAbs import TopAbs_WIRE
+from OCP.TopAbs import TopAbs_EDGE, TopAbs_WIRE
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS
 
@@ -21,6 +22,23 @@ from ..tools import Handle, Param, register
 from .revolve_face import RevolveFace
 
 MODES = ("Add", "Subtract")
+
+
+def _crosses_axis(face, foot, direction, radial) -> bool:
+    """Whether the profile has points on both sides of the axis (the side the face's middle is on, and the other), which a thread cannot be wound from."""
+    side = radial.Normalized()
+    axis = gp_Vec(direction)
+    explorer = TopExp_Explorer(face, TopAbs_EDGE)
+    while explorer.More():
+        curve = BRepAdaptor_Curve(TopoDS.Edge(explorer.Current()))
+        first, last = curve.FirstParameter(), curve.LastParameter()
+        for k in range(9):
+            offset = gp_Vec(foot, curve.Value(first + (last - first) * k / 8))
+            offset = offset.Subtracted(axis.Multiplied(offset.Dot(axis)))  # across the axis only
+            if offset.Dot(side) < -1e-6:
+                return True
+        explorer.Next()
+    return False
 
 
 def _apply(shape, piece, fuse: bool):
@@ -113,6 +131,8 @@ class HelicalSweep(RevolveFace):
         radius = radial.Magnitude()
         if radius < 1e-6:
             raise OperationError("The face's middle lies on the axis; move the axis away from the face")
+        if _crosses_axis(face, foot, direction, radial):
+            raise OperationError("The profile crosses the axis; keep it on one side of the axis")
         whole, part = divmod(values["turns"], 1.0)
         if values["turns"] - round(values["turns"]) == 0 or part > 1 - 1e-9:
             whole, part = round(values["turns"]), 0.0

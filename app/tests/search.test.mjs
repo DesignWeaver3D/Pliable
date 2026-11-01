@@ -1,4 +1,5 @@
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { parseQuery, searchItems, pushRecent, loadRecents, toolKeywords, matchRank } from "../src/search.ts";
 
@@ -83,4 +84,10 @@ test("a tool the selection does not fit is still found, after equal matches that
 test("remove fillet, chamfer and round find Defeature", () => {
   const defeature = { label: "Defeature", scope: "tool", keywords: toolKeywords("delete_face") };
   for (const word of ["remove fillet", "remove chamfer", "remove round"]) assert.equal(searchItems([defeature], word)[0]?.label, "Defeature", word);
+});
+
+test("every tool in the registry has search keywords, so a new tool cannot be left without words", () => {
+  const registry = JSON.parse(readFileSync(new URL("../../core/tests/tool_registry.json", import.meta.url), "utf8"));
+  assert.ok(registry.length > 40);
+  assert.deepEqual(registry.filter((tool) => toolKeywords(tool.id).length === 0).map((tool) => tool.id), []);
 });

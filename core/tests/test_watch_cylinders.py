@@ -44,12 +44,12 @@ def test_a_free_standing_cylinder_is_read_as_a_boss():
     assert volume(free.shape) - volume(shrunk.shape) == pytest.approx(math.pi * 10 * (25 - 9), rel=1e-6)
 
 
-@pytest.mark.xfail(strict=True, reason="watch list: scrub stops a path at the first space, so a user name with a space leaks")
 def test_scrub_removes_a_path_with_spaces():
     from pliable import diagnostics
 
-    text = diagnostics.scrub(r"open C:\Users\Jane Doe\My Models\part.step failed")
-    assert "Jane" not in text and "Models" not in text
+    assert diagnostics.scrub(r"open C:\Users\Jane Doe\My Models\part.step failed") == "open part.step failed"
+    assert diagnostics.scrub(r"copy C:\Users\Jane Doe\a.step to D:\Backup Files\b.step") == "copy a.step to b.step"
+    assert diagnostics.scrub("read /Users/Jane Doe/My Models/part.step now") == "read part.step now"
 
 
 def test_scrub_handles_quoted_paths_and_embedded_names():
