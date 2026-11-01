@@ -11,6 +11,8 @@ export type Round = Extract<SketchEntity, { type: "arc" | "circle" }>;
 export type Curve = Line | Round;
 export const TWO_PI = 2 * Math.PI;
 
+export const isCurve = (e: SketchEntity | undefined): e is Curve => !!e && (e.type === "line" || e.type === "arc" || e.type === "circle");
+
 export const sub = (a: Pt, b: Pt): Pt => [a[0] - b[0], a[1] - b[1]];
 export const dot = (a: Pt, b: Pt) => a[0] * b[0] + a[1] * b[1];
 export const len = (a: Pt) => Math.hypot(a[0], a[1]);

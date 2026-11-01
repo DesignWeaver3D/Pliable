@@ -3,12 +3,11 @@
  *  typed radius, tangent to both curves, whose center is nearest the pointer; each curve is cut or stretched to its tangent point. */
 import { dropOrphans, entityPoints, nextId } from "./sketchmodel.ts";
 import type { SketchConstraint, SketchData, SketchEntity, SketchPoint } from "./sketchmodel.ts";
-import { angleOf, at, dot, geoOf, inSweep, len, meet, mod, onCurve, roundOf, sub, unit } from "./sketchintersect.ts";
+import { angleOf, at, dot, geoOf, inSweep, isCurve, len, meet, mod, onCurve, roundOf, sub, unit } from "./sketchintersect.ts";
 import type { Curve, Geo, Pt } from "./sketchintersect.ts";
 
 const EPS = 1e-9;
 
-const isCurve = (e: SketchEntity | undefined): e is Curve => !!e && (e.type === "line" || e.type === "arc" || e.type === "circle");
 /** Counterclockwise unit tangent of a round curve at the point t on it. */
 const ccwTangent = (c: Pt, t: Pt): Pt => unit([-(t[1] - c[1]), t[0] - c[0]]);
 

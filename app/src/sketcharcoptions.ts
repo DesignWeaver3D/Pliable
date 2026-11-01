@@ -3,6 +3,7 @@
 import * as M from "./sketchmodel.ts";
 import type { BuilderContext } from "./sketchbuilders.ts";
 import type { Snap } from "./sketch.ts";
+import { arcBetween } from "./sketchshapes.ts";
 import type { UV } from "./sketchshapes.ts";
 
 /** Numbers kept in the sketch card; null leaves the choice to the pointer. Angles are degrees counterclockwise from the sketch's horizontal axis. */
@@ -66,10 +67,7 @@ export function arcByRadius(s: UV, e: UV, radius: number, pointer: UV): RadiusAr
 }
 
 export function radiusArcPoints(arc: RadiusArc, count = 48): [number, number][] {
-  const r = Math.hypot(arc.from.u - arc.centre.u, arc.from.v - arc.centre.v);
-  const a0 = Math.atan2(arc.from.v - arc.centre.v, arc.from.u - arc.centre.u);
-  const sweep = (Math.atan2(arc.to.v - arc.centre.v, arc.to.u - arc.centre.u) - a0 + 4 * Math.PI) % (2 * Math.PI);
-  return Array.from({ length: count + 1 }, (_, i) => [arc.centre.u + r * Math.cos(a0 + (sweep * i) / count), arc.centre.v + r * Math.sin(a0 + (sweep * i) / count)] as [number, number]);
+  return arcBetween(arc.centre, arc.from, arc.to, count);
 }
 
 /** The arc between the first two clicks with the card's radius; `side` is the third click. The radius is kept as a dimension. */

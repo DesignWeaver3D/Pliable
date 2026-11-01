@@ -3,6 +3,7 @@
 import * as M from "./sketchmodel.ts";
 import type { BuilderContext } from "./sketchbuilders.ts";
 import type { Snap } from "./sketch.ts";
+import { arcBetween } from "./sketchshapes.ts";
 import type { UV } from "./sketchshapes.ts";
 
 type Curve = Extract<M.SketchEntity, { type: "line" | "arc" }>;
@@ -68,10 +69,7 @@ export function tangentArcTo(start: UV, dir: UV, end: UV): TangentArc | null {
 
 /** Points along the arc for the rubber band. */
 export function tangentArcPoints(arc: TangentArc, count = 48): [number, number][] {
-  const r = Math.hypot(arc.from.u - arc.centre.u, arc.from.v - arc.centre.v);
-  const a0 = Math.atan2(arc.from.v - arc.centre.v, arc.from.u - arc.centre.u);
-  const sweep = (Math.atan2(arc.to.v - arc.centre.v, arc.to.u - arc.centre.u) - a0 + 4 * Math.PI) % (2 * Math.PI);
-  return Array.from({ length: count + 1 }, (_, i) => [arc.centre.u + r * Math.cos(a0 + (sweep * i) / count), arc.centre.v + r * Math.sin(a0 + (sweep * i) / count)] as [number, number]);
+  return arcBetween(arc.centre, arc.from, arc.to, count);
 }
 
 /** The arc for the start click (as `tangentStart` returned it) and an end position, or null. */

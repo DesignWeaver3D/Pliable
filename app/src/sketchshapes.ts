@@ -57,3 +57,15 @@ export function distanceToAxis(a: UV, b: UV, p: UV): number {
   const length = Math.hypot(b.u - a.u, b.v - a.v) || 1;
   return Math.abs((b.u - a.u) * (p.v - a.v) - (b.v - a.v) * (p.u - a.u)) / length;
 }
+
+/** Points along a circular arc: from angle `from` through `sweep` radians (counterclockwise when positive), `segments` + 1 of them. */
+export function arcSamples(centre: UV, radius: number, from: number, sweep: number, segments: number): [number, number][] {
+  return Array.from({ length: segments + 1 }, (_, i) => [centre.u + radius * Math.cos(from + (sweep * i) / segments), centre.v + radius * Math.sin(from + (sweep * i) / segments)] as [number, number]);
+}
+
+/** Points along the counterclockwise arc about `centre` from the point `from` to the direction of `to`; its radius is the distance to `from`. */
+export function arcBetween(centre: UV, from: UV, to: UV, segments: number): [number, number][] {
+  const a0 = Math.atan2(from.v - centre.v, from.u - centre.u);
+  const sweep = (Math.atan2(to.v - centre.v, to.u - centre.u) - a0 + 4 * Math.PI) % (2 * Math.PI);
+  return arcSamples(centre, Math.hypot(from.u - centre.u, from.v - centre.v), a0, sweep, segments);
+}

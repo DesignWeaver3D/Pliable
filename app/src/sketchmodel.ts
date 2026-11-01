@@ -6,6 +6,7 @@ import { showNumber } from "./precision.ts";
 import { ellipseAngle, ellipseArcPoints, ellipseSweep } from "./sketchellipse.ts";
 import { crossings } from "./sketchintersect.ts";
 export { crossings, crossingsWith } from "./sketchintersect.ts";
+import { arcSamples } from "./sketchshapes.ts";
 import { tangentSpots } from "./sketchtangentmarks.ts";
 import { awayFromNeighbours, coincidentDirection, coincidentSpot, fan, PAIRED_TURN, sameSpot, turn } from "./sketchmarkplace.ts";
 export * from "./sketchconstraints.ts";
@@ -503,7 +504,7 @@ export function polyline(s: SketchData, e: SketchEntity, segments = 48): [number
   const a0 = Math.atan2(start.v - c.v, start.u - c.u);
   let sweep = Math.atan2(end.v - c.v, end.u - c.u) - a0;
   if (sweep <= 0) sweep += 2 * Math.PI; // arcs run counterclockwise
-  return Array.from({ length: segments + 1 }, (_, i) => [c.u + r * Math.cos(a0 + (sweep * i) / segments), c.v + r * Math.sin(a0 + (sweep * i) / segments)]);
+  return arcSamples(c, r, a0, sweep, segments);
 }
 
 /** Distance from (u, v) to an entity's polyline. */

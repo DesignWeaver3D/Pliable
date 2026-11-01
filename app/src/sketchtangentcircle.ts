@@ -2,33 +2,14 @@
  *  positions and then held by tangent constraints. With two curves the radius comes from the card; with three it is whatever touches all of them.
  *  Of the (up to eight) solutions the one whose center is nearest the pointer is made. No DOM. */
 import * as M from "./sketchmodel.ts";
-
-type Pt = [number, number];
-type Curve = Extract<M.SketchEntity, { type: "line" | "arc" | "circle" }>;
-/** A curve as the solver sees it: an infinite line (point and unit direction) or a full circle. */
-type Geo = { line: true; p: Pt; d: Pt } | { line: false; c: Pt; r: number };
+import { geoOf, isCurve } from "./sketchintersect.ts";
+import type { Pt } from "./sketchintersect.ts";
 
 export interface TangentSolution {
   centre: Pt;
   radius: number;
   /** Where the circle touches each curve, in the order the curves were given. */
   touches: Pt[];
-}
-
-const at = (s: M.SketchData, id: number): Pt => [M.pointOf(s, id).u, M.pointOf(s, id).v];
-
-export function isCurve(e: M.SketchEntity | undefined): e is Curve {
-  return !!e && (e.type === "line" || e.type === "arc" || e.type === "circle");
-}
-
-function geoOf(s: M.SketchData, e: Curve): Geo {
-  if (e.type === "line") {
-    const [a, b] = [at(s, e.a), at(s, e.b)];
-    const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-    return { line: true, p: a, d: [(b[0] - a[0]) / l, (b[1] - a[1]) / l] };
-  }
-  const c = at(s, e.center);
-  return { line: false, c, r: e.type === "circle" ? e.radius : Math.hypot(at(s, e.start)[0] - c[0], at(s, e.start)[1] - c[1]) };
 }
 
 /** Solve a 3x3 linear system by Cramer's rule; null when singular. */

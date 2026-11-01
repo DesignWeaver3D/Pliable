@@ -3,6 +3,7 @@
 import type { Dimension } from "./dimensions";
 import * as M from "./sketchmodel.ts";
 import { typedLabels, typedTargets } from "./sketchtyped.ts";
+import { arcSamples } from "./sketchshapes.ts";
 import type { UV } from "./sketchshapes.ts";
 import type { PreviewContext } from "./sketchpreview.ts";
 import { showNumber } from "./precision.ts";
@@ -95,7 +96,7 @@ export function typedDimensions(ctx: PreviewContext, live = false): Dimension[] 
       sweep = ((sweep + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; // the short way round, as the typed degrees were turned
       const typedDegrees = numbers[ctx.chain.length === 2 ? 0 : 1];
       if (typedDegrees !== undefined && typedDegrees > 180) sweep = (Math.sign(sweep || 1) * typedDegrees * Math.PI) / 180;
-      const samples = Array.from({ length: 25 }, (_, k) => world({ u: first.u + r * Math.cos(a0 + (sweep * k) / 24), v: first.v + r * Math.sin(a0 + (sweep * k) / 24) }));
+      const samples = arcSamples(first, r, a0, sweep, 24).map(([u, v]) => world({ u, v }));
       const index = ctx.chain.length === 2 ? 0 : 1;
       out.push({ kind: "angle", text: shown(index, (Math.abs(sweep) * 180) / Math.PI, "", "°"), points: [world(first), ...samples], extend: [], selected: index === active });
     }

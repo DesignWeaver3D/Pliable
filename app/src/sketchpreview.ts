@@ -107,13 +107,7 @@ function pendingBase(ctx: PreviewContext): [number, number][][] {
     if (!second) return [[[first.u, first.v], [c.u, c.v]]];
     const corners = Sh.slotCorners(first, second, Sh.distanceToAxis(first, second, c));
     if (!corners) return [[[first.u, first.v], [second.u, second.v]]];
-    const ring = (centre: Sh.UV, from: Sh.UV, to: Sh.UV): [number, number][] => {
-      const [a0, a1] = [Math.atan2(from.v - centre.v, from.u - centre.u), Math.atan2(to.v - centre.v, to.u - centre.u)];
-      const sweep = (a1 - a0 + 4 * Math.PI) % (2 * Math.PI);
-      const radius = Math.hypot(from.u - centre.u, from.v - centre.v);
-      return Array.from({ length: 25 }, (_, i) => [centre.u + radius * Math.cos(a0 + (sweep * i) / 24), centre.v + radius * Math.sin(a0 + (sweep * i) / 24)]);
-    };
-    return [[[corners.aLeft.u, corners.aLeft.v], [corners.bLeft.u, corners.bLeft.v]], [[corners.bRight.u, corners.bRight.v], [corners.aRight.u, corners.aRight.v]], ring(second, corners.bRight, corners.bLeft), ring(first, corners.aLeft, corners.aRight)];
+    return [[[corners.aLeft.u, corners.aLeft.v], [corners.bLeft.u, corners.bLeft.v]], [[corners.bRight.u, corners.bRight.v], [corners.aRight.u, corners.aRight.v]], Sh.arcBetween(second, corners.bRight, corners.bLeft, 24), Sh.arcBetween(first, corners.aLeft, corners.aRight, 24)];
   }
   if (ctx.tool === "circle3" || ctx.tool === "arc3") {
     if (!second) return [[[first.u, first.v], [c.u, c.v]]];
@@ -123,14 +117,12 @@ function pendingBase(ctx: PreviewContext): [number, number][][] {
       // Start, end, then the point it passes through: the pointer is the through point, the second click was the end.
       const arc = Sh.arcThrough(first, c, second)!;
       const [from, to] = arc.from === "start" ? [first, second] : [second, first];
-      const a0 = Math.atan2(from.v - probe.v, from.u - probe.u);
-      const sweep = (Math.atan2(to.v - probe.v, to.u - probe.u) - a0 + 4 * Math.PI) % (2 * Math.PI);
-      return [Array.from({ length: 49 }, (_, i) => [probe.u + probe.radius * Math.cos(a0 + (sweep * i) / 48), probe.v + probe.radius * Math.sin(a0 + (sweep * i) / 48)] as [number, number])];
+      return [Sh.arcBetween(probe, from, to, 48)];
     }
-    if (ctx.tool === "circle3") return [Array.from({ length: 49 }, (_, i) => [probe.u + probe.radius * Math.cos((2 * Math.PI * i) / 48), probe.v + probe.radius * Math.sin((2 * Math.PI * i) / 48)] as [number, number])];
+    if (ctx.tool === "circle3") return [Sh.arcSamples(probe, probe.radius, 0, 2 * Math.PI, 48)];
   }
   const r = Math.hypot(c.u - first.u, c.v - first.v);
-  if (ctx.tool === "circle") return [Array.from({ length: 49 }, (_, i) => [first.u + r * Math.cos((2 * Math.PI * i) / 48), first.v + r * Math.sin((2 * Math.PI * i) / 48)] as [number, number])];
+  if (ctx.tool === "circle") return [Sh.arcSamples(first, r, 0, 2 * Math.PI, 48)];
   if (ctx.tool === "arc") {
     const second = ctx.chain[1];
     if (!second) return [[[first.u, first.v], [c.u, c.v]]];
@@ -138,7 +130,7 @@ function pendingBase(ctx: PreviewContext): [number, number][][] {
     const a0 = Math.atan2(second.v - first.v, second.u - first.u);
     let sweep = Sh.arcSweepToward(first, second, c); // follows the pointer: clockwise or counterclockwise from the start
     if ((ctx.typed || ctx.arcOptions?.sweep != null) && sweep <= 0) sweep += 2 * Math.PI; // a typed sweep is always counterclockwise
-    return [Array.from({ length: 49 }, (_, i) => [first.u + radius * Math.cos(a0 + (sweep * i) / 48), first.v + radius * Math.sin(a0 + (sweep * i) / 48)] as [number, number])];
+    return [Sh.arcSamples(first, radius, a0, sweep, 48)];
   }
   return [];
 }
