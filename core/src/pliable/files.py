@@ -6,8 +6,6 @@ import tempfile
 from build123d import Mesher, export_step, export_stl, import_step
 from build123d.topology import Shape
 from OCP.BRepCheck import BRepCheck_Analyzer
-from OCP.BRepGProp import BRepGProp
-from OCP.GProp import GProp_GProps
 from OCP.BRep import BRep_Tool
 from OCP.BRepBuilderAPI import BRepBuilderAPI_FindPlane, BRepBuilderAPI_Sewing
 from OCP.BRepTools import BRepTools_ReShape
@@ -18,6 +16,7 @@ from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS, TopoDS_Compound, TopoDS_Shape
 
 from .ops import solids_of
+from .volume import volume_of
 
 SEWING_TOLERANCE = 1e-3  # model units (mm): gaps up to this size between surface edges are stitched shut
 
@@ -215,9 +214,7 @@ def write_mesh(shape: TopoDS_Shape, fmt: str, linear: float = MESH_LINEAR_DEFLEC
 
 
 def _volume(shape: TopoDS_Shape) -> float:
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
-    return props.Mass()
+    return volume_of(shape)
 
 
 def _loose_shells(shape: TopoDS_Shape) -> list[TopoDS_Shape]:

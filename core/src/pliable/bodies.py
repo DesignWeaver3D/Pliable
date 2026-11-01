@@ -18,12 +18,11 @@ from dataclasses import dataclass, field, replace
 from typing import Callable
 
 from OCP.BRepBndLib import BRepBndLib
-from OCP.BRepGProp import BRepGProp
 from OCP.Bnd import Bnd_Box
-from OCP.GProp import GProp_GProps
 from OCP.TopoDS import TopoDS_Shape
 
 from .ops import solids_of
+from .volume import volume_of
 
 DEFAULT_KIND = "Body"
 
@@ -66,9 +65,7 @@ def box_of(shape: TopoDS_Shape) -> list[float]:
 
 
 def _volume(shape: TopoDS_Shape) -> float:
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
-    return abs(props.Mass())
+    return abs(volume_of(shape))
 
 
 PAD = 1e-6  # flat boxes are padded a little so a plate still overlaps itself

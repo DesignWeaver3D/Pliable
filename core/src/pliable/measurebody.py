@@ -4,11 +4,9 @@ Lengths are millimeters, so volume is in mm3. A density is in kilograms per cubi
 and 1 kg/m3 is 1e-6 g/mm3, so mass in grams = volume * density * 1e-6.
 """
 
-from OCP.BRepGProp import BRepGProp
-from OCP.GProp import GProp_GProps
-
 from .ops import OperationError, _inner_solids, _volume_of, solids_of
 from .topology import Topology
+from .volume import volume_props
 
 GRAMS_PER_MM3_PER_KG_PER_M3 = 1e-6
 
@@ -23,8 +21,7 @@ def measure_body(topology: Topology, body_id: int, density: float | None = None)
     if index is None:
         raise OperationError(f"no body {body_id}")
     solid = solids_of(topology.shape)[index]
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(solid, props)
+    props = volume_props(solid)
     volume = props.Mass()
     centre = props.CentreOfMass()
     rows = [{"label": "Volume", "value": volume, "unit": " mm³"}]
