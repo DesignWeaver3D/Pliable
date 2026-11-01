@@ -1,7 +1,8 @@
 /** The smart dimension: one button (and the D key) that offers every constraint or dimension that fits whatever is selected.
  *  One fit is applied at once; several are chosen from a small menu next to the cursor. Rules and answers: docs/archive/smart-dimension-plan.md. No DOM. */
 import { CONSTRAINT_OPTIONS, coincidences, dist, entities, measure, only, pointLineDistance, pts, radiusOf, type ConstraintOption } from "./sketchconstraints.ts";
-import { distanceTo, entityPoints, pointOf, type SketchConstraint, type SketchData, type SketchEntity, type SketchSel } from "./sketchmodel.ts";
+import { entityPoints, pointOf, type SketchConstraint, type SketchData, type SketchEntity, type SketchSel } from "./sketchdata.ts";
+import { distanceTo } from "./sketchcurves.ts";
 
 type Line = Extract<SketchEntity, { type: "line" }>;
 type Ellipse = Extract<SketchEntity, { type: "ellipse" }>;

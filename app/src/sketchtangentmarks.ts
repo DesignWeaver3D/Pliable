@@ -1,5 +1,5 @@
 /** Where a tangent constraint's curves touch, and which way is out of the profile there, for its mark. No DOM or WebGL. */
-import { pointOf, entityOf, type SketchData, type SketchConstraint } from "./sketchmodel.ts";
+import { pointOf, entityOf, type SketchData, type SketchConstraint } from "./sketchdata.ts";
 import { unit2, type Pt } from "./vec.ts";
 import { radiusOf } from "./sketchconstraints.ts";
 

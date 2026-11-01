@@ -1,5 +1,5 @@
 /** Which way a constraint mark leaves its point so that it lies outside the profile where it can, and the other ways to try when that place is taken. No DOM or WebGL. */
-import { entityOf, entityPoints, pointOf, type SketchData, type SketchConstraint } from "./sketchmodel.ts";
+import { entityOf, entityPoints, pointOf, type SketchData, type SketchConstraint } from "./sketchdata.ts";
 import { unit2OrZero, type Pt } from "./vec.ts";
 import { radiusOf } from "./sketchconstraints.ts";
 

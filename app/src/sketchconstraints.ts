@@ -1,6 +1,6 @@
 /** Which constraint and dimension buttons fit a selection of sketch points and curves, and what each builds. No DOM or WebGL.
  * Split out of sketchmodel.ts; that file re-exports everything here, so imports of it keep working. */
-import { pointOf, entityOf, entityPoints, type SketchData, type SketchSel, type SketchEntity, type SketchConstraint } from "./sketchmodel.ts";
+import { pointOf, entityOf, entityPoints, type SketchData, type SketchSel, type SketchEntity, type SketchConstraint } from "./sketchdata.ts";
 
 export interface ConstraintOption {
   label: string;

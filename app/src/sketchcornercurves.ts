@@ -1,8 +1,9 @@
 /** Fillet and Chamfer where a corner involves an arc or a circle: line and arc, arc and arc, and either with a circle. Two lines stay in `roundCorner`
  *  (sketchmodel.ts). The curves may meet at a shared end point (a corner), cross, or not touch at all (fillet only). The fillet circle is the one of the
  *  typed radius, tangent to both curves, whose center is nearest the pointer; each curve is cut or stretched to its tangent point. */
-import { dropOrphans, entityPoints, nextId } from "./sketchmodel.ts";
-import type { SketchConstraint, SketchData, SketchEntity, SketchPoint } from "./sketchmodel.ts";
+import { dropOrphans } from "./sketchmodel.ts";
+import { entityPoints, nextId } from "./sketchdata.ts";
+import type { SketchConstraint, SketchData, SketchEntity, SketchPoint } from "./sketchdata.ts";
 import { angleOf, at, dot, geoOf, inSweep, isCurve, len, meet, mod, onCurve, roundOf, sub, unit } from "./sketchintersect.ts";
 import type { Curve, Geo, Pt } from "./sketchintersect.ts";
 

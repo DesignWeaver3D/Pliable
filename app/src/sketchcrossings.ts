@@ -2,8 +2,9 @@
  *  An ellipse is solved exactly; a spline is met along a finely sampled copy of itself. */
 import { turnCounterclockwise } from "./anglemath.ts";
 import { ellipseAngle, ellipseSweep } from "./sketchellipse.ts";
-import { pointOf, polyline } from "./sketchmodel.ts";
-import type { SketchData, SketchEntity } from "./sketchmodel.ts";
+import { pointOf } from "./sketchdata.ts";
+import { polyline } from "./sketchcurves.ts";
+import type { SketchData, SketchEntity } from "./sketchdata.ts";
 
 type P = { u: number; v: number };
 

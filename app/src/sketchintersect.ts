@@ -1,8 +1,8 @@
 /** Where sketch curves meet, in one place for every tool that needs it: Trim, Extend and Split cut a line where other curves cross it
  *  (`crossingsWith`), and Fillet and Chamfer find where two lines, arcs or circles meet (`meet`) and whether a hit lies on the curve itself
  *  (`onCurve`). Lines, circles and arcs share the primitives below; ellipses and splines are met by `sketchcrossings.ts`. */
-import { pointOf } from "./sketchmodel.ts";
-import type { SketchData, SketchEntity } from "./sketchmodel.ts";
+import { pointOf } from "./sketchdata.ts";
+import type { SketchData, SketchEntity } from "./sketchdata.ts";
 import { unit2, type Pt } from "./vec.ts";
 import { TWO_PI, turnCounterclockwise } from "./anglemath.ts";
 import { ellipseCrossings, splineCrossings } from "./sketchcrossings.ts";
