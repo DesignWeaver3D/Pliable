@@ -52,7 +52,7 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Regions come only from closed loops: an open line across a loop does not divide it. Loose faces are not solids; push/pull makes one (negative cuts), and STEP export writes faces.
 - Face outline and hole centers are fixed reference geometry. Every sketch also gets fixed points at the origin, axis crossings and face center.
 - Snapping to a point-on-curve or midpoint adds a constraint (stays on the line when dragged; delete to free it). Alignment guides use points only. Axis-line snaps add no constraint, so the point can drift when dimensions change; use the fixed origin point for constraints.
-- Rectangle corner options: size clamped to just under half the shorter side; the rubber band shows square corners; rounded rectangles do not reuse snapped corner points.
+- Rectangle corner options: the rubber band shows square corners; rounded rectangles do not reuse snapped corner points.
 - Round corner works only where exactly two straight lines meet and drops dimension constraints on the old corner. Offset curve copies are unconstrained plain geometry; open chains offset to the left of the drawing direction. Polygons carry equal-side constraints only, so dragging a corner can skew them.
 - Extend stretches lines only (to crossings with lines, circles, arcs, ellipses and splines); the extended line loses its constraints and gets free end points. Extrude with several nested loops makes inner loops holes; crossing loops are not checked.
 - Live size tags are read-only, no arc tag, values rounded to 2 decimals. Drag by body pins all points at the pointer offset, so rectangle sides stretch neighbors; only line and circle bodies were checked in the app.
@@ -80,7 +80,7 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 - Leaving the page warns whenever undo steps exist or a sketch is open (an export does not clear it); opening another file over edits does not warn.
 - Touch gaps: hide, isolate, show all, look at face and see-through have a key or search entry but no visible button; right-click, hover and keyboard-only paths have no touch equivalent.
 - Touch sizing is a CSS rule for coarse pointers only (40 px targets for the bar, tool strip, view controls, Tools handle and search rows); not tried on a real touch screen. The Getting started card and search chips have no touch-specific layout.
-- Search ranking: loose letter matching only for queries of 3 letters or fewer; tool keywords are a fixed table in `search.ts` keyed by tool id pattern, so new tools may need words added. Recent commands are stored by label, so renamed commands drop out of the recent list.
+- Search ranking: loose letter matching only for queries of 3 letters or fewer; tool keywords are a fixed table in `search.ts` keyed by tool id pattern, so new tools may need words added (today `center_between`, `align_face`, `inset_face`, `divide_face` and `edit_void` match no keyword and are found by their label only). Recent commands are stored by label, so renamed commands drop out of the recent list.
 - Dimension overlap avoidance estimates text width from the character count (`dimensions.ts`); the first dimension drawn wins.
 - Tool-usage counts live in core memory and reset on restart or reconnect; surfaces are `strip`, `search`, `drawer`, `keys`, `drag`, `other`; sketch tools are counted as `sketch_<tool>`, `sketch_extrude`, `sketch_revolve`, `sketch_finish`.
 

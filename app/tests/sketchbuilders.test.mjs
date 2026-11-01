@@ -229,3 +229,14 @@ test("a center rectangle's second click, on an axis or a point, is its corner an
   addRectangle(onPoint, { u: 3, v: 2 }, { id: 90, u: 7, v: 5 }, true);
   assert.equal(onPoint.s.points.length, 5); // the clicked point, the center and three new corners: no copy of the clicked one
 });
+
+test("rounded and bevelled corner sizes are clamped to just under half the shorter side", () => {
+  for (const corner of ["fillet", "chamfer"]) {
+    const ctx = context();
+    ctx.rectOptions = { corner, size: 100 };
+    addRectangle(ctx, { u: 0, v: 0 }, { u: 10, v: 4 }); // the shorter side is 4, so a corner can reach at most just under 2
+    const reach = Math.min(...ctx.s.points.filter((p) => p.v === 0).map((p) => p.u)); // where the bottom side now starts
+    assert.ok(reach <= 2 && reach > 1.9, `${corner}: ${reach}`);
+    assert.equal(ctx.s.entities.length, 8);
+  }
+});
