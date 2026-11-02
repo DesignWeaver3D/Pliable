@@ -17,6 +17,6 @@ Only Windows has been tested by a person. The other builds passed an automated s
 
 ## What to expect
 
-Sketching is in the app but incomplete and unsupported. Large files, assemblies and multi-solid STEP files are best effort. See [known limitations](https://github.com/DesignWeaver3D/Pliable/blob/rebuild/docs/known-limitations.md).
+Sketching is functional, with many improvements in this release and no known bugs. Large files, assemblies and multi-solid STEP files are best effort. See [known limitations](https://github.com/DesignWeaver3D/Pliable/blob/rebuild/docs/known-limitations.md).
 
 Found a problem? Click **Copy diagnostics** in the app and open an issue, attaching the STEP file if you can.

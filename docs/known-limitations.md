@@ -19,7 +19,7 @@
 
 ## Not promised
 
-- **Sketching is incomplete and unsupported.** It is in the app but expect missing features and failures.
+- **Sketching** is functional and has no known bugs, but some sketch tools are still missing.
 - Performance and UI stability.
 - Compatibility of anything saved by this version with later versions. Export STEP to keep your work.
 - **Webview differences.** The window uses the system webview: WebView2 on Windows (Chromium-based, the tested one), WebKit on macOS and WebKitGTK on Linux. Drawing, fonts and file dialogs may differ on the last two. Running the core in a browser is a development setup, and Chrome is the only browser tried.
