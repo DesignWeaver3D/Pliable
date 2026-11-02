@@ -28,6 +28,11 @@ export function parseNumber(text: string): number | null {
   return Number(t.replace(",", "."));
 }
 
+/** Number text (written with a point, as `showNumber` does) in the typing style, for filling an entry field. */
+export function entryText(text: string): string {
+  return comma ? text.replace(".", ",") : text;
+}
+
 /** True for a character that may be typed into a number entry: a digit, a sign or the decimal character. */
 export function allowedChars(ch: string): boolean {
   return /^[0-9+-]$/.test(ch) || ch === decimalChar();

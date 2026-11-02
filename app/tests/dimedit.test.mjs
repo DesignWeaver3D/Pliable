@@ -4,7 +4,8 @@ import { formatValue, parseValue } from "../src/dimedit.ts";
 
 test("typed dimension values parse numbers only", () => {
   assert.equal(parseValue("12.5"), 12.5);
-  assert.equal(parseValue(" -3,5 "), -3.5);
+  assert.equal(parseValue(" -3.5 "), -3.5);
+  assert.equal(parseValue("3,5"), null); // a comma is only a decimal when the setting is on
   assert.equal(parseValue(".5"), 0.5);
   assert.equal(parseValue(""), null);
   assert.equal(parseValue("1e3"), null);

@@ -35,6 +35,7 @@ import { CONSTRAINT_HELP } from "./sketchconstrainthelp";
 import { buildConstraintList, buildToolOptions, button, el, type PanelContext } from "./sketchpanelparts";
 import { openSketchSettings } from "./sketchsettings";
 import { parseValue } from "./dimedit";
+import { entryText } from "./numberformat";
 import { uiIcon } from "./icons";
 import { LENGTH_UNIT } from "./units";
 import { usage } from "./usage";
@@ -1200,7 +1201,7 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
     input.inputMode = "decimal";
     input.setAttribute("aria-label", M.describeConstraint(this.s, c).replace(/ = .*$/, ""));
     input.style.cssText = "width:78px;padding:2px 5px;font:inherit;color:#ff8a1f;background:#1b1d22;border:1px solid #ff8a1f;border-radius:3px;outline:none;text-align:center";
-    input.value = showNumber(c.value);
+    input.value = entryText(showNumber(c.value));
     box.append(input);
     for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "dblclick"]) box.addEventListener(type, (e) => e.stopPropagation());
     let closed = false;

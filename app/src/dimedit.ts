@@ -3,6 +3,7 @@
  * edit means (`dimension_edit`, see `dimedit.py`); an impossible edit comes back as a one-line reason shown in red. */
 import type { DimEdit, DimensionOverlay } from "./dimensions";
 import { showNumber } from "./precision.ts";
+import { parseNumber, entryText } from "./numberformat.ts";
 
 export interface DimensionEditorHost {
   overlay: DimensionOverlay;
@@ -44,11 +45,9 @@ export function formatValue(v: number): string {
   return showNumber(v, 4);
 }
 
-/** A typed number (a comma counts as the decimal point), or null when the text is not one. */
+/** A typed number in the user's decimal style (see numberformat.ts), or null when the text is not one. */
 export function parseValue(text: string): number | null {
-  const t = text.trim().replace(",", ".");
-  if (t === "" || !/^[-+]?(\d+\.?\d*|\.\d+)$/.test(t)) return null;
-  return Number(t);
+  return parseNumber(text);
 }
 
 interface Open {
@@ -92,7 +91,7 @@ export class DimensionEditor {
     input.inputMode = "decimal";
     input.setAttribute("aria-label", LABELS[edit.kind] ?? "Dimension");
     input.style.cssText = "width:78px;padding:2px 5px;font:inherit;color:#ff8a1f;background:#1b1d22;border:1px solid #ff8a1f;border-radius:3px;outline:none;text-align:center";
-    input.value = edit.value === null ? dim.text.replace(/^[^\d-]+/, "").replace(/[^\d.]+$/, "") : formatValue(edit.value);
+    input.value = entryText(edit.value === null ? dim.text.replace(/^[^\d-]+/, "").replace(/[^\d.]+$/, "") : formatValue(edit.value));
     row.append(input);
     const note = document.createElement("div");
     note.style.cssText = "max-width:260px;padding:1px 6px;border-radius:3px;background:rgba(27,29,34,0.92);font-size:11px;text-align:center;color:#aab";
