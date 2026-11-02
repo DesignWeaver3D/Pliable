@@ -172,7 +172,7 @@ Ideas from the local research notes in `docs/research/` (untracked), written in 
 - Long term: design-intent behavior tied to the auto-chip selections, such as which face moves when a face-to-face distance is edited in place (owner, 2026-10-20: deferred).
 - Next wave, not started (owner, 2026-10-31): after sketch workflow fluidity and bug fixing, a curve and surface (NURBS) workflow with true 3D sketching, drawing on the direct-modeling and curve tools of the open-source parametric modeler's add-ins. Concept and the owner's words are in the local `docs/research/nurbs-wave.md`; do not research or build until the owner says the wave starts.
 - Long term (owner, 2026-10-31): repair or flag geometry errors when importing STEP files, so a broken body does not arrive silently unusable. Related Parked items: none found.
-- Long term: named values and expressions in sketch dimensions (owner, 2026-10-20: numbers only for now).
+- Formulas, next steps (owner, 2026-11-01): numbers, + - * / ^, unary signs and brackets already work in number fields, dimension values, gizmo typing and sketch-size typing. Not built: functions, pi, units, percent, implicit multiplication, named values and dimensions, keeping the formula beside its value (evaluated in the core), and decimal-comma text built by the core. Related Parked items: none found.
 
 Status words: **Not built** (no sign of it in the code or the tracked docs when this page was written, 2026-10-24), **Check** (probably partly built; look before starting), **Conflicts** (clashes with an approved behavior in [behavior.md](behavior.md)), **Parked** (already a row in progress.md).
 

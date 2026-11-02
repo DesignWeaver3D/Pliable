@@ -61,6 +61,11 @@ Lasting technical notes moved out of `progress.md` so the plan stays short. Read
 - The shell picks port 8765 when free, else a random one. The page's saved settings are per port, so a random port starts with default settings.
 - Freezing the core takes about 3 minutes and the first shell build about 4 on a laptop; changes to the shell alone rebuild in a minute.
 
+## Typed numbers and formulas
+
+- Every typed number goes through `app/src/numberformat.ts` (the decimal character: point, or comma when "Comma as decimal" is on), `formula.ts` (+ - * / ^, unary signs, brackets; no eval) and, for text boxes, `numberfield.ts`. Never use `parseFloat`, `Number()` on user text or `type="number"`; `app/tests/numberentry.test.mjs` counts them per file against `numberentry.baseline.json` and fails on any new one. After removing one, refresh the record with `UPDATE_BASELINE=1`.
+- Shown numbers come from `showNumber` in `precision.ts`, which uses the same decimal character; use `roundValue` when a number is needed. The core and saved files only ever see numbers with a point.
+
 ## How to run
 
 ```
