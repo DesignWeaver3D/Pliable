@@ -23,3 +23,10 @@ test("the draft angle tag of a wall is dropped from the shown dimensions, other 
   const dims = [{ kind: "linear", edit: { kind: "edge_length" } }, { kind: "tag", edit: { kind: "face_angle" } }, { kind: "tag" }];
   assert.deepEqual(withoutDraftTag(dims), [dims[0], dims[2]]);
 });
+
+test("a typed formula is a value", () => {
+  assert.equal(parseValue("25.4*2"), 50.8);
+  assert.equal(parseValue("(10+5)/3"), 5);
+  assert.equal(parseValue("10/0"), null);
+  assert.equal(parseValue("2 3"), null);
+});

@@ -3,7 +3,8 @@
  * edit means (`dimension_edit`, see `dimedit.py`); an impossible edit comes back as a one-line reason shown in red. */
 import type { DimEdit, DimensionOverlay } from "./dimensions";
 import { showNumber } from "./precision.ts";
-import { parseNumber, entryText } from "./numberformat.ts";
+import { entryText } from "./numberformat.ts";
+import { parseExpression, formulaEcho } from "./formula.ts";
 
 export interface DimensionEditorHost {
   overlay: DimensionOverlay;
@@ -45,9 +46,9 @@ export function formatValue(v: number): string {
   return showNumber(v, 4);
 }
 
-/** A typed number in the user's decimal style (see numberformat.ts), or null when the text is not one. */
+/** A typed number or formula in the user's decimal style (see numberformat.ts and formula.ts), or null when the text is neither. */
 export function parseValue(text: string): number | null {
-  return parseNumber(text);
+  return parseExpression(text);
 }
 
 interface Open {
@@ -162,8 +163,10 @@ export class DimensionEditor {
   }
 
   private say(s: Open, text: string, error: boolean) {
-    s.note.textContent = text;
-    s.note.style.display = text ? "" : "none";
+    const echo = error ? null : formulaEcho(s.input.value); // a formula shows its result
+    const shown = [echo, text].filter(Boolean).join(" · ");
+    s.note.textContent = shown;
+    s.note.style.display = shown ? "" : "none";
     s.note.style.color = error ? "#ff6b6b" : "#aab";
     s.input.style.borderColor = error ? "#ff4d4d" : "#ff8a1f";
     s.input.style.color = error ? "#ff6b6b" : "#ff8a1f";
