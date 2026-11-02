@@ -59,3 +59,16 @@ test("typed entries take the decimal character of the setting", async () => {
   setDecimalComma(false);
   assert.equal(parseTyped("2,5"), null);
 });
+
+test("shown numbers use the decimal character of the setting and read back", async () => {
+  const { showNumber, roundValue } = await import("../src/precision.ts");
+  setDecimalComma(false);
+  assert.equal(showNumber(12.5), "12.5");
+  setDecimalComma(true);
+  assert.equal(showNumber(12.5), "12,5");
+  assert.equal(showNumber(-0.25, 4), "-0,25");
+  assert.equal(showNumber(10), "10");
+  assert.equal(parseNumber(showNumber(3.125)), 3.125);
+  assert.equal(roundValue(2.00049), 2); // a number, whatever the setting
+  setDecimalComma(false);
+});

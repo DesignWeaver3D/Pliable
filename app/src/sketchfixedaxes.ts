@@ -1,8 +1,8 @@
 /** Switch a Fixed point between pinned and held by its distances to the sketch axes (two dimensions from the origin). No DOM or WebGL. */
 import { nextId, type SketchData, type SketchConstraint } from "./sketchmodel.ts";
-import { showNumber } from "./precision.ts";
+import { roundValue } from "./precision.ts";
 
-const round = (x: number) => parseFloat(showNumber(x));
+const round = (x: number) => roundValue(x);
 const originOf = (s: SketchData) => s.points.find((p) => p.fixed && Math.hypot(p.u, p.v) < 1e-6);
 const isAxisDistance = (c: SketchConstraint, origin: number, point: number) =>
   (c.type === "horizontal_distance" || c.type === "vertical_distance" || c.type === "horizontal" || c.type === "vertical") && !!c.points && c.points.includes(origin) && c.points.includes(point);
