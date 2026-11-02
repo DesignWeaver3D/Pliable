@@ -5,6 +5,7 @@ import { FLIP_TITLE, MODE_BUTTONS, SYMMETRIC_TITLE, UP_TO_TITLE, type PushPullSt
 import { extentOn, REACH_BUTTONS, type Reach } from "./pushpullextent.ts";
 import { roundValue } from "./precision.ts";
 import type { Vec } from "./pulldir.ts";
+import { numericField, fieldNumber, fieldText } from "./numberfield.ts";
 
 export interface PushPullCardHost {
   state: PushPullState;
@@ -54,12 +55,11 @@ export class PushPullCard {
     const title = document.createElement("div");
     title.className = "title";
     title.textContent = "Push/Pull";
-    this.distance.type = "number";
-    this.distance.step = "any";
+    numericField(this.distance);
     this.distance.addEventListener("input", () => {
-      const v = Number(this.distance.value);
-      this.typedDistance = this.distance.value !== "" && Number.isFinite(v);
-      if (this.typedDistance) host.previewDistance(v);
+      const v = fieldNumber(this.distance);
+      this.typedDistance = v !== null;
+      if (v !== null) host.previewDistance(v);
     });
     const modes = document.createElement("div");
     modes.style.cssText = "display:flex;flex-wrap:wrap;gap:4px";
@@ -95,17 +95,15 @@ export class PushPullCard {
     this.symmetric.type = "checkbox";
     this.symmetric.addEventListener("change", () => host.state.setSymmetric(this.symmetric.checked));
     this.tilt.forEach((input, i) => {
-      input.type = "number";
-      input.step = "any";
+      numericField(input);
       input.addEventListener("input", () => {
-        const v = Number(input.value);
-        if (input.value === "" || !Number.isFinite(v)) return;
+        const v = fieldNumber(input);
+        if (v === null) return;
         host.setTilts(i === 0 ? v : null, i === 1 ? v : null);
       });
     });
     this.vector.forEach((input) => {
-      input.type = "number";
-      input.step = "any";
+      numericField(input);
       input.style.width = "40px";
       input.addEventListener("input", () => this.typedVector());
     });
@@ -207,8 +205,8 @@ export class PushPullCard {
       this.host.applyDistance(1);
       return;
     }
-    const v = Number(this.distance.value);
-    if (!this.typedDistance || !Number.isFinite(v)) return;
+    const v = fieldNumber(this.distance);
+    if (!this.typedDistance || v === null) return;
     this.typedDistance = false;
     this.distance.value = "";
     this.host.applyDistance(v);
@@ -217,7 +215,7 @@ export class PushPullCard {
   /** The distance a drag is at now (shown while the mouse sets it). */
   showDistance(value: number) {
     if (this.typedDistance || this.el.hidden) return;
-    this.distance.value = String(roundValue(value));
+    this.distance.value = fieldText(roundValue(value));
   }
 
   /** A drag ended: forget the shown distance. */
@@ -227,8 +225,8 @@ export class PushPullCard {
   }
 
   private typedVector() {
-    const v = this.vector.map((i) => Number(i.value));
-    if (this.vector.some((i) => i.value === "") || v.some((n) => !Number.isFinite(n))) return;
+    const v = this.vector.map((i) => fieldNumber(i)) as number[];
+    if (v.some((n) => n === null)) return;
     const length = Math.hypot(v[0], v[1], v[2]);
     if (length < 1e-9) return;
     this.host.setDirection([v[0] / length, v[1] / length, v[2] / length]);
@@ -250,7 +248,7 @@ export class PushPullCard {
     this.symmetric.disabled = extentOn(state.upTo, state.reach);
     this.symmetric.checked = state.symmetric;
     const put = (input: HTMLInputElement, n: number | undefined) => {
-      if (document.activeElement !== input) input.value = n === undefined ? "" : String(roundValue(n));
+      if (document.activeElement !== input) input.value = n === undefined ? "" : fieldText(roundValue(n));
     };
     put(this.tilt[0], tilts?.[0]);
     put(this.tilt[1], tilts?.[1]);

@@ -1,6 +1,7 @@
 /** The sketch settings window (grid spacing, fade, automatic constraints). Moved out of sketch.ts. */
 import type { SketchOptions } from "./sketchoptions";
 import { LENGTH_UNIT } from "./units";
+import { numericField, fieldNumber, fieldText } from "./numberfield.ts";
 
 export interface SettingsHooks {
   /** Store the options (they are kept between sessions). */
@@ -28,14 +29,13 @@ export function openSketchSettings(options: SketchOptions, hooks: SettingsHooks)
   };
   const spacing = (value: number, min: number, on: (n: number) => void) => {
     const input = document.createElement("input");
-    input.type = "number";
-    input.min = String(min);
-    input.step = "any";
-    input.value = String(value);
+    numericField(input);
+    input.value = fieldText(value);
     input.addEventListener("change", () => {
-      const n = Number(input.value);
-      if (Number.isFinite(n) && n >= min) on(n);
-      input.value = String(n >= min ? n : value);
+      const n = fieldNumber(input);
+      if (n !== null && n >= min) on(n);
+      input.value = fieldText(n !== null && n >= min ? n : value);
+      input.style.borderColor = "";
       hooks.save();
       hooks.rebuildGrid();
     });

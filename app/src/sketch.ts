@@ -36,6 +36,7 @@ import { buildConstraintList, buildToolOptions, button, el, type PanelContext } 
 import { openSketchSettings } from "./sketchsettings";
 import { parseValue } from "./dimedit";
 import { entryText } from "./numberformat";
+import { numericField, fieldNumber, fieldText } from "./numberfield";
 import { uiIcon } from "./icons";
 import { LENGTH_UNIT } from "./units";
 import { usage } from "./usage";
@@ -1878,13 +1879,11 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
 
     if (this.selection.some((x) => x.kind === "point")) {
       const size = document.createElement("input");
-      size.type = "number";
-      size.step = "any";
-      size.min = "0";
-      size.value = String(this.rectOptions.size);
+      numericField(size);
+      size.value = fieldText(this.rectOptions.size);
       size.title = "Corner radius or bevel size";
       size.addEventListener("keydown", (e) => e.stopPropagation());
-      size.addEventListener("input", () => (this.rectOptions.size = Math.abs(Number(size.value)) || 0));
+      size.addEventListener("input", () => (this.rectOptions.size = Math.abs(fieldNumber(size) ?? 0)));
       const cornerRow = el("div", "row-buttons");
       cornerRow.append(button("Round corner", () => this.roundSelectedCorner("fillet")), button("Bevel corner", () => this.roundSelectedCorner("chamfer")), size);
       constraintsBox.append(cornerRow);
@@ -1892,12 +1891,11 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
 
     if (this.selection.some((x) => x.kind === "entity")) {
       const distance = document.createElement("input");
-      distance.type = "number";
-      distance.step = "any";
-      distance.value = String(this.offset.distance);
+      numericField(distance);
+      distance.value = fieldText(this.offset.distance);
       distance.title = "Offset distance (negative shrinks a closed outline)";
       distance.addEventListener("keydown", (e) => e.stopPropagation());
-      distance.addEventListener("input", () => (this.offset.distance = Number(distance.value) || 0));
+      distance.addEventListener("input", () => (this.offset.distance = fieldNumber(distance) ?? 0));
       const offsetRow = el("div", "row-buttons");
       offsetRow.append(button("Offset", () => this.offsetSelection()), distance);
       constraintsBox.append(offsetRow);

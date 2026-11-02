@@ -1,5 +1,6 @@
 // Ways to make a tool's plane in its form from picked geometry (beside Pick plane and the origin planes): three points,
 // an edge and a point, or a flat face moved by an offset and turned by an angle. The core builds the plane (sketch_plane).
+import { parseNumber } from "./numberformat.ts";
 
 export interface PlaneBuildHost {
   pickItem?(kind: "vertex" | "edge" | "face", message: string): Promise<number | null>;
@@ -11,7 +12,7 @@ export const threePointRequest = (vertices: number[]) => ({ vertices });
 export const edgePointRequest = (edge: number, vertex: number) => ({ edge, vertex });
 /** A face's plane moved `offset` along its normal and then turned `angle` degrees about the plane's x axis (blank or invalid counts as 0). */
 export function faceShiftRequest(face: number, offset: string, angle: string) {
-  const num = (text: string) => (Number.isFinite(parseFloat(text)) ? parseFloat(text) : 0);
+  const num = (text: string) => parseNumber(text) ?? 0;
   return { face, offset: num(offset), angle: num(angle) };
 }
 

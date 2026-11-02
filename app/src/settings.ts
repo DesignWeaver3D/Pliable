@@ -78,6 +78,7 @@ export const SETTING_ENTRIES: { id: string; label: string; keywords: string[] }[
   { id: "edgePickPx", label: "Edge pick range", keywords: ["select", "radius", "reach", "pixels"] },
   { id: "vertexPickPx", label: "Point pick range", keywords: ["vertex", "hole center", "snap", "radius", "pixels"] },
   { id: "displayDecimals", label: "Display precision", keywords: ["decimals", "rounding", "digits", "places", "numbers", "dimensions"] },
+  { id: "decimalComma", label: "Comma as decimal", keywords: ["decimal", "separator", "point", "period", "european", "numbers", "typing", "locale"] },
   { id: "sharpAngle", label: "Sharp edge angle", keywords: ["crease", "select edges", "degrees"] },
   { id: "boxKind", label: "Box selects", keywords: ["marquee", "rubber band", "drag box", "edges", "faces", "vertices"] },
   { id: "seeThrough", label: "See-through", keywords: ["transparent", "x ray", "hidden edges"] },
@@ -101,6 +102,8 @@ export function settingValue(id: string): string {
       return `${settings.displayDecimals} decimals`;
     case "seeThroughOpacity":
       return `${settings.seeThroughOpacity} %`;
+    case "decimalComma":
+      return settings.decimalComma ? "comma" : "point";
     case "seeThrough":
       return settings.seeThrough ? "on" : "off";
     case "material":
@@ -218,6 +221,15 @@ export function createSettingsWindow(host: HTMLElement) {
   matSelect.onchange = () => updateSettings({ material: matSelect.value });
   matRow.append(matText, matSelect);
   onSettingsChange(() => (matSelect.value = settings.material));
+  const commaRow = document.createElement("label");
+  commaRow.title = "Type decimals with a comma (12,5) instead of a point (12.5) in every number field. Numbers already shown keep their point until their field is reopened";
+  const commaCheck = document.createElement("input");
+  commaCheck.type = "checkbox";
+  commaCheck.checked = settings.decimalComma;
+  commaCheck.title = commaRow.title;
+  commaCheck.onchange = () => updateSettings({ decimalComma: commaCheck.checked });
+  commaRow.append(commaCheck, " Comma as decimal");
+  onSettingsChange(() => (commaCheck.checked = settings.decimalComma));
   const hintsRow = document.createElement("label");
   hintsRow.title = "Show the key hint line and first-use tips at the bottom of the view";
   const hintsCheck = document.createElement("input");
@@ -246,6 +258,7 @@ export function createSettingsWindow(host: HTMLElement) {
     seeThrough.dataset.setting = "seeThrough";
     boxRow.dataset.setting = "boxKind";
     hintsRow.dataset.setting = "hints";
+    commaRow.dataset.setting = "decimalComma";
     colorsRow.dataset.setting = "randomBodyColors";
     glossRow.dataset.setting = "glossyLook";
     matRow.dataset.setting = "material";
@@ -260,6 +273,7 @@ export function createSettingsWindow(host: HTMLElement) {
     slider("Edge pick range", "edgePickPx", 1, 14, "How close the pointer must be to an edge to pick it. Lower it to reach small faces."),
     slider("Point pick range", "vertexPickPx", 1, 16, "How close the pointer must be to a vertex or hole center to pick it."),
     slider("Display precision", "displayDecimals", 1, MAX_DECIMALS, "How many decimals lengths and values show and how finely mouse drags round, up to 8. It covers measurements, dimensions, tool forms and handle labels. Zeros after the last digit are never shown, so 10 stays 10. The core always works at full precision."),
+    commaRow,
     slider("Sharp edge angle", "sharpAngle", 5, 90, "Sharp edges selects connected edges whose faces meet at this angle or more."),
     boxRow,
     seeThrough,

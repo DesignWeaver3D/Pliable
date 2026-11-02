@@ -11,6 +11,7 @@ import { showNumber } from "./precision.ts";
 import { dragParam } from "./tools";
 import { expand } from "./relatedrules";
 import { usage } from "./usage";
+import { parseNumber } from "./numberformat.ts";
 
 export interface ItemDragDeps {
   viewport: Viewport;
@@ -126,8 +127,8 @@ export function createItemDrag(d: ItemDragDeps) {
 
   /** The number sent to the core: the typed value if it parses, else the mouse value. */
   function effectiveValue(): number {
-    const n = typed === null || typed === "" ? NaN : Number(typed);
-    if (!Number.isFinite(n)) return dragValue;
+    const n = typed === null ? null : parseNumber(typed);
+    if (n === null) return dragValue;
     const m = viewport.measureMode ? viewport.measureSel : null;
     // In measure mode the typed number is the edge's new length; the face moves by the difference.
     return m ? m.grow * (n - m.length) : typedNegative ? -n : n;

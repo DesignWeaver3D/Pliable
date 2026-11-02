@@ -8,6 +8,7 @@ import { deleteButton } from "./deletebutton";
 import type { SketchOptions } from "./sketchoptions";
 import type { Tool } from "./sketchtypes";
 import type { ArcOptions } from "./sketcharcoptions";
+import { numericField, fieldNumber, fieldText } from "./numberfield.ts";
 
 export interface PanelContext {
   s: M.SketchData;
@@ -48,17 +49,14 @@ export function buildToolOptions(ctx: PanelContext): HTMLElement {
 
   if (ctx.tool === "polygon") {
     const sides = document.createElement("input");
-    sides.type = "number";
-    sides.min = "3";
-    sides.max = "64";
-    sides.step = "1";
-    sides.value = String(ctx.options.sides);
+    numericField(sides);
+    sides.value = fieldText(ctx.options.sides);
     sides.title = "Number of sides (3 to 64)";
     sides.addEventListener("keydown", (e) => e.stopPropagation());
     sides.addEventListener("change", () => {
-      const n = Math.round(Number(sides.value));
-      if (Number.isFinite(n)) ctx.options.sides = Math.min(64, Math.max(3, n));
-      sides.value = String(ctx.options.sides);
+      const n = fieldNumber(sides);
+      if (n !== null) ctx.options.sides = Math.min(64, Math.max(3, Math.round(n)));
+      sides.value = fieldText(ctx.options.sides);
       ctx.saveOptions();
     });
     const row = el("label", "", "Sides ");
@@ -69,13 +67,12 @@ export function buildToolOptions(ctx: PanelContext): HTMLElement {
     // Blank leaves the start and the end to the pointer; a number fixes the start direction (degrees counterclockwise from the horizontal axis) and the counterclockwise sweep.
     const field = (label: string, title: string, get: () => number | null, set: (n: number | null) => void) => {
       const input = document.createElement("input");
-      input.type = "number";
-      input.step = "any";
+      numericField(input);
       input.placeholder = "pointer";
       input.title = title;
-      input.value = get() === null ? "" : String(get());
+      input.value = get() === null ? "" : fieldText(get()!);
       input.addEventListener("keydown", (e) => e.stopPropagation());
-      input.addEventListener("input", () => set(input.value.trim() === "" || !Number.isFinite(Number(input.value)) ? null : Number(input.value)));
+      input.addEventListener("input", () => set(fieldNumber(input)));
       const row = el("label", "", label);
       row.append(input);
       tools.append(row);
@@ -85,26 +82,22 @@ export function buildToolOptions(ctx: PanelContext): HTMLElement {
   }
   if (ctx.tool === "arcrad" || ctx.tool === "tancircle" || ctx.tool === "tanarc") {
     const size = document.createElement("input");
-    size.type = "number";
-    size.step = "any";
-    size.min = "0";
-    size.value = String(ctx.arcOptions.radius);
+    numericField(size);
+    size.value = fieldText(ctx.arcOptions.radius);
     size.title = ctx.tool === "tancircle" ? "Radius of the circle made from two curves" : "Radius of the arc";
     size.addEventListener("keydown", (e) => e.stopPropagation());
-    size.addEventListener("input", () => (ctx.arcOptions.radius = Math.abs(Number(size.value)) || 0));
+    size.addEventListener("input", () => (ctx.arcOptions.radius = Math.abs(fieldNumber(size) ?? 0)));
     const row = el("label", "", "Radius ");
     row.append(size);
     tools.append(row);
   }
   if (ctx.tool === "fillet" || ctx.tool === "chamfer") {
     const size = document.createElement("input");
-    size.type = "number";
-    size.step = "any";
-    size.min = "0";
-    size.value = String(ctx.rectOptions.size);
+    numericField(size);
+    size.value = fieldText(ctx.rectOptions.size);
     size.title = ctx.tool === "fillet" ? "Fillet radius" : "Chamfer distance along each side";
     size.addEventListener("keydown", (e) => e.stopPropagation());
-    size.addEventListener("input", () => (ctx.rectOptions.size = Math.abs(Number(size.value)) || 0));
+    size.addEventListener("input", () => (ctx.rectOptions.size = Math.abs(fieldNumber(size) ?? 0)));
     const row = el("label", "", ctx.tool === "fillet" ? "Radius " : "Distance ");
     row.append(size);
     tools.append(row);
@@ -114,13 +107,11 @@ export function buildToolOptions(ctx: PanelContext): HTMLElement {
     for (const [v, label] of [["none", "Square corners"], ["fillet", "Rounded corners"], ["chamfer", "Bevelled corners"]]) corner.append(new Option(label, v, false, v === ctx.rectOptions.corner));
     corner.addEventListener("change", () => (ctx.rectOptions.corner = corner.value as "none" | "fillet" | "chamfer"));
     const size = document.createElement("input");
-    size.type = "number";
-    size.step = "any";
-    size.min = "0";
-    size.value = String(ctx.rectOptions.size);
+    numericField(size);
+    size.value = fieldText(ctx.rectOptions.size);
     size.title = "Corner radius or bevel size";
     size.addEventListener("keydown", (e) => e.stopPropagation());
-    size.addEventListener("input", () => (ctx.rectOptions.size = Math.abs(Number(size.value)) || 0));
+    size.addEventListener("input", () => (ctx.rectOptions.size = Math.abs(fieldNumber(size) ?? 0)));
     const row = el("div", "row-buttons");
     row.append(corner, size);
     tools.append(row);

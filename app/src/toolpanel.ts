@@ -10,6 +10,7 @@ import { usage, type Surface } from "./usage";
 import { roundValue, showNumber } from "./precision.ts";
 import { COUNTERSINK_ANGLES, hasAngles, hasSizes, holeSizes } from "./holesizes.ts";
 import { PARAM_HELP, TOOL_PARAM_HELP } from "./toolparamhelp";
+import { numericField, fieldNumber, fieldText } from "./numberfield.ts";
 
 /** A parameter value: a number, or for `per_edge` parameters one [start, end] radius pair per selected edge. */
 export type ParamValue = number | number[][];
@@ -219,9 +220,8 @@ export class ToolPanel {
         return row;
       }
       const input = document.createElement("input");
-      input.type = "number";
-      input.step = "any";
-      input.value = String(typeof initial[p.name] === "number" ? initial[p.name] : p.default);
+      numericField(input);
+      input.value = fieldText(typeof initial[p.name] === "number" ? (initial[p.name] as number) : p.default);
       input.addEventListener("input", () => {
         this.refreshCard(p.name);
         this.schedulePreview();
@@ -247,7 +247,7 @@ export class ToolPanel {
           const value = await this.host.eyedrop(p.name, p.kind);
           dropper.classList.remove("armed");
           if (value !== null && this.open) {
-            input.value = String(roundValue(value));
+            input.value = fieldText(roundValue(value));
             this.schedulePreview(0);
           }
         });
@@ -263,7 +263,7 @@ export class ToolPanel {
           const size = holeSizes(p.name)[Number(sizes.value)];
           sizes.value = "";
           if (!size) return;
-          input.value = String(size.diameter);
+          input.value = fieldText(size.diameter);
           this.schedulePreview(0);
         });
         sizes.addEventListener("keydown", (e) => e.stopPropagation());
@@ -280,7 +280,7 @@ export class ToolPanel {
           const picked = COUNTERSINK_ANGLES[Number(angles.value)];
           angles.value = "";
           if (!picked) return;
-          input.value = String(picked.angle);
+          input.value = fieldText(picked.angle);
           this.schedulePreview(0);
         });
         angles.addEventListener("keydown", (e) => e.stopPropagation());
@@ -301,7 +301,7 @@ export class ToolPanel {
       const two = document.createElement("button");
       two.textContent = "Two distances";
       two.title = "Bevel with a different distance on each side: reopens as Chamfer (two distances), with the first face beside the edge as the reference";
-      two.addEventListener("click", () => this.host.twoDistances!(parseFloat((inputs.distance as HTMLInputElement).value) || 0));
+      two.addEventListener("click", () => this.host.twoDistances!(fieldNumber(inputs.distance as HTMLInputElement) ?? 0));
       buttons.prepend(two);
     }
     const header = card ? (this.host.cardHeader?.(tool) ?? null) : null;
@@ -313,7 +313,7 @@ export class ToolPanel {
       let destination: Vec3 | null = null;
       let offset: Vec3 = [0, 0, 0]; // the picked base point relative to the placement point; zero = the placement point itself
       let picked = false;
-      const origin = (): Vec3 => placement.map((n) => parseFloat(inputs[n].value) || 0) as unknown as Vec3;
+      const origin = (): Vec3 => placement.map((n) => fieldNumber(inputs[n]) ?? 0) as unknown as Vec3;
       const show = () => (note.textContent = `${picked ? "Base picked" : "Base: placement point"}${destination ? `, destination ${pointText(destination)}` : ""}`);
       show();
       this.baseNow = () => {
@@ -323,7 +323,7 @@ export class ToolPanel {
       };
       const place = () => {
         if (!destination) return;
-        originFor(destination, offset).forEach((c, i) => (inputs[placement[i]].value = showNumber(c, 4)));
+        originFor(destination, offset).forEach((c, i) => (inputs[placement[i]].value = fieldText(showNumber(c, 4))));
         this.schedulePreview(0);
       };
       const pickDestination = async () => {
@@ -375,12 +375,12 @@ export class ToolPanel {
       let picked = false;
       this.baseNow = () => {
         if (!picked) return null;
-        const v = vector.map((n) => parseFloat(inputs[n].value) || 0);
+        const v = vector.map((n) => fieldNumber(inputs[n]) ?? 0);
         return [base[0] + v[0], base[1] + v[1], base[2] + v[2]];
       };
       const apply = () => {
         if (!destination) return;
-        moveVector(base, destination).forEach((c, i) => (inputs[vector[i]].value = showNumber(c, 4)));
+        moveVector(base, destination).forEach((c, i) => (inputs[vector[i]].value = fieldText(showNumber(c, 4))));
         this.schedulePreview(0);
       };
       const pickDestination = async () => {
@@ -420,7 +420,7 @@ export class ToolPanel {
       pickAxis.addEventListener("click", async () => {
         const point = await (this.host.pickEdgePoint ?? this.host.pickPoint)!();
         if (!point || this.open !== tool) return;
-        axis.slice(0, 3).forEach((name, i) => (inputs[name].value = showNumber(point[i], 4)));
+        axis.slice(0, 3).forEach((name, i) => (inputs[name].value = fieldText(showNumber(point[i], 4))));
         inputs[axis[3]].value = "1"; // the choice list: picked point
         this.schedulePreview(0);
       });
@@ -462,9 +462,9 @@ export class ToolPanel {
       });
       // The button for the axis in use gets the orange border of an active button (Pick axis only once an edge has been picked).
       function showAxis() {
-        const choice = Number(inputs[edgeAxis![1]].value);
+        const choice = fieldNumber(inputs[edgeAxis![1]]) ?? 0;
         axisButtons.forEach((button, i) => button.classList.toggle("active", choice === i));
-        pickEdge.classList.toggle("active", choice === 3 && Number(inputs[edgeAxis![0]].value) >= 0);
+        pickEdge.classList.toggle("active", choice === 3 && (fieldNumber(inputs[edgeAxis![0]]) ?? 0) >= 0);
       }
       showAxis();
       title.after(pickEdge, axisRow);
@@ -474,15 +474,15 @@ export class ToolPanel {
     if (planeNames && (planeNames.length === 7 || planeNames.length === 5) && this.host.pickPlane) {
       const usePlaneIn = (origin: number[], normal: number[]) => {
         if (planeNames.length === 7) {
-          planeNames.slice(0, 3).forEach((name, i) => (inputs[name].value = showNumber(origin[i], 4)));
-          planeNames.slice(3, 6).forEach((name, i) => (inputs[name].value = showNumber(normal[i], 6)));
+          planeNames.slice(0, 3).forEach((name, i) => (inputs[name].value = fieldText(showNumber(origin[i], 4))));
+          planeNames.slice(3, 6).forEach((name, i) => (inputs[name].value = fieldText(showNumber(normal[i], 6))));
           inputs[planeNames[6]].value = "4"; // the choice list: picked plane
         } else {
           // A plane given as a distance along its direction: position, nx, ny, nz and the axis choice (3 = the direction nx, ny, nz); tilts start again from the picked plane.
           const length = Math.hypot(normal[0], normal[1], normal[2]) || 1;
           const n = normal.map((c) => c / length);
-          inputs[planeNames[0]].value = showNumber(n[0] * origin[0] + n[1] * origin[1] + n[2] * origin[2], 4);
-          planeNames.slice(1, 4).forEach((name, i) => (inputs[name].value = showNumber(n[i], 6)));
+          inputs[planeNames[0]].value = fieldText(showNumber(n[0] * origin[0] + n[1] * origin[1] + n[2] * origin[2], 4));
+          planeNames.slice(1, 4).forEach((name, i) => (inputs[name].value = fieldText(showNumber(n[i], 6))));
           inputs[planeNames[4]].value = "3";
           for (const tilt of ["tilt_u", "tilt_v"]) if (inputs[tilt]) inputs[tilt].value = "0";
         }
@@ -548,11 +548,9 @@ export class ToolPanel {
       name.textContent = `edge ${id}`;
       const pair = [0, 1].map((k) => {
         const input = document.createElement("input");
-        input.type = "number";
-        input.step = "any";
-        input.min = "0";
+        numericField(input);
         input.title = k === 0 ? "Start radius" : "End radius (0 = same as start)";
-        input.value = String(saved[i]?.[k] ?? (k === 0 ? p.default : 0));
+        input.value = fieldText(saved[i]?.[k] ?? (k === 0 ? p.default : 0));
         input.addEventListener("input", () => this.schedulePreview());
         input.addEventListener("keydown", (e) => {
           e.stopPropagation();
@@ -576,7 +574,7 @@ export class ToolPanel {
 
   /** Put values into the open form's fields (a drag in the viewport fills them) and refresh the preview. */
   setValues(values: Record<string, number>) {
-    for (const [name, value] of Object.entries(values)) if (this.inputs[name]) this.inputs[name].value = String(roundValue(value));
+    for (const [name, value] of Object.entries(values)) if (this.inputs[name]) this.inputs[name].value = fieldText(roundValue(value));
     this.refreshCard();
     this.schedulePreview(0);
   }
@@ -587,14 +585,14 @@ export class ToolPanel {
     if (!tool || !this.card) return;
     const answer = this.host.cardForm?.(tool, this.values(), changed);
     if (!answer) return;
-    for (const [name, value] of Object.entries(answer.set)) if (this.inputs[name]) this.inputs[name].value = String(value);
+    for (const [name, value] of Object.entries(answer.set)) if (this.inputs[name]) this.inputs[name].value = fieldText(value);
     const hidden = new Set(answer.hidden);
     for (const [name, row] of Object.entries(this.rowOf)) row.style.display = hidden.has(name) ? "none" : "";
   }
 
   private values(): Record<string, ParamValue> {
-    const values: Record<string, ParamValue> = Object.fromEntries(Object.entries(this.inputs).map(([k, el]) => [k, Number(el.value)]));
-    for (const [name, pairs] of Object.entries(this.pairInputs)) values[name] = pairs.map((pair) => pair.map((el) => Number(el.value)));
+    const values: Record<string, ParamValue> = Object.fromEntries(Object.entries(this.inputs).map(([k, el]) => [k, fieldNumber(el) ?? 0]));
+    for (const [name, pairs] of Object.entries(this.pairInputs)) values[name] = pairs.map((pair) => pair.map((el) => fieldNumber(el) ?? 0));
     return values;
   }
 

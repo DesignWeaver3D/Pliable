@@ -2,6 +2,7 @@
  *  planes, kept sketches, three points, edge and point, face offset and angle), a slider and a box for the distance
  *  along the plane's normal, a button for the side that is cut away, and the overlap readout. */
 import { showNumber } from "./precision";
+import { parseNumber, entryText } from "./numberformat";
 import { bodyColor } from "./bodycolors";
 import { ORIGIN_PLANES, planeButtons } from "./planepicks";
 import { planeBuildControls } from "./planebuild";
@@ -34,8 +35,8 @@ export class SectionPanel {
     this.distance.title = "Distance of the plane along its normal from where it was chosen (type a value and press Enter)";
     this.distance.setAttribute("aria-label", "Section distance");
     this.distance.addEventListener("change", () => {
-      const value = parseFloat(this.distance.value);
-      if (Number.isFinite(value)) view.setOffset(value);
+      const value = parseNumber(this.distance.value);
+      if (value !== null) view.setOffset(value);
       else this.refresh();
     });
     const flip = document.createElement("button");
@@ -100,7 +101,7 @@ export class SectionPanel {
     this.slider.step = String(Math.max((hi - lo) / 500, 1e-6));
     this.slider.value = String(this.view.distance);
     this.slider.style.width = "100%";
-    if (document.activeElement !== this.distance) this.distance.value = showNumber(this.view.distance, 2);
+    if (document.activeElement !== this.distance) this.distance.value = entryText(showNumber(this.view.distance, 2));
     const report = this.view.report;
     this.readout.replaceChildren();
     if (!report) return;
