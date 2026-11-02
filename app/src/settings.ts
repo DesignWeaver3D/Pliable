@@ -1,5 +1,6 @@
 import { uiIcon } from "./icons.ts";
 import { setDecimals, DEFAULT_DECIMALS, MAX_DECIMALS } from "./precision.ts";
+import { setDecimalComma } from "./numberformat.ts";
 import { MATERIALS, DEFAULT_MATERIAL_ID, getMaterial } from "./materials.ts";
 /** User settings kept in the browser. Read the values through `settings`; they change live. */
 export interface Settings {
@@ -23,10 +24,12 @@ export interface Settings {
   material: string;
   /** Decimals shown for lengths and values (zeros after the last digit are never shown). */
   displayDecimals: number;
+  /** Type decimals with a comma (12,5) instead of a point (see numberformat.ts). */
+  decimalComma: boolean;
 }
 
 const KEY = "pliable.settings";
-const DEFAULTS: Settings = { edgePickPx: 5, vertexPickPx: 8, seeThrough: false, seeThroughOpacity: 12, sharpAngle: 30, boxKind: "auto", randomBodyColors: true, glossyLook: true, material: DEFAULT_MATERIAL_ID, displayDecimals: DEFAULT_DECIMALS };
+const DEFAULTS: Settings = { edgePickPx: 5, vertexPickPx: 8, seeThrough: false, seeThroughOpacity: 12, sharpAngle: 30, boxKind: "auto", randomBodyColors: true, glossyLook: true, material: DEFAULT_MATERIAL_ID, displayDecimals: DEFAULT_DECIMALS, decimalComma: false };
 
 export const settings: Settings = { ...DEFAULTS };
 const listeners: Array<() => void> = [];
@@ -40,6 +43,7 @@ try {
   /* storage can be blocked; defaults apply */
 }
 setDecimals(settings.displayDecimals);
+setDecimalComma(settings.decimalComma);
 
 export function onSettingsChange(fn: () => void) {
   listeners.push(fn);
@@ -48,6 +52,7 @@ export function onSettingsChange(fn: () => void) {
 export function updateSettings(patch: Partial<Settings>) {
   Object.assign(settings, patch);
   setDecimals(settings.displayDecimals);
+  setDecimalComma(settings.decimalComma);
   try {
     localStorage.setItem(KEY, JSON.stringify(settings));
   } catch {
