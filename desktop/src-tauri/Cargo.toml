@@ -1,6 +1,6 @@
 [package]
 name = "pliable-desktop"
-version = "0.4.0"
+version = "0.4.1"
 description = "Pliable desktop shell: runs the geometry core and shows the app in a native window"
 license = "AGPL-3.0-or-later"
 edition = "2021"
