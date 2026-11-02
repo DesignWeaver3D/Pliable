@@ -10,7 +10,8 @@ test("Tab or space moves to the next number only while a number is left to type"
   assert.equal(typedKey("30 5", " ", 2), null);
   assert.equal(typedKey("", "Tab", 2), null); // nothing typed: Tab keeps its usual job
   assert.equal(typedKey("30", "Tab", 1), "30");
-  assert.equal(typedKey("3", ",", 1), "3.");
+  assert.equal(typedKey("3", ".", 1), "3.");
+  assert.equal(typedKey("3", ",", 1), null); // a comma only types a decimal when the setting is on
   assert.equal(typedKey("30 5", "Backspace", 2), "30 ");
   assert.equal(typedKey("30 5", "Escape", 2), "");
 });

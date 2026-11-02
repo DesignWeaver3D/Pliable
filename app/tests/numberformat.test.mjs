@@ -40,3 +40,22 @@ test("typed characters follow the setting", () => {
   assert.equal(allowedChars("."), false);
   setDecimalComma(false);
 });
+
+test("typed entries take the decimal character of the setting", async () => {
+  const { typedStep, typedTravel } = await import("../src/handlemath.ts");
+  const { typedKey, parseTyped } = await import("../src/sketchtyped.ts");
+  const { TypedFields } = await import("../src/typedentry.ts");
+  setDecimalComma(true);
+  assert.deepEqual(typedStep("2", false, ","), { text: "2,", negative: false });
+  assert.equal(typedStep("2", false, "."), null);
+  assert.equal(typedStep("2,5", false, ","), null);
+  assert.equal(typedKey("3", ",", 1), "3,");
+  assert.equal(typedKey("3", ".", 1), null);
+  assert.deepEqual(parseTyped("2,5 4"), [2.5, 4]);
+  const f = new TypedFields(1);
+  for (const k of ["1", ",", "5"]) f.key(k);
+  assert.equal(f.value(0), 1.5);
+  assert.equal(typedTravel({ value: 0, scale: 1, min: null, kind: "move" }, "1,5", false), 1.5);
+  setDecimalComma(false);
+  assert.equal(parseTyped("2,5"), null);
+});

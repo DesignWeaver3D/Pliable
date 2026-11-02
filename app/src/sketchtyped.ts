@@ -2,6 +2,7 @@
  *  (Tab or space moves to the next number), and where the typed numbers put the next points. No DOM. */
 import type { Tool } from "./sketchtypes.ts";
 import type { UV } from "./sketchshapes.ts";
+import { decimalChar, parseNumber } from "./numberformat.ts";
 
 /** The numbers the tool takes at this stage of drawing (`chainLength` points placed so far), as short names; empty when the tool takes none. */
 export function typedLabels(tool: Tool, chainLength: number, polygon: boolean): string[] {
@@ -21,7 +22,7 @@ export function typedLabels(tool: Tool, chainLength: number, polygon: boolean): 
 /** One key of typed entry: the new text, or null when the key is not part of entry. Tab and space start the next number. */
 export function typedKey(text: string, key: string, fields: number): string | null {
   if (/^[0-9]$/.test(key)) return text + key;
-  if (key === "." || key === ",") return text + ".";
+  if (key === decimalChar()) return text + key;
   if (key === " " || key === "Tab") {
     if (!text) return null;
     if (fields > 1 && text.trim().split(/\s+/).length < fields && !text.endsWith(" ")) return text + " ";
@@ -43,8 +44,8 @@ export function typedTag(labels: string[], text: string): string {
 
 /** The typed numbers, or null when any is not a positive number. */
 export function parseTyped(text: string): number[] | null {
-  const numbers = text.trim().split(/\s+/).map(Number);
-  return numbers.every((n) => Number.isFinite(n) && n > 0) ? numbers : null;
+  const numbers = text.trim().split(/\s+/).map(parseNumber);
+  return numbers.every((n): n is number => n !== null && n > 0) ? numbers : null;
 }
 
 /** Where the typed numbers put the next points, in the order they are placed. The pointer only chooses the direction. */

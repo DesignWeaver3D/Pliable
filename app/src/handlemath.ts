@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { AXIS_COLORS } from "./axes.ts";
 import type { HandleInfo } from "./tools";
 import { roundValue, showNumber } from "./precision.ts";
+import { decimalChar, parseNumber } from "./numberformat.ts";
 
 /** Length of a handle's arm and the radius of its grab target, in screen pixels. */
 export const ARM_PX = 34;
@@ -102,8 +103,8 @@ export function travelFor(h: Pick<HandleInfo, "value" | "scale">, value: number)
  *  distance along its axis (negative goes backwards); any other handle's number is the parameter value itself (the size
  *  of a resize grip, a radius), with the handle's direction kept and the declared limits applied. */
 export function typedTravel(h: Pick<HandleInfo, "value" | "scale" | "min" | "kind"> & { factor?: number } & { max?: number | null }, text: string, negative: boolean): number | null {
-  const n = text === "" || text === "." ? NaN : Number(text);
-  if (!Number.isFinite(n)) return null;
+  const n = parseNumber(text);
+  if (n === null) return null;
   const signed = negative ? -n : n;
   const raw = h.kind === "move" ? signed : travelFor(h, signed / (h.factor || 1));
   return travelFor(h, handleValue(h, raw));
@@ -113,7 +114,7 @@ export function typedTravel(h: Pick<HandleInfo, "value" | "scale" | "min" | "kin
 export function typedStep(text: string | null, negative: boolean, key: string): { text: string; negative: boolean } | null {
   if (key === "-") return { text: text ?? "", negative: !negative };
   if (/^[0-9]$/.test(key)) return { text: (text ?? "") + key, negative };
-  if (key === "." && !(text ?? "").includes(".")) return { text: (text ?? "") + ".", negative };
+  if (key === decimalChar() && !(text ?? "").includes(key)) return { text: (text ?? "") + key, negative };
   if (key === "Backspace" && text !== null) return { text: text.slice(0, -1), negative };
   return null;
 }

@@ -1,6 +1,7 @@
 /** Typed entry of one or more numbers while a gizmo is dragged: the same keys as a handle's entry (digits, ".", "-" to flip the sign, Backspace),
  *  with Tab moving to the next field. It holds the text only; each gizmo says what the numbers mean (see pullgizmo.ts and manipulator.ts). */
 import { typedStep } from "./manipulator.ts";
+import { parseNumber } from "./numberformat.ts";
 
 export class TypedFields {
   texts: (string | null)[];
@@ -33,8 +34,8 @@ export class TypedFields {
   /** The number typed in a field, or null while it holds nothing usable. */
   value(i: number): number | null {
     const text = this.texts[i];
-    const n = text === null || text === "" || text === "." ? NaN : Number(text);
-    return Number.isFinite(n) ? (this.negatives[i] ? -n : n) : null;
+    const n = text === null ? null : parseNumber(text);
+    return n === null ? null : this.negatives[i] ? -n : n;
   }
 
   /** The field as shown in a label: its text with a caret while it is the active one, else `fallback`. */
