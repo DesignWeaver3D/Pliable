@@ -229,7 +229,6 @@ export function createItemDrag(d: ItemDragDeps) {
         dragSymmetric = shiftHeld || viewport.pushPull.symmetric;
         const dragTool = dragToolFor(sels)!;
         if (dragTool.id === "push_pull") {
-          d.pushPullCard.open(); // a push/pull drag always opens its card
           d.pushPullCard.showDistance(distance);
         }
         if (d.armedTool !== dragTool.id) usage.record(dragTool.id, "start", "drag"); // an armed tool already counted its start
