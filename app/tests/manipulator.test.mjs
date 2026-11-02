@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { Manipulator, linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep, pickScore, grabFraction, MOVE_ARM_PX, refitRing, snapValue, snappedIndex } from "../src/manipulator.ts";
+import { Manipulator, linkedValues, axisColorOf, handleColors, formatValue, handleValue, lineParam, travelFor, typedTravel, typedStep, typedShown, pickScore, grabFraction, MOVE_ARM_PX, refitRing, snapValue, snappedIndex } from "../src/manipulator.ts";
 
 const h = { value: 10, scale: 1, min: 1 };
 
@@ -102,9 +102,11 @@ test("nothing usable typed gives no travel, and entry keys build the text", () =
   let st = typedStep(null, false, "2");
   st = typedStep(st.text, st.negative, "5");
   assert.deepEqual(st, { text: "25", negative: false });
-  assert.deepEqual(typedStep("25", false, "-"), { text: "25", negative: true });
-  assert.deepEqual(typedStep("25", true, "-"), { text: "25", negative: false });
+  assert.deepEqual(typedStep("25", false, "-"), { text: "25-", negative: false }); // a minus is part of the formula; the sign stays as the drag set it
+  assert.deepEqual(typedStep("25", true, "*"), { text: "25*", negative: true });
+  assert.deepEqual(typedStep("2.5+1", false, "."), { text: "2.5+1.", negative: false }); // one decimal point per number
   assert.equal(typedStep("2.5", false, "."), null);
+  assert.equal(typedStep(null, false, "x"), null);
   assert.deepEqual(typedStep("25", false, "Backspace"), { text: "2", negative: false });
   assert.equal(typedStep(null, false, "Backspace"), null);
   assert.equal(typedStep(null, false, "Tab"), null);
@@ -165,10 +167,28 @@ test("typing on a handle pushed to a negative value keeps the negative sign", ()
   m.key({ key: "7" });
   assert.deepEqual([m.active.typed, m.active.negative], ["7", true]);
   assert.equal(typedTravel(info, m.active.typed, m.active.negative), -7);
-  // pulled outward: positive; the first "-" then flips the drag's direction
+  // pulled outward: positive; a "-" typed first reverses the drag's direction, inside the formula
   m.active = { item: { info, travel: 4 }, travel0: 0, moved: false, typed: null, negative: false, x: 0, y: 0 };
   m.key({ key: "-" });
-  assert.equal(m.active.negative, true);
+  m.key({ key: "7" });
+  assert.deepEqual([m.active.typed, m.active.negative], ["-7", false]);
+  assert.equal(typedTravel(info, m.active.typed, m.active.negative), -7);
+});
+
+test("a typed formula keeps the direction the drag chose", () => {
+  const info = { param: "distance", value: 0, scale: 1, min: null, kind: "arrow", direction: [0, 0, 1], anchor: [0, 0, 0] };
+  const m = Object.create(Manipulator.prototype);
+  m.onDrag = () => {};
+  m.dom = { style: {} };
+  m.active = { item: { info, travel: -4 }, travel0: 0, moved: false, typed: null, negative: false, x: 0, y: 0 };
+  for (const k of "10-4") m.key({ key: k });
+  assert.deepEqual([m.active.typed, m.active.negative], ["10-4", true]);
+  assert.equal(typedTravel(info, m.active.typed, m.active.negative), -6); // -(10-4)
+  assert.equal(typedShown("10-4", true), "-(10-4)");
+  assert.equal(typedShown("7", true), "-7");
+  assert.equal(typedShown("10-4", false), "10-4");
+  assert.equal(typedTravel(info, "1/3", true), -1 / 3);
+  assert.equal(typedTravel(info, "10-", false), null); // incomplete
 });
 
 test("a rotation ring handle wears its axis color and a typed number is the angle in degrees", () => {

@@ -7,7 +7,7 @@ import { gridCounts, gridShift, planePoint } from "./gridgrip.ts";
 import { TypedFields, typedCounts } from "./typedentry.ts";
 import { projectOnSegment } from "./segmentmath.ts";
 import { mirrorEnd, segmentPx } from "./pushpullhit.ts";
-import { ARM_PX, GRAB_PX, PUSH_PULL_ARM_RATIO, isPushPullArrow, MOVE_ARM_PX, AXIS_LINE, HANDLE_OUTLINE, pickScore, grabFraction, handleColors, handleValue, snapValue, linkedValues, travelFor, typedTravel, typedStep, lineParam, formatValue, ARC_RADIUS_PX, ARC_HALF_SPAN, ARC_STEPS, ARC_REST_OPACITY, COLOR_SNAPPED, snappedIndex, RING_VIEW_FRACTION, refitRing } from "./handlemath.ts";
+import { ARM_PX, GRAB_PX, PUSH_PULL_ARM_RATIO, isPushPullArrow, MOVE_ARM_PX, AXIS_LINE, HANDLE_OUTLINE, pickScore, grabFraction, handleColors, handleValue, snapValue, linkedValues, travelFor, typedTravel, typedStep, typedShown, lineParam, formatValue, ARC_RADIUS_PX, ARC_HALF_SPAN, ARC_STEPS, ARC_REST_OPACITY, COLOR_SNAPPED, snappedIndex, RING_VIEW_FRACTION, refitRing } from "./handlemath.ts";
 import { roundValue } from "./precision.ts";
 import { pieAngleAt, pieLines, piePoint, pieTangent } from "./piegizmo.ts";
 export * from "./handlemath.ts"; // the maths moved to its own file; the tests and other modules still import it from here
@@ -410,7 +410,7 @@ export class Manipulator {
       const unit = info.unit === "Â°" || !info.unit ? info.unit : " " + info.unit;
       const typing = item === this.active?.item && this.active.typed !== null;
       const symbol = info.symbol ?? "";
-      const shown = symbol + (typing ? `${this.active!.negative ? "-" : ""}${this.active!.typed}|` : formatValue(info.along ? item.travel : value * (info.factor || 1)));
+      const shown = symbol + (typing ? `${typedShown(this.active!.typed ?? "", this.active!.negative)}|` : formatValue(info.along ? item.travel : value * (info.factor || 1)));
       const fields = item === this.active?.item ? this.active.fields : null;
       const grid = info.plane && (item.grid || fields) ? { ...this.gridStart(info), ...item.grid } : null;
       const gridText = grid ? (fields ? `${fields.shown(0, String(grid.columns))} × ${fields.shown(1, String(grid.rows))}` : `${grid.columns} × ${grid.rows}`) : "";

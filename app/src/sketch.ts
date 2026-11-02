@@ -796,7 +796,7 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
     return this.active ? T.typedLabels(this.tool, this.chain.length, !!this.sidesOf(this.tool)) : [];
   }
 
-  /** Keys typed while drawing (captured before the key router sees them). Digits start the entry, Tab or space moves to the next number, Enter applies, Backspace edits, Escape clears. */
+  /** Keys typed while drawing (captured before the key router sees them). Digits (or an opening bracket) start the entry, Tab or space moves to the next number, Enter applies, Backspace edits, Escape clears. */
   private onTyping = (e: KeyboardEvent) => {
     const labels = this.typedLabels();
     if (!labels.length || e.ctrlKey || e.metaKey || e.altKey || (e.target as HTMLElement).closest("input, select, textarea")) return;

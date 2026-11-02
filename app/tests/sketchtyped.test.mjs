@@ -12,6 +12,14 @@ test("Tab or space moves to the next number only while a number is left to type"
   assert.equal(typedKey("30", "Tab", 1), "30");
   assert.equal(typedKey("3", ".", 1), "3.");
   assert.equal(typedKey("3", ",", 1), null); // a comma only types a decimal when the setting is on
+  assert.equal(typedKey("", "(", 1), "("); // a bracket starts an entry
+  assert.equal(typedKey("", "-", 1), null); // an operator does not
+  assert.equal(typedKey("2", "*", 1), "2*");
+  assert.equal(typedKey("(2+3", ")", 1), "(2+3)");
+  assert.equal(typedKey("2*", " ", 2), "2*"); // a space after an operator is dropped
+  assert.equal(typedKey("2*", "Tab", 2), "2*");
+  assert.equal(typedKey("30 ", "*", 2), null); // an operator cannot start the next number
+  assert.equal(typedKey("30 ", "(", 2), "30 (");
   assert.equal(typedKey("30 5", "Backspace", 2), "30 ");
   assert.equal(typedKey("30 5", "Escape", 2), "");
 });
@@ -86,4 +94,11 @@ test("an elliptical arc takes the major and minor widths and a sweep, and places
   near(start.u, 10);
   near(end.u, 0);
   assert.ok(end.v > 0);
+});
+
+test("typed sizes can be formulas, and each must come out positive", () => {
+  assert.deepEqual(parseTyped("2*3 (1+1)"), [6, 2]);
+  assert.deepEqual(parseTyped("10-4"), [6]);
+  assert.equal(parseTyped("4-10"), null);
+  assert.equal(parseTyped("2*"), null);
 });

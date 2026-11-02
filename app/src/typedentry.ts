@@ -1,11 +1,10 @@
 /** Typed entry of one or more numbers while a gizmo is dragged: the same keys as a handle's entry (digits, ".", "-" to flip the sign, Backspace),
  *  with Tab moving to the next field. It holds the text only; each gizmo says what the numbers mean (see pullgizmo.ts and manipulator.ts). */
 import { typedStep } from "./manipulator.ts";
-import { parseNumber } from "./numberformat.ts";
+import { parseExpression } from "./formula.ts";
 
 export class TypedFields {
   texts: (string | null)[];
-  negatives: boolean[];
   active = 0;
   private readonly whole: boolean;
 
@@ -13,7 +12,6 @@ export class TypedFields {
   constructor(count: number, whole = false) {
     this.whole = whole;
     this.texts = Array(count).fill(null);
-    this.negatives = Array(count).fill(false);
   }
 
   /** One key of entry for the active field: whether it was used. Tab moves to the next field (round to the first). */
@@ -24,25 +22,23 @@ export class TypedFields {
       return true;
     }
     if (this.whole && !/^([0-9]|Backspace)$/.test(key)) return false;
-    const step = typedStep(this.texts[this.active], this.negatives[this.active], key);
+    const step = typedStep(this.texts[this.active], false, key);
     if (!step) return false;
     this.texts[this.active] = step.text;
-    this.negatives[this.active] = step.negative;
     return true;
   }
 
   /** The number typed in a field, or null while it holds nothing usable. */
   value(i: number): number | null {
     const text = this.texts[i];
-    const n = text === null ? null : parseNumber(text);
-    return n === null ? null : this.negatives[i] ? -n : n;
+    return text === null ? null : parseExpression(text);
   }
 
   /** The field as shown in a label: its text with a caret while it is the active one, else `fallback`. */
   shown(i: number, fallback: string): string {
     const text = this.texts[i];
     if (text === null) return fallback;
-    return `${this.negatives[i] ? "-" : ""}${text}${i === this.active ? "|" : ""}`;
+    return `${text}${i === this.active ? "|" : ""}`;
   }
 }
 
