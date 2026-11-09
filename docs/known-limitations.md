@@ -22,7 +22,7 @@
 - **Sketching** is functional and has no known bugs, but some sketch tools are still missing.
 - Performance and UI stability.
 - Compatibility of anything saved by this version with later versions. Export STEP to keep your work.
-- **Webview differences.** The window uses the system webview: WebView2 on Windows (Chromium-based, the tested one), WebKit on macOS and WebKitGTK on Linux. Drawing, fonts and file dialogs may differ on the last two. Running the core in a browser is a development setup, and Chrome is the only browser tried.
+- **Webview differences.** The window uses the system webview: WebView2 on Windows (Chromium-based, the tested one), WebKit on macOS and WebKitGTK on Linux. The Save As dialog on Linux and macOS (added in 0.4.2) is untested on macOS. Drawing, fonts and file dialogs may differ on the last two. Running the core in a browser is a development setup, and Chrome is the only browser tried.
 - Autosave protects against crashes, not against a bad edit. Undo history is capped at 50 steps.
 - The portable builds are unsigned: Windows SmartScreen warns on first launch and macOS Gatekeeper blocks it until you allow it (see the release notes). Linux needs Ubuntu 24.04, Linux Mint 22 or a similar distribution from 2024 or later with `libwebkit2gtk-4.1`.
 - Everything Pliable saves lives in the `data` folder beside the program. Moving the folder keeps your settings and autosaves; deleting it resets them.

@@ -30,7 +30,7 @@ Pliable started as a proof of concept built with PyQt6 and pythonocc:
 
 It proved that face push/pull, fillet/chamfer, and STEP round-tripping work on OpenCASCADE, but it wasn't built to scale. The project is now being rebuilt on a new architecture. The prototype is preserved as release [v0.1.0](https://github.com/DesignWeaver3D/Pliable/releases/tag/v0.1.0).
 
-`main` holds the rebuild; the latest release is [v0.4.1](https://github.com/DesignWeaver3D/Pliable/releases/tag/v0.4.1). The prototype lives on at the `v0.1.0` tag.
+`main` holds the rebuild; the latest release is [v0.4.2](https://github.com/DesignWeaver3D/Pliable/releases/tag/v0.4.2). The prototype lives on at the `v0.1.0` tag.
 
 ## Download and run
 

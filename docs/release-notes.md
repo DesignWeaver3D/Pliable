@@ -15,6 +15,11 @@ The build is **unsigned**:
 
 Only Windows has been tested by a person. The other builds passed an automated start-up check only.
 
+## Changes in 0.4.2
+
+- Linux and macOS: Save project and the exports now open a Save As dialog. Before, saving did nothing in those windows. This is new and has had little testing on either system.
+- Linux: the menu and settings drop-down lists now follow the dark theme.
+
 ## What to expect
 
 Sketching is functional, with many improvements in this release and no known bugs. Large files, assemblies and multi-solid STEP files are best effort. See [known limitations](https://github.com/DesignWeaver3D/Pliable/blob/main/docs/known-limitations.md).

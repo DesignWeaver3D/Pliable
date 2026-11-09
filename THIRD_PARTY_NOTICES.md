@@ -20,4 +20,4 @@ Pliable is licensed under the GNU Affero General Public License v3 or later (see
 
 The desktop window uses the operating system's webview (Microsoft WebView2 on Windows, WebKit on macOS, WebKitGTK on Linux, which the AppImage expects the system to provide); it is not bundled. Portable builds bundle the other components. OpenCASCADE is LGPL: its libraries ship as separate files in the build so they can be replaced (in the Linux AppImage they are in `usr/bin/core`, which `--appimage-extract` unpacks and any AppImage can be repacked with). The AGPL source for Pliable is at https://github.com/DesignWeaver3D/Pliable.
 
-<!-- lock fingerprints: desktop/src-tauri/Cargo.lock=0acc4fc288cc core/uv.lock=d3510d26c44c app/package-lock.json=e7dd29074a56 desktop/package-lock.json=01a653602ff9 -->
+<!-- lock fingerprints: desktop/src-tauri/Cargo.lock=c2fae6f0fba2 core/uv.lock=d3510d26c44c app/package-lock.json=e7dd29074a56 desktop/package-lock.json=01a653602ff9 -->
