@@ -2,11 +2,12 @@
 // serves in a native window. Portable: everything it writes goes in a `data` folder next to the program (in the user's data folder inside a Linux AppImage).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::collections::HashMap;
 use std::fs::{self, File};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use tauri::webview::DownloadEvent;
@@ -141,20 +142,33 @@ fn open_when_ready(app: tauri::AppHandle, window: WebviewWindow, port: u16) {
     });
 }
 
-/// Saving a file from the page is a download. The Linux window drops downloads that have no handler, so each one goes
-/// to a temporary file first and, when it has arrived, a Save As dialog asks where to keep it (cancelling discards it).
-#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+/// Temporary files of downloads in progress, by download address (macOS does not say where a finished download went).
+fn pending_downloads() -> &'static Mutex<HashMap<String, PathBuf>> {
+    static PENDING: OnceLock<Mutex<HashMap<String, PathBuf>>> = OnceLock::new();
+    PENDING.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Saving a file from the page is a download. The Linux and macOS windows drop downloads that have no handler, so each
+/// one goes to a temporary file first and, when it has arrived, a Save As dialog asks where to keep it (cancelling discards it).
+#[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
 fn save_download(webview: tauri::Webview, event: DownloadEvent<'_>) -> bool {
     match event {
-        DownloadEvent::Requested { destination, .. } => {
+        DownloadEvent::Requested { url, destination } => {
             let name = destination.file_name().map(|n| n.to_os_string()).unwrap_or_else(|| "pliable-file".into());
             *destination = std::env::temp_dir().join("pliable-downloads").join(name);
             if let Some(folder) = destination.parent() {
                 let _ = fs::create_dir_all(folder);
             }
+            pending_downloads().lock().unwrap().insert(url.to_string(), destination.clone());
             true
         }
-        DownloadEvent::Finished { path: Some(temp), success: true, .. } => {
+        DownloadEvent::Finished { url, path, success } => {
+            let remembered = pending_downloads().lock().unwrap().remove(url.as_str());
+            let Some(temp) = path.or(remembered) else { return true };
+            if !success {
+                let _ = fs::remove_file(&temp);
+                return true;
+            }
             let app = webview.app_handle().clone();
             let mut dialog = app.dialog().file();
             if let Some(name) = temp.file_name().and_then(|n| n.to_str()) {
@@ -189,7 +203,7 @@ fn main() {
             {
                 builder = builder.data_directory(data_root(&dir).join("webview"));
             }
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
             {
                 builder = builder.on_download(save_download);
             }
