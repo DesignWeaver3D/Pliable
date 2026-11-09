@@ -9,7 +9,9 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+use tauri::webview::DownloadEvent;
 use tauri::{Manager, RunEvent, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri_plugin_dialog::DialogExt;
 
 const HOST: &str = "127.0.0.1";
 const PREFERRED_PORT: u16 = 8765; // a stable port keeps the page's saved settings (browser storage is per port)
@@ -139,8 +141,42 @@ fn open_when_ready(app: tauri::AppHandle, window: WebviewWindow, port: u16) {
     });
 }
 
+/// Saving a file from the page is a download. The Linux window drops downloads that have no handler, so each one goes
+/// to a temporary file first and, when it has arrived, a Save As dialog asks where to keep it (cancelling discards it).
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn save_download(webview: tauri::Webview, event: DownloadEvent<'_>) -> bool {
+    match event {
+        DownloadEvent::Requested { destination, .. } => {
+            let name = destination.file_name().map(|n| n.to_os_string()).unwrap_or_else(|| "pliable-file".into());
+            *destination = std::env::temp_dir().join("pliable-downloads").join(name);
+            if let Some(folder) = destination.parent() {
+                let _ = fs::create_dir_all(folder);
+            }
+            true
+        }
+        DownloadEvent::Finished { path: Some(temp), success: true, .. } => {
+            let app = webview.app_handle().clone();
+            let mut dialog = app.dialog().file();
+            if let Some(name) = temp.file_name().and_then(|n| n.to_str()) {
+                dialog = dialog.set_file_name(name);
+            }
+            dialog.save_file(move |chosen| {
+                if let Some(target) = chosen.and_then(|p| p.into_path().ok()) {
+                    if let Err(e) = fs::copy(&temp, &target) {
+                        eprintln!("Cannot save {}: {e}", target.display());
+                    }
+                }
+                let _ = fs::remove_file(&temp);
+            });
+            true
+        }
+        _ => true,
+    }
+}
+
 fn main() {
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(Core(Mutex::new(None)))
         .setup(|app| {
             let dir = program_dir();
@@ -152,6 +188,10 @@ fn main() {
             #[cfg(not(target_os = "macos"))]
             {
                 builder = builder.data_directory(data_root(&dir).join("webview"));
+            }
+            #[cfg(target_os = "linux")]
+            {
+                builder = builder.on_download(save_download);
             }
             let window = builder.build()?;
             match start_core(&dir, port) {
