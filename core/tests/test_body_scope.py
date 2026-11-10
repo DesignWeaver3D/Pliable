@@ -6,7 +6,7 @@ from OCP.GProp import GProp_GProps
 
 from pliable.demos import load_demo
 from pliable.document import Document
-from pliable.ops import planar_normal, solids_of
+from pliable.ops import OperationError, planar_normal, solids_of
 from pliable.tools import Selection, get_tool
 
 
@@ -96,3 +96,60 @@ def test_scoped_tools_ignore_a_copy_lying_on_the_body(block_with_copy, tool_id, 
     assert len(solids) == 2
     assert volume(solids[body_index]) == pytest.approx(volume(alone.shape), rel=1e-6)
     assert volume(solids[1 - body_index]) == pytest.approx(24000, rel=1e-6)
+
+
+def _pull_top(scene, body_index, distance=10, **params):
+    face = top_face_of(scene, body_index)
+    return get_tool("push_pull").execute(scene, Selection(faces=[face]), {"distance": distance, **params}, preview=False)
+
+
+def test_push_pull_leaves_a_hidden_copy_alone(block_with_copy):
+    scene = block_with_copy
+    scene.hidden_bodies = frozenset({scene.bodies.bodies[1].id})
+    result = _pull_top(scene, 0)
+    solids = solids_of(result.shape)
+    assert len(solids) == 2
+    assert volume(solids[0]) == pytest.approx(36000, rel=1e-6)
+    assert volume(solids[1]) == pytest.approx(24000, rel=1e-6)  # the hidden copy is not fused or cut
+
+
+def test_plain_push_leaves_other_bodies_alone(block_with_copy):
+    solids = solids_of(_pull_top(block_with_copy, 0, -5).shape)
+    assert [round(volume(s)) for s in solids] == [18000, 24000]
+
+
+def block_with_body_above():
+    from build123d import Box, Pos
+
+    from pliable.topology import Topology
+
+    from OCP.BRep import BRep_Builder
+    from OCP.TopoDS import TopoDS_Compound
+
+    compound, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(compound)
+    builder.Add(compound, Box(40, 30, 20).wrapped)
+    builder.Add(compound, (Pos(0, 0, 40) * Box(40, 30, 20)).wrapped)
+    return Topology(compound)
+
+
+@pytest.mark.parametrize("extent", ["last", "through"])
+def test_pulling_up_to_a_body_merges_it_while_it_is_visible(extent):
+    scene = block_with_body_above()
+    result = _pull_top(scene, 0, 5, extent=extent)
+    assert [round(volume(s)) for s in solids_of(result.shape)] == [72000]
+
+
+@pytest.mark.parametrize("extent", ["last", "through"])
+def test_pulling_up_to_a_hidden_body_does_not_see_it(extent):
+    scene = block_with_body_above()
+    scene.hidden_bodies = frozenset({scene.bodies.bodies[1].id})
+    with pytest.raises(OperationError, match="nothing lies beyond"):
+        _pull_top(scene, 0, 5, extent=extent)
+
+
+def test_push_pull_new_body_never_merges_with_a_body_it_touches(block_with_copy):
+    result = _pull_top(block_with_copy, 0, mode="new")
+    solids = solids_of(result.shape)
+    assert len(solids) == 3
+    assert sorted(round(volume(s)) for s in solids) == [12000, 24000, 24000]

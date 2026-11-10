@@ -294,6 +294,9 @@ class Tool:
     # True: `run` is given only the bodies that own the selected faces, edges and vertices (see body_scope.py), so other
     # bodies, such as a copy lying on the original, cannot disturb it; they come back untouched.
     scope_to_bodies: bool = False
+    # True: `run` sees the bodies that own the selection and every visible body, so hiding a body protects it from the
+    # tool's automatic merges and cuts (the app sends the hidden ids; see body_scope.py).
+    skips_hidden_bodies: bool = False
 
     def handles(self, topology: Topology, selection: Selection, values: dict[str, float]) -> list[Handle]:
         """On-screen manipulators for the current parameter values: one per parameter that can be dragged in the view.
@@ -363,9 +366,9 @@ class Tool:
             raise OperationError(self.refusal(topology, selection) or f"{self.label} can't be used with this selection")
         values = self.bind(raw_params)
         try:
-            narrowed = narrow(topology, selection) if self.scope_to_bodies else None
+            narrowed = narrow(topology, selection, strict=self.scope_to_bodies) if self.scope_to_bodies or self.skips_hidden_bodies else None
             work, chosen = (narrowed.topology, narrowed.selection) if narrowed else (topology, selection)
-            result = self.run(work, chosen, values, preview)
+            result = self.run(work, chosen, narrowed.values(values) if narrowed else values, preview)
             if not result.unified and result.shape is not work.shape:
                 result = unify_result(result)  # tools that skip finish() still leave no redundant faces or edges
             result.shape = keep_compound(work.shape, result.shape)

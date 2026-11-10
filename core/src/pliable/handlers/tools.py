@@ -86,6 +86,7 @@ class ToolHandlers:
         document = self._require_document()
         topology = document.current
         topology.datums = document.datum_list()  # for tools that work about a datum plane (symmetric push/pull)
+        topology.hidden_bodies = frozenset(int(i) for i in request.get("hidden") or [])  # the app's hidden bodies: automatic merges and cuts skip them
         tool = get_tool(str(request.get("tool")))
         if request.get("edit_body") is not None:
             return self._edit_primitive(request, tool, commit)

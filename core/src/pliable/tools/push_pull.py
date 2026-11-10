@@ -13,6 +13,7 @@ class PushPull(Tool):
     description = "Moves flat faces in or out along their normal, adding or removing material. Select one or more flat faces, then drag or type a distance. Hold Shift while dragging to push/pull symmetrically: a sketch face about its plane, two parallel faces about their mid-plane, or one face with its mirror counterpart about the origin plane or a datum plane. Alt+click cycles through faces under the cursor."
     accepts = Accepts(faces=(1, None))
     params = [Param("distance", "length", drag=True)]
+    skips_hidden_bodies = True
     related = ("coplanar", "parallel")
 
     def bind(self, raw):

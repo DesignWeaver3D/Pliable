@@ -20,6 +20,7 @@ class PushPullSurface(Tool):
     rail_regions = True  # a whole sketch chosen in the Sketch list can be wrapped onto a whole round wall (see run)
     # Not a drag tool: curved faces have no single drag direction, so the distance comes from the form.
     params = [Param("distance", "length", default=1.0)]
+    skips_hidden_bodies = True
 
     def applies(self, topology, selection):
         return all(planar_normal(topology.face(i)) is None for i in selection.faces)

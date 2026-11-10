@@ -76,6 +76,7 @@ const select = $("demo") as HTMLSelectElement;
 let loadedSample = [...select.options].find((option) => option.value)!.value; // the sample open now (the first one at start); also names exported files
 const viewport = new Viewport($("viewport"));
 const core = new CoreClient();
+core.hiddenBodies = () => [...bodyView.hidden];
 usage.attach(core);
 installAlphaUi($("bar"), core);
 installMessageLog(status, showMessage); // errors and warnings are kept for Copy diagnostics; a click on a cut-short message shows it whole

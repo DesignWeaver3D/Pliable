@@ -84,6 +84,9 @@ export function decodeMesh(frame: ArrayBuffer): MeshData {
 type Pending = { resolve: (value: any) => void; reject: (error: Error) => void; type: string; sent: number };
 
 /** Requests that fire constantly during interaction or answer instantly; they never show the busy indicator. */
+/** Requests that run a tool: they carry the hidden body ids (see CoreClient.hiddenBodies). */
+const TOOL_REQUESTS = new Set(["tool_preview", "tool_commit"]);
+
 const QUIET = new Set(["hello", "tool_preview", "sketch_solve", "sketch_freedom", "sketch_offset", "sketch_project", "sketch_plane", "available_tools", "list_tools", "related", "edge_chain", "edge_selection", "measure", "model_info"]);
 const BUSY_AFTER_MS = 400;
 
@@ -176,13 +179,17 @@ export class CoreClient {
     return this.socket?.readyState === WebSocket.OPEN;
   }
 
+  /** The ids of the hidden bodies; sent with tool requests so the core's automatic merges and cuts skip them. */
+  hiddenBodies: () => number[] = () => [];
+
   request<T = any>(type: string, params: Record<string, unknown> = {}): Promise<T> {
     const id = this.nextId++;
     return new Promise<T>((resolve, reject) => {
       if (this.socket?.readyState !== WebSocket.OPEN) return reject(new Error("The core is not connected"));
       this.pending.set(id, { resolve, reject, type, sent: performance.now() });
       this.updateBusy();
-      this.socket.send(JSON.stringify({ id, type, ...params }));
+      const hidden = TOOL_REQUESTS.has(type) ? { hidden: this.hiddenBodies() } : {};
+      this.socket.send(JSON.stringify({ id, type, ...hidden, ...params }));
     });
   }
 
