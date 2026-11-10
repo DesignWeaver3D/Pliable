@@ -24,6 +24,7 @@ Writing a tool:
 
 from dataclasses import dataclass, field
 
+from ..body_scope import narrow
 from ..ops import OperationError, OpResult, keep_compound, unify_result
 from ..topology import Topology
 
@@ -290,6 +291,9 @@ class Tool:
     # (whole-body transforms), which lets the bodies be matched by position (see bodies.py).
     body_kind: str = "Body"
     keeps_body_order: bool = False
+    # True: `run` is given only the bodies that own the selected faces, edges and vertices (see body_scope.py), so other
+    # bodies, such as a copy lying on the original, cannot disturb it; they come back untouched.
+    scope_to_bodies: bool = False
 
     def handles(self, topology: Topology, selection: Selection, values: dict[str, float]) -> list[Handle]:
         """On-screen manipulators for the current parameter values: one per parameter that can be dragged in the view.
@@ -359,10 +363,14 @@ class Tool:
             raise OperationError(self.refusal(topology, selection) or f"{self.label} can't be used with this selection")
         values = self.bind(raw_params)
         try:
-            result = self.run(topology, selection, values, preview)
-            if not result.unified and result.shape is not topology.shape:
+            narrowed = narrow(topology, selection) if self.scope_to_bodies else None
+            work, chosen = (narrowed.topology, narrowed.selection) if narrowed else (topology, selection)
+            result = self.run(work, chosen, values, preview)
+            if not result.unified and result.shape is not work.shape:
                 result = unify_result(result)  # tools that skip finish() still leave no redundant faces or edges
-            result.shape = keep_compound(topology.shape, result.shape)
+            result.shape = keep_compound(work.shape, result.shape)
+            if narrowed:
+                result = narrowed.widen(result)
             if preview and result.cutters:
                 from ..ghost import attach_ghost
 

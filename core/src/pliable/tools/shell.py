@@ -17,6 +17,7 @@ class Shell(Tool):
     description = "Hollows out the solid, leaving the selected faces open. Select the faces to open; the wall thickness grows inward."
     accepts = Accepts(faces=(1, None))
     params = [Param("thickness", "length", 2)]
+    scope_to_bodies = True
 
     def handles(self, topology, selection, values):
         # One grip on the rim of the first opened flat face, sliding into that face: the wall thickness shows as the distance from the rim.
