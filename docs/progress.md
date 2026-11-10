@@ -6,7 +6,7 @@ Where things go: open to-dos here; parked work and not-built ideas in the last t
 
 New rows quote the owner's request in their own words, then list what it needs as a checklist. A row is deleted only when every checklist item is verified against the quote.
 
-State (2026-11-09): `main` is the development branch and the only long-lived one (protected: contributors use pull requests, the owner pushes directly; see CONTRIBUTING.md). `v0.4.2` is the latest version. Hand-checks the owner has not done are in `author-guidance.md`. No agent is running. Do not use the word MVP. User-visible text uses US spelling. Owner decisions in force: sketch automatic constraints on by default; grid off by default; sketch geometry stays separate from the model; kept sketches persist (see `decisions-log.md`). Do not invent work; ask the owner for hand-test results or new requests.
+State (2026-11-09): `main` is the development branch and the only long-lived one (protected: contributors use pull requests, the owner pushes directly; see CONTRIBUTING.md). `v0.4.2` is the latest version. Hand-checks not yet done are in `author-guidance.md`. Do not use the word MVP. US spelling in user-visible text. Owner decisions in force are in `decisions-log.md`. Do not invent work.
 
 ## Planned (not started; discuss before coding)
 
@@ -123,8 +123,14 @@ Tool group CORE:
   - [ ] Run the `desktop` workflow once from the Actions tab and check the Linux job (AppImage built, smoke test passes); the owner starts it on a Linux machine to check a double-click launch.
   - [ ] Add a note to the README about the Linux download (a file to make executable and run; needs WebKitGTK 4.1 installed).
 
-- **Keep tools on the Boolean tool.** Owner (2026-11-10): "A keep tools option for the Boolean tool is a good idea, add this to progress list. Having that prevents the need to copy body to use as tool when the shape is needed beyond the tool." Related Parked/Ideas items checked: none.
-  - [ ] Boolean (`body_boolean`) gets a Keep tools option: the tool bodies stay in the scene after the cut, union or intersect; off by default as today. Test and behavior line.
+- **Body interaction setting and Flip for the extent modes.** Owner (2026-11-10): Flip with Through all "did an additive "Up to last" Boolean with the adjacent body. [...] I expected was without touching the gizmo to operate in the face normal direction with respect to the flip status (add or subtract)." "limiting Up to face, up to last, and through all to only add material is wrong considering there is an explicit subtract mode." "I think having the option in the card is the cleanest." "Tools need to reset to their default state, the state behavior which should match what is used most often for a tool." See `dev-notes.md` (Multi-body interaction), `decisions-log.md` (2026-11-10).
+  - [ ] Up to face, Up to last, Through all follow Subtract and Flip like a plain pull (cut instead of fuse; face normal when the gizmo is untouched); tests.
+  - [ ] Card setting "This body" / "Visible bodies" (hidden always excluded), sent with the request, reset on open: push/pull, hole tools, boss, slot, Revolve, Sweep, Loft, Mirror, arrays, primitives with `new_body` 0. New body ignores it.
+  - [ ] Carry loose faces through `body_scope.narrow` so scoping and the hidden skip work beside a loose sketch region; a loose region gets only Visible bodies and New body.
+  - [ ] Fix the stale Draft description and `appstate.ts` comment; `behavior.md`; hand-checks.
+
+- **Keep tools on the Boolean tool.** Owner (2026-11-10): "A keep tools option for the Boolean tool is a good idea, add this to progress list. Having that prevents the need to copy body to use as tool when the shape is needed beyond the tool." Related: none.
+  - [ ] Boolean (`body_boolean`) gets a Keep tools option (tool bodies stay after the operation; off by default). Test, behavior line.
 
 ## Review of 2026-10-27 session A (owner review of author-guidance sketch items; quotes are the owner's words)
 

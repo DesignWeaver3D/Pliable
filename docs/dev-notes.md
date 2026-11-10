@@ -79,3 +79,13 @@ cd app
 npm install
 npm run dev                  # http://localhost:5173, needs the server running
 ```
+
+## Multi-body interaction (code survey, 2026-11-10)
+
+Facts the "Body interaction setting" row in `progress.md` is built on; read before changing it.
+
+- Hidden bodies are view state only (`bodyView.hidden` in `app/src/appstate.ts`): not saved in the project file, not part of undo, cleared on new or open (`modelview.ts`). Isolate is the same set. Ghost (see-through) and focus bodies are not hidden. The frontend sends the hidden ids only with `tool_preview` and `tool_commit` (`client.ts`), and `body_scope.py` reads them from `topology.hidden_bodies`. A result therefore depends on what was hidden when the tool ran; this is accepted (owner: visibility is a global rule).
+- Tools that merge into or cut other bodies: push/pull Up to face, Up to last, Through all (`assemble_pads` in `pushpull_upto.py` fuses every pad with all solids) and push/pull of loose regions (`push_pull_sheets`: adders fuse with, cutters cut, every body); new hole, counterbore, countersink, boss, slot, thread, Revolve and helical sweep, Sweep, Loft (`skips_hidden_bodies`); primitives with `new_body` 0 (`_add_material`); Mirror and the four arrays (`_fuse_copies`, `mirror.py`: fuse the copies into the whole scene, hidden bodies included). Plain push/pull of a body face works per owning solid and never merges.
+- Up to face, Up to last and Through all refuse Subtract and ignore Flip (`pull_up_to_face`, `pull_to_extent`); they always fuse along the face normal (`pull_direction` turns a gizmo direction to point out of the face, so a drag cannot choose the other side).
+- Sketch regions: a region lying on a flat face of a body is imprinted on it and belongs to that body; any other region is a loose face (`sketch/profiles.py add_regions`). A scene with any loose face is never narrowed (`body_scope._has_loose_faces`), so scoping and the hidden-body skip do not work at all while a loose region exists.
+- Draft's "lowest point" pivot is now the lowest point of the drafted body (the tool description still says "model's").
