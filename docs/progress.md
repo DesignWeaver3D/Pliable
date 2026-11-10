@@ -123,6 +123,9 @@ Tool group CORE:
   - [ ] Run the `desktop` workflow once from the Actions tab and check the Linux job (AppImage built, smoke test passes); the owner starts it on a Linux machine to check a double-click launch.
   - [ ] Add a note to the README about the Linux download (a file to make executable and run; needs WebKitGTK 4.1 installed).
 
+- **Keep tools on the Boolean tool.** Owner (2026-11-10): "A keep tools option for the Boolean tool is a good idea, add this to progress list. Having that prevents the need to copy body to use as tool when the shape is needed beyond the tool." Related Parked/Ideas items checked: none.
+  - [ ] Boolean (`body_boolean`) gets a Keep tools option: the tool bodies stay in the scene after the cut, union or intersect; off by default as today. Test and behavior line.
+
 ## Review of 2026-10-27 session A (owner review of author-guidance sketch items; quotes are the owner's words)
 
 Related existing items checked: Ideas "A parity checklist" (its scenario set that must solve without flips touches the sketch flipping row). The rest of this review is built (see the commit log, "Record the sketch review results and rows" onward); what is left:
