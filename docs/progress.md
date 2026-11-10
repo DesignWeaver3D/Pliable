@@ -29,8 +29,8 @@ Tool group CORE:
   - [ ] Hand-check the Helical sweep card in the app (axis pick, preview, error text); add the "when X, Y happens" line to behavior.md once approved.
 
 - **Bodies are separate solids; hidden bodies are skipped by automatic booleans.** Owner (2026-11-09): "I get some weird behavior where I make a shape and it can successfully Shell. Then I make a copy of the body and the shell no longer can succeed on the original body or the copy." Then: "Restructure. Only certain times were supposed to be a compound, like when to bodies are boolean together but have nonconnecting solids." "Copy should sit on the original but not be in a compound with it." "I want visibilty to affect automatic booleans. If the solid is invisible, it doesn't get boolean during intersection." "There is an option in push/pull for create new body and that should always exclude auto boolean with any existing body." Cause: tools run on the whole scene compound. Related Parked item "Stored array parameters" checked.
-  - [ ] Scoping layer built (`body_scope.py`, `scope_to_bodies` on a tool; ids stay global); Done: Shell, fillets, chamfers, Round, Draft, Delete, Divide and Inset face. Still to move: push/pull, holes, stretch, move/edge, sweeps, arrays; Boolean, Mirror, Cut with plane and Unify declare their bodies.
-  - [ ] Hidden bodies are skipped (`skips_hidden_bodies`): done for push/pull and its extents; still holes, through cuts, array merging, helical Subtract. Hand-check in the app.
+  - [ ] Scoping layer built (`body_scope.py`, `scope_to_bodies` on a tool; ids stay global); Done: Shell, fillets, chamfers, Round, Draft, Delete, Divide and Inset face. Hole edits too. Still: stretch, move/edge, sweeps, arrays; Boolean, Mirror, Cut with plane and Unify declare their bodies.
+  - [ ] Hidden bodies are skipped (`skips_hidden_bodies`): done for push/pull, new holes, boss, slot; still through cuts, arrays, helical Subtract. Hand-check in the app.
   - [ ] Duplicate sits on the original as its own body (already so); open: pick rule where faces coincide.
   - [ ] Move tools over one at a time; replace `bodies.carry` size matching; add lines to `behavior.md`.
 

@@ -91,6 +91,8 @@ def _holes(topology, selection) -> list[Hole]:
 
 
 class _CylinderFaces(Tool):
+    scope_to_bodies = True  # editing a hole changes the body that has it, not the bodies beside it
+
     def applies(self, topology, selection):
         return all(BRepAdaptor_Surface(topology.face(i)).GetType() == GeomAbs_Cylinder for i in selection.faces)
 
@@ -104,6 +106,7 @@ class _HoleOnFace(_PlanarFace):
     """Shared placement for holes cut into a flat face: positioned from the face center, running inward."""
 
     accepts = Accepts(faces=(1, 1))
+    skips_hidden_bodies = True  # a new bore cuts the visible bodies it meets
     params = [Param("diameter", "length", 6), Param("depth", "length"), Param("offset_u", "length"), Param("offset_v", "length")]
 
     def extra_handles(self, frame, values: dict, depth: float) -> list:

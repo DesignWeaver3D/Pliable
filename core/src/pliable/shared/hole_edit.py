@@ -20,6 +20,7 @@ class _HoleTool(Tool):
     """Shared selection handling: one face of a hole, or one circular edge at its opening."""
 
     accepts = Accepts(faces=(0, 1), edges=(0, 1), any_of=True)
+    scope_to_bodies = True
 
     def applies(self, topology, selection):
         if len(selection.faces) + len(selection.edges) != 1:

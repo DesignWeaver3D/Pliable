@@ -153,3 +153,65 @@ def test_push_pull_new_body_never_merges_with_a_body_it_touches(block_with_copy)
     solids = solids_of(result.shape)
     assert len(solids) == 3
     assert sorted(round(volume(s)) for s in solids) == [12000, 24000, 24000]
+
+
+def _scene(*shapes):
+    from OCP.BRep import BRep_Builder
+    from OCP.TopoDS import TopoDS_Compound
+
+    from pliable.topology import Topology
+
+    compound, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(compound)
+    for shape in shapes:
+        builder.Add(compound, shape)
+    return Topology(compound)
+
+
+def _with_copy_of(shape):
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
+
+    return _scene(shape, BRepBuilderAPI_Copy(shape, True).Shape())
+
+
+def test_a_new_hole_skips_a_hidden_copy_but_cuts_a_visible_one():
+    from pliable.topology import Topology
+
+    block = solids_of(Topology(load_demo("block")).shape)[0]
+    for hidden, copy_volume in ((True, 24000), (False, None)):
+        scene = _with_copy_of(block)
+        if hidden:
+            scene.hidden_bodies = frozenset({scene.bodies.bodies[1].id})
+        result = get_tool("add_hole").execute(scene, Selection(faces=[top_face_of(scene, 0)]), {"diameter": 6, "depth": 0}, preview=False)
+        solids = solids_of(result.shape)
+        assert volume(solids[0]) < 24000 - 1  # the bore is in the body that was clicked
+        if hidden:
+            assert volume(solids[1]) == pytest.approx(copy_volume, rel=1e-6)
+        else:
+            assert volume(solids[1]) < 24000 - 1  # unchanged behavior: a visible body the bore meets is cut too
+
+
+def _wall_of_body(topology, body_index):
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Cylinder
+    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopExp import TopExp
+    from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as ShapeIndexedMap
+
+    mine = ShapeIndexedMap()
+    TopExp.MapShapes_s(solids_of(topology.shape)[body_index], TopAbs_FACE, mine)
+    return next(i for i, f in topology.faces() if mine.Contains(f) and BRepAdaptor_Surface(f).GetType() == GeomAbs_Cylinder)
+
+
+def test_resizing_a_hole_changes_only_its_own_body():
+    from pliable.topology import Topology
+
+    block = Topology(load_demo("block"))
+    holed = get_tool("add_hole").execute(block, Selection(faces=[top_face_of(block, 0)]), {"diameter": 6, "depth": 0}, preview=False).shape
+    holed_volume = volume(holed)
+    scene = _with_copy_of(solids_of(holed)[0])
+    result = get_tool("resize_hole").execute(scene, Selection(faces=[_wall_of_body(scene, 0)]), {"diameter": 10}, preview=False)
+    solids = solids_of(result.shape)
+    assert len(solids) == 2
+    assert volume(solids[0]) < holed_volume - 1  # a wider hole removes more
+    assert volume(solids[1]) == pytest.approx(holed_volume, rel=1e-6)  # the copy keeps its hole
