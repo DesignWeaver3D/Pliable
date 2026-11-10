@@ -12,6 +12,7 @@ class FilletChamfer(Tool):
     label = "Fillet/Chamfer"
     description = "Rounds or bevels the selected edges. Select edges, then drag outward to round (fillet) or inward to bevel (chamfer), or type a distance."
     accepts = Accepts(edges=(1, None))
+    scope_to_bodies = True
     params = [Param("distance", "length", drag=True)]
 
     def handles(self, topology, selection, values):

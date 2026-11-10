@@ -14,6 +14,7 @@ class VariableFillet(Tool):
     label = "Variable fillet"
     description = "Rounds edges with a radius that changes along the edge, from the start value at its first end to the end value at its last. Select one or more edges."
     accepts = Accepts(edges=(1, None))
+    scope_to_bodies = True
     params = [
         Param("start", "length", 1),
         Param("end", "length", 3),

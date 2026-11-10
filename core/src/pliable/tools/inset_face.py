@@ -41,6 +41,7 @@ class InsetFace(_PlanarFace):
     label = "Inset face edges"
     description = "Draws an inner outline on a flat face, a set distance in from its edges, so that inner area can be pushed, pulled or cut on its own. Select one flat face. Set all_loops to 1 to inset the outer perimeter and every inner profile together; otherwise loop picks one (0 is the outer perimeter)."
     accepts = Accepts(faces=(1, 1))
+    scope_to_bodies = True
     params = [Param("distance", "length", 2), Param("loop", "number", 0), Param("all_loops", "number", 0)]
 
     def handles(self, topology, selection, values):

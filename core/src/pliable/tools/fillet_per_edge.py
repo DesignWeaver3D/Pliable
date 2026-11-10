@@ -16,6 +16,7 @@ class FilletPerEdge(Tool):
     label = "Fillet per edge"
     description = "Rounds several edges, each with its own radius. Select edges; the form lists one start and end radius per edge, and 0 leaves an edge sharp."
     accepts = Accepts(edges=(1, None))
+    scope_to_bodies = True
     params = [Param("radii", "per_edge", 2)]
 
     def run(self, topology, selection, values, preview):

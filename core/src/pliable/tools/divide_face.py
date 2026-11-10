@@ -25,6 +25,7 @@ class DivideFace(_PlanarFace):
     label = "Divide face"
     description = "Adds a dividing line straight across a flat face so each side can be moved on its own. Select one flat face; across picks the direction (0 or 1), offset the position from the center and angle turns the line by degrees. Set columns and/or rows above 1 to divide the face into an even grid instead."
     accepts = Accepts(faces=(1, 1))
+    scope_to_bodies = True
     params = [Param("across", "number", 0), Param("offset", "length"), Param("angle", "number", 0), Param("columns", "number", 0), Param("rows", "number", 0)]
 
     @staticmethod

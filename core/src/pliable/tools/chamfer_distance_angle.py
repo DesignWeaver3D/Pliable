@@ -15,6 +15,7 @@ class ChamferDistanceAngle(Tool):
     label = "Chamfer (distance and angle)"
     description = "Bevels edges from a distance and an angle: the bevel starts that distance in from the edge along the selected face and slopes away at the angle to that face (45 degrees gives equal legs, a smaller angle a longer, shallower bevel). Select one face (it sets the side the distance is measured on) and one or more of its edges."
     accepts = Accepts(faces=(1, 1), edges=(1, None))
+    scope_to_bodies = True
     params = [Param("distance", "length", 2), Param("angle", "angle", 45)]
 
     def handles(self, topology, selection, values):

@@ -13,6 +13,7 @@ class RoundFace(Tool):
     label = "Round face edges"
     description = "Rounds (positive) or bevels (negative) every edge around the selected faces in one step. Select one or more faces."
     accepts = Accepts(faces=(1, None))
+    scope_to_bodies = True
     params = [Param("distance", "length", 1)]
 
     def handles(self, topology, selection, values):

@@ -12,6 +12,7 @@ class DeleteFace(Tool):
     label = "Defeature"
     description = "Removes a feature (a pocket, boss, hole, slot or round) by deleting its faces and extending the neighboring faces to close the gap. Select one or more faces of the feature; if the faces cannot be closed over, it says why."
     accepts = Accepts(faces=(1, None))
+    scope_to_bodies = True
 
     def run(self, topology, selection, values, preview):
         return _defeature(topology, selection, "defeature these faces")

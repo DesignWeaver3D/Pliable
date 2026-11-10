@@ -32,6 +32,7 @@ class Draft(_PlanarFace):
     label = "Draft"
     description = "Tilts flat faces by an angle so they release from a mold, pivoting about the face centroid (or a picked axis point, or the model's lowest point) along the pull direction (default Z). Select one or more flat faces."
     accepts = Accepts(faces=(1, None))
+    scope_to_bodies = True
     params = [
         Param("angle", "angle", 3),
         Param("pull_x", "number"),

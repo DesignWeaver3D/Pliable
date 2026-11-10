@@ -21,6 +21,7 @@ class ResizeFillet(Tool):
     label = "Resize fillet"
     description = "Changes the radius of an existing fillet. Select the fillet face (a fillet along a chain of edges is resized as a whole); an end radius of 0 keeps the radius constant."
     accepts = Accepts(faces=(1, 1))
+    scope_to_bodies = True
     params = [Param("radius", "length", 2), Param("end_radius", "length", 0)]
 
     def applies(self, topology, selection):

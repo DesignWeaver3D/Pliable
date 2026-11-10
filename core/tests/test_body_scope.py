@@ -51,3 +51,48 @@ def test_shell_works_on_a_body_that_has_a_copy_on_top_of_it(block_with_copy, bod
     assert volume(result.shape) == pytest.approx(before - 24000 + walls, rel=1e-4)
     assert volume(solids[1 - body_index]) == pytest.approx(24000, rel=1e-6)  # the other body is untouched
     assert volume(solids[body_index]) == pytest.approx(walls, rel=1e-4)
+
+
+def first_of_body(topology, body_index, kind):
+    """Scene id of the first face or edge (by id) that belongs to one body."""
+    from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE
+    from OCP.TopExp import TopExp
+    from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as ShapeIndexedMap
+
+    mine = ShapeIndexedMap()
+    TopExp.MapShapes_s(solids_of(topology.shape)[body_index], TopAbs_FACE if kind == "faces" else TopAbs_EDGE, mine)
+    items = topology.faces() if kind == "faces" else topology.edges()
+    return next(i for i, shape in items if mine.Contains(shape))
+
+
+# (tool, what it is given, extra values) for the tools that work on the body owning the selection
+SCOPED = [
+    ("fillet_chamfer", "edges", {"distance": 2}),
+    ("round_face", "faces", {"distance": 2}),
+    ("divide_face", "faces", {}),
+    ("inset_face", "faces", {}),
+]
+
+
+def _selection(kind, index):
+    return Selection(**{kind: [index]})
+
+
+def _params(tool, extra):
+    return {p.name: p.default for p in tool.params} | extra
+
+
+@pytest.mark.parametrize("body_index", [0, 1])
+@pytest.mark.parametrize("tool_id,kind,extra", SCOPED)
+def test_scoped_tools_ignore_a_copy_lying_on_the_body(block_with_copy, tool_id, kind, extra, body_index):
+    from pliable.topology import Topology
+
+    tool = get_tool(tool_id)
+    assert tool.scope_to_bodies
+    lone = Topology(solids_of(block_with_copy.shape)[0])
+    alone = tool.execute(lone, _selection(kind, first_of_body(block_with_copy, 0, kind)), _params(tool, extra), preview=False)
+    with_copy = tool.execute(block_with_copy, _selection(kind, first_of_body(block_with_copy, body_index, kind)), _params(tool, extra), preview=False)
+    solids = solids_of(with_copy.shape)
+    assert len(solids) == 2
+    assert volume(solids[body_index]) == pytest.approx(volume(alone.shape), rel=1e-6)
+    assert volume(solids[1 - body_index]) == pytest.approx(24000, rel=1e-6)

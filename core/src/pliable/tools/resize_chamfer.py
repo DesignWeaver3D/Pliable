@@ -40,6 +40,7 @@ class ResizeChamfer(Tool):
     label = "Resize chamfer"
     description = "Changes the size of an existing chamfer, each distance on its own. Select the chamfer face."
     accepts = Accepts(faces=(1, 1))
+    scope_to_bodies = True
     params = [Param("first", "length", 2), Param("second", "length", 2)]
 
     def applies(self, topology, selection):
