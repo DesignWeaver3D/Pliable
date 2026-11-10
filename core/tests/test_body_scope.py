@@ -215,3 +215,24 @@ def test_resizing_a_hole_changes_only_its_own_body():
     assert len(solids) == 2
     assert volume(solids[0]) < holed_volume - 1  # a wider hole removes more
     assert volume(solids[1]) == pytest.approx(holed_volume, rel=1e-6)  # the copy keeps its hole
+
+
+def test_a_scene_with_loose_faces_is_not_narrowed():
+    """Loose faces (sketch regions) belong to no body and would be lost when the scene is put back together."""
+    from build123d import Box, Pos
+
+    from pliable.body_scope import narrow
+    from pliable.topology import Topology
+
+    block = solids_of(Topology(load_demo("block")).shape)[0]
+    sheet = (Pos(100, 0, 0) * Box(5, 5, 5)).faces()[0].wrapped
+    scene = _with_copy_of(block)
+    from OCP.BRep import BRep_Builder
+    from OCP.TopoDS import TopoDS_Compound
+
+    compound, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(compound)
+    builder.Add(compound, scene.shape)
+    builder.Add(compound, sheet)
+    scene = Topology(compound)
+    assert narrow(scene, Selection(faces=[top_face_of(scene, 0)])) is None

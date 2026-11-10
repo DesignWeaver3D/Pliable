@@ -21,6 +21,7 @@ class EditVoid(Tool):
         "Moves, resizes and sets the depth of a square, slot or other straight-walled cut that goes through the body or ends at a flat floor. "
         "Select one wall or the floor of the cut. Resize grows (or, negative, shrinks) every wall by that distance; Length and Width resize move only the two ends along the longer or the shorter side of the cut (square to a world axis); 0 leaves a depth unchanged, and a depth as long as the body is through."
     )
+    scope_to_bodies = True
     accepts = Accepts(faces=(1, 1))
     params = [Param("depth", "length", 0.0), Param("grow", "length", 0.0), Param("grow_length", "length", 0.0), Param("grow_width", "length", 0.0), Param("dx", "length"), Param("dy", "length"), Param("dz", "length")]
     move_vector = ("dx", "dy", "dz")

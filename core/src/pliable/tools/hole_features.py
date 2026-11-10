@@ -30,6 +30,7 @@ class HoleFeatures(Tool):
         "For a new hole, depth 0 is through; for an existing hole, 0 leaves a size unchanged. A counterbore and a countersink can't share an end: "
         "on a through hole one can be at the opening and the other at the far end."
     )
+    scope_to_bodies = True
     accepts = Accepts(faces=(0, 1), edges=(0, 1), any_of=True)
     params = [
         Param("diameter", "length", 0.0),

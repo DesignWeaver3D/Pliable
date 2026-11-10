@@ -30,6 +30,7 @@ class ThreadHole(Tool):
     id = "thread_hole"
     label = "Thread hole"
     description = "Cuts a thread (a helical groove) into the wall of a round hole. Select the hole's round wall, then pick a standard size or type a pitch; the groove runs the whole wall unless you give a length."
+    scope_to_bodies = True
     accepts = Accepts(faces=(1, 1))
     params = [Param("size", "number", 0, options=SIZES), Param("pitch", "length", 1.25), Param("depth", "length", 0), Param("length", "length", 0), Param("hand", "number", 0, options=("Right", "Left"))]
 

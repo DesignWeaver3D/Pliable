@@ -19,6 +19,7 @@ class LoftFaces(Tool):
     id = "loft_faces"
     label = "Loft between faces"
     description = "Joins two faces with a solid that blends from one outline to the other. Select two faces; ruled 1 gives straight sides, 0 a smooth blend."
+    skips_hidden_bodies = True
     accepts = Accepts(faces=(2, 2))
     params = [Param("ruled", "number", 0)]
 

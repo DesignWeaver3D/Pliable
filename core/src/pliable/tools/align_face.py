@@ -14,6 +14,7 @@ class AlignFace(_PlanarFace):
     id = "align_face"
     label = "Align face"
     description = "Moves the first selected flat face until it is flush with the second, plus an optional offset. Needs exactly two parallel flat faces selected, the one to move first; it stays unavailable until both are selected."
+    scope_to_bodies = True
     accepts = Accepts(faces=(2, 2))
     params = [Param("offset", "length")]
 

@@ -61,6 +61,13 @@ def _owning(topology: Topology, selection, solids: list[TopoDS_Shape]) -> set[in
     return found
 
 
+def _has_loose_faces(topology: Topology, solids: list[TopoDS_Shape]) -> bool:
+    held = ShapeIndexedMap()
+    for solid in solids:
+        TopExp.MapShapes_s(solid, TopAbs_FACE, held)
+    return held.Extent() != topology.face_count
+
+
 def _chosen(topology: Topology, selection, solids: list[TopoDS_Shape], strict: bool) -> list[int] | None:
     """The bodies a tool is given, in scene order, or None when it should see the whole scene. `strict`: only the bodies
     that own the selection (nothing selected means the whole scene). Otherwise: those and every visible body."""
@@ -138,8 +145,8 @@ def narrow(topology: Topology, selection, strict: bool = True) -> Narrowed | Non
     """The scene reduced to the bodies a tool is given (see `_chosen`), or None when the tool should see all of it."""
     solids = solids_of(topology.shape)
     chosen = _chosen(topology, selection, solids, strict)
-    if chosen is None:
-        return None
+    if chosen is None or _has_loose_faces(topology, solids):
+        return None  # loose faces (sketch regions) are not part of any body and would be lost when the scene is put back together
     state = topology.bodies
     inner = Topology(_compound([solids[i] for i in chosen]), BodyState(tuple(state.bodies[i] for i in chosen), state.next_id, state.counts))
     inner.datums = getattr(topology, "datums", None)

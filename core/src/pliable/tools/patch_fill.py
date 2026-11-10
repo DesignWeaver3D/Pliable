@@ -16,6 +16,7 @@ class PatchFill(Tool):
     id = "patch_fill"
     label = "Patch fill"
     description = "Closes a gap bounded by selected edges with a smooth filled surface. Needs three or more selected edges forming a closed gap; continuity 1 = tangent to neighbors, 0 = just touching."
+    scope_to_bodies = True
     accepts = Accepts(edges=(3, None))
     params = [Param("continuity", "number", 1)]
 
