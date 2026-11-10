@@ -236,3 +236,15 @@ def test_a_scene_with_loose_faces_is_not_narrowed():
     builder.Add(compound, sheet)
     scene = Topology(compound)
     assert narrow(scene, Selection(faces=[top_face_of(scene, 0)])) is None
+
+
+def test_a_shelled_body_keeps_its_own_id_and_name_next_to_its_copy():
+    document = Document(load_demo("block"))
+    original_id = document.current.bodies.bodies[0].id
+    _, copy_id = document.duplicate_body(original_id)
+    scene = document.current
+    result = get_tool("shell").execute(scene, Selection(faces=[top_face_of(scene, 0)]), {"thickness": 2}, preview=False)
+    after = document.commit(result.shape).bodies.bodies
+    assert [b.id for b in after] == [original_id, copy_id]
+    assert after[1].name.endswith(" copy") and not after[0].name.endswith(" copy")
+    assert volume(solids_of(document.current.shape)[1]) == pytest.approx(24000, rel=1e-6)  # the copy is the untouched one

@@ -135,7 +135,14 @@ def carry(prev: BodyState, old_shape: TopoDS_Shape, new_shape: TopoDS_Shape, kin
         for j in range(len(news)):
             take(j, j)
     else:
-        for i, old in enumerate(olds):  # 1: unchanged solids
+        for i, old in enumerate(olds):  # 1a: untouched solids, by identity (a copy lying on its original looks the same by size)
+            for j, new in enumerate(news):
+                if j not in match and old.IsSame(new):
+                    take(j, i)
+                    break
+        for i, old in enumerate(olds):  # 1b: unchanged solids that were rebuilt
+            if i in used:
+                continue
             for j, new in enumerate(news):
                 if j not in match and (old.IsSame(new) or (_close(old_boxes[i], new_boxes[j], tol) and abs(vol(0, i) - vol(1, j)) <= 1e-9 * max(vol(0, i), 1.0) + tol)):
                     take(j, i)
