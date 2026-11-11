@@ -1,6 +1,6 @@
 // Command search: a permanent field in the top bar (/ focuses it, as does clicking it) with a results list under it. Type to filter, arrows to move, Enter to run, Escape to close.
 
-import { loadRecents, pushRecent, saveRecents, searchItems, SCOPES, parseQuery, type Scope } from "./search";
+import { loadRecents, pushRecent, saveRecents, searchItems, SCOPES, parseQuery, type Scope } from "./search.ts";
 
 export interface Command {
   label: string;

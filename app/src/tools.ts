@@ -1,6 +1,6 @@
 // Client-side view of the core's tool registry (see docs/protocol.md, `list_tools`).
 
-import type { Sel } from "./viewport";
+import type { Sel } from "./viewport.ts";
 
 type Range = [number, number | null];
 

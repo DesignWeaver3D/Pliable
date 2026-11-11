@@ -3,7 +3,7 @@
  *  plane on the face (about the face's y axis) and the green arc toward its y axis (about its x axis). Pressing the icon asks for a vector to pick (an edge, see main.ts).
  *  It follows the push/pull arrow handle of the manipulator and holds no state of its own beyond the drag in progress. */
 import * as THREE from "three";
-import { uiIcon } from "./icons";
+import { uiIcon } from "./icons.ts";
 import { AXIS_COLORS } from "./axes.ts";
 import { ARC_STEPS } from "./handlemath.ts";
 import { ARM_PX, type Manipulator } from "./manipulator.ts";

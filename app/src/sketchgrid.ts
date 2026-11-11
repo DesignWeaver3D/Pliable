@@ -1,7 +1,7 @@
 /** The sketch grid: a shader-drawn grid on the sketch plane. Moved out of sketch.ts. */
 import * as THREE from "three";
-import type { SketchOptions } from "./sketchoptions";
-import type * as M from "./sketchmodel";
+import type { SketchOptions } from "./sketchoptions.ts";
+import type * as M from "./sketchmodel.ts";
 
 /** Fade start and end as a distance from the middle of the view (0 = the middle, 1 = the middle of each side), per setting. */
 const FADE: Record<SketchOptions["fade"], [number, number]> = { off: [10, 11], subtle: [0.75, 1.5], strong: [0.3, 1.15] };

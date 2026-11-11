@@ -1,11 +1,11 @@
 /** The bodies list and what it does: hide, isolate, see-through, focus, duplicate, delete, rename, select. Moved out of
  *  main.ts; it reads the view state in appstate.ts and gets what else it needs from the page as arguments. */
-import { bodyView } from "./appstate";
-import { BodyList } from "./bodylist";
-import { toggleFocus, toggleGhost, toggleHidden, toggleIsolated } from "./bodylogic";
-import type { MeshData } from "./client";
-import type { Sel } from "./viewport";
-import { bodiesOf } from "./visibility";
+import { bodyView } from "./appstate.ts";
+import { BodyList } from "./bodylist.ts";
+import { toggleFocus, toggleGhost, toggleHidden, toggleIsolated } from "./bodylogic.ts";
+import type { MeshData } from "./client.ts";
+import type { Sel } from "./viewport.ts";
+import { bodiesOf } from "./visibility.ts";
 
 export interface BodyActionDeps {
   core: { request<T>(type: string, params?: Record<string, unknown>): Promise<T> };

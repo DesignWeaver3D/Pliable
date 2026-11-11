@@ -1,6 +1,6 @@
 // Extra ways to choose a tool's plane in its form (beside Pick plane and the datum plane buttons): the origin planes and
 // the kept sketches. Also the colors of a cutting plane's two sides, shown on the names in the Remove side list.
-import { bodyColor } from "./bodycolors";
+import { bodyColor } from "./bodycolors.ts";
 
 export interface PickedPlane {
   origin: number[];

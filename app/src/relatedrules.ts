@@ -1,7 +1,7 @@
 /** Relationship rules: faces related to the selected face by a rule that is on are highlighted and join the selection
  *  of the tools that declare the rule; the chips under the view switch the rules. Moved out of main.ts. */
-import type { Sel, Viewport } from "./viewport";
-import type { ToolInfo } from "./tools";
+import type { Sel, Viewport } from "./viewport.ts";
+import type { ToolInfo } from "./tools.ts";
 
 export interface RelatedRule {
   id: string;

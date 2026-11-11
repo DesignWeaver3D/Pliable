@@ -1,4 +1,4 @@
-import type { Dimension } from "./dimensions";
+import type { Dimension } from "./dimensions.ts";
 import { showNumber } from "./precision.ts";
 
 /** Measurement panel: label/value rows for the current selection, from the core's `measure` reply. */

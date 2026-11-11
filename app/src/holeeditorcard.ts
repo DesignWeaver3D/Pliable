@@ -3,7 +3,7 @@
  *  The host is chosen here: the editor is drawn as the header of the floating tool form (`ToolPanel.openForm` with `card`), which sits in
  *  the push/pull card's slot. The content (holeeditor.ts, holediagram.ts, holepresets.ts) knows nothing of that, so a docked side panel
  *  can later show the same header and the same tool forms; only this file and the `card` flag of the form would change. */
-import type { Sel } from "./viewport";
+import type { Sel } from "./viewport.ts";
 import type { ToolInfo } from "./tools.ts";
 import type { ToolPanel } from "./toolpanel.ts";
 import { threadSizeNames } from "./holethreadsizes.ts";

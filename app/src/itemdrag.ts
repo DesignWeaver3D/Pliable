@@ -1,16 +1,16 @@
 /** Dragging a handle or face in the view: one preview request in flight with the newest distance winning, the dimension label that
  *  follows the pointer (and takes typed values), and the commit or cancel on release. Moved out of main.ts. */
-import type { CoreClient, MeshData } from "./client";
-import type { DimensionOverlay } from "./dimensions";
-import type { MeasurePanel } from "./measure";
-import type { ToolInfo } from "./tools";
-import type { Sel, Viewport } from "./viewport";
-import { app } from "./appstate";
-import { LENGTH_UNIT } from "./units";
+import type { CoreClient, MeshData } from "./client.ts";
+import type { DimensionOverlay } from "./dimensions.ts";
+import type { MeasurePanel } from "./measure.ts";
+import type { ToolInfo } from "./tools.ts";
+import type { Sel, Viewport } from "./viewport.ts";
+import { app } from "./appstate.ts";
+import { LENGTH_UNIT } from "./units.ts";
 import { showNumber } from "./precision.ts";
-import { dragParam } from "./tools";
-import { expand } from "./relatedrules";
-import { usage } from "./usage";
+import { dragParam } from "./tools.ts";
+import { expand } from "./relatedrules.ts";
+import { usage } from "./usage.ts";
 import { parseNumber } from "./numberformat.ts";
 
 export interface ItemDragDeps {

@@ -1,13 +1,13 @@
 /** The Section view card: the same ways to choose the plane as the Cut with plane form (Pick plane, the origin planes, datum
  *  planes, kept sketches, three points, edge and point, face offset and angle), a slider and a box for the distance
  *  along the plane's normal, a button for the side that is cut away, and the overlap readout. */
-import { showNumber } from "./precision";
-import { parseNumber, entryText } from "./numberformat";
-import { bodyColor } from "./bodycolors";
-import { ORIGIN_PLANES, planeButtons } from "./planepicks";
-import { planeBuildControls } from "./planebuild";
-import type { SectionView } from "./sectionview";
-import type { ToolPanelHost } from "./toolpanel";
+import { showNumber } from "./precision.ts";
+import { parseNumber, entryText } from "./numberformat.ts";
+import { bodyColor } from "./bodycolors.ts";
+import { ORIGIN_PLANES, planeButtons } from "./planepicks.ts";
+import { planeBuildControls } from "./planebuild.ts";
+import type { SectionView } from "./sectionview.ts";
+import type { ToolPanelHost } from "./toolpanel.ts";
 
 export class SectionPanel {
   private readonly planeBox = document.createElement("div");

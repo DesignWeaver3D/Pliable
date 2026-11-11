@@ -1,7 +1,7 @@
 /** The maths of a pie-slice angle handle (HandleInfo.pie; the circular array's angle): a slice about an axis from the source's angle (0) round to the parameter's
  *  angle, on a ring of the real radius. The handle's anchor is the grip at the angle the handle was computed for (`value`), so the source is that point turned back. */
 import * as THREE from "three";
-import type { HandleInfo } from "./tools";
+import type { HandleInfo } from "./tools.ts";
 
 type PieInfo = Pick<HandleInfo, "ring" | "axis" | "anchor" | "value">;
 

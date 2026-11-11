@@ -2,8 +2,8 @@
 // Face, edge and vertex ids are unchanged, so selection and tools keep working on visible items.
 // Bodies are told apart by their stable id (not the solid's position), so hidden bodies stay hidden through operations.
 
-import type { MeshData } from "./client";
-import type { BodyInfo } from "./bodylist";
+import type { MeshData } from "./client.ts";
+import type { BodyInfo } from "./bodylist.ts";
 
 /** The bodies of a mesh in creation order. */
 export function bodiesOf(mesh: MeshData): BodyInfo[] {

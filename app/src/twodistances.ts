@@ -1,8 +1,8 @@
 // A quick way from a Fillet/Chamfer form to Chamfer (two distances): the first face beside the first selected edge becomes
 // the reference face, the typed distance becomes both distances, and the two-distance form opens on that face and the edges.
-import type { CoreClient } from "./client";
-import type { Sel } from "./viewport";
-import type { ToolInfo } from "./tools";
+import type { CoreClient } from "./client.ts";
+import type { Sel } from "./viewport.ts";
+import type { ToolInfo } from "./tools.ts";
 
 export interface TwoDistanceHost {
   core: CoreClient;

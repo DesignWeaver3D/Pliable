@@ -3,11 +3,11 @@ import * as THREE from "three";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
-import type { Viewport } from "./viewport";
+import type { Viewport } from "./viewport.ts";
 import { holeAxisPoints } from "./holepoints.ts";
-import { mouthPoints, snapCentres } from "./placepick";
-import { nearestOnSegments, type SketchSnapPoint } from "./keptsnap";
-import { AXIS_COLORS, axisHalfLength, modelBounds, type Box6 } from "./axes";
+import { mouthPoints, snapCentres } from "./placepick.ts";
+import { nearestOnSegments, type SketchSnapPoint } from "./keptsnap.ts";
+import { AXIS_COLORS, axisHalfLength, modelBounds, type Box6 } from "./axes.ts";
 import { showNumber } from "./precision.ts";
 import { projectOnSegment } from "./segmentmath.ts";
 

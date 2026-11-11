@@ -1,11 +1,11 @@
 /** "All tools" list (grouped by layout.ts) and the parameter form for tools that are not dragged. */
-import { colourSides } from "./planepicks";
-import type { PickOptions } from "./reference";
-import { toolIcon } from "./icons";
-import { TOOL_GROUPS } from "./layout";
-import { toolTooltip, type ToolInfo } from "./tools";
-import { type AnchorInfo, type Vec3 } from "./placepick";
-import { usage, type Surface } from "./usage";
+import { colourSides } from "./planepicks.ts";
+import type { PickOptions } from "./reference.ts";
+import { toolIcon } from "./icons.ts";
+import { TOOL_GROUPS } from "./layout.ts";
+import { toolTooltip, type ToolInfo } from "./tools.ts";
+import { type AnchorInfo, type Vec3 } from "./placepick.ts";
+import { usage, type Surface } from "./usage.ts";
 import { roundValue } from "./precision.ts";
 import { fieldNumber, fieldText } from "./numberfield.ts";
 import { interaction } from "./interactionlogic.ts";

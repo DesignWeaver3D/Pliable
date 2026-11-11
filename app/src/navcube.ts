@@ -1,7 +1,7 @@
 /** Navigation cube: a small CSS 3D cube that mirrors the camera; clicking a face looks at the model from that side. */
-import { AXIS_COLORS } from "./axes";
-import { uiIcon } from "./icons";
-import type { Viewport } from "./viewport";
+import { AXIS_COLORS } from "./axes.ts";
+import { uiIcon } from "./icons.ts";
+import type { Viewport } from "./viewport.ts";
 
 const CUBE_PX = 64; // edge length of the cube
 const FACES: { view: string; label: string; transform: string }[] = [

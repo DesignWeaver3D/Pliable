@@ -3,10 +3,10 @@
  * before or after pressing it; curved and multi-face selections are unrolled automatically) and the three
  * world planes. A face that cannot be sketched on says why in the message bar at the top.
  */
-import type { CoreClient } from "./client";
-import { SKETCH_PLANES, SKETCH_PLANE_AXES } from "./layout";
-import type { SketchMode } from "./sketch";
-import type { Sel } from "./viewport";
+import type { CoreClient } from "./client.ts";
+import { SKETCH_PLANES, SKETCH_PLANE_AXES } from "./layout.ts";
+import type { SketchMode } from "./sketch.ts";
+import type { Sel } from "./viewport.ts";
 
 interface PlaneReply {
   plane: any;

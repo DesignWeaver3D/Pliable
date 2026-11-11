@@ -1,7 +1,7 @@
 /** Inline editing of a displayed dimension: a numeric field over the dimension text, live preview while typing,
  * Enter applies one undo step, Escape cancels, Tab moves to the next editable dimension. The core decides what an
  * edit means (`dimension_edit`, see `dimedit.py`); an impossible edit comes back as a one-line reason shown in red. */
-import type { DimEdit, DimensionOverlay } from "./dimensions";
+import type { DimEdit, DimensionOverlay } from "./dimensions.ts";
 import { showNumber } from "./precision.ts";
 import { entryText } from "./numberformat.ts";
 import { parseExpression, formulaEcho } from "./formula.ts";

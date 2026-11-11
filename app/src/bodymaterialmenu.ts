@@ -1,8 +1,8 @@
 // The material choice in the body list's right-click menu, and the densities of bodies that have their own material.
 // A body without a choice follows the Default material setting.
 
-import { MATERIALS, getMaterial, materialOrDefault } from "./materials";
-import { settings } from "./settings";
+import { MATERIALS, getMaterial, materialOrDefault } from "./materials.ts";
+import { settings } from "./settings.ts";
 
 /** Label of the menu row that opens the material choices: the body's material, or the default's name. */
 export function materialMenuLabel(material: string | null | undefined): string {

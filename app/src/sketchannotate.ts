@@ -1,5 +1,5 @@
 /** Dimension annotations and constraint marks for a sketch: the labels, leaders and small tags DimensionOverlay draws. No DOM. */
-import type { Dimension } from "./dimensions";
+import type { Dimension } from "./dimensions.ts";
 import { measure, radiusOf } from "./sketchconstraints.ts";
 import { showNumber } from "./precision.ts";
 import { positiveSweep, turnCounterclockwise, TWO_PI } from "./anglemath.ts";

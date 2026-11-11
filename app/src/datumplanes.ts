@@ -1,10 +1,10 @@
 /** The datum planes kept in the document: a list under the sketches (show or hide, rename, delete) and each plane drawn
  *  in the view as a thin outlined square. They are helper planes for operations such as symmetric push/pull and mirror. */
-import { openRowMenu } from "./rowmenu";
+import { openRowMenu } from "./rowmenu.ts";
 import * as THREE from "three";
-import { uiIcon } from "./icons";
-import { deleteButton } from "./deletebutton";
-import { DATUM_HALF, datumCorners, type DatumPlane, type MirrorMode } from "./datumcorners";
+import { uiIcon } from "./icons.ts";
+import { deleteButton } from "./deletebutton.ts";
+import { DATUM_HALF, datumCorners, type DatumPlane, type MirrorMode } from "./datumcorners.ts";
 
 export interface DatumHost {
   scene: THREE.Scene;

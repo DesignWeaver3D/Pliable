@@ -1,20 +1,20 @@
 /** The selection: what a click, a box or a row pick changes on the page, and the core's answers about it. Moved out of main.ts. */
-import type { MeshData } from "./client";
-import type { CoreClient } from "./client";
-import type { DimensionOverlay } from "./dimensions";
-import type { MeasurePanel, MeasureReply } from "./measure";
-import type { NavCube } from "./navcube";
-import type { Viewport, Sel } from "./viewport";
-import type { ToolPanel } from "./toolpanel";
-import type { RowRef } from "./listdelete";
-import { app } from "./appstate";
-import { isArrayTool } from "./arrayprompt";
-import { clickAway, closesUnchangedCard } from "./toolclickaway";
-import { withoutDraftTag } from "./dimedit";
-import { materialOrDefault, ownDensities } from "./materials";
-import { relatedState, type RelatedRule } from "./relatedrules";
-import { settings } from "./settings";
-import { bodiesOf } from "./visibility";
+import type { MeshData } from "./client.ts";
+import type { CoreClient } from "./client.ts";
+import type { DimensionOverlay } from "./dimensions.ts";
+import type { MeasurePanel, MeasureReply } from "./measure.ts";
+import type { NavCube } from "./navcube.ts";
+import type { Viewport, Sel } from "./viewport.ts";
+import type { ToolPanel } from "./toolpanel.ts";
+import type { RowRef } from "./listdelete.ts";
+import { app } from "./appstate.ts";
+import { isArrayTool } from "./arrayprompt.ts";
+import { clickAway, closesUnchangedCard } from "./toolclickaway.ts";
+import { withoutDraftTag } from "./dimedit.ts";
+import { materialOrDefault, ownDensities } from "./materials.ts";
+import { relatedState, type RelatedRule } from "./relatedrules.ts";
+import { settings } from "./settings.ts";
+import { bodiesOf } from "./visibility.ts";
 
 export interface SelectionDeps {
   viewport: Viewport;

@@ -1,13 +1,13 @@
 /** Parts of the sketch card that only read and change the sketch: the drawing tool's options and the constraint list.
  *  Moved out of sketch.ts; `SketchMode` is the context. */
-import * as Chk from "./sketchcheck";
-import * as M from "./sketchmodel";
-import * as Co from "./sketchcoincident";
-import { uiIcon } from "./icons";
-import { deleteButton } from "./deletebutton";
-import type { SketchOptions } from "./sketchoptions";
-import type { Tool } from "./sketchtypes";
-import type { ArcOptions } from "./sketcharcoptions";
+import * as Chk from "./sketchcheck.ts";
+import * as M from "./sketchmodel.ts";
+import * as Co from "./sketchcoincident.ts";
+import { uiIcon } from "./icons.ts";
+import { deleteButton } from "./deletebutton.ts";
+import type { SketchOptions } from "./sketchoptions.ts";
+import type { Tool } from "./sketchtypes.ts";
+import type { ArcOptions } from "./sketcharcoptions.ts";
 import { numericField, fieldNumber, fieldText } from "./numberfield.ts";
 
 export interface PanelContext {

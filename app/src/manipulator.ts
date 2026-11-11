@@ -2,7 +2,7 @@
  *  dragged with the left button. One handle sets one parameter; the host receives the new value while dragging.
  *  The maths that does not need a camera is exported for tests (`node --test app/tests`). */
 import * as THREE from "three";
-import type { HandleInfo } from "./tools";
+import type { HandleInfo } from "./tools.ts";
 import { TypedFields } from "./typedentry.ts";
 import { projectOnSegment } from "./segmentmath.ts";
 import { mirrorEnd, segmentPx } from "./pushpullhit.ts";

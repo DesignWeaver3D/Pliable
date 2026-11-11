@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import type { MeshData } from "./client";
-import { bodyColor } from "./bodycolors";
+import type { MeshData } from "./client.ts";
+import { bodyColor } from "./bodycolors.ts";
 
 /** Neutral surface color used by loose faces and sheets, which belong to no body. */
 const NEUTRAL = new THREE.Color(0x9db4cc);

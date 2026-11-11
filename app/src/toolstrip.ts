@@ -1,14 +1,14 @@
 /** The strip at the top center of the view: the tools that work with the selection (or, in a sketch, the drawing tools
  *  and a row of constraints), fitted to the room between the bodies list and the nav cube. Moved out of main.ts. */
-import { constraintTip } from "./sketchconstrainthelp";
-import { stripChoices } from "./sketchconstraintgroups";
-import { chooseAtCursor } from "./sketchmenu";
-import { fitStripCount, stripRoom } from "./stripfit";
-import { constraintIcon, sketchIcon, toolIcon, uiIcon } from "./icons";
-import { TOOL_GROUPS } from "./layout";
-import { toolTooltip, type ToolInfo } from "./tools";
-import type { Sel } from "./viewport";
-import { SKETCH_TOOLS, type Tool as SketchTool } from "./sketchtypes";
+import { constraintTip } from "./sketchconstrainthelp.ts";
+import { stripChoices } from "./sketchconstraintgroups.ts";
+import { chooseAtCursor } from "./sketchmenu.ts";
+import { fitStripCount, stripRoom } from "./stripfit.ts";
+import { constraintIcon, sketchIcon, toolIcon, uiIcon } from "./icons.ts";
+import { TOOL_GROUPS } from "./layout.ts";
+import { toolTooltip, type ToolInfo } from "./tools.ts";
+import type { Sel } from "./viewport.ts";
+import { SKETCH_TOOLS, type Tool as SketchTool } from "./sketchtypes.ts";
 
 export interface StripDeps {
   toolbar: HTMLElement;

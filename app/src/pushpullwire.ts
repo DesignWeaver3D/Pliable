@@ -1,6 +1,6 @@
 /** Connects the Push/Pull card to the view: the gizmo's tilts and direction, the drag that previews a typed distance, and when the card opens and closes.
  *  Moved out of main.ts; the card (pushpullcard.ts) and the state (pushpullstate.ts) know nothing of the view. */
-import type { Sel, Viewport } from "./viewport";
+import type { Sel, Viewport } from "./viewport.ts";
 import { PushPullCard } from "./pushpullcard.ts";
 import type { Interact } from "./interactionlogic.ts";
 import { leavesFace, outOf } from "./pulldir.ts";

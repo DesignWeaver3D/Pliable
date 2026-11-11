@@ -1,6 +1,6 @@
 /** The sketch settings window (grid spacing, fade, automatic constraints). Moved out of sketch.ts. */
-import type { SketchOptions } from "./sketchoptions";
-import { LENGTH_UNIT } from "./units";
+import type { SketchOptions } from "./sketchoptions.ts";
+import { LENGTH_UNIT } from "./units.ts";
 import { numericField, fieldNumber, fieldText } from "./numberfield.ts";
 
 export interface SettingsHooks {

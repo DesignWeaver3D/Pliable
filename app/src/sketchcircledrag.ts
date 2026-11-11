@@ -1,4 +1,4 @@
-import type { SketchData } from "./sketchmodel";
+import type { SketchData } from "./sketchmodel.ts";
 
 /** A circle no constraint mentions (its center may be joined or fixed): dragging the circle itself resizes it, the center staying put. */
 export function isFreeCircle(s: Pick<SketchData, "entities" | "constraints">, id: number): boolean {

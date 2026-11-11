@@ -1,11 +1,11 @@
 /** State shared between main.ts and the modules split out of it. Plain fields, no events: the owners read and assign them. */
-import type { FocusState } from "./bodylogic";
-import type { MeshData } from "./client";
-import type { Dimension } from "./dimensions";
-import type { RowRef } from "./listdelete";
-import type { ParamValue } from "./toolpanel";
-import type { ToolInfo } from "./tools";
-import type { Sel } from "./viewport";
+import type { FocusState } from "./bodylogic.ts";
+import type { MeshData } from "./client.ts";
+import type { Dimension } from "./dimensions.ts";
+import type { RowRef } from "./listdelete.ts";
+import type { ParamValue } from "./toolpanel.ts";
+import type { ToolInfo } from "./tools.ts";
+import type { Sel } from "./viewport.ts";
 
 /** Which bodies are hidden, see-through or in focus (view only: not saved; the hidden ids are sent with tool requests so the core's automatic merges and cuts skip them). Ids are stable, so a
  *  hidden body stays hidden through operations. */

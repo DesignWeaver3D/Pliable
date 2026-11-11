@@ -1,11 +1,11 @@
 // The body list: a plain list of the model's bodies, always shown on the left of the 3D view. Each row has the body's name, an eye (hide / show)
 // and an isolate toggle; a right-click opens a small menu (Rename, and room for later actions). Clicking selects.
 
-import { clickRows, isIsolated } from "./bodylogic";
-import { uiIcon } from "./icons";
-import { bodyColor } from "./bodycolors";
-import { onSettingsChange, settings } from "./settings";
-import { appendMaterialChoices, materialMenuLabel } from "./bodymaterialmenu";
+import { clickRows, isIsolated } from "./bodylogic.ts";
+import { uiIcon } from "./icons.ts";
+import { bodyColor } from "./bodycolors.ts";
+import { onSettingsChange, settings } from "./settings.ts";
+import { appendMaterialChoices, materialMenuLabel } from "./bodymaterialmenu.ts";
 
 export interface BodyInfo {
   id: number;

@@ -1,6 +1,6 @@
 // Contact sheet for reviewing every icon (dev server: /icons.html).
-import { TOOL_GROUPS } from "./layout";
-import { UI_ICONS, allToolIconIds, svgFor, toolIconInner } from "./icons";
+import { TOOL_GROUPS } from "./layout.ts";
+import { UI_ICONS, allToolIconIds, svgFor, toolIconInner } from "./icons.ts";
 
 const sheet = document.getElementById("sheet")!;
 const cell = (id: string, inner: string) =>

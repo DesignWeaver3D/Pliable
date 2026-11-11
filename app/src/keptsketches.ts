@@ -1,11 +1,11 @@
 /** The sketches kept in the document: a list under the bodies (show or hide, open, rename, delete) and their curves drawn in the view. Open paths are kept like closed outlines. */
-import { openRowMenuItems } from "./rowmenu";
+import { openRowMenuItems } from "./rowmenu.ts";
 import * as THREE from "three";
-import type { CoreClient } from "./client";
-import { uiIcon } from "./icons";
-import { deleteButton } from "./deletebutton";
-import * as M from "./sketchmodel";
-import { sketchSnapPoints, type SketchSnapPoint } from "./keptsnap";
+import type { CoreClient } from "./client.ts";
+import { uiIcon } from "./icons.ts";
+import { deleteButton } from "./deletebutton.ts";
+import * as M from "./sketchmodel.ts";
+import { sketchSnapPoints, type SketchSnapPoint } from "./keptsnap.ts";
 
 export interface KeptInfo {
   id: number;

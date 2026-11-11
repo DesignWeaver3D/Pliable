@@ -46,3 +46,5 @@ The aim is that new work lands in small files without a later clean-up pass.
 - Keep a thin entry file. `main.ts`, `sketch.ts` and `viewport.ts` coordinate; the work they do is delegated to modules they import. Do not put new logic in them if a module can take it.
 - When a file you touch is long (the pre-commit hook prints a note past about 400 lines), look at whether it holds more than one job. If it does, tell the owner and add a Planned row to `docs/progress.md` naming the file and the jobs mixed in it. Do not split it unasked in the same change, and do not ignore it.
 - The line count is only a prompt. A long file with one clear job is fine; a short file doing three jobs is not.
+- In `app/src`, write relative imports with the `.ts` extension (`"./name.ts"`). Node loads modules for the tests without a bundler and cannot resolve a bare `"./name"`, so one bare import makes every module that reaches it untestable; `tests/importstyle.test.mjs` checks this.
+- App tests are every `app/tests/*.test.mjs` file; `npm test` finds them by itself, so a new test file needs no entry anywhere.

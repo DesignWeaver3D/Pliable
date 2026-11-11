@@ -1,5 +1,5 @@
 /** The names the sketch tools share: the tool ids and their strip entries, what the sketch asks of the app around it, a snapped click, and a point drag. Imports no sketch module, so any of them may import this one. */
-import type { MeshData } from "./client";
+import type { MeshData } from "./client.ts";
 
 export type Tool = "select" | "line" | "rectangle" | "rectcentre" | "circle" | "circle3" | "arc" | "arc3" | "arctan" | "arcrad" | "tancircle" | "tanarc" | "slot" | "point" | "polygon" | "ellipse" | "ellarc" | "spline" | "trim" | "extend" | "split" | "fillet" | "chamfer" | "triangle" | "pentagon" | "hexagon" | "octagon";
 

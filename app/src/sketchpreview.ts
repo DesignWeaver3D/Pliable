@@ -1,7 +1,7 @@
 /** What the sketch shows while a shape is being drawn: the rubber-band outline and the live size tag.
  *  Moved out of sketch.ts; `SketchMode` is the context. Read-only. */
 import { positiveSweep } from "./anglemath.ts";
-import type { Dimension } from "./dimensions";
+import type { Dimension } from "./dimensions.ts";
 import * as B from "./sketchbuilders.ts";
 import * as M from "./sketchmodel.ts";
 import * as Ell from "./sketchellipse.ts";

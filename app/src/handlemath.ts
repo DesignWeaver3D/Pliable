@@ -3,7 +3,7 @@
  *  all of it); exported for tests (`node --test app/tests`). */
 import * as THREE from "three";
 import { AXIS_COLORS } from "./axes.ts";
-import type { HandleInfo } from "./tools";
+import type { HandleInfo } from "./tools.ts";
 import { roundValue, showNumber } from "./precision.ts";
 import { decimalChar } from "./numberformat.ts";
 import { parseExpression } from "./formula.ts";

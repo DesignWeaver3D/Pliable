@@ -1,7 +1,7 @@
 /** The dimensions drawn while sizes are typed for a shape being drawn: real extension lines, dimension lines and leaders, with the typed value in them
  *  (the one being typed has a caret and is orange). The shape's rubber band follows the typed sizes too. No DOM. */
 import { turnShortWay } from "./anglemath.ts";
-import type { Dimension } from "./dimensions";
+import type { Dimension } from "./dimensions.ts";
 import * as M from "./sketchmodel.ts";
 import { typedLabels, typedTargets } from "./sketchtyped.ts";
 import { arcSamples, mirror } from "./sketchshapes.ts";

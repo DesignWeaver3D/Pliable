@@ -1,8 +1,8 @@
 /** The helper buttons of the tool strip that grow a selection (faces to edges, an edge to its loop, ring or sharp
  *  chain) and the one that reopens a primitive. Moved out of main.ts. */
-import type { MeshData } from "./client";
-import type { Sel } from "./viewport";
-import { bodiesOf } from "./visibility";
+import type { MeshData } from "./client.ts";
+import type { Sel } from "./viewport.ts";
+import { bodiesOf } from "./visibility.ts";
 
 export interface HelperDeps {
   core: { request<T>(type: string, params?: Record<string, unknown>): Promise<T> };

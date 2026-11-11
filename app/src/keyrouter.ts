@@ -1,7 +1,7 @@
 /** Wires the shortcut policy (keys.ts) to the page: one keydown entry point, viewport engagement with a focus ring,
  *  cancel on window blur, saved keymap and the Keys settings dialog. */
-import { Engagement, Keymap, chordOfEvent, decideKey, formatChord, validateBinding, type KeyContext } from "./keys";
-import { shortcutSheetHtml } from "./shortcutsheet";
+import { Engagement, Keymap, chordOfEvent, decideKey, formatChord, validateBinding, type KeyContext } from "./keys.ts";
+import { shortcutSheetHtml } from "./shortcutsheet.ts";
 
 const STORAGE_KEY = "pliable.keymap";
 

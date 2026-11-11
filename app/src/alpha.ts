@@ -1,7 +1,7 @@
 /** Alpha-release UI: the ALPHA tag, the launch notice and the Copy diagnostics dialog. */
 
-import { recentMessages } from "./messagelog";
-import { usage, usageLines, type UsageRow } from "./usage";
+import { recentMessages } from "./messagelog.ts";
+import { usage, usageLines, type UsageRow } from "./usage.ts";
 
 export const ALPHA_NOTICE = "Alpha software. Not for serious work. Data can be lost. The interface and behavior will change rapidly without notice.";
 export const USAGE_NOTICE = "Pliable counts which tools you start and finish, on this computer only. The counts leave it only if you copy them from the diagnostics report yourself.";

@@ -2,9 +2,9 @@
  *  each body's cut face is drawn in its color with gray hatch lines (a different angle and spacing per body), and where the
  *  cut faces of two bodies overlap the overlap is painted red, which shows that the bodies intersect. */
 import * as THREE from "three";
-import { bodyColor } from "./bodycolors";
-import type { HandleInfo } from "./tools";
-import type { Viewport } from "./viewport";
+import { bodyColor } from "./bodycolors.ts";
+import type { HandleInfo } from "./tools.ts";
+import type { Viewport } from "./viewport.ts";
 import { frameOf, gridFor, hatchLines, hatchStyle, overlapOf, regionsOf, sliceBodies } from "./sectionmath.ts";
 import type { Loop, SectionPlane, V3 } from "./sectionmath.ts";
 

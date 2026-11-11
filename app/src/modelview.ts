@@ -1,12 +1,12 @@
 /** Showing a mesh and committing one as the model: the view, the body list, the history buttons and the status line. Moved out of main.ts. */
-import type { CoreClient, MeshData } from "./client";
-import type { DatumPlane, MirrorMode } from "./datumcorners";
-import type { Dimension, DimensionOverlay } from "./dimensions";
-import type { Sel, Viewport } from "./viewport";
-import { showImportNotice } from "./alpha";
-import { app, bodyView } from "./appstate";
-import { pruneGhost, pruneHidden } from "./bodylogic";
-import { bodiesOf, filterHidden } from "./visibility";
+import type { CoreClient, MeshData } from "./client.ts";
+import type { DatumPlane, MirrorMode } from "./datumcorners.ts";
+import type { Dimension, DimensionOverlay } from "./dimensions.ts";
+import type { Sel, Viewport } from "./viewport.ts";
+import { showImportNotice } from "./alpha.ts";
+import { app, bodyView } from "./appstate.ts";
+import { pruneGhost, pruneHidden } from "./bodylogic.ts";
+import { bodiesOf, filterHidden } from "./visibility.ts";
 
 export interface ModelViewDeps {
   viewport: Viewport;

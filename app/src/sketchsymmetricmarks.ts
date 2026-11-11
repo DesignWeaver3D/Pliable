@@ -4,7 +4,7 @@
  *  - C: a mark beside C and off L, on the side most upward and to the right when L is vertical; for a mirror line that spot is on the line, so it
  *    is turned a quarter turn about C, onto L, off the line.
  *  Nothing is moved around its point to dodge another mark: a crowded one drops out. No DOM. */
-import type { Dimension } from "./dimensions";
+import type { Dimension } from "./dimensions.ts";
 import { pointOf, toWorld, type SketchConstraint, type SketchData } from "./sketchdata.ts";
 
 type UV = [number, number];
