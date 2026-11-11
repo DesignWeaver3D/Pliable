@@ -13,6 +13,7 @@ class SweepFace(Tool):
     label = "Sweep face along edge"
     description = "Pulls a face along an edge to make a solid. Select one face and the edge to follow (or Shift-click a kept sketch's curve to follow the whole sketch); Add adds the solid and Subtract cuts it."
     skips_hidden_bodies = True
+    reference_edges = True  # the edge is only the path
     accepts = Accepts(faces=(1, 1), edges=(1, 1))
     rail_accepts = Accepts(faces=(1, 1))
     params = [Param("mode", "number", 0, options=("Add", "Subtract"))]

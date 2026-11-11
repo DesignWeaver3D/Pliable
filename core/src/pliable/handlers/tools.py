@@ -52,6 +52,8 @@ class ToolHandlers:
         why = recipes.reason(body)
         if why is not None:
             raise RequestError(why)
+        if body.locked:
+            raise RequestError("This body is locked")
         if body.recipe["tool"] != tool.id:
             raise RequestError("That body was made by a different tool")
         start = time.perf_counter()

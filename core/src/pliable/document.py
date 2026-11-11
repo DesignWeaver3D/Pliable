@@ -214,6 +214,10 @@ class Document:
         """Choose the material of one body (None = the app's default) as an undoable step (the shape is unchanged)."""
         return self._push(self.current.shape, body_ids.with_material(self.current.bodies, body_id, material))
 
+    def set_body_locked(self, body_id: int, locked: bool) -> Topology:
+        """Lock or unlock one body as an undoable step (the shape is unchanged)."""
+        return self._push(self.current.shape, body_ids.with_locked(self.current.bodies, body_id, locked))
+
     def duplicate_body(self, body_id: int) -> tuple[Topology, int]:
         """Add a copy of one body, in the same place, named after it; returns the new state and the copy's id."""
         state = self.current.bodies

@@ -54,6 +54,9 @@ class CenterBetween(Tool):
     label = "Center between faces"
     description = "Centers a hole or boss between two parallel flat faces. Select the round face and the two flat faces, in any order; or the round face and one flat face, and the opposite side is found for you."
     scope_to_bodies = True
+
+    def reference_face_ids(self, topology, selection):
+        return [i for i in selection.faces if planar_normal(topology.face(i)) is not None]  # the flat faces only measure; the hole or boss is moved
     accepts = Accepts(faces=(2, 3))
 
     @staticmethod

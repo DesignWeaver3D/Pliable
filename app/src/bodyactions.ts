@@ -91,6 +91,12 @@ export function installBodyActions(d: BodyActionDeps) {
       bodyView.focus = next.focus;
       applyVisibility();
     },
+    setLocked(id, locked) {
+      d.core
+        .request<MeshData>("set_body_locked", { body: id, locked })
+        .then((mesh) => d.setCommitted(mesh, false, d.selection()))
+        .catch(fail);
+    },
     duplicate(id) {
       runBodyRequest("duplicate_body", id);
     },
