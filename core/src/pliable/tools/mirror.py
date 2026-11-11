@@ -3,8 +3,8 @@
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
 from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 
-from ..ops import OperationError
-from ..shared.bodies import _body_bounds, _chosen_solids, _relock, _unlocked_shape
+from ..ops import OperationError, solids_of
+from ..shared.bodies import _body_bounds, _chosen_solids, _open_shape, _restore_closed
 from ..shared.faces import _PlanarFace, _plane_axes
 from ..shared.solids import _combine, _compound, finish
 from ..tools import Accepts, Handle, Param, Selection, register
@@ -72,8 +72,8 @@ class Mirror(_PlanarFace):
         centre = centre.Translated(gp_Vec(normal).Multiplied(values["offset"]))
         transform = gp_Trsf()
         transform.SetMirror(gp_Ax2(centre, normal))
-        source = base = _unlocked_shape(topology)  # the copy joins the unlocked bodies only
+        source = base = _open_shape(topology, selection, True)  # the copy joins the visible unlocked bodies only
         if selection.bodies:
             source = _compound(_chosen_solids(topology, Selection(bodies=selection.bodies)))
         mirrored = BRepBuilderAPI_Transform(source, transform, True).Shape()
-        return _relock(topology, finish(_combine(base, mirrored, fuse=True)))
+        return _restore_closed(topology, finish(_combine(base, mirrored, fuse=True) if solids_of(base) else mirrored), selection, True)

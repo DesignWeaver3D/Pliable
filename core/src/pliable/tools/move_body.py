@@ -6,7 +6,7 @@ from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
 from OCP.gp import gp_Ax1, gp_Dir, gp_Trsf, gp_Vec
 
 from ..ops import MIN_DISTANCE, OpResult
-from ..shared.bodies import _body_bounds, _body_centre, _on_bodies
+from ..shared.bodies import _body_bounds, _body_centre, _on_bodies, _unlocked_shape
 from ..shared.solids import finish
 from ..tools import Accepts, Handle, Param, register, Tool
 from .move_edge import edge_handles, edge_run
@@ -84,7 +84,7 @@ class MoveBody(Tool):
         angles = [values[n] for n in ("rx", "ry", "rz")]
         if offset.Magnitude() < MIN_DISTANCE and all(abs(a) < 1e-9 for a in angles):
             return OpResult(topology.shape, [])
-        whole = _body_centre(topology.shape)
+        whole = _body_centre(_unlocked_shape(topology))  # the middle of the bodies that move, not the locked ones
 
         def move_trsf(centre):
             """Turn about `centre` (the body's own, else the whole model's) by rx, ry, rz in that order, then shift."""

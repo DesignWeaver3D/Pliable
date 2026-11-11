@@ -1510,7 +1510,7 @@
  {
   "id": "draft",
   "label": "Draft",
-  "description": "Tilts flat faces by an angle so they release from a mold, pivoting about the face centroid (or a picked axis point, or the model's lowest point) along the pull direction (default Z). Select one or more flat faces.",
+  "description": "Tilts flat faces by an angle so they release from a mold, pivoting about the face centroid (or a picked axis point, or the drafted body's lowest point) along the pull direction (default Z). Select one or more flat faces.",
   "accepts": {
    "faces": [
     1,

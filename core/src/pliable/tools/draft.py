@@ -26,11 +26,11 @@ AXIS_CHOICES = ("Face centroid", "Picked point", "Model base")  # the value is t
 
 @register
 class Draft(_PlanarFace):
-    """Tilt flat faces by an angle about a neutral plane square to the pull direction (default Z): through each face's centroid, a picked point, or the lowest point of the model."""
+    """Tilt flat faces by an angle about a neutral plane square to the pull direction (default Z): through each face's centroid, a picked point, or the lowest point of the drafted body."""
 
     id = "draft"
     label = "Draft"
-    description = "Tilts flat faces by an angle so they release from a mold, pivoting about the face centroid (or a picked axis point, or the model's lowest point) along the pull direction (default Z). Select one or more flat faces."
+    description = "Tilts flat faces by an angle so they release from a mold, pivoting about the face centroid (or a picked axis point, or the drafted body's lowest point) along the pull direction (default Z). Select one or more flat faces."
     accepts = Accepts(faces=(1, None))
     scope_to_bodies = True
     params = [
@@ -55,7 +55,7 @@ class Draft(_PlanarFace):
 
     @staticmethod
     def _pivot(topology, face, direction, values) -> gp_Pnt:
-        """The point the neutral plane goes through for `face`: its centroid, the picked axis point, or the model's lowest point."""
+        """The point the neutral plane goes through for `face`: its centroid, the picked axis point, or the drafted body's lowest point."""
         choice = int(values.get("axis", 0))
         if choice == 1:
             return gp_Pnt(values["axis_x"], values["axis_y"], values["axis_z"])
