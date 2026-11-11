@@ -214,7 +214,7 @@ export class Manipulator {
       const at = middle ?? (info.pie && info.ring ? p.clone().copy(piePoint(info, value / 2)).project(this.camera()) : p); // a pie's value sits on its arc
       item.label.style.left = `${((at.x + 1) / 2) * rect.width}px`;
       item.label.style.top = `${((1 - at.y) / 2) * rect.height}px`;
-      const unit = info.unit === "Â°" || !info.unit ? info.unit : " " + info.unit;
+      const unit = info.unit === "°" || !info.unit ? info.unit : " " + info.unit;
       const typing = item === this.active?.item && this.active.typed !== null;
       const symbol = info.symbol ?? "";
       const shown = symbol + (typing ? `${typedShown(this.active!.typed ?? "", this.active!.negative)}|` : formatValue(info.along ? item.travel : value * (info.factor || 1)));

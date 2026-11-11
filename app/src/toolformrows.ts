@@ -8,7 +8,7 @@ import { numericField, fieldText } from "./numberfield.ts";
 import type { ParamValue } from "./toolpanel.ts";
 import type { FormParts } from "./toolformparts.ts";
 
-const UNITS: Record<string, string> = { length: "mm", angle: "Â°", number: "" };
+const UNITS: Record<string, string> = { length: "mm", angle: "°", number: "" };
 
 /** The row of one parameter of the open tool. */
 export function paramRow(f: FormParts, p: ToolInfo["params"][number]) {
