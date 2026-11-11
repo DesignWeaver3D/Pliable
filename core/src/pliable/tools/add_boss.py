@@ -18,6 +18,7 @@ class AddBoss(_PlanarFace):
     description = "Adds a round post standing on a flat face, placed from the face center. Select one flat face."
     accepts = Accepts(faces=(1, 1))
     skips_hidden_bodies = True
+    interaction = "this"
     params = [Param("diameter", "length", 10), Param("height", "length", 5), Param("offset_u", "length"), Param("offset_v", "length")]
 
     def handles(self, topology, selection, values):

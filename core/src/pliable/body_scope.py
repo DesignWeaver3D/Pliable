@@ -88,6 +88,11 @@ def _faces_outside(shape: TopoDS_Shape, solids: list[TopoDS_Shape]) -> list[Topo
     return [every.FindKey(i) for i in range(1, every.Extent() + 1) if not held.Contains(every.FindKey(i))]
 
 
+def _hidden_indices(topology: Topology) -> set[int]:
+    """Indices of the bodies the app reports as hidden."""
+    return {i for i in (topology.bodies.find(b) for b in getattr(topology, "hidden_bodies", ())) if i is not None}
+
+
 def _chosen(topology: Topology, selection, solids: list[TopoDS_Shape], strict: bool, loose: bool = False, hold: bool = False) -> list[int] | None:
     """The bodies a tool is given, in scene order, or None when it should see the whole scene. `strict`: only the bodies
     that own the selection (nothing selected means the whole scene). Otherwise: those and every visible body. With loose
@@ -101,7 +106,7 @@ def _chosen(topology: Topology, selection, solids: list[TopoDS_Shape], strict: b
     if strict:
         pool = found
     else:
-        hidden = {i for i in (state.find(b) for b in getattr(topology, "hidden_bodies", ())) if i is not None}
+        hidden = _hidden_indices(topology)
         skipped = hidden | {i for i, body in enumerate(state.bodies) if body.locked}  # hidden and locked bodies stay out of automatic merges and cuts
         pool = found | (set(range(len(solids))) - skipped)
     if (len(pool) == len(solids) and not hold) or (not pool and not (loose and not strict)):
@@ -130,8 +135,11 @@ class Narrowed:
             mine = self.topology.face_id(self.scene.face(int(values["target"])))
         except KeyError:
             return values  # not a face of the model: the tool reports it
-        if mine is None:
-            raise OperationError("The target face is in a hidden body; show it or choose another face")
+        if mine is None:  # not in the narrowed scene: a reference outside it (another body, a locked one) is still a valid end
+            outer = self.scene.face(int(values["target"]))
+            if _owner_of(self.solids, TopAbs_FACE, outer) in _hidden_indices(self.scene):
+                raise OperationError("The target face is in a hidden body; show it or choose another face")
+            return {**values, "target_face": outer}
         return {**values, "target": mine}
 
     def widen(self, result: OpResult) -> OpResult:
@@ -186,6 +194,8 @@ def narrow(topology: Topology, selection, strict: bool = True) -> Narrowed | Non
     state = topology.bodies
     inner = Topology(_compound([solids[i] for i in chosen] + ([] if hold else loose)), BodyState(tuple(state.bodies[i] for i in chosen), state.next_id, state.counts))
     inner.datums = getattr(topology, "datums", None)
+    hidden = _hidden_indices(topology)
+    inner.reference_shape = _compound([s for i, s in enumerate(solids) if i not in hidden])  # what an extent ends on, fused into or not
     renumbered = {}
     for field_name, get, find in (("faces", topology.face, inner.face_id), ("edges", topology.edge, inner.edge_id), ("vertices", topology.vertex, inner.vertex_id)):
         ids = [find(get(i)) for i in getattr(selection, field_name)]

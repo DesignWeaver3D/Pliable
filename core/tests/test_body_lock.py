@@ -184,7 +184,7 @@ def test_body_list_delete_refuses_a_locked_body_and_edit_stays_allowed():
 # ---- locked bodies beside automatic merges, and as Boolean tools ----
 
 
-def test_an_extent_pull_skips_a_locked_body_instead_of_merging_into_it():
+def test_an_extent_pull_ends_on_a_locked_body_without_merging_into_it():
     from build123d import Box, Pos
 
     from pliable.topology import Topology
@@ -193,8 +193,14 @@ def test_an_extent_pull_skips_a_locked_body_instead_of_merging_into_it():
 
     scene = Topology(_compound([Box(40, 30, 20).wrapped, (Pos(0, 0, 40) * Box(40, 30, 20)).wrapped]))
     scene.bodies = BodyState(tuple(b if i == 0 else __import__("dataclasses").replace(b, locked=True) for i, b in enumerate(scene.bodies.bodies)), scene.bodies.next_id, scene.bodies.counts)
-    with pytest.raises(OperationError, match="nothing lies beyond"):
-        run("push_pull", scene, Selection(faces=[top_face(scene, 0)]), distance=5, extent="last")
+    for interact in ("this", "others"):
+        scene.interact = interact
+        result = run("push_pull", scene, Selection(faces=[top_face(scene, 0)]), distance=5, extent="last")
+        solids = solids_of(result.shape)
+        assert len(solids) == 2 and solids[1].IsSame(solids_of(scene.shape)[1])  # the locked body is the reference the pad ends on, unchanged
+        from pliable.volume import volume_of
+
+        assert round(volume_of(solids[0])) == 40 * 30 * 60
 
 
 def test_a_locked_body_is_a_boolean_tool_only_with_keep_tools(pair):

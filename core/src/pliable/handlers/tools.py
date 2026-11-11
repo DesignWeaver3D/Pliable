@@ -5,7 +5,7 @@ import time
 from OCP.BRep import BRep_Builder
 from OCP.TopoDS import TopoDS_Compound
 
-from .. import diagnostics, dimedit, recipes
+from .. import diagnostics, dimedit, interaction, recipes
 from ..measure import measure
 from ..mirrormode import mirror_result
 from ..plane_sides import side_bodies
@@ -89,6 +89,7 @@ class ToolHandlers:
         topology = document.current
         topology.datums = document.datum_list()  # for tools that work about a datum plane (symmetric push/pull)
         topology.hidden_bodies = frozenset(int(i) for i in request.get("hidden") or [])  # the app's hidden bodies: automatic merges and cuts skip them
+        topology.interact = request.get("interact")  # "this" or "others" (see interaction.py); absent = the tool's default
         tool = get_tool(str(request.get("tool")))
         if request.get("edit_body") is not None:
             return self._edit_primitive(request, tool, commit)
@@ -119,6 +120,9 @@ class ToolHandlers:
         selection = Selection(faces=faces, edges=edges, vertices=vertices, bodies=[b for b in request_selection.bodies if b in kept])
         handles = [] if commit else tool.handle_list(topology, request_selection, request.get("params") or {})
         extra = {}
+        interact = interaction.report(tool, topology, request_selection)
+        if interact is not None:
+            extra["interact"] = interact
         if not commit:
             dimensions = self._preview_dimensions(request_selection, selection, target)
             if dimensions is not None:

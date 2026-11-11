@@ -16,11 +16,13 @@ from test_push_pull_upto import find_face, session_with, volume
 
 
 def pull(session, face, **params):
-    return get_tool("push_pull").execute(Topology(session.document.current.shape), Selection(faces=[face]), {"distance": 1, **params}, preview=False)
+    scene = Topology(session.document.current.shape)
+    scene.interact = "others"  # these pads end on, and join, the other body
+    return get_tool("push_pull").execute(scene, Selection(faces=[face]), {"distance": 1, **params}, preview=False)
 
 
 def reply_commit(session, face, **params):
-    reply = session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": [face]}, "params": {"distance": 3, **params}})
+    reply = session.handle({"type": "tool_commit", "tool": "push_pull", "interact": "others", "selection": {"faces": [face]}, "params": {"distance": 3, **params}})
     return decode_binary(reply)[0]
 
 

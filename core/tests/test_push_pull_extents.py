@@ -86,5 +86,7 @@ def test_an_unknown_extent_is_refused():
 def test_the_preview_path_builds_the_same_pad():
     session = session_with(LOW, STEP)
     top = find_face(session, 5, 1)
-    result = get_tool("push_pull").execute(Topology(session.document.current.shape), Selection(faces=[top]), {"distance": 1, "extent": "last"}, preview=True)
+    scene = Topology(session.document.current.shape)
+    scene.interact = "others"
+    result = get_tool("push_pull").execute(scene, Selection(faces=[top]), {"distance": 1, "extent": "last"}, preview=True)
     assert volume(result.shape) == pytest.approx(volume(session.document.current.shape) + 100 * 15, rel=1e-6)

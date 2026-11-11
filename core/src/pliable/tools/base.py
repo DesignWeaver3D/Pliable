@@ -25,6 +25,7 @@ Writing a tool:
 from dataclasses import dataclass, field
 
 from ..body_lock import keep_locked, refuse_locked
+from .. import interaction
 from ..body_scope import narrow
 from ..ops import OperationError, OpResult, keep_compound, unify_result
 from ..topology import Topology
@@ -298,6 +299,9 @@ class Tool:
     # True: `run` sees the bodies that own the selection and every visible body, so hiding a body protects it from the
     # tool's automatic merges and cuts (the app sends the hidden ids; see body_scope.py).
     skips_hidden_bodies: bool = False
+    # The body interaction setting (see interaction.py): the default of a tool that can touch other bodies, "this" or
+    # "others"; None = the tool has no setting. Only tools that also set `skips_hidden_bodies` can honor "others".
+    interaction: str | None = None
     # Locked bodies (see body_lock.py): a selected face or edge of a locked body refuses the run unless the tool only reads
     # that kind of selection as a reference (a plane to mirror across, a path to follow); `reference_face_ids` can be
     # overridden when only some of the faces are references.
@@ -381,7 +385,7 @@ class Tool:
         values = self.bind(raw_params)
         refuse_locked(self, topology, selection, values)
         try:
-            narrowed = narrow(topology, selection, strict=self.scope_to_bodies) if self.scope_to_bodies or self.skips_hidden_bodies else None
+            narrowed = narrow(topology, selection, strict=self.scope_to_bodies or interaction.strict(self, topology, selection)) if self.scope_to_bodies or self.skips_hidden_bodies else None
             work, chosen = (narrowed.topology, narrowed.selection) if narrowed else (topology, selection)
             result = self.run(work, chosen, narrowed.values(values) if narrowed else values, preview)
             if not result.unified and result.shape is not work.shape:
@@ -437,6 +441,7 @@ class Tool:
             "pickPlane": list(self.pick_plane) if self.pick_plane else None,
             "startsFrom": self.starts_from,
             "hidden": self.hidden,
+            "interaction": self.interaction,
             "hasHandles": type(self).handles is not Tool.handles,
             **({"railAccepts": self.rail_accepts.to_json()} if self.rail_accepts else {}),
         }

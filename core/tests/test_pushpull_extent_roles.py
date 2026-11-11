@@ -26,7 +26,9 @@ def scene(*parts) -> Topology:
     builder.MakeCompound(compound)
     for part in parts:
         builder.Add(compound, part.wrapped)
-    return Topology(compound)
+    topology = Topology(compound)
+    topology.interact = "others"  # these tests are about pads that join or cut the other bodies
+    return topology
 
 
 def face_at(topology, z, normal_z):

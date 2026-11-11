@@ -44,8 +44,8 @@ def find_face(session, z=None, normal_z=None, tilted=False) -> int:
     raise AssertionError("no such face")
 
 
-def commit(session, face, target, **params):
-    reply = session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": [face]}, "params": {"distance": 3, "target": target, **params}})
+def commit(session, face, target, interact="others", **params):
+    reply = session.handle({"type": "tool_commit", "tool": "push_pull", "interact": interact, "selection": {"faces": [face]}, "params": {"distance": 3, "target": target, **params}})
     return decode_binary(reply)[0]
 
 

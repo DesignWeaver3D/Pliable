@@ -21,6 +21,7 @@ class AddSlot(_PlanarFace):
     description = "Cuts a slot with rounded ends into a flat face, placed from the face center. Select one flat face; angle turns the slot."
     accepts = Accepts(faces=(1, 1))
     skips_hidden_bodies = True
+    interaction = "this"
     params = [
         Param("length", "length", 20),
         Param("width", "length", 6),

@@ -107,6 +107,7 @@ class _HoleOnFace(_PlanarFace):
 
     accepts = Accepts(faces=(1, 1))
     skips_hidden_bodies = True  # a new bore cuts the visible bodies it meets
+    interaction = "this"
     params = [Param("diameter", "length", 6), Param("depth", "length"), Param("offset_u", "length"), Param("offset_v", "length")]
 
     def extra_handles(self, frame, values: dict, depth: float) -> list:

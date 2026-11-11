@@ -14,6 +14,7 @@ class PushPull(Tool):
     accepts = Accepts(faces=(1, None))
     params = [Param("distance", "length", drag=True)]
     skips_hidden_bodies = True
+    interaction = "this"
     related = ("coplanar", "parallel")
 
     def bind(self, raw):
@@ -96,7 +97,7 @@ def _pull_up_to(topology, faces, values, symmetric, direction, preview=False) ->
     if symmetric:
         raise OperationError("Up to face does not combine with symmetric; turn one of them off")
     try:
-        target = topology.face(values["target"])
+        target = values.get("target_face") or topology.face(values["target"])  # "target_face": a face outside the narrowed scene
     except Exception:
         raise OperationError("Up to face: the target face is not part of the model") from None
     result = pull_up_to_face(topology.shape, faces, target, direction, values["mode"], preview, values["flip"] >= 0.5)
@@ -109,7 +110,7 @@ def _pull_to_extent(topology, faces, values, symmetric, direction, preview=False
 
     if symmetric:
         raise OperationError("Up to last and Through all do not combine with symmetric; turn one of them off")
-    result = pull_to_extent(topology.shape, faces, direction, values["mode"], values["extent"], values["flip"] >= 0.5, preview)
+    result = pull_to_extent(topology.shape, faces, direction, values["mode"], values["extent"], values["flip"] >= 0.5, preview, getattr(topology, "reference_shape", None))
     result.tracked_faces = result.tracked_faces[:1]
     return result
 

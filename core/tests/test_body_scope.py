@@ -136,6 +136,7 @@ def block_with_body_above():
 @pytest.mark.parametrize("extent", ["last", "through"])
 def test_pulling_up_to_a_body_merges_it_while_it_is_visible(extent):
     scene = block_with_body_above()
+    scene.interact = "others"
     result = _pull_top(scene, 0, 5, extent=extent)
     assert [round(volume(s)) for s in solids_of(result.shape)] == [72000]
 
@@ -180,6 +181,7 @@ def test_a_new_hole_skips_a_hidden_copy_but_cuts_a_visible_one():
     block = solids_of(Topology(load_demo("block")).shape)[0]
     for hidden, copy_volume in ((True, 24000), (False, None)):
         scene = _with_copy_of(block)
+        scene.interact = "others"
         if hidden:
             scene.hidden_bodies = frozenset({scene.bodies.bodies[1].id})
         result = get_tool("add_hole").execute(scene, Selection(faces=[top_face_of(scene, 0)]), {"diameter": 6, "depth": 0}, preview=False)

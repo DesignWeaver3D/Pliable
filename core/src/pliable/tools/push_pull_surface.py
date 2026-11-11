@@ -21,6 +21,7 @@ class PushPullSurface(Tool):
     # Not a drag tool: curved faces have no single drag direction, so the distance comes from the form.
     params = [Param("distance", "length", default=1.0)]
     skips_hidden_bodies = True
+    interaction = "this"
 
     def applies(self, topology, selection):
         return all(planar_normal(topology.face(i)) is None for i in selection.faces)

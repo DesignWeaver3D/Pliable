@@ -1,6 +1,6 @@
 """Session methods for read-only questions about the model: tools on offer, handles, measurements, related faces and edge selections."""
 
-from .. import dimedit
+from .. import dimedit, interaction
 from ..edgesel import edge_loops, edge_ring, outer_loop, face_edges, face_loops, region_boundary, shared_loop, sharp_edges
 from ..hole_selection import classify as classify_hole_selection
 from ..measure import measure, model_info
@@ -31,7 +31,12 @@ class QueryHandlers:
         tool = get_tool(str(request.get("tool")))
         selection = Selection.from_json(request.get("selection"))
         attach_rail(self.document, selection, strict=False)
-        return {"handles": tool.handle_list(topology, selection, request.get("params") or {}), "startsFrom": tool.starts_from, "anchors": tool.anchor_list(request.get("params") or {})}
+        topology.interact = request.get("interact")
+        reply = {"handles": tool.handle_list(topology, selection, request.get("params") or {}), "startsFrom": tool.starts_from, "anchors": tool.anchor_list(request.get("params") or {})}
+        interact = interaction.report(tool, topology, selection)
+        if interact is not None:
+            reply["interact"] = interact
+        return reply
 
     def _measure(self, request):
         topology = self._require_document().current
