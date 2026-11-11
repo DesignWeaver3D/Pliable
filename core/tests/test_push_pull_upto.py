@@ -135,10 +135,8 @@ def test_new_body_adds_the_pad_as_its_own_solid():
     assert volume(shape) == pytest.approx(LOWER_V + UPPER_V + 400 * 15, rel=1e-6)
 
 
-def test_subtract_and_symmetric_are_refused():
+def test_symmetric_is_refused():
     session = session_with(LOWER, UPPER)
     top, target = find_face(session, 5, 1), find_face(session, 20, -1)
-    with pytest.raises(OperationError, match="adds material"):
-        commit(session, top, target, mode="subtract")
     with pytest.raises(OperationError, match="symmetric"):
         commit(session, top, target, symmetric=1)

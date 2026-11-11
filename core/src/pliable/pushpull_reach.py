@@ -70,12 +70,11 @@ def _extent(shape, pull) -> tuple:
     return max(_along(c, pull) for c in corners), high.Distance(low)
 
 
-def pull_to_extent(shape, faces, direction, mode: str, extent: str):
+def pull_to_extent(shape, faces, direction, mode: str, extent: str, flip: bool = False, preview: bool = False):
     """Pull `faces` (planar, of a solid or loose sketch regions) up to the last surface ("last") or through all ("through").
-    Raises OperationError and changes nothing for Subtract, when nothing lies ahead of a face, or when the pad cannot be built."""
+    Subtract (or Flip in Auto) cuts the pad from the bodies it meets instead of fusing it.
+    Raises OperationError and changes nothing when nothing lies ahead of a face, or when the pad cannot be built."""
     name = "Up to last" if extent == "last" else "Through all"
-    if mode == "subtract":
-        raise OperationError(f"{name} adds material; use Auto, Add or New body")
     bodies = solids_of(shape)
     if not bodies:
         raise OperationError(f"{name}: there is no body to extend to")
@@ -120,4 +119,4 @@ def pull_to_extent(shape, faces, direction, mode: str, extent: str):
                 raise OperationError(f"{name}: could not build the pad")
         pads.append(pad)
         caps.append(cap)
-    return assemble_pads(shape, faces, pads, caps, mode)
+    return assemble_pads(shape, faces, pads, caps, mode, flip, preview)

@@ -69,12 +69,10 @@ def test_new_body_keeps_the_extent_pad_separate():
     assert len(solids_of(result.shape)) == 3
 
 
-def test_subtract_and_symmetric_are_refused_for_the_extents():
+def test_symmetric_is_refused_for_the_extents():
     session = session_with(LOW, STEP)
     top = find_face(session, 5, 1)
     for extent in ("last", "through"):
-        with pytest.raises(OperationError, match="adds material"):
-            reply_commit(session, top, extent=extent, mode="subtract")
         with pytest.raises(OperationError, match="symmetric"):
             reply_commit(session, top, extent=extent, symmetric=1)
 

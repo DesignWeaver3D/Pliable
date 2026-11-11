@@ -75,12 +75,10 @@ def _dist(point, origin, normal) -> float:
     return (point.X() - origin.X()) * normal.X() + (point.Y() - origin.Y()) * normal.Y() + (point.Z() - origin.Z()) * normal.Z()
 
 
-def pull_up_to_face(shape, faces, target, direction, mode: str, preview: bool) -> OpResult:
+def pull_up_to_face(shape, faces, target, direction, mode: str, preview: bool, flip: bool = False) -> OpResult:
     """Pull `faces` (planar, of a solid or loose sketch regions) up to the `target` face (flat, or curved: see pushpull_curved). Mode "new" adds the pad as a
-    separate solid; any other adds (fuses with every body it meets). Raises OperationError and changes nothing when the
+    separate solid; the role (see `push_role`: Subtract, or Flip in Auto, cuts) fuses it with every body it meets or cuts it from them. Raises OperationError and changes nothing when the
     target is one of the faces, lies behind the pull or cuts through a profile."""
-    if mode == "subtract":
-        raise OperationError("Up to face adds material; use Auto, Add or New body")
     if any(f.IsSame(target) for f in faces):
         raise OperationError("Up to face: the target is the face being pulled; pick another face")
     flat = BRepAdaptor_Surface(target).GetType() == GeomAbs_Plane
@@ -107,12 +105,16 @@ def pull_up_to_face(shape, faces, target, direction, mode: str, preview: bool) -
                 raise OperationError("Up to face: could not end the pad on the target face")
         pads.append(straight)
         caps.append(cap)
-    return assemble_pads(shape, faces, pads, caps, mode)
+    return assemble_pads(shape, faces, pads, caps, mode, flip, preview)
 
 
-def assemble_pads(shape, faces, pads, caps, mode: str) -> OpResult:
+def assemble_pads(shape, faces, pads, caps, mode: str, flip: bool = False, preview: bool = False) -> OpResult:
     """Put the finished `pads` (solids, each with its end face in `caps`, or None) into `shape`: mode "new" keeps each as a
-    separate solid, any other fuses them with every body they meet. The pulled `faces` are replaced by the pads."""
+    separate solid, a cutting role (Subtract, or Flip in Auto) subtracts them from every body they meet (nothing removed: see
+    `nothing_to_subtract`), any other fuses them with every body they meet. The pulled `faces` are replaced by the pads."""
+    from .pushpull_modes import _volume_of, nothing_to_subtract, push_role
+
+    cut = push_role(mode, flip, 1.0) == "cut"
     solids = solids_of(shape)
     others = [f for f in _faces_of(shape) if not any(f.IsSame(p) for p in faces) and not any(_contains(solid, f) for solid in solids)]
     combined, builder = TopoDS_Compound(), BRep_Builder()
@@ -128,6 +130,17 @@ def assemble_pads(shape, faces, pads, caps, mode: str) -> OpResult:
             builder.Add(combined, shape)
         for p in pads:
             builder.Add(combined, p)
+    elif solids and cut:
+        body = compound_of(solids)
+        removal = _boolean(body, compound_of(pads), False, glue=False)
+        if removal is None:
+            raise OperationError("Boolean operation failed")
+        if _volume_of(removal.Shape()) >= _volume_of(body) - 1e-6:
+            return nothing_to_subtract(shape, faces, pads, preview)
+        builder.Add(combined, removal.Shape())
+        tracked = [kept for cap in caps if cap is not None for kept in _follow(removal, [cap])]
+    elif cut:
+        return nothing_to_subtract(shape, faces, pads, preview)
     elif solids:
         fuse = _boolean(compound_of(solids), compound_of(pads), True, glue=False)
         if fuse is None:

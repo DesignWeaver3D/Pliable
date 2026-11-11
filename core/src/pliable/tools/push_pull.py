@@ -80,9 +80,9 @@ class PushPull(Tool):
             raise OperationError("These two faces face away from each other; hold Shift while dragging to push/pull them symmetrically")
         direction = _chosen(values)
         if "extent" in values:
-            return _pull_to_extent(topology, faces, values, symmetric, direction)
+            return _pull_to_extent(topology, faces, values, symmetric, direction, preview)
         if "target" in values:
-            return _pull_up_to(topology, faces, values, symmetric, direction)
+            return _pull_up_to(topology, faces, values, symmetric, direction, preview)
         if direction is not None and symmetric:
             raise OperationError("Symmetric push/pull uses the face normal; reset the pull direction first")
         result = push_pull(topology.shape, faces if len(faces) > 1 else faces[0], values["distance"], preview=preview, symmetric=symmetric and loose, direction=direction, mode=values["mode"], flip=values["flip"] >= 0.5)
@@ -90,7 +90,7 @@ class PushPull(Tool):
         return result
 
 
-def _pull_up_to(topology, faces, values, symmetric, direction) -> OpResult:
+def _pull_up_to(topology, faces, values, symmetric, direction, preview=False) -> OpResult:
     from ..pushpull_upto import pull_up_to_face
 
     if symmetric:
@@ -99,17 +99,17 @@ def _pull_up_to(topology, faces, values, symmetric, direction) -> OpResult:
         target = topology.face(values["target"])
     except Exception:
         raise OperationError("Up to face: the target face is not part of the model") from None
-    result = pull_up_to_face(topology.shape, faces, target, direction, values["mode"], False)
+    result = pull_up_to_face(topology.shape, faces, target, direction, values["mode"], preview, values["flip"] >= 0.5)
     result.tracked_faces = result.tracked_faces[:1]
     return result
 
 
-def _pull_to_extent(topology, faces, values, symmetric, direction) -> OpResult:
+def _pull_to_extent(topology, faces, values, symmetric, direction, preview=False) -> OpResult:
     from ..pushpull_reach import pull_to_extent
 
     if symmetric:
         raise OperationError("Up to last and Through all do not combine with symmetric; turn one of them off")
-    result = pull_to_extent(topology.shape, faces, direction, values["mode"], values["extent"])
+    result = pull_to_extent(topology.shape, faces, direction, values["mode"], values["extent"], values["flip"] >= 0.5, preview)
     result.tracked_faces = result.tracked_faces[:1]
     return result
 
