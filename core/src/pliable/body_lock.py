@@ -20,7 +20,7 @@ def has_locked(topology) -> bool:
     return any(b.locked for b in topology.bodies.bodies)
 
 
-def refuse_locked(tool, topology, selection) -> None:
+def refuse_locked(tool, topology, selection, values=None) -> None:
     """Raise OperationError when the selection names a locked body that the tool would change."""
     if not has_locked(topology):
         return
@@ -29,6 +29,7 @@ def refuse_locked(tool, topology, selection) -> None:
     if len(solids) != len(state.bodies):
         return
     skipped = set(tool.reference_face_ids(topology, selection))
+    exempt = tool.exempt_owners(topology, selection, values or {})
     kinds = {
         "faces": [i for i in selection.faces if i not in skipped],
         "edges": [] if tool.reference_edges else list(selection.edges),
@@ -38,7 +39,7 @@ def refuse_locked(tool, topology, selection) -> None:
     for field, ids in kinds.items():
         for i in ids:
             owners = _owning(topology, type(selection)(**{field: [i]}), solids)  # one at a time: a loose face must not hide the others
-            if owners and any(state.bodies[k].locked for k in owners):
+            if owners and any(state.bodies[k].locked and k not in exempt for k in owners):
                 raise OperationError(LOCKED_MESSAGE)
 
 

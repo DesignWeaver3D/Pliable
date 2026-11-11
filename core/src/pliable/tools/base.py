@@ -308,6 +308,10 @@ class Tool:
         """The selected faces this tool only reads (never changes), so they may belong to a locked body."""
         return list(selection.faces) if self.reference_faces else []
 
+    def exempt_owners(self, topology: Topology, selection: Selection, values: dict[str, float]) -> set[int]:
+        """Indices of locked bodies this run may name without changing them (Boolean tool bodies when Keep tools is on)."""
+        return set()
+
     def handles(self, topology: Topology, selection: Selection, values: dict[str, float]) -> list[Handle]:
         """On-screen manipulators for the current parameter values: one per parameter that can be dragged in the view.
         Typed entry stays available for every parameter. The default is none."""
@@ -375,7 +379,7 @@ class Tool:
         if not self.available(topology, selection):
             raise OperationError(self.refusal(topology, selection) or f"{self.label} can't be used with this selection")
         values = self.bind(raw_params)
-        refuse_locked(self, topology, selection)
+        refuse_locked(self, topology, selection, values)
         try:
             narrowed = narrow(topology, selection, strict=self.scope_to_bodies) if self.scope_to_bodies or self.skips_hidden_bodies else None
             work, chosen = (narrowed.topology, narrowed.selection) if narrowed else (topology, selection)

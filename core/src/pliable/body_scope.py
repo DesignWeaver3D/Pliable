@@ -102,7 +102,8 @@ def _chosen(topology: Topology, selection, solids: list[TopoDS_Shape], strict: b
         pool = found
     else:
         hidden = {i for i in (state.find(b) for b in getattr(topology, "hidden_bodies", ())) if i is not None}
-        pool = found | (set(range(len(solids))) - hidden)
+        skipped = hidden | {i for i, body in enumerate(state.bodies) if body.locked}  # hidden and locked bodies stay out of automatic merges and cuts
+        pool = found | (set(range(len(solids))) - skipped)
     if (len(pool) == len(solids) and not hold) or (not pool and not (loose and not strict)):
         return None
     return sorted(pool)

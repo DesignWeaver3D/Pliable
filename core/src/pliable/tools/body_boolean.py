@@ -30,6 +30,13 @@ class BodyBoolean(Tool):
         chosen = _chosen_solids(topology, selection)
         return [i for i, solid in enumerate(solids_of(topology.shape)) if any(solid.IsSame(c) for c in chosen)]
 
+    def exempt_owners(self, topology, selection, values):
+        # With Keep tools on the tool bodies are only read, so locked ones may be tools (never the target, the first chosen)
+        if not bool(int(round(values.get("keep_tools", 0)))):
+            return set()
+        solids, chosen = solids_of(topology.shape), _chosen_solids(topology, selection)
+        return {i for i, solid in enumerate(solids) if any(solid.IsSame(c) for c in chosen[1:])}
+
     def applies(self, topology, selection):
         return len(_chosen_solids(topology, selection)) >= 2
 

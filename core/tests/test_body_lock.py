@@ -179,3 +179,29 @@ def test_body_list_delete_refuses_a_locked_body_and_edit_stays_allowed():
         session.handle({"type": "delete_body", "bodies": [1]})
     session.handle({"type": "rename_body", "body": 1, "name": "Reference"})
     session.handle({"type": "duplicate_body", "body": 1})
+
+
+# ---- locked bodies beside automatic merges, and as Boolean tools ----
+
+
+def test_an_extent_pull_skips_a_locked_body_instead_of_merging_into_it():
+    from build123d import Box, Pos
+
+    from pliable.topology import Topology
+    from pliable.body_scope import _compound
+    from pliable.bodies import BodyState
+
+    scene = Topology(_compound([Box(40, 30, 20).wrapped, (Pos(0, 0, 40) * Box(40, 30, 20)).wrapped]))
+    scene.bodies = BodyState(tuple(b if i == 0 else __import__("dataclasses").replace(b, locked=True) for i, b in enumerate(scene.bodies.bodies)), scene.bodies.next_id, scene.bodies.counts)
+    with pytest.raises(OperationError, match="nothing lies beyond"):
+        run("push_pull", scene, Selection(faces=[top_face(scene, 0)]), distance=5, extent="last")
+
+
+def test_a_locked_body_is_a_boolean_tool_only_with_keep_tools(pair):
+    with pytest.raises(OperationError, match=LOCKED):
+        run("body_boolean", pair, Selection(bodies=[2, 1]), mode=1)  # no Keep tools: the locked tool body would be consumed
+    kept = run("body_boolean", pair, Selection(bodies=[2, 1]), mode=1, keep_tools=1)
+    locked = solids_of(pair.shape)[0]
+    assert any(locked.IsSame(s) for s in solids_of(kept.shape))  # the locked tool body is still there, unchanged
+    with pytest.raises(OperationError, match=LOCKED):
+        run("body_boolean", pair, Selection(bodies=[1, 2]), mode=1, keep_tools=1)  # a locked target is never changed
