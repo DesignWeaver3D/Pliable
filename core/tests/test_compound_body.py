@@ -61,3 +61,34 @@ def test_union_of_touching_bodies_is_still_one_plain_solid():
     document.commit(_union(document).shape)
     (body,) = solids_of(document.current.shape)
     assert body.ShapeType() != TopAbs_COMPSOLID
+
+
+def _overlapping():
+    compound, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(compound)
+    for x in (0, 5):
+        builder.Add(compound, (Pos(x, 0, 0) * Box(10, 10, 10)).wrapped)
+    return compound
+
+
+@pytest.mark.parametrize("mode, bodies", [(0, 2), (1, 2), (2, 2)])
+def test_boolean_keep_tools_leaves_the_tool_body_with_its_id_and_name(mode, bodies):
+    document = Document(_overlapping())
+    tool_state = document.current.bodies.bodies[1]
+    result = get_tool("body_boolean").execute(document.current, Selection(bodies=[1, 2]), {"mode": mode, "keep_tools": 1}, preview=False)
+    document.commit(result.shape)
+    state = document.current.bodies
+    assert len(state.bodies) == bodies
+    kept = [b for b in state.bodies if b.id == tool_state.id]
+    assert kept and kept[0].name == tool_state.name
+    from pliable.ops import solids_of
+    from pliable.shared.solids import _volume
+
+    assert any(_volume(s) == pytest.approx(1000, rel=1e-6) for s in solids_of(document.current.shape))
+
+
+def test_boolean_without_keep_tools_removes_the_tool_body():
+    document = Document(_overlapping())
+    result = get_tool("body_boolean").execute(document.current, Selection(bodies=[1, 2]), {"mode": 1}, preview=False)
+    document.commit(result.shape)
+    assert len(document.current.bodies.bodies) == 1
