@@ -122,14 +122,10 @@ Tool group CORE:
   - [ ] Add a note to the README about the Linux download (a file to make executable and run; needs WebKitGTK 4.1 installed).
 
 - **Body interaction setting, locked bodies and Flip for the extent modes.** Owner (2026-11-10): Flip with Through all "did an additive "Up to last" Boolean with the adjacent body. [...] I expected was without touching the gizmo to operate in the face normal direction with respect to the flip status (add or subtract)." "limiting Up to face, up to last, and through all to only add material is wrong considering there is an explicit subtract mode." "I think having the option in the card is the cleanest." "Tools need to reset to their default state, the state behavior which should match what is used most often for a tool." "If user wants a body to be an immutable reference, whether in X-ray visible state or not, then we need a way to set that. I think a lock icon in the body list could be used for this." Locked bodies "must be pickable to be useful". See `dev-notes.md` (Multi-body interaction) and `decisions-log.md` (2026-11-10).
-  - [ ] Up to face, Up to last, Through all follow Subtract and Flip like a plain pull (cut instead of fuse; face normal when the gizmo is untouched); tests.
-  - [ ] Lock icon next to the eye in the body list; `locked` stored in `BodyState` and the project file, undoable. One check in `Tool.execute`: a selection owned by a locked body refuses ("This body is locked") except reference inputs (Up to face target, Mirror plane face, measuring); whole-model defaults skip locked bodies; Delete, Move, Scale, Offset, Unify, Boolean refuse.
-  - [ ] Card setting "This body" / "Other bodies" (hidden and locked skipped), sent with the request, reset on open: push/pull, hole tools, boss, slot, Revolve, Sweep, Loft, Mirror, arrays, primitives with `new_body` 0. New body ignores it.
-  - [ ] Carry loose faces through `body_scope.narrow` so scoping works beside a loose sketch region; a loose region gets only Other bodies and New body.
-  - [ ] Stale Draft text and `appstate.ts` comment; `behavior.md`; hand-checks.
-
-- **Keep tools on the Boolean tool.** Owner (2026-11-10): "A keep tools option for the Boolean tool is a good idea, add this to progress list. Having that prevents the need to copy body to use as tool when the shape is needed beyond the tool." Related: none.
-  - [ ] Boolean (`body_boolean`) gets a Keep tools option (tool bodies stay after the operation; off by default). Test, behavior line.
+  - [x] Up to face, Up to last, Through all follow Subtract and Flip; lock built (core, undo, file, body-list button); loose faces carried through scoping; Keep tools on Boolean. Built, tests pass; hand-checks in `author-guidance.md`.
+  - [ ] Card setting "This body" / "Other bodies" (hidden and locked skipped), sent with the request, reset on open: push/pull, hole tools, boss, slot, Revolve, Sweep, Loft, Mirror, arrays, primitives with `new_body` 0. New body ignores it. Mirror, arrays and primitives with `new_body` 0 do not yet skip hidden bodies.
+  - [ ] Up to face onto a face of a locked body (a reference target): the target is dropped when locked bodies leave the narrowed scene, so it refuses. Move turns about the middle of the whole model, locked bodies included (`watchlist.md`).
+  - [ ] Stale Draft text and `appstate.ts` comment; `behavior.md` lines for the setting.
 
 ## Review of 2026-10-27 session A (owner review of author-guidance sketch items; quotes are the owner's words)
 
