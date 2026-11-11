@@ -25,7 +25,7 @@ import { canJoinSelection, parentBodies, similarTo, type SimilarKind } from "./s
 import { bodyColorArray } from "./bodycolorarray";
 import { fitBoxOf } from "./sketchfit";
 import { roundValue } from "./precision.ts";
-import { projectOnSegment } from "./segmentmath.ts";
+import { projectOnSegment, worldFraction } from "./segmentmath.ts";
 
 /** A "body" selection is a whole solid (every face of the body), chosen from the body list. An "axis" is a global axis (id 0, 1, 2 for X, Y, Z) picked in the view. */
 export type Kind = "face" | "edge" | "vertex" | "body" | "axis";
@@ -1820,6 +1820,7 @@ export class Viewport {
       const n = v.clone().project(this.camera);
       return [((n.x + 1) / 2) * rect.width, ((1 - n.y) / 2) * rect.height, n.z] as const;
     };
+    const viewDepth = (v: THREE.Vector3) => -v.clone().applyMatrix4(this.camera.matrixWorldInverse).z; // distance along the viewing direction
     for (const edge of data.edges) {
       for (let i = edge.start; i + 1 < edge.start + edge.count; i += 2) {
         a.fromArray(data.edgePositions, i * 3);
@@ -1829,7 +1830,10 @@ export class Viewport {
         if (az > 1 || bz > 1) continue;
         const { t, dist: d } = projectOnSegment(px, py, ax, ay, bx, by);
         if (d >= edgePx) continue;
-        const point = a.clone().lerp(b, t);
+        // t is a fraction of the picture of the segment; in perspective it is not the same fraction of the segment itself, and
+        // the nearer the camera the bigger the difference (which hid the middle of long edges when zoomed in).
+        const along = this.camera.type === "PerspectiveCamera" ? worldFraction(t, viewDepth(a), viewDepth(b)) : t;
+        const point = a.clone().lerp(b, along);
         const depth = point.distanceTo(this.camera.position);
         if (depth > depthLimit) continue;
         // Nearest on screen wins, but among candidates within a couple of pixels the one

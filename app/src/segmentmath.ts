@@ -2,6 +2,19 @@
 export type SegmentHit = { t: number; x: number; y: number; dist: number };
 
 /**
+ * Where along a 3D segment (0 at a, 1 at b) the point lies that shows at screen fraction `t` of its projection, for a
+ * perspective camera: the picture of a line is not evenly spaced along it, the nearer half takes up more of the screen.
+ * `depthA` and `depthB` are the distances of the ends along the viewing direction. Returns `t` unchanged when a depth
+ * is not positive (an end at or behind the camera), and use `t` as it is for an orthographic camera.
+ */
+export function worldFraction(t: number, depthA: number, depthB: number): number {
+  if (!(depthA > 0) || !(depthB > 0)) return t;
+  const near = (1 - t) / depthA;
+  const far = t / depthB;
+  return far / (near + far);
+}
+
+/**
  * Projects (px, py) onto the segment a-b with the position along it clamped to [0, 1] (ends included).
  * A segment whose squared length is 0, or below `minLength2` when given, counts as a point at a (t = 0).
  */
