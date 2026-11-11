@@ -7,7 +7,7 @@ import type { ParamValue } from "./toolpanel";
 import type { ToolInfo } from "./tools";
 import type { Sel } from "./viewport";
 
-/** Which bodies are hidden, see-through or in focus (view only: not saved, not sent to the core). Ids are stable, so a
+/** Which bodies are hidden, see-through or in focus (view only: not saved; the hidden ids are sent with tool requests so the core's automatic merges and cuts skip them). Ids are stable, so a
  *  hidden body stays hidden through operations. */
 export const bodyView: { hidden: ReadonlySet<number>; ghost: ReadonlySet<number>; focus: FocusState | null } = {
   hidden: new Set(),

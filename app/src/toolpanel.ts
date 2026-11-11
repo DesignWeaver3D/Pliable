@@ -11,6 +11,8 @@ import { roundValue, showNumber } from "./precision.ts";
 import { COUNTERSINK_ANGLES, hasAngles, hasSizes, holeSizes } from "./holesizes.ts";
 import { PARAM_HELP, TOOL_PARAM_HELP } from "./toolparamhelp";
 import { numericField, fieldNumber, fieldText } from "./numberfield.ts";
+import { interaction } from "./interactionlogic.ts";
+import { InteractionChoice } from "./interactionchoice.ts";
 
 /** A parameter value: a number, or for `per_edge` parameters one [start, end] radius pair per selected edge. */
 export type ParamValue = number | number[][];
@@ -174,6 +176,7 @@ export class ToolPanel {
     clearTimeout(this.timer);
     this.formEl.hidden = true;
     this.formEl.replaceChildren();
+    interaction.reset(); // the body interaction choice is forgotten
     this.host.changed?.();
     if (restore) this.host.cancel();
   }
@@ -305,7 +308,10 @@ export class ToolPanel {
       buttons.prepend(two);
     }
     const header = card ? (this.host.cardHeader?.(tool) ?? null) : null;
-    this.formEl.replaceChildren(header ?? title, ...rows, buttons);
+    interaction.setReport(null); // a new tool: the last tool's setting no longer applies
+    const choice = new InteractionChoice(() => this.schedulePreview(0));
+    choice.setTool(tool.interaction);
+    this.formEl.replaceChildren(header ?? title, ...rows, choice.el, buttons);
     const placement = tool.placement;
     if (placement && placement.length === 3 && this.host.pickPoint) {
       const note = document.createElement("div");

@@ -2,6 +2,7 @@
  *  Moved out of main.ts; the card (pushpullcard.ts) and the state (pushpullstate.ts) know nothing of the view. */
 import type { Sel, Viewport } from "./viewport";
 import { PushPullCard } from "./pushpullcard.ts";
+import type { Interact } from "./interactionlogic.ts";
 import { leavesFace, outOf } from "./pulldir.ts";
 
 export interface PushPullWireDeps {
@@ -12,6 +13,8 @@ export interface PushPullWireDeps {
   armedTool(): string | null;
   /** Click a face in the view to pull up to (Up to face); null when cancelled. */
   pickFace(): Promise<number | null>;
+  /** The Push/Pull tool's default body interaction, from its tool info. */
+  interactionDefault(): Interact | null;
 }
 
 export function createPushPullCard(d: PushPullWireDeps): PushPullCard {
@@ -27,6 +30,7 @@ export function createPushPullCard(d: PushPullWireDeps): PushPullCard {
       viewport.pullDirection.set(normal ? outOf(direction, normal) : direction);
     },
     pickTarget: d.pickFace,
+    interactionDefault: d.interactionDefault,
     // A typed distance runs the same preview and commit as a drag of that length (itemdrag.ts), from the selection the card was opened on.
     previewDistance: (value) => viewport.onItemDrag(d.selection(), value, "move", d.el.getBoundingClientRect().left - 80, d.el.getBoundingClientRect().top + 40),
     applyDistance: (value) => viewport.onItemDrag(d.selection(), value, "end"),
