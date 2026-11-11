@@ -65,7 +65,7 @@ def _cut_bodies(topology, selection, values) -> TopoDS_Shape:
         above = _combine(piece, _half_space(target, normal, position, above=False), fuse=False)
         vb, va, total = _volume(below), _volume(above), _volume(solid)
         tiny = 1e-9 * max(total, 1)
-        if abs(vb + va - total) > 1e-6 * total:  # a cut that leaves nothing reports the whole body: the plane misses it
+        if abs(vb + va - total) > 1e-4 * total:  # a cut that leaves nothing reports the whole body: the plane misses it (curved faces add a volume error of about 1e-6)
             middle = _model_middle(solid)
             lower = sum(normal[k] * middle[k] for k in range(3)) < position
             vb, va = (total, 0.0) if lower else (0.0, total)
