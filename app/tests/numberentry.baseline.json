@@ -1,7 +1,8 @@
 {
   "bodycolors.ts": 1,
   "bodylist.ts": 3,
-  "dimensions.ts": 6,
+  "dimensiondraw.ts": 4,
+  "dimensionsvg.ts": 2,
   "formula.ts": 1,
   "holeeditor.ts": 1,
   "holefeatures.ts": 1,
