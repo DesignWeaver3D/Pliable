@@ -15,13 +15,16 @@ MODES = ("Union", "Subtract", "Intersect")
 class BodyBoolean(Tool):
     """Boolean between solids of the model. Select two or more bodies, or faces of them (a body and faces of another body
     also work); the first selected is the target and the others are the tools. `mode` 0 (Union) unites them, 1 (Subtract)
-    subtracts the tools from the target, 2 (Intersect) keeps only the overlap. Other solids stay as they are."""
+    subtracts the tools from the target, 2 (Intersect) keeps only the overlap. Other solids stay as they are.
+    `keep_tools` 1 (Yes) leaves the tool bodies in the scene unchanged, with their ids and names: after Subtract and Intersect
+    they remain whole beside the result, and after Union the result is the fused body and the tool bodies stay as separate
+    bodies lying inside it. Off by default."""
 
     id = "body_boolean"
     label = "Boolean"
-    description = "Combines solids: Union joins them, Subtract removes the later ones from the first, Intersect keeps only the overlap. Select two or more bodies, or faces of them; the first selected is the target."
+    description = "Combines solids: Union joins them, Subtract removes the later ones from the first, Intersect keeps only the overlap. Select two or more bodies, or faces of them; the first selected is the target. Keep tools leaves the tool bodies in the scene (after a union they stay as separate bodies inside the result)."
     accepts = Accepts(faces=(0, None), bodies=(0, None), any_of=True)
-    params = [Param("mode", "number", 0, options=MODES)]
+    params = [Param("mode", "number", 0, options=MODES), Param("keep_tools", "number", 0, options=("No", "Yes"))]
 
     def combines(self, topology, selection, values):
         chosen = _chosen_solids(topology, selection)
@@ -60,7 +63,8 @@ class BodyBoolean(Tool):
         compound, builder = TopoDS_Compound(), BRep_Builder()
         builder.MakeCompound(compound)
         builder.Add(compound, merged)
+        keep = bool(int(round(values.get("keep_tools", 0))))
         for solid in solids:
-            if not any(solid.IsSame(c) for c in chosen):
+            if not any(solid.IsSame(c) for c in chosen) or (keep and any(solid.IsSame(t) for t in tools)):
                 builder.Add(compound, solid)
         return finish(compound)
