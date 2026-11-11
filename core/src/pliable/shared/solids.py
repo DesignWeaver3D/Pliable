@@ -32,11 +32,16 @@ TOL = 1e-6
 def finish(shape: TopoDS_Shape, cutters=()) -> OpResult:
     """Merge faces that share a surface, check the result, and return it (the selection is not carried over).
     `cutters` are the tool volumes a subtract removed; the preview draws the part of them in empty space as a ghost."""
-    copy = BRepBuilderAPI_Copy(shape, False, True)  # UnifySameDomain edits its input in place
-    unify = ShapeUpgrade_UnifySameDomain(copy.Shape(), True, True, True)
-    unify.Build()
-    result = unify.Shape()
-    if result.IsNull() or not BRepCheck_Analyzer(result).IsValid():
+    result = None
+    # Merging faces can break a valid result (a shelled, rounded body fused to its mirror image); then only the edges are merged.
+    for faces in (True, False):
+        copy = BRepBuilderAPI_Copy(shape, False, True)  # UnifySameDomain edits its input in place
+        unify = ShapeUpgrade_UnifySameDomain(copy.Shape(), True, faces, faces)
+        unify.Build()
+        result = unify.Shape()
+        if not result.IsNull() and BRepCheck_Analyzer(result).IsValid():
+            break
+    else:
         raise OperationError("Operation produced invalid geometry")
     return OpResult(result, [], unified=True, cutters=list(cutters))
 
