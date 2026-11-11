@@ -121,18 +121,6 @@ Tool group CORE:
   - [ ] Run the `desktop` workflow once from the Actions tab and check the Linux job (AppImage built, smoke test passes); the owner starts it on a Linux machine to check a double-click launch.
   - [ ] Add a note to the README about the Linux download (a file to make executable and run; needs WebKitGTK 4.1 installed).
 
-- **Body interaction setting, locked bodies and Flip for the extent modes.** Owner (2026-11-10): Flip with Through all "did an additive "Up to last" Boolean with the adjacent body. [...] I expected was without touching the gizmo to operate in the face normal direction with respect to the flip status (add or subtract)." "limiting Up to face, up to last, and through all to only add material is wrong considering there is an explicit subtract mode." "I think having the option in the card is the cleanest." "Tools need to reset to their default state, the state behavior which should match what is used most often for a tool." "If user wants a body to be an immutable reference, whether in X-ray visible state or not, then we need a way to set that. I think a lock icon in the body list could be used for this." Locked bodies "must be pickable to be useful". See `dev-notes.md` (Multi-body interaction) and `decisions-log.md` (2026-11-10).
-  - [x] Up to face, Up to last, Through all follow Subtract and Flip; lock built (core, undo, file, body-list button); loose faces carried through scoping; Keep tools on Boolean. Built, tests pass; hand-checks in `author-guidance.md`.
-  - [ ] Card setting "This body" / "Other bodies" (hidden and locked skipped), sent with the request, reset on open: push/pull, hole tools, boss, slot, Revolve, Sweep, Loft, Mirror, arrays, primitives with `new_body` 0. New body ignores it. Mirror, arrays and primitives with `new_body` 0 do not yet skip hidden bodies.
-  - [ ] Up to face onto a face of a locked body (a reference target): the target is dropped when locked bodies leave the narrowed scene, so it refuses. Move turns about the middle of the whole model, locked bodies included (`watchlist.md`).
-  - [ ] Stale Draft text and `appstate.ts` comment; `behavior.md` lines for the setting.
-
-## Review of 2026-10-27 session A (owner review of author-guidance sketch items; quotes are the owner's words)
-
-Related existing items checked: Ideas "A parity checklist" (its scenario set that must solve without flips touches the sketch flipping row). The rest of this review is built (see the commit log, "Record the sketch review results and rows" onward); what is left:
-
-Tool group SKETCH:
-
 - **Sketch flipping.** Owner: "Unrelated to this line item but I get some sketch flipping if i move not fully constrained profile geometry around abruptly. [Another CAD program] has made a lot of strides recently in mitigating sketch flipping."
   - [ ] Dragging was already solved in steps; the step cap is now 40 instead of 12. Not reproduced: ask for the sketch that flips, then keep the solution nearest the previous one (limit the step or retry from the last good state) and add the case to the no-flip scenario set.
 - **Coincident constraint mark.** Owner: "Coincident constraint mark shoul be its tool button icon and be adjacent to the location" (the sentence ends there in the owner's text).
