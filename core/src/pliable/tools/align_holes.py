@@ -12,6 +12,9 @@ class AlignHoles(_HoleGroup):
     label = "Align holes / bosses"
     description = "Lines up holes or bosses so their centers match the first one you selected, along the chosen axis (0 = X, 1 = Y, 2 = Z). Select two or more round faces."
     accepts = Accepts(faces=(2, None))
+
+    def reference_face_ids(self, topology, selection):
+        return list(selection.faces[:1])  # the first hole stays where it is
     params = [Param("axis", "number", 0)]
 
     def run(self, topology, selection, values, preview):

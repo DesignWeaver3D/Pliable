@@ -24,6 +24,7 @@ Writing a tool:
 
 from dataclasses import dataclass, field
 
+from ..body_lock import keep_locked, refuse_locked
 from ..body_scope import narrow
 from ..ops import OperationError, OpResult, keep_compound, unify_result
 from ..topology import Topology
@@ -297,6 +298,15 @@ class Tool:
     # True: `run` sees the bodies that own the selection and every visible body, so hiding a body protects it from the
     # tool's automatic merges and cuts (the app sends the hidden ids; see body_scope.py).
     skips_hidden_bodies: bool = False
+    # Locked bodies (see body_lock.py): a selected face or edge of a locked body refuses the run unless the tool only reads
+    # that kind of selection as a reference (a plane to mirror across, a path to follow); `reference_face_ids` can be
+    # overridden when only some of the faces are references.
+    reference_faces: bool = False
+    reference_edges: bool = False
+
+    def reference_face_ids(self, topology: Topology, selection: Selection) -> list[int]:
+        """The selected faces this tool only reads (never changes), so they may belong to a locked body."""
+        return list(selection.faces) if self.reference_faces else []
 
     def handles(self, topology: Topology, selection: Selection, values: dict[str, float]) -> list[Handle]:
         """On-screen manipulators for the current parameter values: one per parameter that can be dragged in the view.
@@ -365,6 +375,7 @@ class Tool:
         if not self.available(topology, selection):
             raise OperationError(self.refusal(topology, selection) or f"{self.label} can't be used with this selection")
         values = self.bind(raw_params)
+        refuse_locked(self, topology, selection)
         try:
             narrowed = narrow(topology, selection, strict=self.scope_to_bodies) if self.scope_to_bodies or self.skips_hidden_bodies else None
             work, chosen = (narrowed.topology, narrowed.selection) if narrowed else (topology, selection)
@@ -374,6 +385,7 @@ class Tool:
             result.shape = keep_compound(work.shape, result.shape)
             if narrowed:
                 result = narrowed.widen(result)
+            result = keep_locked(topology, result)
             if preview and result.cutters:
                 from ..ghost import attach_ghost
 

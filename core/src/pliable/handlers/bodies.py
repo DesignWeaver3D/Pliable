@@ -43,6 +43,11 @@ class BodyHandlers:
         document = self._require_document()
         extra: dict = {}
         try:
+            if kind == "delete_body":  # a locked body is a reference: it cannot be removed (duplicate is allowed)
+                state = document.current.bodies
+                ids = [int(b) for b in request["bodies"]] if "bodies" in request else [int(request["body"])]
+                if any(state.bodies[i].locked for i in (state.find(b) for b in ids) if i is not None):
+                    raise RequestError("This body is locked")
             if kind == "delete_body" and "bodies" in request:  # several bodies, one undo step
                 target = document.delete_bodies([int(b) for b in request["bodies"]])
             elif kind == "delete_body":

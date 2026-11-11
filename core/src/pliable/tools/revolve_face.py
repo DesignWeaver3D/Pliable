@@ -24,6 +24,7 @@ class RevolveFace(Tool):
     label = "Revolve face"
     description = "Spins a face around a straight edge to add or cut a round shape. Select one face (or a whole sketch in the Sketch list, which revolves all its regions), then a straight edge or a global axis as the axis (or pick it after starting the tool); Add adds material and Subtract cuts."
     skips_hidden_bodies = True
+    reference_edges = True  # the edge is only the axis
     accepts = Accepts(faces=(1, 1), edges=(0, 1), axes=(0, 1))
     rail_accepts = Accepts(edges=(0, 1), axes=(0, 1), any_of=True)  # a whole chosen sketch plus an edge or axis: its regions are the faces
     rail_regions = True

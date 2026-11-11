@@ -8,7 +8,7 @@ from OCP.gp import gp_Ax1, gp_Dir, gp_Pnt, gp_Vec
 
 from ..ops import OperationError
 from ..tools import Handle, Param
-from .bodies import _chosen_solids
+from .bodies import _chosen_or_unlocked
 from .solids import _bounds_diagonal, _compound
 
 
@@ -52,7 +52,7 @@ def _model_middle(shape) -> tuple[float, float, float]:
 
 def _cut_target(topology, selection):
     """The solids a plane cuts: the selected bodies (or the bodies of the selected faces), else every body. Returns (chosen solids or [], their shape)."""
-    chosen = _chosen_solids(topology, selection) if (selection.bodies or selection.faces) else []
+    chosen = _chosen_or_unlocked(topology, selection)
     return chosen, (_compound(chosen) if chosen else topology.shape)
 
 

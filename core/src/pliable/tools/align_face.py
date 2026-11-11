@@ -15,6 +15,9 @@ class AlignFace(_PlanarFace):
     label = "Align face"
     description = "Moves the first selected flat face until it is flush with the second, plus an optional offset. Needs exactly two parallel flat faces selected, the one to move first; it stays unavailable until both are selected."
     scope_to_bodies = True
+
+    def reference_face_ids(self, topology, selection):
+        return list(selection.faces[1:])  # the second face is only the target; the first one moves
     accepts = Accepts(faces=(2, 2))
     params = [Param("offset", "length")]
 

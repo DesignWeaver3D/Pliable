@@ -1,7 +1,7 @@
 """The Refine bodies tool."""
 
 from ..ops import OpResult, solids_of
-from ..shared.bodies import _chosen_solids
+from ..shared.bodies import _chosen_or_unlocked
 from ..shared.solids import _compound, finish
 from ..tools import Accepts, register, Tool
 
@@ -18,7 +18,7 @@ class Unify(Tool):
     params = []
 
     def run(self, topology, selection, values, preview):
-        chosen = _chosen_solids(topology, selection) if (selection.bodies or selection.faces) else []
+        chosen = _chosen_or_unlocked(topology, selection)
         if not chosen:
             return finish(topology.shape)
         out = []

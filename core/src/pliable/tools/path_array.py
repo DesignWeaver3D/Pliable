@@ -17,6 +17,7 @@ class PathArray(Tool):
     label = "Array along path"
     description = "Needs an edge selected, or a kept sketch chosen with Shift-click on its curve (it does not show in the tool strip otherwise). Places copies of a body at equal distances along connected edges. Select the edges that form the path, plus any face of the body to copy (none copies the whole model), or the round walls of holes or bosses to copy just those features; the count includes the original."
     accepts = Accepts(faces=(0, None), edges=(1, None))
+    reference_edges = True  # the edges are only the path
     rail_accepts = Accepts(faces=(0, None))
     params = [Param("count", "number", 4)]
 

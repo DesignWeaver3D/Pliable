@@ -5,6 +5,7 @@ from OCP.TopoDS import TopoDS_Shape
 from OCP.gp import gp_Trsf, gp_Vec
 
 from ..ops import OperationError, OpResult, solids_of
+from .bodies import _relock, _unlocked_shape
 from .solids import _combine, _compound, _faces_of, finish
 
 
@@ -44,7 +45,7 @@ def _grid_transforms(columns: int, rows: int, step1: gp_Vec, step2: gp_Vec) -> l
 def _array_source(topology, selection) -> TopoDS_Shape:
     """What an array copies: the solids containing the selected faces, or the whole model with no faces selected."""
     if not selection.faces:
-        return topology.shape
+        return _unlocked_shape(topology)
     chosen = []
     for i in selection.faces:
         face = topology.face(i)
@@ -70,13 +71,13 @@ def _feature_holes(topology, selection) -> list:
 
 def _fuse_feature_copies(topology, holes: list, transforms: list[gp_Trsf]) -> OpResult:
     """Cut or fuse a transformed copy of each hole or boss for every transform (one boolean per transform and kind, so copies that touch each other stay valid)."""
-    result = topology.shape
+    result = _unlocked_shape(topology)
     for trsf in transforms:
         for boss in (False, True):
             solids = [BRepBuilderAPI_Transform(h.solid(), trsf, True).Shape() for h in holes if h.boss == boss]
             if solids:
                 result = _combine(result, _compound(solids), fuse=boss)
-    return finish(result)
+    return _relock(topology, finish(result))
 
 
 def _fuse_copies(topology, selection, transforms: list[gp_Trsf]) -> OpResult:
@@ -84,7 +85,7 @@ def _fuse_copies(topology, selection, transforms: list[gp_Trsf]) -> OpResult:
     if holes:
         return _fuse_feature_copies(topology, holes, transforms)
     source = _array_source(topology, selection)
-    result = topology.shape
+    result = _unlocked_shape(topology)
     for trsf in transforms:
         result = _combine(result, BRepBuilderAPI_Transform(source, trsf, True).Shape(), fuse=True)
-    return finish(result)
+    return _relock(topology, finish(result))
