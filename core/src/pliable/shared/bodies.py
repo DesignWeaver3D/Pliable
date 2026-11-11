@@ -7,7 +7,7 @@ from OCP.TopoDS import TopoDS_Compound, TopoDS_Shape
 from OCP.gp import gp_Pnt
 
 from ..ops import OperationError, solids_of
-from .solids import _faces_of
+from .solids import _add_material, _combine, _faces_of, finish
 
 
 def _body_bounds(topology, selection):
@@ -74,6 +74,59 @@ def _relock(topology, result):
             out.insert(min(i, len(out)), solids[i])
     result.shape = _compound_of(out)
     return result
+
+
+def _closed_indices(topology, selection=None, source: bool = False) -> set[int] | None:
+    """Indices of the bodies new material must not fuse into: locked, hidden (the ids the app sends in `topology.hidden_bodies`),
+    and, when `source` and the interaction setting `topology.interact` is "this", every body but the ones `selection` names
+    (chosen bodies, or the bodies owning chosen faces). None when the solid list does not match the bodies."""
+    solids, state = solids_of(topology.shape), topology.bodies
+    if len(solids) != len(state.bodies):
+        return None
+    closed = {i for i, b in enumerate(state.bodies) if b.locked}
+    closed |= {i for i in (state.find(b) for b in getattr(topology, "hidden_bodies", ())) if i is not None}
+    if source and getattr(topology, "interact", None) == "this" and selection is not None and (selection.bodies or selection.faces):
+        own = {i for i in (state.find(b) for b in selection.bodies) if i is not None}
+        for face_id in selection.faces:
+            face = topology.face(face_id)
+            own |= {k for k, solid in enumerate(solids) if any(f.IsSame(face) for f in _faces_of(solid))}
+        closed |= set(range(len(solids))) - own
+    return closed
+
+
+def _open_shape(topology, selection=None, source: bool = False) -> TopoDS_Shape:
+    """The shape new material fuses into: the bodies that are neither locked nor hidden (see `_closed_indices`).
+    Raises when every body is locked."""
+    closed = _closed_indices(topology, selection, source)
+    if not closed:
+        return topology.shape
+    solids, state = solids_of(topology.shape), topology.bodies
+    if all(b.locked for b in state.bodies):
+        raise OperationError("This body is locked")
+    return _compound_of([s for i, s in enumerate(solids) if i not in closed])
+
+
+def _restore_closed(topology, result, selection=None, source: bool = False):
+    """`result` (made from `_open_shape`) with the locked, hidden and other closed bodies put back unchanged at their places."""
+    closed = _closed_indices(topology, selection, source)
+    if not closed:
+        return result
+    solids = solids_of(topology.shape)
+    out = solids_of(result.shape)
+    for i in sorted(closed):
+        out.insert(min(i, len(out)), solids[i])
+    result.shape = _compound_of(out)
+    return result
+
+
+def _add_to_scene(topology, solid, separate: bool):
+    """Add a new solid (a primitive): its own body, or fused into the visible unlocked bodies it touches; locked and hidden
+    bodies stay untouched. Returns an OpResult."""
+    if separate:
+        return finish(_add_material(topology.shape, solid, True))
+    open_shape = _open_shape(topology)
+    fused = _combine(open_shape, solid, fuse=True) if solids_of(open_shape) else solid
+    return _restore_closed(topology, finish(fused))
 
 
 def _compound_of(solids) -> TopoDS_Shape:

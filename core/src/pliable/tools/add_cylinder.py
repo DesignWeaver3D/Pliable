@@ -4,7 +4,8 @@ from OCP.gp import gp_Dir, gp_Pnt
 
 from ..ops import MIN_DISTANCE, OperationError
 from ..shared.primitives import _position_handles, _turned, _with_rotation, ROTATION
-from ..shared.solids import _add_material, _cylinder, _new_body, finish, NEW_BODY
+from ..shared.bodies import _add_to_scene
+from ..shared.solids import _cylinder, _new_body, NEW_BODY
 from ..tools import Accepts, Handle, Param, register, round_handles, Tool
 
 
@@ -44,4 +45,4 @@ class AddCylinder(Tool):
         return None if _new_body(values) else "all"
 
     def run(self, topology, selection, values, preview):
-        return finish(_add_material(topology.shape, self.make(values), _new_body(values)))
+        return _add_to_scene(topology, self.make(values), _new_body(values))
