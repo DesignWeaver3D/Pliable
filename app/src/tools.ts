@@ -26,6 +26,8 @@ export interface ToolInfo {
   /** "tool": the tool is chosen first and places something new; "selection": it acts on a selection. */
   startsFrom?: "selection" | "tool";
   hasHandles?: boolean;
+  /** The tool's default body interaction ("this" or "others"), or null when the tool has no such setting (interactionlogic.ts). */
+  interaction?: "this" | "others" | null;
   /** Kept only so old documents and requests work: not offered in the strip or the tool list. */
   hidden?: boolean;
 }

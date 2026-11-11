@@ -6,6 +6,8 @@ import { extentOn, REACH_BUTTONS, type Reach } from "./pushpullextent.ts";
 import { roundValue } from "./precision.ts";
 import type { Vec } from "./pulldir.ts";
 import { numericField, fieldNumber, fieldText } from "./numberfield.ts";
+import { interaction, type Interact } from "./interactionlogic.ts";
+import { InteractionChoice } from "./interactionchoice.ts";
 
 export interface PushPullCardHost {
   state: PushPullState;
@@ -22,6 +24,8 @@ export interface PushPullCardHost {
   previewDistance(value: number): void;
   applyDistance(value: number): void;
   cancelDistance(): void;
+  /** The Push/Pull tool's default body interaction (its tool info's `interaction`), or null before the tools are listed. */
+  interactionDefault(): Interact | null;
   /** The card opened or closed (the measurement card may need to move aside). */
   changed?(): void;
 }
@@ -37,6 +41,7 @@ export class PushPullCard {
   private readonly distance = document.createElement("input");
   private readonly tilt: HTMLInputElement[] = [document.createElement("input"), document.createElement("input")];
   private readonly vector: HTMLInputElement[] = [0, 1, 2].map(() => document.createElement("input"));
+  private readonly interact = new InteractionChoice(() => this.repreview());
   private typedDistance = false;
   /** An Up to face preview is showing (Apply commits it, turning the option off drops it). */
   private upToPreview = false;
@@ -138,6 +143,7 @@ export class PushPullCard {
       this.upToButton,
       ...this.reachButtons.values(),
       row("Symmetric", SYMMETRIC_TITLE, this.symmetric),
+      this.interact.el,
       row("Tilt red arc (deg)", TILT_TITLES[0], this.tilt[0]),
       row("Tilt green arc (deg)", TILT_TITLES[1], this.tilt[1]),
       vectorRow,
@@ -153,6 +159,7 @@ export class PushPullCard {
   open() {
     if (!this.el.hidden) return;
     this.el.hidden = false;
+    interaction.reset(); // the body interaction setting starts at its default each time
     this.sync(true);
     this.host.changed?.();
   }
@@ -162,6 +169,7 @@ export class PushPullCard {
     if (this.el.hidden) return;
     this.el.hidden = true;
     this.host.state.reset(); // Flip and Up to face are off the next time
+    interaction.reset();
     if (this.typedDistance || this.upToPreview) this.host.cancelDistance();
     this.typedDistance = false;
     this.upToPreview = false;
@@ -199,9 +207,17 @@ export class PushPullCard {
     this.host.previewDistance(1); // any distance: the core ends the pad on the target
   }
 
+  /** The body interaction changed: show the typed distance or the Up to extent again with the new setting. */
+  private repreview() {
+    const v = fieldNumber(this.distance);
+    if (this.upToPreview) this.host.previewDistance(1);
+    else if (this.typedDistance && v !== null) this.host.previewDistance(v);
+  }
+
   private apply() {
     if (extentOn(this.host.state.upTo, this.host.state.reach) && this.upToPreview) {
       this.upToPreview = false;
+      interaction.reset();
       this.host.applyDistance(1);
       return;
     }
@@ -209,6 +225,7 @@ export class PushPullCard {
     if (!this.typedDistance || v === null) return;
     this.typedDistance = false;
     this.distance.value = "";
+    interaction.reset();
     this.host.applyDistance(v);
   }
 
@@ -220,6 +237,7 @@ export class PushPullCard {
 
   /** A drag ended: forget the shown distance. */
   clearDistance() {
+    interaction.reset();
     this.typedDistance = false;
     this.distance.value = "";
   }
@@ -245,6 +263,8 @@ export class PushPullCard {
     this.flipButton.classList.toggle("active", state.flip);
     this.upToButton.classList.toggle("active", state.upTo !== null);
     for (const [id, button] of this.reachButtons) button.classList.toggle("active", state.reach === id);
+    this.interact.setTool(this.host.interactionDefault());
+    this.interact.setDisabled(state.mode === "new"); // New body ignores the setting
     this.symmetric.disabled = extentOn(state.upTo, state.reach);
     this.symmetric.checked = state.symmetric;
     const put = (input: HTMLInputElement, n: number | undefined) => {

@@ -86,6 +86,8 @@ type Pending = { resolve: (value: any) => void; reject: (error: Error) => void; 
 /** Requests that fire constantly during interaction or answer instantly; they never show the busy indicator. */
 /** Requests that run a tool: they carry the hidden body ids (see CoreClient.hiddenBodies). */
 const TOOL_REQUESTS = new Set(["tool_preview", "tool_commit"]);
+/** Requests that carry and report the body interaction setting (see CoreClient.interactChoice): the tool runs plus the handles query. */
+const INTERACT_REQUESTS = new Set(["tool_preview", "tool_commit", "tool_handles"]);
 
 const QUIET = new Set(["hello", "tool_preview", "sketch_solve", "sketch_freedom", "sketch_offset", "sketch_project", "sketch_plane", "available_tools", "list_tools", "related", "edge_chain", "edge_selection", "measure", "model_info"]);
 const BUSY_AFTER_MS = 400;
@@ -157,7 +159,9 @@ export class CoreClient {
       const entry = id === null ? undefined : this.pending.get(id);
       if (id !== null && entry) {
         this.pending.delete(id);
-        entry.resolve(decodeMesh(data));
+        const mesh = decodeMesh(data);
+        if (INTERACT_REQUESTS.has(entry.type)) this.onInteract(mesh.header?.interact ?? null);
+        entry.resolve(mesh);
         this.updateBusy();
       }
       return;
@@ -170,6 +174,7 @@ export class CoreClient {
     const entry = this.pending.get(reply.id);
     if (!entry) return;
     this.pending.delete(reply.id);
+    if (reply.ok && INTERACT_REQUESTS.has(entry.type)) this.onInteract(reply.interact ?? null);
     if (reply.ok) entry.resolve(reply);
     else entry.reject(new Error(reply.error));
     this.updateBusy();
@@ -181,6 +186,10 @@ export class CoreClient {
 
   /** The ids of the hidden bodies; sent with tool requests so the core's automatic merges and cuts skip them. */
   hiddenBodies: () => number[] = () => [];
+  /** The body interaction value the user chose ("this" or "others"), or null while not chosen; read at send time and sent as `interact`. */
+  interactChoice: () => string | null = () => null;
+  /** Called with the `interact` field of every tool_preview, tool_commit and tool_handles reply (null when the reply has none). */
+  onInteract: (report: any) => void = () => {};
 
   request<T = any>(type: string, params: Record<string, unknown> = {}): Promise<T> {
     const id = this.nextId++;
@@ -189,7 +198,9 @@ export class CoreClient {
       this.pending.set(id, { resolve, reject, type, sent: performance.now() });
       this.updateBusy();
       const hidden = TOOL_REQUESTS.has(type) ? { hidden: this.hiddenBodies() } : {};
-      this.socket.send(JSON.stringify({ id, type, ...hidden, ...params }));
+      const choice = INTERACT_REQUESTS.has(type) ? this.interactChoice() : null;
+      const interact = choice ? { interact: choice } : {};
+      this.socket.send(JSON.stringify({ id, type, ...hidden, ...interact, ...params }));
     });
   }
 

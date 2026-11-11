@@ -45,6 +45,7 @@ import { acceptsSelection, describeNeeds, dragParam, toolTooltip, type HandleInf
 import { switchToTwoDistances } from "./twodistances";
 import { Viewport, type Sel } from "./viewport";
 import { usage, type Surface } from "./usage";
+import { interaction } from "./interactionlogic.ts";
 import { createWaitingTool, waitingHint } from "./toolwaiting";
 import { bodiesOf } from "./visibility";
 import { showNumber } from "./precision.ts";
@@ -77,6 +78,8 @@ let loadedSample = [...select.options].find((option) => option.value)!.value; //
 const viewport = new Viewport($("viewport"));
 const core = new CoreClient();
 core.hiddenBodies = () => [...bodyView.hidden];
+core.interactChoice = () => interaction.sent();
+core.onInteract = (report) => interaction.setReport(report);
 usage.attach(core);
 installAlphaUi($("bar"), core);
 installMessageLog(status, showMessage); // errors and warnings are kept for Copy diagnostics; a click on a cut-short message shows it whole
@@ -537,6 +540,7 @@ function pickItemInView(kind: "vertex" | "edge" | "face", message: string): Prom
 const pushPullCard = createPushPullCard({
   viewport, el: $("ppcard"), selection: () => app.currentSels, armedTool: () => armedTool,
   pickFace: () => pickItemInView("face", "Up to face: click the face to pull up to"),
+  interactionDefault: () => tools.find((t) => t.id === "push_pull")?.interaction ?? null,
 });
 const itemDrag = createItemDrag({
   viewport, core, status, latency, dimLabel: $("dim"), measurePanel, dimensionOverlay,
