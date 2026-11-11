@@ -110,10 +110,10 @@ export class Viewport {
   private selectedMarks: Mark[] = [];
   private hoverMark: Mark | null = null;
   private relatedMarks: Mark[] = [];
-  private hoverLine = new LineMaterial({ color: 0xffd36b, linewidth: 3, depthTest: true });
+  private hoverLine = new LineMaterial({ color: 0xffd36b, linewidth: 3, depthTest: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   /** Half-length of the drawn global axes (0 while they are hidden): the reference view sets it, and the axes can be picked along it. */
   originAxisHalf = 0;
-  private selectedLine = new LineMaterial({ color: 0xff8a1f, linewidth: 4, depthTest: true });
+  private selectedLine = new LineMaterial({ color: 0xff8a1f, linewidth: 4, depthTest: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   private raycaster = new THREE.Raycaster();
   /** Box selection in progress (screen coordinates); active once the pointer moved past the click threshold. */
   private box: { x0: number; y0: number; x1: number; y1: number; active: boolean; additive: boolean } | null = null;

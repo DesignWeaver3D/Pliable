@@ -212,17 +212,66 @@ def _edge_normal(edge, faces):
     return None if value is None else list(value)
 
 
-def _edge_points(edge, deflection: float) -> np.ndarray:
-    """Segment endpoints (consecutive pairs) of one edge."""
+class _EdgeFaces:
+    """The faces that hold each edge, found once and only when an edge is not in the cache."""
+
+    def __init__(self, topology: Topology):
+        self.topology = topology
+        self._owner: dict[int, list[TopoDS_Shape]] | None = None
+
+    def of(self, edge_id: int):
+        if self._owner is None:
+            self._owner = {}
+            for _, face in self.topology.faces():
+                explorer = TopExp_Explorer(face, TopAbs_EDGE)
+                while explorer.More():
+                    found = self.topology.edge_id(explorer.Current())
+                    if found is not None:
+                        self._owner.setdefault(found, []).append(face)
+                    explorer.Next()
+        return self._owner.get(edge_id, [])
+
+
+def _boundary_points(edge, face):
+    """The points of `edge` as the mesher put them on the boundary of `face`, so a drawn edge lies exactly on the triangles of
+    the face; None when the face has no triangulation or none for this edge."""
+    location = TopLoc_Location()
+    triangulation = BRep_Tool.Triangulation_s(face, location)
+    if triangulation is None:
+        return None
+    try:
+        polygon = BRep_Tool.PolygonOnTriangulation_s(edge, triangulation, TopLoc_Location())
+    except Exception:
+        return None
+    if polygon is None or polygon.NbNodes() < 2:
+        return None
+    transform = None if location.IsIdentity() else location.Transformation()
+    points = []
+    for k in range(1, polygon.NbNodes() + 1):
+        p = triangulation.Node(polygon.Node(k))
+        points.append(p if transform is None else p.Transformed(transform))
+    return points
+
+
+def _edge_points(edge, deflection: float, find_face=None) -> np.ndarray:
+    """Segment endpoints (consecutive pairs) of one edge. The points are those of the mesh boundary of a face holding the
+    edge when there is one: sampled on its own the edge would sit up to the deflection away from the triangles, and the
+    faces of a fillet would hide parts of it. An edge no face holds (a loose curve) is sampled from the curve."""
     key = _Key(edge, "e", deflection)
     cached = display_cache.get(key)
     if cached is not None:
         return cached
     out: list[tuple[float, float, float]] = []
     if not BRep_Tool.Degenerated_s(edge):
-        curve = BRepAdaptor_Curve(edge)
-        sampler = GCPnts_TangentialDeflection(curve, ANGULAR_DEFLECTION, deflection)
-        points = [sampler.Value(i) for i in range(1, sampler.NbPoints() + 1)]
+        points = None
+        for face in (find_face() if find_face is not None else ()):  # only asked on a cache miss
+            points = _boundary_points(edge, face)  # not every face holding the edge has the mesher's points for it
+            if points is not None:
+                break
+        if points is None:
+            curve = BRepAdaptor_Curve(edge)
+            sampler = GCPnts_TangentialDeflection(curve, ANGULAR_DEFLECTION, deflection)
+            points = [sampler.Value(i) for i in range(1, sampler.NbPoints() + 1)]
         for p0, p1 in zip(points, points[1:]):
             out.append((p0.X(), p0.Y(), p0.Z()))
             out.append((p1.X(), p1.Y(), p1.Z()))
@@ -366,9 +415,10 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
     edge_parts: list[np.ndarray] = []
     edge_total = 0
     edges = []
+    edge_faces = _EdgeFaces(topology)
     for edge_id, edge in topology.edges():
         start = edge_total
-        points = _edge_points(edge, deflection)
+        points = _edge_points(edge, deflection, lambda eid=edge_id: edge_faces.of(eid))
         edge_parts.append(points)
         edge_total += len(points)
         edges.append(
