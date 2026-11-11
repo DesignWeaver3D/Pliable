@@ -40,6 +40,7 @@ Notes about how other tools work stay in `docs/research/`, which is ignored by g
 
 The aim is that new work lands in small files without a later clean-up pass.
 
+- Every source file starts with a comment (a docstring in the core) whose first sentence says its one job. `python scripts/module_map.py [words]` prints that sentence for every file, or for the files matching the words, so the right file is found without opening any; look there before adding code or a file.
 - One job per file, named for that job. New behavior goes in a new file named for what it does, plus the one line that registers or imports it. Do not append it to the nearest large file, even when that file already has similar code; copy the pattern, not the location.
 - Before adding code, ask what job it does. If it is the same job as an existing file, it belongs there; if it is a different job, it is a new file.
 - A helper used by two or more callers goes in a shared module for that job (`shared/` in the core, a named helper file in the app); a helper used by one caller stays beside that caller.

@@ -1,3 +1,4 @@
+/** Resizing a circle by dragging its rim: which circles are free to resize, and the radius the pointer gives. */
 import type { SketchData } from "./sketchmodel.ts";
 
 /** A circle no constraint mentions (its center may be joined or fixed): dragging the circle itself resizes it, the center staying put. */

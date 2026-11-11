@@ -1,3 +1,4 @@
+/** The 3D view: the scene, the model mesh and the state of selection and drags. Each job (camera, picking, look, input, ...) is a view*.ts module that takes the Viewport as its context. */
 import * as THREE from "three";
 import { viewPlane, type ViewPlane } from "./viewplane.ts";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";

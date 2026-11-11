@@ -1,3 +1,4 @@
+/** The composition root of the app: creates the 3D view, the core client, the panels and the sketch mode, and wires them to one another. New behavior goes in its own module, not here. */
 import * as THREE from "three";
 import { moveHandlesAt } from "./placepick.ts";
 import { bodyCentres, movedBodies } from "./slide.ts";

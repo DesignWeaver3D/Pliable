@@ -1,4 +1,4 @@
-"""What a hole is, and how to find and rebuild one in a model that has no history.
+"""What a hole is, and how to find one in a model that has no history.
 
 A hole is a cut around one axis made of full cylinders and cones (plain, counterbore, countersink, stepped) and flat
 shoulders, entering from a face and either running through the body or ending at a flat or conical bottom. Anything

@@ -1,3 +1,4 @@
+/** The per-vertex color array that tints each body of the model in its own color. */
 import * as THREE from "three";
 import type { MeshData } from "./client.ts";
 import { bodyColor } from "./bodycolors.ts";
