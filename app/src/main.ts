@@ -23,7 +23,8 @@ import { resolvePick } from "./pulldir";
 import { edgeMiddle } from "./edgepick";
 import { DatumPlanes } from "./datumplanes";
 import type { DatumPlane, MirrorMode } from "./datumcorners";
-import { LatestWins } from "./latestwins";
+import { connectCore } from "./coreconnect.ts";
+import { installHoleCentreMove } from "./holecentremove.ts";
 import { SETTING_ENTRIES, createSettingsWindow, onSettingsChange, openSettings, setHintsBinding, setKeysOpener, settingValue, settings } from "./settings";
 import { MeasurePanel, type MeasureReply } from "./measure";
 import { KeyRouter } from "./keyrouter";
@@ -48,7 +49,6 @@ import { usage, type Surface } from "./usage";
 import { interaction } from "./interactionlogic.ts";
 import { createWaitingTool, waitingHint } from "./toolwaiting";
 import { bodiesOf } from "./visibility";
-import { showNumber } from "./precision.ts";
 import { createSelection } from "./selection";
 import { followMeasureCard } from "./selectedreadout";
 import { createModelView } from "./modelview";
@@ -573,49 +573,23 @@ const dimensionEditor = new DimensionEditor({
 void dimensionEditor;
 viewport.onHoverBody = (id) => bodyList.setHovered(id);
 
-// Moving a hole by dragging its center dot: previews the Move hole tool (latest request wins) and commits on release.
-type CentreMove = { face: number; offset: { x: number; y: number; z: number } };
+// Moving a hole by dragging its center dot (holecentremove.ts).
 function centreRequest(face: number, o: { x: number; y: number; z: number }) {
   const tool = tools.find((t) => t.id === "move_hole");
   if (!tool) return null;
   return { tool: tool.id, selection: selectionPayload(expand(tool, [{ kind: "face", id: face }])), params: { dx: o.x, dy: o.y, dz: o.z } };
 }
-const centrePreviews = new LatestWins<CentreMove>(async ({ face, offset }, current) => {
-  const req = centreRequest(face, offset);
-  if (!req) return;
-  try {
-    const mesh = await core.request<MeshData>("tool_preview", req);
-    if (!current()) return; // released or cancelled while this was computed
-    show(mesh);
-    status.classList.remove("error");
-    status.textContent = `Move hole: ${showNumber(offset.x)}, ${showNumber(offset.y)}, ${showNumber(offset.z)}`;
-  } catch (e) {
-    if (!current()) return;
-    status.textContent = (e as Error).message;
-    status.classList.add("error");
-  }
+installHoleCentreMove({
+  viewport,
+  core,
+  status,
+  request: centreRequest,
+  show: (mesh) => show(mesh),
+  committed: () => app.committed,
+  currentSels: () => app.currentSels,
+  setCommitted: (mesh, frame, sels) => setCommitted(mesh, frame, sels),
+  mappedSelection: (mesh) => mappedSelection(mesh),
 });
-viewport.onCentreDrag = async (face, offset, phase) => {
-  if (phase === "move") {
-    centrePreviews.push({ face, offset: { x: offset.x, y: offset.y, z: offset.z } });
-    return;
-  }
-  await centrePreviews.cancel();
-  if (phase === "cancel") {
-    if (app.committed) show(app.committed);
-    return;
-  }
-  const req = centreRequest(face, { x: offset.x, y: offset.y, z: offset.z });
-  if (!req) return;
-  try {
-    const mesh = await core.request<MeshData>("tool_commit", req);
-    setCommitted(mesh, false, mappedSelection(mesh));
-  } catch (e) {
-    if (app.committed) setCommitted(app.committed, false, app.currentSels);
-    status.textContent = (e as Error).message;
-    status.classList.add("error");
-  }
-};
 viewport.onEyedropCancel = () => cancelEyedrop();
 // The push/pull direction: the gizmo's pick icon asks for an edge (a straight line) or a face (its normal); the selected face itself goes back to its own normal.
 viewport.pullDirection.onChange = () => void refreshSelectionHandles();
@@ -1416,29 +1390,7 @@ $("gettingstartedbtn").addEventListener("click", () => hintLine.showGettingStart
 window.setTimeout(() => hintLine.autoShowGettingStarted(), 1500);
 renderToolbar();
 
-// Connect to the core, retrying with a growing delay while it is not running, and again whenever the connection drops.
-const RETRY_MIN_MS = 1000;
-const RETRY_MAX_MS = 8000;
-const reconnectButton = document.getElementById("reconnect") as HTMLButtonElement;
-let connecting = false;
-let retryTimer: number | undefined;
-let wakeRetry: (() => void) | null = null;
-reconnectButton.onclick = () => {
-  if (wakeRetry) wakeRetry();
-  else void connectToCore();
-};
-
-function waitRetry(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    wakeRetry = () => {
-      window.clearTimeout(retryTimer);
-      wakeRetry = null;
-      resolve();
-    };
-    retryTimer = window.setTimeout(wakeRetry, ms);
-  });
-}
-
+// Connect to the core, retrying while it is not running and whenever the connection drops (coreconnect.ts).
 /** Everything the page needs from the core after (re)connecting: tools, then the model (kept across a reconnect when the core still holds it). */
 async function syncWithCore(hadModel: boolean) {
   void showLaunchNotice(core);
@@ -1465,46 +1417,14 @@ async function syncWithCore(hadModel: boolean) {
   await load(loadedSample);
 }
 
-async function connectToCore() {
-  if (connecting) return;
-  connecting = true;
-  const hadModel = app.committed !== null;
-  let delay = RETRY_MIN_MS;
-  try {
-    for (;;) {
-      try {
-        await core.connect();
-        reconnectButton.hidden = true;
-        status.classList.remove("error");
-        await syncWithCore(hadModel);
-        if (!core.isOpen()) throw new Error("Lost connection to the core"); // dropped while syncing: the early drop notice was ignored, so keep retrying here
-        return;
-      } catch {
-        // Not reachable, or the connection dropped again while syncing: show it and try again.
-        status.classList.add("error");
-        reconnectButton.hidden = false;
-        const seconds = Math.round(delay / 1000);
-        status.textContent = import.meta.env.DEV
-          ? `Core not reachable: is 'uv run pliable-server' running in core/? Retrying in ${seconds} s...`
-          : `Pliable core not reachable. Retrying in ${seconds} s (or close this tab and start Pliable again)...`;
-        await waitRetry(delay);
-        delay = Math.min(delay * 2, RETRY_MAX_MS);
-      }
-    }
-  } finally {
-    connecting = false;
-  }
-}
-
-
-core.onDisconnect = () => {
-  dismissRestorePrompt();
-  status.classList.add("error");
-  status.textContent = "Lost connection to the core (reconnecting...)";
-  reconnectButton.hidden = false;
-  void connectToCore();
-};
-void connectToCore();
+connectCore({
+  core,
+  status,
+  reconnectButton: document.getElementById("reconnect") as HTMLButtonElement,
+  hadModel: () => app.committed !== null,
+  sync: syncWithCore,
+  dropped: () => dismissRestorePrompt(),
+});
 
 $("bodyhead").addEventListener("click", () => {
   const head = $("bodyhead");
