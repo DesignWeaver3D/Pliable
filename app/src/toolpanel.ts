@@ -1,18 +1,20 @@
 /** "All tools" list (grouped by layout.ts) and the parameter form for tools that are not dragged. */
-import { colourSides, ORIGIN_PLANES, planeButtons } from "./planepicks";
-import { planeBuildControls } from "./planebuild";
+import { colourSides } from "./planepicks";
 import type { PickOptions } from "./reference";
-import { toolIcon, uiIcon } from "./icons";
+import { toolIcon } from "./icons";
 import { TOOL_GROUPS } from "./layout";
 import { toolTooltip, type ToolInfo } from "./tools";
-import { moveVector, offsetOf, originFor, pointText, type AnchorInfo, type Vec3 } from "./placepick";
+import { type AnchorInfo, type Vec3 } from "./placepick";
 import { usage, type Surface } from "./usage";
-import { roundValue, showNumber } from "./precision.ts";
-import { COUNTERSINK_ANGLES, hasAngles, hasSizes, holeSizes } from "./holesizes.ts";
-import { PARAM_HELP, TOOL_PARAM_HELP } from "./toolparamhelp";
-import { numericField, fieldNumber, fieldText } from "./numberfield.ts";
+import { roundValue } from "./precision.ts";
+import { fieldNumber, fieldText } from "./numberfield.ts";
 import { interaction } from "./interactionlogic.ts";
 import { InteractionChoice } from "./interactionchoice.ts";
+import type { FormParts } from "./toolformparts.ts";
+import { paramRow } from "./toolformrows.ts";
+import { placementPicks, moveVectorPicks } from "./toolformplace.ts";
+import { axisPointPick, edgeAxisPicks } from "./toolformaxis.ts";
+import { planePicks } from "./toolformplane.ts";
 
 /** A parameter value: a number, or for `per_edge` parameters one [start, end] radius pair per selected edge. */
 export type ParamValue = number | number[][];
@@ -67,7 +69,6 @@ export interface ToolPanelHost {
 }
 
 const PREVIEW_DELAY_MS = 150;
-const UNITS: Record<string, string> = { length: "mm", angle: "Â°", number: "" };
 
 export class ToolPanel {
   private open: ToolInfo | null = null;
@@ -196,108 +197,24 @@ export class ToolPanel {
     title.textContent = editBody === undefined ? tool.label : `Edit ${tool.label.replace(/^Add /, "").toLowerCase()}`;
     const pairInputs: Record<string, HTMLInputElement[][]> = {};
     const rowOf: Record<string, HTMLElement> = {};
-    const rows = tool.params.map((p) => {
-      if (p.kind === "per_edge") return this.perEdgeRows(p, initial[p.name], pairInputs);
-      const row = document.createElement("label");
-      row.className = "row";
-      rowOf[p.name] = row;
-      const name = document.createElement("span");
-      const help = TOOL_PARAM_HELP[tool.id]?.[p.name] ?? PARAM_HELP[p.name];
-      name.textContent = help?.label ?? `${p.name.replace(/_/g, " ")}${UNITS[p.kind] ? ` (${UNITS[p.kind]})` : ""}`;
-      if (help) row.title = help.title;
-      if (p.options) {
-        const list = document.createElement("select");
-        p.options.forEach((label, i) => list.append(new Option(label, String(i))));
-        list.value = String(typeof initial[p.name] === "number" ? initial[p.name] : p.default);
-        list.addEventListener("change", () => {
-          this.refreshCard(p.name);
-          this.schedulePreview(0);
-        });
-        list.addEventListener("keydown", (e) => {
-          e.stopPropagation(); // typing must not trigger view shortcuts or tools
-          if (e.key === "Enter") this.apply();
-          else if (e.key === "Escape") this.close();
-        });
-        inputs[p.name] = list;
-        row.append(name, list);
-        return row;
-      }
-      const input = document.createElement("input");
-      numericField(input);
-      input.value = fieldText(typeof initial[p.name] === "number" ? (initial[p.name] as number) : p.default);
-      input.addEventListener("input", () => {
-        this.refreshCard(p.name);
-        this.schedulePreview();
-      });
-      input.addEventListener("keydown", (e) => {
-        e.stopPropagation(); // typing must not trigger view shortcuts or tools
-        if (e.key === "Enter") this.apply();
-        else if (e.key === "Escape") this.close();
-      });
-      inputs[p.name] = input;
-      row.append(name, input);
-      // The label stays left on one line; the eyedropper icon (and the sizes list) sit just left of the value box, which is at the right edge.
-      if (p.kind === "length" || p.kind === "angle") {
-        const dropper = document.createElement("button");
-        dropper.type = "button";
-        dropper.className = "eyedropper";
-        dropper.append(uiIcon("eyedropper", 16));
-        dropper.setAttribute("aria-label", "Eyedropper");
-        dropper.title = "Eyedropper: click a fillet, hole or edge in the model to copy its value";
-        dropper.addEventListener("click", async (e) => {
-          e.preventDefault();
-          dropper.classList.add("armed");
-          const value = await this.host.eyedrop(p.name, p.kind);
-          dropper.classList.remove("armed");
-          if (value !== null && this.open) {
-            input.value = fieldText(roundValue(value));
-            this.schedulePreview(0);
-          }
-        });
-        input.before(dropper);
-      }
-      if (!card && hasSizes(tool.id, p.name)) { // a card has its own fastener presets in its header
-        const sizes = document.createElement("select");
-        sizes.className = "sizes";
-        sizes.title = "Standard sizes: metric clearance and tap drill diameters";
-        sizes.append(new Option("Sizes", ""));
-        holeSizes(p.name).forEach((size, i) => sizes.append(new Option(`${size.label} (${size.diameter})`, String(i))));
-        sizes.addEventListener("change", () => {
-          const size = holeSizes(p.name)[Number(sizes.value)];
-          sizes.value = "";
-          if (!size) return;
-          input.value = fieldText(size.diameter);
-          this.schedulePreview(0);
-        });
-        sizes.addEventListener("keydown", (e) => e.stopPropagation());
-        input.before(sizes);
-      }
-      if (hasAngles(tool.id, p.name)) {
-        const angles = document.createElement("select");
-        angles.className = "sizes";
-        angles.style.width = "64px";
-        angles.title = "Standard countersink head angles (the full included angle)";
-        angles.append(new Option("Angles", ""));
-        COUNTERSINK_ANGLES.forEach((a, i) => angles.append(new Option(a.label, String(i))));
-        angles.addEventListener("change", () => {
-          const picked = COUNTERSINK_ANGLES[Number(angles.value)];
-          angles.value = "";
-          if (!picked) return;
-          input.value = fieldText(picked.angle);
-          this.schedulePreview(0);
-        });
-        angles.addEventListener("keydown", (e) => e.stopPropagation());
-        input.before(angles);
-      }
-      return row;
-    });
+    const buttons = document.createElement("div");
+    const parts: FormParts = {
+      tool, host: this.host, initial, card, inputs, pairInputs, rowOf, title, buttons, baseNow: null,
+      isOpen: () => this.open === tool,
+      anyOpen: () => this.open !== null,
+      preview: (delay) => this.schedulePreview(delay),
+      values: () => this.values(),
+      refreshCard: (changed) => this.refreshCard(changed),
+      apply: () => void this.apply(),
+      close: () => this.close(),
+    };
+    const rows = tool.params.map((p) => paramRow(parts, p));
     const apply = document.createElement("button");
     apply.textContent = "Apply";
     apply.addEventListener("click", () => this.apply());
     const cancel = document.createElement("button");
     cancel.textContent = "Cancel";
     cancel.addEventListener("click", () => this.close());
-    const buttons = document.createElement("div");
     buttons.className = "buttons";
     buttons.append(apply, cancel);
     if (tool.id === "fillet_chamfer" && editBody === undefined && this.host.twoDistances) {
@@ -312,221 +229,12 @@ export class ToolPanel {
     const choice = new InteractionChoice(() => this.schedulePreview(0));
     choice.setTool(tool.interaction);
     this.formEl.replaceChildren(header ?? title, ...rows, choice.el, buttons);
-    const placement = tool.placement;
-    if (placement && placement.length === 3 && this.host.pickPoint) {
-      const note = document.createElement("div");
-      note.className = "row";
-      let destination: Vec3 | null = null;
-      let offset: Vec3 = [0, 0, 0]; // the picked base point relative to the placement point; zero = the placement point itself
-      let picked = false;
-      const origin = (): Vec3 => placement.map((n) => fieldNumber(inputs[n]) ?? 0) as unknown as Vec3;
-      const show = () => (note.textContent = `${picked ? "Base picked" : "Base: placement point"}${destination ? `, destination ${pointText(destination)}` : ""}`);
-      show();
-      this.baseNow = () => {
-        if (!picked) return null;
-        const at = origin();
-        return [at[0] + offset[0], at[1] + offset[1], at[2] + offset[2]];
-      };
-      const place = () => {
-        if (!destination) return;
-        originFor(destination, offset).forEach((c, i) => (inputs[placement[i]].value = fieldText(showNumber(c, 4))));
-        this.schedulePreview(0);
-      };
-      const pickDestination = async () => {
-        const from = picked ? [0, 1, 2].map((i) => origin()[i] + offset[i]) : undefined;
-        const point = await this.host.pickPoint!(from ? { from } : {});
-        if (!point || this.open !== tool) return;
-        destination = [point[0], point[1], point[2]];
-        show();
-        place();
-        this.host.showBase?.(null); // the move arrows now mark the base point
-      };
-      const pickBase = document.createElement("button");
-      pickBase.textContent = "Pick base point";
-      pickBase.title = "Click the point of the shape to place, such as a corner or its center. Then click where it goes.";
-      pickBase.addEventListener("click", async () => {
-        const list = this.host.anchors ? await this.host.anchors(tool, this.values()) : [];
-        if (this.open !== tool) return;
-        const at = origin();
-        const extra = list.map((a) => ({ point: [at[0] + a.offset[0], at[1] + a.offset[1], at[2] + a.offset[2]], label: a.label }));
-        const point = await this.host.pickPoint!({ extra });
-        if (!point || this.open !== tool) return;
-        offset = offsetOf([point[0], point[1], point[2]], at);
-        picked = true;
-        this.host.showBase?.(point);
-        show();
-        place();
-        this.schedulePreview(0); // the arrows move to the base
-        if (!destination) await pickDestination(); // a base alone moves nothing, so go straight on to the destination
-      });
-      const pick = document.createElement("button");
-      pick.textContent = "Pick destination point";
-      pick.title = "Click a vertex, edge, face center, hole center, axis or the origin; the base point goes there";
-      pick.addEventListener("click", () => void pickDestination());
-      for (const name of placement)
-        inputs[name].addEventListener("input", () => {
-          destination = null;
-          show();
-        });
-      buttons.before(pickBase, pick, note);
-    }
-    const vector = tool.moveVector;
-    if (vector && vector.length === 3 && this.host.pickPoint) {
-      let base: Vec3 = [0, 0, 0];
-      let destination: Vec3 | null = null;
-      const note = document.createElement("div");
-      note.className = "row";
-      const show = () => (note.textContent = `Base ${pointText(base)}${destination ? `, destination ${pointText(destination)}` : ""}`);
-      show();
-      let picked = false;
-      this.baseNow = () => {
-        if (!picked) return null;
-        const v = vector.map((n) => fieldNumber(inputs[n]) ?? 0);
-        return [base[0] + v[0], base[1] + v[1], base[2] + v[2]];
-      };
-      const apply = () => {
-        if (!destination) return;
-        moveVector(base, destination).forEach((c, i) => (inputs[vector[i]].value = fieldText(showNumber(c, 4))));
-        this.schedulePreview(0);
-      };
-      const pickDestination = async () => {
-        const point = await this.host.pickPoint!();
-        if (!point || this.open !== tool) return;
-        destination = [point[0], point[1], point[2]];
-        show();
-        apply();
-        this.host.showBase?.(null);
-      };
-      const pickBase = document.createElement("button");
-      pickBase.textContent = "Pick base point";
-      pickBase.title = "Click the point to move from, such as a vertex or the origin. Then click where it goes.";
-      pickBase.addEventListener("click", async () => {
-        const point = await this.host.pickPoint!();
-        if (!point || this.open !== tool) return;
-        base = [point[0], point[1], point[2]];
-        picked = true;
-        this.host.showBase?.(point);
-        show();
-        apply();
-        this.schedulePreview(0);
-        if (!destination) await pickDestination(); // a base alone moves nothing, so go straight on to the destination
-      });
-      const pickDest = document.createElement("button");
-      pickDest.textContent = "Pick destination point";
-      pickDest.title = "Click where the base point goes; the move is the destination minus the base (the origin unless a base is picked)";
-      pickDest.addEventListener("click", () => void pickDestination());
-      for (const name of vector) inputs[name].addEventListener("input", () => ((destination = null), show()));
-      buttons.before(pickBase, pickDest, note);
-    }
-    const axis = tool.pickAxis;
-    if (axis && axis.length === 4 && (this.host.pickEdgePoint || this.host.pickPoint)) {
-      const pickAxis = document.createElement("button");
-      pickAxis.textContent = "Pick axis";
-      pickAxis.title = "Click an edge anywhere on the model (the face's own edge or another): the face pivots about the plane through that edge, square to the pull direction (the default is the face's own centroid)";
-      pickAxis.addEventListener("click", async () => {
-        const point = await (this.host.pickEdgePoint ?? this.host.pickPoint)!();
-        if (!point || this.open !== tool) return;
-        axis.slice(0, 3).forEach((name, i) => (inputs[name].value = fieldText(showNumber(point[i], 4))));
-        inputs[axis[3]].value = "1"; // the choice list: picked point
-        this.schedulePreview(0);
-      });
-      buttons.before(pickAxis);
-    }
-    const edgeAxis = tool.pickEdge;
-    if (edgeAxis && edgeAxis.length === 2 && this.host.pickEdgeId) {
-      const pickEdge = document.createElement("button");
-      pickEdge.textContent = "Pick axis";
-      pickEdge.title = "Click a straight edge (the axis is its line), a circular edge (the circle's axis) anywhere on the model, or a global axis";
-      pickEdge.addEventListener("click", async () => {
-        const id = await this.host.pickEdgeId!();
-        if (id === null || this.open !== tool) return;
-        if (id <= -2) inputs[edgeAxis[1]].value = String(-2 - id); // a global axis: the choice list's X, Y or Z
-        else {
-          inputs[edgeAxis[0]].value = String(id);
-          inputs[edgeAxis[1]].value = "3"; // the choice list: picked edge
-        }
-        showAxis();
-        this.schedulePreview(0);
-      });
-      // Like the plane forms (Cut with plane): Pick axis first, centered, the three global axes in a row under it; the axis list and the edge id are not shown.
-      pickEdge.style.textAlign = "center";
-      const axisRow = document.createElement("div");
-      axisRow.style.cssText = "display:flex;gap:4px";
-      const axisButtons: HTMLButtonElement[] = [];
-      ["X", "Y", "Z"].forEach((name, i) => {
-        const button = document.createElement("button");
-        button.textContent = `${name} axis`;
-        button.title = `Use the global ${name} axis through the origin`;
-        button.style.cssText = "text-align:center;margin-top:2px";
-        button.addEventListener("click", () => {
-          inputs[edgeAxis[1]].value = String(i);
-          showAxis();
-          this.schedulePreview(0);
-        });
-        axisButtons.push(button);
-        axisRow.append(button);
-      });
-      // The button for the axis in use gets the orange border of an active button (Pick axis only once an edge has been picked).
-      function showAxis() {
-        const choice = fieldNumber(inputs[edgeAxis![1]]) ?? 0;
-        axisButtons.forEach((button, i) => button.classList.toggle("active", choice === i));
-        pickEdge.classList.toggle("active", choice === 3 && (fieldNumber(inputs[edgeAxis![0]]) ?? 0) >= 0);
-      }
-      showAxis();
-      title.after(pickEdge, axisRow);
-      for (const name of edgeAxis) (inputs[name]?.closest(".row") as HTMLElement | null)?.style.setProperty("display", "none");
-    }
-    const planeNames = tool.pickPlane;
-    if (planeNames && (planeNames.length === 7 || planeNames.length === 5) && this.host.pickPlane) {
-      const usePlaneIn = (origin: number[], normal: number[]) => {
-        if (planeNames.length === 7) {
-          planeNames.slice(0, 3).forEach((name, i) => (inputs[name].value = fieldText(showNumber(origin[i], 4))));
-          planeNames.slice(3, 6).forEach((name, i) => (inputs[name].value = fieldText(showNumber(normal[i], 6))));
-          inputs[planeNames[6]].value = "4"; // the choice list: picked plane
-        } else {
-          // A plane given as a distance along its direction: position, nx, ny, nz and the axis choice (3 = the direction nx, ny, nz); tilts start again from the picked plane.
-          const length = Math.hypot(normal[0], normal[1], normal[2]) || 1;
-          const n = normal.map((c) => c / length);
-          inputs[planeNames[0]].value = fieldText(showNumber(n[0] * origin[0] + n[1] * origin[1] + n[2] * origin[2], 4));
-          planeNames.slice(1, 4).forEach((name, i) => (inputs[name].value = fieldText(showNumber(n[i], 6))));
-          inputs[planeNames[4]].value = "3";
-          for (const tilt of ["tilt_u", "tilt_v"]) if (inputs[tilt]) inputs[tilt].value = "0";
-        }
-        this.schedulePreview(0);
-      };
-      const pickPlane = document.createElement("button");
-      pickPlane.textContent = "Pick plane";
-      pickPlane.title = "Click a flat face anywhere on the model to use its plane (use this when the tool was started with the wrong face selected)";
-      pickPlane.addEventListener("click", async () => {
-        const plane = await this.host.pickPlane!();
-        if (plane && this.open === tool) usePlaneIn(plane.origin, plane.normal);
-      });
-      if (planeNames.length === 5) {
-        // The one-position plane forms (Cut with plane): Pick plane first, centered, the three origin planes in a row under it; the Axis field is not shown (the buttons and the direction fields set it).
-        pickPlane.style.textAlign = "center";
-        const originRow = document.createElement("div");
-        originRow.style.cssText = "display:flex;gap:4px";
-        planeButtons(this.host, usePlaneIn)
-          .slice(0, ORIGIN_PLANES.length)
-          .forEach((button, i) => {
-            button.textContent = ORIGIN_PLANES[i].name;
-            button.style.cssText = "text-align:center;margin-top:2px";
-            originRow.append(button);
-          });
-        title.after(pickPlane, originRow);
-        const axisRow = inputs[planeNames[4]]?.closest(".row") as HTMLElement | null;
-        if (axisRow) axisRow.style.display = "none";
-        for (const n of planeNames.slice(1, 4)) inputs[n].addEventListener("input", () => (inputs[planeNames[4]].value = "3"));
-      }
-      const datums = (this.host.datumPlanes?.() ?? []).map((d) => {
-        const button = document.createElement("button");
-        button.textContent = `Datum: ${d.name}`;
-        button.title = `Use the datum plane ${d.name}`;
-        button.addEventListener("click", () => usePlaneIn(d.plane.origin, d.plane.normal));
-        return button;
-      });
-      buttons.before(...(planeNames.length === 5 ? [] : [pickPlane]), ...datums, ...planeButtons(this.host, usePlaneIn).slice(planeNames.length === 5 ? ORIGIN_PLANES.length : 0), ...planeBuildControls(this.host, () => this.open === tool, usePlaneIn));
-    }
+    placementPicks(parts);
+    moveVectorPicks(parts);
+    axisPointPick(parts);
+    edgeAxisPicks(parts);
+    planePicks(parts);
+    this.baseNow = parts.baseNow;
     this.formEl.hidden = false;
     this.inputs = inputs;
     this.rowOf = rowOf;
@@ -535,42 +243,6 @@ export class ToolPanel {
     (Object.values(inputs)[0] ?? Object.values(pairInputs)[0]?.[0]?.[0] ?? apply).focus();
     if (!card) this.schedulePreview(0); // a card shows the unchanged model until a value changes
     this.host.changed?.();
-  }
-
-  /** One row per selected edge with a start and an end radius (end 0 = constant). */
-  private perEdgeRows(p: { name: string; default: number }, initial: ParamValue | undefined, store: Record<string, HTMLInputElement[][]>): HTMLElement {
-    const box = document.createElement("div");
-    const ids = this.host.selectedEdges?.() ?? [];
-    const saved = Array.isArray(initial) ? initial : [];
-    const head = document.createElement("div");
-    head.className = "row";
-    head.textContent = "Radius per edge (mm): start and end; end 0 keeps the radius constant, start 0 leaves the edge sharp";
-    box.append(head);
-    const pairs: HTMLInputElement[][] = [];
-    ids.forEach((id, i) => {
-      const row = document.createElement("label");
-      row.className = "row";
-      const name = document.createElement("span");
-      name.textContent = `edge ${id}`;
-      const pair = [0, 1].map((k) => {
-        const input = document.createElement("input");
-        numericField(input);
-        input.title = k === 0 ? "Start radius" : "End radius (0 = same as start)";
-        input.value = fieldText(saved[i]?.[k] ?? (k === 0 ? p.default : 0));
-        input.addEventListener("input", () => this.schedulePreview());
-        input.addEventListener("keydown", (e) => {
-          e.stopPropagation();
-          if (e.key === "Enter") this.apply();
-          else if (e.key === "Escape") this.close();
-        });
-        return input;
-      });
-      pairs.push(pair);
-      row.append(name, ...pair);
-      box.append(row);
-    });
-    store[p.name] = pairs;
-    return box;
   }
 
   /** Move the cursor to one field of the open form (a label of the Hole Editor's picture was clicked). */

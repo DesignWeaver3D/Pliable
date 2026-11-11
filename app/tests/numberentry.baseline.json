@@ -13,6 +13,6 @@
   "settings.ts": 1,
   "sketchpreview.ts": 1,
   "sketchrefresh.ts": 1,
-  "toolpanel.ts": 2,
+  "toolformrows.ts": 2,
   "toolstrip.ts": 3
 }
