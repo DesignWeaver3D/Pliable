@@ -205,3 +205,10 @@ def test_a_locked_body_is_a_boolean_tool_only_with_keep_tools(pair):
     assert any(locked.IsSame(s) for s in solids_of(kept.shape))  # the locked tool body is still there, unchanged
     with pytest.raises(OperationError, match=LOCKED):
         run("body_boolean", pair, Selection(bodies=[1, 2]), mode=1, keep_tools=1)  # a locked target is never changed
+
+
+def test_a_locked_face_gets_no_gizmo_but_an_unlocked_one_does(pair):
+    locked_face, free_face = top_face(pair, 0), top_face(pair, 1)
+    tool = get_tool("push_pull")
+    assert tool.handle_list(pair, Selection(faces=[locked_face]), {"distance": 5}) == []
+    assert tool.handle_list(pair, Selection(faces=[free_face]), {"distance": 5})

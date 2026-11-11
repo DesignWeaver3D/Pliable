@@ -407,6 +407,7 @@ class Tool:
             return []
         try:
             values = self.bind(raw_params)
+            refuse_locked(self, topology, selection, values)  # a locked body gets no gizmo: the run would only refuse
             names = {p.name for p in self.params}
             return [h.to_json(values[h.param], values) for h in self.handles(topology, selection, values) if h.param in names and not isinstance(values[h.param], list)]
         except Exception:
