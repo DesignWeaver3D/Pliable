@@ -219,6 +219,8 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers, SessionHandlers, Quer
             return self._rename_body(request)
         if kind == "set_body_material":
             return self._set_body_material(request)
+        if kind == "set_body_locked":
+            return self._set_body_locked(request)
         if kind in ("delete_body", "duplicate_body"):
             return self._delete_or_duplicate_body(request, kind)
         if kind == "export_step":

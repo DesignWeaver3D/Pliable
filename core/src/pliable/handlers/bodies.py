@@ -30,6 +30,15 @@ class BodyHandlers:
         self._autosave()
         return self._mesh_reply(target, {})
 
+    def _set_body_locked(self, request):
+        document = self._require_document()
+        try:
+            target = document.set_body_locked(int(request["body"]), bool(request.get("locked")))
+        except (KeyError, ValueError, TypeError) as e:
+            raise RequestError("Unknown body") from e
+        self._autosave()
+        return self._mesh_reply(target, {})
+
     def _delete_or_duplicate_body(self, request, kind):
         document = self._require_document()
         extra: dict = {}
