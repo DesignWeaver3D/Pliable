@@ -72,7 +72,6 @@ Rules for keeping it:
 
 - [ ] "This body / Other bodies" setting (new, not yet seen in the app): it shows on the Push/Pull card, the Hole Editor and other tool forms, starts on This body, resets when the tool opens, is greyed in New body mode and is hidden when a loose sketch region is selected. With a neighbor body, Up to last and Through all fuse only into your body under This body and also into the neighbor under Other bodies; a locked or hidden neighbor is never fused or cut. Up to face onto a locked body's face works. Mirror, arrays and joined primitives skip hidden and locked bodies.
 
-- [ ] Edges at fillets (new, not yet seen in the app): where a curved face meets a curved face (a rounded corner meeting a rounded rim) the dark edge line stays visible all along, from several angles and zoom levels; hovering and clicking the middle of such an edge, or of a long straight edge seen at a slant while zoomed in close, highlights and selects the edge instead of the face behind the pointer, as easily as near its ends, and the orange and gold highlight stays visible along its whole length.
 
 ### Hole Editor (new)
 

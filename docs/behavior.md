@@ -22,6 +22,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Shift+click and Ctrl+click both add to or remove from the selection, in the 3D view and in sketches. A plain click in a sketch adds to the selection.
 - Double-click on an edge selects the tangent-continuous chain; Ctrl+double-click adds it to the whole selection and keeps everything already selected. The chain continues only where the next edge leaves in the opposite direction (a fold back on itself is not followed). A double-click on a face selects its whole body.
 - Pick ranges are 5 px for edges and 8 px for points and come from settings, never inline constants.
+- Edges are drawn on the face triangles so they stay visible where curved faces meet, and an edge under the pointer highlights anywhere along its length, at any zoom, in front of the face behind it.
 - Relationship chips (coplanar, equal radius and so on) are off by default, with All/None and Parallel/Symmetric. Resize hole also resizes same-size holes.
 - See-through is the X key; repeated click or Alt+click cycles faces behind.
 - Selecting a body in the 3D view scrolls its row into view in the bodies list.
