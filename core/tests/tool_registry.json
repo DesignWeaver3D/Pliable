@@ -2721,7 +2721,7 @@
  {
   "id": "body_boolean",
   "label": "Boolean",
-  "description": "Combines solids: Union joins them, Subtract removes the later ones from the first, Intersect keeps only the overlap. Select two or more bodies, or faces of them; the first selected is the target.",
+  "description": "Combines solids: Union joins them, Subtract removes the later ones from the first, Intersect keeps only the overlap. Select two or more bodies, or faces of them; the first selected is the target. Keep tools leaves the tool bodies in the scene (after a union they stay as separate bodies inside the result).",
   "accepts": {
    "faces": [
     0,
@@ -2755,6 +2755,16 @@
      "Union",
      "Subtract",
      "Intersect"
+    ]
+   },
+   {
+    "name": "keep_tools",
+    "kind": "number",
+    "default": 0,
+    "drag": false,
+    "options": [
+     "No",
+     "Yes"
     ]
    }
   ],

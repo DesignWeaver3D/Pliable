@@ -217,25 +217,88 @@ def test_resizing_a_hole_changes_only_its_own_body():
     assert volume(solids[1]) == pytest.approx(holed_volume, rel=1e-6)  # the copy keeps its hole
 
 
-def test_a_scene_with_loose_faces_is_not_narrowed():
-    """Loose faces (sketch regions) belong to no body and would be lost when the scene is put back together."""
-    from build123d import Box, Pos
+def _region_above_block(shape, toward):
+    """`shape` plus a circular region 5 above the top of the block (z 15), facing into the block when `toward`. Returns the
+    topology and the region's face id."""
+    from pliable import sketch
+    from pliable.topology import Topology
 
+    sign = -1 if toward else 1
+    plane = {"origin": [0, 0, 15], "normal": [0, 0, sign], "xdir": [1, 0, 0]}
+    sk = {"plane": plane, "points": [{"id": 1, "u": 0, "v": 0}], "entities": [{"id": 10, "type": "circle", "center": 1, "radius": 2}], "constraints": []}
+    with_region, _ = sketch.add_regions(shape, sk)
+    scene = Topology(with_region)
+    face = scene.face_id(_loose_of(scene))
+    return scene, face
+
+
+def _loose_of(scene):
+    from pliable.body_scope import _loose_faces
+
+    (face,) = _loose_faces(scene, solids_of(scene.shape))
+    return face
+
+
+def test_loose_faces_go_into_the_narrowed_scene_and_come_back():
+    from pliable.body_scope import _loose_faces, narrow
+    from pliable.topology import Topology
+
+    base = _with_copy_of(solids_of(Topology(load_demo("block")).shape)[0])
+    scene, region = _region_above_block(base.shape, toward=True)
+    selection = Selection(faces=[top_face_of(scene, 0)])
+    held = narrow(scene, selection)  # strict: a tool working on a body does not see the region, it comes back as it was
+    assert len(solids_of(held.topology.shape)) == 1 and held.topology.face_count == 6 and len(held.held_out) == 1
+    assert len(solids_of(held.widen(OpResult_of(held.topology.shape)).shape)) == 2
+    scene.hidden_bodies = frozenset({scene.bodies.bodies[1].id})
+    merging = narrow(scene, selection, strict=False)  # a tool that merges gets the region too, and not the hidden body
+    assert len(solids_of(merging.topology.shape)) == 1 and len(merging.loose_faces) == 1 and merging.held_out == []
+    narrowed = narrow(scene, Selection(faces=[region, top_face_of(scene, 0)]))
+    assert narrowed.held_out == [] and len(narrowed.loose_faces) == 1 and narrowed.topology.face_count == 6 + 1
+    widened = narrowed.widen(OpResult_of(narrowed.topology.shape))
+    assert len(solids_of(widened.shape)) == 2
+    assert len(_loose_faces(Topology(widened.shape), solids_of(widened.shape))) == 1
+
+
+def OpResult_of(shape):
+    from pliable.ops import OpResult
+
+    return OpResult(shape, {})
+
+
+def test_a_selected_loose_face_has_no_owner_so_strict_scoping_sees_the_whole_scene():
     from pliable.body_scope import narrow
     from pliable.topology import Topology
 
-    block = solids_of(Topology(load_demo("block")).shape)[0]
-    sheet = (Pos(100, 0, 0) * Box(5, 5, 5)).faces()[0].wrapped
-    scene = _with_copy_of(block)
-    from OCP.BRep import BRep_Builder
-    from OCP.TopoDS import TopoDS_Compound
+    base = _with_copy_of(solids_of(Topology(load_demo("block")).shape)[0])
+    scene, region = _region_above_block(base.shape, toward=True)
+    assert narrow(scene, Selection(faces=[region])) is None
+    narrowed = narrow(scene, Selection(faces=[region, top_face_of(scene, 1)]))
+    assert narrowed is not None and len(solids_of(narrowed.topology.shape)) == 1
 
-    compound, builder = TopoDS_Compound(), BRep_Builder()
-    builder.MakeCompound(compound)
-    builder.Add(compound, scene.shape)
-    builder.Add(compound, sheet)
-    scene = Topology(compound)
-    assert narrow(scene, Selection(faces=[top_face_of(scene, 0)])) is None
+
+def test_a_hidden_body_beside_a_loose_region_is_not_fused_or_cut_by_pulling_it():
+    from pliable.topology import Topology
+
+    scene, region = _region_above_block(solids_of(Topology(load_demo("block")).shape)[0], toward=True)
+    pull = get_tool("push_pull")
+    visible = pull.execute(scene, Selection(faces=[region]), {"distance": 7}, preview=False)
+    assert len(solids_of(visible.shape)) == 1  # the pulled cylinder joins the block
+    scene.hidden_bodies = frozenset({scene.bodies.bodies[0].id})
+    hidden = pull.execute(scene, Selection(faces=[region]), {"distance": 7}, preview=False)
+    volumes = sorted(round(volume(s)) for s in solids_of(hidden.shape))
+    assert len(volumes) == 2 and 24000 in volumes  # the hidden block is untouched, the cylinder is its own body
+
+
+def test_shelling_a_body_next_to_a_loose_region_keeps_the_region():
+    from pliable.body_scope import _loose_faces
+    from pliable.topology import Topology
+
+    scene, region = _region_above_block(solids_of(Topology(load_demo("block")).shape)[0], toward=True)
+    top = top_face_of(scene, 0)
+    result = get_tool("shell").execute(scene, Selection(faces=[top]), _params(get_tool("shell"), {"thickness": 2}), preview=False)
+    assert len(solids_of(result.shape)) == 1
+    assert volume(result.shape) < 24000
+    assert len(_loose_faces(Topology(result.shape), solids_of(result.shape))) == 1
 
 
 def test_a_shelled_body_keeps_its_own_id_and_name_next_to_its_copy():
