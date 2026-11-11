@@ -1,6 +1,6 @@
 """The Add counterbore to hole tool."""
 
-from ..holes import rebuild_hole
+from ..hole_rebuild import rebuild_hole
 from ..ops import MIN_DISTANCE, OperationError
 from ..shared.hole_edit import _check_room, _end_changes, _entered_diameter, _HoleTool, _keep_bore, _perpendicular, CLEARANCE, SIZE_BY
 from ..shared.solids import finish

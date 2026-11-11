@@ -4,7 +4,8 @@ import math
 
 from OCP.gp import gp_Vec
 
-from ..holes import follow_cylinder, rebuild_hole
+from ..hole_rebuild import rebuild_hole
+from ..holes import follow_cylinder
 from ..ops import MIN_DISTANCE, OperationError, OpResult
 from ..shared.hole_edit import _HoleTool, _perpendicular, CLEARANCE
 from ..shared.solids import finish
