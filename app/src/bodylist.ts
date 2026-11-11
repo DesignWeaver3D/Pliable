@@ -17,6 +17,8 @@ export interface BodyInfo {
   why?: string | null;
   /** The material id chosen for this body; null or missing follows the default material setting. */
   material?: string | null;
+  /** True for a locked body: shown and pickable, but no tool changes it. */
+  locked?: boolean;
   recipe?: { tool: string; params: Record<string, number>; rotated: boolean };
 }
 
@@ -24,6 +26,8 @@ export interface BodyListHost {
   toggleHide(id: number): void;
   toggleIsolate(id: number): void;
   toggleGhost(id: number): void;
+  /** Lock or unlock a body (an undo step in the core). */
+  setLocked(id: number, locked: boolean): void;
   toggleFocus(id: number): void;
   rename(id: number, name: string): void;
   /** Give one body its own material (null: follow the default material). */
@@ -120,7 +124,7 @@ export class BodyList {
     const hidden = this.hidden.has(body.id);
     const isolated = isIsolated(this.hidden, all, body.id);
     const row = document.createElement("div");
-    row.className = "bodyrow" + (hidden ? " dim" : "");
+    row.className = "bodyrow" + (hidden ? " dim" : "") + (body.locked ? " locked" : "");
     row.dataset.id = String(body.id);
     row.title = body.name;
     const name = document.createElement("span");
@@ -134,6 +138,8 @@ export class BodyList {
       dot.style.background = bodyColor(body.id);
     }
     const eye = this.toggle(hidden ? "eyeOff" : "eye", hidden ? "Show this body" : "Hide this body", () => this.host.toggleHide(body.id), false);
+    const locked = !!body.locked;
+    const lock = this.toggle(locked ? "lock" : "unlock", locked ? "Unlock this body" : "Lock this body", () => this.host.setLocked(body.id, !locked), locked);
     const iso = this.toggle("isolate", isolated ? "Show all bodies again" : "Show only this body", () => this.host.toggleIsolate(body.id), isolated);
     const seeThrough = this.ghost.has(body.id);
     const xray = this.toggle(
@@ -152,7 +158,7 @@ export class BodyList {
       focused,
     );
     if (tinted) row.append(dot);
-    row.append(name, eye, iso, xray, focus);
+    row.append(name, eye, lock, iso, xray, focus);
     row.addEventListener("click", (e) => {
       if ((e.target as HTMLElement).closest("button, input")) return;
       const result = clickRows(all, this.selected, this.anchor, body.id, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey });

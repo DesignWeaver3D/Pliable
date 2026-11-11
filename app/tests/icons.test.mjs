@@ -54,3 +54,10 @@ test("every constraint button in the sketch strip has a drawn icon", async () =>
     assert.equal((svg.match(/<g\b/g) ?? []).length, (svg.match(/<\/g>/g) ?? []).length);
   }
 });
+
+test("the body list lock has a closed and an open padlock", async () => {
+  const { UI_ICONS } = await import("../src/icons.ts");
+  assert.match(UI_ICONS.lock, /<rect/);
+  assert.match(UI_ICONS.unlock, /<rect/);
+  assert.notEqual(UI_ICONS.lock, UI_ICONS.unlock);
+});
