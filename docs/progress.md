@@ -92,9 +92,7 @@ Tool group CORE:
   - Not done, for the owner to pick: folders for the flat `app/src` and core files (Phase 5; prefixes group them today); core tests in parallel (tried with 6 workers: 129 s becomes 75 s and all pass, with 10 a timing test fails; adding the package needs the owner's core stopped).
 
 - **Merge same-surface faces ourselves.** Owner (2026-11-12): "Is there a general approach to fixing these kernel face merge refusals that can be applied globally? I would expect that [another program] already found a solution to this because almost never a face merge failure in that application". Awaiting owner's go.
-  - Patches so far, in `unify_result` (`ops.py`): commits `73c2bc0`, `4d24221`; see watchlist.
-  - [ ] Still split: cylinder walls whose seam lines are at different places around the axis (`_rule` gives a nonzero `a`; repro: the bore test in `tests/test_wallframes.py` with the block bored from the other end); cones, spheres, tori.
-  - [ ] Plan: group adjacent faces on one surface by our own test, drop the edges inside a group, build one face from its outer boundary (kernel repair tools place the seam); keep it only when valid.
+  - Built (`samesurface.py`); owner hand-check: pull a face crossing a bore made from the other end, and a countersink.
   - [ ] Ask the owner which tool takes a hole's rim edge as a profile (commit `e18ac0a`) and check it accepts one circular edge.
 
 - **Speed and platform pass.** Owner (2026-11-11): "Work unattended. See if you can find and improve any computational processing time that would result in smoother and faster user experience. Also check for any inconsistencies that might occur between windows (most tested) and linux and macos versions. When you find items in these categories, go ahead and fix them."
