@@ -57,6 +57,7 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 
 ## Sketching
 
+- Point colors (how free each point is) cost the core two or three solves per point, up to its 1 s budget, and the core answers nothing else meanwhile. Once that request has taken over 120 ms, the app waits for a 300 ms pause in the edits before asking again (`pacer.ts`, `refreshFreedom` in `sketchrefresh.ts`), and not during a drag. Symptom: on a large sketch the colors update a moment after the edit instead of with it; small sketches are unchanged.
 - The solver is SolveSpace (py-slvs). Redundant constraints are reported as conflicts rather than ignored. Horizontal/vertical distance dimensions reorder their points for its sign convention. Circle tangency uses a hidden touching point and does not choose internal or external; a badly placed sketch can flip sides.
 - Regions come only from closed loops: an open line across a loop does not divide it. Loose faces are not solids; push/pull makes one (negative cuts), and STEP export writes faces.
 - Face outline and hole centers are fixed reference geometry. Every sketch also gets fixed points at the origin, axis crossings and face center.

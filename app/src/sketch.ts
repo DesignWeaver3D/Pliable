@@ -40,6 +40,7 @@ import { chooseConstraint, constraintChoices } from "./sketchconstrain.ts";
 import { editDimension, setReference, toggleReference } from "./sketchdimactions.ts";
 import { toggleConstruction } from "./sketchtransform.ts";
 import { cancelProjectPick } from "./sketchproject.ts";
+import { createPacer } from "./pacer.ts";
 import { refreshFreedom, refreshProfiles, resolveSketch, setProfiles } from "./sketchrefresh.ts";
 import { buildGrid, lightUp, onFrame, renderSketch } from "./sketchrender.ts";
 import { placePanel } from "./sketchpanel.ts";
@@ -544,6 +545,8 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
   }
 
   freedomSeq = 0;
+  /** Starts the point-freedom request: at once while it is quick, after a 300 ms pause in the edits once it took over 120 ms. */
+  freedomPace = createPacer(120, 300);
 
   profileFills: THREE.Mesh[] = [];
   profileSeq = 0;

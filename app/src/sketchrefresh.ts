@@ -3,7 +3,7 @@ import * as THREE from "three";
 import * as M from "./sketchmodel.ts";
 import type { Drag } from "./sketchtypes.ts";
 import { renderSketch } from "./sketchrender.ts";
-import type { SketchMode } from "./sketch.ts";
+import type { SketchMode } from "./sketch.ts";
 
 /** Solve the constraints (latest request wins while one is in flight). Resolves true if the solver succeeded. */
 export function resolveSketch(mode: SketchMode, drag?: Drag): Promise<boolean> {
@@ -30,8 +30,19 @@ export async function withoutAxisHolds(mode: SketchMode, drag?: Drag): Promise<b
 export async function refreshFreedom(mode: SketchMode) {
   const seq = ++mode.freedomSeq;
   try {
-    const reply = await mode.core.request<{ freedom: Record<string, number>; free_sizes?: number[] }>("sketch_freedom", { sketch: M.forSolver(mode.s) });
-    if (seq !== mode.freedomSeq || !mode.active) return;
+    // On a large sketch this takes the core up to a second, in which it answers nothing else: then it waits for a pause in the edits.
+    const reply = await mode.freedomPace.run(
+      () => seq === mode.freedomSeq && mode.active && !mode.drag, // a drag that began meanwhile asks again when it ends
+      () => mode.core.request<{ freedom: Record<string, number>; free_sizes?: number[] }>("sketch_freedom", { sketch: M.forSolver(mode.s) }),
+    );
+    if (!reply && seq === mode.freedomSeq && mode.active) {
+      // Held back by a drag: a drag that moved something asks again itself; one that did not is picked up here.
+      setTimeout(() => {
+        if (seq === mode.freedomSeq && mode.active) void refreshFreedom(mode);
+      }, 300);
+      return;
+    }
+    if (!reply || seq !== mode.freedomSeq || !mode.active) return;
     mode.freedom = new Map(Object.entries(reply.freedom).map(([id, n]) => [Number(id), n]));
     mode.freeSizes = new Set(reply.free_sizes ?? []);
     renderSketch(mode, false);
