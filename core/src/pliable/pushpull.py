@@ -172,7 +172,7 @@ def _push_pull(
         tracked = _follow(boolean, moved_faces)
         edges = _follow(boolean, list(follow_edges or []))
         vertices = _follow(boolean, list(follow_vertices or []))
-        result = unify_result(OpResult(boolean.Shape(), tracked, edges, vertices))
+        result = unify_result(OpResult(boolean.Shape(), tracked, edges, vertices), align=not preview)
         if not fuse:
             result.cutters = [tool]
         return result

@@ -35,6 +35,7 @@ from .opsgeom import (  # noqa: F401
     pull_direction,
 )
 from .validity import is_valid
+from .wallframes import align_walls
 
 
 @dataclass
@@ -182,8 +183,9 @@ def _faces_of(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
 _volume_of = volume_of
 
 
-def unify_result(result: OpResult) -> OpResult:
-    """Merge faces and edges that share a surface or curve, following the tracked shapes through the merge."""
+def unify_result(result: OpResult, align: bool = True) -> OpResult:
+    """Merge faces and edges that share a surface or curve, following the tracked shapes through the merge.
+    `align` False skips describing cylinder walls alike first (a drag preview: it costs time and only removes lines inside holes)."""
     # UnifySameDomain modifies its input in place, even in "safe input" mode,
     # and the result of an operation shares sub-shapes with the document's shape.
     # Unifying a topology-only copy keeps the original intact; geometry and
@@ -193,13 +195,26 @@ def unify_result(result: OpResult) -> OpResult:
     edges_c = _follow(copy, result.tracked_edges)
     vertices_c = _follow(copy, result.tracked_vertices)
 
-    unify = ShapeUpgrade_UnifySameDomain(copy.Shape(), True, True, True)
-    unify.Build()
-    merged = unify.Shape()
-    if not merged.IsNull() and is_valid(merged):
-        tracked = _follow(unify.History(), tracked_c)
-        edges = _follow(unify.History(), edges_c)
-        vertices = _follow(unify.History(), vertices_c)
+    # Walls of one cylinder that are described differently are first described alike, or the merge leaves them split
+    # (wallframes.py). That attempt is kept only when its merged shape is valid; otherwise the plain copy is merged as before.
+    attempts = []
+    try:
+        aligned = align_walls(copy.Shape()) if align else None
+    except Exception:  # an optional improvement: the kernel refusing a wall must not fail the operation
+        aligned = None
+    if aligned is not None:
+        shape, pairs = aligned
+        attempts.append((shape, [next((new for old, new in pairs if old.IsSame(face)), face) for face in tracked_c]))
+    attempts.append((copy.Shape(), tracked_c))
+    for shape, faces in attempts:
+        unify = ShapeUpgrade_UnifySameDomain(shape, True, True, True)
+        unify.Build()
+        merged = unify.Shape()
+        if not merged.IsNull() and is_valid(merged):
+            tracked = _follow(unify.History(), faces)
+            edges = _follow(unify.History(), edges_c)
+            vertices = _follow(unify.History(), vertices_c)
+            break
     else:
         # Merging coplanar faces can corrupt very detailed solids; the plain result is still valid.
         merged = copy.Shape()
