@@ -34,6 +34,7 @@ from .opsgeom import (  # noqa: F401
     planar_normal,
     pull_direction,
 )
+from .samesurface import merge_same_surface
 from .validity import is_valid
 from .wallframes import align_walls
 
@@ -225,10 +226,16 @@ def unify_result(result: OpResult, align: bool = True) -> OpResult:
             break
     else:
         # Merging coplanar faces can corrupt very detailed solids; the plain result is still valid.
-        merged = copy.Shape()
-        tracked, edges, vertices = tracked_c, edges_c, vertices_c
+        # The merge above changed `copy` in place, so the plain result is made again from the operation's own shape.
+        fresh = BRepBuilderAPI_Copy(result.shape, False, True)
+        merged = fresh.Shape()
+        tracked, edges, vertices = _follow(fresh, result.tracked_faces), _follow(fresh, result.tracked_edges), _follow(fresh, result.tracked_vertices)
         if merged.IsNull() or not is_valid(merged):  # only the fallback needs its own check: the merged shape just passed
             raise OperationError("Operation produced invalid geometry")
+    if align:
+        again = merge_same_surface(merged)  # faces of one surface the kernel left split (samesurface.py)
+        if again is not None:
+            merged, tracked, edges, vertices = again.shape, again.follow(tracked), again.follow(edges), again.follow(vertices)
     return OpResult(merged, tracked, edges, vertices, unified=True)
 
 
