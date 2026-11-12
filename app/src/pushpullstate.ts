@@ -1,6 +1,7 @@
 /** What the Push/Pull card chooses: the mode (Auto, Add, Subtract, New body), Flip and Symmetric, and the Alt override. Pure state, no DOM: the card (pushpullcard.ts),
  *  the drag (itemdrag.ts) and the arrows (pushpullarrows.ts) all read it. The core decides what each mode does (docs/dev-notes.md, "Push/pull modes and ghost"). */
 import { extentOn, extentParams, type Reach } from "./pushpullextent.ts";
+import { keyNames } from "./platform.ts";
 
 export type PushPullMode = "auto" | "add" | "subtract" | "new";
 
@@ -8,7 +9,7 @@ export const MODE_BUTTONS: readonly { id: PushPullMode; label: string; title: st
   { id: "auto", label: "Auto", title: "Dragging along the arrow adds to every body it meets, dragging against it subtracts (also through empty space)" },
   { id: "add", label: "Add", title: "Always adds: the pushed or pulled volume fuses with the bodies it meets" },
   { id: "subtract", label: "Subtract", title: "Always subtracts: the pushed or pulled volume cuts the bodies it meets" },
-  { id: "new", label: "New body", title: "Always makes a separate new body and never cuts or merges. New body: press Alt to switch it on or off" },
+  { id: "new", label: "New body", title: keyNames("Always makes a separate new body and never cuts or merges. New body: press Alt to switch it on or off") },
 ];
 
 export const FLIP_TITLE = "Reverses which drag direction adds and which subtracts (the arrows swap color); it does not change the face's normal";

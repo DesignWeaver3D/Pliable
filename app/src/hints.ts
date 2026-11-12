@@ -1,6 +1,8 @@
 /** Discoverability of hidden modes: one hint line at the bottom of the view with the keys valid right now,
  *  dismissible first-use tips, and one switch that turns all hints off. The logic is plain so it can be tested. */
 
+import { keyNames } from "./platform.ts";
+
 export interface HintContext {
   /** A tool drag or typed value entry is live. */
   dragging: boolean;
@@ -35,9 +37,9 @@ export function hintItems(ctx: HintContext, mods: Modifiers, keyText: (id: strin
     ];
   } else if (mods.ctrl) {
     items = [
-      { keys: "Ctrl+click", text: "add or remove from the selection" },
+      { keys: keyNames("Ctrl+click"), text: "add or remove from the selection" },
       { keys: "/", text: "search commands" },
-      { keys: k("history.undo", "Ctrl+Z"), text: "undo" },
+      { keys: k("history.undo", keyNames("Ctrl+Z")), text: "undo" },
     ];
   } else if (mods.shift && ctx.hasSelection) {
     items = [
@@ -45,7 +47,7 @@ export function hintItems(ctx: HintContext, mods: Modifiers, keyText: (id: strin
       { keys: k("display.isolate", "Shift+H"), text: "isolate the selected body" },
     ];
   } else if (mods.alt) {
-    items = [{ keys: k("display.showAll", "Alt+H"), text: "show all bodies" }];
+    items = [{ keys: k("display.showAll", keyNames("Alt+H")), text: "show all bodies" }];
   } else {
     items = []; // idle: no static legend; the search box shows its own shortcut and the Keys dialog lists the rest
   }
@@ -69,7 +71,7 @@ export const GETTING_STARTED_ID = "getting-started";
 export function gettingStartedItems(keyText: (id: string) => string): HintItem[] {
   const k = (id: string, fallback: string) => keyText(id) || fallback;
   return [
-    { keys: "Click", text: "select a face, edge or point (Ctrl+click adds, drag a box selects several)" },
+    { keys: "Click", text: keyNames("select a face, edge or point (Ctrl+click adds, drag a box selects several)") },
     { keys: "Drag", text: "push or pull a selected face; the arrow on the model changes its size" },
     { keys: "0-9", text: "while dragging, type an exact value and press Enter" },
     { keys: "/", text: "search every tool, setting and command (t: tools, s: settings)" },

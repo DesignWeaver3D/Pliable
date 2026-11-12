@@ -10,6 +10,7 @@
  */
 
 import { SKETCH_CONSTRAINT_KEYS } from "./sketchkeys.ts";
+import { keyNames } from "./platform.ts";
 
 export type KeyClass =
   | "view" // camera or projection
@@ -125,13 +126,20 @@ export interface KeyEventLike {
   keyCode?: number;
 }
 
+/** The character of a key press, lower case. With Alt held a Mac types another character (Option+H gives a dot above),
+ *  so when the character is not a plain letter or digit the letter of the physical key is taken. */
+function printed(e: KeyEventLike): string {
+  if (e.altKey && !/^[a-z0-9]$/i.test(e.key) && /^Key[A-Z]$/.test(e.code)) return e.code[3].toLowerCase();
+  return e.key.toLowerCase();
+}
+
 export function chordOfEvent(e: KeyEventLike): Chord {
   const physical = CODE_LIKE.test(e.code) && !/^Digit/.test(e.code) ? e.code : "";
   return {
     ctrl: e.ctrlKey || e.metaKey,
     alt: e.altKey,
     shift: e.shiftKey,
-    main: physical || (e.key.length === 1 ? e.key.toLowerCase() : e.key),
+    main: physical || (e.key.length === 1 ? printed(e) : e.key),
   };
 }
 
@@ -144,7 +152,7 @@ export function chordMatches(chord: Chord, e: KeyEventLike): boolean {
   }
   if (chord.shift !== e.shiftKey) return false;
   if (CODE_LIKE.test(chord.main)) return e.code === chord.main || e.key === chord.main;
-  return e.key.toLowerCase() === chord.main;
+  return printed(e) === chord.main;
 }
 
 /** A bare key has no Ctrl/Alt/Meta (Shift alone still counts as bare: it is just a capital letter). */
@@ -233,12 +241,12 @@ export class Keymap {
     return Object.fromEntries(this.commands.map((c) => [c.id, this.chordsOf(c.id)]));
   }
 
-  /** The text to show next to a command: its first chord, or "". */
+  /** The text to show next to a command: its first chord with this computer's key names, or "". */
   hint(id: string): string {
     const first = this.chordsOf(id).find((t) => !/^Numpad/.test(t)) ?? this.chordsOf(id)[0];
     const chord = first ? parseChord(first) : null;
     if (!chord) return "";
-    return formatChord({ ...chord, main: chord.main.replace(/^Digit/, "") });
+    return keyNames(formatChord({ ...chord, main: chord.main.replace(/^Digit/, "") }));
   }
 
   /** Replace a command's chords (after validation by the caller). */

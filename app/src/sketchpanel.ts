@@ -11,6 +11,7 @@ import { offsetSelection, roundSelectedCorner, toggleConstruction, transformButt
 import { toggleProjectPick } from "./sketchproject.ts";
 import { buildGrid, renderSketch } from "./sketchrender.ts";
 import type { SketchMode } from "./sketch.ts";
+import { keyNames } from "./platform.ts";
 
 /** The card starts just under the nav cube group, so it has all the room below for a long constraint list. */
 export function placePanel(mode: SketchMode) {
@@ -111,7 +112,7 @@ export function renderPanel(mode: SketchMode) {
     offsetRow.append(button("Offset", () => offsetSelection(mode)), distance);
     constraintsBox.append(offsetRow);
     const construction = button("Toggle construction", () => toggleConstruction(mode));
-    construction.title = "Construction geometry guides the sketch but is not part of the profile. Pressing Alt does the same for the selected curves";
+    construction.title = keyNames("Construction geometry guides the sketch but is not part of the profile. Pressing Alt does the same for the selected curves");
     constraintsBox.append(construction);
   }
 

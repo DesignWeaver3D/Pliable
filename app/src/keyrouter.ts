@@ -2,6 +2,7 @@
  *  cancel on window blur, saved keymap and the Keys settings dialog. */
 import { Engagement, Keymap, chordOfEvent, decideKey, formatChord, validateBinding, type KeyContext } from "./keys.ts";
 import { shortcutSheetHtml } from "./shortcutsheet.ts";
+import { keyNames } from "./platform.ts";
 
 const STORAGE_KEY = "pliable.keymap";
 
@@ -129,7 +130,7 @@ export class KeyRouter {
     let message = "";
     const rules = document.createElement("p");
     rules.style.cssText = "font-size:12px;color:#aaa;margin:4px 0 8px";
-    rules.textContent = "One key with optional Ctrl, Alt or Shift per shortcut; no sequences. A key that changes the model or a setting at once needs Ctrl or Alt. Single keys work only while the pointer is over the 3D view.";
+    rules.textContent = keyNames("One key with optional Ctrl, Alt or Shift per shortcut; no sequences. A key that changes the model or a setting at once needs Ctrl or Alt. Single keys work only while the pointer is over the 3D view.");
 
     const capture = (e: KeyboardEvent) => {
       if (capturing === null) {
@@ -148,8 +149,8 @@ export class KeyRouter {
       if (result.ok) {
         this.keymap.assign(id, [text]);
         save(this.keymap);
-        message = `${command.label}: ${text}`;
-      } else message = result.reason;
+        message = keyNames(`${command.label}: ${text}`);
+      } else message = keyNames(result.reason);
       capturing = null;
       render();
     };
@@ -163,13 +164,13 @@ export class KeyRouter {
       const toggle = document.createElement("input");
       toggle.type = "checkbox";
       toggle.checked = this.keymap.data.singleKeys;
-      toggle.title = "Turn keys that need no Ctrl or Alt on or off; shortcuts with Ctrl or Alt always work";
+      toggle.title = keyNames("Turn keys that need no Ctrl or Alt on or off; shortcuts with Ctrl or Alt always work");
       toggle.onchange = () => {
         this.keymap.data = { ...this.keymap.data, singleKeys: toggle.checked };
         save(this.keymap);
         this.refreshRing();
       };
-      single.append(toggle, " Enable single-key shortcuts (keys without Ctrl or Alt)");
+      single.append(toggle, keyNames(" Enable single-key shortcuts (keys without Ctrl or Alt)"));
       const hintsRow = document.createElement("label");
       hintsRow.style.cssText = "display:block;margin-top:4px";
       if (this.host.hints) {
@@ -189,14 +190,14 @@ export class KeyRouter {
         row.style.cssText = "display:flex;gap:8px;align-items:center;padding:2px 0";
         const label = document.createElement("span");
         label.style.flex = "1";
-        label.textContent = c.label;
+        label.textContent = keyNames(c.label);
         const keyText = document.createElement("code");
         keyText.style.cssText = "min-width:90px;text-align:right";
         keyText.textContent = this.keymap.hint(c.id) || "none";
         const change = document.createElement("button");
         change.textContent = capturing === c.id ? "Press a key..." : "Change";
         change.onclick = () => { capturing = c.id; message = ""; render(); };
-        change.title = `Choose a new key for: ${c.label}`;
+        change.title = keyNames(`Choose a new key for: ${c.label}`);
         change.hidden = !!c.fixed;
         const reset = document.createElement("button");
         reset.textContent = "Reset";
@@ -223,7 +224,7 @@ export class KeyRouter {
           render();
           return;
         }
-        sheet.document.write(shortcutSheetHtml(this.keymap.list().map((c) => ({ label: c.label, keys: this.keymap.hint(c.id) }))));
+        sheet.document.write(shortcutSheetHtml(this.keymap.list().map((c) => ({ label: keyNames(c.label), keys: this.keymap.hint(c.id) }))));
         sheet.document.close();
         sheet.focus();
         sheet.print();

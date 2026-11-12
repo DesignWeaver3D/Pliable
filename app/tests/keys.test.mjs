@@ -1,7 +1,7 @@
 // Run with: node --test app/tests   (Node 24 runs the TypeScript source directly)
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ENGAGE_GRACE_MS, Engagement, KEY_COMMANDS, Keymap, checkKeymap, chordMatches, decideKey, formatChord, parseChord, validateBinding } from "../src/keys.ts";
+import { ENGAGE_GRACE_MS, Engagement, KEY_COMMANDS, Keymap, checkKeymap, chordMatches, chordOfEvent, decideKey, formatChord, parseChord, validateBinding } from "../src/keys.ts";
 
 const ev = (key, extra = {}) => ({ key, code: extra.code ?? (key.length === 1 && /\d/.test(key) ? `Digit${key}` : `Key${key.toUpperCase()}`), ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...extra });
 const live = { pageFocused: true, inTextField: false, entryActive: false, engaged: true, sketchActive: false };
@@ -224,4 +224,10 @@ test("the shortcuts dialog opens with ? (Shift+/) on any layout and passes the k
   assert.equal(chordMatches(chord, ev), true);
   assert.equal(chordMatches(chord, { ...ev, shiftKey: false, key: "/" }), false);
   assert.equal(validateBinding(KEY_COMMANDS.find((c) => c.id === "ui.shortcuts"), "Shift+?", {}).ok, true);
+});
+
+test("Alt with a letter matches by the physical key when Alt types another character (Option on a Mac)", () => {
+  assert.equal(ran(ev("˙", { code: "KeyH", altKey: true })), "display.showAll"); // Option+H on a Mac
+  assert.equal(formatChord(chordOfEvent(ev("˙", { code: "KeyH", altKey: true }))), "Alt+H"); // so it can be assigned too
+  assert.equal(ran(ev("h", { code: "KeyJ", altKey: true })), "display.showAll"); // another layout: the printed letter still decides
 });

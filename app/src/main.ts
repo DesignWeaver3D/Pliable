@@ -59,6 +59,7 @@ import { createPushPullCard } from "./pushpullwire.ts";
 import { createHoleEditor } from "./holeeditorcard.ts";
 import { HOLE_EDITOR_ID, holeEditorTool } from "./holeeditortool.ts";
 import { HOLE_EDITOR_HELPERS } from "./layout.ts";
+import { keyNames } from "./platform.ts";
 
 const $ = (id: string) => document.getElementById(id)!;
 const status = $("status");
@@ -630,7 +631,7 @@ viewport.onEdgeLoop = async (edgeId, additive) => {
     const sels = additive ? [...app.currentSels.filter((s) => !(s.kind === "edge" && edges.includes(s.id))), ...picked] : picked;
     viewport.selectItems(sels);
     setSelection(sels);
-    status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} selected by double-click (edges that continue smoothly from this one; Ctrl+double-click adds them to the selection)`;
+    status.textContent = `${picked.length} edge${picked.length === 1 ? "" : "s"} selected by double-click (edges that continue smoothly from this one; ${keyNames("Ctrl+double-click")} adds them to the selection)`;
   } catch (e) {
     status.textContent = (e as Error).message;
   }

@@ -8,6 +8,7 @@ import type { Vec } from "./pulldir.ts";
 import { numericField, fieldNumber, fieldText } from "./numberfield.ts";
 import { interaction, type Interact } from "./interactionlogic.ts";
 import { InteractionChoice } from "./interactionchoice.ts";
+import { keyNames } from "./platform.ts";
 
 export interface PushPullCardHost {
   state: PushPullState;
@@ -79,7 +80,7 @@ export class PushPullCard {
     }
     const modeHead = document.createElement("div");
     modeHead.className = "row";
-    modeHead.title = "How the pushed or pulled volume meets the bodies. New body: press Alt to switch it on or off";
+    modeHead.title = keyNames("How the pushed or pulled volume meets the bodies. New body: press Alt to switch it on or off");
     modeHead.textContent = "Mode";
     this.flipButton.textContent = "Flip";
     this.flipButton.title = FLIP_TITLE;
