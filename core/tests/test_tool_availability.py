@@ -74,6 +74,21 @@ def test_selecting_a_face_of_a_large_model_checks_the_tools_quickly():
     assert time.perf_counter() - start < 0.8
 
 
+def test_selecting_the_face_with_all_the_holes_checks_the_tools_quickly():
+    """Regression: the Edit cut check judged the plate's top face as a floor once per hole wall beside it, each time
+    walking its 800 edges; selecting that face took about 10 s."""
+    import time
+
+    from pliable.ops import planar_normal
+
+    s = Session()
+    s.handle({"type": "open_demo", "name": "perforated_plate"})
+    top = max((n.Z(), i) for i, f in s.document.current.faces() if (n := planar_normal(f)) is not None)[1]
+    start = time.perf_counter()
+    s.handle({"type": "available_tools", "selection": {"faces": [top]}})
+    assert time.perf_counter() - start < 2.5
+
+
 def test_edge_faces_lists_each_adjacent_face():
     topology = _bracket()._require_document().current
     counts = {len(topology.edge_faces(edge)) for _, edge in topology.edges()}

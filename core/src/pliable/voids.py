@@ -204,14 +204,18 @@ def _try_axis(topology, face_id, seed, axis: gp_Dir, reach: bool):
         return None
     # A flat floor closes one end: a plane across the axis whose edges are all shared with the walls.
     floor, floor_at = None, 0.0
+    floors: dict[int, float | None] = {}  # each neighbor is judged once: the face with 400 holes in it borders 400 walls
     for fid in list(members):
         for edge in _edges(topology.face(fid)):
             for other in topology.edge_faces(edge):
                 oid = topology.face_id(other)
-                if oid is None or oid in members or not _is_floor(other, axis):
+                if oid is None or oid in members:
                     continue
-                if all(topology.face_id(f) in members or topology.face_id(f) == oid for e in _edges(other) for f in topology.edge_faces(e)):
-                    floor, floor_at = oid, along(axis, oid)[0]
+                if oid not in floors:
+                    closes = _is_floor(other, axis) and all(topology.face_id(f) in members or topology.face_id(f) == oid for e in _edges(other) for f in topology.edge_faces(e))
+                    floors[oid] = along(axis, oid)[0] if closes else None
+                if floors[oid] is not None:
+                    floor, floor_at = oid, floors[oid]
     d = axis
     if floor is not None:
         if abs(floor_at - min(values)) < abs(floor_at - max(values)):
