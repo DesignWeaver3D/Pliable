@@ -1,9 +1,9 @@
 """The Variable fillet tool."""
 
-from OCP.BRepCheck import BRepCheck_Analyzer
 
 from ..ops import edge_curve, edge_outward_normal, MIN_DISTANCE, OperationError, OpResult
 from ..tools import Accepts, Handle, Param, register, Tool
+from ..validity import is_valid
 
 
 @register
@@ -73,6 +73,6 @@ class VariableFillet(Tool):
             maker.Build()
         except Exception as e:  # OCCT raises Standard_Failure for impossible sizes
             raise OperationError(f"Could not round: {e}") from None
-        if not maker.IsDone() or maker.Shape().IsNull() or not BRepCheck_Analyzer(maker.Shape()).IsValid():
+        if not maker.IsDone() or maker.Shape().IsNull() or not is_valid(maker.Shape()):
             raise OperationError("Could not round these edges with these radii")
         return OpResult(maker.Shape(), [g for edge in edges for g in maker.Generated(edge)])

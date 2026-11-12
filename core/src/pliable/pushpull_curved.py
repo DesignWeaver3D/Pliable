@@ -8,7 +8,6 @@ part of the profile, or that the kernel handles wrongly, is refused with a messa
 from OCP.BRepAdaptor import BRepAdaptor_Surface
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut
 from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace
-from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepClass import BRepClass_FaceClassifier
 from OCP.BRepFeat import BRepFeat_MakePrism
 from OCP.BRepGProp import BRepGProp
@@ -21,6 +20,7 @@ from OCP.gp import gp_Dir, gp_Lin, gp_Pln, gp_Pnt, gp_Pnt2d
 
 from .ops import OperationError, _faces_of, planar_normal, pull_direction
 from .opserrors import MIN_DISTANCE
+from .validity import is_valid
 
 GRID = 11  # sample points per direction across the profile's parameter box
 VOLUME_SLACK = 0.1  # the pad's volume may differ this much from the profile area times the sampled distances
@@ -80,7 +80,7 @@ def pad_to_curved_face(shape, face, target, direction) -> tuple:
         feature.Perform(target)
     except Exception:
         raise OperationError("Up to face: could not end the pad on the target face") from None
-    if not feature.IsDone() or feature.Shape().IsNull() or not BRepCheck_Analyzer(feature.Shape()).IsValid():
+    if not feature.IsDone() or feature.Shape().IsNull() or not is_valid(feature.Shape()):
         raise OperationError("Up to face: could not end the pad on the target face")
     cut = BRepAlgoAPI_Cut(feature.Shape(), shape)
     pad = cut.Shape() if cut.IsDone() else None

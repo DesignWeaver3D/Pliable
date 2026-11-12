@@ -40,6 +40,7 @@ from .ops import OperationError, edge_outward_normal, planar_normal
 from .tools import Selection
 from .topology import Topology
 from .volume import volume_of
+from .validity import is_valid
 
 TANGENT_TOL = 1e-6  # 1 - |cos| of the angle between normals below which faces count as tangent
 FULL_TURN_TOL = 1e-6  # radians: a sweep this close to 2*pi counts as a full circle
@@ -335,7 +336,6 @@ def model_info(topology: Topology, body: int | None = None) -> dict:
     With a body id, the same facts for that body alone."""
     from .ops import solids_of
     from OCP.BRepBndLib import BRepBndLib
-    from OCP.BRepCheck import BRepCheck_Analyzer
     from OCP.Bnd import Bnd_Box
     from OCP.TopAbs import TopAbs_SOLID
     from OCP.TopExp import TopExp
@@ -357,7 +357,7 @@ def model_info(topology: Topology, body: int | None = None) -> dict:
     BRepBndLib.AddOptimal_s(shape, box, False, False)  # exact extents (Add_s pads by the tolerance)
     lo, hi = box.CornerMin(), box.CornerMax()
     open_edges = sum(1 for _, e in topology.edges() if len(topology.edge_faces(e)) == 1 and not BRepAdaptor_Curve(e).IsClosed())
-    valid = BRepCheck_Analyzer(shape).IsValid()
+    valid = is_valid(shape)
     rows = [
         _row("Valid", "yes" if valid else "NO: the model has errors"),
         _row("Solids", solids.Extent()),

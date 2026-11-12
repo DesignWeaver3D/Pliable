@@ -1,9 +1,9 @@
 """The Fillet per edge tool."""
 
-from OCP.BRepCheck import BRepCheck_Analyzer
 
 from ..ops import MIN_DISTANCE, OperationError, OpResult
 from ..tools import Accepts, Param, register, Tool
+from ..validity import is_valid
 
 
 @register
@@ -46,6 +46,6 @@ class FilletPerEdge(Tool):
             maker.Build()
         except Exception as e:
             raise OperationError(f"Could not round: {e}") from None
-        if not maker.IsDone() or maker.Shape().IsNull() or not BRepCheck_Analyzer(maker.Shape()).IsValid():
+        if not maker.IsDone() or maker.Shape().IsNull() or not is_valid(maker.Shape()):
             raise OperationError("Could not round these edges with these radii")
         return OpResult(maker.Shape(), [g for edge in edges for g in maker.Generated(edge)])

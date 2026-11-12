@@ -5,7 +5,6 @@ import tempfile
 
 from build123d import Mesher, export_step, export_stl, import_step
 from build123d.topology import Shape
-from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRep import BRep_Tool
 from OCP.BRepBuilderAPI import BRepBuilderAPI_FindPlane, BRepBuilderAPI_Sewing
 from OCP.BRepTools import BRepTools_ReShape
@@ -17,6 +16,7 @@ from OCP.TopoDS import TopoDS, TopoDS_Compound, TopoDS_Shape
 
 from .ops import solids_of
 from .volume import volume_of
+from .validity import is_valid
 
 SEWING_TOLERANCE = 1e-3  # model units (mm): gaps up to this size between surface edges are stitched shut
 
@@ -237,7 +237,7 @@ def _close_shell(shell: TopoDS_Shape) -> TopoDS_Shape | None:
         if candidate is None or not BRep_Tool.IsClosed_s(candidate):
             continue
         solid = ShapeFix_Solid().SolidFromShell(TopoDS.Shell(candidate))
-        if not solid.IsNull() and _volume(solid) > 0 and BRepCheck_Analyzer(solid).IsValid():
+        if not solid.IsNull() and _volume(solid) > 0 and is_valid(solid):
             return solid
     return None
 
@@ -323,7 +323,7 @@ def check_import(shape: TopoDS_Shape, names: list | None = None) -> tuple[TopoDS
             if _volume(fixer.Solid()) > 0:
                 reshape.Replace(solid, fixer.Solid())
                 fixed += 1
-        if not BRepCheck_Analyzer(solid).IsValid():
+        if not is_valid(solid):
             invalid += 1
     if fixed:
         shape = reshape.Apply(shape)

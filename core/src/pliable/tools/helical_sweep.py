@@ -5,7 +5,6 @@ from OCP.BRepBndLib import BRepBndLib
 from OCP.Bnd import Bnd_Box
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
-from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepOffsetAPI import BRepOffsetAPI_MakePipeShell
 from OCP.gp import gp_Pnt, gp_Trsf, gp_Vec
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_WIRE
@@ -20,6 +19,7 @@ from ..shared.solids import _combine, _compound, _volume, finish
 from ..sketch import SketchError, regions
 from ..tools import Handle, Param, register
 from .revolve_face import RevolveFace
+from ..validity import is_valid
 
 MODES = ("Add", "Subtract")
 
@@ -45,7 +45,7 @@ def _apply(shape, piece, fuse: bool):
     """One boolean step. The turns of a coil touch end to end, which makes a step now and then come out invalid; a small fuzzy value fixes it."""
     result = _combine(shape, piece, fuse)
     for fuzzy in (1e-6, 1e-5, 1e-4):
-        if BRepCheck_Analyzer(result).IsValid():
+        if is_valid(result):
             return result
         operation = (BRepAlgoAPI_Fuse if fuse else BRepAlgoAPI_Cut)(shape, piece)
         operation.SetFuzzyValue(fuzzy)

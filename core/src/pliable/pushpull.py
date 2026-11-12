@@ -1,7 +1,6 @@
 """Push/pull of faces: extruding or cutting along a face normal, on the one solid that holds the face."""
 
 from OCP.BRep import BRep_Builder
-from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepOffset import BRepOffset_MakeOffset, BRepOffset_Skin
 from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
 from OCP.GeomAbs import GeomAbs_Arc
@@ -164,27 +163,34 @@ def _push_pull(
 
     fuse = push_role(mode, flip, distance) == "add"
     ordinary = fuse == (distance > 0)  # the extrusion is added when pulled and cut when pushed, as the extrusion's own side suggests
-    boolean = None
+
+    def finished(boolean) -> OpResult:
+        if not fuse and not solids_of(boolean.Shape()):
+            raise OperationError("That would cut away the whole solid; use a smaller distance")
+        if not fuse and not ordinary and _volume_of(boolean.Shape()) > _volume_of(shape) - 1e-6:
+            return nothing_to_subtract(shape, faces, [tool], preview)
+        tracked = _follow(boolean, moved_faces)
+        edges = _follow(boolean, list(follow_edges or []))
+        vertices = _follow(boolean, list(follow_vertices or []))
+        result = unify_result(OpResult(boolean.Shape(), tracked, edges, vertices))
+        if not fuse:
+            result.cutters = [tool]
+        return result
+
     if preview and ordinary:
         boolean = _boolean(shape, tool, fuse, glue=True)
-        if boolean is not None and not BRepCheck_Analyzer(boolean.Shape()).IsValid():
-            boolean = None
         # Glue mode can return the solid unchanged when a cut reaches past the far side; the exact boolean cuts through.
         if boolean is not None and not fuse and _volume_of(boolean.Shape()) > _volume_of(shape) - 1e-6:
             boolean = None
-    if boolean is None:
-        boolean = _boolean(shape, tool, fuse, glue=False)
+        if boolean is not None:
+            # The glued result is not checked on its own: merging its faces ends with the validity check, and that
+            # check costs several times the glued boolean on a model with hundreds of faces. A bad glued result
+            # fails there and the exact boolean takes over.
+            try:
+                return finished(boolean)
+            except OperationError:
+                pass
+    boolean = _boolean(shape, tool, fuse, glue=False)
     if boolean is None:
         raise OperationError("Boolean operation failed")
-    if not fuse and not solids_of(boolean.Shape()):
-        raise OperationError("That would cut away the whole solid; use a smaller distance")
-    if not fuse and not ordinary and _volume_of(boolean.Shape()) > _volume_of(shape) - 1e-6:
-        return nothing_to_subtract(shape, faces, [tool], preview)
-    tracked = _follow(boolean, moved_faces)
-    edges = _follow(boolean, list(follow_edges or []))
-    vertices = _follow(boolean, list(follow_vertices or []))
-
-    result = unify_result(OpResult(boolean.Shape(), tracked, edges, vertices))
-    if not fuse:
-        result.cutters = [tool]
-    return result
+    return finished(boolean)

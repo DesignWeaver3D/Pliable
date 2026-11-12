@@ -2,7 +2,6 @@
 
 from OCP.BRepAdaptor import BRepAdaptor_Surface
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Defeaturing
-from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 from OCP.gp import gp_Dir, gp_Pnt
@@ -10,6 +9,7 @@ from OCP.gp import gp_Dir, gp_Pnt
 from ..ops import MIN_DISTANCE, OperationError, OpResult, planar_normal
 from ..tools import Tool
 from .solids import finish
+from ..validity import is_valid
 
 
 def _plane_axes(face) -> tuple[gp_Pnt, gp_Dir, gp_Dir, gp_Dir]:
@@ -48,7 +48,7 @@ def _chamfer_with_face(topology, selection, add, per_edge_face: bool = False) ->
         maker.Build()
     except Exception as e:  # OCCT raises Standard_Failure for impossible sizes
         raise OperationError(f"Could not chamfer: {e}") from None
-    if not maker.IsDone() or maker.Shape().IsNull() or not BRepCheck_Analyzer(maker.Shape()).IsValid():
+    if not maker.IsDone() or maker.Shape().IsNull() or not is_valid(maker.Shape()):
         raise OperationError("Could not chamfer these edges at this size")
     generated = [g for edge in edges for g in maker.Generated(edge)]
     return OpResult(maker.Shape(), generated)
@@ -93,7 +93,7 @@ def _rebuild_round(topology, face, neighbours: list, size: float, chamfer: bool,
             maker.Build()
         except Exception as e:  # OCCT raises Standard_Failure for impossible sizes
             raise OperationError(f"Could not round: {e}") from None
-        if not maker.IsDone() or maker.Shape().IsNull() or not BRepCheck_Analyzer(maker.Shape()).IsValid():
+        if not maker.IsDone() or maker.Shape().IsNull() or not is_valid(maker.Shape()):
             raise OperationError("Could not round this edge with these radii")
         return finish(maker.Shape())
     if chamfer and second_size is not None and abs(second_size - size) > MIN_DISTANCE:
@@ -106,7 +106,7 @@ def _rebuild_round(topology, face, neighbours: list, size: float, chamfer: bool,
             maker.Build()
         except Exception as e:  # OCCT raises Standard_Failure for impossible sizes
             raise OperationError(f"Could not chamfer: {e}") from None
-        if not maker.IsDone() or maker.Shape().IsNull() or not BRepCheck_Analyzer(maker.Shape()).IsValid():
+        if not maker.IsDone() or maker.Shape().IsNull() or not is_valid(maker.Shape()):
             raise OperationError("Could not chamfer this edge at these distances")
         return finish(maker.Shape())
     return finish(fillet_chamfer(sharp, shared, -size if chamfer else size).shape)

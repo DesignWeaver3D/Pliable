@@ -29,6 +29,7 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 
 ## Modeling
 
+- A push/pull preview no longer checks the glued boolean on its own (`pushpull.py` `_push_pull`): the face merge that follows ends with the validity check, and a failure there falls back to the exact boolean. If a bad glued result ever merges into a shape the check accepts, the preview shows it; the commit always uses the exact boolean. The validity check itself (`validity.py` `is_valid`) runs on all cores.
 - Holes and bosses are edited by fusing or cutting cylinders; a hole partly cut by another feature resizes oddly. Resize hole takes a typed diameter and does not show the current one.
 - Shell, draft, delete face and remove fillet use OpenCASCADE defeaturing/offset, which can fail or give degenerate results; only shell has a volume check. Check Model info when a tool reports success but nothing changed.
 - `UnifySameDomain` runs after every tool and may merge faces you wanted separate or renumber them. Measured 0.4 s on a 231-face plate and it grows with face count (merge only near the change if large models feel slow). On very detailed solids (~2,000+ faces) it can produce invalid geometry; push/pull then keeps the plain boolean result.

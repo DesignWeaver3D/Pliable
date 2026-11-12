@@ -7,7 +7,6 @@ from OCP.BOPAlgo import BOPAlgo_GlueShift
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy, BRepBuilderAPI_Transform
 from OCP.BRep import BRep_Tool
-from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer, BRepFilletAPI_MakeFillet
 from OCP.BRepLProp import BRepLProp_SLProps
 from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
@@ -35,6 +34,7 @@ from .opsgeom import (  # noqa: F401
     planar_normal,
     pull_direction,
 )
+from .validity import is_valid
 
 
 @dataclass
@@ -196,7 +196,7 @@ def unify_result(result: OpResult) -> OpResult:
     unify = ShapeUpgrade_UnifySameDomain(copy.Shape(), True, True, True)
     unify.Build()
     merged = unify.Shape()
-    if not merged.IsNull() and BRepCheck_Analyzer(merged).IsValid():
+    if not merged.IsNull() and is_valid(merged):
         tracked = _follow(unify.History(), tracked_c)
         edges = _follow(unify.History(), edges_c)
         vertices = _follow(unify.History(), vertices_c)
@@ -204,9 +204,8 @@ def unify_result(result: OpResult) -> OpResult:
         # Merging coplanar faces can corrupt very detailed solids; the plain result is still valid.
         merged = copy.Shape()
         tracked, edges, vertices = tracked_c, edges_c, vertices_c
-
-    if merged.IsNull() or not BRepCheck_Analyzer(merged).IsValid():
-        raise OperationError("Operation produced invalid geometry")
+        if merged.IsNull() or not is_valid(merged):  # only the fallback needs its own check: the merged shape just passed
+            raise OperationError("Operation produced invalid geometry")
     return OpResult(merged, tracked, edges, vertices, unified=True)
 
 
@@ -226,7 +225,7 @@ def fillet_chamfer(shape: TopoDS_Shape, edges: list[TopoDS_Edge], distance: floa
     if not maker.IsDone() or maker.Shape().IsNull():
         raise OperationError("Could not " + ("fillet" if distance > 0 else "chamfer") + " these edges at this size")
     result = maker.Shape()
-    if not BRepCheck_Analyzer(result).IsValid():
+    if not is_valid(result):
         raise OperationError("Operation produced invalid geometry")
     generated = []
     for edge in edges:

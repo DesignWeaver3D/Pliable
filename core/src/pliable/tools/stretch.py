@@ -10,7 +10,6 @@ from OCP.BRepBuilderAPI import (
     BRepBuilderAPI_Sewing,
     BRepBuilderAPI_Transform,
 )
-from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
 from OCP.BRepTools import BRepTools_WireExplorer
 from OCP.GeomAbs import GeomAbs_Line
@@ -23,6 +22,7 @@ from OCP.gp import gp_Dir, gp_Pln, gp_Pnt, gp_Trsf, gp_Vec
 
 from ..ops import face_handle_point, MIN_DISTANCE, OperationError, OpResult, planar_normal, solids_of
 from ..tools import Accepts, Handle, Param, register, Tool
+from ..validity import is_valid
 
 
 REFUSED = " Try Insert (mode 1), which extrudes the end face's section instead."
@@ -148,7 +148,7 @@ def shift_vertices(solid, moved_vertices: ShapeIndexedMap, offset):
     fixer.Perform()
     result = fixer.Solid()
     from ..shared.solids import _volume
-    if _volume(result) <= 0 or not BRepCheck_Analyzer(result).IsValid():
+    if _volume(result) <= 0 or not is_valid(result):
         raise OperationError("The stretched solid is not valid." + REFUSED)
     return result
 

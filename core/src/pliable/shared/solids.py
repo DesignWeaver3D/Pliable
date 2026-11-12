@@ -11,7 +11,6 @@ from OCP.BRepBuilderAPI import (
     BRepBuilderAPI_Sewing,
     BRepBuilderAPI_Transform,
 )
-from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepGProp import BRepGProp
 from OCP.BRepPrimAPI import BRepPrimAPI_MakeCylinder
 from OCP.Bnd import Bnd_Box
@@ -24,6 +23,7 @@ from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 
 from ..ops import _boolean, keep_compound, OperationError, OpResult, solids_of
 from ..tools import Param
+from ..validity import is_valid
 
 
 TOL = 1e-6
@@ -39,7 +39,7 @@ def finish(shape: TopoDS_Shape, cutters=()) -> OpResult:
         unify = ShapeUpgrade_UnifySameDomain(copy.Shape(), True, faces, faces)
         unify.Build()
         result = unify.Shape()
-        if not result.IsNull() and BRepCheck_Analyzer(result).IsValid():
+        if not result.IsNull() and is_valid(result):
             break
     else:
         raise OperationError("Operation produced invalid geometry")
@@ -152,11 +152,11 @@ def _sew_into(shape: TopoDS_Shape, face: TopoDS_Shape) -> OpResult:
     shells = _Explorer(result, TopAbs_SHELL)
     if shells.More() and not result.IsNull():
         shell = TopoDS.Shell(shells.Current())
-        if BRepCheck_Analyzer(shell).IsValid():
+        if is_valid(shell):
             solid = BRepBuilderAPI_MakeSolid(shell).Solid()
-            if BRepCheck_Analyzer(solid).IsValid() and _volume(solid) > 0:
+            if is_valid(solid) and _volume(solid) > 0:
                 return finish(solid)
-    if result.IsNull() or not BRepCheck_Analyzer(result).IsValid():
+    if result.IsNull() or not is_valid(result):
         raise OperationError("Operation produced invalid geometry")
     return OpResult(result, [])
 
