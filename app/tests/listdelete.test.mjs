@@ -25,3 +25,19 @@ test("isTyping spots text fields", () => {
   assert.equal(isTyping({ tagName: "DIV", isContentEditable: false }), false);
   assert.equal(isTyping(null), false);
 });
+
+test("on a Mac the Backspace key deletes too; elsewhere it does nothing", async () => {
+  const { isApple } = await import("../src/platform.ts");
+  const row = { list: "sketch", id: 3 };
+  const base = { bodies: [2], row: null, typing: false, blocked: false };
+  assert.equal(deleteAction("Backspace", base), null);
+  assert.deepEqual(deleteAction("Backspace", base, true), { kind: "bodies", ids: [2] });
+  assert.deepEqual(deleteAction("Backspace", { ...base, row }, true), { kind: "row", row });
+  assert.equal(deleteAction("Backspace", { ...base, typing: true }, true), null);
+  assert.deepEqual(deleteAction("Delete", base, true), { kind: "bodies", ids: [2] });
+  assert.equal(isApple("MacIntel"), true);
+  assert.equal(isApple("macOS"), true);
+  assert.equal(isApple("Win32"), false);
+  assert.equal(isApple("Linux x86_64"), false);
+  assert.equal(isApple(""), false);
+});

@@ -16,8 +16,9 @@ export interface DeleteContext {
 
 export type DeleteAction = { kind: "bodies"; ids: number[] } | { kind: "row"; row: RowRef } | null;
 
-export function deleteAction(key: string, ctx: DeleteContext): DeleteAction {
-  if (key !== "Delete" || ctx.typing || ctx.blocked) return null;
+/** `mac`: on a Mac the Backspace key deletes too, since its laptops have no Delete key (as in the sketch, where both keys delete everywhere). */
+export function deleteAction(key: string, ctx: DeleteContext, mac = false): DeleteAction {
+  if (!(key === "Delete" || (mac && key === "Backspace")) || ctx.typing || ctx.blocked) return null;
   if (ctx.row) return { kind: "row", row: ctx.row };
   if (ctx.bodies.length) return { kind: "bodies", ids: ctx.bodies };
   return null;

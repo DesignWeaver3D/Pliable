@@ -1,7 +1,6 @@
 """Meshing a body: every face gets triangles, whichever algorithm does a face."""
 
 import numpy as np
-from build123d import Box, Pos, Text, extrude
 from OCP.BRep import BRep_Tool
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
 from OCP.BRepGProp import BRepGProp
@@ -51,12 +50,24 @@ def test_a_plate_with_many_holes_meshes_like_the_default_algorithm():
         assert abs(area - props.Mass()) <= 0.02 * props.Mass()
 
 
-def test_faces_the_fast_algorithm_leaves_out_are_still_meshed():
-    # The outlines of engraved text are loops in the plate's top face; the faster algorithm is known to skip some text faces.
-    shape = fresh((Box(120, 30, 4) - Pos(0, 0, 1.5) * extrude(Text("Engraved gggg BBB 888", 7), 1)).wrapped)
-    assert any(meshing._holes(f) >= meshing.MANY_HOLES for _, f in Topology(shape).faces())
-    meshing.mesh(shape, linear_deflection(shape), ANGULAR_DEFLECTION)
-    assert None not in facts(shape)
+def test_faces_the_fast_algorithm_leaves_out_are_still_meshed(monkeypatch):
+    # The faster algorithm is known to skip some faces (seen on the outlines of engraved text). Here it does nothing
+    # at all, or fails outright; the default algorithm must still mesh every face.
+    real = meshing.BRepMesh_IncrementalMesh
+
+    def skips(*args):
+        return None if len(args) == 2 else real(*args)  # called with a parameters object: the faster algorithm
+
+    def fails(*args):
+        if len(args) == 2:
+            raise RuntimeError("no mesh")
+        return real(*args)
+
+    for stand_in in (skips, fails):
+        monkeypatch.setattr(meshing, "BRepMesh_IncrementalMesh", stand_in)
+        shape = fresh(load_demo("perforated_plate"))
+        meshing.mesh(shape, linear_deflection(shape), ANGULAR_DEFLECTION)
+        assert None not in facts(shape)
 
 
 def test_meshed_faces_are_left_alone():

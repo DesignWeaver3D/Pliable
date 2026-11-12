@@ -20,6 +20,7 @@ import { KeptSketches } from "./keptsketches.ts";
 import { acceptsWithRail } from "./sketchrail.ts";
 import { SKETCH_CONSTRAINT_KEYS } from "./sketchkeys.ts";
 import { deleteAction, isTyping, type RowRef } from "./listdelete.ts";
+import { IS_MAC } from "./platform.ts";
 import { resolvePick } from "./pulldir.ts";
 import { edgeMiddle } from "./edgepick.ts";
 import { DatumPlanes } from "./datumplanes.ts";
@@ -949,7 +950,7 @@ window.addEventListener("keydown", (e) => {
     row: app.pickedRow,
     typing: isTyping(e.target),
     blocked: sketch.active || toolPanel.isOpen || e.ctrlKey || e.metaKey || e.altKey || viewport.dragging || itemDrag.isDragging(),
-  });
+  }, IS_MAC);
   if (!action) return;
   e.preventDefault();
   if (action.kind === "bodies") {
