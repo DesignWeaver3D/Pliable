@@ -183,6 +183,13 @@ def _faces_of(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
 _volume_of = volume_of
 
 
+# Two faces merge when their normals agree along the shared edge. The kernel's own limit (1e-12 radians) is below the
+# error of an edge's approximated curves on a surface: where a bore crosses a curved wall the edge is free-form, and the
+# two halves of the bore never merged although they are one surface. This limit is still a ten-thousandth of the
+# smallest draft angle anyone models (0.01 degrees is 1.7e-4 radians).
+MERGE_ANGLE = 1e-6
+
+
 def unify_result(result: OpResult, align: bool = True) -> OpResult:
     """Merge faces and edges that share a surface or curve, following the tracked shapes through the merge.
     `align` False skips describing cylinder walls alike first (a drag preview: it costs time and only removes lines inside holes)."""
@@ -208,6 +215,7 @@ def unify_result(result: OpResult, align: bool = True) -> OpResult:
     attempts.append((copy.Shape(), tracked_c))
     for shape, faces in attempts:
         unify = ShapeUpgrade_UnifySameDomain(shape, True, True, True)
+        unify.SetAngularTolerance(MERGE_ANGLE)
         unify.Build()
         merged = unify.Shape()
         if not merged.IsNull() and is_valid(merged):

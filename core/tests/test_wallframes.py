@@ -91,3 +91,34 @@ def test_a_tracked_wall_is_followed_through_the_merge():
     assert Topology(result.shape).face_count == 7
     assert result.tracked_faces and all(Topology(result.shape).face_id(f) is not None for f in result.tracked_faces)
     assert all(planar_normal(TopoDS.Face(f)) is None for f in result.tracked_faces)
+
+
+def test_a_bore_through_two_parts_that_meet_on_a_curved_wall_is_one_face():
+    # The two parts meet on a cylinder around Z, so the bore's two faces share a free-form edge (where the bore crosses
+    # that wall). The curves of such an edge on the surface are approximations, and the kernel's merge compared the
+    # two faces' normals there with a tolerance far below that error: the bore stayed split.
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Cylinder
+
+    post = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), 43, 24).Shape()
+    block = BRepAlgoAPI_Cut(BRepPrimAPI_MakeBox(gp_Pnt(-60, -15, 0), gp_Pnt(60, 15, 24)).Shape(), post).Shape()
+
+    def bored(part, axis_dir):
+        start = gp_Pnt(-70, 0, 12) if axis_dir > 0 else gp_Pnt(70, 0, 12)
+        return BRepAlgoAPI_Cut(part, BRepPrimAPI_MakeCylinder(gp_Ax2(start, gp_Dir(axis_dir, 0, 0)), 5, 140).Shape()).Shape()
+
+    both = BRepAlgoAPI_Fuse(bored(post, 1), bored(block, 1)).Shape()
+
+    def bores(shape):
+        found = []
+        for _, face in Topology(shape).faces():
+            surface = BRepAdaptor_Surface(face)
+            if surface.GetType() == GeomAbs_Cylinder and surface.Cylinder().Radius() == pytest.approx(5):
+                found.append(face)
+        return found
+
+    assert len(bores(both)) == 3
+    result = unify_result(OpResult(both, []))
+    assert len(bores(result.shape)) == 1
+    assert is_valid(result.shape)
+    assert measures(result.shape) == pytest.approx(measures(both), rel=1e-9)
