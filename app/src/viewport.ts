@@ -21,6 +21,7 @@ import { PERSPECTIVE_FOV, alignToFace, fitClipping, lookFrom, lookFromOrthograph
 import { fitAll, fitSelected, frame as frameBox } from "./viewfit.ts";
 import { faceUnder, pickModelItem } from "./viewpick.ts";
 import { installTreeRaycast } from "./viewraycast.ts";
+import { createDrawPacing, wakeOnActivity } from "./drawpacing.ts";
 import { updateFilterBadge } from "./viewboxselect.ts";
 import { applyBodyColors, applyGhost, applySeeThrough, syncSectionClip } from "./viewlook.ts";
 import { slideBodies } from "./viewslide.ts";
@@ -296,8 +297,13 @@ export class Viewport {
       ["frame hook", () => this.onFrame()],
       ["sketch frame hook", () => this.onFrame2?.()],
     ];
+    // Nothing is drawn while nothing happens: user actions, camera moves and answers from the core wake the view, and it
+    // rests again a moment after the last one. The controls still run every frame, so a camera that is gliding to a stop keeps it awake.
+    wakeOnActivity(this.drawPacing);
+    this.controls.addEventListener("change", () => this.wake());
     this.renderer.setAnimationLoop(() => {
-      for (const [name, part] of parts) {
+      const resting = !this.drawPacing.draws(performance.now());
+      for (const [name, part] of resting ? parts.slice(0, 1) : parts) {
         try {
           part();
         } catch (e) {
@@ -310,7 +316,14 @@ export class Viewport {
       e.preventDefault(); // lets the browser give the context back
       this.reportFrameError("WebGL context", new Error("The 3D view lost its graphics context; waiting for it to return"));
     });
-    canvas.addEventListener("webglcontextrestored", () => this.onFrameError("The 3D view recovered"));
+    canvas.addEventListener("webglcontextrestored", () => (this.wake(), this.onFrameError("The 3D view recovered")));
+  }
+
+  private drawPacing = createDrawPacing();
+
+  /** Draw the coming frames: call this when something changed the picture without a user action or an answer from the core (a timer, say). */
+  wake() {
+    this.drawPacing.wake();
   }
 
   /** Called with a message when a part of the frame fails (shown in the status line); the console gets each kind once. */

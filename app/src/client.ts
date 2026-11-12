@@ -152,7 +152,11 @@ export class CoreClient {
     }
   }
 
+  /** Called for every message from the core, before it is handled (the 3D view draws again: an answer usually changes the picture). */
+  onMessageArrived: () => void = () => {};
+
   private onMessage(data: string | ArrayBuffer) {
+    this.onMessageArrived();
     if (typeof data !== "string") {
       const id = this.awaitingBinary;
       this.awaitingBinary = null;
