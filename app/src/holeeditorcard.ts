@@ -46,9 +46,12 @@ export function createHoleEditor(d: HoleEditorDeps) {
   }
 
   return {
-    /** Open the editor for the selection when it is one hole (picked by one face, rim or center dot) or several holes (picked by their walls). */
+    /** Open the editor for the selection when it is one hole (picked by one face or its center dot) or several holes (picked by their walls).
+     *  An edge never opens it, a hole's rim included: the edge stays selected for the tools that take an edge. The Hole Editor button still
+     *  edits the hole of a selected rim (`start`). */
     async maybeOpen(sels: Sel[]) {
       if (!sels.length || d.busy() || d.toolPanel().isOpen) return;
+      if (sels.some((s) => s.kind === "edge")) return;
       let reply: { kind: string; count?: number; pick?: HolePick };
       try {
         reply = await d.classify(sels);
