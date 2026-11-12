@@ -3,9 +3,11 @@
   "35cdc705272d76b2"
  ],
  ".__eq__": [
-  "22a0b5f21ffa8c84"
+  "22a0b5f21ffa8c84",
+  "91f5bb0c4509f876"
  ],
  ".__hash__": [
+  "0ad33ba2b4fd114e",
   "0ad33ba2b4fd114e"
  ],
  ".__init__": [
@@ -14,14 +16,16 @@
   "3de4b3806c7d04a3",
   "4687ea4aa91fccdf",
   "489773f2755c8da1",
+  "56e4e02d1b8e1acf",
   "59b0f72381833a3d",
   "60bac2987a155833",
   "666bad94bcd420da",
-  "6f5a7322c3645c55",
   "815c77c83551983b",
   "91d72d8d67c5be47",
   "a0d6ee81aa0dcc92",
-  "a2c6481c962e4a2f"
+  "a2c6481c962e4a2f",
+  "cc372e8c2974b528",
+  "da3edbf7c9ce597b"
  ],
  ".__post_init__": [
   "8c1b365efcb526f8"
@@ -245,6 +249,9 @@
  ],
  "._push": [
   "a7e3e963fcdc77cd"
+ ],
+ "._raw": [
+  "6c78c6695da3018f"
  ],
  "._read_cad": [
   "ecd199321077981a"
@@ -506,6 +513,9 @@
  ".face": [
   "ee550856670a888f"
  ],
+ ".face_arrays": [
+  "3841e8680d2808f8"
+ ],
  ".face_count": [
   "2561a2583d4eb30b"
  ],
@@ -630,8 +640,8 @@
   "1be3bc2f1d878d80"
  ],
  ".of": [
-  "bd4ce74c2541e4ae",
-  "db1df575f53221aa"
+  "a42339882eea3f3c",
+  "bd4ce74c2541e4ae"
  ],
  ".of_selection": [
   "3749912a545a164c"
@@ -700,10 +710,10 @@
   "177ec96c2f4fd161",
   "1a445b48c6883e5e",
   "1fdc1e5185d0f688",
+  "232776fc6c0f03ac",
   "242d2be766898fe9",
   "260b5c6277e33027",
   "27205f54b2f3d433",
-  "299a8e3fbadf055d",
   "2d771a5678c247e7",
   "304abc02c9e4bcf0",
   "30758115670418c5",
@@ -729,11 +739,11 @@
   "7b847820482e66c8",
   "7e80543717914476",
   "819d2f38844c8c06",
+  "8365f20c90491358",
   "85504c1211ab4e4e",
   "8cbea303ac7710ec",
   "917835128a75e307",
   "9ade077a213f2d16",
-  "aa13bade0073dd5f",
   "ac4954902d900575",
   "b0ce7a244e6c729f",
   "bf4b95125e3ceafd",
@@ -1074,6 +1084,9 @@
  "_Key": [
   "ff00cf70cc447bbc"
  ],
+ "_MeshKey": [
+  "efc15e85bcee643e"
+ ],
  "_Part": [
   "3c20b9f43511fa07"
  ],
@@ -1103,7 +1116,7 @@
   "4e9458efbf97b4bc"
  ],
  "_apply": [
-  "64c88a2d80bd0c29"
+  "9130aab449ce6828"
  ],
  "_area": [
   "491516bb71c481fc"
@@ -1139,7 +1152,6 @@
   "bf89102800a4a778"
  ],
  "_boundary_points": [
-  "22b9edf2bdcdc3d8",
   "4aa48d72242edb04"
  ],
  "_bounds_diagonal": [
@@ -1152,11 +1164,14 @@
   "49e71ec885c22740",
   "6a2999e163b99bcd"
  ],
+ "_by_node": [
+  "e99633a5f1b95ce8"
+ ],
  "_candidates": [
   "204892cf6eccfc3f"
  ],
  "_chamfer_with_face": [
-  "c014784d71ca52e5"
+  "b71717080032c405"
  ],
  "_check_room": [
   "a06121b01df38d81"
@@ -1185,7 +1200,7 @@
   "b62ca3b204b19817"
  ],
  "_close_shell": [
-  "efd7e4e7829a8697"
+  "f3006a8e8da10907"
  ],
  "_closed": [
   "84fffec0f1f85840"
@@ -1283,11 +1298,11 @@
  "_drag_steps": [
   "4a5c6462fdd5c92a"
  ],
+ "_dump": [
+  "25a25b07f9a1f32c"
+ ],
  "_edge_centre": [
   "99254846de861001"
- ],
- "_edge_faces": [
-  "9ecaa4467fdeaf16"
  ],
  "_edge_ids": [
   "ef6f1cca4624dc40"
@@ -1302,7 +1317,7 @@
   "37658b38171b21b8"
  ],
  "_edge_points": [
-  "af40637639083029"
+  "c5bad292bd679a3b"
  ],
  "_edge_vertices": [
   "cb60769a36488630"
@@ -1351,11 +1366,8 @@
  "_face_area": [
   "62cc511c81ea5241"
  ],
- "_face_arrays": [
-  "e6df8c08c84ffabd"
- ],
  "_face_display": [
-  "214fde48b8d15536"
+  "3060fd6268ffda56"
  ],
  "_face_distance_plan": [
   "d4d4a7e24d1c49f5"
@@ -1446,6 +1458,7 @@
   "1b0111eba8a5614c"
  ],
  "_holes": [
+  "22aa247e1c1c5380",
   "d9a0ff181063cd9c"
  ],
  "_host_face": [
@@ -1551,9 +1564,6 @@
  ],
  "_name_list": [
   "c754dd81c560f2fe"
- ],
- "_needs_mesh": [
-  "ce6d764d91a65c33"
  ],
  "_new_body": [
   "36151871dc51e981"
@@ -1703,7 +1713,7 @@
   "5a9fa057c5de6186"
  ],
  "_push_pull": [
-  "cadaefa8cff6d4fb"
+  "6e857261a90ccdc5"
  ],
  "_push_pull_sheets": [
   "fd26084a61c5d07c"
@@ -1724,7 +1734,7 @@
   "ac599aa4b0d4e0f9"
  ],
  "_rebuild_round": [
-  "ce38ed62160c2e59"
+  "df197386260df0bb"
  ],
  "_refit": [
   "b5f58c655cd6fced"
@@ -1771,11 +1781,14 @@
  "_segment": [
   "8243ed5bef9033e5"
  ],
+ "_segments": [
+  "f1ccb7a16c78dd2b"
+ ],
  "_sew": [
   "2ac769113aea8150"
  ],
  "_sew_into": [
-  "e058db86a7bef864"
+  "5bbb5cf7bc28ae80"
  ],
  "_shapes": [
   "688cbadd21670043"
@@ -1789,6 +1802,9 @@
  "_sides": [
   "c71a64072bef6e1a",
   "fedbfb39acfa6b1d"
+ ],
+ "_signature": [
+  "a7d3f667e1d11e89"
  ],
  "_slide": [
   "6fa96160378a595b"
@@ -1816,6 +1832,12 @@
  ],
  "_split_edges": [
   "91317382e693ba5c"
+ ],
+ "_stale": [
+  "71da2231a2dbea37"
+ ],
+ "_stale_faces": [
+  "ee04bd263a872756"
  ],
  "_static_handler": [
   "4d5048d6c4d98fc9"
@@ -1870,7 +1892,7 @@
   "c880849508e00128"
  ],
  "_try_axis": [
-  "86d9fe8ce0dc390e"
+  "c4c2f02fe1786e35"
  ],
  "_turned": [
   "7c942d64e6903cf1"
@@ -1878,6 +1900,7 @@
  "_unit": [
   "30e57567fbc8a64d",
   "388b2a61004c3a75",
+  "a6b1f324c47cebe7",
   "b34c53b597203f34"
  ],
  "_unlocked_shape": [
@@ -1999,7 +2022,7 @@
   "08b8bcef8fc99adf"
  ],
  "check_import": [
-  "2baf06e30535a6b5"
+  "ee3e1884b533ae03"
  ],
  "classify": [
   "8921bd17712d887f"
@@ -2095,7 +2118,7 @@
   "36047f80c36744d2"
  ],
  "face_normal_at_edge": [
-  "b27893faff0b352e"
+  "d318bbaa6b97c436"
  ],
  "face_plane": [
   "d00f972aae59998b"
@@ -2104,7 +2127,7 @@
   "662fac763892518c"
  ],
  "fillet_chamfer": [
-  "c940f43ae91b7215"
+  "8729101d222577cc"
  ],
  "find_hole": [
   "37055f58f35fdbdd"
@@ -2116,7 +2139,7 @@
   "de9af5894da42756"
  ],
  "finish": [
-  "bdae3b03efdb46fa"
+  "7ec30dbe83aa06ca"
  ],
  "flattened_ellipse": [
   "c0027aa705b18b93"
@@ -2155,7 +2178,7 @@
   "c2ff730e8db260d5"
  ],
  "ghost_reply": [
-  "7b88f36afffc2886"
+  "07e1e13a78102861"
  ],
  "group": [
   "d578af6a01903924"
@@ -2192,6 +2215,9 @@
  ],
  "is_placed": [
   "23abbbde5f1a07ba"
+ ],
+ "is_valid": [
+  "e9351a188ca148ff"
  ],
  "keep_compound": [
   "a97c9394bf4e3c9d"
@@ -2236,6 +2262,9 @@
  "measure_vertex": [
   "1d3db8c22b43e774"
  ],
+ "mesh": [
+  "3aac0552e7e9d1a8"
+ ],
  "mirror_candidates": [
   "24ba61fe0b367186"
  ],
@@ -2243,7 +2272,7 @@
   "e6b0b53b79127920"
  ],
  "model_info": [
-  "ec01159f0e13ae65"
+  "2eee53746aacf815"
  ],
  "move_handles": [
   "dc68225928bae410"
@@ -2259,6 +2288,9 @@
  ],
  "narrow": [
   "cb8f9519b4d68412"
+ ],
+ "needs_mesh": [
+  "839512825fc92404"
  ],
  "new_bodies": [
   "956e61bd703094f3"
@@ -2285,7 +2317,7 @@
   "7915c2d3d082074b"
  ],
  "pad_to_curved_face": [
-  "17033c8268e2f726"
+  "cfe3de13bf201876"
  ],
  "part_names": [
   "eef2a586d2f9d0e4"
@@ -2441,7 +2473,7 @@
   "a505544a9245eb5c"
  ],
  "shift_vertices": [
-  "3b5ab71e7a816a50"
+  "55c67f0368b0014e"
  ],
  "shifted_plane": [
   "3c4f66aaabb2ee35"
@@ -2490,7 +2522,7 @@
   "36b7383a1219a6fe"
  ],
  "tessellate": [
-  "def321547b9403e7"
+  "a51f8b330ba2f90c"
  ],
  "through_depth": [
   "45031264cffc0c36"
@@ -2508,13 +2540,16 @@
   "e4b0d0e85186f860"
  ],
  "unify_result": [
-  "2c585b3e9dba70a6"
+  "475b99316710f764"
  ],
  "unpack": [
   "92f57e5eb9191a1d"
  ],
  "unwrap_plane": [
   "f8d890a6772632c7"
+ ],
+ "vertex_normals": [
+  "cff816711475456c"
  ],
  "vertex_points": [
   "104cf8ddec793375"
