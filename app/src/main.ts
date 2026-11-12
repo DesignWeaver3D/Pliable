@@ -77,6 +77,7 @@ const fileInput = $("file") as HTMLInputElement;
 const select = $("demo") as HTMLSelectElement;
 let loadedSample = [...select.options].find((option) => option.value)!.value; // the sample open now (the first one at start); also names exported files
 const viewport = new Viewport($("viewport"));
+if (DEV) (window as any).__viewport = viewport; // for timing the view from the console
 const core = new CoreClient();
 core.hiddenBodies = () => [...bodyView.hidden];
 core.interactChoice = () => interaction.sent();

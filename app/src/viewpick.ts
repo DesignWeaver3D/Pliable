@@ -7,6 +7,7 @@ import type { Hit, Sel } from "./viewport.ts";
 import type { Viewport } from "./viewport.ts";
 
 const EDGE_TIE_PX = 2; // edges this close on screen are told apart by depth
+const toScreen = new THREE.Matrix4(); // scratch for nearestEdge
 
 /** The part of the Viewport this file uses. */
 export type PickContext = Pick<Viewport, "camera" | "centresShown" | "data" | "faceStarts" | "ghostMaterial" | "ghosted" | "lastClick" | "mesh" | "originAxisHalf" | "pixelSizeAtDistance" | "probe" | "raycaster" | "renderer" | "surfaceMaterial">;
@@ -193,6 +194,11 @@ export function nearestCentre(view: PickContext, px: number, py: number, rect: D
 /** The larger side of a face's bounding box on screen, in pixels (the face's visible size for pick ranges). */
 export function faceScreenSize(view: PickContext, face: FaceRange, rect: DOMRect): number {
   const data = view.data!;
+  // Hovering asks this on every pointer move, and a large face has thousands of corners: the answer is kept while the
+  // face, the mesh, the camera and the view size stay the same.
+  view.camera.updateMatrixWorld();
+  const key = [...view.camera.matrixWorld.elements, ...view.camera.projectionMatrix.elements, rect.width, rect.height];
+  if (sizeMemo && sizeMemo.data === data && sizeMemo.face === face && sizeMemo.key.every((n, i) => n === key[i])) return sizeMemo.size;
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;
@@ -207,8 +213,12 @@ export function faceScreenSize(view: PickContext, face: FaceRange, rect: DOMRect
     if (y < minY) minY = y;
     if (y > maxY) maxY = y;
   }
-  return Math.max(maxX - minX, maxY - minY);
+  const size = Math.max(maxX - minX, maxY - minY);
+  sizeMemo = { data, face, key, size };
+  return size;
 }
+
+let sizeMemo: { data: unknown; face: FaceRange; key: number[]; size: number } | null = null;
 
 export function nearestVertex(view: PickContext, px: number, py: number, rect: DOMRect, depthLimit: number, range = settings.vertexPickPx): Hit | null {
   let best: Hit | null = null;
@@ -237,20 +247,32 @@ export function nearestEdge(view: PickContext, px: number, py: number, rect: DOM
   const edgePx = range;
   let bestDistance = edgePx;
   let bestDepth = Infinity;
-  const toPx = (v: THREE.Vector3) => {
-    const n = v.clone().project(view.camera);
-    return [((n.x + 1) / 2) * rect.width, ((1 - n.y) / 2) * rect.height, n.z] as const;
-  };
   const viewDepth = (v: THREE.Vector3) => -v.clone().applyMatrix4(view.camera.matrixWorldInverse).z; // distance along the viewing direction
+  // Every segment of every edge is put on the screen on each pointer move, so this loop makes no objects: one matrix
+  // takes a model point to the screen, and a segment whose box on screen is out of reach is dropped before any more work.
+  const m = toScreen.multiplyMatrices(view.camera.projectionMatrix, view.camera.matrixWorldInverse).elements;
+  const positions = data.edgePositions;
+  const halfW = rect.width / 2;
+  const halfH = rect.height / 2;
   for (const edge of data.edges) {
     for (let i = edge.start; i + 1 < edge.start + edge.count; i += 2) {
-      a.fromArray(data.edgePositions, i * 3);
-      b.fromArray(data.edgePositions, (i + 1) * 3);
-      const [ax, ay, az] = toPx(a);
-      const [bx, by, bz] = toPx(b);
+      const o = i * 3;
+      const x0 = positions[o], y0 = positions[o + 1], z0 = positions[o + 2];
+      const x1 = positions[o + 3], y1 = positions[o + 4], z1 = positions[o + 5];
+      const w0 = 1 / (m[3] * x0 + m[7] * y0 + m[11] * z0 + m[15]);
+      const w1 = 1 / (m[3] * x1 + m[7] * y1 + m[11] * z1 + m[15]);
+      const az = (m[2] * x0 + m[6] * y0 + m[10] * z0 + m[14]) * w0;
+      const bz = (m[2] * x1 + m[6] * y1 + m[10] * z1 + m[14]) * w1;
       if (az > 1 || bz > 1) continue;
+      const ax = ((m[0] * x0 + m[4] * y0 + m[8] * z0 + m[12]) * w0 + 1) * halfW;
+      const ay = (1 - (m[1] * x0 + m[5] * y0 + m[9] * z0 + m[13]) * w0) * halfH;
+      const bx = ((m[0] * x1 + m[4] * y1 + m[8] * z1 + m[12]) * w1 + 1) * halfW;
+      const by = (1 - (m[1] * x1 + m[5] * y1 + m[9] * z1 + m[13]) * w1) * halfH;
+      if ((ax < px - edgePx && bx < px - edgePx) || (ax > px + edgePx && bx > px + edgePx) || (ay < py - edgePx && by < py - edgePx) || (ay > py + edgePx && by > py + edgePx)) continue;
       const { t, dist: d } = projectOnSegment(px, py, ax, ay, bx, by);
       if (d >= edgePx) continue;
+      a.set(x0, y0, z0);
+      b.set(x1, y1, z1);
       // t is a fraction of the picture of the segment; in perspective it is not the same fraction of the segment itself, and
       // the nearer the camera the bigger the difference (which hid the middle of long edges when zoomed in).
       const along = view.camera.type === "PerspectiveCamera" ? worldFraction(t, viewDepth(a), viewDepth(b)) : t;

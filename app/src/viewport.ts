@@ -20,6 +20,7 @@ import { bodyColorArray } from "./bodycolorarray.ts";
 import { PERSPECTIVE_FOV, alignToFace, fitClipping, lookFrom, lookFromOrthographic, returnFromSketchView, setOrthographic, setView, syncOrtho, viewMatrixCss } from "./viewcamera.ts";
 import { fitAll, fitSelected, frame as frameBox } from "./viewfit.ts";
 import { faceUnder, pickModelItem } from "./viewpick.ts";
+import { installTreeRaycast } from "./viewraycast.ts";
 import { updateFilterBadge } from "./viewboxselect.ts";
 import { applyBodyColors, applyGhost, applySeeThrough, syncSectionClip } from "./viewlook.ts";
 import { slideBodies } from "./viewslide.ts";
@@ -394,6 +395,7 @@ export class Viewport {
       polygonOffsetUnits: 1,
     });
     this.mesh = new THREE.Mesh(geometry, material);
+    installTreeRaycast(this.mesh);
     this.model.add(this.mesh);
     this.surfaceMaterial = material;
     this.ghostMaterial = new THREE.MeshPhysicalMaterial();
