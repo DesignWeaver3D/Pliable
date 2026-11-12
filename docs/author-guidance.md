@@ -17,6 +17,11 @@ Rules for keeping it:
 ### Desktop app (Windows archive)
 
 
+### Desktop app on Mac and Linux (cannot be run here)
+
+- [ ] On a Mac or Linux desktop build: "Open bug report page" and the shortcut sheet's Print open a new window (no handler in `desktop/src-tauri/src/main.rs`); the "Continue?" questions (`window.confirm`) appear; Backspace deletes a selected body on a Mac; key names read Cmd and Option, Option+H shows all bodies.
+- [ ] Linux AppImage: run the `desktop` workflow once from the Actions tab and check the Linux job (AppImage built, smoke test passes), then double-click the AppImage on a Linux machine to check it launches.
+
 ## Normal priority
 
 ### Gizmos and handles that need a real mouse (hold the button down)
@@ -31,6 +36,7 @@ Rules for keeping it:
 - [ ] New card gizmos, drag each once and see the value and preview follow: resize fillet radius, resize hole/boss, shell thickness, offset body arrow, mirror offset, chamfer distance and angle arc, revolve angle pie, path array count, add hole / counterbore / countersink / boss grips (depth 0 = through puts the grip on the far side by bounding box), pattern hole spacing and count, circular pattern angle, stretch arrows.
 - [ ] Linear array: the Columns / Rows card order and the arrows (spacing between source and second instance, Z-offset arrows above it, X and Y shift arrows out of its side) on a real model.
 - [ ] Circular array: drag the pie grip past 180 to 360 degrees, double-click the degrees to type, wheel and double-click the count badge. Concentric array (new): count, rings, spacing and grow badges stay legible when close together; tell me if the parameters are what you meant.
+- [ ] Helical sweep gizmos and card (new, not yet looked at in the app): pitch is a draggable length dimension outside the profile on the side away from the axis, with extension lines back to the profile middle, an arrowhead grip and the value in the middle of the line; turns is a number changed by the wheel or double-click typing; the card's axis pick, preview and error text. Default if unanswered: stays as built.
 - [ ] Countersink angle arc (Add countersink to hole) follows the cone; counterbore and countersink "Offset from hole" entry; Add slot gizmos (depth grip when through, the angle arc); Cut with plane card: the dark list popup and the XY / XZ / YZ buttons (Split with plane shares the layout).
 
 ### Sketch: drawing and dimensions (look and feel)
@@ -53,6 +59,11 @@ Rules for keeping it:
 - [ ] Edit cut Length and Width grips on a slot (tested in the core only).
 - [ ] Newest user constraint wins: a constraint that repeats an automatic one removes the automatic row with a warning naming it.
 - [ ] Drag of a free line, circle or point (snaps, guides, nothing else moves).
+- [ ] After the large-file splits, what the browser pass did not reach: measure mode in a face drag, dragging a hole's center dot, the Divide face drag, the right-click similar menu, sketch constraints, dimension editing and dragging, sketch plane move and Flip, Project, the base and destination point picks and Pick axis in tool forms.
+- [ ] Sketch clicks that only set a size: in each tool (slot, circle, 3-point circle and arc, polygon, ellipse, arc by center) click the size point on the origin, an axis, a point and a curve, and see the Coincident mark.
+- [ ] Sketch joints and trim: trim a line across other lines, a circle and an ellipse (each cut point gets a Coincident mark and follows the crossing curve when dragged; the marks follow the automatic-constraints option); every shared joint shows a Coincident mark beside the point, the mark selects on press and Delete on it splits the joint keeping both lines (are a rectangle's corners too crowded?); tangent circle and tangent arc accept the horizontal and vertical axes; Mirror across an axis works for points on and off the axis; Delete removes a free point.
+- [ ] Sketch mark placement: constraint marks sit beside vertices and lines, not on them; Equal on three lines shows a mark per line and clicking one selects all; deleting a line leaves other symmetry constraints in place (if it still deletes them, send the steps).
+- [ ] Sketch fillet and chamfer keep the corner: on a dimensioned rectangle, fillet one corner then chamfer another; the rectangle keeps its size and the old lines and corner stay as construction.
 - [ ] Free circle: dragging its rim resizes it with the centre fixed, dragging its centre moves it; ellipse quadrant vertex rotates it with both construction lines live, and moving an ellipse feels smooth (checked only with synthetic pointer events).
 
 ### Model: faces, edges and selection (look and feel)
@@ -78,6 +89,7 @@ Rules for keeping it:
 ### Hole Editor (new)
 
 - [ ] Hole Editor one form: choose Hole Editor with a flat face selected, pick a fastener size once (M5), switch on Counterbore and Thread, then also Countersink and check the countersink replaces the counterbore (the hint says so) until its end is set to Far end on a through hole; switch features on and off several times and check the entered size stays and no Apply is needed. Apply once: the hole, step(s) and thread appear and one Undo removes them all. Select an existing hole and do the same (including a diameter change); check the picture shows the features switched on, the picture labels focus their fields, the old hole buttons are gone from the drawer, the strip and the search, and several hole walls still show Size, Move, Align, Distribute, Fill. Default if unanswered: stays as built.
+- [ ] Counterbore and countersink on a curved top face: on a hole whose opening is on a curved face, both cut their major diameter through the rest of the body above the opening (nothing buried under the curve), and below the far end for a through hole's far-end step.
 - [ ] Thread length: through hole threads run out of both openings, a blind hole's thread runs out of the opening and stops at the bottom as before.
 - [ ] Should a plain hole on a curved face also have its bore continue through the rest of the body above the opening, as a counterbore or countersink now does? Today only the counterbore and countersink major diameters do, so a plain bore's mouth on a curved top may leave a sliver. Default if unanswered: leave as is.
 - [ ] Does it matter that after Apply of a new hole (and of a counterbore or countersink) the hole stays selected and the Hole Editor opens on it? It makes a thread (or the next change) one click away, but the card opens each time a hole is applied. Options: keep, or close the card after Apply. Default if unanswered: keep.

@@ -9,7 +9,7 @@ The steps below apply to interactive sessions. In an unattended session (see "Un
 1. Read `docs/progress.md`. Don't re-read or re-explore anything it already records.
 2. Take the first open row in the plan (not Parked). Work only on that row; if something else comes up, add it to the plan instead of doing it. Rows have no numbers; the title identifies them.
 3. If a row has an "In progress" note, resume from it exactly.
-4. New rows quote the owner's request in their own words and list what it needs as a checklist. Never paraphrase the request. A row is deleted only when every checklist item is verified against the quote.
+4. New rows quote the owner's request in their own words and list what it needs as a checklist. Never paraphrase the request. A row is deleted only when every checklist item is verified against the quote. Owner hand-checks are never checklist items: they go to `docs/author-guidance.md`, and a row whose only remaining work is a hand-check is finished and deleted.
 5. Keep `docs/progress.md` open work, parked work and not-built ideas only, under about 48 KB (a pre-commit check blocks more). Before adding a row, search its Parked and Ideas sections for related items and say which ones the new row touches. When work is finished, delete its entry (git keeps the history) and describe the change in the commit message; do not write session narratives, summaries or numbered labels in any file or commit.
 
 ## Protecting existing behavior

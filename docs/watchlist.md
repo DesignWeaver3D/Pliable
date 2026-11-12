@@ -18,6 +18,8 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 
 ## Selection
 
+- A drawer tool whose selection does not fit waits for one (commit `5284fd6`; `toolwaiting.ts`). Limits: Escape does not end a wait (choosing another tool does); a tool that opens its form on the first fitting selection (for example 1+ edges) takes no further picks as post-selection; the strip still lists only fitting tools.
+
 - Box select samples visibility (up to 6 points per edge, 12 triangle centers per face) against the whole model: a thin sliver can be missed, large models will lag. Window needs every triangle of a face inside. The "window selects items not enclosed" report was fixed by rewrite, not by a confirmed root cause (`boxselect.ts`). Box select starts from the model only with Ctrl or from empty space.
 - Edge ring over a face with more than four edges takes the farthest parallel straight edge and stops at faces with holes. Region outline counts an edge once if it borders exactly one selected face, so it also picks edges at open model boundaries.
 - Edge loops of a face select every boundary loop (outline and holes). Shared-loop double-click uses the first other selected edge as partner and falls back to the smooth chain (tangent within `1 - 1e-4`).
@@ -39,6 +41,8 @@ Known approximations, shortcuts and untested corners. If something behaves stran
   - The cache keeps about 2 million triangles and edge segments (`CACHE_LIMIT`, roughly 80 MB at most).
 
 ## Modeling
+
+- Hole Editor card (commit `faec3d2`): a single hole picked by several faces opens no card; Fill fills the picked round wall only (a counterbore step wall fills just that step); the diagram is a fixed schematic, not drawn from the hole's own numbers; the docked panel is not built.
 
 - A push/pull preview no longer checks the glued boolean on its own (commit `9683b97`; `pushpull.py` `_push_pull`): the face merge that follows ends with the validity check, and a failure there falls back to the exact boolean. If a bad glued result ever merges into a shape the check accepts, the preview shows it; the commit always uses the exact boolean. The validity check itself (`validity.py` `is_valid`) runs on all cores.
 - Holes and bosses are edited by fusing or cutting cylinders; a hole partly cut by another feature resizes oddly. Resize hole takes a typed diameter and does not show the current one.
