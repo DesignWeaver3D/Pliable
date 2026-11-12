@@ -91,10 +91,6 @@ Tool group CORE:
   - [ ] No stand-in tests exist for the moved view and sketch modules; the `view*.ts` contexts are narrow `Pick<Viewport, ...>` types, so a test can pass a plain object (pattern: `tests/sketchclicks.test.mjs`). The sketch modules take the whole `SketchMode` (they call one another in a cycle).
   - Not done, for the owner to pick: folders for the flat `app/src` and core files (Phase 5; prefixes group them today); core tests in parallel (tried with 6 workers: 129 s becomes 75 s and all pass, with 10 a timing test fails; adding the package needs the owner's core stopped).
 
-- **Merge same-surface faces ourselves.** Owner (2026-11-12): "Is there a general approach to fixing these kernel face merge refusals that can be applied globally? I would expect that [another program] already found a solution to this because almost never a face merge failure in that application". Awaiting owner's go.
-  - Built (`samesurface.py`); owner hand-check: pull a face crossing a bore made from the other end, and a countersink.
-  - [ ] Ask the owner which tool takes a hole's rim edge as a profile (commit `e18ac0a`) and check it accepts one circular edge.
-
 - **Speed and platform pass.** Owner (2026-11-11): "Work unattended. See if you can find and improve any computational processing time that would result in smoother and faster user experience. Also check for any inconsistencies that might occur between windows (most tested) and linux and macos versions. When you find items in these categories, go ahead and fix them."
   - [ ] Hand-check on a Mac or Linux desktop build (cannot be run here): "Open bug report page" and the shortcut sheet's Print open a new window (no handler in `desktop/src-tauri/src/main.rs`); the "Continue?" questions (`window.confirm`) appear; Backspace deletes a selected body on a Mac; key names read Cmd and Option, Option+H shows all bodies.
   - [ ] `.githooks/commit-msg` and `pre-commit` are not marked executable in git (git on Linux and macOS skips them) and `find-python.sh` falls back to `python`, not `python3`. The permission rules declined the edit: `git update-index --chmod=+x` on both, plus a `python3` fallback.

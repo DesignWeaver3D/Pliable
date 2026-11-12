@@ -72,6 +72,8 @@ Rules for keeping it:
 
 - [ ] "This body / Other bodies" setting (new, not yet seen in the app): it shows on the Push/Pull card, the Hole Editor and other tool forms, starts on This body, resets when the tool opens, is greyed in New body mode and is hidden when a loose sketch region is selected. With a neighbor body, Up to last and Through all fuse only into your body under This body and also into the neighbor under Other bodies; a locked or hidden neighbor is never fused or cut. Up to face onto a locked body's face works. Mirror, arrays and joined primitives skip hidden and locked bodies.
 
+- [ ] Same-surface face merge (new): pull a face crossing a bore drilled from the other end, and a face with a countersink; each hole wall should be one face (hover and pick it). Default if unanswered: stays as built.
+
 
 ### Hole Editor (new)
 
@@ -80,6 +82,7 @@ Rules for keeping it:
 - [ ] Should a plain hole on a curved face also have its bore continue through the rest of the body above the opening, as a counterbore or countersink now does? Today only the counterbore and countersink major diameters do, so a plain bore's mouth on a curved top may leave a sliver. Default if unanswered: leave as is.
 - [ ] Does it matter that after Apply of a new hole (and of a counterbore or countersink) the hole stays selected and the Hole Editor opens on it? It makes a thread (or the next change) one click away, but the card opens each time a hole is applied. Options: keep, or close the card after Apply. Default if unanswered: keep.
 - [ ] Hole Editor click-away: change a value (or switch the thread on) so the preview shows, then click empty 3D space with a real mouse: the change and the thread should be applied in one undo step like any tool card; with nothing changed the click only closes the card; Escape and Close discard. Default if unanswered: stays as built.
+- [ ] Which tool should take a hole's rim edge (left selected as an edge after Apply, commit `e18ac0a`) as a profile? Once named, it gets checked that it accepts one circular edge. Default if unanswered: no tool is changed.
 - [ ] Preset values still unverified (no readable source): inch 82 degree flat head countersink diameters, and the inch tap drills other than 1/2-13 (the number and letter drills; published tables only list metric-rounded drills that agree within rounding). The metric clearance series and metric 90 degree countersinks are now checked against published tables. The table is `app/src/holepresets.ts`; the header comment says which are which. Default if unanswered: the values stay as entered.
 
 ### Decisions
