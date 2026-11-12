@@ -99,7 +99,8 @@ def face_normal_at_edge(face: TopoDS_Face, edge: TopoDS_Edge) -> gp_Dir | None:
         return None
     first, last = BRep_Tool.Range_s(edge, face)
     uv = curve2d.Value((first + last) / 2)
-    props = BRepLProp_SLProps(BRepAdaptor_Surface(face), uv.X(), uv.Y(), 1, 1e-6)
+    # No restriction to the face outline: finding that outline walks every edge of the face, and this runs once per edge.
+    props = BRepLProp_SLProps(BRepAdaptor_Surface(face, False), uv.X(), uv.Y(), 1, 1e-6)
     if not props.IsNormalDefined():
         return None
     normal = props.Normal()

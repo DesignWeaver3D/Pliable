@@ -12,16 +12,16 @@ from OCP.Bnd import Bnd_Box
 from OCP.BRep import BRep_Tool
 from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.BRepBndLib import BRepBndLib
-from OCP.BRepMesh import BRepMesh_IncrementalMesh
 from OCP.GCPnts import GCPnts_TangentialDeflection
-from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED, TopAbs_VERTEX
+from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_VERTEX
 from OCP.TopExp import TopExp, TopExp_Explorer
 from OCP.TopLoc import TopLoc_Location
-from OCP.TopoDS import TopoDS, TopoDS_Shape
+from OCP.TopoDS import TopoDS_Shape
 from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as IndexedMap
 from OCP.gp import gp_Vec
 
-from . import recipes
+from . import meshing, recipes
+from .meshread import MeshReader
 from .ops import face_normal_at_edge, planar_normal, solids_of
 from .splitwalls import split_centre
 from .topology import Topology
@@ -92,13 +92,16 @@ def _join(parts: list[np.ndarray], dtype, shape) -> np.ndarray:
 
 
 # Display data of unchanged faces and edges is reused across tessellations.
-# Keys wrap the OCCT shape: equality and hash take the underlying TShape, the
-# location and the orientation into account, so a face that an
-# edit left alone (or that was only moved, which changes its location) hits,
-# and anything rebuilt misses. Entries hold the shape, which keeps its TShape
-# alive so a key can never be reused by a different face. Offsets, ids and
-# ranges are never stored: they are rebuilt on every call.
-CACHE_LIMIT = 400_000  # approximate triangle + edge segment count kept
+# Two kinds of key find it. `_Key` wraps the OCCT shape (same TShape, location
+# and orientation), which hits for a body an edit left alone, or only moved.
+# `_MeshKey` wraps the face's triangulation: every operation ends by copying
+# the edited body before its faces are merged, so none of its faces is the same
+# shape afterwards, but an unchanged face still carries the same triangulation
+# object, and an edge of it the same polygon on that triangulation. Entries
+# hold the objects of their key, which keeps them alive so a key can never be
+# reused by something else. Offsets, ids and ranges are never stored: they are
+# rebuilt on every call.
+CACHE_LIMIT = 2_000_000  # approximate triangle + edge segment count kept (about 40 bytes each)
 
 
 _MISSING = object()
@@ -119,6 +122,30 @@ class _Key:
 
     def __eq__(self, other):
         return self.extra == other.extra and len(self.shapes) == len(other.shapes) and all(a.IsEqual(b) for a, b in zip(self.shapes, other.shapes))
+
+
+class _MeshKey:
+    """Dictionary key by mesh objects (a triangulation, a polygon on it): the same objects, at the same locations."""
+
+    __slots__ = ("objects", "locations", "extra", "_hash")
+
+    def __init__(self, objects: tuple, locations: tuple, *extra):
+        self.objects = objects
+        self.locations = locations
+        self.extra = extra
+        self._hash = hash((tuple(id(x) for x in objects), extra))
+
+    def __hash__(self):
+        return self._hash
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, _MeshKey)
+            and self.extra == other.extra
+            and len(self.objects) == len(other.objects)
+            and all(a is b for a, b in zip(self.objects, other.objects))
+            and all(a.IsEqual(b) for a, b in zip(self.locations, other.locations))
+        )
 
 
 class _Cache:
@@ -152,17 +179,20 @@ class _Cache:
 display_cache = _Cache()
 
 
-def _face_display(face, deflection: float):
+def _face_display(face, reader: MeshReader):
     """Everything the mesh needs from one face except offsets: arrays, centroid, planar normal and hole center."""
-    triangulation = BRep_Tool.Triangulation_s(face, TopLoc_Location())
-    state = None if triangulation is None else triangulation.Deflection()
-    key = _Key(face, "f", deflection, state)
+    location = TopLoc_Location()
+    triangulation = BRep_Tool.Triangulation_s(face, location)
+    if triangulation is None:
+        key = _Key(face, "f")
+    else:
+        key = _MeshKey((triangulation,), (location,), "f", face.Orientation())
     cached = display_cache.get(key)
     if cached is not None:
         return cached
     from .measure import hole_centre
 
-    data = _face_arrays(face)
+    data = reader.face_arrays(face)
     normal = planar_normal(face)
     centre = None
     point = hole_centre(face)
@@ -178,19 +208,75 @@ def _face_display(face, deflection: float):
     return value
 
 
-def _edge_faces(topology) -> dict[int, list]:
-    """Faces next to each edge id, from one pass over the faces (iterating the ancestor map's lists is far slower)."""
-    table: dict[int, list] = {}
-    for face_id, face in topology.faces():
-        explorer = TopExp_Explorer(face, TopAbs_EDGE)
-        while explorer.More():
-            edge_id = topology.edge_id(explorer.Current())
-            if edge_id is not None:
-                faces = table.setdefault(edge_id, [])
-                if not faces or faces[-1] is not face:  # a seam edge shows twice in its face
-                    faces.append(face)
-            explorer.Next()
-    return table
+class _EdgeFaces:
+    """The numbers of the faces next to each edge, from one pass over the faces (iterating the ancestor map's lists is far
+    slower), made only when an edge asks."""
+
+    def __init__(self, topology: Topology):
+        self.topology = topology
+        self._table: dict[int, list[int]] | None = None
+
+    def of(self, edge_id: int) -> list[int]:
+        if self._table is None:
+            self._table = {}
+            for face_id, face in self.topology.faces():
+                explorer = TopExp_Explorer(face, TopAbs_EDGE)
+                while explorer.More():
+                    found = self.topology.edge_id(explorer.Current())
+                    if found is not None:
+                        faces = self._table.setdefault(found, [])
+                        if not faces or faces[-1] != face_id:  # a seam edge shows twice in its face
+                            faces.append(face_id)
+                    explorer.Next()
+        return self._table.get(edge_id, [])
+
+
+def _segments(points: np.ndarray) -> np.ndarray:
+    """Consecutive pairs of a row of points: p0 p1, p1 p2, ..."""
+    return np.repeat(points, 2, axis=0)[1:-1] if len(points) > 1 else points[:0]
+
+
+def _edge_points(edge, deflection: float, faces=None) -> np.ndarray:
+    """Segment endpoints (consecutive pairs) of one edge. The points are those of the mesh boundary of a face holding the
+    edge when there is one: sampled on its own the edge would sit up to the deflection away from the triangles, and the
+    faces of a fillet would hide parts of it. An edge no face holds (a loose curve) is sampled from the curve.
+
+    `faces` gives the faces holding the edge, each with its mesh positions in model space; it is only called when the
+    edge itself is not in the cache."""
+    key = _Key(edge, "e", deflection)
+    cached = display_cache.get(key)
+    if cached is not None:
+        return cached
+    array = None
+    if not BRep_Tool.Degenerated_s(edge):
+        for face, positions in (faces() if faces is not None else ()):
+            if positions is None:
+                continue
+            location = TopLoc_Location()
+            triangulation = BRep_Tool.Triangulation_s(face, location)
+            try:
+                polygon = BRep_Tool.PolygonOnTriangulation_s(edge, triangulation, location)
+            except Exception:
+                continue
+            if polygon is None or polygon.NbNodes() < 2:  # not every face holding the edge has the mesher's points for it
+                continue
+            mesh_key = _MeshKey((polygon, triangulation), (location,), "e")
+            array = display_cache.get(mesh_key)
+            if array is None:
+                node = polygon.Node
+                numbers = np.array([node(k) for k in range(1, polygon.NbNodes() + 1)])
+                array = _segments(positions[numbers - 1])
+                display_cache.put(mesh_key, array, 1 + len(array) // 2)
+            break
+        if array is None:
+            curve = BRepAdaptor_Curve(edge)
+            sampler = GCPnts_TangentialDeflection(curve, ANGULAR_DEFLECTION, deflection)
+            points = [sampler.Value(i).Coord() for i in range(1, sampler.NbPoints() + 1)]
+            array = _segments(np.array(points, dtype=np.float32).reshape(-1, 3))
+    if array is None:
+        array = np.empty((0, 3), dtype=np.float32)
+    display_cache.put(key, array, 1)  # the same array as under the mesh key: counted there
+    return array
 
 
 def _edge_normal(edge, faces):
@@ -210,117 +296,6 @@ def _edge_normal(edge, faces):
         value = [total.X(), total.Y(), total.Z()]
     display_cache.put(key, value, 1)
     return None if value is None else list(value)
-
-
-class _EdgeFaces:
-    """The faces that hold each edge, found once and only when an edge is not in the cache."""
-
-    def __init__(self, topology: Topology):
-        self.topology = topology
-        self._owner: dict[int, list[TopoDS_Shape]] | None = None
-
-    def of(self, edge_id: int):
-        if self._owner is None:
-            self._owner = {}
-            for _, face in self.topology.faces():
-                explorer = TopExp_Explorer(face, TopAbs_EDGE)
-                while explorer.More():
-                    found = self.topology.edge_id(explorer.Current())
-                    if found is not None:
-                        self._owner.setdefault(found, []).append(face)
-                    explorer.Next()
-        return self._owner.get(edge_id, [])
-
-
-def _boundary_points(edge, face):
-    """The points of `edge` as the mesher put them on the boundary of `face`, so a drawn edge lies exactly on the triangles of
-    the face; None when the face has no triangulation or none for this edge."""
-    location = TopLoc_Location()
-    triangulation = BRep_Tool.Triangulation_s(face, location)
-    if triangulation is None:
-        return None
-    try:
-        polygon = BRep_Tool.PolygonOnTriangulation_s(edge, triangulation, TopLoc_Location())
-    except Exception:
-        return None
-    if polygon is None or polygon.NbNodes() < 2:
-        return None
-    transform = None if location.IsIdentity() else location.Transformation()
-    points = []
-    for k in range(1, polygon.NbNodes() + 1):
-        p = triangulation.Node(polygon.Node(k))
-        points.append(p if transform is None else p.Transformed(transform))
-    return points
-
-
-def _edge_points(edge, deflection: float, find_face=None) -> np.ndarray:
-    """Segment endpoints (consecutive pairs) of one edge. The points are those of the mesh boundary of a face holding the
-    edge when there is one: sampled on its own the edge would sit up to the deflection away from the triangles, and the
-    faces of a fillet would hide parts of it. An edge no face holds (a loose curve) is sampled from the curve."""
-    key = _Key(edge, "e", deflection)
-    cached = display_cache.get(key)
-    if cached is not None:
-        return cached
-    out: list[tuple[float, float, float]] = []
-    if not BRep_Tool.Degenerated_s(edge):
-        points = None
-        for face in (find_face() if find_face is not None else ()):  # only asked on a cache miss
-            points = _boundary_points(edge, face)  # not every face holding the edge has the mesher's points for it
-            if points is not None:
-                break
-        if points is None:
-            curve = BRepAdaptor_Curve(edge)
-            sampler = GCPnts_TangentialDeflection(curve, ANGULAR_DEFLECTION, deflection)
-            points = [sampler.Value(i) for i in range(1, sampler.NbPoints() + 1)]
-        for p0, p1 in zip(points, points[1:]):
-            out.append((p0.X(), p0.Y(), p0.Z()))
-            out.append((p1.X(), p1.Y(), p1.Z()))
-    array = np.asarray(out, dtype=np.float32).reshape(-1, 3)
-    display_cache.put(key, array, 1 + len(array) // 2)
-    return array
-
-
-def _face_arrays(face):
-    """Positions, normals, local indices and centroid of a meshed face."""
-    location = TopLoc_Location()
-    triangulation = BRep_Tool.Triangulation_s(face, location)
-    if triangulation is None:
-        return None
-    if not triangulation.HasNormals():
-        triangulation.ComputeNormals()
-    transform = None if location.IsIdentity() else location.Transformation()
-    reversed_face = face.Orientation() == TopAbs_REVERSED
-    node_count = triangulation.NbNodes()
-    pos = np.empty((node_count, 3), dtype=np.float32)
-    nrm = np.empty((node_count, 3), dtype=np.float32)
-    for i in range(node_count):
-        p = triangulation.Node(i + 1)
-        n = triangulation.Normal(i + 1)
-        if transform is not None:
-            p = p.Transformed(transform)
-            n = n.Transformed(transform)
-        if reversed_face:
-            n = n.Reversed()
-        pos[i] = (p.X(), p.Y(), p.Z())
-        nrm[i] = (n.X(), n.Y(), n.Z())
-    tri_count = triangulation.NbTriangles()
-    idx = np.empty((tri_count, 3), dtype=np.uint32)
-    for i in range(tri_count):
-        a, b, c = triangulation.Triangle(i + 1).Get()
-        idx[i] = (a - 1, c - 1, b - 1) if reversed_face else (a - 1, b - 1, c - 1)
-    centroid = pos.mean(axis=0).tolist() if node_count else None
-    return pos, nrm, idx.reshape(-1), centroid
-
-
-def _needs_mesh(solid, deflection: float) -> bool:
-    """True when a face of the solid has no triangulation at this deflection (a changed or new face)."""
-    explorer = TopExp_Explorer(solid, TopAbs_FACE)
-    while explorer.More():
-        triangulation = BRep_Tool.Triangulation_s(TopoDS.Face(explorer.Current()), TopLoc_Location())
-        if triangulation is None or triangulation.Deflection() > deflection * 1.0000001:
-            return True
-        explorer.Next()
-    return False
 
 
 def _solid_indices(topology: Topology) -> tuple[dict, dict, dict]:
@@ -373,8 +348,8 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
     # Faces unchanged from a previous shape keep their triangulation, so
     # re-meshing after an operation only meshes the faces that changed.
     for solid in solid_shapes:
-        if _needs_mesh(solid, deflection):
-            BRepMesh_IncrementalMesh(solid, deflection, False, ANGULAR_DEFLECTION, True)
+        meshing.mesh(solid, deflection, ANGULAR_DEFLECTION)
+    readers: dict = {}  # one per body, so a change to one body does not read the triangles of all the others
 
     positions: list[np.ndarray] = []
     normals: list[np.ndarray] = []
@@ -383,9 +358,16 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
     centres = []
     base = 0
     index_count = 0
+    face_shapes = []
+    face_positions = []
 
     for face_id, face in topology.faces():
-        data, normal, centre = _face_display(face, deflection)
+        number = face_solid.get(face_id)
+        if number not in readers:
+            readers[number] = MeshReader(solid_shapes[number] if number is not None and number < len(solid_shapes) else shape)
+        data, normal, centre = _face_display(face, readers[number])
+        face_shapes.append(face)
+        face_positions.append(None if data is None else data[0])
         if centre is None:
             centre = split_centre(topology, face_id)  # a hole wall split into several faces: one center, on its first face
         start = index_count
@@ -411,14 +393,13 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
             }
         )
 
-    adjacent = {} if preview else _edge_faces(topology)
     edge_parts: list[np.ndarray] = []
     edge_total = 0
     edges = []
     edge_faces = _EdgeFaces(topology)
     for edge_id, edge in topology.edges():
         start = edge_total
-        points = _edge_points(edge, deflection, lambda eid=edge_id: edge_faces.of(eid))
+        points = _edge_points(edge, deflection, lambda eid=edge_id: [(face_shapes[f], face_positions[f]) for f in edge_faces.of(eid)])
         edge_parts.append(points)
         edge_total += len(points)
         edges.append(
@@ -426,7 +407,7 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
                 "id": edge_id,
                 "start": start,
                 "count": edge_total - start,
-                "normal": None if preview else _edge_normal(edge, adjacent.get(edge_id, ())),
+                "normal": None if preview else _edge_normal(edge, [face_shapes[f] for f in edge_faces.of(edge_id)]),
                 "solid": edge_solid.get(edge_id, 0),
                 "body": body_of(edge_solid, edge_id),
                 "centre": _edge_centre(edge),

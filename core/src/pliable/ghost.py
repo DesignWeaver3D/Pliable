@@ -10,7 +10,8 @@ from OCP.collections import List_TopoDS_Shape
 
 from .ops import _volume_of, solids_of
 from .pushpull_modes import compound_of
-from .tessellate import ANGULAR_DEFLECTION, _face_arrays, bounds, linear_deflection
+from .meshread import MeshReader
+from .tessellate import ANGULAR_DEFLECTION, bounds, linear_deflection
 
 MIN_GHOST_VOLUME = 1e-6
 
@@ -59,10 +60,11 @@ def attach_ghost(result, shape) -> None:
 def ghost_reply(ghost) -> tuple[dict, dict]:
     """The reply's `ghost` header and its binary buffers (same layout as the bodies' positions, normals and indices)."""
     BRepMesh_IncrementalMesh(ghost, linear_deflection(ghost), False, ANGULAR_DEFLECTION, True)
+    reader = MeshReader(ghost)
     positions, normals, indices, base = [], [], [], 0
     explorer = TopExp_Explorer(ghost, TopAbs_FACE)
     while explorer.More():
-        data = _face_arrays(TopoDS.Face(explorer.Current()))
+        data = reader.face_arrays(TopoDS.Face(explorer.Current()))
         if data is not None:
             pos, nrm, idx, _ = data
             positions.append(pos)

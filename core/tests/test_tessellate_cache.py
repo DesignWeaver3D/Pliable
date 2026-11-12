@@ -55,6 +55,23 @@ def test_commit_through_session_matches_uncached(monkeypatch):
     same(fresh(current), cached)
 
 
+def test_untouched_faces_of_the_edited_body_come_from_the_cache():
+    # Every operation copies the body it edits, so none of its faces is the same shape afterwards; the faces the
+    # edit left alone still carry their triangulation and are found by it.
+    session = Session()
+    session.handle({"type": "open_demo", "name": "bracket"})
+    current = session.document.current
+    assert len(current.bodies.bodies) == 1
+    top = max((n.Z(), i) for i, f in current.faces() if (n := planar_normal(f)) is not None)[1]
+    hits = display_cache.hits
+    session.handle({"type": "tool_preview", "tool": "push_pull", "selection": {"faces": [top]}, "params": {"distance": 3.0}})
+    assert display_cache.hits - hits >= 10
+    session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": [top]}, "params": {"distance": 3.0}})
+    current = session.document.current
+    cached = tessellate(current)
+    same(fresh(current), cached)
+
+
 def test_moved_body_hits_with_new_location_and_matches():
     session = Session()
     session.document = Document(blocks(3), "t")

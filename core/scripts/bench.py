@@ -45,7 +45,7 @@ def main():
             t0 = time.perf_counter()
             result = push_pull(topology.shape, face, distance, preview=True)
             t1 = time.perf_counter()
-            mesh = tessellate(Topology(result.shape))
+            mesh = tessellate(Topology(result.shape), preview=True)
             t2 = time.perf_counter()
             frame = encode_mesh({"kind": "mesh"}, mesh)
             t3 = time.perf_counter()
