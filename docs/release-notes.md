@@ -15,10 +15,18 @@ The build is **unsigned**:
 
 Only Windows has been tested by a person. The other builds passed an automated start-up check only.
 
-## Changes in 0.4.2
+## Changes in 0.4.3
 
-- Linux and macOS: Save project and the exports now open a Save As dialog. Before, saving did nothing in those windows. This is new and has had little testing on either system.
-- Linux: the menu and settings drop-down lists now follow the dark theme.
+- Bodies: every body is its own solid. Duplicate puts a separate copy on the original, and a tool changes only the body that owns the selection. Hidden bodies are skipped when tools merge into or cut other bodies.
+- Locked bodies: a lock button next to each body's eye. No tool changes a locked body and automatic merges and cuts skip it, but its faces can still be picked as references.
+- Tools that can touch other bodies have a "This body / Other bodies" setting in their card.
+- Boolean has a Keep tools option that leaves the tool body in place.
+- Push/Pull: Up to face, Up to last and Through all can now cut, with Subtract or Flip.
+- Faces that lie on one surface stay one face after an edit: a pulled hole wall, a bore crossing a curved wall, and cylinder, cone and sphere faces the modeling kernel left split.
+- Faster on large models: hover and picking, drag previews on detailed parts, and coloring a large sketch. The 3D view no longer redraws while nothing changes.
+- Edges are drawn more cleanly and edges are picked more accurately in perspective view.
+- macOS: keys are named Cmd and Option, and Backspace deletes.
+- Fixes: Cut with plane no longer reports a miss on a tiny volume error; the degree sign is back in unit labels; an edit whose face merging failed after a fuse keeps its valid result.
 
 ## What to expect
 

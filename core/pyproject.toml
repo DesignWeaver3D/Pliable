@@ -1,6 +1,6 @@
 [project]
 name = "pliable"
-version = "0.4.2"
+version = "0.4.3"
 description = "Direct BREP modeler: Python geometry core"
 license = "AGPL-3.0-or-later"
 requires-python = ">=3.12,<3.14"
