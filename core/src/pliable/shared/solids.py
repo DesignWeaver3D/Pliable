@@ -22,6 +22,7 @@ from OCP.TopoDS import TopoDS, TopoDS_Compound, TopoDS_Shape
 from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 
 from ..ops import _boolean, keep_compound, OperationError, OpResult, solids_of
+from ..samesurface import merge_same_surface
 from ..tools import Param
 from ..validity import is_valid
 
@@ -43,6 +44,10 @@ def finish(shape: TopoDS_Shape, cutters=()) -> OpResult:
             break
     else:
         raise OperationError("Operation produced invalid geometry")
+    # faces of one surface the kernel left split, or all faces when its merge broke the shape (samesurface.py)
+    again = merge_same_surface(result)
+    if again is not None:
+        result = again.shape
     return OpResult(result, [], unified=True, cutters=list(cutters))
 
 

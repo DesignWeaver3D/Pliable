@@ -13,7 +13,7 @@ stay as they were.
 
 from OCP.BRep import BRep_Builder, BRep_Tool
 from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
-from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace
+from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy, BRepBuilderAPI_MakeFace
 from OCP.BRepGProp import BRepGProp, BRepGProp_Face
 from OCP.collections import HSequence_TopoDS_Shape
 from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Plane, GeomAbs_Sphere, GeomAbs_Torus
@@ -33,7 +33,9 @@ from .validity import is_valid
 
 LINEAR = 1e-6  # lengths (radius, offsets, distance of an axis) that count as equal
 ANGULAR = 1e-9  # 1 - |cosine| of the angle between two directions that count as parallel
-TOLERANCE = 1e-9  # the merged solid keeps its volume and area within this fraction
+# The merged solid keeps its volume and area within this fraction. The kernel's integrals of a fused shape are only
+# about 1e-7 exact, so a tighter limit refused every group of a body fused to its mirror image.
+TOLERANCE = 1e-6
 CONNECT = 1e-5  # edges this close at their ends form one outline
 
 _TYPES = (GeomAbs_Plane, GeomAbs_Cylinder, GeomAbs_Cone, GeomAbs_Sphere, GeomAbs_Torus)
@@ -249,9 +251,10 @@ def _measures(shape):
 class Merged:
     """The result of `merge_same_surface`: the new shape and a way to find where old faces, edges and vertices went."""
 
-    def __init__(self, shape: TopoDS_Shape, context: ShapeBuild_ReShape, groups: list[list[TopoDS_Face]], counts: list[list[list]]):
+    def __init__(self, shape: TopoDS_Shape, context: ShapeBuild_ReShape, groups: list[list[TopoDS_Face]], counts: list[list[list]], copy: BRepBuilderAPI_Copy):
         self.shape = shape
         self._context = context
+        self._copy = copy  # the merge worked on this copy of the input; items of the input are found in it first
         self._merged = []  # (member face, its group's first face)
         self._inside = []  # edges that went with the merge
         for group, count in zip(groups, counts):
@@ -262,6 +265,10 @@ class Merged:
     def follow(self, items: list[TopoDS_Shape]) -> list[TopoDS_Shape]:
         found = []
         for item in items:
+            try:
+                item = self._copy.ModifiedShape(item)
+            except Exception:  # not part of the input shape
+                continue
             if any(item.IsSame(edge) for edge in self._inside):
                 continue
             first = next((g for member, g in self._merged if member.IsSame(item)), None)
@@ -289,6 +296,12 @@ def merge_same_surface(shape: TopoDS_Shape) -> Merged | None:
     before = _measures(shape)
 
     def attempt(chosen):
+        # The face repair edits the curves and surfaces it is given in place, also when the attempt is then refused (a
+        # shelled body fused to its mirror image grew by a third), so every attempt works on its own full copy, geometry
+        # included, and the input stays as it was.
+        copy = BRepBuilderAPI_Copy(shape, True, True)
+        work = copy.Shape()
+        chosen = [[TopoDS.Face(copy.ModifiedShape(face).Oriented(face.Orientation())) for face in group] for group in chosen]
         context = ShapeBuild_ReShape()
         done, counts = [], []
         for group in chosen:
@@ -306,13 +319,13 @@ def merge_same_surface(shape: TopoDS_Shape) -> Merged | None:
             counts.append(count)
         if not done:
             return None
-        result = context.Apply(shape)
+        result = context.Apply(work)
         if result.IsNull() or not is_valid(result):
             return None
         volume, area = _measures(result)
         if abs(volume - before[0]) > TOLERANCE * abs(before[0]) or abs(area - before[1]) > TOLERANCE * before[1]:
             return None
-        return Merged(result, context, done, counts)
+        return Merged(result, context, done, counts, copy)
 
     merged = attempt(groups)
     if merged is None and len(groups) > 1:
