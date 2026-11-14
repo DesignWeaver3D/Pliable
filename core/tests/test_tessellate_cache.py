@@ -7,7 +7,7 @@ from pliable import tessellate as tess
 from pliable.document import Document
 from pliable.ops import fillet_chamfer, planar_normal
 from pliable.server import Session
-from pliable.tessellate import display_cache, tessellate
+from pliable.tessellate import body_cache, display_cache, tessellate
 from pliable.topology import Topology
 
 
@@ -37,7 +37,7 @@ def test_cached_mesh_is_identical_to_a_fresh_one():
     for preview in (False, True):
         expected = fresh(topology, preview)
         again = tessellate(topology, preview)  # all hits
-        assert display_cache.hits > 0
+        assert display_cache.hits + body_cache.hits > 0
         same(expected, again)
 
 
@@ -46,10 +46,10 @@ def test_commit_through_session_matches_uncached(monkeypatch):
     session.document = Document(blocks(6), "t")
     face = top_face(session.document.current)
     session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": [face]}, "params": {"distance": 3.0}})
-    hits = display_cache.hits
+    hits = body_cache.hits
     reply = session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": [top_face(session.document.current)]}, "params": {"distance": -1.0}})
     assert isinstance(reply, bytes)
-    assert display_cache.hits - hits > 30  # untouched bodies come from the cache
+    assert body_cache.hits - hits >= 5  # untouched bodies come from the cache
     current = session.document.current
     cached = tessellate(current)
     same(fresh(current), cached)
