@@ -157,3 +157,23 @@ def test_a_pulled_face_keeps_its_merged_wall_through_the_tool():
     again = push_pull(result.shape, TopoDS.Face(result.tracked_faces[0]), 1.0)
     assert is_valid(again.shape)
     assert Topology(again.shape).face_count == Topology(result.shape).face_count
+
+
+def test_the_volume_check_measures_only_the_bodies_that_merged(monkeypatch):
+    """With several bodies, only the body holding a merged face is measured; the others come through unchanged."""
+    import pliable.samesurface as samesurface
+    from pliable.ops import solids_of
+    from pliable.shared.solids import _compound
+
+    cavity = stacked(BRepPrimAPI_MakeSphere(gp_Ax2(gp_Pnt(0, 0, 4), Z), 3).Shape(), BRepPrimAPI_MakeSphere(gp_Ax2(gp_Pnt(0, 0, 4), Z, Y), 3).Shape())
+    other = BRepPrimAPI_MakeBox(gp_Pnt(100, 0, 0), gp_Pnt(110, 10, 10)).Shape()
+    shape = _compound([other, cavity])
+    seen = []
+    real = samesurface._measures
+    monkeypatch.setattr(samesurface, "_measures", lambda s: seen.append(len(solids_of(s))) or real(s))
+    merged = merge_same_surface(shape)
+    assert merged is not None and seen and set(seen) == {1}  # before and after, each on the one body
+    solids = solids_of(merged.shape)
+    assert len(solids) == 2 and len(faces_of(merged.shape, GeomAbs_Sphere)) == 1
+    assert len(list(Topology(solids[0]).faces())) == 6  # the plain box
+    assert measures(merged.shape) == pytest.approx(measures(shape), rel=1e-9)
