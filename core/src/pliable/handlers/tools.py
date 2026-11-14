@@ -123,12 +123,12 @@ class ToolHandlers:
         interact = interaction.report(tool, topology, request_selection)
         if interact is not None:
             extra["interact"] = interact
+        if result.notice:
+            extra["notice"] = result.notice  # a plain note for the status line (a subtract that removes nothing, a stretch that made a face free-form)
         if not commit:
             dimensions = self._preview_dimensions(request_selection, selection, target)
             if dimensions is not None:
                 extra["dimensions"] = dimensions
-            if result.notice:
-                extra["notice"] = result.notice  # a plain note for the status line (a subtract that removes nothing)
             if result.ghost is not None:
                 extra["ghost_shape"] = result.ghost
             if tool.id == "cut_plane":
