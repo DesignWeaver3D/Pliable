@@ -1,6 +1,7 @@
 /** On-screen manipulators (gizmos): the handles a tool declares (docs/protocol.md, Handles), drawn over the model and
  *  dragged with the left button. One handle sets one parameter; the host receives the new value while dragging.
  *  The maths that does not need a camera is exported for tests (`node --test app/tests`). */
+import { bandLabel } from "./bandslider.ts";
 import * as THREE from "three";
 import type { HandleInfo } from "./tools.ts";
 import { TypedFields } from "./typedentry.ts";
@@ -217,12 +218,13 @@ export class Manipulator {
       const unit = info.unit === "°" || !info.unit ? info.unit : " " + info.unit;
       const typing = item === this.active?.item && this.active.typed !== null;
       const symbol = info.symbol ?? "";
-      const shown = symbol + (typing ? `${typedShown(this.active!.typed ?? "", this.active!.negative)}|` : formatValue(info.along ? item.travel : value * (info.factor || 1)));
+      const band = info.rest != null && !typing; // the band length slider reads "Auto" at its Auto length
+      const shown = symbol + (typing ? `${typedShown(this.active!.typed ?? "", this.active!.negative)}|` : band ? bandLabel(value, info.rest!, formatValue) : formatValue(info.along ? item.travel : value * (info.factor || 1)));
       const fields = item === this.active?.item ? this.active.fields : null;
       const grid = info.plane && (item.grid || fields) ? { ...gridStart(this, info), ...item.grid } : null;
       const gridText = grid ? (fields ? `${fields.shown(0, String(grid.columns))} × ${fields.shown(1, String(grid.rows))}` : `${grid.columns} × ${grid.rows}`) : "";
       const snapText = snapped < 0 ? "" : info.snapNames?.[snapped] === "face" ? " - square to a face" : " - square to the global axes";
-      item.label.textContent = info.toggle ? info.label : grid ? `${info.label} ${gridText}` : info.pie ? `${shown}°` : info.badge ? `${info.label} ${shown}` : info.arrowhead ? `${shown}${unit}` : `${info.label} ${shown}${unit}${snapText}`;
+      item.label.textContent = info.toggle ? info.label : grid ? `${info.label} ${gridText}` : info.pie ? `${shown}°` : info.badge ? `${info.label} ${shown}` : info.arrowhead ? `${shown}${unit}` : `${info.label} ${shown}${band && shown === "Auto" ? "" : unit}${snapText}`;
       item.label.style.outline = typing || fields ? "1px solid #ffb347" : "";
       item.label.style.fontWeight = hot ? "bold" : "normal";
     }
