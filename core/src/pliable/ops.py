@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from OCP.BRepAdaptor import BRepAdaptor_Surface
 from OCP.BOPAlgo import BOPAlgo_GlueShift
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
-from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy, BRepBuilderAPI_Transform
+from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
 from OCP.BRep import BRep_Tool
 from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer, BRepFilletAPI_MakeFillet
 from OCP.BRepLProp import BRepLProp_SLProps
@@ -15,7 +15,6 @@ from OCP.GeomAbs import GeomAbs_Arc
 from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.GeomAbs import GeomAbs_Plane
 from OCP.gp import gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
-from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
 from OCP.TopAbs import TopAbs_COMPOUND, TopAbs_COMPSOLID, TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID
 from OCP.TopExp import TopExp_Explorer
 from OCP.BRep import BRep_Builder
@@ -34,9 +33,7 @@ from .opsgeom import (  # noqa: F401
     planar_normal,
     pull_direction,
 )
-from .samesurface import merge_same_surface
 from .validity import is_valid
-from .wallframes import align_walls
 
 
 @dataclass
@@ -192,51 +189,11 @@ MERGE_ANGLE = 1e-6
 
 
 def unify_result(result: OpResult, align: bool = True) -> OpResult:
-    """Merge faces and edges that share a surface or curve, following the tracked shapes through the merge.
-    `align` False skips describing cylinder walls alike first (a drag preview: it costs time and only removes lines inside holes)."""
-    # UnifySameDomain modifies its input in place, even in "safe input" mode,
-    # and the result of an operation shares sub-shapes with the document's shape.
-    # Unifying a topology-only copy keeps the original intact; geometry and
-    # triangulations are shared, so the copy is cheap.
-    copy = BRepBuilderAPI_Copy(result.shape, False, True)
-    tracked_c = _follow(copy, result.tracked_faces)
-    edges_c = _follow(copy, result.tracked_edges)
-    vertices_c = _follow(copy, result.tracked_vertices)
+    """Merge faces and edges that share a surface or curve, following the tracked shapes through the merge (facemerge.py).
+    `align` False is a drag preview: it skips the slower steps that only remove lines inside holes."""
+    from .facemerge import merge_faces
 
-    # Walls of one cylinder that are described differently are first described alike, or the merge leaves them split
-    # (wallframes.py). That attempt is kept only when its merged shape is valid; otherwise the plain copy is merged as before.
-    attempts = []
-    try:
-        aligned = align_walls(copy.Shape()) if align else None
-    except Exception:  # an optional improvement: the kernel refusing a wall must not fail the operation
-        aligned = None
-    if aligned is not None:
-        shape, pairs = aligned
-        attempts.append((shape, [next((new for old, new in pairs if old.IsSame(face)), face) for face in tracked_c]))
-    attempts.append((copy.Shape(), tracked_c))
-    for shape, faces in attempts:
-        unify = ShapeUpgrade_UnifySameDomain(shape, True, True, True)
-        unify.SetAngularTolerance(MERGE_ANGLE)
-        unify.Build()
-        merged = unify.Shape()
-        if not merged.IsNull() and is_valid(merged):
-            tracked = _follow(unify.History(), faces)
-            edges = _follow(unify.History(), edges_c)
-            vertices = _follow(unify.History(), vertices_c)
-            break
-    else:
-        # Merging coplanar faces can corrupt very detailed solids; the plain result is still valid.
-        # The merge above changed `copy` in place, so the plain result is made again from the operation's own shape.
-        fresh = BRepBuilderAPI_Copy(result.shape, False, True)
-        merged = fresh.Shape()
-        tracked, edges, vertices = _follow(fresh, result.tracked_faces), _follow(fresh, result.tracked_edges), _follow(fresh, result.tracked_vertices)
-        if merged.IsNull() or not is_valid(merged):  # only the fallback needs its own check: the merged shape just passed
-            raise OperationError("Operation produced invalid geometry")
-    if align:
-        again = merge_same_surface(merged)  # faces of one surface the kernel left split (samesurface.py)
-        if again is not None:
-            merged, tracked, edges, vertices = again.shape, again.follow(tracked), again.follow(edges), again.follow(vertices)
-    return OpResult(merged, tracked, edges, vertices, unified=True)
+    return merge_faces(result, same_surface=align, walls=align)
 
 
 def fillet_chamfer(shape: TopoDS_Shape, edges: list[TopoDS_Edge], distance: float) -> OpResult:
