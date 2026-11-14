@@ -26,7 +26,7 @@ Name the worktree and branch, then require, in this order:
 4. Finish one task at a time: run the tests and commit that task (one commit per task, plain subject) before starting the next, so a cutoff loses only the task in progress. Local commits on its branch only; never push; no `git update-index`; do not touch `dev`, `rebuild` or `main`.
 5. Do not edit `docs/progress.md` or `docs/author-guidance.md`; put status, decisions (with what to change), items the owner must judge (only what a test cannot decide) and the resume point in the final report and in a temporary `docs/agent-notes/<name>.md` on its branch; watchlist entries append-only.
 6. Commit messages pass `scripts/check_commit_message.py`; the hook also rejects names of other products and AI tools in any staged text, so describe behavior instead.
-7. Unattended rules from the agent rules file: decide, log, keep going; ending the turn ends the run.
+7. Decisions: decide implementation details yourself. For a design or behavior choice, finish and commit every other task you can, then end your run with the questions grouped together (each with its options and the default you would pick); the orchestrator answers and resumes you. If the prompt says the orchestrator is unavailable, follow the unattended rules from the agent rules file instead: decide, log, keep going; ending the turn ends the run.
 8. Tests go through the real code path (`Tool.execute` or the server handlers, never helpers that skip steps the app applies); run core tests, `npm test`, `npx tsc --noEmit` and `npm run build`.
 9. Verify its own work in the running app in Chrome on its own ports: exercise the real feature, undo every change, avoid dialogs. Its final report lists what it checked in the app and what it did not. Keep the browser check cheap: one targeted check per user-visible change (not per sub-step), take screenshots at scale 0.5 and zoom into the region of interest instead of full-size shots, prefer reading the page text, console messages or element titles when they answer the question, and take no more than about six screenshots per task.
 10. No runaway processes and no background commands; every command finishes within about two minutes.
@@ -40,6 +40,16 @@ Name the worktree and branch, then require, in this order:
 - **Cheap verification:** the browser check rule in item 9; unit and Session.handle tests carry most of the verification, the browser only confirms that the feature is visible and usable.
 - **Orchestrator:** no re-tests for a single clean agent merge (only when several concurrent branches are merged or a code conflict was resolved); no re-reading of agent transcripts; reports stay under 150 words.
 - **Model:** agents run on the cheaper model (sonnet); research agents use the researcher definition.
+
+## Agents asking the orchestrator (owner request 2026-11-14)
+
+An agent cannot ask a question and keep running: it ends its run with the question, and the orchestrator answers with SendMessage, which resumes it with its context. So an agent that can ask counts as attended, with the orchestrator standing in for the owner.
+
+- **Agents decide** implementation details (names, structure, which helper to use) that change nothing the user sees.
+- **Agents ask** about design and behavior choices. Before stopping they finish and commit every other task they can, and they group their questions into one stop. Each question gives the options and the default the agent would pick.
+- **The orchestrator answers** using the order in "Deciding without the owner" in the agent rules file (owner workflows already recorded, then solid-modeling standard practice, then other direct modelers, then user consensus), uses `docs/research/` before searching, and logs each decision in one line in `docs/decisions-log.md`.
+- **The orchestrator passes to the owner** anything that would override `docs/behavior.md`, any row marked "discuss", and any large choice the order above does not settle. In an attended chat it asks the owner directly; otherwise it adds a question to `docs/author-guidance.md` and tells the agent to skip that task.
+- **Cost:** each resume makes the agent re-read its history, so a question should cover a real choice, never a small one. If the same question comes up again, the orchestrator adds the answer to the next agent's prompt.
 
 ## While the owner is testing (2026-10-19)
 
