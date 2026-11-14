@@ -20,6 +20,9 @@ def _fresh_bodies(shape):
 
 
 class Topology:
+    # True when every body is known to be merged (mergescope.py); a state made any other way is merged again as a whole.
+    merged = False
+
     def __init__(self, shape: TopoDS_Shape, bodies=None):
         self.shape = shape
         self.bodies = bodies if bodies is not None else _fresh_bodies(shape)  # a BodyState: id and name of each solid

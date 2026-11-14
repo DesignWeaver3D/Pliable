@@ -20,3 +20,14 @@ Push/pull on a merged model: 0.54 s in all (it is narrowed to the one body, so i
 in `pc_base.py` is the import state, which is out of scope here.
 
 So the whole-model passes of a move are: topology copy, kernel merge, validity check, same-surface scan.
+
+## Step 2: same-surface scan limited to changed bodies (done)
+
+`merge_faces(result, same_surface, changed=None)` and `merge_same_surface(shape, changed=None)`: `changed` is a set of
+solid positions; None keeps the whole-model behavior (Stretch and every other caller are unchanged). The promise that
+the other bodies are merged already comes from `Topology.merged` (set by Move/Rotate on bodies once its merge ran on a
+model known merged, or on the whole model) plus `mergescope.changed_solids`, which also requires no face, edge or vertex
+shared between bodies or held outside them (same check as `bodydisplay.body_ranges`). Imported / opened / any other
+state is not flagged, so its first move merges the whole model as before, then flags the result.
+Measured (`pc_base.py`): third move in a row 3.16 s -> 2.62 s.
+Tests: `core/tests/test_merge_scope.py` (scoped equals whole-model fingerprint: counts, per-id face area and centroid, edge lengths).

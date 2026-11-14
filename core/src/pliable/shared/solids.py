@@ -29,10 +29,11 @@ from ..validity import is_valid
 TOL = 1e-6
 
 
-def finish(shape: TopoDS_Shape, cutters=()) -> OpResult:
+def finish(shape: TopoDS_Shape, cutters=(), changed: frozenset | None = None) -> OpResult:
     """Merge faces that share a surface (facemerge.py), check the result, and return it (the selection is not carried over).
-    `cutters` are the tool volumes a subtract removed; the preview draws the part of them in empty space as a ghost."""
-    merged = merge_faces(OpResult(shape, []))
+    `cutters` are the tool volumes a subtract removed; the preview draws the part of them in empty space as a ghost.
+    `changed` (positions of the solids the operation changed, see mergescope.py) limits the same-surface search to them."""
+    merged = merge_faces(OpResult(shape, []), changed=changed)
     merged.cutters = list(cutters)
     return merged
 

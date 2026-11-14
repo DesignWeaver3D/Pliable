@@ -53,6 +53,8 @@ class OpResult:
     cutters: list = field(default_factory=list)
     ghost: TopoDS_Shape | None = None
     notice: str | None = None
+    # True when the model the operation ends in is merged throughout (see mergescope.py); set by the tools that say so.
+    merged: bool = False
 
 
 def _follow(history_op, shapes: list[TopoDS_Shape]) -> list[TopoDS_Shape]:

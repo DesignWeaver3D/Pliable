@@ -130,8 +130,13 @@ def _solids_of(shape: TopoDS_Shape, topology: Topology) -> dict[int, frozenset]:
     return {fid: frozenset(ids) for fid, ids in members.items()}
 
 
-def _groups(shape: TopoDS_Shape, topology: Topology) -> list[list[TopoDS_Face]]:
-    """Groups of two or more faces of `shape` that share edges and lie on one surface with the same side outward."""
+def _groups(shape: TopoDS_Shape, topology: Topology, changed: frozenset | None = None) -> list[list[TopoDS_Face]]:
+    """Groups of two or more faces of `shape` that share edges and lie on one surface with the same side outward.
+    With `changed` (positions of solids), only the faces of those solids are looked at: faces of different solids never merge."""
+    if changed is not None:
+        solids = _solid_list(shape)
+        shape = _compound_of([solids[i] for i in sorted(changed)])
+        topology = Topology(shape, bodies=())
     surfaces: dict[int, BRepAdaptor_Surface] = {}
     faces = {i: f for i, f in topology.faces()}
 
@@ -310,11 +315,21 @@ class Merged:
         return self._present.vertex_id(item) is not None
 
 
-def merge_same_surface(shape: TopoDS_Shape) -> Merged | None:
+def _compound_of(shapes: list[TopoDS_Shape]) -> TopoDS_Compound:
+    compound, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(compound)
+    for shape in shapes:
+        builder.Add(compound, shape)
+    return compound
+
+
+def merge_same_surface(shape: TopoDS_Shape, changed: frozenset | None = None) -> Merged | None:
     """`shape` with every group of faces on one surface merged into one face; None when nothing merged. The groups are
-    kept together when the result is valid and its volume and area are unchanged, else one by one (each only if it is)."""
+    kept together when the result is valid and its volume and area are unchanged, else one by one (each only if it is).
+    `changed` (positions of solids in `shape`; None = all) says which solids can hold such a group: the caller promises
+    the others have none, and only the faces of the changed solids are looked at."""
     topology = Topology(shape, bodies=())
-    groups = _groups(shape, topology)
+    groups = _groups(shape, topology, changed)
     if not groups:
         return None
     # Only the solids holding a merged face can change, so the volume and area check measures those (and the merge

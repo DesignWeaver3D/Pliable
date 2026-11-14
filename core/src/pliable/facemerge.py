@@ -10,7 +10,7 @@ from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
 
 from .mergelimits import MERGE_ANGLE
 from .ops import OperationError, OpResult, _follow
-from .samesurface import merge_same_surface
+from .samesurface import _solid_list, merge_same_surface
 from .validity import is_valid
 
 
@@ -29,8 +29,10 @@ def _unified(shape, tracked, edges, vertices, merge_faces: bool):
     return merged, _follow(history, tracked_c), _follow(history, edges_c), _follow(history, vertices_c)
 
 
-def merge_faces(result: OpResult, same_surface: bool = True) -> OpResult:
+def merge_faces(result: OpResult, same_surface: bool = True, changed: frozenset | None = None) -> OpResult:
     """`result` with its faces and edges merged, the tracked items followed through the merge.
+    `changed` (positions of the solids the operation changed; None = any) limits the search for faces of one surface to
+    those solids; the caller promises the other solids were merged already and share nothing with them (mergescope.py).
     `same_surface` False skips joining faces of one surface the kernel left split (a drag preview: it costs time)."""
     # UnifySameDomain modifies its input in place, even in "safe input" mode, and the result of an operation shares
     # sub-shapes with the document's shape: every attempt merges its own topology-only copy (geometry and triangulations are shared).
@@ -46,10 +48,14 @@ def merge_faces(result: OpResult, same_surface: bool = True) -> OpResult:
         found = _unified_none(result)
     merged, tracked, edges, vertices = found
     if same_surface:
-        again = merge_same_surface(merged)  # faces of one surface the kernel left split (samesurface.py)
+        again = merge_same_surface(merged, changed if changed is not None and _solid_count(merged) == _solid_count(result.shape) else None)  # faces of one surface the kernel left split (samesurface.py)
         if again is not None:
             merged, tracked, edges, vertices = again.shape, again.follow(tracked), again.follow(edges), again.follow(vertices)
     return OpResult(merged, tracked, edges, vertices, unified=True)
+
+
+def _solid_count(shape) -> int:
+    return len(_solid_list(shape))
 
 
 def _unified_none(result: OpResult):
