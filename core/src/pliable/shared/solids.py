@@ -15,14 +15,13 @@ from OCP.BRepGProp import BRepGProp
 from OCP.BRepPrimAPI import BRepPrimAPI_MakeCylinder
 from OCP.Bnd import Bnd_Box
 from OCP.GProp import GProp_GProps
-from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
 from OCP.TopAbs import TopAbs_FACE, TopAbs_SHELL
 from OCP.TopExp import TopExp_Explorer as _Explorer
 from OCP.TopoDS import TopoDS, TopoDS_Compound, TopoDS_Shape
 from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 
-from ..ops import _boolean, keep_compound, MERGE_ANGLE, OperationError, OpResult, solids_of
-from ..samesurface import merge_same_surface
+from ..facemerge import merge_faces
+from ..ops import _boolean, keep_compound, OperationError, OpResult, solids_of
 from ..tools import Param
 from ..validity import is_valid
 
@@ -31,27 +30,11 @@ TOL = 1e-6
 
 
 def finish(shape: TopoDS_Shape, cutters=()) -> OpResult:
-    """Merge faces that share a surface, check the result, and return it (the selection is not carried over).
+    """Merge faces that share a surface (facemerge.py), check the result, and return it (the selection is not carried over).
     `cutters` are the tool volumes a subtract removed; the preview draws the part of them in empty space as a ghost."""
-    result = None
-    # Merging faces can break a valid result (a shelled, rounded body fused to its mirror image); then only the edges are merged.
-    for faces in (True, False):
-        copy = BRepBuilderAPI_Copy(shape, False, True)  # UnifySameDomain edits its input in place
-        unify = ShapeUpgrade_UnifySameDomain(copy.Shape(), True, faces, faces)
-        # the same limit as push/pull (`ops.MERGE_ANGLE`); at the kernel's default, a countersink cut into a merged thread
-        # stayed invalid on Linux, while this merge repairs it
-        unify.SetAngularTolerance(MERGE_ANGLE)
-        unify.Build()
-        result = unify.Shape()
-        if not result.IsNull() and is_valid(result):
-            break
-    else:
-        raise OperationError("Operation produced invalid geometry")
-    # faces of one surface the kernel left split, or all faces when its merge broke the shape (samesurface.py)
-    again = merge_same_surface(result)
-    if again is not None:
-        result = again.shape
-    return OpResult(result, [], unified=True, cutters=list(cutters))
+    merged = merge_faces(OpResult(shape, []))
+    merged.cutters = list(cutters)
+    return merged
 
 
 def _combine(shape: TopoDS_Shape, tool: TopoDS_Shape, fuse: bool) -> TopoDS_Shape:

@@ -28,15 +28,9 @@ from OCP.TopExp import TopExp_Explorer
 from OCP.TopLoc import TopLoc_Location
 from OCP.TopoDS import TopoDS, TopoDS_Face, TopoDS_Iterator, TopoDS_Shape
 
+from .mergelimits import CONNECT_LENGTH, MERGE_ANGLE, MERGE_LENGTH, MERGE_RELATIVE, PARALLEL
 from .topology import Topology
 from .validity import is_valid
-
-LINEAR = 1e-6  # lengths (radius, offsets, distance of an axis) that count as equal
-ANGULAR = 1e-9  # 1 - |cosine| of the angle between two directions that count as parallel
-# The merged solid keeps its volume and area within this fraction. The kernel's integrals of a fused shape are only
-# about 1e-7 exact, so a tighter limit refused every group of a body fused to its mirror image.
-TOLERANCE = 1e-6
-CONNECT = 1e-5  # edges this close at their ends form one outline
 
 _TYPES = (GeomAbs_Plane, GeomAbs_Cylinder, GeomAbs_Cone, GeomAbs_Sphere, GeomAbs_Torus)
 
@@ -47,11 +41,11 @@ def _axis_line(axis):
 
 def _on_line(point, line_point, direction) -> bool:
     vector = gp_Vec(line_point, point)
-    return vector.Crossed(gp_Vec(direction)).Magnitude() <= LINEAR
+    return vector.Crossed(gp_Vec(direction)).Magnitude() <= MERGE_LENGTH
 
 
 def _parallel(a, b) -> bool:
-    return 1.0 - abs(a.Dot(b)) <= ANGULAR
+    return 1.0 - abs(a.Dot(b)) <= PARALLEL
 
 
 def same_surface(a: BRepAdaptor_Surface, b: BRepAdaptor_Surface) -> bool:
@@ -64,32 +58,32 @@ def same_surface(a: BRepAdaptor_Surface, b: BRepAdaptor_Surface) -> bool:
         pa, pb = a.Plane(), b.Plane()
         if not _parallel(pa.Axis().Direction(), pb.Axis().Direction()):
             return False
-        return abs(gp_Vec(pa.Location(), pb.Location()).Dot(gp_Vec(pa.Axis().Direction()))) <= LINEAR
+        return abs(gp_Vec(pa.Location(), pb.Location()).Dot(gp_Vec(pa.Axis().Direction()))) <= MERGE_LENGTH
     if kind == GeomAbs_Sphere:
         sa, sb = a.Sphere(), b.Sphere()
-        return abs(sa.Radius() - sb.Radius()) <= LINEAR and sa.Location().Distance(sb.Location()) <= LINEAR
+        return abs(sa.Radius() - sb.Radius()) <= MERGE_LENGTH and sa.Location().Distance(sb.Location()) <= MERGE_LENGTH
     if kind == GeomAbs_Cylinder:
         ca, cb = a.Cylinder(), b.Cylinder()
-        if abs(ca.Radius() - cb.Radius()) > LINEAR:
+        if abs(ca.Radius() - cb.Radius()) > MERGE_LENGTH:
             return False
         point, direction = _axis_line(ca.Axis())
         return _parallel(direction, cb.Axis().Direction()) and _on_line(cb.Location(), point, direction)
     if kind == GeomAbs_Cone:
         ka, kb = a.Cone(), b.Cone()
-        if abs(abs(ka.SemiAngle()) - abs(kb.SemiAngle())) > ANGULAR:
+        if abs(abs(ka.SemiAngle()) - abs(kb.SemiAngle())) > MERGE_ANGLE:
             return False
         apex_a, apex_b = ka.Apex(), kb.Apex()
-        if apex_a.Distance(apex_b) > LINEAR:
+        if apex_a.Distance(apex_b) > MERGE_LENGTH:
             return False
         da, db = ka.Axis().Direction(), kb.Axis().Direction()
         # the cone opens along +axis for a positive semi-angle: the same cone has the same opening direction
         sign_a = da if ka.SemiAngle() > 0 else da.Reversed()
         sign_b = db if kb.SemiAngle() > 0 else db.Reversed()
-        return 1.0 - sign_a.Dot(sign_b) <= ANGULAR
+        return 1.0 - sign_a.Dot(sign_b) <= PARALLEL
     ta, tb = a.Torus(), b.Torus()
-    if abs(ta.MajorRadius() - tb.MajorRadius()) > LINEAR or abs(ta.MinorRadius() - tb.MinorRadius()) > LINEAR:
+    if abs(ta.MajorRadius() - tb.MajorRadius()) > MERGE_LENGTH or abs(ta.MinorRadius() - tb.MinorRadius()) > MERGE_LENGTH:
         return False
-    return ta.Location().Distance(tb.Location()) <= LINEAR and _parallel(ta.Axis().Direction(), tb.Axis().Direction())
+    return ta.Location().Distance(tb.Location()) <= MERGE_LENGTH and _parallel(ta.Axis().Direction(), tb.Axis().Direction())
 
 
 def _midpoint(edge):
@@ -214,7 +208,7 @@ def _merged_face(group: list[TopoDS_Face], count: list[list], context: ShapeBuil
         built = BRepBuilderAPI_MakeFace(surface, BRep_Tool.Tolerance_s(reference)).Face()
     else:
         wires = HSequence_TopoDS_Shape()
-        ShapeAnalysis_FreeBounds.ConnectEdgesToWires_s(boundary, CONNECT, True, wires)
+        ShapeAnalysis_FreeBounds.ConnectEdgesToWires_s(boundary, CONNECT_LENGTH, True, wires)
         builder = BRep_Builder()
         face = TopoDS_Face()
         # Not BRepBuilderAPI_MakeFace(surface) here: that gives the face the surface's natural bounds, the wires are the bounds.
@@ -323,7 +317,7 @@ def merge_same_surface(shape: TopoDS_Shape) -> Merged | None:
         if result.IsNull() or not is_valid(result):
             return None
         volume, area = _measures(result)
-        if abs(volume - before[0]) > TOLERANCE * abs(before[0]) or abs(area - before[1]) > TOLERANCE * before[1]:
+        if abs(volume - before[0]) > MERGE_RELATIVE * abs(before[0]) or abs(area - before[1]) > MERGE_RELATIVE * before[1]:
             return None
         return Merged(result, context, done, counts, copy)
 

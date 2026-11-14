@@ -15,7 +15,6 @@ from pliable.demos import load_demo
 from pliable.ops import OpResult, planar_normal, push_pull, unify_result
 from pliable.topology import Topology
 from pliable.validity import is_valid
-from pliable.wallframes import align_walls
 
 
 def measures(shape):
@@ -60,27 +59,6 @@ def test_pulling_a_face_with_holes_keeps_each_hole_wall_one_face():
     assert Topology(again.shape).face_count == before
     assert is_valid(again.shape)
     assert is_valid(plate) and Topology(plate).face_count == before  # the source is left as it was
-
-
-def test_walls_with_opposite_axes_are_described_alike_and_then_merge():
-    centres = [10, 30]
-    both = BRepAlgoAPI_Fuse(slab(0, 4, True, centres), slab(4, 6, False, centres)).Shape()
-    whole = 6 + len(centres)
-    assert Topology(merged(both)).face_count > whole  # the kernel's merge alone leaves the walls split
-    aligned, pairs = align_walls(BRepBuilderAPI_Copy(both, False, True).Shape())
-    assert len(pairs) == len(centres)
-    assert is_valid(aligned)
-    assert measures(aligned) == pytest.approx(measures(both), rel=1e-12)
-    out = merged(aligned)
-    assert Topology(out).face_count == whole
-    assert is_valid(out)
-    assert measures(out) == pytest.approx(measures(both), rel=1e-9)
-
-
-def test_walls_that_already_agree_are_left_alone():
-    both = BRepAlgoAPI_Fuse(slab(0, 4, True, [10]), slab(4, 6, True, [10])).Shape()
-    assert align_walls(BRepBuilderAPI_Copy(both, False, True).Shape()) is None
-    assert align_walls(BRepBuilderAPI_Copy(load_demo("bracket"), False, True).Shape()) is None
 
 
 def test_a_tracked_wall_is_followed_through_the_merge():
