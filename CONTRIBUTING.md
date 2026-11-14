@@ -24,6 +24,21 @@ The `commit-lint` workflow runs the same check on pushes and pull requests.
 - **Releases:** tags (`vX.Y.Z`) are cut from `main`, or from a release branch when one exists. A release branch (`release/0.4`) is only made when `main` has moved on to work that must not ship in patch releases; fixes go to `main` first and are cherry-picked to the release branch. Pushing a `release/*` branch or a tag starts the four-platform build and smoke test; a tag also makes a draft release that the owner publishes by hand.
 - Do not tag, publish or create release branches without the owner saying so.
 
+## Release checklist
+
+Documentation is finished before the tag. `PREV` is the last release tag (`git describe --tags --abbrev=0`).
+
+1. **Version number:** the owner picks it. The 0.4 series lasts until 1.0, so a release is normally the next patch number.
+2. **Set the version** in `core/src/pliable/__init__.py`, `core/pyproject.toml`, `desktop/src-tauri/Cargo.toml` and `desktop/src-tauri/tauri.conf.json`, and in the project's own entries of the lock files: `pliable` in `core/uv.lock` and `pliable-desktop` in `desktop/src-tauri/Cargo.lock`. `app/package.json` stays at 0.0.0.
+3. **Documents:** the README status line names the new version and links its release page; `docs/release-notes.md` replaces the previous "Changes in" section with this release's user-visible changes (read `git log PREV..HEAD`; describe behavior, not code); `docs/known-limitations.md` is read and corrected where the release changed something.
+4. **Third-party notices:** if `git diff --stat PREV..HEAD` shows a change to a dependency lock file, review `THIRD_PARTY_NOTICES.md` for the added or changed packages, then run `python scripts/check_release_docs.py --update-fingerprints`.
+5. **Checks:** `python scripts/check_release_docs.py vX.Y.Z` passes; core tests, `npm test`, `npx tsc --noEmit` and `npm run build` pass locally. (When a running core server holds the virtual environment, `uv run` cannot reinstall the package under the new version; run `.venv/Scripts/python -m pytest` instead.)
+6. **Commit** "Set the version to X.Y.Z", with a body naming the files and what the release notes describe.
+7. **Push `main` and wait for its `ci` run to pass on that exact commit.** CI runs on Linux; a pass on Windows alone is not enough. If it fails, fix on `main` and push again; the version commit does not need redoing. To investigate a failure that only happens on Linux, push a temporary branch that carries its own workflow (CI does not run on other branches), and delete the branch afterwards.
+8. **Tag** the green commit and push only the tag: `git tag vX.Y.Z <commit>`, then `git push origin vX.Y.Z`.
+9. **Watch the `release` run:** docs-check, create-draft, the four builds and ready must all pass, and the draft release must hold the Linux AppImage and the macOS arm64, macOS x64 and Windows zips.
+10. **The owner publishes** the draft release by hand.
+
 ## Reference material
 
 Notes about how other tools work stay in `docs/research/`, which is ignored by git and never committed or pushed. Write them in our own words. Nothing is copied from other tools: no code, no text, no screenshots.
