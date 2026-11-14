@@ -93,3 +93,78 @@ def test_models_whose_ids_are_not_one_block_per_body_take_the_whole_path():
     for name, shape in shapes.items():
         topology = Topology(shape)
         same(reference(topology), tessellate(topology))
+
+
+def test_move_places_the_body_exactly_like_a_transformed_copy():
+    from OCP.BRep import BRep_Tool
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
+
+    from pliable.tools import TOOLS
+    from pliable.tools.move_body import turn_and_shift
+    from OCP.gp import gp_Pnt, gp_Vec
+
+    topology = Topology(blocks(3))
+    values = {"dx": 7.0, "dy": -2.5, "dz": 3.0, "rx": 10.0, "ry": 0.0, "rz": 90.0}
+    from pliable.tools import Selection
+
+    result = TOOLS["move_body"].execute(topology, Selection(bodies=[topology.bodies.bodies[1].id]), values, preview=False)
+    moved = Topology(result.shape)
+    assert (moved.face_count, moved.edge_count, moved.vertex_count) == (topology.face_count, topology.edge_count, topology.vertex_count)
+    solid = solids_of(topology.shape)[1]
+    centre = gp_Pnt(*[(a + b) / 2 for a, b in zip(*[tuple(x) for x in (_corner(solid, False), _corner(solid, True))])])
+    copy = BRepBuilderAPI_Transform(solid, turn_and_shift(centre, gp_Vec(7.0, -2.5, 3.0), [10.0, 0.0, 90.0]), True).Shape()
+    expected = Topology(copy)
+    found = Topology(solids_of(result.shape)[1])
+    assert (found.face_count, found.edge_count, found.vertex_count) == (expected.face_count, expected.edge_count, expected.vertex_count)
+    for i in range(expected.vertex_count):
+        a, b = BRep_Tool.Pnt_s(found.vertex(i)), BRep_Tool.Pnt_s(expected.vertex(i))
+        assert a.Distance(b) < 1e-7
+    same(reference(moved), tessellate(moved))
+
+
+def _corner(solid, high):
+    from pliable.tessellate import bounds
+
+    box = bounds(solid)
+    return box[3:] if high else box[:3]
+
+
+def test_edit_after_a_move_and_undo_match_a_fresh_build():
+    session = session_of(3)
+    body = session.document.current.bodies.bodies[1].id
+    session.handle({"type": "tool_commit", "tool": "move_body", "selection": {"bodies": [body]}, "params": {"dx": 7, "rz": 90, "ry": 15}})
+    session.handle({"type": "tool_commit", "tool": "move_body", "selection": {"bodies": [body]}, "params": {"dz": 4, "rx": 30}})
+    session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": [top_face(session.document.current)]}, "params": {"distance": 2.0}})
+    for request in ("undo", "undo", "undo", "redo", "redo", "redo"):
+        session.handle({"type": request})
+        current = session.document.current
+        cached = tessellate(current)
+        same(reference(current), cached)
+
+
+def test_a_placed_body_survives_save_open_and_step_export():
+    import base64
+
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+
+    def volume(shape):
+        props = GProp_GProps()
+        BRepGProp.VolumeProperties_s(shape, props)
+        return props.Mass()
+
+    session = session_of(3)
+    body = session.document.current.bodies.bodies[1].id
+    session.handle({"type": "tool_commit", "tool": "move_body", "selection": {"bodies": [body]}, "params": {"dx": 7, "rz": 90, "ry": 15}})
+    shape = session.document.current.shape
+    saved = session.handle({"type": "save_project"})
+    other = Session()
+    other.handle({"type": "open_project", "data": saved["data"]})
+    reopened = other.document.current
+    assert abs(volume(reopened.shape) - volume(shape)) < 1e-6
+    same(reference(reopened), tessellate(reopened))
+    exported = session.handle({"type": "export_step"})
+    third = Session()
+    third.handle({"type": "import_step", "name": "x", "data": exported["data"]})
+    assert abs(volume(third.document.current.shape) - volume(shape)) < 1e-6
+    assert base64.b64decode(exported["data"])

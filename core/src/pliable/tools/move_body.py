@@ -2,7 +2,7 @@
 
 import math
 
-from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
+from OCP.TopLoc import TopLoc_Location
 from OCP.gp import gp_Ax1, gp_Dir, gp_Trsf, gp_Vec
 
 from ..ops import MIN_DISTANCE, OpResult
@@ -93,7 +93,9 @@ class MoveBody(Tool):
             return turn_and_shift(centre or whole[0], offset, angles)
 
         def change(shape, centre=None):
-            return BRepBuilderAPI_Transform(shape, move_trsf(centre), True).Shape()
+            # Placed, not copied: the shape keeps its geometry and its triangulation, and the move is its location (a move and
+            # a turn are rigid, which a location can hold)
+            return shape.Moved(TopLoc_Location(move_trsf(centre)))
 
         record: dict = {}
         result = finish(_on_bodies(topology, selection, change, pivot=True, trsf=move_trsf, record=record, centre_always=True))
