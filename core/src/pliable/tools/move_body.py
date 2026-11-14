@@ -84,11 +84,13 @@ class MoveBody(Tool):
         angles = [values[n] for n in ("rx", "ry", "rz")]
         if offset.Magnitude() < MIN_DISTANCE and all(abs(a) < 1e-9 for a in angles):
             return OpResult(topology.shape, [])
-        whole = _body_centre(_unlocked_shape(topology))  # the middle of the bodies that move, not the locked ones
+        whole = []  # the middle of the bodies that move, not the locked ones; measured only when a move has no body center of its own
 
         def move_trsf(centre):
             """Turn about `centre` (the body's own, else the whole model's) by rx, ry, rz in that order, then shift."""
-            return turn_and_shift(centre or whole, offset, angles)
+            if centre is None and not whole:
+                whole.append(_body_centre(_unlocked_shape(topology)))
+            return turn_and_shift(centre or whole[0], offset, angles)
 
         def change(shape, centre=None):
             return BRepBuilderAPI_Transform(shape, move_trsf(centre), True).Shape()
