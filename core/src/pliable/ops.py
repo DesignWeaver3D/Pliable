@@ -193,7 +193,7 @@ def unify_result(result: OpResult, align: bool = True) -> OpResult:
     `align` False is a drag preview: it skips the slower steps that only remove lines inside holes."""
     from .facemerge import merge_faces
 
-    return merge_faces(result, same_surface=align, walls=align)
+    return merge_faces(result, same_surface=align)
 
 
 def fillet_chamfer(shape: TopoDS_Shape, edges: list[TopoDS_Edge], distance: float) -> OpResult:
