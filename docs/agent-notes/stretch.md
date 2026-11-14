@@ -1,6 +1,14 @@
 # Stretch hand-off (branch agent/stretch, worktree C:\dev\pliable-wt\stretch)
 
-Specification: `docs/progress.md`, row "Box-select stretch on any solid". Ports for this worktree: core 8801, frontend 5201.
+## Where to continue
+- Worktree `C:\dev\pliable-wt\stretch`, branch `agent/stretch` (keep both as they are; never touch `C:\dev\pliable`, never push).
+- Ports: core 8801, frontend 5201 (never 8765, 8770 or 5180). Data folder: `C:\dev\pliable-wt\stretch\.agent-data`.
+- In PowerShell first: `$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')`
+- Core (from `core\`): `$env:PLIABLE_DATA = 'C:\dev\pliable-wt\stretch\.agent-data'; uv run pliable-server --port 8801`
+- Frontend (from `app\`): `npm run dev -- --port 5201 --strictPort` (`app\.env` sets `VITE_CORE_PORT=8801`); open http://localhost:5201
+- Dependencies are installed (`uv sync` in `core\`, `npm ci` in `app\` were run).
+- Tests: core `uv run pytest -q` from `core\` (about 160 s, use a 300 s timeout; read the last line); the stretch files alone: `uv run pytest -q tests/test_stretch.py tests/test_stretch_band.py tests/test_card_gizmos.py`; after changing a tool's parameters regenerate the registry with `uv run python tests/test_tool_registry.py`. App from `app\`: `npm test` (check with `Select-String '^ℹ (pass|fail)'`), `npx tsc --noEmit`, `npm run build`.
+- Specification: `docs/progress.md`, row "Box-select stretch on any solid" (do not edit that file or `docs/author-guidance.md`).
 
 ## Commits so far
 - `638dae4` the `core/src/pliable/stretch/` package; `9219110` the tool wired to it, tilt/frame/pivot/band/continuity parameters, rings and band slider handle; `12963d7` `core/tests/test_stretch_band.py` (14 cases, all pass); `c1f1522` app: band slider (`app/src/bandslider.ts`, hooks in `manipulatordrag.ts`, `manipulator.ts`, handle type in `tools.ts`); the last commit adds these notes, the watchlist and decision entries, and the result note on commit.
