@@ -16,6 +16,7 @@ How the main session (the orchestrator) works with several agents at once. Use i
 - The local settings file asks before any `git push` and denies `git update-index`. `.gitattributes` keeps both sides of `docs/watchlist.md` on merge.
 - Fresh agent or resumed agent: resume only when the next task touches the same code; otherwise start a fresh agent with the task and the relevant progress rows. A resumed agent re-reads its whole history on every turn, so long histories cost usage.
 - Research agents use the `researcher` agent definition (cheap model, no file edits).
+- **Reusing worktrees (owner request 2026-11-14):** keep worktrees and reuse them; they hold their own core environment, `node_modules`, ports and data, which a new worktree must set up again. Name new ones by code area (for example core or app), not by task. Between tasks: refresh the ignored files, merge `main` into the branch (a fast-forward once its work is merged), and clear its `.agent-data` folder. Remove a worktree only when its area is idle for a while or a dependency or configuration change makes a fresh install cleaner; never remove one whose branch is not merged.
 
 ## The prompt every agent gets
 
