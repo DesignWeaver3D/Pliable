@@ -195,6 +195,10 @@ class Handle:
     extension: tuple[float, float, float] | None = None
     # The grip is drawn as an arrowhead at the end of its line (pointing along `direction`), and its value is shown in the middle of the line, like a length dimension.
     arrowhead: bool = False
+    # A slider whose parameter means "automatic" at 0: the length it then has (the drag starts from it and snaps back to it).
+    rest: float | None = None
+    # The band the slider sizes, for the view to shade: (start point, direction, length, ids of the faces it lies on).
+    strip: tuple | None = None
 
     def to_json(self, value: float, values: dict | None = None) -> dict:
         length = sum(c * c for c in self.direction) ** 0.5 or 1.0
@@ -215,6 +219,8 @@ class Handle:
             "axisFrom": [float(c) for c in self.axis_from] if self.axis_from else None,
             "extension": [float(c) for c in self.extension] if self.extension else None,
             "arrowhead": self.arrowhead,
+            "rest": self.rest,
+            "strip": {"origin": list(self.strip[0]), "direction": list(self.strip[1]), "length": self.strip[2], "faces": list(self.strip[3])} if self.strip else None,
             "param": self.param,
             "label": self.label,
             "anchor": [float(c) for c in self.anchor],

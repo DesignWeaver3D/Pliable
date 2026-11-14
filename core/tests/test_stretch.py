@@ -76,15 +76,16 @@ def test_stretch_a_taper_keeps_the_end_size():
     assert volume(grown) == pytest.approx(expected, rel=1e-6)
 
 
-def test_stretch_with_curved_neighbours_extrudes_straight_moves_and_refuses_the_rest():
-    plate = Topology(load_demo("perforated_plate"))
+def test_stretch_with_curved_neighbours_slides_and_lengthens():
+    plate = Topology(load_demo("perforated_plate"))  # 210 x 210 x 8, corners rounded, 400 holes
     side = face_with_normal(plate, [1.0, 0.0, 0.0])
-    with pytest.raises(OperationError, match="Insert"):
-        run(plate, [side], dx=0, dy=0, dz=5, mode=0)  # sliding the end sideways cannot re-fit curved neighbors
-    longer = run(plate, [side], dx=5, dy=0, dz=0, mode=0)  # straight along the normal: the end's section is extruded instead
-    same = run(plate, [side], dx=5, dy=0, dz=0, mode=1)
-    assert volume(longer.shape) > volume(plate.shape)
-    assert volume(longer.shape) == pytest.approx(volume(same.shape))
+    slid = run(plate, [side], dx=0, dy=0, dz=5, mode=0)  # the end and its corner fillets slide up; the top and bottom bend beside the last row of holes
+    assert BRepCheck_Analyzer(slid.shape).IsValid()
+    assert volume(slid.shape) == pytest.approx(volume(plate.shape), rel=1e-6)
+    assert "free-form" in slid.notice
+    longer = run(plate, [side], dx=5, dy=0, dz=0, mode=0)  # straight out: the plate grows between the last two rows of holes
+    assert volume(longer.shape) - volume(plate.shape) == pytest.approx(210 * 8 * 5, rel=1e-6)
+    assert Topology(longer.shape).face_count == plate.face_count and longer.notice is None
     assert BRepCheck_Analyzer(longer.shape).IsValid()
 
 

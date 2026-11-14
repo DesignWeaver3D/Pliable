@@ -60,9 +60,25 @@ def _deviation(geometry: Geometry, body: Body, edge: int) -> float:
     return worst
 
 
-def rebuild(body: Body, geometry: Geometry, allowed: float):
+def unchanged(body: Body) -> Geometry:
+    """The geometry the body has now."""
+    geometry = Geometry(points=[BRep_Tool.Pnt_s(v) for v in body.vertices], surfaces=[BRep_Tool.Surface_s(f) for f in body.faces])
+    for number, edge in enumerate(body.edges):
+        if BRep_Tool.Degenerated_s(edge):
+            geometry.curves.append((None, *BRep_Tool.Range_s(edge, body.faces[body.edge_faces[number][0]])))
+        else:
+            geometry.curves.append((BRep_Tool.Curve_s(edge, 0.0, 0.0), *BRep_Tool.Range_s(edge)))
+    for face, edges in enumerate(body.face_edges):
+        for edge in edges:
+            geometry.pcurves[(edge, face)] = old_pcurves(body.edges[edge], body.faces[face])
+    return geometry
+
+
+def rebuild(body: Body, geometry: Geometry, allowed: float, drop=frozenset()):
     """The solid with the new geometry, and its faces, edges and vertices in the old order. `allowed` is the largest
-    distance an edge may be off its faces; more than that is refused."""
+    distance an edge may be off its faces; more than that is refused. Faces in `drop` are left out, with the holes
+    they bound in the faces around them (an island feature such as a hole, pocket or boss), so those faces close over."""
+    gone = {e for f in drop for e in body.face_edges[f]}
     builder = BRep_Builder()
     vertices, edges, faces = [], [], []
     vertex_tol = [BRep_Tool.Tolerance_s(v) for v in body.vertices]
@@ -94,6 +110,9 @@ def rebuild(body: Body, geometry: Geometry, allowed: float):
         edges.append(new)
         edge_tol.append(tolerance)
     for number, old in enumerate(body.faces):
+        if number in drop:
+            faces.append(None)
+            continue
         new = TopoDS_Face()
         builder.MakeFace(new, geometry.surfaces[number], BRep_Tool.Tolerance_s(old))
         for edge in body.face_edges[number]:
@@ -107,9 +126,12 @@ def rebuild(body: Body, geometry: Geometry, allowed: float):
         for part in _children(old.Oriented(TopAbs_FORWARD)):
             if part.ShapeType() != TopAbs_WIRE:
                 continue
+            members = list(_children(part.Oriented(TopAbs_FORWARD)))
+            if any(body.edge_number(member) in gone for member in members):
+                continue
             wire = TopoDS_Wire()
             builder.MakeWire(wire)
-            for member in _children(part.Oriented(TopAbs_FORWARD)):
+            for member in members:
                 builder.Add(wire, edges[body.edge_number(member)].Oriented(member.Orientation()))
             wire.Closed(part.Closed())
             builder.Add(new, wire.Oriented(part.Orientation()))
@@ -128,7 +150,8 @@ def rebuild(body: Body, geometry: Geometry, allowed: float):
         shell = TopoDS_Shell()
         builder.MakeShell(shell)
         for member in _children(part.Oriented(TopAbs_FORWARD)):
-            builder.Add(shell, faces[body.face_number(member)].Oriented(member.Orientation()))
+            if faces[body.face_number(member)] is not None:
+                builder.Add(shell, faces[body.face_number(member)].Oriented(member.Orientation()))
         shell.Closed(part.Closed())
         builder.Add(solid, shell.Oriented(part.Orientation()))
     return solid.Oriented(body.solid.Orientation()), faces, edges, vertices

@@ -254,14 +254,18 @@ def test_circular_pattern_hole_has_an_angle_pie_and_a_count_badge():
     assert tool.handles(topology, selection, {**values, "ax": 0, "az": 0}) == []
 
 
-def test_stretch_has_three_move_arrows_at_the_end_face_that_follow_the_move():
+def test_stretch_has_move_arrows_tilt_rings_and_a_band_slider_at_the_end_face():
     topology = block()
     top = top_of(topology)
     tool = get_tool("stretch")
     rest = tool.handles(topology, Selection(faces=[top]), {"dx": 0, "dy": 0, "dz": 0, "mode": 0})
     moved = tool.handles(topology, Selection(faces=[top]), {"dx": 0, "dy": 0, "dz": 6, "mode": 0})
-    assert [h.param for h in rest] == ["dx", "dy", "dz"] and all(h.kind == "move" for h in rest)
+    assert [h.param for h in rest] == ["dx", "dy", "dz", "rx", "ry", "rz", "band"] and all(h.kind == "move" for h in rest[:3])
     assert rest[0].anchor == pytest.approx((0, 0, 10)) and moved[2].anchor[2] - rest[2].anchor[2] == pytest.approx(6)
+    assert all(h.ring is not None and h.unit == "°" for h in rest[3:6])
+    band = rest[6]  # the slider sits at the far end of the side faces (the whole block deforms on Auto) and slides along them
+    assert band.anchor[2] == pytest.approx(-10) and band.direction == pytest.approx((0, 0, -1)) and band.shown == pytest.approx(20) and band.rest == pytest.approx(20)
+    assert band.strip[2] == pytest.approx(20) and len(band.strip[3]) == 4
     result = tool.execute(topology, Selection(faces=[top]), {"dx": 0, "dy": 0, "dz": 6, "mode": 0}, preview=False)
     from test_gizmo_tools import bounds
 
