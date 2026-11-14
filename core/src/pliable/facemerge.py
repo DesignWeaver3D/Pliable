@@ -8,7 +8,8 @@ through every stage, so a selection survives the merge.
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
 from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
 
-from .ops import MERGE_ANGLE, OperationError, OpResult, _follow
+from .mergelimits import MERGE_ANGLE
+from .ops import OperationError, OpResult, _follow
 from .samesurface import merge_same_surface
 from .validity import is_valid
 

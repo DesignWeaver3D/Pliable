@@ -33,6 +33,7 @@ from .opsgeom import (  # noqa: F401
     planar_normal,
     pull_direction,
 )
+from .mergelimits import MERGE_ANGLE  # noqa: F401  (the face merge limits live in mergelimits.py)
 from .validity import is_valid
 
 
@@ -181,11 +182,6 @@ def _faces_of(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
 _volume_of = volume_of
 
 
-# Two faces merge when their normals agree along the shared edge. The kernel's own limit (1e-12 radians) is below the
-# error of an edge's approximated curves on a surface: where a bore crosses a curved wall the edge is free-form, and the
-# two halves of the bore never merged although they are one surface. This limit is still a ten-thousandth of the
-# smallest draft angle anyone models (0.01 degrees is 1.7e-4 radians).
-MERGE_ANGLE = 1e-6
 
 
 def unify_result(result: OpResult, align: bool = True) -> OpResult:
