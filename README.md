@@ -24,11 +24,9 @@ Pliable is a free, open-source direct modeler. You shape solid geometry directly
 
 ## Status
 
-Pliable started as a proof of concept built with PyQt6 and pythonocc:
+[![Pliable v0.4.3 CSWA Demo](https://img.youtube.com/vi/9srJCWiUxGo/hqdefault.jpg)](https://www.youtube.com/watch?v=9srJCWiUxGo)
 
-![PliableDemo01](https://github.com/user-attachments/assets/d6a42c9b-c637-44f6-a5e1-b62476e6638c)
-
-It proved that face push/pull, fillet/chamfer, and STEP round-tripping work on OpenCASCADE, but it wasn't built to scale. The project is now being rebuilt on a new architecture. The prototype is preserved as release [v0.1.0](https://github.com/DesignWeaver3D/Pliable/releases/tag/v0.1.0).
+Pliable started as a proof of concept built with PyQt6 and pythonocc. It proved that face push/pull, fillet/chamfer, and STEP round-tripping work on OpenCASCADE, but it wasn't built to scale. The project is now being rebuilt on a new architecture. The prototype is preserved as release [v0.1.0](https://github.com/DesignWeaver3D/Pliable/releases/tag/v0.1.0).
 
 `main` holds the rebuild; the latest release is [v0.4.3](https://github.com/DesignWeaver3D/Pliable/releases/tag/v0.4.3). The prototype lives on at the `v0.1.0` tag.
 
