@@ -66,8 +66,6 @@ Tool group CORE:
 
 - **Sketch flipping.** Owner: "Unrelated to this line item but I get some sketch flipping if i move not fully constrained profile geometry around abruptly. [Another CAD program] has made a lot of strides recently in mitigating sketch flipping."
   - [ ] Dragging was already solved in steps; the step cap is now 40 instead of 12. Not reproduced: ask for the sketch that flips, then keep the solution nearest the previous one (limit the step or retry from the last good state) and add the case to the no-flip scenario set.
-- **Coincident constraint mark.** Owner: "Coincident constraint mark shoul be its tool button icon and be adjacent to the location" (the sentence ends there in the owner's text).
-  - [ ] Ask for the rest of the sentence; coincident points have no mark today (only an automatic Coincident row in the list), so a mark at every shared point could crowd the sketch.
 - **Equal on arcs and circles (bug).** Owner: "Equal constraint didn't work on arcs or circles but definitely should."
   - [ ] Not reproduced: the button's selection check and the core solver both accept two circles, two arcs, and an arc with a circle, and a core test covers them. Ask for the failing selection (for example an ellipse, a dimensioned radius, or an automatic constraint in the way) and the message shown.
 
