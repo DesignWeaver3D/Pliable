@@ -29,5 +29,27 @@ the other bodies are merged already comes from `Topology.merged` (set by Move/Ro
 model known merged, or on the whole model) plus `mergescope.changed_solids`, which also requires no face, edge or vertex
 shared between bodies or held outside them (same check as `bodydisplay.body_ranges`). Imported / opened / any other
 state is not flagged, so its first move merges the whole model as before, then flags the result.
-Measured (`pc_base.py`): third move in a row 3.16 s -> 2.62 s.
+Measured (`pc_base.py`): third move in a row 3.16 s -> 2.62 s (commit aab0159).
 Tests: `core/tests/test_merge_scope.py` (scoped equals whole-model fingerprint: counts, per-id face area and centroid, edge lengths).
+
+## Step 3: kernel merge, topology copy and validity check limited to changed bodies (done)
+
+`facemerge._unified_in_parts`: with `changed` and no tracked items, only the changed solids are copied, merged and
+checked; they go back in their places in a flat compound of solids, the others as they are. Anything else (tracked
+items, nested compound, solid count change) merges the whole model as before.
+The "known merged" flag turned out too weak: one whole merge of an imported model is not a fixed point (the
+same-surface step leaves edges that the next kernel merge removes; 6 edges and 6 vertices still changed on the third
+move), so the flag is now set only when a whole-model merge left the face, edge and vertex counts unchanged
+(`mergescope.merge_settled`). On the 114-body model that is the third move after an import; later moves are scoped.
+Checked: after 4 moves, move 5 scoped vs forced whole-model gives the same reply for the page (faces, edges, vertices
+with ids, bodies, meshes; only timings differ) via `perf/pcc_cmp.py`.
+Measured (`pcc_base6.py`, moves in a row without undo): move 3 3.1 s (whole, not settled yet), move 4 0.81 s, moves 5-6 0.48 s
+(was 3.1 s). Push/pull on a merged model was 0.54 s already (narrowed); its 4.5 s in `pc_base.py` is the import state.
+Not scoped (left for the owner / not needed): the first operations after an import (whole model by design), faces
+outside solids, shared sub-shapes (`changed_solids` returns None), tools other than Move/Rotate on bodies (they do not
+pass `changed`; push/pull etc. already narrow to the body).
+Tests: `core/tests/test_merge_scope.py` (7), full suite 936 passed.
+
+## Resume point
+
+Steps 1-3 done. Left: browser check on 5202/8802 (several bodies, move one, push/pull a face, undo both).

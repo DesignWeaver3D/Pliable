@@ -2,7 +2,7 @@
 
 import math
 
-from OCP.BRep import BRep_Builder
+from OCP.BRep import BRep_Builder, BRep_Tool
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
 from OCP.BRepGProp import BRepGProp
 from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeSphere
@@ -11,7 +11,7 @@ from OCP.TopoDS import TopoDS_Compound
 from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt
 
 from pliable.facemerge import merge_faces
-from pliable.mergescope import changed_solids
+from pliable.mergescope import changed_solids, merge_settled
 from pliable.ops import OpResult, solids_of
 from pliable.tools import Selection, get_tool
 from pliable.topology import Topology
@@ -50,7 +50,7 @@ def spheres(shape):
 def fingerprint(shape):
     """Everything a page could see of a model: per face id its area and centroid, per edge id its length, the solids."""
     topology = Topology(shape)
-    faces, edges = [], []
+    faces, edges, vertices = [], [], []
     for _, face in topology.faces():
         props = GProp_GProps()
         BRepGProp.SurfaceProperties_s(face, props)
@@ -60,7 +60,15 @@ def fingerprint(shape):
         props = GProp_GProps()
         BRepGProp.LinearProperties_s(edge, props)
         edges.append(round(props.Mass(), 6))
-    return topology.face_count, topology.edge_count, topology.vertex_count, faces, edges, len(solids_of(shape))
+    for _, vertex in topology.vertices():
+        point = BRep_Tool.Pnt_s(vertex)
+        vertices.append((round(point.X(), 6), round(point.Y(), 6), round(point.Z(), 6)))
+    return topology.face_count, topology.edge_count, topology.vertex_count, faces, edges, vertices, len(solids_of(shape))
+
+
+def merged_model(shape):
+    """The model as the document holds it after an operation: merged as a whole."""
+    return merge_faces(OpResult(shape, [])).shape
 
 
 def moved(topology, scoped, body=1, dx=3.0):
@@ -71,6 +79,7 @@ def moved(topology, scoped, body=1, dx=3.0):
 
 
 def check_same(shape):
+    shape = merged_model(shape)
     whole = moved(Topology(shape), False)
     scoped = moved(Topology(shape), True)
     assert fingerprint(scoped.shape) == fingerprint(whole.shape)
@@ -82,12 +91,13 @@ def test_a_move_in_a_merged_model_is_the_whole_model_result_when_nothing_merges(
 
 
 def test_a_move_in_a_merged_model_is_the_whole_model_result_when_the_moved_body_merges():
-    shape = compound([box(0), split_cavity(30), box(60)])
+    plain = compound([box(0), split_cavity(30), box(60)])
+    # a model merged by an earlier operation, then the cavity body given two sphere faces again (as another operation could)
+    shape = compound([solids_of(merged_model(plain))[0], solids_of(plain)[1], solids_of(merged_model(plain))[2]])
     whole = moved(Topology(shape), False, body=1)
     scoped = moved(Topology(shape), True, body=1)
     assert fingerprint(scoped.shape) == fingerprint(whole.shape)
     # the moved body's two cavity halves became one face in both
-    assert Topology(whole.shape).face_count < Topology(shape).face_count
     assert spheres(whole.shape) == spheres(scoped.shape) == 1 < spheres(shape)
 
 
@@ -98,7 +108,7 @@ def test_an_unmerged_model_is_merged_as_a_whole():
     assert changed_solids(topology, {0}) is None
     result = moved(topology, False, body=0)  # the cavity body is not the moved one, and still merges
     assert Topology(result.shape).face_count < Topology(shape).face_count
-    assert result.merged
+    assert not result.merged  # the merge changed the model, so it is not yet known to be settled
 
 
 def test_changed_solids_names_the_bodies_only_for_a_merged_model_of_separate_bodies():
@@ -117,3 +127,29 @@ def test_merge_faces_with_changed_bodies_equals_the_whole_merge():
         scoped = merge_faces(OpResult(shape, []), changed=changed)
         if 1 in changed:
             assert fingerprint(scoped.shape) == fingerprint(whole.shape)
+
+
+def test_a_merge_that_changes_nothing_settles_the_model():
+    shape = merged_model(compound([box(0), box(30)]))
+    for _ in range(3):  # the merge may take a few passes to stop changing the model
+        again = merge_faces(OpResult(shape, [])).shape
+        if merge_settled(Topology(shape), again):
+            break
+        shape = again
+    else:
+        raise AssertionError("never settled")
+    assert merge_settled(Topology(shape), merge_faces(OpResult(shape, [])).shape)
+    assert not merge_settled(Topology(compound([split_cavity(0)])), merge_faces(OpResult(compound([split_cavity(0)]), [])).shape)
+
+
+def test_a_move_flags_the_model_only_when_the_merge_settled():
+    shape = compound([box(0), split_cavity(30), box(60)])
+    first = moved(Topology(shape), False, body=0)
+    assert not first.merged  # the cavity body merged: the merge changed the model
+    steady = first.shape
+    for _ in range(4):
+        result = moved(Topology(steady), False, body=0)
+        steady = result.shape
+        if result.merged:
+            break
+    assert result.merged
