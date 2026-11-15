@@ -102,6 +102,7 @@ Rules for keeping it:
 
 ### Decisions
 
+- [ ] Should Hole to slot also cut other bodies the hole reaches ("Other bodies"), as a new hole does? Today it changes only the body that owns the hole. Default if unanswered: no, own body only.
 - [ ] Push/Pull or sketch card Apply that did nothing (2026-10-30, not reproduced): which card, what was typed or dragged, and what did the status line say? Apply with no distance typed does nothing by design; every other case worked when tried.
 - [ ] Sketch flipping when dragging under-constrained geometry fast (not reproduced): can you send or describe a sketch that flips? The solver now drags in up to 40 small steps and ten no-flip scenarios pass.
 - [ ] Equal on arcs or circles that failed (not reproduced): which selection was it (an ellipse, a dimensioned radius, an automatic constraint in the way?) and what message showed? Two circles, two arcs and an arc with a circle all work in tests.
