@@ -279,3 +279,52 @@ def test_linear_array_joins_the_copies_with_what_they_meet(overlap):
     move.SetTranslation(gp_Vec(5, 0, z.d0 - z.c0 + 3))  # the copy of C reaches up into D
     before, after = run("linear_array", lambda m: Selection(faces=[face_of(m, C, 1)]), {"count": 2, "dx": 5, "dz": z.d0 - z.c0 + 3, "rows": 1}, overlap=overlap)
     check_join(before, after, BRepBuilderAPI_Transform(before[C], move, True).Shape(), "others", C)
+
+
+def sweep_scene():
+    """The source body Q (its +X face at x = -17), two overlapping posts S1 and S2 in the way of a sweep along +X, and a long bar F whose edge is the path."""
+    return Topology(_compound([
+        (Pos(-18, -8, 20) * Box(2, 10, 30)).wrapped,  # Q
+        (Pos(5, -6, 20) * Box(10, 14, 40)).wrapped,  # S1 x 0..10
+        (Pos(11, -6, 20) * Box(10, 14, 40)).wrapped,  # S2 x 6..16, overlapping S1
+        (Pos(100, 0, 5) * Box(10, 10, 10)).wrapped,  # far away
+        (Pos(100, 50, 5) * Box(60, 10, 10)).wrapped,  # F: the path is one of its edges that run along +X
+    ]))
+
+
+def path_edge(model, body):
+    """The edge of one body running along +X from its first to its last vertex (60 long), and the swept distance."""
+    from OCP.BRep import BRep_Tool
+    from OCP.TopExp import TopExp
+
+    solid = solids_of(model.shape)[body]
+    for i, edge in model.edges():
+        first, last = (BRep_Tool.Pnt_s(TopExp.FirstVertex_s(edge, True)), BRep_Tool.Pnt_s(TopExp.LastVertex_s(edge, True)))
+        if abs(last.X() - first.X() - 60) < 1e-6 and abs(last.Y() - first.Y()) < 1e-6 and abs(last.Z() - first.Z()) < 1e-6 and any(edge.IsSame(e) for e in _edges_of(solid)):
+            return i
+    raise AssertionError("no edge along +X")
+
+
+def _edges_of(shape):
+    from OCP.TopAbs import TopAbs_EDGE
+    from OCP.TopExp import TopExp_Explorer
+
+    explorer, out = TopExp_Explorer(shape, TopAbs_EDGE), []
+    while explorer.More():
+        out.append(explorer.Current())
+        explorer.Next()
+    return out
+
+
+@pytest.mark.parametrize("mode", (0, 1), ids=("add", "subtract"))
+def test_sweep_face_with_other_bodies_covers_what_it_sweeps(request, mode):
+    """Subtract: the pipe of the face along the edge is cut out of every body it crosses, overlapping ones included."""
+    known(request, {(None, None, 0): "Sweep Add across overlapping bodies loses material (whole-model fuse)"})
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeWire
+    from OCP.BRepOffsetAPI import BRepOffsetAPI_MakePipe
+
+    model = sweep_scene()
+    edge = model.edge(path_edge(model, 4))
+    pipe = BRepOffsetAPI_MakePipe(BRepBuilderAPI_MakeWire(edge).Wire(), model.face(right_face(model, 0))).Shape()
+    before, after = run("sweep_face", lambda m: Selection(faces=[right_face(m, 0)], edges=[path_edge(m, 4)]), {"mode": mode}, "others", model=model)
+    (check_join if mode == 0 else check_cut)(before, after, pipe, "others", 0)

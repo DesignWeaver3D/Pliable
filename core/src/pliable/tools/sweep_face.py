@@ -1,6 +1,8 @@
 """The Sweep face along edge tool."""
 
+from ..mergescope import finish_scoped
 from ..ops import OperationError
+from ..shared.bodycut import cut_reachable_bodies
 from ..shared.solids import _combine, _volume, finish
 from ..tools import Accepts, Param, register, Tool
 
@@ -34,4 +36,6 @@ class SweepFace(Tool):
             raise OperationError(f"Could not sweep along this edge: {e}") from None
         if not pipe.IsDone() or pipe.Shape().IsNull() or _volume(pipe.Shape()) < 1e-9:
             raise OperationError("Could not sweep this face along this edge")
-        return finish(_combine(topology.shape, pipe.Shape(), fuse=mode == 0), [pipe.Shape()] if mode == 1 else ())
+        if mode == 0:
+            return finish(_combine(topology.shape, pipe.Shape(), fuse=True))
+        return finish_scoped(topology, cut_reachable_bodies(topology.shape, pipe.Shape()), [pipe.Shape()])  # a cut works on the bodies it reaches, one at a time
