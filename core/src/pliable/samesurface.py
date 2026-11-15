@@ -31,6 +31,7 @@ from OCP.TopoDS import TopoDS, TopoDS_Compound, TopoDS_Face, TopoDS_Iterator, To
 from .mergelimits import CONNECT_LENGTH, MERGE_ANGLE, MERGE_LENGTH, MERGE_RELATIVE, PARALLEL
 from .topology import Topology
 from .validity import is_valid
+from .volume import volume_of
 
 _TYPES = (GeomAbs_Plane, GeomAbs_Cylinder, GeomAbs_Cone, GeomAbs_Sphere, GeomAbs_Torus)
 
@@ -241,10 +242,9 @@ def _merged_face(group: list[TopoDS_Face], count: list[list], context: ShapeBuil
 
 
 def _measures(shape):
-    volume, area = GProp_GProps(), GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, volume)
+    area = GProp_GProps()
     BRepGProp.SurfaceProperties_s(shape, area)
-    return volume.Mass(), area.Mass()
+    return volume_of(shape), area.Mass()
 
 
 def _solid_list(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
