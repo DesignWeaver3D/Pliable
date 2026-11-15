@@ -1,12 +1,13 @@
 """Blocks a commit that stages docs/progress.md over the size limit.
 
-progress.md holds open work only; owner items go to docs/author-guidance.md
+progress.md holds open work only; parked work goes to
+docs/future-goals.md, owner items go to docs/author-guidance.md
 and finished work lives in commit messages. Trim the file before committing.
 """
 import subprocess
 import sys
 
-LIMIT = 48 * 1024
+LIMIT = 30 * 1024
 PATH = "docs/progress.md"
 
 
