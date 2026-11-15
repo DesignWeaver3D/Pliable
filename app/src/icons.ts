@@ -45,6 +45,7 @@ const MARKS: Record<string, string> = {
   join: '<path d="M13 13h5v9h-5zM18 13h5v9h-5z"/>',
   offset: '<rect x="12.5" y="12.5" width="10" height="10"/><rect x="15" y="15" width="5" height="5"/>',
   bridge: '<path d="M12.5 21v-5M22.5 21v-5M12.5 16q5-5 10 0"/>',
+  extrude_edge: '<path d="M12.5 21h10M16.5 17h10M12.5 21l4-4M22.5 21l4-4"/>',
   equal: '<path d="M13 16h10M13 20h10"/>',
   sphere: '<circle cx="18" cy="18" r="4.5"/><ellipse cx="18" cy="18" rx="4.5" ry="1.8"/>',
 };
@@ -102,6 +103,7 @@ export const TOOL_ICONS: Record<string, Spec> = {
   unify: spec("face", "join"),
   patch_fill: spec("edge", "dot"),
   bridge: spec("edge", "bridge"),
+  extrude_edge: spec("edge", "extrude_edge"),
   offset_body: spec("body", "offset"),
   cut_plane: spec("body", "cut"),
   move_body: spec("body", "move"),
