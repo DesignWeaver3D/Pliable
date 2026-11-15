@@ -54,3 +54,15 @@ def merge_remembering(topology, placed, moved, merge) -> OpResult:
 def _same_place(a, b, tolerance: float) -> bool:
     box_a, box_b = _box(a), _box(b)
     return bool(box_a) and len(box_a) == len(box_b) and all(abs(x - y) <= tolerance for x, y in zip(box_a, box_b))
+
+
+def carry_memo(before, after) -> None:
+    """Keeps the merge memory over a commit or preview: `after` (the model an operation made from `before`) is given the
+    memory of the bodies it took unchanged from `before`, a model that was already marked merged (`Topology.merged`, read
+    before the operation ran). A merged body merges to itself, so its entry is the body twice. Any other model carries nothing."""
+    if not getattr(before, "merged", False) or getattr(after, "merge_memo", None) is not None:
+        return
+    old, new = solids_of(before.shape), solids_of(after.shape)
+    if not new or body_ranges(after, new) is None:
+        return
+    after.merge_memo = {i: (s, s) for i, s in enumerate(new) if (i < len(old) and s.IsSame(old[i])) or any(s.IsSame(o) for o in old)}
