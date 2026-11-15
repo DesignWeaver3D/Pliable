@@ -163,9 +163,8 @@ def test_push_pull_pull_joins_what_it_covers(request, interact, overlap):
 
 
 @sides
-def test_push_pull_push_cuts_what_it_covers(request, interact):
+def test_push_pull_push_cuts_what_it_covers(interact):  # a push cuts the bodies it reaches body by body (pushpull.py): correct
     """Only where C overlaps B: a push of C's top reaches into B."""
-    known(request, {("others", None, None): "Push with Other bodies leaves 400 mm3 of B inside the cut: a whole-model cut of bodies that overlap each other cuts the overlap once"})
     overlap = True
     z = Z(overlap)
     before, after = run("push_pull", lambda m: Selection(faces=[face_of(m, C, 1)]), {"distance": -(z.c1 - 19)}, interact, overlap)

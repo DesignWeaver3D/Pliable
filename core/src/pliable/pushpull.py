@@ -69,12 +69,38 @@ def push_pull(
     for other in results[1:]:
         result.tracked_faces = result.tracked_faces + other.tracked_faces
         result.cutters = result.cutters + other.cutters
+    cut_others = _cut_other_bodies(solids, set(changed), result.cutters) if result.notice is None else {}  # a push that reaches into a body it does not own cuts it too
     compound, builder = TopoDS_Compound(), BRep_Builder()
     builder.MakeCompound(compound)
     for i, solid in enumerate(solids):
+        if i in cut_others:
+            for part in cut_others[i]:
+                builder.Add(compound, part)
+            continue
         builder.Add(compound, regroup(solid, changed[i]) if i in changed else solid)
     result.shape = compound
     return result
+
+
+def _cut_other_bodies(solids: list[TopoDS_Shape], owners: set[int], cutters: list[TopoDS_Shape]) -> dict[int, list[TopoDS_Shape]]:
+    """The bodies of `solids` that the cutting volumes of a push reach and that do not own the pushed faces, each cut on its own
+    (shared/bodycut.py), as the parts left of each, merged. Positions of bodies the cutters do not reach are not in the result."""
+    from .shared.bodycut import cut_each
+
+    pieces: dict[int, list[TopoDS_Shape]] = {}
+    for n, tool in enumerate(cutters):
+        for i, parts in enumerate(cut_each([solids[i] if i not in pieces else _group(pieces[i]) for i in range(len(solids))], tool, frozenset(owners), copy_first=n > 0)):
+            if parts is not None:
+                pieces[i] = parts
+    return {i: solids_of(unify_result(OpResult(_group(parts), [])).shape) if parts else [] for i, parts in pieces.items()}
+
+
+def _group(parts: list[TopoDS_Shape]) -> TopoDS_Shape:
+    compound, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(compound)
+    for part in parts:
+        builder.Add(compound, part)
+    return compound
 
 
 def _is_sheet_model(shape: TopoDS_Shape, faces: list[TopoDS_Face]) -> bool:

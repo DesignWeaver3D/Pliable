@@ -45,22 +45,32 @@ def _plain_bodies(shape: TopoDS_Shape) -> list[TopoDS_Shape] | None:
     return out
 
 
+def cut_each(solids: list[TopoDS_Shape], tool: TopoDS_Shape, skip: frozenset = frozenset(), copy_first: bool = False) -> list[list[TopoDS_Shape] | None]:
+    """The solids of `solids` that `tool` cuts, one at a time: for each position the parts left of that solid (more than one when the
+    cut splits it, none when nothing is left), or None for a solid the tool does not reach or that is in `skip`. `copy_first`: the first
+    cut also gets a copy of the tool (when an earlier call has used it)."""
+    reach = _box(tool)
+    out: list[list[TopoDS_Shape] | None] = []
+    used = copy_first
+    for index, solid in enumerate(solids):
+        if index in skip or reach.IsOut(_box(solid)):
+            out.append(None)
+            continue
+        cut = _boolean(solid, BRepBuilderAPI_Copy(tool, False, False).Shape() if used else tool, False, glue=False)
+        used = True
+        if cut is None:
+            raise OperationError("Boolean operation failed")
+        out.append(solids_of(cut.Shape()))
+    return out
+
+
 def cut_reachable_bodies(shape: TopoDS_Shape, tool: TopoDS_Shape) -> TopoDS_Shape:
     """`shape` with `tool` cut out of it: each solid the tool can reach is cut on its own, the others stay as they are, and a solid
     the cut splits is listed as its parts where it was. A model that is not a compound of solids and shells is cut as a whole."""
     solids = _plain_bodies(shape)
     if solids is None or len(solids) < 2:
         return _combine(shape, tool, fuse=False)
-    reach = _box(tool)
     pieces: list[TopoDS_Shape] = []
-    used = False
-    for solid in solids:
-        if reach.IsOut(_box(solid)):
-            pieces.append(solid)
-            continue
-        cut = _boolean(solid, BRepBuilderAPI_Copy(tool, False, False).Shape() if used else tool, False, glue=False)
-        used = True
-        if cut is None:
-            raise OperationError("Boolean operation failed")
-        pieces.extend(solids_of(cut.Shape()))
+    for solid, parts in zip(solids, cut_each(solids, tool)):
+        pieces.extend([solid] if parts is None else parts)
     return _compound(pieces)
