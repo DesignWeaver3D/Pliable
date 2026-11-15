@@ -14,6 +14,10 @@ Parked work and not-built ideas. This file is on demand: it is not read at the s
 - **Shared newest-wins preview scheduler** (`app/src/latestwins.ts`): only the hole centre drag uses it; the push/pull drag (`pump`) and form previews (`drainPreviews`) keep their own copies because of extra state; moving them is a risk with no user-visible gain.
 - **Holes, parked parts:** sloped or stepped cut walls. Step depth grips, size presets and the Edit cut tool with length and width resize are built.
 
+## Screen sizes and resolutions (added 2026-11-15)
+
+Owner (2026-11-15): "the entire application has no provisions for different screen sizes so far, so we need that added to future." The dock width is adjustable; the rest (high-DPI scaling, small windows, the top strip, the bodies list and drawer) has no size handling. Desktop shell only (Tauri).
+
 ## Ideas (not built; the owner picks what becomes a row)
 
 Ideas from the local research notes in `docs/research/` (untracked), written in our own words, by behavior only. Nothing here is approved or scheduled. Questions they raise go to [author-guidance.md](author-guidance.md) only if a choice is needed.
