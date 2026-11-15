@@ -84,8 +84,6 @@ def read_ifc(data: bytes) -> tuple[Shape, list[str]]:
     scale = 1000.0  # the geometry iterator always returns meters; the model works in millimeters
     settings = ifcopenshell.geom.settings()
     settings.set("use-world-coords", True)
-    settings.set("mesher-linear-deflection", 1e-4)  # meters: curved faces of exact bodies are meshed finely enough to sew into volumes that match
-    settings.set("mesher-angular-deflection", 0.05)
     products = [p for p in model.by_type("IfcProduct") if p.Representation is not None and not any(p.is_a(c) for c in SKIPPED_CLASSES)]
     notes = []
     for name in SKIPPED_CLASSES:

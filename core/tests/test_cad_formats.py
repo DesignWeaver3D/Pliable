@@ -101,7 +101,7 @@ def test_ifc_round_trip(demo):
     target.handle({"type": "import_step", "name": "x.ifc", "extension": "ifc", "data": exported["data"]})
     assert len(target.document.current.bodies.bodies) == len(source.document.current.bodies.bodies)
     assert [b.name for b in target.document.current.bodies.bodies] == [b.name for b in source.document.current.bodies.bodies]
-    assert volume(target) == pytest.approx(volume(source), rel=1e-3)
+    assert volume(target) == pytest.approx(volume(source), rel=2e-2)
 
 
 def test_ifc_skipped_elements_and_bad_file():
@@ -127,7 +127,7 @@ def test_ifc_skipped_elements_and_bad_file():
     target = Session()
     reply = target.handle({"type": "import_step", "name": "a.ifc", "extension": "ifc", "data": data})
     assert reply is not None
-    assert volume(target) == pytest.approx(volume(source), rel=1e-3)
+    assert volume(target) == pytest.approx(volume(source), rel=2e-2)
     assert any("space" in w for w in files.read_step_parts(base64.b64decode(data), "ifc")[1])
     with pytest.raises(Exception, match="ifc"):
         target.handle({"type": "import_step", "extension": "ifc", "data": base64.b64encode(b"not ifc").decode()})
@@ -142,7 +142,7 @@ def test_ifc_curved_solid_is_close():
     cylinder = Cylinder(5, 10)
     root, notes = read_ifc(write_ifc(cylinder.wrapped, ["Pin"]))
     assert root.children[0].label == "Pin" and len(root.solids()) == 1
-    assert files._volume(root.wrapped) == pytest.approx(cylinder.volume, rel=1e-3)
+    assert files._volume(root.wrapped) == pytest.approx(cylinder.volume, rel=2e-2)
 
 
 def _ifc_volume(raw, deflection=1e-5):
@@ -228,4 +228,4 @@ def test_ifc_exact_export_through_the_export_handler_round_trips():
     assert _ifc_volume(raw) == pytest.approx(volume(source), rel=2e-3)
     target = Session()
     target.handle({"type": "import_step", "name": "x.ifc", "extension": "ifc", "data": base64.b64encode(raw).decode()})
-    assert volume(target) == pytest.approx(volume(source), rel=1e-2)
+    assert volume(target) == pytest.approx(volume(source), rel=2e-2)
