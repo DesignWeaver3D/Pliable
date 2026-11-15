@@ -26,6 +26,7 @@ Rules for keeping it:
 
 ### Gizmos and handles that need a real mouse (hold the button down)
 
+- [ ] Stretch: box-select one end of a bar with a middle hole and drag it longer and shorter (the hole stays, only the near part stretches, shortening past a feature removes it in the preview); the tilt rings; the band slider and its shaded strip; the Stretch card's labels.
 - [ ] Sketch card Flip (new): on an origin plane (for example XZ) and on a face sketch with geometry drawn, Flip keeps the drawing in place, the view turns to the other side, Undo reverses it; Finish then extruding goes toward the new normal; a kept sketch reopens flipped.
 - [ ] Red subtract arrow and ghosts on other tools (new): drag the red arrow of Push/Pull (hover it, drag it; Flip, Escape, a typed value; hovering it lights the normal arrow, not the red one: say if that matters). Look at the red ghost in Helical sweep and Revolve face (Subtract) swinging out of a body, in Add hole, counterbore, countersink and slot (a blind hole running past the far face), and Emboss/Cut along surface; through holes and slots show none. Default if unanswered: stays as built.
 - [ ] Push/pull: dragging the face arrow handle behaves like dragging the face (M or right-click edge measure, typed value, Shift symmetric); a slanted edge pick sets the direction.
