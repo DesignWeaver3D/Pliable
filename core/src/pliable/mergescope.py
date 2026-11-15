@@ -9,6 +9,7 @@ which means the whole model, as before.
 
 from .bodydisplay import _own_extents, body_ranges
 from .facemerge import merge_faces
+from .mergememo import merge_remembering
 from .ops import OpResult, solids_of
 from .topology import Topology
 
@@ -64,7 +65,10 @@ def finish_scoped(topology, shape, cutters=()) -> OpResult:
     the bodies the operation did not change (`merged`), so the next operation can be scoped."""
     moved = changed_between(topology.shape, shape)
     changed = changed_solids(topology, moved)
-    result = merge_faces(OpResult(shape, []), changed=changed)
+    if changed is None and moved:  # a model not known to be merged: the merge made of its other bodies earlier is reused (mergememo.py)
+        result = merge_remembering(topology, shape, moved, lambda placed: merge_faces(OpResult(placed, [])))
+    else:
+        result = merge_faces(OpResult(shape, []), changed=changed)
     result.cutters = list(cutters)
     result.merged = changed is not None or merge_settled(Topology(shape, bodies=()), result.shape) or settled_beside(shape, result.shape, moved)
     return result
