@@ -45,6 +45,7 @@ Rules for keeping it:
 - [ ] Right-click a Fixed mark > Dimension to the axes, then right-click one of the two distances > Fix the point; click a mark and press Delete to remove one constraint.
 ### Sketch: tools
 
+- [ ] Join (sketch card, two or more connected curves): two collinear lines become one, arcs on one circle become one arc, and kept constraints still hold.
 - [ ] Ellipse arc tool: the five clicks (centre, long-axis end, short-radius point, start, end), the start and end direction, dragging an end along its ellipse, and Split on an ellipse (the cut point is marked only when hovered).
 - [ ] Fillet and Chamfer on a line and an arc, two arcs and a circle: first click a curve, second click the side (real-mouse feel of the two-curve pick).
 - [ ] Dimension and Horizontal / vertical drop lists (the small arrow beside each button) and the rule that only a click on empty space applies an open tool, with a real mouse on every tool card and gizmo.
