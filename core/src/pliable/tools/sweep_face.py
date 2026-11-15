@@ -37,5 +37,5 @@ class SweepFace(Tool):
         if not pipe.IsDone() or pipe.Shape().IsNull() or _volume(pipe.Shape()) < 1e-9:
             raise OperationError("Could not sweep this face along this edge")
         if mode == 0:
-            return finish(fuse_reachable_bodies(topology.shape, pipe.Shape()))
+            return finish_scoped(topology, fuse_reachable_bodies(topology.shape, pipe.Shape()))
         return finish_scoped(topology, cut_reachable_bodies(topology.shape, pipe.Shape()), [pipe.Shape()])  # a cut works on the bodies it reaches, one at a time

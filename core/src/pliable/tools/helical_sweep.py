@@ -203,4 +203,4 @@ class HelicalSweep(RevolveFace):
             result = _compound(pieces)
         if kept:
             result = _compound([result, *kept])
-        return finish(result) if mode == 0 else finish_scoped(topology, result, coils)
+        return finish_scoped(topology, result, coils if mode else ())

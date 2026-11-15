@@ -8,6 +8,7 @@ from OCP.gp import gp_Pnt
 
 from ..ops import OperationError, solids_of
 from .bodycut import fuse_reachable_bodies
+from ..mergescope import finish_scoped
 from .solids import _add_material, _combine, _faces_of, finish
 
 
@@ -124,7 +125,7 @@ def _add_to_scene(topology, solid, separate: bool):
     """Add a new solid (a primitive): its own body, or fused into the visible unlocked bodies it touches; locked and hidden
     bodies stay untouched. Returns an OpResult."""
     if separate:
-        return finish(_add_material(topology.shape, solid, True))
+        return finish_scoped(topology, _add_material(topology.shape, solid, True))
     open_shape = _open_shape(topology)
     fused = fuse_reachable_bodies(open_shape, solid) if solids_of(open_shape) else solid
     return _restore_closed(topology, finish(fused))

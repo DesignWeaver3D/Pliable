@@ -5,6 +5,7 @@ from OCP.TopoDS import TopoDS_Compound
 
 from ..ops import OperationError, group, solids_of
 from ..shared.bodies import _chosen_solids
+from ..mergescope import finish_scoped
 from ..shared.solids import _combine, _volume, finish
 from ..tools import Accepts, Param, register, Tool
 
@@ -74,4 +75,4 @@ class BodyBoolean(Tool):
         for solid in solids:
             if not any(solid.IsSame(c) for c in chosen) or (keep and any(solid.IsSame(t) for t in tools)):
                 builder.Add(compound, solid)
-        return finish(compound)
+        return finish_scoped(topology, compound)
