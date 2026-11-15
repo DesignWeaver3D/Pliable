@@ -32,3 +32,11 @@ Where the time goes (stage timers, solids only):
 - first move preview/commit: execute 9-10 s = `finish` -> whole-model merge, because `Topology.merged` is only set by a
   move's own `merge_settled` (never at import) and a preview never settles anything, so every preview before the first
   commit repeats the whole merge. Tessellate 5-7 s on top. After the first commit: merge 3.3 s, tessellate 1.9 s.
+
+## Findings and changes (commits on agent/perf-core)
+- Face click: `related` 3.1 -> 0.5 s (mirror search measured every face: now only bodies whose box holds the mirror point), `available_tools(face)` 0.9 -> 0.09 s (Edit cut classifier skips far bodies).
+- A preview now settles the merge state (`topology.merged`) like a commit does.
+- First moves of an unmerged model: every preview and the commit repeated the whole-model merge (same-surface 5 s, kernel 4 s). `mergememo.py` keeps the merge of the unmoved bodies on the model (`merge_memo`) for the next preview/commit of the same drag when bodies share nothing. Solids-only enclosure: preview 2 and later 15 -> 0.5 s, commit 16 -> 3 s (tessellation of a non-preview reply rebuilds every body). First preview unchanged (15-18 s).
+- Not helped: the enclosure as imported (6 open shells outside every solid): `body_ranges` is None, so the memo, the scoped merge and the per-body display do not apply. That is for the surface-body work.
+- Autosave: each commit queues a snapshot whose BREP write holds the GIL (2.5 s of 4 s on this model; 1.4 s without triangulations), so the request after a commit (the next drag) is slowed by 3-4 s. Measured with a real Autosaver (script fails_as.py). Not changed yet.
+- Gizmo move that "does not succeed": not reproduced in the core (commits succeed and move the body by the asked distance). See step 2 below.

@@ -5,6 +5,7 @@ import math
 from OCP.TopLoc import TopLoc_Location
 from OCP.gp import gp_Ax1, gp_Dir, gp_Trsf, gp_Vec
 
+from ..mergememo import merge_remembering
 from ..mergescope import changed_solids, merge_settled
 from ..ops import MIN_DISTANCE, OpResult
 from ..shared.bodies import _body_bounds, _body_centre, _on_bodies, _unlocked_shape
@@ -101,7 +102,7 @@ class MoveBody(Tool):
         record: dict = {}
         placed = _on_bodies(topology, selection, change, pivot=True, trsf=move_trsf, record=record, centre_always=True)
         changed = changed_solids(topology, record)  # only the moved bodies are merged again, when the rest are known merged
-        result = finish(placed, changed=changed)
+        result = finish(placed, changed=changed) if changed is not None else merge_remembering(topology, placed, record, finish)
         result.moved = record
         result.merged = changed is not None or merge_settled(topology, result.shape)
         if result.merged:
