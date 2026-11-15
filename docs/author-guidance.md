@@ -68,7 +68,7 @@ Rules for keeping it:
 - [ ] Extrude edge (Edges group: edges swept into a surface body) and the Hole Editor's Slot section (a simple round hole stretched into a slot); a typed 180 degree arc's angle dimension now runs counterclockwise like the arc.
 - [ ] Scale body's Non-uniform view (X, Y, Z factors) and the Push/Pull card's Copy button (the original stays, the result is a new body).
 - [ ] A box selection that takes faces and edges together shows no measurement card and no error.
-- [ ] Many-body speed on the enclosure (replies now carry only changed bodies): select a face after a move, a push/pull, deleting a body and an undo, and check the right face lights; gizmo moves feel fast and land where released.
+- [ ] On the enclosure: select a face right after a push/pull, after deleting a body and after an undo, and check the face that lights is the one clicked.
 - [ ] Surface bodies (STEP open surfaces kept as bodies): the Surfaces section in the bodies list, hide and delete from it, the right-click menu, and the result of push/pull, holes and fillets on a surface body's faces; the darker back side seen from inside, hover and selection highlight on the back side, see-through and isolate on a surface body.
 - [ ] Measure (M) pressed right after pressing a face; measuring after other tools; Ctrl+double-click an edge with faces already selected keeps them.
 - [ ] Click an X/Y/Z axis line near the model (it highlights; nearer faces and edges win); pick a sketch region and Ctrl+click an edge or axis (the region stays picked, Revolve face runs); Revolve face with only a face and its Axis list; Draft > Pick axis near an edge end; press M while dragging push/pull and double-click a candidate (nothing else starts). Stretch: send me the part where it fails.
@@ -101,6 +101,11 @@ Rules for keeping it:
 
 ### Decisions
 
+- [ ] Push/Pull or sketch card Apply that did nothing (2026-10-30, not reproduced): which card, what was typed or dragged, and what did the status line say? Apply with no distance typed does nothing by design; every other case worked when tried.
+- [ ] Sketch flipping when dragging under-constrained geometry fast (not reproduced): can you send or describe a sketch that flips? The solver now drags in up to 40 small steps and ten no-flip scenarios pass.
+- [ ] Equal on arcs or circles that failed (not reproduced): which selection was it (an ellipse, a dimensioned radius, an automatic constraint in the way?) and what message showed? Two circles, two arcs and an arc with a circle all work in tests.
+- [ ] Are these two sketch clicks wanted: an arc-by-center end click off the arc setting the end on the line through the center, and an ellipse third click off the minor axis being made tangent? Both need a solver constraint that does not exist yet. Default if unanswered: not built.
+- [ ] Git hooks on Linux and macOS: run `git update-index --chmod=+x .githooks/commit-msg .githooks/pre-commit` once (the assistant's permissions do not allow it), or say to leave it. Default if unanswered: left as is.
 (none open; the session B review is in the plan, see progress.md "Review of 2026-10-26 session B")
 - Flip on a plain body face: should Apply say more than "Nothing to subtract"? With Flip on, pulling a body face out subtracts and removes nothing, so Apply (and a click in empty space) changes nothing; pushing in adds material that is already solid, so it changes nothing and says nothing. Options: keep as built; show the "Nothing to subtract" / "Nothing to add" message in the Push/Pull card itself; or make Flip swap only the arrow colors and the Alt/Subtract meaning on loose regions. Default if unanswered: keep as built.
 
