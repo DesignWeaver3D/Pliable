@@ -7,6 +7,7 @@ import { bodyCentres, movedBodies } from "./slide.ts";
 import { PointPicker, ReferenceView } from "./reference.ts";
 import { installAlphaUi, showDiagnostics, showLaunchNotice, showMessage } from "./alpha.ts";
 import { installMessageLog } from "./messagelog.ts";
+import { installStatusGuard } from "./statusguard.ts";
 import type { PlaneData } from "./sketchmodel.ts";
 import { CoreClient, type MeshData } from "./client.ts";
 import { SketchMode } from "./sketch.ts";
@@ -91,6 +92,16 @@ core.onInteract = (report) => interaction.setReport(report);
 usage.attach(core);
 installAlphaUi($("bar"), core);
 installMessageLog(status, showMessage); // errors and warnings are kept for Copy diagnostics; a click on a cut-short message shows it whole
+// An error or warning stays until clicked; plain messages fade after a few seconds unless a tool, sketch or connection attempt is still using them.
+installStatusGuard(status, {
+  keepInfo: (text) => {
+    try {
+      return /^connecting/i.test(text) || armedTool !== null || sketch.active || toolPanel.isOpen || pushPullCard.isOpen || !!viewport.interceptor;
+    } catch {
+      return true; // not everything is set up yet
+    }
+  },
+});
 
 const BUSY_LABELS: Record<string, string> = {
   import_step: "Importing", combine_step: "Combining", export_step: "Exporting", export_cad: "Exporting", save_project: "Saving", open_project: "Opening", open_demo: "Opening",
@@ -485,7 +496,7 @@ async function settleOpenArray(): Promise<"apply" | "discard" | null> {
 }
 
 
-const { setSelection, selectionPayload, mappedSelection, describe } = createSelection({
+const { setSelection, selectionPayload, mappedSelection, showReadout } = createSelection({
   viewport, core, navCube, measurePanel, dimensionOverlay, selected,
   get toolPanel() { return toolPanel; },
   get bodyList() { return bodyList; },
@@ -887,7 +898,10 @@ chooseSketchTool = (tool) => sketch.selectTool(tool);
 sketchConstraints = () => sketch.constraintChoices();
 chooseConstraint = (label) => sketch.chooseConstraint(label);
 sketch.onToolChange = () => {
-  selected.textContent = sketch.active ? sketch.selectionText() : describe(app.currentSels); // the readout bottom right names what is selected
+  if (sketch.active) {
+    selected.textContent = sketch.selectionText(); // the readout in the panel header names what is selected
+    selected.title = selected.textContent || "What is selected";
+  } else showReadout(app.currentSels);
   renderToolbar();
   syncHistoryButtons();
   navCube.fitSelectedButton.disabled = sketch.active ? !sketch.selection.length : app.currentSels.length === 0; // in a sketch the fit button follows the sketch selection

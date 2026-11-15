@@ -89,6 +89,10 @@ Rules for keeping it:
 - [ ] Same-surface face merge (new): pull a face crossing a bore drilled from the other end, and a face with a countersink; each hole wall should be one face (hover and pick it). Default if unanswered: stays as built.
 
 
+### Parameters panel (new)
+
+- [ ] On your own screen, with a tool form, the Push/Pull card, the Hole Editor, a sketch and a selected body in turn: the panel on the right reads well at its default width; drag its inner edge to resize (double-click resets); hide it with the handle and with Shift+T (pointer over the 3D view) and check it stays hidden after a refresh; the nav cube group, the tool strip and the bottom hint lines sit where you want next to it. Default: it stays as built.
+
 ### Hole Editor (new)
 
 - [ ] While placing a new hole (before it exists), is there a depth grip to drag? Editing an existing hole has one; the new-hole tool sends no handle.

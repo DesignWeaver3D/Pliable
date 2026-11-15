@@ -41,7 +41,7 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 
 ## Modeling
 
-- Hole Editor card (commit `faec3d2`): a single hole picked by several faces opens no card; Fill fills the picked round wall only (a counterbore step wall fills just that step); the diagram is a fixed schematic, not drawn from the hole's own numbers; the docked panel is not built.
+- Hole Editor card (commit `faec3d2`): a single hole picked by several faces opens no card; Fill fills the picked round wall only (a counterbore step wall fills just that step); the diagram is a fixed schematic, not drawn from the hole's own numbers; the docked panel is built (the form now shows in it).
 
 - A push/pull preview no longer checks the glued boolean on its own (commit `9683b97`; `pushpull.py` `_push_pull`): the face merge that follows ends with the validity check, and a failure there falls back to the exact boolean. If a bad glued result ever merges into a shape the check accepts, the preview shows it; the commit always uses the exact boolean. The validity check itself (`validity.py` `is_valid`) runs on all cores.
 - Holes and bosses are edited by fusing or cutting cylinders; a hole partly cut by another feature resizes oddly. Resize hole takes a typed diameter and does not show the current one.

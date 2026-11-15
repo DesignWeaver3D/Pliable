@@ -171,7 +171,8 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 
 - The tool strip is fixed at top center. The context strip has no box behind it, fills each row from the left, spans from the bodies list to the nav cube group, wraps to two rows, and shows "... More" only when a third row would be needed.
 - The Tools handle sits on the left edge of the 3D view.
-- The names of the selected objects (a model selection, or in a sketch the points and curves by kind and count) are printed bottom right, between the sketch group and the measurement card, and follow the card as it grows. (owner, 2026-10-27)
+- The names of the selected objects are shown in the header of the parameters panel (the old bottom-right line is gone). Bodies are listed by name; faces, edges and vertices as "body: face 12, face 14", grouped by owning body and counted past three ("bracket: 4 faces") with the whole list in the tooltip; a global axis is added as "X axis"; in a sketch the points and curves are named by kind and count. (owner, 2026-11-15)
+- The top bar's status line: an error or warning stays until it is clicked or another error or warning replaces it, and a plain message never replaces an unread one; a plain message fades after about 6 seconds unless a tool, a sketch or a connection attempt is still using it. (owner, 2026-11-15)
 - Tool forms (including the Hole Editor) show in the parameters panel on the right, one at a time, in the place of the Push/Pull card; they no longer float. (owner, 2026-11-15)
 - The measurement card is the last section at the bottom of the parameters panel; it starts collapsed. (owner, 2026-11-15) 
 - Dark theme only for now.

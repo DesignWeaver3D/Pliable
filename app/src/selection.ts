@@ -9,6 +9,7 @@ import type { ToolPanel } from "./toolpanel.ts";
 import type { RowRef } from "./listdelete.ts";
 import { app } from "./appstate.ts";
 import { isArrayTool } from "./arrayprompt.ts";
+import { describeSelection, type NameLookups } from "./selectedreadout.ts";
 import { clickAway, closesUnchangedCard } from "./toolclickaway.ts";
 import { withoutDraftTag } from "./dimedit.ts";
 import { materialOrDefault, ownDensities } from "./materials.ts";
@@ -70,7 +71,7 @@ export function createSelection(d: SelectionDeps) {
     d.bodyList.setSelected(sels.filter((s) => s.kind === "body").map((s) => s.id));
     app.refined = null;
     relatedState.rules = [];
-    selected.textContent = describe(sels);
+    showReadout(sels);
     if (sels.length === 0) {
       measurePanel.hide();
       app.measuredDims = []; app.previewDimsShown = false; dimensionOverlay.set([]);
@@ -130,15 +131,27 @@ export function createSelection(d: SelectionDeps) {
     return { faces: ids("face"), edges: ids("edge"), vertices: ids("vertex"), bodies: ids("body"), axes: ids("axis"), ...(app.chosenSketch === null ? {} : { rail: app.chosenSketch }) }; // rail: the kept sketch chosen as a path
   }
 
-  function describe(sels: Sel[]): string {
-    if (sels.length === 0) return "";
-    if (sels[0].kind === "body") {
-      const name = (id: number) => (app.committed ? bodiesOf(app.committed).find((b) => b.id === id)?.name : undefined) ?? `body ${id}`;
-      return sels.length === 1 ? name(sels[0].id) : `${sels.length} bodies`;
+  /** The model's names for the readout: a body's name, and the body that owns a face, edge or vertex. */
+  function lookups(): NameLookups {
+    const mesh = app.committed;
+    const owners = { face: new Map<number, number | null | undefined>(), edge: new Map<number, number | null | undefined>(), vertex: new Map<number, number | null | undefined>() };
+    if (mesh) {
+      for (const f of mesh.faces) owners.face.set(f.id, f.body);
+      for (const e of mesh.edges) owners.edge.set(e.id, e.body);
+      mesh.vertices.forEach((v, i) => owners.vertex.set(v.id ?? i, v.body));
     }
-    const axes = sels.filter((s) => s.kind === "axis");
-    if (axes.length) return [describe(sels.filter((s) => s.kind !== "axis")), ...axes.map((s) => `${"XYZ"[s.id]} axis`)].filter(Boolean).join(" + "); // a global axis beside a face
-    return sels.length === 1 ? `${sels[0].kind} ${sels[0].id}` : `${sels.length} ${sels[0].kind}s`;
+    return { bodyName: (id) => (mesh ? bodiesOf(mesh).find((b) => b.id === id)?.name : undefined), owner: (kind, id) => owners[kind].get(id) };
+  }
+
+  function describe(sels: Sel[]): string {
+    return describeSelection(sels, lookups()).text;
+  }
+
+  /** Put the named selection in the readout (whole list as its tooltip). */
+  function showReadout(sels: Sel[]) {
+    const { text, full } = describeSelection(sels, lookups());
+    selected.textContent = text;
+    selected.title = full || "What is selected";
   }
 
   /** The selection a reply says the old selection maps to. */
@@ -151,5 +164,5 @@ export function createSelection(d: SelectionDeps) {
     return result;
   }
 
-  return { setSelection, selectionPayload, describe, mappedSelection };
+  return { setSelection, selectionPayload, describe, showReadout, mappedSelection };
 }
