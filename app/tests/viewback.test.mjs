@@ -27,11 +27,9 @@ test("the back material is the front color 40 percent darker and follows the fro
   const front = new THREE.MeshPhysicalMaterial({ color: 0xffffff });
   const back = new THREE.MeshPhysicalMaterial();
   main.userData.back = { mesh: new THREE.Mesh(new THREE.BufferGeometry().setIndex([0, 1, 2]), back), material: back, ghostMaterial: new THREE.MeshPhysicalMaterial(), ids: new Set([2]), faces: [] };
-  syncBack(main, front, null, new Set(), null);
+  syncBack(main, front, null, new Set());
   assert.ok(Math.abs(back.color.r - 0.6) < 1e-6 && back.side === THREE.BackSide);
   front.color.set(0x808080);
-  syncBack(main, front, null, new Set(), null);
+  syncBack(main, front, null, new Set());
   assert.ok(Math.abs(back.color.r - front.color.r * 0.6) < 1e-6);
-  syncBack(main, front, null, new Set(), { bodies: new Set([2]) });
-  assert.equal(main.userData.back.mesh.visible, false);
 });

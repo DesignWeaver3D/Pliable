@@ -10,7 +10,7 @@ import { selectItems } from "./viewselection.ts";
 import type { Viewport } from "./viewport.ts";
 
 /** The part of the Viewport this file uses. */
-export type BoxSelectContext = Pick<Viewport, "box" | "boxEl" | "camera" | "centreDots" | "centresShown" | "curveTargets" | "data" | "faceStarts" | "filterBadge" | "ghostMaterial" | "ghosted" | "heldKind" | "hoverLine" | "hoverMark" | "hovered" | "lastClick" | "markSource" | "mesh" | "model" | "onHoverBody" | "onProfileClick" | "onSelect" | "onSketchCurveClick" | "originAxisHalf" | "pixelSizeAtDistance" | "probe" | "profileTargets" | "raycaster" | "relatedMarks" | "renderer" | "sectionClip" | "selected" | "selectedLine" | "selectedMarks" | "surfaceMaterial">;
+export type BoxSelectContext = Pick<Viewport, "box" | "boxEl" | "camera" | "centreDots" | "centresShown" | "curveTargets" | "data" | "faceStarts" | "bodyMeshes" | "filterBadge" | "ghostMaterial" | "ghosted" | "heldKind" | "hoverLine" | "hoverMark" | "hovered" | "lastClick" | "markSource" | "mesh" | "model" | "onHoverBody" | "onProfileClick" | "onSelect" | "onSketchCurveClick" | "originAxisHalf" | "pixelSizeAtDistance" | "probe" | "profileTargets" | "raycaster" | "relatedMarks" | "renderer" | "sectionClip" | "selected" | "selectedLine" | "selectedMarks" | "surfaceMaterial">;
 
 export function updateBox(view: BoxSelectContext, e: PointerEvent) {
   const b = view.box!;
@@ -91,9 +91,9 @@ export function finishBox(view: BoxSelectContext, e: PointerEvent) {
   let found: Sel[];
   view.camera.updateMatrixWorld();
   if (!settings.seeThrough && view.mesh) {
-    view.mesh.updateMatrixWorld();
+    view.model.updateMatrixWorld(true);
     view.probe = new DepthProbe(view.renderer); // one depth picture serves the vertex, edge and face passes
-    view.probe.capture(view.mesh, view.camera as THREE.PerspectiveCamera | THREE.OrthographicCamera, rect.width, rect.height, view.sectionClip);
+    view.probe.capture(view.bodyMeshes.solidMeshes(view.ghosted), view.camera as THREE.PerspectiveCamera | THREE.OrthographicCamera, rect.width, rect.height, view.sectionClip);
   }
   try {
     found = kinds.flatMap((kind) => itemsInBox(view, kind, r, crossing, rect));
