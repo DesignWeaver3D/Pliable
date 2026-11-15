@@ -10,10 +10,6 @@ State (2026-11-13): `main` is the development branch and the only long-lived one
 
 Tool group CORE:
 
-- **Hole patterns belong to the array tools.** Owner (2026-10-29): "No patterning in the Hole Editor, those should remain in the array tools. If hole patterns existed and the current array tools can't cover the functionality, we need to find a way to merge the hole patterns into the array tools, which means that the array tools need to be able to understand what a hole is, use that as a tool for patterning, and replicate it including its Hole features." Related: Ideas "Stored array parameters" (section 5); decisions-log 2026-10-26 (arrays on features copy round hole walls).
-  - Done (2026-11-15): linear, circular, concentric and path arrays copy a whole hole with its counterbore, countersink and thread (`shared/hole_copy.py`; tests for linear and circular; the cut reaches 1.5 mm past the widest wall, so threads deeper than that are not copied whole, see the watchlist).
-  - [ ] Then remove the Pattern hole / boss and Circular pattern buttons (kept for now so no capability is lost). Not started.
-
 - **Boss editing needs its own home.** Owner (2026-10-29): "Why are bosses being lumped into hole editor? they're not holes." Resize, Move and Fill hole / boss still serve bosses and keep their buttons; the Move tool will cover moving a boss; no other decision yet.
 
 - **Flip: Apply and an empty click do nothing.** Owner (2026-10-29): "Different bug, when flip is active in Push/Pull card the card's Apply button does nothing and same with clicking in empty 3d space. But the close button still works". Related items checked: the "Push/pull on a sketch face adds or subtracts" row (Flip is part of it); none in Parked or Ideas.
