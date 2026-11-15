@@ -4,6 +4,7 @@ import math
 
 import pytest
 
+from pliable.volume import volume_of
 from pliable.protocol import decode_binary
 from pliable.server import Session
 from pliable.tools import TOOLS, Accepts, Handle, Param, Tool
@@ -101,9 +102,7 @@ def _volume(shape):
     from OCP.BRepGProp import BRepGProp
     from OCP.GProp import GProp_GProps
 
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
-    return props.Mass()
+    return volume_of(shape)
 
 
 def _handles(tool_id, params):

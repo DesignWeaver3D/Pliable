@@ -1,5 +1,6 @@
 import json
 
+from pliable.volume import volume_of
 from pliable import sketch
 from pliable.autosave import Autosaver, _write_brep
 from pliable.protocol import decode_binary
@@ -305,9 +306,7 @@ def test_a_picked_region_can_be_pulled_along_a_chosen_direction():
     from OCP.GProp import GProp_GProps
 
     def volume():
-        props = GProp_GProps()
-        BRepGProp.VolumeProperties_s(session.document.current.shape, props)
-        return props.Mass()
+        return volume_of(session.document.current.shape)
 
     before = volume()
     header(session.handle({"type": "tool_commit", "tool": "push_pull", "selection": {"faces": picked}, "params": params}))

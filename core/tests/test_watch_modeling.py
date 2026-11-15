@@ -6,6 +6,7 @@ from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 
+from pliable.volume import volume_of
 from pliable.demos import load_demo
 from pliable.ops import OperationError, planar_normal, solids_of
 from pliable.protocol import decode_binary
@@ -17,9 +18,7 @@ from pliable.topology import Topology
 def volume(shape) -> float:
     total = 0.0
     for solid in solids_of(shape):
-        props = GProp_GProps()
-        BRepGProp.VolumeProperties_s(solid, props)
-        total += props.Mass()
+        total += volume_of(solid)
     return total
 
 

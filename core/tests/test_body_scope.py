@@ -4,6 +4,7 @@ import pytest
 from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 
+from pliable.volume import volume_of
 from pliable.demos import load_demo
 from pliable.document import Document
 from pliable.ops import OperationError, planar_normal, solids_of
@@ -11,9 +12,7 @@ from pliable.tools import Selection, get_tool
 
 
 def volume(shape) -> float:
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
-    return props.Mass()
+    return volume_of(shape)
 
 
 def top_face_of(topology, body_index):

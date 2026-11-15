@@ -6,6 +6,7 @@ from OCP.BRepBndLib import BRepBndLib
 from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 
+from pliable.volume import volume_of
 from pliable.demos import load_demo
 from pliable.measure import measure
 from pliable.ops import fillet_chamfer
@@ -14,9 +15,7 @@ from pliable.topology import Topology
 
 
 def volume(shape) -> float:
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
-    return props.Mass()
+    return volume_of(shape)
 
 
 def top_edges(topology, z):

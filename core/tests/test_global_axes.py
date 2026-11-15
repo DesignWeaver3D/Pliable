@@ -4,14 +4,13 @@ import pytest
 from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 
+from pliable.volume import volume_of
 from pliable.ops import planar_normal
 from pliable.server import Session
 
 
 def _volume(session) -> float:
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(session.document.current.shape, props)
-    return props.Mass()
+    return volume_of(session.document.current.shape)
 
 
 def _block():

@@ -4,6 +4,7 @@ import pytest
 from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 
+from pliable.volume import volume_of
 from pliable import sketch
 from pliable.demos import load_demo
 from pliable.document import Document
@@ -21,9 +22,7 @@ FACES = [((1, 0, 0), (0, 1, 0), 20), ((-1, 0, 0), (0, 1, 0), 20), ((0, 1, 0), (1
 
 
 def _vol(shape) -> float:
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
-    return props.Mass()
+    return volume_of(shape)
 
 
 def volume(shape) -> float:

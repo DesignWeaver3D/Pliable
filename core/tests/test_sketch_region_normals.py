@@ -4,6 +4,7 @@ import pytest
 from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 
+from pliable.volume import volume_of
 from pliable import sketch
 from pliable.demos import load_demo
 from pliable.ops import push_pull, solids_of
@@ -31,9 +32,7 @@ def tombstone():
 def volume(shape) -> float:
     total = 0.0
     for solid in solids_of(shape):
-        props = GProp_GProps()
-        BRepGProp.VolumeProperties_s(solid, props)
-        total += props.Mass()
+        total += volume_of(solid)
     return total
 
 

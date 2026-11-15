@@ -11,10 +11,8 @@ from OCP.BRepBuilderAPI import (
     BRepBuilderAPI_Sewing,
     BRepBuilderAPI_Transform,
 )
-from OCP.BRepGProp import BRepGProp
 from OCP.BRepPrimAPI import BRepPrimAPI_MakeCylinder
 from OCP.Bnd import Bnd_Box
-from OCP.GProp import GProp_GProps
 from OCP.TopAbs import TopAbs_FACE, TopAbs_SHELL
 from OCP.TopExp import TopExp_Explorer as _Explorer
 from OCP.TopoDS import TopoDS, TopoDS_Compound, TopoDS_Shape
@@ -24,6 +22,7 @@ from ..facemerge import merge_faces
 from ..ops import _boolean, keep_compound, OperationError, OpResult, solids_of
 from ..tools import Param
 from ..validity import is_valid
+from ..volume import volume_of as _volume
 
 
 TOL = 1e-6
@@ -62,12 +61,6 @@ def _new_body(values: dict) -> bool:
 
 
 NEW_BODY = Param("new_body", "number", 1)  # 1 keeps the new solid as its own body, 0 joins it to the model
-
-
-def _volume(shape: TopoDS_Shape) -> float:
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
-    return props.Mass()
 
 
 def _bounds_diagonal(shape: TopoDS_Shape) -> float:
