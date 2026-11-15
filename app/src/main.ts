@@ -674,6 +674,8 @@ const { bodyList, setVisibility } = installBodyActions({
   status,
   list: $("bodylist"),
   count: $("bodycount"),
+  surfaceList: $("surfacelist"),
+  surfaceCount: $("surfacecount"),
   committed: () => app.committed,
   selection: () => app.currentSels,
   show: (mesh) => show(mesh),
@@ -974,6 +976,10 @@ onDatums = (list, mirror) => {
 };
 $("datumhead").addEventListener("click", () => {
   const head = $("datumhead");
+  head.setAttribute("aria-expanded", String(head.getAttribute("aria-expanded") !== "true"));
+});
+$("surfacehead").addEventListener("click", () => {
+  const head = $("surfacehead");
   head.setAttribute("aria-expanded", String(head.getAttribute("aria-expanded") !== "true"));
 });
 /** Add a datum plane from a request the core understands as a sketch plane (or a midplane of two faces). */

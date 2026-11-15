@@ -19,6 +19,8 @@ export interface BodyInfo {
   material?: string | null;
   /** True for a locked body: shown and pickable, but no tool changes it. */
   locked?: boolean;
+  /** True for a surface body (an open shell): listed in its own section, below the solids. */
+  surface?: boolean;
   recipe?: { tool: string; params: Record<string, number>; rotated: boolean };
 }
 
@@ -45,6 +47,8 @@ export interface BodyListHost {
 
 export class BodyList {
   private bodies: BodyInfo[] = [];
+  private solids: BodyInfo[] = [];
+  private surfaces: BodyInfo[] = [];
   private hidden: ReadonlySet<number> = new Set();
   private ghost: ReadonlySet<number> = new Set();
   private focus: number | null = null;
@@ -53,8 +57,10 @@ export class BodyList {
   private anchor: number | null = null;
   private menu: HTMLElement | null = null;
 
-  constructor(private readonly list: HTMLElement, private readonly host: BodyListHost, private readonly count: HTMLElement) {
+  /** `surfaceList` and `surfaceCount`: the Surface bodies section, built like the Sketches and Datum planes sections. */
+  constructor(private readonly list: HTMLElement, private readonly host: BodyListHost, private readonly count: HTMLElement, private readonly surfaceList: HTMLElement, private readonly surfaceCount: HTMLElement) {
     list.addEventListener("pointerleave", () => host.hover(null));
+    surfaceList.addEventListener("pointerleave", () => host.hover(null));
     onSettingsChange(() => this.render());
     document.addEventListener(
       "pointerdown",
@@ -68,12 +74,15 @@ export class BodyList {
     });
   }
 
+  /** Every body's id in list order: the solids, then the surface bodies. */
   get order(): number[] {
-    return this.bodies.map((b) => b.id);
+    return [...this.solids, ...this.surfaces].map((b) => b.id);
   }
 
   setBodies(bodies: BodyInfo[], hidden: ReadonlySet<number>, ghost: ReadonlySet<number> = new Set(), focus: number | null = null) {
     this.bodies = bodies;
+    this.solids = bodies.filter((b) => !b.surface);
+    this.surfaces = bodies.filter((b) => b.surface);
     this.hidden = hidden;
     this.ghost = ghost;
     this.focus = focus;
@@ -87,7 +96,7 @@ export class BodyList {
     this.paint();
     // A body picked in the 3D view may be below the list's fold: bring the newest picked row into sight.
     if (ids.length) {
-      const row = [...this.list.children].find((el) => Number((el as HTMLElement).dataset.id) === ids[ids.length - 1]);
+      const row = this.rows().find((el) => Number((el as HTMLElement).dataset.id) === ids[ids.length - 1]);
       row?.scrollIntoView({ block: "nearest" });
     }
   }
@@ -97,22 +106,28 @@ export class BodyList {
     this.paint();
   }
 
+  private rows(): Element[] {
+    return [...this.list.children, ...this.surfaceList.children];
+  }
+
   private render() {
     this.closeMenu();
-    this.count.textContent = String(this.bodies.length);
+    this.count.textContent = String(this.solids.length);
+    this.surfaceCount.textContent = String(this.surfaces.length);
     if (this.bodies.length === 0) {
       const empty = document.createElement("div");
       empty.className = "nobodies";
       empty.textContent = "No bodies";
       this.list.replaceChildren(empty);
     } else {
-      this.list.replaceChildren(...this.bodies.map((body) => this.row(body)));
+      this.list.replaceChildren(...this.solids.map((body) => this.row(body)));
     }
+    this.surfaceList.replaceChildren(...this.surfaces.map((body) => this.row(body)));
     this.paint();
   }
 
   private paint() {
-    for (const el of this.list.children) {
+    for (const el of this.rows()) {
       const id = Number((el as HTMLElement).dataset.id);
       el.classList.toggle("selected", this.selected.includes(id));
       el.classList.toggle("hovered", this.hovered === id);
@@ -249,7 +264,7 @@ export class BodyList {
 
   /** Inline rename: Enter commits, Escape (or leaving the field) cancels. */
   startRename(body: BodyInfo) {
-    const row = [...this.list.children].find((el) => Number((el as HTMLElement).dataset.id) === body.id) as HTMLElement | undefined;
+    const row = this.rows().find((el) => Number((el as HTMLElement).dataset.id) === body.id) as HTMLElement | undefined;
     const name = row?.querySelector(".bodyname") as HTMLElement | null;
     if (!row || !name) return;
     const input = document.createElement("input");
