@@ -144,7 +144,7 @@ export class TimingLog {
     if (this.enabled) this.out(`[perf] note at ${r1(this.now())} ${text}`);
   }
 
-  /** Starts a named step; `endStep` logs its totals. Callable from the console as `__perf.step("name")`. */
+  /** Starts a named step; `endStep` logs its totals. Callable from the console as `__timing.step("name")`. */
   step(name: string) {
     this.stepName = name;
     this.stepStart = this.now();
