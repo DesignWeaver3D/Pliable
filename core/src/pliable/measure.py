@@ -312,7 +312,7 @@ def measure(topology: Topology, selection: Selection, density: float | None = No
         + [measure_vertex(i, topology.vertex(i)) for i in selection.vertices]
     )
     if len({item["kind"] for item in items}) > 1:
-        raise OperationError("measure one kind of item at a time")
+        return {"items": [], "summary": [], "dimensions": []}  # a box that takes faces, edges and vertices together shows no measurement
     summary, dims = [], []
     if len(items) > 1:
         summary.append(_row("Selected", len(items)))

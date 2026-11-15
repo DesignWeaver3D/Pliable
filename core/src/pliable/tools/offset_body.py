@@ -1,8 +1,9 @@
 """The Offset body tool."""
 
+from ..mergescope import finish_scoped
 from ..ops import MIN_DISTANCE, OperationError, OpResult
 from ..shared.bodies import _body_bounds, _on_bodies
-from ..shared.solids import finish, TOL
+from ..shared.solids import TOL
 from ..tools import Accepts, Handle, Param, register, Tool
 
 
@@ -41,4 +42,4 @@ class OffsetBody(Tool):
                 raise OperationError("Could not offset by this distance")
             return maker.Shape()
 
-        return finish(_on_bodies(topology, selection, offset))
+        return finish_scoped(topology, _on_bodies(topology, selection, offset))

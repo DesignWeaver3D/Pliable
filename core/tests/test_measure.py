@@ -92,9 +92,16 @@ def test_parallel_faces_distance_and_angle(block):
     assert summary["Total area"] == pytest.approx(2400)
 
 
-def test_mixed_kinds_rejected(block):
-    with pytest.raises(OperationError):
-        measure(block, Selection(faces=[0], edges=[0]))
+def test_mixed_kinds_show_no_measurement(block):
+    assert measure(block, Selection(faces=[0], edges=[0], vertices=[0])) == {"items": [], "summary": [], "dimensions": []}
+
+
+def test_mixed_kinds_are_answered_not_failed_by_the_session(block):
+    from pliable.dimedit import annotate
+
+    reply = measure(block, Selection(faces=[0], edges=[0]))
+    annotate(block, Selection(faces=[0], edges=[0]), reply)  # the request path annotates the reply as well
+    assert reply["items"] == [] and reply["dimensions"] == []
 
 
 def test_fillet_made_by_tool_measures_its_radius(block):

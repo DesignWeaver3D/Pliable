@@ -35,7 +35,7 @@ export function ellipseSweep(from: number, to: number): number {
   return sweepCounterclockwise(from, to);
 }
 
-/** The signed sweep from `from` to `to` the short way round, in (-pi, pi]: which way the pointer moved from the start. */
+/** The signed sweep from `from` to `to` the short way round, in [-pi, pi) (exactly half a turn is -pi, see anglemath.ts): which way the pointer moved from the start. */
 export function ellipseSweepToward(from: number, to: number): number {
   return turnShortWay(to - from);
 }
