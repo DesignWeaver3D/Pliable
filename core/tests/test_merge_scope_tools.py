@@ -2,8 +2,9 @@
 
 from OCP.gp import gp_Pnt
 
+from pliable.facemerge import merge_faces
 from pliable.mergescope import changed_between
-from pliable.ops import solids_of
+from pliable.ops import OpResult, solids_of
 from pliable.tools import Selection, get_tool
 from pliable.topology import Topology
 from test_merge_scope import box, compound, fingerprint, merged_model, split_cavity
@@ -43,7 +44,7 @@ def test_changed_between_names_the_bodies_that_are_not_the_same():
     solids = solids_of(shape)
     assert changed_between(shape, shape) == frozenset()
     assert changed_between(shape, compound([solids[0], box(30), solids[2], solids[3]])) == frozenset({1})
-    assert changed_between(shape, compound(solids[:3])) is None
+    assert changed_between(shape, compound(solids[:3])) == frozenset()  # a body that is gone leaves the others as they were
 
 
 def test_a_hole_in_a_merged_model_is_the_whole_model_result():
@@ -82,3 +83,77 @@ def test_a_narrowed_run_does_not_claim_the_others_are_merged():
     face = top_face(topology, 1)
     result = get_tool("add_hole").execute(topology, Selection(faces=[face]), {"diameter": 3, "depth": 4}, preview=False)
     assert not result.merged
+
+
+def stacked():
+    """Two bodies one on the other (a hole through both changes both) beside two others, merged as the document holds it."""
+    from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
+
+    upper = BRepPrimAPI_MakeBox(gp_Pnt(0, 0, 10), gp_Pnt(10, 10, 20)).Shape()
+    return merged_model(compound([box(0), upper, box(30), box(60)]))
+
+
+def test_changed_between_ignores_the_order_the_bodies_come_back_in():
+    shape = model()
+    solids = solids_of(shape)
+    assert changed_between(shape, compound([solids[2], solids[0], solids[3], solids[1]])) == frozenset()
+    assert changed_between(shape, compound([solids[2], box(30), solids[3], solids[0]])) == frozenset({1})
+
+
+def test_changed_between_names_the_parts_of_a_body_that_was_split():
+    shape = model()
+    solids = solids_of(shape)
+    assert changed_between(shape, compound([solids[0], box(30), box(40), solids[2], solids[3]])) == frozenset({1, 2})
+
+
+def test_a_hole_in_other_bodies_in_a_merged_model_is_the_whole_model_result(monkeypatch):
+    import pliable.mergescope as scope
+
+    shape = stacked()
+    asked = []
+    original = scope.merge_faces
+    monkeypatch.setattr(scope, "merge_faces", lambda result, changed=None, **k: (asked.append(changed), original(result, changed=changed, **k))[1])
+    topology = Topology(shape)
+    face = next(i for i, f in topology.faces() if abs(_centre_z(f) - 20) < 1e-6)
+    results = []
+    for scoped in (False, True):
+        t = Topology(shape)
+        t.merged = scoped
+        t.interact = "others"
+        results.append(get_tool("add_hole").execute(t, Selection(faces=[face]), {"diameter": 3, "depth": 0}, preview=False))
+    whole, scoped = results
+    assert len(solids_of(whole.shape)) == 4
+    assert Topology(whole.shape).face_count == Topology(shape).face_count + 2  # the hole went through both bodies
+    assert asked == [None, frozenset({0, 1})]  # the whole model, then only the two bodies it cut
+    assert sorted_fingerprint(scoped.shape) == sorted_fingerprint(whole.shape)
+    assert scoped.merged and whole.merged  # the bodies it did not touch were left as they were by the merge, so the next operation can be scoped
+
+
+def test_a_merge_that_changes_only_the_changed_bodies_settles_the_rest():
+    from pliable.mergescope import settled_beside
+
+    shape = compound([box(0), split_cavity(30), box(60)])
+    merged = merge_faces(OpResult(shape, [])).shape
+    assert settled_beside(shape, merged, frozenset({1}))  # only the cavity body changed in the merge
+    assert not settled_beside(shape, merged, frozenset({0}))  # a body outside the changed ones changed
+
+
+def test_a_second_hole_through_the_same_bodies_is_merged_scoped(monkeypatch):
+    import pliable.mergescope as scope
+    from pliable.bodydisplay import body_ranges
+
+    def drill(shape, merged, offset):
+        t = Topology(shape)
+        t.merged = merged
+        t.interact = "others"
+        face = next(i for i, f in t.faces() if abs(_centre_z(f) - 20) < 1e-6)
+        return get_tool("add_hole").execute(t, Selection(faces=[face]), {"diameter": 2, "depth": 0, "offset_u": offset}, preview=False)
+
+    first = merged_model(drill(stacked(), False, 0.0).shape)
+    assert body_ranges(Topology(first), solids_of(first)) is not None  # the bodies cut together still hold nothing in common
+    asked = []
+    original = scope.merge_faces
+    monkeypatch.setattr(scope, "merge_faces", lambda result, changed=None, **k: (asked.append(changed), original(result, changed=changed, **k))[1])
+    whole, scoped = drill(first, False, 3.0), drill(first, True, 3.0)
+    assert sorted_fingerprint(scoped.shape) == sorted_fingerprint(whole.shape)
+    assert asked == [None, frozenset({0, 1})]
