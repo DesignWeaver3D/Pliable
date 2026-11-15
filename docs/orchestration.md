@@ -40,7 +40,19 @@ Name the worktree and branch, then require, in this order:
 - **Right-sized tasks:** give an agent only the tasks it needs now, with the files to read named, so it does not explore the whole repo; tell it to read excerpts, not whole large files (`main.ts`, `viewport.ts`, `features.py`).
 - **Cheap verification:** the browser check rule in item 9; unit and Session.handle tests carry most of the verification, the browser only confirms that the feature is visible and usable.
 - **Orchestrator:** no re-tests for a single clean agent merge (only when several concurrent branches are merged or a code conflict was resolved); no re-reading of agent transcripts; reports stay under 150 words.
-- **Model:** agents run on the cheaper model (sonnet); research agents use the researcher definition.
+- **Model:** agents run on Sonnet or cheaper (Haiku for read-only lookups, via the searcher and researcher definitions). Any higher model needs the owner's yes first.
+
+## Planning agent work
+
+A cold start (re-reading the project rules and files) costs about 50-60k tokens here, so plan before spawning.
+
+- **Cost check:** delegate when the agent's cost (cold start plus review) is clearly below the direct cost (files to read plus edits), or when the job is long enough that keeping the chat free for the owner is worth the difference. Otherwise do it in the main chat.
+- **Batch by area:** group pending tasks by the files they touch, and give one agent a whole group. Two jobs that read the same files go to one agent.
+- **Sequential chains:** when step 2 depends on step 1, give one agent a written plan, not one agent per step.
+- **Brief fully:** name the exact files and ranges, and the parts of the project rules to read; say what to leave alone.
+- **Reuse (SendMessage)** only for the same files and the same kind of job, and for at most about three follow-ups. After a read-heavy first task, or when the topic changes, start a fresh agent with a short summary of the earlier result. Name each agent for its area and send it nothing outside it. A reviewer is always fresh, never the author.
+- **Forks:** use one when the task depends on the current conversation.
+- **Review in proportion:** a report with evidence (hashes, test names) gets a spot-check of one or two items; anything touching `behavior.md` or hard to reverse gets a full diff read.
 
 ## Applying lessons across the app (owner request 2026-11-15)
 
