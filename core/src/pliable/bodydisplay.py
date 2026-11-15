@@ -15,6 +15,7 @@ is shared between bodies or held by a shape outside the bodies; `body_ranges` ch
 """
 
 from dataclasses import dataclass, replace
+from itertools import count as count_from
 
 import numpy as np
 from OCP.BRep import BRep_Tool
@@ -30,6 +31,12 @@ from .ops import is_surface
 from .splitwalls import split_centre
 
 _KINDS = (TopAbs_FACE, TopAbs_EDGE, TopAbs_VERTEX)
+_revs = count_from(1)
+
+
+def _stamped(data):
+    data.rev = next(_revs)
+    return data
 
 
 @dataclass
@@ -45,6 +52,7 @@ class BodyData:
     edges: list  # (start, count, normal or None, centre or None), start local to `edge_positions`
     bounds: list
     weight: int
+    rev: int = 0  # set when the data is built or derived; a cache hit keeps it, so equal revs mean the very same display data
 
 
 def _own_extents(solid) -> tuple[int, int, int]:
@@ -162,7 +170,7 @@ def _build(topology, solid, span, deflection: float, preview: bool) -> BodyData:
         total += len(points)
 
     edge_positions = _cat(edge_parts, np.float32, 3)
-    return BodyData(
+    return _stamped(BodyData(
         _cat(positions, np.float32, 3),
         _cat(normals, np.float32, 3),
         _cat(indices, np.uint32, None),
@@ -172,12 +180,12 @@ def _build(topology, solid, span, deflection: float, preview: bool) -> BodyData:
         edges,
         T.bounds(solid),
         1 + sum(i.size for i in indices) // 3 + len(edge_positions) // 2,
-    )
+    ))
 
 
 def _preview_of(full: BodyData) -> BodyData:
     """The data of a preview from that of the full display: the same, without the edges' drag directions."""
-    return replace(full, edges=[(start, count, None, centre) for start, count, _, centre in full.edges])
+    return _stamped(replace(full, edges=[(start, count, None, centre) for start, count, _, centre in full.edges]))
 
 
 def _with_normals(topology, solid, span, preview_data: BodyData) -> BodyData:
@@ -191,7 +199,7 @@ def _with_normals(topology, solid, span, preview_data: BodyData) -> BodyData:
     for local, (start, count, _, centre) in enumerate(preview_data.edges):
         beside = [face_shapes[f] for f in table.get(e0 + local, [])]
         edges.append((start, count, T._edge_normal(topology.edge(e0 + local), beside), centre))
-    return replace(preview_data, edges=edges)
+    return _stamped(replace(preview_data, edges=edges))
 
 
 def body_data(topology, solid, span, deflection: float, preview: bool) -> BodyData:
@@ -215,19 +223,49 @@ def body_data(topology, solid, span, deflection: float, preview: bool) -> BodyDa
     return entry
 
 
-def assemble(topology, preview: bool, ranges: list, solid_shapes: list, deflection: float) -> dict:
-    """The fields of a Mesh for the whole model, joined from the bodies' data (the order and ids `tessellate` gives)."""
+@dataclass
+class BodyPart:
+    """One body of the model as the reply lists it: its display data, the block of ids it owns and its records that are not kept in the data."""
+
+    number: int  # position among the solids
+    body: int | None  # the body's id
+    span: tuple  # (first face id, face count, first edge id, edge count, first vertex id, vertex count)
+    data: BodyData
+    vertices: list  # the body's vertices, with global ids
+    info: dict | None  # the entry of the reply's `bodies` list
+
+
+def body_parts(topology, preview: bool, ranges: list, solid_shapes: list, deflection: float) -> list[BodyPart]:
+    """The bodies of the model one by one, in model order (the parts `assemble` joins; a delta reply sends only some of them)."""
+    owners = topology.bodies.bodies
+    parts = []
+    for number, (solid, span) in enumerate(zip(solid_shapes, ranges)):
+        data = body_data(topology, solid, span, deflection, preview)
+        v0, nv = span[4], span[5]
+        owner = owners[number] if number < len(owners) else None
+        body = owner.id if owner is not None else None
+        vertices = []
+        for i in range(nv):
+            p = BRep_Tool.Pnt_s(topology.vertex(v0 + i))
+            vertices.append({"id": v0 + i, "position": [p.X(), p.Y(), p.Z()], "solid": number, "body": body})
+        info = None
+        if owner is not None:
+            info = {"id": owner.id, "name": owner.name, "solid": number, "bounds": list(data.bounds), "material": owner.material, "locked": owner.locked, "surface": is_surface(solid), **recipes.info(owner)}
+        parts.append(BodyPart(number, body, span, data, vertices, info))
+    return parts
+
+
+def assemble(topology, preview: bool, ranges: list, solid_shapes: list, deflection: float, parts: list | None = None) -> dict:
+    """The fields of a Mesh for the whole model, joined from the bodies' data (the order and ids `tessellate` gives).
+    `parts` are the bodies from `body_parts` when the caller has them already."""
     from .tessellate import _join
 
-    owners = topology.bodies.bodies
     positions, normals, indices, edge_parts = [], [], [], []
     faces, edges, vertices, centres, body_info = [], [], [], [], []
     base = index_count = edge_total = 0
-    for number, (solid, span) in enumerate(zip(solid_shapes, ranges)):
-        data = body_data(topology, solid, span, deflection, preview)
-        f0, _, e0, _, v0, nv = span
-        owner = owners[number] if number < len(owners) else None
-        body = owner.id if owner is not None else None
+    for part in parts if parts is not None else body_parts(topology, preview, ranges, solid_shapes, deflection):
+        data, number, body = part.data, part.number, part.body
+        f0, _, e0 = part.span[:3]
         positions.append(data.positions)
         normals.append(data.normals)
         indices.append(data.indices + np.uint32(base))
@@ -241,11 +279,9 @@ def assemble(topology, preview: bool, ranges: list, solid_shapes: list, deflecti
             {"id": e0 + i, "start": edge_total + start, "count": count, "normal": None if normal is None else list(normal), "solid": number, "body": body, "centre": None if centre is None else list(centre)}
             for i, (start, count, normal, centre) in enumerate(data.edges)
         )
-        for i in range(nv):
-            p = BRep_Tool.Pnt_s(topology.vertex(v0 + i))
-            vertices.append({"id": v0 + i, "position": [p.X(), p.Y(), p.Z()], "solid": number, "body": body})
-        if owner is not None:
-            body_info.append({"id": owner.id, "name": owner.name, "solid": number, "bounds": list(data.bounds), "material": owner.material, "locked": owner.locked, "surface": is_surface(solid), **recipes.info(owner)})
+        vertices.extend(part.vertices)
+        if part.info is not None:
+            body_info.append(part.info)
         base += len(data.positions)
         index_count += data.indices.size
         edge_total += len(data.edge_positions)
