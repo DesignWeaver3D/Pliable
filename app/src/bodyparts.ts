@@ -13,6 +13,11 @@ export interface BodyPart {
   edgePositions: Float32Array;
 }
 
+/** Whether the parts are the mesh's triangles cut by body in the mesh's own order, so a triangle of part n is the mesh triangle `base + number`. */
+export function partsCover(parts: readonly BodyPart[] | undefined, indexCount: number): parts is BodyPart[] {
+  return !!parts && parts.reduce((n, p) => n + p.indices.length, 0) === indexCount;
+}
+
 /** The parts of a mesh in model order: the ones the mesh store kept (`mesh.parts`) or, for a whole reply, parts cut from its arrays by body (each one new). */
 export function partsOf(mesh: Pick<MeshData, "positions" | "normals" | "indices" | "edgePositions" | "faces" | "edges"> & { parts?: BodyPart[] }): BodyPart[] {
   if (mesh.parts) return mesh.parts;

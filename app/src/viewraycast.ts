@@ -6,11 +6,6 @@ import { buildTriangleTree, type Facing, type TriangleTree } from "./trianglebvh
 /** A body's triangle tree, kept as long as the body's data (`BodyPart.ref`) is the same one: a reply that changes a few bodies builds a few trees. */
 const bodyTrees = new WeakMap<object, TriangleTree>();
 
-/** Whether the parts are the mesh's triangles cut by body in the mesh's own order, so a triangle of part n is the mesh triangle `base + number`. */
-export function partsCover(parts: readonly BodyPart[] | undefined, indexCount: number): parts is BodyPart[] {
-  return !!parts && parts.reduce((n, p) => n + p.indices.length, 0) === indexCount;
-}
-
 const FACING: Record<number, Facing> = { [THREE.FrontSide]: "front", [THREE.BackSide]: "back", [THREE.DoubleSide]: "both" };
 
 /** The one side setting of the mesh's material or materials, or null when they differ (the plain test handles that). */

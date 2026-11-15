@@ -30,6 +30,8 @@ the next frame). The enclosure (114 bodies, 13-15 MB) is much larger; it was not
 | occlusion probe (box select) | converted: draws the solid bodies' meshes |
 | slide during a move drag | converted: shifts the bodies' own meshes (the merged mesh is not changed any more) |
 | raycast / picking | converted: one triangle tree per body kept while the body's data is the same (viewraycast.ts); on a one-body change the first hover after it costs about 0.2 ms (was a 13 ms plain test, then a 50 ms tree build over all 81,600 triangles) |
+| section view slice (sectionview.ts) | converted: `sliceParts` keeps each body's cut loops while the body and the plane stay; with the section view on, a one-body change took a 150-200 ms task (next frame 150-280 ms), now 50-85 ms. The caps/hatch/overlap part (about 45 ms) still runs over every cut body: not converted |
+| hidden bodies filter (filterHidden) | converted to block copies (5-9 ms -> about 1 ms at 81,600 triangles) |
 | faceStarts / fit / bounds / numbering | unchanged (merged arrays) |
 
 Checked in the app (dev page, 120 bodies, 81,600 triangles): render and colors, hover, face click, hide/show,

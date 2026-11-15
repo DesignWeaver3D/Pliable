@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { installTreeRaycast, partsCover } from "../src/viewraycast.ts";
+import { partsCover } from "../src/bodyparts.ts";
+import { installTreeRaycast } from "../src/viewraycast.ts";
 
 // Two square bodies one above the other (z 0 and z 1), two triangles each, facing +z.
 const square = (z, x = 0) => ({ positions: Float32Array.from([x, 0, z, x + 1, 0, z, x + 1, 1, z, x, 1, z]), indices: Uint32Array.from([0, 1, 2, 0, 2, 3]) });

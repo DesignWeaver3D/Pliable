@@ -1,7 +1,7 @@
 // Run with: node --test app/tests
 import test from "node:test";
 import assert from "node:assert/strict";
-import { frameOf, gridFor, hatchLines, hatchStyle, loopArea, overlapOf, regionsOf, sliceBodies, stitchLoops } from "../src/sectionmath.ts";
+import { frameOf, gridFor, hatchLines, hatchStyle, loopArea, overlapOf, regionsOf, sliceBodies, sliceParts, stitchLoops } from "../src/sectionmath.ts";
 
 /** A box from (x, y, z) of the given size as a shared-vertex triangle mesh (one face range for the whole box). */
 function box(x, y, z, s) {
@@ -112,4 +112,17 @@ test("one body, or separate bodies, have no overlap", () => {
   const cut = sliceBodies(m.positions, m.indices, m.faces, planeZ(5), 1e-6);
   const overlap = overlapOf(cut, gridFor([...cut.values()].flat(), 200));
   assert.equal(overlap.cells, 0);
+});
+
+test("cutting per-body parts gives the same loops as cutting the merged mesh, and keeps a body's cut while the plane stays", () => {
+  const boxes = [box(0, 0, 0, 10), box(20, 0, 0, 10)];
+  const m = merge(...boxes);
+  const parts = boxes.map((b, body) => ({ body, ref: {}, positions: Float32Array.from(b.positions), indices: Uint32Array.from(b.indices) }));
+  const whole = sliceBodies(m.positions, m.indices, m.faces, planeZ(4), 1e-6);
+  const cut = sliceParts(parts, planeZ(4), 1e-6);
+  assert.deepEqual([...cut.keys()], [...whole.keys()]);
+  for (const [body, loops] of whole) assert.deepEqual(cut.get(body), loops);
+  assert.equal(sliceParts(parts, planeZ(4), 1e-6).get(0), cut.get(0)); // not cut again
+  assert.notEqual(sliceParts(parts, planeZ(5), 1e-6).get(0), cut.get(0)); // another plane
+  assert.equal(sliceParts(parts, planeZ(20), 1e-6).size, 0);
 });

@@ -32,6 +32,27 @@ export function frameOf(plane: SectionPlane): Frame {
   return { origin: plane.origin, n, u, v };
 }
 
+/** One body's cut loops for a plane, kept while the body's data (`ref`) and the plane stay the same. */
+const cutOfPart = new WeakMap<object, { key: string; loops: Loop[] }>();
+
+/** Like `sliceBodies` for a mesh given as per-body parts: a body that did not change is not cut again while the plane stays. */
+export function sliceParts(parts: readonly { body: number | null; ref: object; positions: ArrayLike<number>; indices: ArrayLike<number> }[], frame: Frame, eps: number): Map<number, Loop[]> {
+  const key = [frame.origin, frame.n, frame.u, frame.v, eps].join("|");
+  const result = new Map<number, Loop[]>();
+  for (const part of parts) {
+    if (part.indices.length === 0) continue;
+    const id = part.body ?? -1;
+    let held = cutOfPart.get(part.ref);
+    if (!held || held.key !== key) {
+      const cut = sliceBodies(part.positions, part.indices, [{ start: 0, count: part.indices.length, body: part.body }], frame, eps);
+      held = { key, loops: cut.get(id) ?? [] };
+      cutOfPart.set(part.ref, held);
+    }
+    if (held.loops.length) result.set(id, held.loops);
+  }
+  return result;
+}
+
 export interface FaceSlice {
   start: number;
   count: number;
