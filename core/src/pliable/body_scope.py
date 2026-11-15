@@ -160,6 +160,7 @@ class Narrowed:
             pieces.extend(made_loose)
         pieces.extend(self.held_out)
         result.shape = _compound(pieces)
+        result.merged = result.merged and bool(getattr(self.scene, "merged", False))  # the bodies left out are merged only when the whole scene was
         if result.notice is None and self.left_out and self._meets(result.shape):
             count = len(self.left_out)
             result.notice = f"Ignored {count} hidden bod{'y' if count == 1 else 'ies'} touching the change"
@@ -194,6 +195,7 @@ def narrow(topology: Topology, selection, strict: bool = True) -> Narrowed | Non
     state = topology.bodies
     inner = Topology(_compound([solids[i] for i in chosen] + ([] if hold else loose)), BodyState(tuple(state.bodies[i] for i in chosen), state.next_id, state.counts))
     inner.datums = getattr(topology, "datums", None)
+    inner.merged = bool(getattr(topology, "merged", False))  # the bodies it is given were merged with the rest (mergescope.py)
     hidden = _hidden_indices(topology)
     inner.reference_shape = _compound([s for i, s in enumerate(solids) if i not in hidden])  # what an extent ends on, fused into or not
     renumbered = {}

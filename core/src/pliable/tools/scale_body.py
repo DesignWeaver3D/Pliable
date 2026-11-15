@@ -5,9 +5,9 @@ import math
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
 from OCP.gp import gp_Pnt, gp_Trsf
 
+from ..mergescope import finish_scoped
 from ..ops import OperationError
 from ..shared.bodies import _body_bounds, _on_bodies, _pivot_point
-from ..shared.solids import finish
 from ..tools import Accepts, Handle, Param, register, Tool
 
 
@@ -50,6 +50,6 @@ class ScaleBody(Tool):
             return BRepBuilderAPI_Transform(shape, scaling(centre), True).Shape()
 
         record: dict = {}
-        result = finish(_on_bodies(topology, selection, scale, pivot=True, trsf=scaling, record=record))
+        result = finish_scoped(topology, _on_bodies(topology, selection, scale, pivot=True, trsf=scaling, record=record))
         result.moved = record
         return result
