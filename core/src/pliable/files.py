@@ -14,7 +14,7 @@ from OCP.TopAbs import TopAbs_SHELL, TopAbs_WIRE, TopAbs_SOLID as TopAbs_SOLID_
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS, TopoDS_Compound, TopoDS_Shape
 
-from .ops import solids_of
+from .ops import is_surface, solids_of
 from .volume import volume_of
 from .validity import is_valid
 
@@ -277,18 +277,6 @@ def open_loops(shell: TopoDS_Shape) -> list[bool]:
         return []
 
 
-def _open_body_line(name: str, loops: list[bool]) -> str:
-    if not loops:
-        return f"Open body '{name}': boundary loops could not be analyzed"
-    flat = sum(loops)
-    return f"Open body '{name}': {len(loops)} open loop{'s' if len(loops) != 1 else ''}, {flat} flat"
-
-
-def _name_list(names: list[str]) -> str:
-    shown = ", ".join(names[:5])
-    return shown + (f" and {len(names) - 5} more" if len(names) > 5 else "")
-
-
 def check_import(shape: TopoDS_Shape, names: list | None = None) -> tuple[TopoDS_Shape, list[str]]:
     """Heal an imported shape and report what could not be fixed.
 
@@ -302,12 +290,11 @@ def check_import(shape: TopoDS_Shape, names: list | None = None) -> tuple[TopoDS
         return next((n for s, n in names if s.IsPartner(shell)), "unnamed")
 
     reshape = BRepTools_ReShape()
-    converted, open_names, open_lines = 0, [], []
+    converted, open_names = 0, []
     for shell in _loose_shells(shape):
         solid = _close_shell(shell)
         if solid is None:
             open_names.append(label(shell))
-            open_lines.append(_open_body_line(open_names[-1], open_loops(shell)))
         else:
             reshape.Replace(shell, solid)
             converted += 1
@@ -317,6 +304,8 @@ def check_import(shape: TopoDS_Shape, names: list | None = None) -> tuple[TopoDS
     fixed = invalid = 0
     reshape = BRepTools_ReShape()
     for solid in solids_of(shape):
+        if is_surface(solid):
+            continue
         if _volume(solid) < 0:
             fixer = ShapeFix_Solid(TopoDS.Solid(solid))
             fixer.Perform()
@@ -336,6 +325,5 @@ def check_import(shape: TopoDS_Shape, names: list | None = None) -> tuple[TopoDS
     if invalid:
         warnings.append(f"{invalid} solid{'s' if invalid != 1 else ''} with invalid geometry; some tools may fail there")
     if open_names:
-        warnings.append(f"{len(open_names)} open surface{'s' if len(open_names) != 1 else ''} could not be closed ({_name_list(open_names)}); tools can't add material there")
-        warnings.extend(open_lines)
+        warnings.append(f"{len(open_names)} surface bod{'ies' if len(open_names) != 1 else 'y'} kept")
     return shape, warnings
