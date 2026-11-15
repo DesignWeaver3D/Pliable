@@ -107,3 +107,28 @@ def fuse_reachable_bodies(shape: TopoDS_Shape, tool: TopoDS_Shape) -> TopoDS_Sha
     if not fused_at:
         pieces.extend(solids_of(joined))
     return _compound(pieces)
+
+
+def fuse_overlapping(solid: TopoDS_Shape, others: dict[int, TopoDS_Shape]) -> tuple[list[TopoDS_Shape], set[int]]:
+    """`solid` joined, one body at a time, to the bodies of `others` (by position) that it overlaps (shares volume with, not just
+    a face), and a body the joined result then overlaps in turn. Returns the joined parts and the positions used up."""
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Common
+
+    from ..ops import _volume_of
+
+    joined, used, changed = solid, set(), True
+    while changed:
+        changed = False
+        for index, other in others.items():
+            if index in used or _box(joined).IsOut(_box(other)):
+                continue
+            common = BRepAlgoAPI_Common(joined, other)
+            if not common.IsDone() or common.Shape().IsNull() or _volume_of(common.Shape()) < 1e-6:
+                continue
+            fused = _boolean(joined, other, True, glue=False)
+            if fused is None:
+                raise OperationError("Boolean operation failed")
+            joined = fused.Shape()
+            used.add(index)
+            changed = True
+    return solids_of(joined), used

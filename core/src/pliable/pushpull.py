@@ -70,9 +70,16 @@ def push_pull(
         result.tracked_faces = result.tracked_faces + other.tracked_faces
         result.cutters = result.cutters + other.cutters
     cut_others = _cut_other_bodies(solids, set(changed), result.cutters) if result.notice is None else {}  # a push that reaches into a body it does not own cuts it too
+    joined, used = _join_overlapped_bodies(solids, changed, cut_others) if result.notice is None and not result.cutters else ({}, set())  # a pull that grows into a body it does not own joins it
     compound, builder = TopoDS_Compound(), BRep_Builder()
     builder.MakeCompound(compound)
     for i, solid in enumerate(solids):
+        if i in used:
+            continue
+        if i in joined:
+            for part in joined[i]:
+                builder.Add(compound, part)
+            continue
         if i in cut_others:
             for part in cut_others[i]:
                 builder.Add(compound, part)
@@ -93,6 +100,24 @@ def _cut_other_bodies(solids: list[TopoDS_Shape], owners: set[int], cutters: lis
             if parts is not None:
                 pieces[i] = parts
     return {i: solids_of(unify_result(OpResult(_group(parts), [])).shape) if parts else [] for i, parts in pieces.items()}
+
+
+def _join_overlapped_bodies(solids: list[TopoDS_Shape], changed: dict[int, TopoDS_Shape], cut_others: dict) -> tuple[dict[int, list[TopoDS_Shape]], set[int]]:
+    """For each pulled body that gained material, the parts it makes with the other bodies it now overlaps (fused one at a time,
+    shared/bodycut.py), by the body's position, and the positions of the bodies used up in them."""
+    from .shared.bodycut import fuse_overlapping
+
+    joined: dict[int, list[TopoDS_Shape]] = {}
+    used: set[int] = set()
+    for index, shape in changed.items():
+        if _volume_of(shape) <= _volume_of(solids[index]) + 1e-6:
+            continue
+        others = {i: solid for i, solid in enumerate(solids) if i not in changed and i not in cut_others and i not in used}
+        parts, consumed = fuse_overlapping(shape, others)
+        if consumed:
+            joined[index] = parts
+            used |= consumed
+    return joined, used
 
 
 def _group(parts: list[TopoDS_Shape]) -> TopoDS_Shape:

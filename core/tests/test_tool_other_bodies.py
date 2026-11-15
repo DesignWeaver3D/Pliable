@@ -146,7 +146,6 @@ def known(request, reasons):
         request.applymarker(pytest.mark.xfail(reason=reason, strict=True))
 
 
-PULL_OTHERS = "Pull with Other bodies fuses the prism into the pulled body only: the bodies it crosses stay in place overlapping it (16,000 mm3 held twice)"
 INTERACT = ("this", "others")
 OVERLAP = (False, True)
 cases = pytest.mark.parametrize("overlap", OVERLAP, ids=("apart", "overlap"))
@@ -156,7 +155,6 @@ sides = pytest.mark.parametrize("interact", INTERACT)
 @cases
 @sides
 def test_push_pull_pull_joins_what_it_covers(request, interact, overlap):
-    known(request, {("others", False, None): PULL_OTHERS, ("others", True, None): PULL_OTHERS})
     z = Z(overlap)
     before, after = run("push_pull", lambda m: Selection(faces=[face_of(m, D, -1, low=True)]), {"distance": z.d0 - 15}, interact, overlap)
     check_join(before, after, box_tool(-20, -20, 15, 20, 20, z.d0), interact, D)
