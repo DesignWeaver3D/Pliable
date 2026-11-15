@@ -1764,7 +1764,7 @@
  {
   "id": "scale_body",
   "label": "Scale body",
-  "description": "Scales a whole solid evenly, about the origin or about the body's center when you select bodies from the list. Select bodies, any face of a solid, or nothing for the whole model; 2 doubles the size.",
+  "description": "Scales a whole solid evenly, about the origin or about the body's center when you select bodies from the list; Non-uniform scaling gives X, Y and Z their own factors (in the world axes). Select bodies, any face of a solid, or nothing for the whole model; 2 doubles the size.",
   "accepts": {
    "faces": [
     0,
@@ -1791,6 +1791,30 @@
   "params": [
    {
     "name": "factor",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "scaling",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": [
+     "Uniform",
+     "Non-uniform"
+    ]
+   },
+   {
+    "name": "factor_y",
+    "kind": "number",
+    "default": 1,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "factor_z",
     "kind": "number",
     "default": 1,
     "drag": false,

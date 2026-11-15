@@ -76,3 +76,13 @@ test("Up to face adds the target to the request, turns Symmetric off and is clea
   assert.equal(n, 2);
   assert.deepEqual(s.params(), { mode: "auto", flip: false });
 });
+
+test("Copy is off by default, is sent only while on, and reset turns it off", () => {
+  const s = new PushPullState();
+  assert.equal("copy" in s.params(), false);
+  s.setCopy(true);
+  assert.equal(s.params().copy, true);
+  s.reset();
+  assert.equal(s.copy, false);
+  assert.equal("copy" in s.params(), false);
+});

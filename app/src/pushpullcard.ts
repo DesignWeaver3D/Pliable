@@ -1,7 +1,7 @@
 /** The Push/Pull card: opened whenever a push/pull drag starts or the Push/Pull button is clicked, at the right under the nav cube group like the other edit cards.
  *  Fields: distance, the mode buttons (highlighted like Pick plane), Flip, Symmetric, the two tilt values and the direction vector of the gizmo (linked to it like the
  *  Cut with plane form). It holds no model state: choices live in PushPullState, the direction in PullDirection, the tilts in PullGizmo. */
-import { FLIP_TITLE, MODE_BUTTONS, SYMMETRIC_TITLE, UP_TO_TITLE, type PushPullState } from "./pushpullstate.ts";
+import { COPY_TITLE, FLIP_TITLE, MODE_BUTTONS, SYMMETRIC_TITLE, UP_TO_TITLE, type PushPullState } from "./pushpullstate.ts";
 import { extentOn, REACH_BUTTONS, type Reach } from "./pushpullextent.ts";
 import { roundValue } from "./precision.ts";
 import type { Vec } from "./pulldir.ts";
@@ -36,6 +36,7 @@ const TILT_TITLES = ["The direction tilted toward the face's x axis (the red arc
 export class PushPullCard {
   private readonly modeButtons = new Map<string, HTMLButtonElement>();
   private readonly flipButton = document.createElement("button");
+  private readonly copyButton = document.createElement("button");
   private readonly upToButton = document.createElement("button");
   private readonly reachButtons = new Map<Reach, HTMLButtonElement>();
   private readonly symmetric = document.createElement("input");
@@ -86,6 +87,10 @@ export class PushPullCard {
     this.flipButton.title = FLIP_TITLE;
     this.flipButton.style.cssText = "text-align:center;margin-top:4px";
     this.flipButton.addEventListener("click", () => host.state.setFlip(!host.state.flip));
+    this.copyButton.textContent = "Copy";
+    this.copyButton.title = COPY_TITLE;
+    this.copyButton.style.cssText = "text-align:center;margin-top:4px";
+    this.copyButton.addEventListener("click", () => host.state.setCopy(!host.state.copy));
     this.upToButton.textContent = "Up to face";
     this.upToButton.title = UP_TO_TITLE;
     this.upToButton.style.cssText = "text-align:center;margin-top:4px";
@@ -141,6 +146,7 @@ export class PushPullCard {
       modeHead,
       modes,
       this.flipButton,
+      this.copyButton,
       this.upToButton,
       ...this.reachButtons.values(),
       row("Symmetric", SYMMETRIC_TITLE, this.symmetric),
@@ -257,11 +263,12 @@ export class PushPullCard {
     const { state } = this.host;
     const tilts = this.host.tilts();
     const direction = this.host.direction();
-    const signature = JSON.stringify([state.mode, state.choice, state.flip, state.symmetric, state.upTo, state.reach, tilts, direction]);
+    const signature = JSON.stringify([state.mode, state.choice, state.flip, state.copy, state.symmetric, state.upTo, state.reach, tilts, direction]);
     if (!force && signature === this.shown) return;
     this.shown = signature;
     for (const [id, button] of this.modeButtons) button.classList.toggle("active", state.mode === id);
     this.flipButton.classList.toggle("active", state.flip);
+    this.copyButton.classList.toggle("active", state.copy);
     this.upToButton.classList.toggle("active", state.upTo !== null);
     for (const [id, button] of this.reachButtons) button.classList.toggle("active", state.reach === id);
     this.interact.setTool(this.host.interactionDefault());

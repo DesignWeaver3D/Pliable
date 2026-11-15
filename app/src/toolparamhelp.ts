@@ -28,6 +28,12 @@ export const TOOL_PARAM_HELP: Record<string, Record<string, { label: string; tit
     thread_pitch: { label: "Thread pitch (mm)", title: "The distance between turns, used when the thread size is Custom." },
     thread_hand: { label: "Thread hand", title: "Right-hand or left-hand thread." },
   },
+  scale_body: {
+    scaling: { label: "Scaling", title: "Uniform scales every direction by one factor; Non-uniform gives the X, Y and Z world axes a factor each." },
+    factor: { label: "factor", title: "How many times larger (2 doubles the size). With Non-uniform scaling this is the X factor." },
+    factor_y: { label: "Scale Y", title: "The factor along the world Y axis (Non-uniform scaling)." },
+    factor_z: { label: "Scale Z", title: "The factor along the world Z axis (Non-uniform scaling)." },
+  },
   stretch: {
     dx: { label: "Move X (mm)", title: "How far the selected part moves along the frame's X axis." },
     dy: { label: "Move Y (mm)", title: "How far the selected part moves along the frame's Y axis." },

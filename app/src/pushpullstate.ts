@@ -13,6 +13,7 @@ export const MODE_BUTTONS: readonly { id: PushPullMode; label: string; title: st
 ];
 
 export const FLIP_TITLE = "Reverses which drag direction adds and which subtracts (the arrows swap color); it does not change the face's normal";
+export const COPY_TITLE = "Keeps the original body as it is and makes the pushed or pulled result a new body; not for a loose sketch region";
 export const SYMMETRIC_TITLE = "Push and pull both ways from the face. Symmetric: press Shift while dragging to toggle it";
 
 export const UP_TO_TITLE = "Pull up to a face you click in the view: the pad ends exactly on that face (flat or curved) and the distance is ignored. Adds material (Auto, Add or New body); not with Symmetric";
@@ -21,6 +22,8 @@ export class PushPullState {
   /** The mode chosen on the card (default Auto). */
   choice: PushPullMode = "auto";
   flip = false;
+  /** The card's Copy button: the original body stays and the result is a new body. */
+  copy = false;
   /** The card's Symmetric box; a Shift press in a drag toggles it (itemdrag.ts). */
   symmetric = false;
   /** The face id Up to face pulls to, or null while the option is off. */
@@ -44,6 +47,11 @@ export class PushPullState {
 
   setFlip(flip: boolean) {
     this.flip = flip;
+    this.onChange();
+  }
+
+  setCopy(copy: boolean) {
+    this.copy = copy;
     this.onChange();
   }
 
@@ -72,16 +80,17 @@ export class PushPullState {
 
   /** The tool was applied, cancelled or closed: Flip is off the next time (the arrow roles follow it). */
   reset() {
-    if (!this.flip && !extentOn(this.upTo, this.reach)) return;
+    if (!this.flip && !this.copy && !extentOn(this.upTo, this.reach)) return;
     this.flip = false;
+    this.copy = false;
     this.upTo = null; // the picked face belongs to the model it was picked on
     this.reach = null;
     this.onChange();
   }
 
-  /** The request fields the core reads (mode and flip; symmetric and the direction are added by the drag). With Up to face the target goes too, with Up to last or Through all the extent, and Symmetric is off. */
+  /** The request fields the core reads (mode, flip and copy; symmetric and the direction are added by the drag). With Up to face the target goes too, with Up to last or Through all the extent, and Symmetric is off. */
   params(): Record<string, number | string | boolean> {
-    return { mode: this.mode, flip: this.flip, ...extentParams(this.upTo, this.reach) };
+    return { mode: this.mode, flip: this.flip, ...(this.copy ? { copy: true } : {}), ...extentParams(this.upTo, this.reach) };
   }
 }
 
