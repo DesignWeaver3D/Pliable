@@ -11,10 +11,13 @@ from OCP.TopAbs import TopAbs_EDGE, TopAbs_WIRE
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS
 
-from ..ops import _contains, _faces_of, OperationError, face_handle_point, solids_of
+from ..body_scope import _faces_outside
+from ..mergescope import finish_scoped
+from ..ops import OperationError, face_handle_point, solids_of
 from ..pushpull_modes import nothing_to_subtract
 from ..shared.arrayaxis import AXIS_CHOICES
 from ..shared.helix import helix_wire
+from ..shared.bodycut import _box
 from ..shared.solids import _combine, _compound, _volume, finish
 from ..sketch import SketchError, regions
 from ..tools import Handle, Param, register
@@ -170,7 +173,7 @@ class HelicalSweep(RevolveFace):
             face = None
         coils = [piece for each in faces for piece in self._coil(each, axis, values)]
         solids = solids_of(topology.shape)
-        loose = [f for f in _faces_of(topology.shape) if not any(_contains(solid, f) for solid in solids)]  # sketch regions picked as faces
+        loose = _faces_outside(topology.shape, solids)  # sketch regions picked as faces (found by a map of the bodies' faces)
         kept = [f for f in loose if face is None or not f.IsSame(face)]  # the picked face is used up
         if mode == 0:
             result = _compound(solids) if solids else coils.pop(0)
@@ -180,7 +183,13 @@ class HelicalSweep(RevolveFace):
             if not solids:
                 return nothing_to_subtract(topology.shape, [], coils, preview, "There is no solid to subtract from")
             pieces, changed = [], False
+            reach = Bnd_Box()
+            for piece in coils:
+                reach.Add(_box(piece))
             for solid in solids:  # every solid the coil meets loses that part; the others stay as they are
+                if reach.IsOut(_box(solid)):
+                    pieces.append(solid)
+                    continue
                 cut = solid
                 for piece in coils:
                     cut = _apply(cut, piece, fuse=False)
@@ -194,4 +203,4 @@ class HelicalSweep(RevolveFace):
             result = _compound(pieces)
         if kept:
             result = _compound([result, *kept])
-        return finish(result, coils if mode == 1 else ())
+        return finish(result) if mode == 0 else finish_scoped(topology, result, coils)

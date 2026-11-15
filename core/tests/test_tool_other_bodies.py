@@ -328,3 +328,25 @@ def test_sweep_face_with_other_bodies_covers_what_it_sweeps(request, mode):
     pipe = BRepOffsetAPI_MakePipe(BRepBuilderAPI_MakeWire(edge).Wire(), model.face(right_face(model, 0))).Shape()
     before, after = run("sweep_face", lambda m: Selection(faces=[right_face(m, 0)], edges=[path_edge(m, 4)]), {"mode": mode}, "others", model=model)
     (check_join if mode == 0 else check_cut)(before, after, pipe, "others", 0)
+
+
+def helix_scene():
+    """A small source body Q on the +X side of the Z axis (its -Y face lies in the plane y = 0 that holds the axis), a post on the coil's way at 90 degrees with another overlapping it, and a far post."""
+    return Topology(_compound([
+        (Pos(18, 5, 12) * Box(4, 10, 4)).wrapped,  # Q, its -Y face x 16..20, z 10..14
+        (Pos(0, 18, 20) * Box(10, 10, 40)).wrapped,  # P1 on the coil
+        (Pos(3, 21, 20) * Box(10, 10, 40)).wrapped,  # P2 overlapping P1
+        (Pos(-18, -2, 20) * Box(10, 10, 40)).wrapped,  # P3 on the coil at 180 degrees
+        (Pos(100, 0, 20) * Box(10, 10, 40)).wrapped,  # P4 far away
+    ]))
+
+
+def test_helical_sweep_subtract_with_other_bodies_covers_what_it_winds():
+    model = helix_scene()
+    solid = solids_of(model.shape)[0]
+    face_id = next(i for i, f in model.faces() if any(f.IsSame(g) for g in _faces_of(solid)) and (lambda n: n is not None and n.Y() < -0.9)(planar_normal(f)))
+    tool = get_tool("helical_sweep")
+    params = {"mode": 1, "pitch": 8, "turns": 2, "axis": 2}
+    coils = tool._coil(model.face(face_id), tool._axis(model, Selection(faces=[face_id]), tool.bind(params)), tool.bind(params))
+    before, after = run("helical_sweep", lambda m: Selection(faces=[face_id]), params, "others", model=model)
+    check_cut(before, after, _compound(coils), "others", 0)
