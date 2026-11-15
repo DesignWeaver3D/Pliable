@@ -207,3 +207,17 @@ def test_preview_matches():
     v0 = volume(t.shape)
     r = stretch(t, [end_face(t)], dx=30, preview=True)
     assert volume(r.shape) == pytest.approx(v0 + 20 * 10 * 30, rel=1e-6)
+
+
+@pytest.mark.parametrize("params", [{"dz": 5}, {"ry": 10}])
+def test_lengthwise_fillets_stay_round_when_the_end_slides_or_tilts(params):
+    from build123d import Axis
+
+    t = Topology(fillet(Box(100, 20, 10).edges().filter_by(Axis.X), 3).wrapped)
+    r = stretch(t, [end_face(t)], **params)
+    assert valid(r.shape)
+    cylinders_made = cylinders(r.shape, 3)
+    assert len(cylinders_made) == 4
+    assert GeomAbs_Cylinder in surface_types(r.shape)
+    assert "free-form" not in (r.notice or "")
+    assert volume(r.shape) == pytest.approx(volume(t.shape), rel=0.02)

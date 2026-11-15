@@ -13,6 +13,7 @@ from .deform import Deformer
 from .falloff import Falloff, LINEAR
 from .field import Field, Move
 from .rebuild import rebuild
+from .refillet import remake_fillets
 from .shorten import overrun_features, remove_features
 from .zones import Zones
 
@@ -88,4 +89,6 @@ def stretch(solid, faces: list, edges: list, vertices: list, make_move, length: 
         if not is_valid(new) or _volume(new) <= 0:
             raise OperationError(FOLDS)
         pick = lambda shapes, find, made_shapes: [made_shapes[n] for n in (find(s) for s in shapes) if n is not None]
-        return Stretched(new, pick(faces, body.face_number, new_faces), pick(edges, body.edge_number, new_edges), pick(vertices, body.vertex_number, new_vertices), outcome.freeform, removed)
+        kept = [pick(faces, body.face_number, new_faces), pick(edges, body.edge_number, new_edges), pick(vertices, body.vertex_number, new_vertices)]
+        new, kept, remade = remake_fillets(body, new, new_faces, kept)
+        return Stretched(new, *kept, max(0, outcome.freeform - remade), removed)
