@@ -53,3 +53,7 @@ Zones, topology kept, local band with Auto, riders in a widened band, recognitio
 - Bash heredocs containing triple quotes fail in this shell; write helper scripts with the Write tool.
 - The band direction is fixed from the first selection; do not recompute it after islands join the protected part.
 - Commit with explicit paths when another agent works in the same worktree.
+
+## Status (second session)
+- Main merged (967 core, 540 app tests pass).
+- Stretch card done: `app/src/toolformframe.ts` (Pick face via pickPlane, Pick edge via pickEdgeId, Pick pivot via pickPoint; fx fy fz frame_edge always hidden, fa fb fc only for Free, px py pz only for Picked point) and labels in `toolparamhelp.ts`. Owner to judge by eye: layout of the buttons under Axes and Tilt pivot.
