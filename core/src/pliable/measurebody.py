@@ -4,7 +4,10 @@ Lengths are millimeters, so volume is in mm3. A density is in kilograms per cubi
 and 1 kg/m3 is 1e-6 g/mm3, so mass in grams = volume * density * 1e-6.
 """
 
-from .ops import OperationError, _inner_solids, _volume_of, solids_of
+from OCP.BRepGProp import BRepGProp
+from OCP.GProp import GProp_GProps
+
+from .ops import OperationError, _inner_solids, _volume_of, is_surface, solids_of
 from .topology import Topology
 from .volume import volume_props
 
@@ -16,11 +19,16 @@ def mass_grams(volume_mm3: float, density_kg_m3: float) -> float:
 
 
 def measure_body(topology: Topology, body_id: int, density: float | None = None) -> dict:
-    """A measured item of kind "body": Volume, and Mass when a density (kg/m3) is given."""
+    """A measured item of kind "body": Volume, and Mass when a density (kg/m3) is given; a surface body has its Area only."""
     index = topology.bodies.find(body_id)
     if index is None:
         raise OperationError(f"no body {body_id}")
     solid = solids_of(topology.shape)[index]
+    if is_surface(solid):  # an open shell has no volume and no mass: its area only
+        area = GProp_GProps()
+        BRepGProp.SurfaceProperties_s(solid, area)
+        centre = area.CentreOfMass()
+        return {"kind": "body", "id": body_id, "title": topology.bodies.bodies[index].name, "rows": [{"label": "Area", "value": area.Mass(), "unit": ""}], "anchor": [centre.X(), centre.Y(), centre.Z()], "dimensions": []}
     props = volume_props(solid)
     volume = props.Mass()
     centre = props.CentreOfMass()

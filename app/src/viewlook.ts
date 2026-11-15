@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { materialOrDefault, usesBodyColors } from "./materials.ts";
 import { settings } from "./settings.ts";
+import { syncBack } from "./viewback.ts";
 import { ghostRuns } from "./visibility.ts";
 import type { Viewport } from "./viewport.ts";
 
@@ -94,6 +95,7 @@ export function syncGhostMaterial(view: LookContext) {
   g.opacity = settings.seeThroughOpacity / 100;
   g.depthWrite = false;
   g.needsUpdate = true;
+  syncBack(view.mesh, m, g, view.ghosted, view.moving);
 }
 
 /** Split the draw ranges of the surface into solid and see-through runs (two materials, one geometry, no rebuild). */
@@ -102,6 +104,7 @@ export function applyGhost(view: LookContext) {
   const data = view.data;
   if (!mesh || !data || view.moving) return;
   mesh.geometry.clearGroups();
+  if (view.surfaceMaterial) syncBack(mesh, view.surfaceMaterial, view.ghostMaterial, view.ghosted, view.moving);
   if (view.ghosted.size === 0 || !view.ghostMaterial || !view.surfaceMaterial) {
     mesh.material = view.surfaceMaterial!;
     return;

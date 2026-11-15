@@ -1,6 +1,7 @@
 """Open shells (surface bodies): bodies of their own, meshed, selectable, with their own id block."""
 
 import numpy as np
+import pytest
 from build123d import Box, Pos
 from OCP.BRep import BRep_Builder
 from OCP.TopoDS import TopoDS_Compound, TopoDS_Shell
@@ -104,3 +105,15 @@ def test_solid_tool_still_works_beside_a_surface_body():
     result = get_tool("push_pull").execute(topology, Selection(faces=[top]), {"distance": 3.0}, preview=False)
     document.commit(result.shape)
     assert [is_surface(b) for b in solids_of(document.current.shape)] == [False, True]
+
+
+def test_surface_body_measures_area_only():
+    from pliable.measure import measure
+    from pliable.tools import Selection
+
+    shape, _ = check_import(scene())
+    topology = Topology(shape, bodydisplay_state(shape))
+    solid, surface = (measure(topology, Selection(bodies=[i]), 1050)["items"][0] for i in (1, 2))
+    assert [r["label"] for r in solid["rows"]] == ["Volume", "Mass"]
+    assert [r["label"] for r in surface["rows"]] == ["Area"]  # no volume, no mass, even with a density
+    assert surface["rows"][0]["value"] == pytest.approx(500)  # five faces of 10 x 10

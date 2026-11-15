@@ -16,6 +16,7 @@ import { MirrorArrow } from "./pushpullarrows.ts";
 import { SubtractGhost } from "./subtractghost.ts";
 import type { HandleInfo } from "./tools.ts";
 import { onSettingsChange, settings, updateSettings } from "./settings.ts";
+import { buildBack } from "./viewback.ts";
 import { bodyColorArray } from "./bodycolorarray.ts";
 import { PERSPECTIVE_FOV, alignToFace, fitClipping, lookFrom, lookFromOrthographic, returnFromSketchView, setOrthographic, setView, syncOrtho, viewMatrixCss } from "./viewcamera.ts";
 import { fitAll, fitSelected, frame as frameBox } from "./viewfit.ts";
@@ -410,6 +411,7 @@ export class Viewport {
     this.mesh = new THREE.Mesh(geometry, material);
     installTreeRaycast(this.mesh);
     this.model.add(this.mesh);
+    this.mesh.userData.back = buildBack(this.model, this.mesh, mesh);
     this.surfaceMaterial = material;
     this.ghostMaterial = new THREE.MeshPhysicalMaterial();
     applyBodyColors(this);

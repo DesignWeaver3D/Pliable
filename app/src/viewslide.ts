@@ -36,6 +36,7 @@ export function slideBodies(view: SlideContext, bodies: Set<number>, offset: [nu
     const edges = new THREE.LineSegments(edgeGeometry, view.edgeMaterial!);
     view.model.add(surface, edges);
     view.moving = { bodies: new Set(bodies), surface, edges, data };
+    if (view.mesh.userData.back) view.mesh.userData.back.mesh.visible = !(view.moving && [...bodies].some((b) => view.mesh!.userData.back.ids.has(b)));
   }
   view.moving!.surface.position.set(...offset);
   view.moving!.edges.position.set(...offset);
