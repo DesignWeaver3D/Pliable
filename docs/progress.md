@@ -74,5 +74,3 @@ Tool group CORE:
   - [ ] Dragging was already solved in steps; the step cap is now 40 instead of 12. Not reproduced; waiting on the owner's sketch (author-guidance), then keep the solution nearest the previous one (limit the step or retry from the last good state) and add the case to the no-flip scenario set.
 - **Equal on arcs and circles (bug).** Owner: "Equal constraint didn't work on arcs or circles but definitely should."
   - [ ] Not reproduced: the button's selection check and the core solver both accept two circles, two arcs, and an arc with a circle, and a core test covers them. Waiting on the owner's failing selection (author-guidance).
-
-- **Alpha release:** releases follow the checklist in CONTRIBUTING.md; the owner publishes each draft release by hand. Do not publish, tag or merge to `main` without the owner's explicit go-ahead each time. The next release series is `v0.4.0` (move to a Tauri local portable install, to last until 1.0). The alpha tool-coverage decision is provisional (every core tool has a test; none hidden or marked experimental).
