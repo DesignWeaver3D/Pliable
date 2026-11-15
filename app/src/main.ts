@@ -55,6 +55,7 @@ import { createWaitingTool, waitingHint } from "./toolwaiting.ts";
 import { bodiesOf } from "./visibility.ts";
 import { createSelection } from "./selection.ts";
 import { followMeasureCard } from "./selectedreadout.ts";
+import { SidePanel } from "./sidepanel.ts";
 import { createModelView } from "./modelview.ts";
 import { createItemDrag } from "./itemdrag.ts";
 import { createPushPullCard } from "./pushpullwire.ts";
@@ -374,6 +375,9 @@ const { renderToolbar } = createToolStrip({
   renderChips: () => renderChips(),
   armTool: (tool) => armTool(tool, "strip"),
 });
+
+// The docked parameters panel on the right (see sidepanel.ts); the strip's room depends on it like on the drawer.
+const dock = new SidePanel($("dock"), $("dockbtn"), () => renderToolbar());
 
 
 const helperDeps: HelperDeps = {
@@ -716,6 +720,7 @@ const keys = new KeyRouter({
       if (why) status.textContent = why;
     },
     "display.drawer": () => toggleDrawer(),
+    "display.dock": () => dock.toggle(),
     "display.hide": () => setVisibility("hide"),
     "display.isolate": () => setVisibility("isolate"),
     "display.showAll": () => setVisibility("show"),

@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pliable</title>
     <style>
-      html { --ui-offwhite: #ddd; --axis-x: #d9534f; --axis-y: #5cb85c; --axis-z: #4a90e2; --listw: 212px; --handlew: 32px; --leftw: calc(212px + var(--handlew)); --drawerw: 0px; }
+      html { --ui-offwhite: #ddd; --axis-x: #d9534f; --axis-y: #5cb85c; --axis-z: #4a90e2; --listw: 212px; --handlew: 32px; --leftw: calc(212px + var(--handlew)); --drawerw: 0px; --dock-w: 0px; }
       html, body { margin: 0; height: 100%; background: #1b1d22; color: var(--ui-offwhite); font: 13px system-ui, sans-serif; overflow: hidden; }
-      #viewport { position: fixed; inset: 0; }
+      #viewport { position: fixed; inset: 0 var(--dock-w) 0 0; }
       #viewport.engaged::after { content: ""; position: absolute; inset: 0; border: 2px solid rgba(255, 138, 31, 0.45); pointer-events: none; z-index: 1; }
       #bar { position: fixed; top: 0; left: 0; right: 0; box-sizing: border-box; padding: 0 52px 0 8px; display: flex; gap: 6px; align-items: center; z-index: 7; flex-wrap: nowrap; background: rgba(27, 29, 34, 0.88); border-bottom: 1px solid #2d3038; white-space: nowrap; }
       .icon { display: inline-flex; vertical-align: middle; margin-right: 5px; }
@@ -70,7 +70,7 @@
       #dim { white-space: pre; position: fixed; z-index: 2; pointer-events: none; background: #23262d; color: #ffb878; border: 1px solid #ff8a1f; border-radius: 4px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
       #dim.entry { background: #343944; color: #fff; }
       #dim[hidden] { display: none; }
-      .navcube { position: fixed; top: 38px; right: 12px; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+      .navcube { position: fixed; top: 38px; right: calc(var(--dock-w) + 12px); z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
       .navcube-scene { perspective: 400px; margin: 14px 14px 18px; }
       .navcube-cube { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
       .navcube-face { position: absolute; text-align: center; font-size: 11px; color: #cfd6e4; background: rgba(60, 68, 84, 0.85); border: 1px solid #7d8aa5; box-sizing: border-box; cursor: pointer; user-select: none; }
@@ -88,6 +88,22 @@
       #drawerbtn:hover { background: #343944; }
       #drawerbtn:focus-visible { outline: 2px solid #ff8a1f; outline-offset: -2px; }
       #drawerbtn .icon { margin: 0; }
+      #dock { position: fixed; top: 38px; right: 0; bottom: 0; width: var(--dock-w); box-sizing: border-box; z-index: 2; background: #23262d; border-left: 1px solid #444; display: flex; flex-direction: column; color: var(--ui-offwhite); font-size: 13px; }
+      #dock[hidden] { display: none; }
+      #dockgrip { position: absolute; left: -3px; top: 0; bottom: 0; width: 7px; cursor: ew-resize; z-index: 1; touch-action: none; }
+      #dockgrip:hover { background: rgba(255, 138, 31, 0.35); }
+      #dockhead { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid #3a3e47; min-height: 20px; }
+      #dockreadout { flex: 1; color: #ccc; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #dockclose { background: none; border: none; color: #9aa0ab; cursor: pointer; padding: 0 4px; font-size: 14px; }
+      #dockclose:hover { color: #ffb878; }
+      #dockbody { flex: 1; overflow-y: auto; padding: 8px 10px; }
+      #dock .dockhint { color: #888; font-size: 12px; }
+      #dock .dockhint[hidden] { display: none; }
+      #dockbtn { position: fixed; right: var(--dock-w); top: calc(50% + 24px); transform: translateY(-50%); width: 20px; height: 48px; box-sizing: border-box; z-index: 4; display: flex; align-items: center; justify-content: center; padding: 0; background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-right: none; border-radius: 6px 0 0 6px; cursor: pointer; }
+      #dockbtn:hover { background: #343944; }
+      #dockbtn[aria-expanded="true"] { border-color: #ff8a1f; color: #ffb878; }
+      #dockbtn::before { content: "▸"; }
+      #dockbtn[aria-expanded="false"]::before { content: "◂"; }
       #drawer .drawerhead { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-bottom: 1px solid #3a3e47; }
       #drawer .drawerhead b { color: #ffb878; flex: 1; }
       #drawer .drawerhead button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; }
@@ -156,10 +172,10 @@
       #toollist .group { color: #ffb878; font-size: 11px; margin-top: 4px; }
       #toollist button, #toolform button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; text-align: left; display: block; width: 100%; margin-top: 2px; }
       #toollist button.nofit { color: #9a9ea6; } /* only dimmed: every tool can be chosen */
-      #toolform { position: fixed; top: 270px; right: 12px; width: 250px; box-sizing: border-box; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
-      #measure.aside { right: 274px; } /* an edit card that reaches the measurement card moves it left */
+      #toolform { position: fixed; top: 270px; right: calc(var(--dock-w) + 12px); width: 250px; box-sizing: border-box; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
+      #measure.aside { right: calc(var(--dock-w) + 274px); } /* an edit card that reaches the measurement card moves it left */
       #toolform[hidden] { display: none; }
-      #sectioncard { position: fixed; top: 38px; right: 274px; width: 250px; box-sizing: border-box; max-height: calc(100vh - 60px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; }
+      #sectioncard { position: fixed; top: 38px; right: calc(var(--dock-w) + 274px); width: 250px; box-sizing: border-box; max-height: calc(100vh - 60px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; }
       #sectioncard[hidden] { display: none; }
       #sectioncard button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; text-align: left; display: block; width: 100%; margin-top: 2px; }
       #sectioncard .title { color: #ffb878; font-weight: 600; margin-bottom: 4px; }
@@ -172,7 +188,7 @@
       #toolform input { width: 80px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; }
       #toolform .buttons { display: flex; gap: 6px; margin-top: 6px; }
       #ppcard button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; text-align: left; display: block; width: 100%; margin-top: 2px; }
-      #ppcard { position: fixed; top: 270px; right: 12px; width: 250px; box-sizing: border-box; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
+      #ppcard { position: fixed; top: 270px; right: calc(var(--dock-w) + 12px); width: 250px; box-sizing: border-box; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
       #ppcard[hidden] { display: none; }
       #ppcard button.active { border-color: #ff8a1f; color: #ffb878; }
       #ppcard .title { color: #ffb878; font-weight: 600; margin-bottom: 4px; }
@@ -180,19 +196,19 @@
       #ppcard input { width: 80px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; }
       #ppcard .buttons { display: flex; gap: 6px; margin-top: 6px; }
       #ppcard input[type=checkbox] { width: auto; }
-      #hintline { position: absolute; left: 50%; bottom: calc(44px + var(--chips-h, 0px)); transform: translateX(-50%); z-index: 1; display: flex; gap: 14px; white-space: nowrap; font-size: 11px; color: #8a8f98; pointer-events: none; }
+      #hintline { position: absolute; left: calc(50% - var(--dock-w) / 2); bottom: calc(44px + var(--chips-h, 0px)); transform: translateX(-50%); z-index: 1; display: flex; gap: 14px; white-space: nowrap; font-size: 11px; color: #8a8f98; pointer-events: none; }
       #hintline button { pointer-events: auto; background: none; border: 0; color: #8a8f98; cursor: pointer; font: inherit; padding: 0 4px; }
       #hintline kbd { background: #2a2d34; border: 1px solid #3a3e47; border-radius: 3px; padding: 0 4px; margin-right: 3px; color: #bbb; font: inherit; }
-      #hinttip { position: absolute; left: 50%; bottom: calc(68px + var(--chips-h, 0px)); transform: translateX(-50%); z-index: 2; display: flex; gap: 8px; align-items: center; background: #23262d; border: 1px solid #ffb878; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: var(--ui-offwhite); }
-      #gettingstarted { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); z-index: 3; background: #23262d; border: 1px solid #ffb878; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--ui-offwhite); max-width: min(520px, 92vw); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
+      #hinttip { position: absolute; left: calc(50% - var(--dock-w) / 2); bottom: calc(68px + var(--chips-h, 0px)); transform: translateX(-50%); z-index: 2; display: flex; gap: 8px; align-items: center; background: #23262d; border: 1px solid #ffb878; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: var(--ui-offwhite); }
+      #gettingstarted { position: absolute; left: calc(50% - var(--dock-w) / 2); bottom: 70px; transform: translateX(-50%); z-index: 3; background: #23262d; border: 1px solid #ffb878; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--ui-offwhite); max-width: min(520px, 92vw); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
       #gettingstarted ol { margin: 6px 0 8px; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
       #gettingstarted .buttons { display: flex; gap: 8px; justify-content: flex-end; }
       #hinttip[hidden], #hintline[hidden] { display: none; }
-      #sketchbar { position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%); z-index: 1; display: flex; gap: 6px; align-items: center; color: #aaa; }
+      #sketchbar { position: fixed; bottom: 8px; left: calc(50% - var(--dock-w) / 2); transform: translateX(-50%); z-index: 1; display: flex; gap: 6px; align-items: center; color: #aaa; }
       #sketchbar button, #sketchpanel button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; }
       #sketchbar button:disabled { color: #666; }
-      #selected { position: fixed; bottom: 10px; right: 12px; z-index: 1; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #ccc; pointer-events: none; }
-      #sketchpanel { position: fixed; top: 270px; right: 12px; width: 250px; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; font-size: 13px; }
+      #selected { position: fixed; bottom: 10px; right: calc(var(--dock-w) + 12px); z-index: 1; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #ccc; pointer-events: none; }
+      #sketchpanel { position: fixed; top: 270px; right: calc(var(--dock-w) + 12px); width: 250px; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; font-size: 13px; }
       #sketchpanel[hidden] { display: none; }
       #sketchpanel .crows { max-height: max(120px, calc(100vh - 560px)); overflow-y: auto; } /* the constraint rows scroll on their own so the card stays put */
       #sketchpanel .head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
@@ -219,11 +235,11 @@
       #sketchpanel .ask { display: flex; gap: 6px; align-items: center; margin: 6px 0; }
       #sketchpanel input { width: 70px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; }
       #sketchpanel select { background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; }
-      #chips { position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%); z-index: 1; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 60vw; }
+      #chips { position: fixed; bottom: 44px; left: calc(50% - var(--dock-w) / 2); transform: translateX(-50%); z-index: 1; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 60vw; }
       #chips button { background: #2a2d34; color: #aaa; border: 1px solid #555; border-radius: 12px; padding: 2px 10px; font-size: 12px; }
       #chips button.all { border-style: dashed; }
       #chips button.on { color: #ffb878; border-color: #ff8a1f; }
-      #measure { position: fixed; right: 12px; bottom: 8px; z-index: 1; min-width: 190px; max-height: 60vh; overflow-y: auto; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 4px 0; font-variant-numeric: tabular-nums; }
+      #measure { position: fixed; right: calc(var(--dock-w) + 12px); bottom: 8px; z-index: 1; min-width: 190px; max-height: 60vh; overflow-y: auto; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 4px 0; font-variant-numeric: tabular-nums; }
       #measure[hidden] { display: none; }
       #measure .title { padding: 4px 10px 2px; color: #ffb878; font-weight: 600; cursor: pointer; }
       #measure .title::after { content: " \25B8"; color: #8a8f98; }
@@ -334,6 +350,12 @@
         <div id="mirrorstate" hidden></div>
       </section>
     <button id="drawerbtn" type="button" aria-label="Tools" aria-expanded="false" aria-controls="drawer" title="Tools (T)&#10;Open or close the list of every tool, grouped."></button>
+    <aside id="dock" aria-label="Parameters">
+      <div id="dockgrip" title="Drag to resize the panel (double-click to reset)"></div>
+      <div id="dockhead"><span id="dockreadout"></span><button id="dockclose" type="button" title="Hide the panel (Shift+T)">&times;</button></div>
+      <div id="dockbody"></div>
+    </aside>
+    <button id="dockbtn" type="button" aria-label="Parameters" aria-expanded="true" aria-controls="dock"></button>
     <div id="sketchbar"></div>
     <div id="selected" title="What is selected"></div>
     <div id="sketchpanel" hidden></div>

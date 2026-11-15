@@ -291,6 +291,7 @@ export class Viewport {
       this.scene.add(line);
     }
     window.addEventListener("resize", () => this.resize());
+    new ResizeObserver(() => this.resize()).observe(this.renderer.domElement.parentElement!); // the docked panel changes the view's size without a window resize
     onSettingsChange(() => {
       applySeeThrough(this);
       applyBodyColors(this);

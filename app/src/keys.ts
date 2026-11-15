@@ -55,6 +55,7 @@ export const KEY_COMMANDS: KeyCommand[] = [
   { id: "ui.shortcuts", label: "Show keyboard shortcuts", class: "view", defaults: ["Shift+?"] },
   { id: "display.seeThrough", label: "Toggle see-through selection", class: "display", defaults: ["X"] },
   { id: "display.drawer", label: "Show or hide the tool drawer", class: "display", defaults: ["T"], notInSketch: true },
+  { id: "display.dock", label: "Show or hide the parameters panel", class: "display", defaults: ["Shift+T"] },
   { id: "measure", label: "Measure to other geometry while dragging a tool", class: "display", defaults: ["M"], duringDrag: true, notInSketch: true },
   { id: "display.hide", label: "Hide body", class: "display", defaults: ["H"], notInSketch: true },
   { id: "display.isolate", label: "Isolate body", class: "display", defaults: ["Shift+H"], notInSketch: true },

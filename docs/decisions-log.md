@@ -253,3 +253,4 @@ Each was on the author guidance list with a default that follows the decision hi
 - 2026-11-15 (owner away; hierarchy): non-uniform Scale body (Scaling choice, Uniform by default; X, Y, Z factors in world axes about the same center) is typed only, with no drag handle.
 - 2026-11-15 (owner away; hierarchy): the first hole after an import uses the same one-body-at-a-time cut as later holes: a surface body on a solid stays separate, the body list keeps its order, ids and names are unchanged; on the enclosure it removes exactly the material inside the bore, which the old whole-model cut did not.
 - 2026-11-15 (owner away; hierarchy): after a bore that removes whole bodies, untouched bodies keep their ids (the import merge memory is found by body, not position).
+- 2026-11-15 (owner away; hierarchy): the parameters panel toggles with Shift+T (the tool drawer is T; P is projection, other letters are taken by tools or sketch keys).
