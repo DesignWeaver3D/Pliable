@@ -1,4 +1,4 @@
-import math
+﻿import math
 
 import pytest
 
@@ -197,3 +197,18 @@ def test_center_between_finds_the_opposite_face_from_one_pick():
     with pytest.raises(Exception):
         up = next(i for i in range(one.face_count) if measure(one, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0])
         run("center_between", one, faces=[wall, up])  # the hole runs along that face's normal
+
+
+def test_arrays_copy_a_boss():
+    block = Topology(load_demo("block"))
+    one = Topology(run("add_cylinder", block, diameter=6, height=5, x=10, y=0, z=10).shape)
+    (wall,) = faces_where(one, "Cylinder", Radius=3)
+    boss = math.pi * 9 * 5
+    base = volume(one.shape)
+    linear = run("linear_array", one, faces=[wall], count=2, rows=1, dx=-14)
+    assert volume(linear.shape) - base == pytest.approx(boss, rel=1e-6)
+    circular = run("circular_array", one, faces=[wall], count=3, axis=2, angle=360)
+    assert volume(circular.shape) - base == pytest.approx(2 * boss, rel=1e-6)
+    concentric = run("concentric_array", one, faces=[wall], count=3, rings=1, spacing=0, grow=0, axis=2, axis_edge=-1)
+    assert volume(concentric.shape) - base == pytest.approx(2 * boss, rel=1e-6)
+    assert len(faces_where(Topology(circular.shape), "Cylinder", Radius=3)) == 3

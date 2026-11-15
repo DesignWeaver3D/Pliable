@@ -1,4 +1,4 @@
-"""Arrays of a hole copy the whole hole: its counterbore, countersink and thread, so each copy is a full hole with the same parameters."""
+﻿"""Arrays of a hole copy the whole hole: its counterbore, countersink and thread, so each copy is a full hole with the same parameters."""
 
 import pytest
 
@@ -72,3 +72,39 @@ def test_circular_array_copies_the_whole_hole(kind):
     single = volume(block.shape) - volume(holed.shape)
     result = run("circular_array", holed, faces=[a_wall(holed)], count=3, axis=2, angle=360)
     assert volume(block.shape) - volume(Topology(result.shape).shape) == pytest.approx(3 * single, rel=1e-6)
+
+
+def test_concentric_array_copies_the_whole_hole():
+    block, holed = one_hole(offset_u=8, **KINDS["all"])
+    single = volume(block.shape) - volume(holed.shape)
+    result = run("concentric_array", holed, faces=[a_wall(holed)], count=3, rings=1, spacing=0, grow=0, axis=2, axis_edge=-1)
+    after = Topology(result.shape)
+    assert volume(block.shape) - volume(after.shape) == pytest.approx(3 * single, rel=1e-6)
+    holes = list(holes_of(after).values())
+    assert len(holes) == 3
+    same_hole(holes[0], holes[1])
+    same_hole(holes[0], holes[2])
+
+
+def path_edge_along_x(topology):
+    """An edge of the separate 15 mm box (beside the block) whose path runs along +X, a short path so the one copy lands inside the block."""
+    from OCP.BRepAdaptor import BRepAdaptor_CompCurve
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeWire
+
+    for i in range(topology.edge_count):
+        curve = BRepAdaptor_CompCurve(BRepBuilderAPI_MakeWire(topology.edge(i)).Wire())
+        start, end = curve.Value(curve.FirstParameter()), curve.Value(curve.LastParameter())
+        if start.X() > 40 and end.X() - start.X() == pytest.approx(15):
+            return i
+    raise AssertionError("no path edge")
+
+
+def test_path_array_copies_the_whole_hole():
+    block, holed = one_hole(offset_u=-8, **KINDS["all"])
+    single = volume(block.shape) - volume(holed.shape)
+    both = Topology(run("add_box", holed, width=15, depth=10, height=10, x=50, y=0, z=0).shape)
+    edge = path_edge_along_x(both)
+    result = run("path_array", both, faces=[a_wall(both)], edges=[edge], count=2)
+    after = Topology(result.shape)
+    assert volume(both.shape) - volume(after.shape) == pytest.approx(single, rel=1e-6)
+    assert len(holes_of(after)) == 2
