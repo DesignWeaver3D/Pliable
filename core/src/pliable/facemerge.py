@@ -7,12 +7,12 @@ through every stage, so a selection survives the merge.
 
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
 from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
-from OCP.TopAbs import TopAbs_COMPOUND, TopAbs_SOLID
+from OCP.TopAbs import TopAbs_COMPOUND, TopAbs_SHELL, TopAbs_SOLID
 from OCP.TopoDS import TopoDS_Iterator
 
 from .mergelimits import MERGE_ANGLE
-from .ops import OperationError, OpResult, _follow
-from .samesurface import _compound_of, _solid_list, merge_same_surface
+from .ops import OperationError, OpResult, _follow, is_surface, solids_of
+from .samesurface import _compound_of, merge_same_surface
 from .validity import is_valid
 
 
@@ -44,7 +44,7 @@ def merge_faces(result: OpResult, same_surface: bool = True, changed: frozenset 
         found = _kernel_merge(result)
     merged, tracked, edges, vertices = found
     if same_surface:
-        again = merge_same_surface(merged, changed if changed is not None and _solid_count(merged) == _solid_count(result.shape) else None)  # faces of one surface the kernel left split (samesurface.py)
+        again = merge_same_surface(merged, _solid_positions(result.shape, merged, changed))  # faces of one surface the kernel left split (samesurface.py)
         if again is not None:
             merged, tracked, edges, vertices = again.shape, again.follow(tracked), again.follow(edges), again.follow(vertices)
     return OpResult(merged, tracked, edges, vertices, unified=True)
@@ -69,13 +69,13 @@ def _unified_in_parts(result: OpResult, changed: frozenset):
     of the others (merged already, see mergescope.py) are what this saves."""
     if result.tracked_faces or result.tracked_edges or result.tracked_vertices:
         return None
-    solids = _solid_list(result.shape)
+    solids = solids_of(result.shape)  # the bodies: solids, and surface bodies (shells held by no solid)
     if not all(0 <= i < len(solids) for i in changed) or not _flat(result.shape, len(solids)):
         return None
     order = sorted(changed)
     inner = _kernel_merge(OpResult(_compound_of([solids[i] for i in order]), []))[0]
-    made = _solid_list(inner)
-    if len(made) != len(order):
+    made = solids_of(inner)
+    if len(made) != len(order) or any(is_surface(a) != is_surface(solids[i]) for a, i in zip(made, order)):
         return None
     for i, solid in zip(order, made):
         solids[i] = solid
@@ -83,21 +83,33 @@ def _unified_in_parts(result: OpResult, changed: frozenset):
 
 
 def _flat(shape, solid_count: int) -> bool:
-    """Whether `shape` is a compound whose direct members are all solids."""
+    """Whether `shape` is a compound whose direct members are all bodies: solids or shells."""
     if shape.ShapeType() != TopAbs_COMPOUND:
         return False
     members = TopoDS_Iterator(shape)
     seen = 0
     while members.More():
-        if members.Value().ShapeType() != TopAbs_SOLID:
+        if members.Value().ShapeType() not in (TopAbs_SOLID, TopAbs_SHELL):
             return False
         seen += 1
         members.Next()
     return seen == solid_count
 
 
-def _solid_count(shape) -> int:
-    return len(_solid_list(shape))
+def _solid_positions(before, after, changed: frozenset | None) -> frozenset | None:
+    """`changed` (positions among the bodies of `before`) as positions among the solids only, the numbering of
+    `merge_same_surface`; None when `changed` is None or the merge changed the bodies' count or kinds."""
+    if changed is None:
+        return None
+    bodies, now = solids_of(before), solids_of(after)
+    if len(bodies) != len(now) or any(is_surface(a) != is_surface(b) for a, b in zip(bodies, now)):
+        return None
+    numbers, count = {}, 0
+    for i, body in enumerate(bodies):
+        if not is_surface(body):
+            numbers[i] = count
+            count += 1
+    return frozenset(numbers[i] for i in changed if i in numbers)
 
 
 def _unified_none(result: OpResult):

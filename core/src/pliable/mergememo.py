@@ -12,8 +12,8 @@ from OCP.Bnd import Bnd_Box
 from OCP.BRepBndLib import BRepBndLib
 
 from .bodydisplay import body_ranges
-from .ops import OpResult, solids_of
-from .samesurface import _compound_of, _solid_list
+from .ops import OpResult, is_surface, solids_of
+from .samesurface import _compound_of
 
 BOX_TOLERANCE = 1e-4  # relative to the size of the model: an unmoved body comes out of the merge where it went in
 
@@ -39,13 +39,13 @@ def merge_remembering(topology, placed, moved, merge) -> OpResult:
     if memo is not None:
         kept = {i: out for i, (inside, out) in memo.items() if i not in moved and i < count and solids[i].IsSame(inside)}
         if len(kept) == count - len(chosen):
-            made = _solid_list(merge(_compound_of([solids[i] for i in chosen])).shape)
-            if len(made) == len(chosen):
+            made = solids_of(merge(_compound_of([solids[i] for i in chosen])).shape)
+            if len(made) == len(chosen) and all(is_surface(a) == is_surface(solids[i]) for a, i in zip(made, chosen)):
                 parts = dict(zip(chosen, made))
                 return OpResult(_compound_of([kept[i] if i in kept else parts[i] for i in range(count)]), [], unified=True)
     result = merge(placed)
-    out = _solid_list(result.shape)
-    if len(out) == count and body_ranges(topology, solids_of(topology.shape)) is not None:
+    out = solids_of(result.shape)
+    if len(out) == count and all(is_surface(a) == is_surface(b) for a, b in zip(out, solids)) and body_ranges(topology, solids_of(topology.shape)) is not None:
         diagonal = max((abs(a - b) for a, b in zip(_box(placed)[3:], _box(placed)[:3])), default=1.0) or 1.0
         topology.merge_memo = {i: (solids[i], out[i]) for i in range(count) if i not in moved and _same_place(solids[i], out[i], diagonal * BOX_TOLERANCE)}
     return result
