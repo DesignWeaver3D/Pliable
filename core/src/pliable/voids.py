@@ -10,12 +10,14 @@ of one cylinder, so the tool refuses voids that `find_hole` accepts."""
 from dataclasses import dataclass, field
 
 from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
+from OCP.BRepBndLib import BRepBndLib
 from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeWire, BRepBuilderAPI_Transform
 from OCP.BRepClass import BRepClass_FaceClassifier
 from OCP.BRepClass3d import BRepClass3d_SolidClassifier
 from OCP.BRepOffsetAPI import BRepOffsetAPI_MakeOffset
 from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
 from OCP.BRepTools import BRepTools
+from OCP.Bnd import Bnd_Box
 from OCP.GeomAbs import GeomAbs_Arc, GeomAbs_Cylinder, GeomAbs_Line, GeomAbs_Plane
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_IN, TopAbs_REVERSED, TopAbs_WIRE
 from OCP.TopExp import TopExp_Explorer
@@ -27,6 +29,7 @@ from .ops import MIN_DISTANCE, OperationError, solids_of
 from .subshapes import edges_of as _edges, vertex_points as _vertices
 
 TOL = 1e-5
+BOX_MARGIN = 0.5  # model units added to a solid's bounding box before a point is judged outside it (the box comes from a triangulation)
 NOT_A_VOID = "That is not a straight-walled cut (square, slot or similar) that goes through or ends at a flat floor"
 
 
@@ -260,6 +263,11 @@ def _try_axis(topology, face_id, seed, axis: gp_Dir, reach: bool):
     # ... and it must be empty space all the way along, which a wrong axis through solid material is not.
     middle = probe.Translated(gp_Vec(d).Multiplied((far_s - entry_s) / 2))
     for solid in solids_of(topology.shape):
+        box = Bnd_Box()
+        BRepBndLib.Add_s(solid, box)
+        box.Enlarge(BOX_MARGIN)
+        if box.IsOut(middle):  # a point outside the solid's box is not inside it, and the classifier is slow on a detailed solid
+            continue
         inside = BRepClass3d_SolidClassifier(solid, middle, 1e-6)
         if inside.State() == TopAbs_IN:
             return None
