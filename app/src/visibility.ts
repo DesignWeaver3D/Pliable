@@ -14,22 +14,32 @@ const isHidden = (hidden: ReadonlySet<number>, body: number | null | undefined) 
 
 export function filterHidden(mesh: MeshData, hidden: ReadonlySet<number>): MeshData {
   if (hidden.size === 0) return mesh;
-  const indices: number[] = [];
+  // Typed arrays sized first: a long model is copied in a few block moves, not pushed number by number.
+  const visibleFaces = mesh.faces.filter((f) => !isHidden(hidden, f.body));
+  const indices = new Uint32Array(visibleFaces.reduce((n, f) => n + f.count, 0));
+  let at = 0;
   const faces = mesh.faces.map((f) => {
-    const start = indices.length;
-    if (!isHidden(hidden, f.body)) for (let i = f.start; i < f.start + f.count; i++) indices.push(mesh.indices[i]);
-    return { ...f, start, count: indices.length - start };
+    const start = at;
+    if (!isHidden(hidden, f.body)) {
+      indices.set(mesh.indices.subarray(f.start, f.start + f.count), at);
+      at += f.count;
+    }
+    return { ...f, start, count: at - start };
   });
-  const positions: number[] = [];
+  const positions = new Float32Array(mesh.edges.reduce((n, e) => n + (isHidden(hidden, e.body) ? 0 : e.count * 3), 0));
+  let pointAt = 0;
   const edges = mesh.edges.map((e) => {
-    const start = positions.length / 3;
-    if (!isHidden(hidden, e.body)) for (let i = e.start * 3; i < (e.start + e.count) * 3; i++) positions.push(mesh.edgePositions[i]);
-    return { ...e, start, count: positions.length / 3 - start };
+    const start = pointAt / 3;
+    if (!isHidden(hidden, e.body)) {
+      positions.set(mesh.edgePositions.subarray(e.start * 3, (e.start + e.count) * 3), pointAt);
+      pointAt += e.count * 3;
+    }
+    return { ...e, start, count: pointAt / 3 - start };
   });
   return {
     ...mesh,
-    indices: new Uint32Array(indices),
-    edgePositions: new Float32Array(positions),
+    indices,
+    edgePositions: positions,
     faces,
     edges,
     vertices: mesh.vertices.filter((v) => !isHidden(hidden, v.body)),
