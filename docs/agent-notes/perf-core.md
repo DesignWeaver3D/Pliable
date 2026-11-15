@@ -22,4 +22,4 @@ through bore from a face of the middle-sized body; `DUMP=file` saves ids/face co
   merge (adds about 4-5 s to the wait after import) - not done.
 
 ## Resume point
-Waiting for the owner's answer on the ids question (see report). If yes: apply the patch, run full tests, commit, add watchlist entry.
+Applied (owner agreed): untouched bodies keep their ids. Bore 16.4 s to 9.1 s.

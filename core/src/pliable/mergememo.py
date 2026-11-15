@@ -37,7 +37,7 @@ def merge_remembering(topology, placed, moved, merge) -> OpResult:
         return merge(placed)
     memo = getattr(topology, "merge_memo", None)
     if memo is not None:
-        kept = {i: out for i, (inside, out) in memo.items() if i not in moved and i < count and solids[i].IsSame(inside)}
+        kept = _kept(memo, solids, moved)
         if len(kept) == count - len(chosen):
             made = solids_of(merge(_compound_of([solids[i] for i in chosen])).shape)
             if len(made) == len(chosen) and all(is_surface(a) == is_surface(solids[i]) for a, i in zip(made, chosen)):
@@ -49,6 +49,21 @@ def merge_remembering(topology, placed, moved, merge) -> OpResult:
         diagonal = max((abs(a - b) for a, b in zip(_box(placed)[3:], _box(placed)[:3])), default=1.0) or 1.0
         topology.merge_memo = {i: (solids[i], out[i]) for i in range(count) if i not in moved and _same_place(solids[i], out[i], diagonal * BOX_TOLERANCE)}
     return result
+
+
+def _kept(memo, solids, moved) -> dict:
+    """The merged form of each unmoved body of `solids`, found by the body itself (IsSame) in the memory: an operation that removed
+    or split bodies has moved the later ones to other positions than the memory's."""
+    by_hash: dict = {}
+    for inside, out in memo.values():
+        by_hash.setdefault(hash(inside), []).append((inside, out))
+    kept = {}
+    for i, solid in enumerate(solids):
+        if i not in moved:
+            hit = next((out for inside, out in by_hash.get(hash(solid), ()) if inside.IsSame(solid)), None)
+            if hit is not None:
+                kept[i] = hit
+    return kept
 
 
 def _same_place(a, b, tolerance: float) -> bool:
