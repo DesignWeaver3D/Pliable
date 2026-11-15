@@ -153,3 +153,34 @@ def test_a_move_flags_the_model_only_when_the_merge_settled():
         if result.merged:
             break
     assert result.merged
+
+
+def test_a_move_that_finds_the_model_merged_lets_the_next_one_merge_only_its_bodies():
+    topology = Topology(merged_model(compound([box(0), box(30), box(60), box(90)])))
+    topology.merged = False  # as after an import: merged in fact, not yet known to be
+    moved(topology, False, body=1)
+    assert topology.merged  # a preview counts: nothing was merged, so the model it started from is settled
+    assert changed_solids(topology, {1}) == frozenset({1})
+    unmerged = Topology(compound([box(0), split_cavity(30), box(60)]))
+    moved(unmerged, False, body=0)
+    assert not unmerged.merged  # the merge changed the other body, so nothing is known
+
+
+def test_a_second_move_of_an_unmerged_model_reuses_the_merge_of_the_other_bodies():
+    shape = compound([box(0), split_cavity(30), box(60), split_cavity(100)])
+    topology = Topology(shape)
+    first = moved(topology, False, body=0, dx=3.0)
+    assert set(topology.merge_memo) == {1, 2, 3}  # what the whole merge made of the bodies that did not move
+    kept = [out for _, out in topology.merge_memo.values()]
+    again = moved(topology, False, body=0, dx=5.0)
+    whole = moved(Topology(shape), False, body=0, dx=5.0)
+    def sorted_fingerprint(shape):  # the kernel numbers the faces of the moved body in its own order; the contents are what must agree
+        count_f, count_e, count_v, faces, edges, vertices, solid_count = fingerprint(shape)
+        return count_f, count_e, count_v, sorted(faces), sorted(edges), sorted(vertices), solid_count
+
+    assert sorted_fingerprint(again.shape) == sorted_fingerprint(whole.shape)
+    assert all(any(out.IsSame(s) for s in solids_of(again.shape)) for out in kept)  # taken from the memory, not merged again
+    assert spheres(again.shape) == spheres(whole.shape) < spheres(shape)
+    other = moved(topology, False, body=2, dx=5.0)  # a different body moves: the memory does not fit, the whole model is merged
+    assert sorted_fingerprint(other.shape) == sorted_fingerprint(moved(Topology(shape), False, body=2, dx=5.0).shape)
+    assert first.shape is not None
