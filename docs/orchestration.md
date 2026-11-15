@@ -42,6 +42,14 @@ Name the worktree and branch, then require, in this order:
 - **Orchestrator:** no re-tests for a single clean agent merge (only when several concurrent branches are merged or a code conflict was resolved); no re-reading of agent transcripts; reports stay under 150 words.
 - **Model:** agents run on the cheaper model (sonnet); research agents use the researcher definition.
 
+## Applying lessons across the app (owner request 2026-11-15)
+
+Agents work on narrow scopes; carrying a lesson to the rest of the app is the orchestrator's job. Owner: "we need to ensure that efficiency lessons learned are applied throughout and not just laser focused on the tool that was tested during development."
+
+- After each report, ask which other tools and code paths share the fixed pattern (a whole-model pass, a slow boolean, a copy, a missing cache, a correctness check). Grep for it.
+- Give the next agent the full list, with a per-tool check: the timing on the measured model and, for correctness lessons, the same check that found the bug.
+- Record in the plan which tools have the lesson applied and which do not, so no tool is silently left on the old path.
+
 ## Agents asking the orchestrator (owner request 2026-11-14)
 
 An agent cannot ask a question and keep running: it ends its run with the question, and the orchestrator answers with SendMessage, which resumes it with its context. So an agent that can ask counts as attended, with the orchestrator standing in for the owner.
