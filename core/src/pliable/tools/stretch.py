@@ -248,7 +248,7 @@ class Stretch(Tool):
         here = pivot_point(values, centre) + values["dx"] * axes[0] + values["dy"] * axes[1] + values["dz"] * axes[2]
         out = move_and_tilt_handles(axes, here, reach, values)
         if made is not None and int(round(values.get("mode", 0))) == 0:
-            out.append(band_handle(made, [topology.face_id(made.body.faces[f]) for f in sorted(made.zones.rubber)]))
+            out.append(band_handle(made, [topology.face_id(made.body.faces[f]) for f in sorted(made.zones.rubber)], rigid_move(values, axes, pivot_point(values, centre))))
         return out
 
     def run(self, topology, selection, values, preview):

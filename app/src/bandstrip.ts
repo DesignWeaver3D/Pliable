@@ -6,10 +6,13 @@ import type { HandleInfo } from "./tools.ts";
 export type Strip = NonNullable<HandleInfo["strip"]>;
 
 /** The two clipping planes that keep what lies between the strip's start and its far end (a point is kept when it is on the positive side of both). */
-export function stripPlanes(strip: Pick<Strip, "origin" | "direction" | "length">): [THREE.Plane, THREE.Plane] {
+export function stripPlanes(strip: Pick<Strip, "origin" | "direction" | "length" | "moved">): [THREE.Plane, THREE.Plane] {
   const along = new THREE.Vector3(...strip.direction).normalize();
   const start = new THREE.Vector3(...strip.origin);
-  const first = new THREE.Plane(along.clone(), -along.dot(start));
+  // While the protected end is moved, the near plane goes with it; the far plane stays where the band starts.
+  const first = strip.moved
+    ? new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(...strip.moved[1]).normalize(), new THREE.Vector3(...strip.moved[0]))
+    : new THREE.Plane(along.clone(), -along.dot(start));
   const last = new THREE.Plane(along.clone().negate(), along.dot(start) + strip.length);
   return [first, last];
 }

@@ -5,6 +5,7 @@ import math
 import numpy as np
 
 from ..tools.base import Handle
+from .field import Move
 from .solve import Plan
 
 AXIS_NAMES = "XYZ"
@@ -26,9 +27,10 @@ def move_and_tilt_handles(axes: np.ndarray, here: np.ndarray, reach: float, valu
     return out
 
 
-def band_handle(made: Plan, face_ids: list) -> Handle:
+def band_handle(made: Plan, face_ids: list, move: Move | None = None) -> Handle:
     """The slider at the band's end: dragged along the band it sets the band's length; `rest` is the Auto length it
-    snaps back to, and `strip` tells the view which part of which faces to shade as the region that deforms."""
+    snaps back to, and `strip` tells the view which part of which faces to shade as the region that deforms. With the
+    `move` being made, the strip's protected end is where that end now lies (the shaded part is on the moved solid)."""
     body, band = made.body, made.band
     rubber_vertices = sorted(v for f in made.zones.rubber for v in body.face_vertices[f] if v in made.zones.protected_vertices)
     corner = body.point(rubber_vertices[0])
@@ -36,6 +38,9 @@ def band_handle(made: Plan, face_ids: list) -> Handle:
     length = band.end - made.start
     anchor = top - length * band.direction
     strip = (tuple(map(float, top)), tuple(map(float, -band.direction)), float(length), tuple(face_ids))
+    if move is not None and not move.still:
+        there = move.apply(np.array([top, top - band.direction]))
+        strip += ((tuple(map(float, there[0])), tuple(map(float, there[1] - there[0]))),)
     return Handle("band", "Band length", tuple(map(float, anchor)), tuple(map(float, -band.direction)), kind="resize", min=0.0, max=float(band.end - band.limit), shown=float(length), rest=float(band.end - band.auto_start), strip=strip)
 
 
