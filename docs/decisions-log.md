@@ -248,3 +248,4 @@ Each was on the author guidance list with a default that follows the decision hi
 - 2026-11-14 (owner away; hierarchy): the face merge memory is carried over a commit only when the model was already marked merged before it; measured over 20 commits a full merge changed nothing in that case.
 - 2026-11-14 (owner away; hierarchy): a box selection mixing faces, edges and vertices shows no measurement and logs nothing as a failure (measuring tools in solid modelers measure one kind or show nothing).
 - 2026-11-14 (owner away; hierarchy): an imported closed solid still reversed after the repair is re-oriented on import (standard healing), and the import note names any it cannot fix.
+- 2026-11-15 (owner away; hierarchy): the typed-arc preview follows the same direction rule as the committed arc, so what is shown is what is made.
