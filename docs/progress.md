@@ -19,7 +19,7 @@ Tool group CORE:
   - [x] Dock shell: new `sidepanel.ts` and a `--dock-w` variable (0 when hidden); viewport, nav cube group, hint line and top strip offset by it; drawer handle with remembered hidden state; adjustable width with a minimum and maximum; placeholder hint; a header slot for the selection readout.
   - [x] Push/Pull moves in (Apply with nothing pending dimmed, an empty click shows the hint); its card is deleted.
   - [x] Hole Editor moves in; its card is deleted.
-  - [ ] Measure card becomes a collapsible section at the bottom of the dock; `#measure.aside` goes.
+  - [x] Measure card becomes a collapsible section at the bottom of the dock; `#measure.aside` goes.
   - [x] Tool forms move in through the one mount point in `ToolPanel`; per tool, check which parameters are already gizmos and keep only the nuanced ones in the dock.
   - [ ] Sketch card moves in; `#sketchpanel` goes.
   - [ ] Message line split (child row below) and selection labels (child row below).

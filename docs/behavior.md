@@ -173,7 +173,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - The Tools handle sits on the left edge of the 3D view.
 - The names of the selected objects (a model selection, or in a sketch the points and curves by kind and count) are printed bottom right, between the sketch group and the measurement card, and follow the card as it grows. (owner, 2026-10-27)
 - Tool forms (including the Hole Editor) show in the parameters panel on the right, one at a time, in the place of the Push/Pull card; they no longer float. (owner, 2026-11-15)
-- The measurement card starts collapsed and sits bottom right. 
+- The measurement card is the last section at the bottom of the parameters panel; it starts collapsed. (owner, 2026-11-15) 
 - Dark theme only for now.
 - When faces, edges or vertices are selected and the view is right-clicked without dragging, a menu offers "Select parent bodies" (the owning bodies replace the selection); with a single face or edge, the Select similar choices come first. (Provisional.)
 - A resize grip (cube) sits on its anchor with its stem running inward toward the solid; only the cube is grabbable. A move arrow is grabbed only by its arrowhead, not its line.

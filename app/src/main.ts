@@ -54,7 +54,6 @@ import { interaction } from "./interactionlogic.ts";
 import { createWaitingTool, waitingHint } from "./toolwaiting.ts";
 import { bodiesOf } from "./visibility.ts";
 import { createSelection } from "./selection.ts";
-import { followMeasureCard } from "./selectedreadout.ts";
 import { SidePanel } from "./sidepanel.ts";
 import { createModelView } from "./modelview.ts";
 import { createItemDrag } from "./itemdrag.ts";
@@ -72,7 +71,6 @@ new MutationObserver(() => {
   if (status.classList.contains("warn") && status.textContent !== warnedText) status.classList.remove("warn");
 }).observe(status, { childList: true, characterData: true, subtree: true });
 const selected = $("selected");
-followMeasureCard(selected, $("measure"));
 const DEV = new URLSearchParams(location.search).has("dev"); // ?dev=1 shows triangle counts and timings
 const latency = $("latency");
 if (!DEV) latency.hidden = true;

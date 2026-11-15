@@ -239,7 +239,7 @@
       #chips button { background: #2a2d34; color: #aaa; border: 1px solid #555; border-radius: 12px; padding: 2px 10px; font-size: 12px; }
       #chips button.all { border-style: dashed; }
       #chips button.on { color: #ffb878; border-color: #ff8a1f; }
-      #measure { position: fixed; right: calc(var(--dock-w) + 12px); bottom: 8px; z-index: 1; min-width: 190px; max-height: 60vh; overflow-y: auto; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 4px 0; font-variant-numeric: tabular-nums; }
+      #measure { flex: none; max-height: 40vh; overflow-y: auto; border-top: 1px solid #3a3e47; padding: 4px 0; font-variant-numeric: tabular-nums; } /* the last section of the parameters panel */
       #measure[hidden] { display: none; }
       #measure .title { padding: 4px 10px 2px; color: #ffb878; font-weight: 600; cursor: pointer; }
       #measure .title::after { content: " \25B8"; color: #8a8f98; }
@@ -357,13 +357,13 @@
         <div id="ppcard" hidden></div>
         <div id="toolform" hidden></div>
       </div>
+      <div id="measure" hidden></div>
     </aside>
     <button id="dockbtn" type="button" aria-label="Parameters" aria-expanded="true" aria-controls="dock"></button>
     <div id="sketchbar"></div>
     <div id="selected" title="What is selected"></div>
     <div id="sketchpanel" hidden></div>
     <div id="sectioncard" hidden></div>
-    <div id="measure" hidden></div>
     <div id="dim" hidden></div>
     <div id="palette" hidden>
       <div id="palette-box">
