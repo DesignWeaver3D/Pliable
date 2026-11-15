@@ -25,9 +25,9 @@ test("one hole and a new hole are one form, several holes keep their sections", 
 
 test("Fill follows the pick; the several-hole sections are as they were", () => {
   const ids = (pick) => sectionsFor("hole", 1, pick).map((s) => s.tool);
-  assert.deepEqual(ids("other"), ["hole_features"]);
-  assert.deepEqual(ids("cylinder"), ["hole_features", "fill_hole"]);
-  assert.deepEqual(ids("wall"), ["hole_features", "fill_hole"]);
+  assert.deepEqual(ids("other"), ["hole_features", "hole_to_slot"]);
+  assert.deepEqual(ids("cylinder"), ["hole_features", "fill_hole", "hole_to_slot"]);
+  assert.deepEqual(ids("wall"), ["hole_features", "fill_hole", "hole_to_slot"]);
   assert.deepEqual(sectionsFor("holes", 2).map((s) => s.tool), ["resize_hole", "move_hole", "align_holes", "fill_hole"]);
   assert.deepEqual(sectionsFor("holes", 4).map((s) => s.tool), ["resize_hole", "move_hole", "align_holes", "distribute_holes", "fill_hole"]);
 });
