@@ -51,8 +51,6 @@ Tool group CORE:
   - [ ] A typed 180 degree arc: the committed arc (`sketchtypeddims.ts` about 97-99) goes clockwise and takes the pointer's side above 180, while the preview (`sketchpreview.ts`) always goes counterclockwise. Decided (hierarchy): the preview follows the committed rule so what is shown is what is made; test.
   - [ ] A zero turn is a zero-length arc in `arcBetween` but a full circle in `positiveSweep`; check which tools reach each with a zero turn and make them agree with each tool's own tests.
 - **Next work from the roadmap and research (added 2026-11-15, unattended; not asked for).** The open rows above all wait on the owner, so these come from ROADMAP.md and `docs/research/` (pull-move workflows, workflow comparison, holes scope, sketcher parity). Related items checked: none in Parked or Ideas. Each is checked against `docs/behavior.md` before building.
-  - [ ] Non-uniform scale of a body (separate X, Y, Z factors; `tools/scale_body.py` takes one factor today).
-  - [ ] Copy while pushing or pulling: a toggle that leaves the original face's body and makes the pushed result a new body.
   - [ ] Extrude an edge into a surface (a surface body from a model edge along a direction).
   - [ ] Stretch a round hole into a slot from the Hole Editor.
   - [ ] Sketch: join connected curves into one.

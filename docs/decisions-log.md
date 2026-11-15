@@ -250,3 +250,5 @@ Each was on the author guidance list with a default that follows the decision hi
 - 2026-11-14 (owner away; hierarchy): an imported closed solid still reversed after the repair is re-oriented on import (standard healing), and the import note names any it cannot fix.
 - 2026-11-15 (owner away; hierarchy): the typed-arc preview follows the same direction rule as the committed arc, so what is shown is what is made.
 - 2026-11-15 (owner away; hierarchy): exact .3dm export is not built by reverse-engineering the B-rep archive format; .3dm export stays meshes until a library can write B-reps.
+- 2026-11-15 (owner away; hierarchy): Push/Pull Copy (off by default) leaves the owning body unchanged and adds the result as a new body; with Copy on, "Other bodies" does not merge into or cut other bodies.
+- 2026-11-15 (owner away; hierarchy): non-uniform Scale body (Scaling choice, Uniform by default; X, Y, Z factors in world axes about the same center) is typed only, with no drag handle.
