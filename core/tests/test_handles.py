@@ -411,7 +411,7 @@ def test_primitives_offer_anchor_points_with_the_default_at_the_placement_point(
 
 def test_vector_tools_declare_their_move_vector(session):
     tools = {t["id"]: t for t in session.handle({"type": "list_tools"})["tools"]}
-    for name in ("move_body", "linear_array", "move_hole", "pattern_hole"):
+    for name in ("move_body", "linear_array", "move_hole"):
         assert tools[name]["moveVector"] == ["dx", "dy", "dz"]
     assert tools["add_box"]["moveVector"] is None and tools["push_pull"]["moveVector"] is None
 

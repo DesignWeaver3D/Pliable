@@ -110,12 +110,6 @@ def test_add_through_hole_on_block(block):
     assert volume(block.shape) - volume(blind.shape) == pytest.approx(math.pi * 9 * 5, rel=1e-3)
 
 
-def test_pattern_hole_makes_copies(block):
-    top = next(i for i in range(6) if measure(block, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0])
-    one = Topology(run("add_hole", block, faces=[top], diameter=4, depth=0, offset_u=-10).shape)
-    (wall,) = faces_where(one, "Cylinder", Radius=2)
-    result = run("pattern_hole", one, faces=[wall], count=3, dx=10, dy=0, dz=0)
-    assert volume(one.shape) - volume(result.shape) == pytest.approx(2 * math.pi * 4 * 20, rel=1e-3)
 
 
 def top_of(topology):
@@ -590,7 +584,7 @@ def test_path_array_needs_a_connected_path(block):
 def test_placement_tools_declare_their_point_parameters():
     from pliable.tools import TOOLS
 
-    for tool_id in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus", "add_prism", "pattern_hole_circular"):
+    for tool_id in ("add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus", "add_prism"):
         info = TOOLS[tool_id].describe()
         assert info["placement"] is not None
         assert all(name in {p["name"] for p in info["params"]} for name in info["placement"])

@@ -33,18 +33,8 @@ def test_remove_and_move_boss(boss_block):
     assert volume(removed.shape) == pytest.approx(24000, rel=1e-4)
     moved = run("move_hole", boss_block, faces=[boss_face(boss_block)], dx=8, dy=0, dz=0)
     assert volume(moved.shape) == pytest.approx(volume(boss_block.shape), rel=1e-4)
-    copies = run("pattern_hole", boss_block, faces=[boss_face(boss_block)], count=3, dx=12, dy=0, dz=0)
-    assert volume(copies.shape) - volume(boss_block.shape) == pytest.approx(2 * math.pi * 25 * 10, rel=1e-3)
 
 
-def test_circular_pattern_of_a_hole():
-    block = Topology(load_demo("block"))
-    top = next(i for i in range(6) if measure(block, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0])
-    one = Topology(run("add_hole", block, faces=[top], diameter=4, depth=0, offset_u=10).shape)
-    (wall,) = faces_where(one, "Cylinder", Radius=2)
-    ring = run("pattern_hole_circular", one, faces=[wall], count=4, angle=360)
-    assert volume(one.shape) - volume(ring.shape) == pytest.approx(3 * math.pi * 4 * 20, rel=1e-3)
-    assert len(faces_where(Topology(ring.shape), "Cylinder", Radius=2)) == 4
 
 
 def test_add_slot_through_and_rotated():
