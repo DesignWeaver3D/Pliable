@@ -63,3 +63,5 @@ from . import edit_void  # noqa: F401
 from . import convert_to_countersink  # noqa: F401
 from . import convert_to_counterbore  # noqa: F401
 from . import stretch  # noqa: F401
+from . import extrude_edge  # noqa: F401
+from . import hole_to_slot  # noqa: F401

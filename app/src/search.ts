@@ -127,6 +127,7 @@ const TOOL_WORDS: [RegExp, string[]][] = [
   [/^unify$/, ["unify", "refine", "merge faces", "coplanar", "simplify"]],
   [/^patch_fill$/, ["patch fill", "patch_fill", "fill gap", "cap", "close gap", "surface"]],
   [/^bridge$/, ["bridge", "bridge edges", "join edges", "ruled surface"]],
+  [/^extrude_edge$/, ["extrude edge", "edge to surface", "sweep edge", "surface from edge", "extrude curve"]],
   [/^concentric_array$/, ["concentric array", "concentric circles", "rings", "radial pattern", "polar", "circular pattern"]],
   [/^path_array$/, ["path array", "array along path", "along edge", "along curve", "path"]],
   [/^center_between$/, ["center between", "centre between", "center hole", "middle", "halfway", "equidistant"]],

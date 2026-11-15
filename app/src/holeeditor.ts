@@ -24,6 +24,7 @@ const MOVE_ALL: HoleSection = { tool: "move_hole", label: "Move", title: "Move e
 const ALIGN: HoleSection = { tool: "align_holes", label: "Align", title: "Line the holes up with the first one you selected along an axis" };
 const DISTRIBUTE: HoleSection = { tool: "distribute_holes", label: "Distribute", title: "Space the holes evenly between the two outermost along an axis" };
 const FILL: HoleSection = { tool: "fill_hole", label: "Fill", title: "Fill the picked round wall with material" };
+const TO_SLOT: HoleSection = { tool: "hole_to_slot", label: "Slot", title: "Stretch this plain round hole into a slot of the same width and depth along a direction" };
 
 /** How the one picked face sits in its hole (the core's `pick`): Fill needs a round wall. */
 export type HolePick = "wall" | "cylinder" | "other";
@@ -31,7 +32,7 @@ export type HolePick = "wall" | "cylinder" | "other";
 /** The sections offered for a selection: a flat face for a new hole (one form), one hole (picked as `pick`: its one form, and Fill when a round wall was picked), or several (`count` holes). */
 export function sectionsFor(kind: HoleKind, count = 1, pick: HolePick = "other"): HoleSection[] {
   if (kind === "new") return [FEATURES];
-  if (kind === "hole") return [FEATURES, ...(pick !== "other" ? [FILL] : [])];
+  if (kind === "hole") return [FEATURES, ...(pick !== "other" ? [FILL] : []), TO_SLOT];
   return count >= 1 ? [SIZE_ALL, MOVE_ALL, ...(count >= 2 ? [ALIGN] : []), ...(count >= 3 ? [DISTRIBUTE] : []), FILL] : [];
 }
 
