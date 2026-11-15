@@ -247,3 +247,4 @@ Each was on the author guidance list with a default that follows the decision hi
 - 2026-11-14 (owner away; hierarchy): the changed-bodies reply (option B) is turned on by default once its tests and the dev comparison against a full reply pass; the owner's check of selection after delete and undo on a many-body model goes to the author guidance instead of blocking it.
 - 2026-11-14 (owner away; hierarchy): the face merge memory is carried over a commit only when the model was already marked merged before it; measured over 20 commits a full merge changed nothing in that case.
 - 2026-11-14 (owner away; hierarchy): a box selection mixing faces, edges and vertices shows no measurement and logs nothing as a failure (measuring tools in solid modelers measure one kind or show nothing).
+- 2026-11-14 (owner away; hierarchy): an imported closed solid still reversed after the repair is re-oriented on import (standard healing), and the import note names any it cannot fix.
