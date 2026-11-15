@@ -47,7 +47,7 @@ export function framePicks(f: FormParts) {
   const pickPivot = button("Pick pivot", "Click a point anywhere on the model: the tilt turns about it (the default is the center of the selected part)", async () => {
     const point = await f.host.pickPoint?.();
     if (!point) return false;
-    point.forEach((v, i) => set(PIVOT_POINT[i], Number(showNumber(v, 4))));
+    point.forEach((v, i) => (inputs[PIVOT_POINT[i]].value = fieldText(showNumber(v, 4))));
     set("pivot", 1);
     return true;
   });

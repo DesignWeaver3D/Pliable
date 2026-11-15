@@ -65,6 +65,9 @@ export class Manipulator {
   /** Called with the new parameter value while a handle is dragged, then once more with phase "end". */
   onDrag: (param: string, value: number, phase: "move" | "end" | "cancel", x: number, y: number, linked: Record<string, number>) => void = () => {};
 
+  /** Called with the band strip the handles carry (null: none) so the view can shade it. */
+  onStrip: (strip: NonNullable<HandleInfo["strip"]> | null) => void = () => {};
+
   /** The color of the push/pull arrow at rest, when something else decides it (Flip turns it red, see pushpullarrows.ts); null: the handle's own color. */
   pushPullRest: number | null = null;
   /** Set while a point is being picked: the handles and their labels are neither drawn nor grabbed (see Viewport.setGizmosHidden). */
@@ -121,14 +124,16 @@ export class Manipulator {
 
   /** The handles now shown; a handle being dragged keeps its own position until the drag ends. */
   setHandles(handles: HandleInfo[]) {
+    this.onStrip(handles.find((h) => h.strip)?.strip ?? null); // the band shading follows even while a handle is dragged
     if (this.active) return;
-    this.clear();
+    this.clear(false);
     for (const info of handles) {
       this.items.push(buildHandle(this, info));
     }
   }
 
-  clear() {
+  clear(strip = true) {
+    if (strip) this.onStrip(null);
     this.active = null;
     this.hot = null;
     for (const item of this.items) {

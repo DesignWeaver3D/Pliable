@@ -57,3 +57,5 @@ Zones, topology kept, local band with Auto, riders in a widened band, recognitio
 ## Status (second session)
 - Main merged (967 core, 540 app tests pass).
 - Stretch card done: `app/src/toolformframe.ts` (Pick face via pickPlane, Pick edge via pickEdgeId, Pick pivot via pickPoint; fx fy fz frame_edge always hidden, fa fb fc only for Free, px py pz only for Picked point) and labels in `toolparamhelp.ts`. Owner to judge by eye: layout of the buttons under Axes and Tilt pivot.
+- Band strip shading done: `app/src/bandstrip.ts` (translucent layer on the rubber faces, clipped by two planes), driven by `Manipulator.onStrip` (also while the slider is dragged). Limitation: it is drawn in the committed (unmoved) coordinates, so during a preview it covers the original band slab, not the stretched one. Owner to judge by eye.
+- App tests 542 pass; tsc and build clean.
