@@ -40,3 +40,18 @@ isolate, see-through body, see-through setting, section clip, box select, slide,
 Visible differences to check by hand: see-through mode draws each body as its own transparent object, sorted by
 distance (before: one object in body order); a surface body's back now moves with the body while it slides (before it
 disappeared until the reply).
+
+## Result and resume point
+
+Bytes uploaded for a one-body change (undo/redo of an added box, 120 other bodies): about 1 KB in 13-18 buffer calls,
+against the whole merged mesh (about 5 MB here) before. The dev log's frame time does not show it on this machine
+(the log's "frame" is dominated by animation-frame pacing: undo/redo of one body 60-90 ms before and 40-70 ms after
+with 81,600 triangles); the enclosure was not available, so its 1 s figure was not re-measured. First hover after a
+change: 13 ms plain test then a 50 ms tree over all triangles before; about 0.2 ms after.
+
+Not converted / left: the join of the merged CPU arrays in `MeshStore.join` (copies every body's arrays on each reply,
+about 11 ms apply at 81,600 triangles); the caps, hatch and overlap of the section view (about 45 ms, over every cut
+body); a mesh from a whole reply rebuilds every body. Not checked in the app: a surface body's back side (unit tests
+only; no surface body was built).
+Hand-check: see-through mode, a surface body's back side, sliding a body with a move handle.
+Resume: nothing half-done. Next candidates are the two items above.
