@@ -1,4 +1,5 @@
 /** The composition root of the app: creates the 3D view, the core client, the panels and the sketch mode, and wires them to one another. New behavior goes in its own module, not here. */
+import { installTimingLog } from "./devtimingpage.ts";
 import { leavePromptDisabled } from "./leaveprompt.ts";
 import * as THREE from "three";
 import { moveHandlesAt } from "./placepick.ts";
@@ -83,7 +84,8 @@ const viewport = new Viewport($("viewport"));
 if (DEV) (window as any).__viewport = viewport; // for timing the view from the console
 const core = new CoreClient();
 core.deltaMesh = true; // replies that carry only the changed bodies (meshframe.ts); dev mode also compares each with a whole reply
-core.compareDeltas = DEV;
+core.compareDeltas = DEV && !new URLSearchParams(location.search).has("nocompare"); // ?nocompare=1 leaves out the extra whole-reply request, which would disturb timings
+if (DEV && import.meta.env.DEV) installTimingLog();
 core.hiddenBodies = () => [...bodyView.hidden];
 core.interactChoice = () => interaction.sent();
 core.onInteract = (report) => interaction.setReport(report);

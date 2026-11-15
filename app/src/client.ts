@@ -1,3 +1,4 @@
+import { perf } from "./devtiming.ts";
 import { ghostOf, type GhostBuffers } from "./ghostbuffers.ts";
 import { compareMeshes, readFrame } from "./meshframe.ts";
 import { MeshStore } from "./meshstore.ts";
@@ -165,6 +166,7 @@ export class CoreClient {
   onMessageArrived: () => void = () => {};
 
   private onMessage(data: string | ArrayBuffer) {
+    const arrivedAt = performance.now(); // dev timing log
     this.onMessageArrived();
     if (typeof data !== "string") {
       const id = this.awaitingBinary;
@@ -175,7 +177,10 @@ export class CoreClient {
         this.repliesSeen++;
         // A plain `full_mesh` is a whole frame for comparing: it leaves what the page holds alone.
         const keep = entry.type === "full_mesh" && !entry.resync;
-        const read = readFrame(data, this.deltaMesh && !keep ? this.store : null);
+        const split = { applyMs: 0 };
+        const readStart = performance.now();
+        const read = readFrame(data, this.deltaMesh && !keep ? this.store : null, split);
+        const readMs = performance.now() - readStart;
         if ("needFull" in read) {
           // The delta did not fit what the page holds (the store is empty now): ask for every body again.
           console.warn(`Delta reply not applied (${read.needFull}); asking for a whole reply`);
@@ -184,6 +189,7 @@ export class CoreClient {
           return;
         }
         const mesh = read.mesh;
+        perf.replied(id, { arrivedAt, decodeMs: readMs - split.applyMs, applyMs: split.applyMs, bytes: data.byteLength, timings: mesh.header?.timings });
         if (INTERACT_REQUESTS.has(entry.type)) this.onInteract(mesh.header?.interact ?? null);
         entry.resolve(mesh);
         this.updateBusy();
@@ -199,6 +205,7 @@ export class CoreClient {
     const entry = this.pending.get(reply.id);
     if (!entry) return;
     this.pending.delete(reply.id);
+    perf.replied(reply.id, { arrivedAt, decodeMs: 0, applyMs: 0, bytes: data.length, timings: reply.timings });
     if (reply.ok && INTERACT_REQUESTS.has(entry.type)) this.onInteract(reply.interact ?? null);
     if (reply.ok) entry.resolve(reply);
     else entry.reject(new Error(reply.error));
@@ -230,6 +237,7 @@ export class CoreClient {
         if (this.deltaMesh) params = { ...params, deltaMesh: true };
       }
       this.socket.send(JSON.stringify({ id, type, ...hidden, ...interact, ...params }));
+      perf.sent(id, type);
     });
   }
 

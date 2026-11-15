@@ -1,5 +1,6 @@
 /** Showing a mesh and committing one as the model: the view, the body list, the history buttons and the status line. Moved out of main.ts. */
 import type { CoreClient, MeshData } from "./client.ts";
+import { perf } from "./devtiming.ts";
 import type { DatumPlane, MirrorMode } from "./datumcorners.ts";
 import type { Dimension, DimensionOverlay } from "./dimensions.ts";
 import type { Sel, Viewport } from "./viewport.ts";
@@ -32,6 +33,7 @@ export function createModelView(d: ModelViewDeps) {
   const DEV = d.dev;
 
   function show(mesh: MeshData, frame = false) {
+    const showStart = performance.now(); // dev timing log
     // A preview that keeps one face or edge selected (a hole being moved) brings the dimensions of its own model.
     const previewDims: Dimension[] | undefined = mesh.header.preview ? mesh.header.dimensions : undefined;
     if (previewDims) {
@@ -45,7 +47,9 @@ export function createModelView(d: ModelViewDeps) {
     const pruned = pruneGhost(bodyView.ghost, bodyView.focus, bodiesOf(mesh).map((b) => b.id));
     bodyView.ghost = pruned.ghost;
     bodyView.focus = pruned.focus;
+    const setMeshStart = performance.now();
     viewport.setMesh(filterHidden(mesh, bodyView.hidden), frame);
+    const setMeshEnd = performance.now();
     viewport.setGhosted(bodyView.ghost);
     viewport.subtractGhost.set(mesh.header.preview ? (mesh.ghost ?? null) : null); // the red subtract volume only during a preview
     if (mesh.header.preview && mesh.header.notice) status.textContent = mesh.header.notice; // a preview that changes nothing says why
@@ -56,6 +60,7 @@ export function createModelView(d: ModelViewDeps) {
     }
     app.modelHistory = { undo: !!mesh.header.canUndo, redo: !!mesh.header.canRedo };
     syncHistoryButtons();
+    perf.shown(showStart, setMeshStart, setMeshEnd, !!mesh.header.preview, mesh.indices.length / 3);
   }
 
   /** The top bar's Undo and Redo follow the sketch's edits while a sketch is open, and the model's otherwise. */
