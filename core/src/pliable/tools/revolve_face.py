@@ -7,9 +7,12 @@ from OCP.BRepPrimAPI import BRepPrimAPI_MakeRevol
 from OCP.GeomAbs import GeomAbs_Line
 from OCP.gp import gp_Ax1, gp_Pnt, gp_Trsf, gp_Vec
 
-from ..ops import _contains, _faces_of, OperationError, face_handle_point, solids_of
+from ..body_scope import _faces_outside
+from ..mergescope import finish_scoped
+from ..ops import OperationError, face_handle_point, solids_of
 from ..pushpull_modes import nothing_to_subtract
 from ..shared.arrayaxis import AXIS_CHOICES, array_axis
+from ..shared.bodycut import cut_reachable_bodies
 from ..shared.solids import _combine, _compound, _volume, finish
 from ..sketch import SketchError, regions
 from ..tools import Accepts, Handle, Param, register, Tool
@@ -101,20 +104,28 @@ class RevolveFace(Tool):
                 raise OperationError("The face cannot be revolved around that axis (the axis must not cross the face)")
             swept.append(revolved.Shape())
         tool_shape = swept[0] if len(swept) == 1 else _compound(swept)
-        before = _volume(topology.shape)
+        before = _volume(topology.shape) if mode == 0 else 0.0
         solids = solids_of(topology.shape)
-        loose = [f for f in _faces_of(topology.shape) if not any(_contains(solid, f) for solid in solids)]  # sketch regions picked as faces
+        loose = _faces_outside(topology.shape, solids)  # sketch regions picked as faces (found by a map of the bodies' faces, not a search of every body per face)
         if solids:  # booleans run on the solids alone; the other loose faces are put back afterwards (the picked one is used up)
-            result = _combine(_compound(solids), tool_shape, fuse=mode == 0)
+            result = _combine(_compound(solids), tool_shape, fuse=True) if mode == 0 else cut_reachable_bodies(_compound(solids), tool_shape)  # a cut works on the bodies it reaches, one at a time
         elif mode == 0:
             result = tool_shape
         else:
             return nothing_to_subtract(topology.shape, [], [tool_shape], preview, "There is no solid to cut")
         if loose:
             result = _compound([result, *[f for f in loose if (face is None or not f.IsSame(face))]])
-        if abs(_volume(result) - before) < 1e-9:
+        if abs(_volume(result) - before if mode == 0 else _volume_change(solids, result)) < 1e-9:
             message = "Revolving changed nothing: the swept volume is already inside or outside the model"
             if mode == 1:
                 return nothing_to_subtract(topology.shape, [], [tool_shape], preview, message)
             raise OperationError(message)
-        return finish(result, [tool_shape] if mode == 1 else ())
+        return finish(result) if mode == 0 else finish_scoped(topology, result, [tool_shape])
+
+
+def _volume_change(solids, result) -> float:
+    """The volume the cut changed, from the bodies that differ (the others are the very same shapes and are not measured)."""
+    now = solids_of(result)
+    gone = [s for s in solids if not any(s.IsSame(n) for n in now)]
+    made = [n for n in now if not any(n.IsSame(s) for s in solids)]
+    return sum(_volume(n) for n in made) - sum(_volume(s) for s in gone)
