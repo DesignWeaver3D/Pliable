@@ -94,7 +94,7 @@ def test_ifc_round_trip(demo):
     source.handle({"type": "open_demo", "name": demo})
     exported = source.handle({"type": "export_cad", "format": "ifc"})
     raw = base64.b64decode(exported["data"])
-    assert raw.startswith(b"ISO-10303-21") and b"IFCBUILDINGELEMENTPROXY" in raw and b"IFCFACETEDBREP" in raw
+    assert raw.startswith(b"ISO-10303-21") and b"IFCBUILDINGELEMENTPROXY" in raw and b"IFCADVANCEDBREP" in raw
     for body in source.document.current.bodies.bodies:
         assert body.name.encode() in raw
     target = Session()
@@ -143,3 +143,89 @@ def test_ifc_curved_solid_is_close():
     root, notes = read_ifc(write_ifc(cylinder.wrapped, ["Pin"]))
     assert root.children[0].label == "Pin" and len(root.solids()) == 1
     assert files._volume(root.wrapped) == pytest.approx(cylinder.volume, rel=1e-3)
+
+
+def _ifc_volume(raw, deflection=1e-5):
+    """Volume (mm^3) of the first product, tessellated finely from the IFC file's own geometry."""
+    import os
+    import tempfile
+
+    import ifcopenshell
+    import ifcopenshell.geom
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "a.ifc")
+        with open(path, "wb") as f:
+            f.write(raw)
+        model = ifcopenshell.open(path)
+    settings = ifcopenshell.geom.settings()
+    settings.set("mesher-linear-deflection", deflection)
+    settings.set("mesher-angular-deflection", 0.05)
+    geometry = ifcopenshell.geom.create_shape(settings, model.by_type("IfcBuildingElementProxy")[0]).geometry
+    v, f = geometry.verts, geometry.faces
+    total = 0.0
+    for i in range(0, len(f), 3):
+        a, b, c = (v[3 * f[i + k] : 3 * f[i + k] + 3] for k in range(3))
+        total += a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])
+    return total / 6.0 * 1e9  # signed: negative would mean the faces point inward
+
+
+@pytest.mark.parametrize("name", ["box", "cylinder", "bracket", "cone", "cone_flared", "torus", "loft", "revolved", "extruded_spline", "sphere"])
+def test_ifc_export_is_an_exact_brep(name):
+    pytest.importorskip("ifcopenshell")
+    from build123d import Axis, Box, BuildLine, BuildPart, BuildSketch, Circle, Cone, Cylinder, Line, Plane, Polygon, Pos, Rectangle, Sphere, Spline, Torus, extrude, fillet, loft, make_face, revolve
+
+    from pliable.filesifc import write_ifc
+
+    if name == "box":
+        shape = Box(10, 20, 30)
+    elif name == "cylinder":
+        shape = Cylinder(5, 10)
+    elif name == "bracket":
+        block = Box(40, 20, 10) - Cylinder(4, 10)
+        shape = fillet(block.edges().filter_by(Axis.Z)[:2], 3)
+    elif name == "cone":
+        shape = Cone(5, 2, 8)
+    elif name == "cone_flared":
+        shape = Cone(2, 5, 8)
+    elif name == "revolved":
+        with BuildPart() as part:
+            with BuildSketch(Plane.XZ) as profile:
+                Polygon((0, 0), (6, 0), (8, 5), (4, 9), (0, 9), align=None)
+            revolve(axis=Axis.Z)
+        shape = part.part
+    elif name == "extruded_spline":
+        with BuildPart() as part:
+            with BuildSketch() as profile:
+                with BuildLine():
+                    Spline((0, 0), (5, 3), (10, 0), (12, -5))
+                    Line((12, -5), (0, -5))
+                    Line((0, -5), (0, 0))
+                make_face()
+            extrude(amount=6)
+        shape = part.part
+    elif name == "torus":
+        shape = Torus(10, 2)
+    elif name == "loft":
+        shape = loft([Rectangle(10, 10), Pos(0, 0, 10) * Circle(4)])
+    else:
+        shape = Sphere(8)
+    raw = write_ifc(shape.wrapped, ["Part"])
+    exact = name != "sphere"  # a pole has a degenerate edge: that solid keeps the faceted body
+    assert (b"IFCADVANCEDBREP" in raw) == exact
+    assert (b"IFCFACETEDBREP" in raw) == (not exact)
+    if exact:
+        assert raw.count(b"IFCADVANCEDFACE(") == len(shape.faces())
+        assert _ifc_volume(raw) == pytest.approx(shape.volume, rel=2e-3)
+
+
+def test_ifc_exact_export_through_the_export_handler_round_trips():
+    pytest.importorskip("ifcopenshell")
+    source = Session()
+    source.handle({"type": "open_demo", "name": "bracket"})
+    raw = base64.b64decode(source.handle({"type": "export_cad", "format": "ifc"})["data"])
+    assert b"IFCADVANCEDBREP" in raw and b"IFCFACETEDBREP" not in raw
+    assert _ifc_volume(raw) == pytest.approx(volume(source), rel=2e-3)
+    target = Session()
+    target.handle({"type": "import_step", "name": "x.ifc", "extension": "ifc", "data": base64.b64encode(raw).decode()})
+    assert volume(target) == pytest.approx(volume(source), rel=1e-2)

@@ -20,6 +20,8 @@ from OCP.TopAbs import TopAbs_SHELL
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS, TopoDS_Shape
 
+from .filesifcexact import exact_brep
+
 SKIPPED_CLASSES = ("IfcOpeningElement", "IfcSpace")  # voids and room volumes are not parts
 SEW_TOLERANCE = 1e-3  # model units (mm)
 MISSING = "Reading and writing .ifc files needs the optional IfcOpenShell package. Install it with: pip install ifcopenshell (or uv sync --extra ifc)"
@@ -82,6 +84,8 @@ def read_ifc(data: bytes) -> tuple[Shape, list[str]]:
     scale = 1000.0  # the geometry iterator always returns meters; the model works in millimeters
     settings = ifcopenshell.geom.settings()
     settings.set("use-world-coords", True)
+    settings.set("mesher-linear-deflection", 1e-4)  # meters: curved faces of exact bodies are meshed finely enough to sew into volumes that match
+    settings.set("mesher-angular-deflection", 0.05)
     products = [p for p in model.by_type("IfcProduct") if p.Representation is not None and not any(p.is_a(c) for c in SKIPPED_CLASSES)]
     notes = []
     for name in SKIPPED_CLASSES:
@@ -122,7 +126,7 @@ def read_ifc(data: bytes) -> tuple[Shape, list[str]]:
 
 
 def write_ifc(shape: TopoDS_Shape, names: list[str] | None = None, linear: float = 0.005, angular: float = 0.1) -> bytes:
-    """The model as an .ifc file: one IfcBuildingElementProxy per solid with a faceted B-rep body, in millimeters."""
+    """The model as an .ifc file: one IfcBuildingElementProxy per solid with an exact IfcAdvancedBrep body (a faceted B-rep where that cannot be written), in millimeters."""
     ifcopenshell = _import_ifc()
     import ifcopenshell.api
 
@@ -138,16 +142,19 @@ def write_ifc(shape: TopoDS_Shape, names: list[str] | None = None, linear: float
     run("aggregate.assign_object", model, products=[building], relating_object=site)
     solids = Shape.cast(shape).solids() or [Shape.cast(shape)]
     for n, solid in enumerate(solids):
-        vertices, triangles = solid.tessellate(linear, angular)
-        points = [model.createIfcCartesianPoint((v.X, v.Y, v.Z)) for v in vertices]
-        faces = []
-        for a, b, c in triangles:
-            loop = model.createIfcPolyLoop([points[a], points[b], points[c]])
-            faces.append(model.createIfcFace([model.createIfcFaceOuterBound(loop, True)]))
-        brep = model.createIfcFacetedBrep(model.createIfcClosedShell(faces))
+        try:
+            brep, kind = exact_brep(model, solid.wrapped), "AdvancedBrep"
+        except Exception:  # not writable exactly (poles, several shells, odd surfaces): keep the faceted body
+            vertices, triangles = solid.tessellate(linear, angular)
+            points = [model.createIfcCartesianPoint((v.X, v.Y, v.Z)) for v in vertices]
+            faces = []
+            for a, b, c in triangles:
+                loop = model.createIfcPolyLoop([points[a], points[b], points[c]])
+                faces.append(model.createIfcFace([model.createIfcFaceOuterBound(loop, True)]))
+            brep, kind = model.createIfcFacetedBrep(model.createIfcClosedShell(faces)), "Brep"
         name = names[n] if names and n < len(names) and names[n] else f"Body {n + 1}"
         product = run("root.create_entity", model, ifc_class="IfcBuildingElementProxy", name=name)
-        representation = model.createIfcShapeRepresentation(body, "Body", "Brep", [brep])
+        representation = model.createIfcShapeRepresentation(body, "Body", kind, [brep])
         run("geometry.assign_representation", model, product=product, representation=representation)
         run("geometry.edit_object_placement", model, product=product)
         run("spatial.assign_container", model, products=[product], relating_structure=building)
