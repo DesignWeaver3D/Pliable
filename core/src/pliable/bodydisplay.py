@@ -26,6 +26,7 @@ from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as I
 
 from . import meshing, recipes
 from .meshread import MeshReader
+from .ops import is_surface
 from .splitwalls import split_centre
 
 _KINDS = (TopAbs_FACE, TopAbs_EDGE, TopAbs_VERTEX)
@@ -200,7 +201,7 @@ def assemble(topology, preview: bool, ranges: list, solid_shapes: list, deflecti
             p = BRep_Tool.Pnt_s(topology.vertex(v0 + i))
             vertices.append({"id": v0 + i, "position": [p.X(), p.Y(), p.Z()], "solid": number, "body": body})
         if owner is not None:
-            body_info.append({"id": owner.id, "name": owner.name, "solid": number, "bounds": list(data.bounds), "material": owner.material, "locked": owner.locked, **recipes.info(owner)})
+            body_info.append({"id": owner.id, "name": owner.name, "solid": number, "bounds": list(data.bounds), "material": owner.material, "locked": owner.locked, "surface": is_surface(solid), **recipes.info(owner)})
         base += len(data.positions)
         index_count += data.indices.size
         edge_total += len(data.edge_positions)

@@ -15,7 +15,7 @@ from OCP.GeomAbs import GeomAbs_Arc
 from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.GeomAbs import GeomAbs_Plane
 from OCP.gp import gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
-from OCP.TopAbs import TopAbs_COMPOUND, TopAbs_COMPSOLID, TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID
+from OCP.TopAbs import TopAbs_COMPOUND, TopAbs_COMPSOLID, TopAbs_FACE, TopAbs_REVERSED, TopAbs_SHELL, TopAbs_SOLID
 from OCP.TopExp import TopExp_Explorer
 from OCP.BRep import BRep_Builder
 from OCP.TopoDS import TopoDS_CompSolid, TopoDS_Compound, TopoDS_Edge, TopoDS_Face, TopoDS_Iterator, TopoDS_Shape
@@ -92,11 +92,12 @@ def _boolean(shape: TopoDS_Shape, tool: TopoDS_Shape, fuse: bool, glue: bool):
 
 
 def solids_of(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
-    """The bodies of a shape: each solid, or each compound body (a CompSolid grouping several solids, see `group`)."""
+    """The bodies of a shape: each solid, or each compound body (a CompSolid grouping several solids, see `group`), and
+    each shell outside a solid (a surface body, see `is_surface`)."""
     if shape.IsNull():
         return []
     kind = shape.ShapeType()
-    if kind in (TopAbs_SOLID, TopAbs_COMPSOLID):
+    if kind in (TopAbs_SOLID, TopAbs_COMPSOLID, TopAbs_SHELL):
         return [shape]
     out: list[TopoDS_Shape] = []
     if kind == TopAbs_COMPOUND:
@@ -105,6 +106,11 @@ def solids_of(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
             out.extend(solids_of(it.Value()))
             it.Next()
     return out
+
+
+def is_surface(body: TopoDS_Shape) -> bool:
+    """Whether a body of `solids_of` is a surface body (a shell held by no solid) rather than a solid."""
+    return body.ShapeType() == TopAbs_SHELL
 
 
 def group(solids: list[TopoDS_Shape]) -> TopoDS_Shape:

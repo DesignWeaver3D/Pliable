@@ -22,7 +22,7 @@ from OCP.gp import gp_Vec
 
 from . import bodydisplay, meshing, recipes
 from .meshread import MeshReader
-from .ops import face_normal_at_edge, planar_normal, solids_of
+from .ops import face_normal_at_edge, is_surface, planar_normal, solids_of
 from .splitwalls import split_centre
 from .topology import Topology
 
@@ -447,6 +447,6 @@ def tessellate_whole(topology: Topology, preview: bool = False) -> Mesh:
         edges=edges,
         vertices=vertices,
         centres=centres,
-        bodies=[{"id": b.id, "name": b.name, "solid": n, "bounds": bounds(solid_shapes[n]), "material": b.material, "locked": b.locked, **recipes.info(b)} for n, b in enumerate(owners) if n < len(solid_shapes)],
+        bodies=[{"id": b.id, "name": b.name, "solid": n, "bounds": bounds(solid_shapes[n]), "material": b.material, "locked": b.locked, "surface": is_surface(solid_shapes[n]), **recipes.info(b)} for n, b in enumerate(owners) if n < len(solid_shapes)],
         bounds=bounds(shape),
     )
