@@ -188,7 +188,9 @@
       #toolform input { width: 80px; background: #1b1d22; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 2px 4px; }
       #toolform .buttons { display: flex; gap: 6px; margin-top: 6px; }
       #ppcard button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; text-align: left; display: block; width: 100%; margin-top: 2px; }
-      #ppcard { position: fixed; top: 270px; right: calc(var(--dock-w) + 12px); width: 250px; box-sizing: border-box; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
+      #ppcard .hint { color: #888; font-size: 12px; margin-top: 6px; }
+      #ppcard .hint.flash { color: #ffb878; }
+      #ppcard button:disabled { opacity: 0.45; cursor: default; }
       #ppcard[hidden] { display: none; }
       #ppcard button.active { border-color: #ff8a1f; color: #ffb878; }
       #ppcard .title { color: #ffb878; font-weight: 600; margin-bottom: 4px; }
@@ -353,14 +355,15 @@
     <aside id="dock" aria-label="Parameters">
       <div id="dockgrip" title="Drag to resize the panel (double-click to reset)"></div>
       <div id="dockhead"><span id="dockreadout"></span><button id="dockclose" type="button" title="Hide the panel (Shift+T)">&times;</button></div>
-      <div id="dockbody"></div>
+      <div id="dockbody">
+        <div id="ppcard" hidden></div>
+      </div>
     </aside>
     <button id="dockbtn" type="button" aria-label="Parameters" aria-expanded="true" aria-controls="dock"></button>
     <div id="sketchbar"></div>
     <div id="selected" title="What is selected"></div>
     <div id="sketchpanel" hidden></div>
     <div id="toolform" hidden></div>
-    <div id="ppcard" hidden></div>
     <div id="sectioncard" hidden></div>
     <div id="measure" hidden></div>
     <div id="dim" hidden></div>

@@ -1,4 +1,4 @@
-/** The Push/Pull card: opened whenever a push/pull drag starts or the Push/Pull button is clicked, at the right under the nav cube group like the other edit cards.
+/** The Push/Pull card: opened whenever the Push/Pull button is clicked (a direct drag does not open it), in the docked parameters panel.
  *  Fields: distance, the mode buttons (highlighted like Pick plane), Flip, Symmetric, the two tilt values and the direction vector of the gizmo (linked to it like the
  *  Cut with plane form). It holds no model state: choices live in PushPullState, the direction in PullDirection, the tilts in PullGizmo. */
 import { COPY_TITLE, FLIP_TITLE, MODE_BUTTONS, SYMMETRIC_TITLE, UP_TO_TITLE, type PushPullState } from "./pushpullstate.ts";
@@ -41,6 +41,9 @@ export class PushPullCard {
   private readonly reachButtons = new Map<Reach, HTMLButtonElement>();
   private readonly symmetric = document.createElement("input");
   private readonly distance = document.createElement("input");
+  private readonly applyButton = document.createElement("button");
+  private readonly hint = document.createElement("div");
+  private hintTimer = 0;
   private readonly tilt: HTMLInputElement[] = [document.createElement("input"), document.createElement("input")];
   private readonly vector: HTMLInputElement[] = [0, 1, 2].map(() => document.createElement("input"));
   private readonly interact = new InteractionChoice(() => this.repreview());
@@ -67,6 +70,7 @@ export class PushPullCard {
       const v = fieldNumber(this.distance);
       this.typedDistance = v !== null;
       if (v !== null) host.previewDistance(v);
+      this.refreshApply();
     });
     const modes = document.createElement("div");
     modes.style.cssText = "display:flex;flex-wrap:wrap;gap:4px";
@@ -122,10 +126,13 @@ export class PushPullCard {
     vectorRow.style.gap = "3px";
     const buttons = document.createElement("div");
     buttons.className = "buttons";
-    const apply = document.createElement("button");
+    const apply = this.applyButton;
     apply.textContent = "Apply";
     apply.title = "Commit the typed distance";
+    apply.disabled = true;
     apply.addEventListener("click", () => this.apply());
+    this.hint.className = "hint";
+    this.hint.textContent = "Nothing to apply yet: type a distance, or drag the arrow.";
     const close = document.createElement("button");
     close.textContent = "Close";
     close.addEventListener("click", () => this.close());
@@ -155,6 +162,7 @@ export class PushPullCard {
       row("Tilt green arc (deg)", TILT_TITLES[1], this.tilt[1]),
       vectorRow,
       buttons,
+      this.hint,
     );
     host.state.onChange = () => this.sync(true);
   }
@@ -181,6 +189,7 @@ export class PushPullCard {
     this.typedDistance = false;
     this.upToPreview = false;
     this.distance.value = "";
+    this.refreshApply();
     this.host.changed?.();
   }
 
@@ -191,11 +200,13 @@ export class PushPullCard {
       state.setReach(null);
       if (this.upToPreview) this.host.cancelDistance();
       this.upToPreview = false;
+      this.refreshApply();
       return;
     }
     state.setReach(reach);
     this.upToPreview = true;
     this.host.previewDistance(1); // any distance: the core extends the pad itself
+    this.refreshApply();
   }
 
   /** Up to face: on picks the target in the view and previews the pad ending on it; off restores the normal distance behavior. */
@@ -205,6 +216,7 @@ export class PushPullCard {
       state.setUpTo(null);
       if (this.upToPreview) this.host.cancelDistance();
       this.upToPreview = false;
+      this.refreshApply();
       return;
     }
     const face = await this.host.pickTarget();
@@ -212,6 +224,7 @@ export class PushPullCard {
     state.setUpTo(face);
     this.upToPreview = true;
     this.host.previewDistance(1); // any distance: the core ends the pad on the target
+    this.refreshApply();
   }
 
   /** The body interaction changed: show the typed distance or the Up to extent again with the new setting. */
@@ -226,6 +239,7 @@ export class PushPullCard {
       this.upToPreview = false;
       interaction.reset();
       this.host.applyDistance(1);
+      this.refreshApply();
       return;
     }
     const v = fieldNumber(this.distance);
@@ -234,6 +248,7 @@ export class PushPullCard {
     this.distance.value = "";
     interaction.reset();
     this.host.applyDistance(v);
+    this.refreshApply();
   }
 
   /** The distance a drag is at now (shown while the mouse sets it). */
@@ -247,6 +262,22 @@ export class PushPullCard {
     interaction.reset();
     this.typedDistance = false;
     this.distance.value = "";
+    this.refreshApply();
+  }
+
+  /** Apply is available only while something is pending (a typed distance, or an Up to preview); otherwise the card says what to do. */
+  private refreshApply() {
+    const pending = (this.upToPreview && extentOn(this.host.state.upTo, this.host.state.reach)) || (this.typedDistance && fieldNumber(this.distance) !== null);
+    if (this.applyButton.disabled === pending) this.applyButton.disabled = !pending;
+    if (this.hint.hidden !== pending) this.hint.hidden = pending;
+  }
+
+  /** A click on empty space with nothing to apply: make the hint stand out for a moment. */
+  flashHint() {
+    if (this.el.hidden || this.hint.hidden) return;
+    this.hint.classList.add("flash");
+    clearTimeout(this.hintTimer);
+    this.hintTimer = window.setTimeout(() => this.hint.classList.remove("flash"), 1500);
   }
 
   private typedVector() {
@@ -260,6 +291,7 @@ export class PushPullCard {
   /** Bring the fields up to date with the state and the gizmo. Fields being typed in are left alone. */
   sync(force = false) {
     if (this.el.hidden) return;
+    this.refreshApply();
     const { state } = this.host;
     const tilts = this.host.tilts();
     const direction = this.host.direction();

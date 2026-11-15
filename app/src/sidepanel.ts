@@ -12,6 +12,9 @@ export class SidePanel {
   private readonly hint: HTMLElement;
   private readonly handle: HTMLElement;
   private state: DockState;
+  private hadContent = false;
+  /** Called when a tool form arrives while the panel is hidden (the caller says where the parameters went). */
+  onHiddenContent: (() => void) | null = null;
 
   constructor(readonly root: HTMLElement, handle: HTMLElement, private onChange: () => void) {
     this.handle = handle;
@@ -56,7 +59,9 @@ export class SidePanel {
   /** The placeholder shows only while nothing else is mounted and showing in the body. */
   private showHint(): void {
     const busy = [...this.body.children].some((c) => c !== this.hint && !(c as HTMLElement).hidden);
-    this.hint.hidden = busy;
+    if (this.hint.hidden !== busy) this.hint.hidden = busy; // set only on a change: setting it again would be a new mutation and loop this observer
+    if (busy && !this.hadContent && this.state.hidden) this.onHiddenContent?.(); // something wants the panel but the person hid it: only say so, never open it
+    this.hadContent = busy;
   }
 
   private apply(notify = true): void {

@@ -107,7 +107,7 @@ core.onBusy = (busy) => {
 const measurePanel = new MeasurePanel($("measure"));
 // An edit card (under the nav cube, like the sketch card) that reaches down to the measurement card pushes it left.
 {
-  const cards = [$("toolform"), $("ppcard")];
+  const cards = [$("toolform")];
   const dodge = () => {
     const m = $("measure");
     m.classList.remove("aside");
@@ -378,6 +378,7 @@ const { renderToolbar } = createToolStrip({
 
 // The docked parameters panel on the right (see sidepanel.ts); the strip's room depends on it like on the drawer.
 const dock = new SidePanel($("dock"), $("dockbtn"), () => renderToolbar());
+dock.onHiddenContent = () => { status.textContent = "The parameters are in the hidden panel (Shift+T shows it)."; };
 
 
 const helperDeps: HelperDeps = {

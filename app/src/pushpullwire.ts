@@ -39,7 +39,10 @@ export function createPushPullCard(d: PushPullWireDeps): PushPullCard {
   viewport.pullGizmo.onFrame = () => card.sync();
   // The selection changed (pressing a face selects it before its drag starts): a card opened by a drag closes; one opened by the armed Push/Pull button stays.
   viewport.pullDirection.onReset = () => {
-    if (d.armedTool() === "push_pull") card.sync(true);
+    if (d.armedTool() === "push_pull") {
+      card.sync(true);
+      if (d.selection().length === 0) card.flashHint(); // an empty click with nothing pending
+    }
     else card.close();
   };
   return card;
