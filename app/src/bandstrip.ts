@@ -65,9 +65,13 @@ export class BandStrip {
       this.mesh.visible = false;
       return;
     }
+    // Its own copy of the strip's triangles: shading a strip never uploads the model's vertices.
+    const corners = stripIndices(faces, index.array, strip.faces);
+    const from = source.getAttribute("position").array;
+    const copy = new Float32Array(corners.length * 3);
+    for (let i = 0; i < corners.length; i++) for (let k = 0; k < 3; k++) copy[i * 3 + k] = from[corners[i] * 3 + k];
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", source.getAttribute("position"));
-    geometry.setIndex(new THREE.BufferAttribute(stripIndices(faces, index.array, strip.faces), 1));
+    geometry.setAttribute("position", new THREE.BufferAttribute(copy, 3));
     this.mesh.geometry.dispose();
     this.mesh.geometry = geometry;
     this.mesh.material.clippingPlanes = stripPlanes(strip);

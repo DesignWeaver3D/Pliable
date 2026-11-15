@@ -19,9 +19,18 @@ test("a mark adds its face, edge and vertex parts to the parent, hidden and draw
     assert.equal(part.renderOrder, 2);
   }
   assert.equal(mark.face.material.opacity, 0.85);
-  assert.equal(mark.face.geometry.getAttribute("position"), geometry.getAttribute("position"));
-  assert.equal(mark.face.geometry.index.count, 0);
+  assert.notEqual(mark.face.geometry.getAttribute("position"), geometry.getAttribute("position")); // its own copy: the model's vertices are never uploaded for a mark
+  assert.equal(mark.face.geometry.getAttribute("position").count, 0);
   assert.equal(mark.edge.material, line);
+});
+
+test("setTriangles keeps a copy of the listed corners, not the whole vertex list", () => {
+  const mark = new Mark(new THREE.Group(), source(), 0xff8a1f, 0.85, new LineMaterial());
+  const positions = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 5, 5]);
+  mark.setTriangles(positions, new Uint32Array([2, 1, 0]));
+  const copy = mark.face.geometry.getAttribute("position");
+  assert.deepEqual([...copy.array], [0, 1, 0, 1, 0, 0, 0, 0, 0]);
+  assert.equal(mark.face.geometry.index, null);
 });
 
 test("hide turns every part of the mark off", () => {

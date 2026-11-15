@@ -23,7 +23,7 @@ export function showMark(view: SelectionContext, mark: Mark | null, sel: Sel | n
       indices.set(source.subarray(f.start, f.start + f.count), at);
       at += f.count;
     }
-    mark.face.geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+    mark.setTriangles(view.mesh.geometry.getAttribute("position").array, indices);
     mark.face.visible = true;
     const edges = view.data.edges.filter((e) => e.body === sel.id && e.count > 0);
     if (edges.length) {
@@ -52,7 +52,7 @@ export function showMark(view: SelectionContext, mark: Mark | null, sel: Sel | n
     const range = view.data.faces.find((f) => f.id === sel.id);
     if (!range) return;
     const source = view.mesh.geometry.getIndex()!.array as Uint32Array;
-    mark.face.geometry.setIndex(new THREE.BufferAttribute(source.subarray(range.start, range.start + range.count), 1));
+    mark.setTriangles(view.mesh.geometry.getAttribute("position").array, source.subarray(range.start, range.start + range.count));
     mark.face.visible = true;
   } else if (sel.kind === "edge") {
     const range = view.data.edges.find((e) => e.id === sel.id);
