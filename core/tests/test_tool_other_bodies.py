@@ -350,3 +350,28 @@ def test_helical_sweep_subtract_with_other_bodies_covers_what_it_winds():
     coils = tool._coil(model.face(face_id), tool._axis(model, Selection(faces=[face_id]), tool.bind(params)), tool.bind(params))
     before, after = run("helical_sweep", lambda m: Selection(faces=[face_id]), params, "others", model=model)
     check_cut(before, after, _compound(coils), "others", 0)
+
+
+def test_hole_to_slot_cuts_the_hole_owner_only():
+    """A hole drilled through B, then stretched into a slot: the tool works on the body that owns the hole (scope_to_bodies) and leaves the bodies that overlap or touch B there (C, A) alone. Recorded as it is: the audit expected a whole-model cut."""
+    from pliable.holes import find_hole
+    from pliable.opserrors import OperationError
+
+    _, drilled = run("add_hole", lambda m: Selection(faces=[face_of(m, B, 1)]), {"diameter": 6, "depth": 0}, "this", True)
+    model = Topology(_compound(drilled))
+    wall = None
+    for i, _ in model.faces():
+        try:
+            find_hole(model, face_id=i, reach=False)
+            wall = i
+            break
+        except OperationError:
+            continue
+    assert wall is not None
+    margin = 0.01 * 10 + 1e-3  # the tool's lead-in beyond the hole's ends
+    low, high = 10 - margin, 20 + margin
+    tool = BRepAlgoAPI_Fuse(box_tool(0, -3, low, 10, 3, high), cylinder_tool(10, 0, low, high, 3)).Shape()
+    model.interact = None
+    before = solids_of(model.shape)
+    result = get_tool("hole_to_slot").execute(model, Selection(faces=[wall]), {"dx": 10, "dy": 0, "dz": 0}, preview=False)
+    check_cut(before, solids_of(result.shape), tool, "this", B)
