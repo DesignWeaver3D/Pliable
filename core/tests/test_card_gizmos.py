@@ -266,6 +266,11 @@ def test_stretch_has_move_arrows_tilt_rings_and_a_band_slider_at_the_end_face():
     band = rest[6]  # the slider sits at the far end of the side faces (the whole block deforms on Auto) and slides along them
     assert band.anchor[2] == pytest.approx(-10) and band.direction == pytest.approx((0, 0, -1)) and band.shown == pytest.approx(20) and band.rest == pytest.approx(20)
     assert band.strip[2] == pytest.approx(20) and len(band.strip[3]) == 4
+    assert len(band.strip) == 4 and band.to_json(0)["strip"]["moved"] is None  # unmoved: the strip sits on the committed part
+    shifted = moved[6].strip  # moved: the strip's protected end goes with the moved end, the band's start stays
+    assert shifted[0] == pytest.approx(band.strip[0]) and shifted[4][0] == pytest.approx((band.strip[0][0], band.strip[0][1], 16)) and shifted[4][1] == pytest.approx((0, 0, -1))
+    tilted = tool.handles(topology, Selection(faces=[top]), {"dx": 0, "dy": 0, "dz": 0, "rx": 90, "mode": 0})[6].strip
+    assert abs(tilted[4][1][2]) < 1e-9 and tilted[4][1][1] != 0  # a tilt turns the plane the strip's end lies in
     result = tool.execute(topology, Selection(faces=[top]), {"dx": 0, "dy": 0, "dz": 6, "mode": 0}, preview=False)
     from test_gizmo_tools import bounds
 

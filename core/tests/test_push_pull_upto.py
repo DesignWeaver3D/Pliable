@@ -7,6 +7,7 @@ from build123d import Box, Compound, Cylinder, Pos, Rot
 from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 
+from pliable.volume import volume_of
 from pliable import sketch
 from pliable.document import Document
 from pliable.ops import OperationError, solids_of
@@ -19,9 +20,7 @@ from pliable.topology import Topology
 def volume(shape) -> float:
     total = 0.0
     for s in solids_of(shape):
-        props = GProp_GProps()
-        BRepGProp.VolumeProperties_s(s, props)
-        total += props.Mass()
+        total += volume_of(s)
     return total
 
 

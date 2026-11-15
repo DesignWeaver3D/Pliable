@@ -6,6 +6,7 @@ from OCP.BRepGProp import BRepGProp
 from OCP.GeomAbs import GeomAbs_Cylinder, GeomAbs_Line
 from OCP.GProp import GProp_GProps
 
+from pliable.volume import volume_of
 from pliable.dimedit import draft_angle
 from pliable.measure import hole_centre
 from pliable.ops import OperationError, planar_normal
@@ -33,9 +34,7 @@ def edit(s, kind, value, commit=True, flip=False, **sel):
 
 
 def volume(s):
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(top(s).shape, props)
-    return props.Mass()
+    return volume_of(top(s).shape)
 
 
 def cylinders(t, radius):

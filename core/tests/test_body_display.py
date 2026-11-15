@@ -4,6 +4,7 @@ from build123d import Box, Compound, Cylinder, Face, Pos
 from OCP.BRepMesh import BRepMesh_IncrementalMesh
 from OCP.BRepTools import BRepTools
 
+from pliable.volume import volume_of
 from pliable.document import Document
 from pliable.ops import planar_normal, solids_of
 from pliable.server import Session
@@ -149,9 +150,7 @@ def test_a_placed_body_survives_save_open_and_step_export():
     from OCP.GProp import GProp_GProps
 
     def volume(shape):
-        props = GProp_GProps()
-        BRepGProp.VolumeProperties_s(shape, props)
-        return props.Mass()
+        return volume_of(shape)
 
     session = session_of(3)
     body = session.document.current.bodies.bodies[1].id

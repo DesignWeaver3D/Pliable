@@ -18,3 +18,13 @@ test("the strip takes the triangles of the listed faces only", () => {
   assert.deepEqual([...stripIndices(faces, index, [3, 1, 9])], [0, 1, 2, 6, 7, 8]);
   assert.equal(stripIndices(faces, index, []).length, 0);
 });
+
+test("a moved protected end carries the near plane with it and leaves the far plane", () => {
+  const [first, last] = stripPlanes({ origin: [0, 0, 10], direction: [0, 0, -1], length: 4, moved: [[0, 0, 13], [0, 0, -1]] });
+  const kept = (z) => first.distanceToPoint({ x: 0, y: 0, z, isVector3: true }) >= 0 && last.distanceToPoint({ x: 0, y: 0, z, isVector3: true }) >= 0;
+  assert.equal(kept(13), true);
+  assert.equal(kept(12), true);
+  assert.equal(kept(6), true);
+  assert.equal(kept(5.9), false);
+  assert.equal(kept(13.1), false);
+});

@@ -4,6 +4,7 @@ import pytest
 from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 
+from pliable.volume import volume_of
 from pliable import sketch
 from pliable.demos import load_demo
 from pliable.ops import OperationError
@@ -12,9 +13,7 @@ XY = sketch.STANDARD_PLANES["XY"]
 
 
 def volume(shape) -> float:
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
-    return props.Mass()
+    return volume_of(shape)
 
 
 def rectangle(w=40.0, h=30.0, x0=0.0, y0=0.0, first_id=1):

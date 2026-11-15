@@ -197,7 +197,8 @@ class Handle:
     arrowhead: bool = False
     # A slider whose parameter means "automatic" at 0: the length it then has (the drag starts from it and snaps back to it).
     rest: float | None = None
-    # The band the slider sizes, for the view to shade: (start point, direction, length, ids of the faces it lies on).
+    # The band the slider sizes, for the view to shade: (start point, direction, length, ids of the faces it lies on) and, once the
+    # protected end has moved, (point, direction) of the plane that end now lies in (the shading's other end stays where the band starts).
     strip: tuple | None = None
 
     def to_json(self, value: float, values: dict | None = None) -> dict:
@@ -220,7 +221,7 @@ class Handle:
             "extension": [float(c) for c in self.extension] if self.extension else None,
             "arrowhead": self.arrowhead,
             "rest": self.rest,
-            "strip": {"origin": list(self.strip[0]), "direction": list(self.strip[1]), "length": self.strip[2], "faces": list(self.strip[3])} if self.strip else None,
+            "strip": {"origin": list(self.strip[0]), "direction": list(self.strip[1]), "length": self.strip[2], "faces": list(self.strip[3]), "moved": [list(self.strip[4][0]), list(self.strip[4][1])] if len(self.strip) > 4 and self.strip[4] else None} if self.strip else None,
             "param": self.param,
             "label": self.label,
             "anchor": [float(c) for c in self.anchor],

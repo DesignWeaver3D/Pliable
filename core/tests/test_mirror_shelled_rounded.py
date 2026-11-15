@@ -8,6 +8,7 @@ from OCP.BRepTools import BRepTools
 from OCP.GProp import GProp_GProps
 from OCP.TopoDS import TopoDS_Shape
 
+from pliable.volume import volume_of
 from pliable.ops import solids_of
 from pliable.topology import Topology
 from pliable.tools import Selection, get_tool
@@ -16,9 +17,7 @@ FIXTURE = Path(__file__).parent / "data" / "shelled_rounded_body.brep"  # x 0..5
 
 
 def volume(shape) -> float:
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
-    return props.Mass()
+    return volume_of(shape)
 
 
 def load() -> Topology:

@@ -21,6 +21,7 @@ from OCP.GProp import GProp_GProps
 from OCP.TopoDS import TopoDS
 
 import pliable.ops as ops
+from pliable.volume import volume_of
 from pliable.demos import load_demo
 from pliable.ops import OpResult, push_pull, unify_result
 from pliable.samesurface import merge_same_surface
@@ -31,10 +32,9 @@ Z, Y, X = gp_Dir(0, 0, 1), gp_Dir(0, 1, 0), gp_Dir(1, 0, 0)
 
 
 def measures(shape):
-    volume, area = GProp_GProps(), GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, volume)
+    area = GProp_GProps()
     BRepGProp.SurfaceProperties_s(shape, area)
-    return volume.Mass(), area.Mass()
+    return volume_of(shape), area.Mass()
 
 
 def faces_of(shape, kind, radius=None):

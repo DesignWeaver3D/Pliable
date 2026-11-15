@@ -7,6 +7,7 @@ from OCP.BRepGProp import BRepGProp
 from OCP.GeomAbs import GeomAbs_Cylinder
 from OCP.GProp import GProp_GProps
 
+from pliable.volume import volume_of
 from pliable import unwrap
 from pliable.sketch import STANDARD_PLANES
 from pliable.topology import Topology
@@ -136,9 +137,7 @@ def test_region_across_the_edge_of_an_unrolled_cone_is_wrapped_in_two_pieces():
 
 
 def _volume(shape) -> float:
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
-    return props.Mass()
+    return volume_of(shape)
 
 
 def _wrapped_session(radius=10, hole=False):

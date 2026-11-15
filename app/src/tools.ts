@@ -55,8 +55,8 @@ export interface HandleInfo {
   arrowhead?: boolean;
   /** A slider whose parameter 0 means Auto: the length it then has (the drag starts from `value` and snaps back to this). */
   rest?: number | null;
-  /** The band this slider sizes, for the view to shade: it runs from `origin` along `direction` for `length`, on the faces `faces`. */
-  strip?: { origin: [number, number, number]; direction: [number, number, number]; length: number; faces: number[] } | null;
+  /** The band this slider sizes, for the view to shade: it runs from `origin` along `direction` for `length`, on the faces `faces`. While the protected end is moved (a preview), `moved` is a point and direction of the plane that end now lies in: the shading's near end follows it, the far end stays. */
+  strip?: { origin: [number, number, number]; direction: [number, number, number]; length: number; faces: number[]; moved?: [[number, number, number], [number, number, number]] | null } | null;
   /** A rotation handle: the axis it turns about (it is drawn in that axis's color) and the ring it runs on: center and radius. */
   axis?: [number, number, number] | null;
   ring?: [number, number, number, number] | null;

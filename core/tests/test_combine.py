@@ -5,6 +5,7 @@ from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 from OCP.gp import gp_Vec
 
+from pliable.volume import volume_of
 from pliable.demos import load_demo
 from pliable.shared.solids import combine
 from pliable.files import write_step
@@ -13,9 +14,7 @@ from pliable.server import Session
 
 
 def volume(shape) -> float:
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
-    return props.Mass()
+    return volume_of(shape)
 
 
 def test_combine_modes_and_server_request():

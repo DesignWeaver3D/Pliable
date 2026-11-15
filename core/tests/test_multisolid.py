@@ -7,6 +7,7 @@ from OCP.GProp import GProp_GProps
 from OCP.TopoDS import TopoDS_Compound, TopoDS_Shell
 from OCP.BRep import BRep_Builder
 
+from pliable.volume import volume_of
 from pliable.document import Document
 from pliable.files import check_import
 from pliable.ops import OperationError, planar_normal, solids_of
@@ -16,9 +17,7 @@ from pliable.topology import Topology
 
 
 def volume(shape) -> float:
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
-    return props.Mass()
+    return volume_of(shape)
 
 
 def two_stacked_boxes():

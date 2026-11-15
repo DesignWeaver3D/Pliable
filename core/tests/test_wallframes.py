@@ -10,6 +10,7 @@ from OCP.GProp import GProp_GProps
 from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
 from OCP.TopoDS import TopoDS
 
+from pliable.volume import volume_of
 from pliable import meshing
 from pliable.demos import load_demo
 from pliable.ops import OpResult, planar_normal, push_pull, unify_result
@@ -18,10 +19,9 @@ from pliable.validity import is_valid
 
 
 def measures(shape):
-    volume, area = GProp_GProps(), GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, volume)
+    area = GProp_GProps()
     BRepGProp.SurfaceProperties_s(shape, area)
-    return volume.Mass(), area.Mass()
+    return volume_of(shape), area.Mass()
 
 
 def top_face(shape):

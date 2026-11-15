@@ -6,6 +6,7 @@ from OCP.BRepBndLib import BRepBndLib
 from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
 
+from pliable.volume import volume_of
 from pliable import sketch
 from pliable.server import Session
 
@@ -50,11 +51,9 @@ def _solved(content):
 
 
 def _volume_and_box(shape):
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
     box = Bnd_Box()
     BRepBndLib.Add_s(shape, box)
-    return props.Mass(), (box.CornerMin().X(), box.CornerMin().Y(), box.CornerMin().Z(), box.CornerMax().X(), box.CornerMax().Y(), box.CornerMax().Z())
+    return volume_of(shape), (box.CornerMin().X(), box.CornerMin().Y(), box.CornerMin().Z(), box.CornerMax().X(), box.CornerMax().Y(), box.CornerMax().Z())
 
 
 def test_flip_reverses_the_normal_and_keeps_every_point_in_space():
