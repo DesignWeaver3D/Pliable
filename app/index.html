@@ -172,8 +172,6 @@
       #toollist .group { color: #ffb878; font-size: 11px; margin-top: 4px; }
       #toollist button, #toolform button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; text-align: left; display: block; width: 100%; margin-top: 2px; }
       #toollist button.nofit { color: #9a9ea6; } /* only dimmed: every tool can be chosen */
-      #toolform { position: fixed; top: 270px; right: calc(var(--dock-w) + 12px); width: 250px; box-sizing: border-box; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; min-width: 200px; }
-      #measure.aside { right: calc(var(--dock-w) + 274px); } /* an edit card that reaches the measurement card moves it left */
       #toolform[hidden] { display: none; }
       #sectioncard { position: fixed; top: 38px; right: calc(var(--dock-w) + 274px); width: 250px; box-sizing: border-box; max-height: calc(100vh - 60px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; }
       #sectioncard[hidden] { display: none; }
@@ -357,13 +355,13 @@
       <div id="dockhead"><span id="dockreadout"></span><button id="dockclose" type="button" title="Hide the panel (Shift+T)">&times;</button></div>
       <div id="dockbody">
         <div id="ppcard" hidden></div>
+        <div id="toolform" hidden></div>
       </div>
     </aside>
     <button id="dockbtn" type="button" aria-label="Parameters" aria-expanded="true" aria-controls="dock"></button>
     <div id="sketchbar"></div>
     <div id="selected" title="What is selected"></div>
     <div id="sketchpanel" hidden></div>
-    <div id="toolform" hidden></div>
     <div id="sectioncard" hidden></div>
     <div id="measure" hidden></div>
     <div id="dim" hidden></div>

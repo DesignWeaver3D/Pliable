@@ -105,18 +105,6 @@ core.onBusy = (busy) => {
   if (busy) busyText.textContent = `${BUSY_LABELS[busy.type] ?? "Working"}... ${Math.floor(busy.seconds)} s`;
 };
 const measurePanel = new MeasurePanel($("measure"));
-// An edit card (under the nav cube, like the sketch card) that reaches down to the measurement card pushes it left.
-{
-  const cards = [$("toolform")];
-  const dodge = () => {
-    const m = $("measure");
-    m.classList.remove("aside");
-    if (cards.some((card) => !card.hidden && !m.hidden && card.getBoundingClientRect().bottom > m.getBoundingClientRect().top)) m.classList.add("aside");
-  };
-  const watch = new MutationObserver(dodge);
-  for (const el of [...cards, $("measure")]) watch.observe(el, { attributes: true, attributeFilter: ["hidden"], childList: true, subtree: true });
-  window.addEventListener("resize", dodge);
-}
 const dimensionOverlay = new DimensionOverlay($("viewport"), () => viewport.camera);
 createSettingsWindow(document.body);
 const navCube = new NavCube($("navcube"), viewport);

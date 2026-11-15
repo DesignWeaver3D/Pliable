@@ -27,7 +27,7 @@ export interface PushPullCardHost {
   cancelDistance(): void;
   /** The Push/Pull tool's default body interaction (its tool info's `interaction`), or null before the tools are listed. */
   interactionDefault(): Interact | null;
-  /** The card opened or closed (the measurement card may need to move aside). */
+  /** The card opened or closed. */
   changed?(): void;
 }
 
