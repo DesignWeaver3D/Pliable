@@ -65,6 +65,7 @@ Rules for keeping it:
 
 ### Model: faces, edges and selection (look and feel)
 
+- [ ] After the per-body drawing change: see-through mode (now sorted per body) looks as before, a surface body's darker back side shows and moves with the body during a drag, and the enclosure redraws faster after a move.
 - [ ] Extrude edge (Edges group: edges swept into a surface body) and the Hole Editor's Slot section (a simple round hole stretched into a slot); a typed 180 degree arc's angle dimension now runs counterclockwise like the arc.
 - [ ] Scale body's Non-uniform view (X, Y, Z factors) and the Push/Pull card's Copy button (the original stays, the result is a new body).
 - [ ] A box selection that takes faces and edges together shows no measurement card and no error.
