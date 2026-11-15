@@ -184,3 +184,35 @@ def test_a_second_move_of_an_unmerged_model_reuses_the_merge_of_the_other_bodies
     other = moved(topology, False, body=2, dx=5.0)  # a different body moves: the memory does not fit, the whole model is merged
     assert sorted_fingerprint(other.shape) == sorted_fingerprint(moved(Topology(shape), False, body=2, dx=5.0).shape)
     assert first.shape is not None
+
+
+def open_shell(x):
+    """A surface body: five faces of a box, held by no solid."""
+    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS_Shell
+
+    shell, builder = TopoDS_Shell(), BRep_Builder()
+    builder.MakeShell(shell)
+    faces = TopExp_Explorer(box(x), TopAbs_FACE)
+    for _ in range(5):
+        builder.Add(shell, faces.Current())
+        faces.Next()
+    return shell
+
+
+def test_a_surface_body_among_the_bodies_keeps_the_merge_reuse_and_the_body_order():
+    shape = compound([open_shell(-30), box(0), split_cavity(30), box(60), split_cavity(100)])
+    topology = Topology(shape)
+    assert len(solids_of(shape)) == 5
+    moved(topology, False, body=1, dx=3.0)
+    assert set(topology.merge_memo) == {0, 2, 3, 4}  # the surface body is remembered like the solids
+    again = moved(topology, False, body=1, dx=5.0)
+    whole = moved(Topology(shape), False, body=1, dx=5.0)
+    assert len(solids_of(again.shape)) == 5 and solids_of(again.shape)[0].ShapeType() == solids_of(shape)[0].ShapeType()
+    assert (spheres(again.shape), len(list(Topology(again.shape).faces()))) == (spheres(whole.shape), len(list(Topology(whole.shape).faces())))
+    # the scoped merge numbers the bodies as the solids and shells of the model, so a body after a surface body is the one merged
+    merged = merged_model(shape)
+    topology = Topology(merged)
+    result = moved(topology, True, body=3, dx=5.0)
+    assert fingerprint(result.shape) == fingerprint(moved(Topology(merged), False, body=3, dx=5.0).shape)

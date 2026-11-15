@@ -53,6 +53,8 @@ async def _handle_connection(connection: ServerConnection, autosaver: Autosaver 
     finally:
         if session.document is not None:
             _parked["document"] = session.document
+        if autosaver is not None:
+            await asyncio.to_thread(autosaver.flush)  # the tab is gone: nothing waits for a quiet moment any more
     log.info("client disconnected")
 
 
