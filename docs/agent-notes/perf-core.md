@@ -19,3 +19,11 @@ Timings (replay.py full, owner sequence, s), before -> after:
 - commit dx=15: 16.4 -> 3.3
 - preview dx=5 after the commit: 5.9 -> 4.8; commit again: 4.9 -> 1.6
 - arm (zero move preview): 4.0 -> 4.0 (full display of 120 bodies, unchanged)
+
+## Task 2: autosave timing
+
+`Autosaver.save` now keeps the newest snapshot (new states + meta) and arms a timer: write 1.5 s after the last change, at most 5 s
+after the first unwritten change. `flush()` writes what waits; `mark_clean` (shutdown) flushes first; the connection handler flushes
+when a tab disconnects. Snapshot objects (project_of) are still taken at request time, only the pack/write is deferred, so the
+timer thread never reads the live document. Tests: tests/test_autosave.py (quiet wait, max wait, flush, shutdown, fresh document).
+Not measured with the app: the write cost (about 2.5 s GIL) still happens, but once per burst of changes instead of per request.

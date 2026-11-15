@@ -249,3 +249,86 @@ def test_killed_process_is_offered_at_once(tmp_path):
     offer = Autosaver(tmp_path).available()
     assert offer["name"] == "killed"
     assert (live.folder / "session.json").exists()
+
+
+def written_names(saver: Autosaver) -> list[str]:
+    return sorted(p.name for p in saver.folder.glob("state_*.plbl"))
+
+
+def wait_until(check, seconds: float = 3.0) -> bool:
+    import time
+
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        if check():
+            return True
+        time.sleep(0.02)
+    return check()
+
+
+def test_a_save_waits_for_a_quiet_moment_and_then_writes_the_newest_state(tmp_path):
+    saver = Autosaver(tmp_path, heartbeat=3600, quiet=0.3, max_wait=5.0)
+    document = Document(Box(5, 5, 5).wrapped, "part")
+    saver.save(document, fresh=True)
+    import time
+
+    time.sleep(0.1)
+    assert written_names(saver) == []  # not written at once
+    document.commit(Box(6, 6, 6).wrapped)
+    saver.save(document)  # another change restarts the wait
+    assert wait_until(lambda: len(written_names(saver)) == 2)
+    assert json.loads((saver.folder / "session.json").read_text())["ids"] == document.ids
+    saver.mark_clean()
+
+
+def test_changes_that_keep_arriving_are_written_by_the_longest_wait(tmp_path):
+    import time
+
+    saver = Autosaver(tmp_path, heartbeat=3600, quiet=0.4, max_wait=1.0)
+    document = Document(Box(5, 5, 5).wrapped, "part")
+    saver.save(document, fresh=True)
+    start = time.monotonic()
+    n = 0
+    while not (saver.folder / "session.json").exists() and time.monotonic() - start < 4:
+        n += 1
+        document.commit(Box(6 + n, 6, 6).wrapped)
+        saver.save(document)  # never quiet for 0.4 s
+        time.sleep(0.15)
+    waited = time.monotonic() - start
+    assert 0.8 < waited < 2.0  # about max_wait, not never and not at once
+    saver.mark_clean()
+
+
+def test_flush_and_clean_shutdown_write_what_waits(tmp_path):
+    saver = Autosaver(tmp_path, heartbeat=3600, quiet=60, max_wait=60)
+    document = Document(Box(5, 5, 5).wrapped, "part")
+    saver.save(document, fresh=True)
+    document.commit(Box(6, 6, 6).wrapped)
+    saver.save(document)
+    assert written_names(saver) == []
+    saver.flush()
+    assert len(written_names(saver)) == 2
+    document.commit(Box(7, 7, 7).wrapped)
+    saver.save(document)
+    saver.mark_clean()  # the server's shutdown
+    other = Autosaver(tmp_path, heartbeat=3600)
+    info = other.available()
+    assert info["steps"] == 3 and info["clean"] is True
+    restored = other.restore()
+    assert len(restored.ids) == 3
+
+
+def test_a_newly_opened_document_after_waiting_states_keeps_only_its_own(tmp_path):
+    saver = Autosaver(tmp_path, heartbeat=3600, quiet=60, max_wait=60)
+    old = Document(Box(5, 5, 5).wrapped, "old")
+    saver.save(old, fresh=True)
+    old.commit(Box(6, 6, 6).wrapped)
+    saver.save(old)
+    new = Document(Box(20, 20, 20).wrapped, "new")
+    saver.save(new, fresh=True)
+    new.commit(Box(21, 21, 21).wrapped)
+    saver.save(new)
+    saver.flush()
+    assert json.loads((saver.folder / "session.json").read_text())["name"] == "new"
+    assert len(written_names(saver)) == 2
+    saver.mark_clean()
