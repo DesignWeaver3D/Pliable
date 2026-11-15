@@ -5,7 +5,8 @@ import * as THREE from "three";
 import { bodyColor } from "./bodycolors.ts";
 import type { HandleInfo } from "./tools.ts";
 import type { Viewport } from "./viewport.ts";
-import { frameOf, gridFor, hatchLines, hatchStyle, overlapOf, regionsOf, sliceBodies } from "./sectionmath.ts";
+import { partsCover } from "./bodyparts.ts";
+import { frameOf, gridFor, hatchLines, hatchStyle, overlapOf, regionsOf, sliceBodies, sliceParts } from "./sectionmath.ts";
 import type { Loop, SectionPlane, V3 } from "./sectionmath.ts";
 
 const HANDLE_PARAM = "section_offset";
@@ -204,7 +205,8 @@ export class SectionView {
     const b = data.bounds;
     const diagonal = Math.hypot(b[3] - b[0], b[4] - b[1], b[5] - b[2]) || 1;
     const frame = frameOf(this.plane);
-    const cut = sliceBodies(data.positions, data.indices, data.faces, frame, diagonal * 2e-6);
+    const eps = diagonal * 2e-6;
+    const cut = partsCover(data.parts, data.indices.length) ? sliceParts(data.parts, frame, eps) : sliceBodies(data.positions, data.indices, data.faces, frame, eps);
     const ids = [...new Set(data.faces.map((f) => f.body ?? -1))].sort((x, y) => x - y);
     // Everything is drawn exactly on the plane; the cut face and the red overlay are pushed apart in depth with polygon offsets.
     const at = (x: number, y: number): V3 => [

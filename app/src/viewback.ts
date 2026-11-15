@@ -50,11 +50,12 @@ export function buildBack(parent: THREE.Object3D, main: THREE.Mesh, data: MeshDa
   const { indices, toMain, faces } = backIndex(data, ids);
   if (indices.length === 0) return null;
   const geometry = new THREE.BufferGeometry();
-  for (const name of ["position", "normal", "color"]) geometry.setAttribute(name, main.geometry.getAttribute(name));
+  for (const name of ["position", "normal"]) geometry.setAttribute(name, main.geometry.getAttribute(name));
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
   const material = new THREE.MeshPhysicalMaterial();
   const ghostMaterial = new THREE.MeshPhysicalMaterial();
   const mesh = new THREE.Mesh(geometry, material);
+  mesh.visible = false; // only for picking: the back sides are drawn per body (bodymeshes.ts)
   parent.add(mesh);
   return { mesh, material, ghostMaterial, ids, toMain, faces };
 }
@@ -73,13 +74,11 @@ export function syncBack(
   surface: THREE.MeshPhysicalMaterial,
   ghost: THREE.MeshPhysicalMaterial | null,
   ghosted: ReadonlySet<number>,
-  moving: { bodies: Set<number> } | null,
 ) {
   const back: BackSide | undefined = main?.userData.back;
   if (!back) return;
   follow(back.material, surface);
   if (ghost) follow(back.ghostMaterial, ghost);
-  back.mesh.visible = !(moving && [...moving.bodies].some((b) => back.ids.has(b))); // a body being slid is split from the mesh: its back waits for the reply
   back.mesh.geometry.clearGroups();
   if (ghosted.size === 0 || !ghost) {
     back.mesh.material = back.material;
@@ -92,7 +91,7 @@ export function syncBack(
 /** Hits of a ray on the back side of surface bodies, as hits in the main mesh (faceIndex of the main index). */
 export function backHits(main: THREE.Mesh, raycaster: THREE.Raycaster): THREE.Intersection[] {
   const back: BackSide | undefined = main.userData.back;
-  if (!back || !back.mesh.visible) return [];
+  if (!back) return [];
   return raycaster.intersectObject(back.mesh).map((h) => ({ ...h, faceIndex: h.faceIndex == null ? h.faceIndex : back.toMain[h.faceIndex] }));
 }
 

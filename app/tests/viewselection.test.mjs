@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
@@ -60,9 +60,9 @@ test("showMark highlights the right part for each kind", () => {
   const m = markFor(v);
   showMark(v, m, { kind: "face", id: 1 });
   assert.equal(m.face.visible, true);
-  assert.equal(m.face.geometry.getIndex().count, 6);
+  assert.equal(m.face.geometry.getAttribute("position").count, 6);
   showMark(v, m, { kind: "body", id: 10 });
-  assert.equal(m.face.geometry.getIndex().count, 6);
+  assert.equal(m.face.geometry.getAttribute("position").count, 6);
   assert.equal(m.edge.visible, true);
   showMark(v, m, { kind: "vertex", id: 9 });
   assert.equal(m.vertex.visible, true);

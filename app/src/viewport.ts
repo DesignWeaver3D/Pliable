@@ -16,8 +16,9 @@ import { MirrorArrow } from "./pushpullarrows.ts";
 import { SubtractGhost } from "./subtractghost.ts";
 import type { HandleInfo } from "./tools.ts";
 import { onSettingsChange, settings, updateSettings } from "./settings.ts";
-import { buildBack } from "./viewback.ts";
-import { bodyColorArray } from "./bodycolorarray.ts";
+import { buildBack, surfaceBodyIds } from "./viewback.ts";
+import { BodyMeshes } from "./bodymeshes.ts";
+import { partsCover, partsOf } from "./bodyparts.ts";
 import { PERSPECTIVE_FOV, alignToFace, fitClipping, lookFrom, lookFromOrthographic, returnFromSketchView, setOrthographic, setView, syncOrtho, viewMatrixCss } from "./viewcamera.ts";
 import { fitAll, fitSelected, frame as frameBox } from "./viewfit.ts";
 import { faceUnder, pickModelItem } from "./viewpick.ts";
@@ -70,10 +71,13 @@ export class Viewport {
   controls: OrbitControls;
   lastClip = 0;
   model = new THREE.Group();
+  /** The merged mesh of the whole model: the arrays that picking, face numbers and fitting read. It is never drawn (see `bodyMeshes`). */
   mesh: THREE.Mesh | null = null;
-  edgeLines: THREE.LineSegments | null = null;
-  /** Bodies drawn apart from the rest so they can be slid on the client while a move handle is dragged (see `slideBodies`). */
-  moving: { bodies: Set<number>; surface: THREE.Mesh; edges: THREE.LineSegments; data: MeshData } | null = null;
+  /** What is drawn of the model: one mesh per body, replaced only for the bodies a reply changed. */
+  readonly bodyGroup = new THREE.Group();
+  readonly bodyMeshes = new BodyMeshes(this.bodyGroup);
+  /** Bodies shifted on the client while a move handle is dragged (see `slideBodies`). */
+  moving: { bodies: Set<number>; data: MeshData } | null = null;
   data: MeshData | null = null;
   faceStarts: number[] = [];
   surfaceMaterial: THREE.MeshPhysicalMaterial | null = null;
@@ -258,6 +262,7 @@ export class Viewport {
     container.appendChild(this.renderer.domElement);
     this.scene.background = new THREE.Color(0x1b1d22);
     this.scene.add(this.model);
+    this.model.add(this.bodyGroup);
     this.scene.add(this.hemiLight);
     this.keyLight.position.set(1, 2, 3);
     for (const c of [this.perspectiveCamera, this.orthoCamera]) c.up.set(0, 0, 1);
@@ -391,6 +396,7 @@ export class Viewport {
 
   setMesh(mesh: MeshData, frame: boolean) {
     for (const child of [...this.model.children]) {
+      if (child === this.bodyGroup) continue; // the bodies keep their graphics unless their data changed (bodyMeshes.update)
       this.model.remove(child);
       (child as THREE.Mesh).geometry?.dispose();
     }
@@ -406,7 +412,6 @@ export class Viewport {
     geometry.setAttribute("position", new THREE.BufferAttribute(mesh.positions, 3));
     geometry.setAttribute("normal", new THREE.BufferAttribute(mesh.normals, 3));
     geometry.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
-    geometry.setAttribute("color", new THREE.BufferAttribute(bodyColorArray(mesh), 3));
     const material = new THREE.MeshPhysicalMaterial({
       color: 0x9db4cc,
       metalness: 0.1,
@@ -416,22 +421,21 @@ export class Viewport {
       polygonOffsetUnits: 1,
     });
     this.mesh = new THREE.Mesh(geometry, material);
-    installTreeRaycast(this.mesh);
+    this.mesh.visible = false; // picking reads it; the bodies are drawn by `bodyMeshes`
+    installTreeRaycast(this.mesh, partsCover(mesh.parts, mesh.indices.length) ? mesh.parts : undefined);
     this.model.add(this.mesh);
     this.mesh.userData.back = buildBack(this.model, this.mesh, mesh);
     this.surfaceMaterial = material;
     this.ghostMaterial = new THREE.MeshPhysicalMaterial();
+    this.edgeMaterial = new THREE.LineBasicMaterial({ color: 0x111418 });
+    const back = this.mesh.userData.back as { material: THREE.Material; ghostMaterial: THREE.Material } | null;
+    this.bodyMeshes.update(partsOf(mesh), { surface: material, ghost: this.ghostMaterial, edge: this.edgeMaterial, back }, surfaceBodyIds(mesh), this.ghosted);
     applyBodyColors(this);
     applyGhost(this);
     this.hoverMark = new Mark(this.model, geometry, 0xffd36b, 0.55, this.hoverLine);
     this.markSource = geometry;
     this.bandStrip.refresh(geometry, this.mesh, mesh.faces); // a new mesh: the band shading goes over its faces
 
-    const edges = new THREE.BufferGeometry();
-    edges.setAttribute("position", new THREE.BufferAttribute(mesh.edgePositions, 3));
-    this.edgeMaterial = new THREE.LineBasicMaterial({ color: 0x111418 });
-    this.edgeLines = new THREE.LineSegments(edges, this.edgeMaterial);
-    this.model.add(this.edgeLines);
     this.moving = null;
     // Hole center dots are drawn only for the hovered or selected hole (see refreshCentres).
     this.centreDots = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: 0x4fc3f7, size: 7, sizeAttenuation: false, depthTest: false }));

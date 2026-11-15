@@ -30,21 +30,22 @@ export class DepthProbe {
     this.renderer = renderer;
   }
 
-  /** Draw the mesh's solid triangles (material 0) as seen by the camera at the given size in CSS pixels. */
-  capture(mesh: THREE.Mesh, camera: THREE.PerspectiveCamera | THREE.OrthographicCamera, width: number, height: number, clip: THREE.Plane[] | null) {
+  /** Draw the solid meshes (the bodies that are not see-through) as seen by the camera at the given size in CSS pixels. */
+  capture(meshes: readonly THREE.Mesh[], camera: THREE.PerspectiveCamera | THREE.OrthographicCamera, width: number, height: number, clip: THREE.Plane[] | null) {
     this.width = Math.max(1, Math.round(width));
     this.height = Math.max(1, Math.round(height));
     this.camera = camera;
     this.orthographic = (camera as THREE.OrthographicCamera).isOrthographicCamera === true;
     const depthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide });
     depthMaterial.clippingPlanes = clip;
-    const hidden = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false });
-    const copy = new THREE.Mesh(mesh.geometry, Array.isArray(mesh.material) ? [depthMaterial, hidden] : depthMaterial);
-    copy.matrixAutoUpdate = false;
-    copy.matrix.copy(mesh.matrixWorld);
-    copy.matrixWorld.copy(mesh.matrixWorld);
     const scene = new THREE.Scene();
-    scene.add(copy);
+    for (const mesh of meshes) {
+      const copy = new THREE.Mesh(mesh.geometry, depthMaterial);
+      copy.matrixAutoUpdate = false;
+      copy.matrix.copy(mesh.matrixWorld);
+      copy.matrixWorld.copy(mesh.matrixWorld);
+      scene.add(copy);
+    }
     const target = new THREE.WebGLRenderTarget(this.width, this.height);
     const renderer = this.renderer;
     const previousTarget = renderer.getRenderTarget();
@@ -62,7 +63,6 @@ export class DepthProbe {
       renderer.setClearColor(previousColour, previousAlpha);
       target.dispose();
       depthMaterial.dispose();
-      hidden.dispose();
     }
   }
 

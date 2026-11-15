@@ -13,8 +13,7 @@ export class Mark {
   constructor(parent: THREE.Object3D, source: THREE.BufferGeometry, color: number, opacity: number, lineMaterial: LineMaterial) {
     this.lineMaterial = lineMaterial;
     const faceGeometry = new THREE.BufferGeometry();
-    faceGeometry.setAttribute("position", source.getAttribute("position"));
-    faceGeometry.setIndex(new THREE.BufferAttribute(new Uint32Array(0), 1));
+    faceGeometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(0), 3)); // its own copy of the triangles it shows (see `setTriangles`), so showing a mark never uploads the model's vertices
     this.face = new THREE.Mesh(
       faceGeometry,
       new THREE.MeshBasicMaterial({
@@ -38,6 +37,21 @@ export class Mark {
       object.renderOrder = 2;
       parent.add(object);
     }
+  }
+
+  /** Show these triangles (corner numbers into `positions`; a copy is kept): a face, or every face of a body. */
+  setTriangles(positions: ArrayLike<number>, corners: ArrayLike<number>) {
+    const out = new Float32Array(corners.length * 3);
+    for (let i = 0; i < corners.length; i++) {
+      const p = corners[i] * 3;
+      out[i * 3] = positions[p];
+      out[i * 3 + 1] = positions[p + 1];
+      out[i * 3 + 2] = positions[p + 2];
+    }
+    const geometry = this.face.geometry;
+    geometry.setAttribute("position", new THREE.BufferAttribute(out, 3));
+    geometry.boundingSphere = null;
+    geometry.boundingBox = null;
   }
 
   hide() {

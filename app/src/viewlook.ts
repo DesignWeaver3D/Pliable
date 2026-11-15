@@ -11,7 +11,7 @@ const GLOSS_HEMI = 0.5;
 const GLOSS_KEY = 1.0;
 
 /** The part of the Viewport this file uses. */
-export type LookContext = Pick<Viewport, "data" | "edgeMaterial" | "ghostMaterial" | "ghosted" | "hemiLight" | "hoverLine" | "keyLight" | "mesh" | "model" | "moving" | "renderer" | "sectionClip" | "selectedLine" | "studioEnv" | "surfaceMaterial">;
+export type LookContext = Pick<Viewport, "data" | "bodyMeshes" | "edgeMaterial" | "ghostMaterial" | "ghosted" | "hemiLight" | "hoverLine" | "keyLight" | "mesh" | "model" | "renderer" | "sectionClip" | "selectedLine" | "studioEnv" | "surfaceMaterial">;
 
 export function syncSectionClip(view: LookContext) {
   const wanted = view.sectionClip;
@@ -95,16 +95,17 @@ export function syncGhostMaterial(view: LookContext) {
   g.opacity = settings.seeThroughOpacity / 100;
   g.depthWrite = false;
   g.needsUpdate = true;
-  syncBack(view.mesh, m, g, view.ghosted, view.moving);
+  syncBack(view.mesh, m, g, view.ghosted);
 }
 
-/** Split the draw ranges of the surface into solid and see-through runs (two materials, one geometry, no rebuild). */
+/** The see-through bodies: drawn with the see-through material (each body has its own mesh), and the merged mesh that picking uses keeps two materials over solid and see-through runs. */
 export function applyGhost(view: LookContext) {
   const mesh = view.mesh;
   const data = view.data;
-  if (!mesh || !data || view.moving) return;
+  view.bodyMeshes.setGhosted(view.ghosted);
+  if (!mesh || !data) return;
   mesh.geometry.clearGroups();
-  if (view.surfaceMaterial) syncBack(mesh, view.surfaceMaterial, view.ghostMaterial, view.ghosted, view.moving);
+  if (view.surfaceMaterial) syncBack(mesh, view.surfaceMaterial, view.ghostMaterial, view.ghosted);
   if (view.ghosted.size === 0 || !view.ghostMaterial || !view.surfaceMaterial) {
     mesh.material = view.surfaceMaterial!;
     return;

@@ -1,41 +1,4 @@
-/** Splitting a mesh's draw lists by body, so a few bodies can be slid on the client while a move handle is dragged. */
-
-interface Range {
-  start: number;
-  count: number;
-  body?: number | null;
-}
-
-/** Split `source` (`unit` numbers per element) into the elements of the ranges `moves` accepts and everything else. */
-function split(ranges: Range[], unit: number, source: ArrayLike<number>, moves: (r: Range) => boolean) {
-  const moving: number[] = [];
-  const rest: number[] = [];
-  let at = 0;
-  for (const range of [...ranges].filter((r) => r.count > 0).sort((a, b) => a.start - b.start)) {
-    const from = range.start * unit;
-    const to = (range.start + range.count) * unit;
-    for (let i = at; i < from; i++) rest.push(source[i]); // anything outside every range stays put
-    const into = moves(range) ? moving : rest;
-    for (let i = from; i < to; i++) into.push(source[i]);
-    at = to;
-  }
-  for (let i = at; i < source.length; i++) rest.push(source[i]);
-  return { moving, rest };
-}
-
-/** The triangle indices and edge segments of a mesh split into those of `bodies` and the rest; null when none of the bodies has any. */
-export function splitDrawLists(data: { indices: ArrayLike<number>; edgePositions: ArrayLike<number>; faces: Range[]; edges: Range[] }, bodies: Set<number>) {
-  const moves = (r: Range) => r.body != null && bodies.has(r.body);
-  const surface = split(data.faces, 1, data.indices, moves);
-  const edges = split(data.edges, 3, data.edgePositions, moves);
-  if (surface.moving.length === 0 && edges.moving.length === 0) return null;
-  return {
-    movingIndices: Uint32Array.from(surface.moving),
-    restIndices: Uint32Array.from(surface.rest),
-    movingEdges: Float32Array.from(edges.moving),
-    restEdges: Float32Array.from(edges.rest),
-  };
-}
+/** Finding the bodies that slide on the client while a move handle is dragged. */
 
 /** The mean position of each body's vertices (a cheap fingerprint of where a body is). */
 export function bodyCentres(vertices: { body?: number | null; position: [number, number, number] }[]): Map<number, [number, number, number]> {
