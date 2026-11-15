@@ -153,3 +153,14 @@ def test_a_move_flags_the_model_only_when_the_merge_settled():
         if result.merged:
             break
     assert result.merged
+
+
+def test_a_move_that_finds_the_model_merged_lets_the_next_one_merge_only_its_bodies():
+    topology = Topology(merged_model(compound([box(0), box(30), box(60), box(90)])))
+    topology.merged = False  # as after an import: merged in fact, not yet known to be
+    moved(topology, False, body=1)
+    assert topology.merged  # a preview counts: nothing was merged, so the model it started from is settled
+    assert changed_solids(topology, {1}) == frozenset({1})
+    unmerged = Topology(compound([box(0), split_cavity(30), box(60)]))
+    moved(unmerged, False, body=0)
+    assert not unmerged.merged  # the merge changed the other body, so nothing is known

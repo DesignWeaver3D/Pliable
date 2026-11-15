@@ -104,4 +104,6 @@ class MoveBody(Tool):
         result = finish(placed, changed=changed)
         result.moved = record
         result.merged = changed is not None or merge_settled(topology, result.shape)
+        if result.merged:
+            topology.merged = True  # a rigid move leaves the counts as they were: when the merge changed nothing, the model this started from was merged already, so the next preview or commit merges only its moved bodies
         return result
