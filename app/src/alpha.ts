@@ -1,4 +1,4 @@
-/** Alpha-release UI: the ALPHA tag, the launch notice and the Copy diagnostics dialog. */
+/** Alpha-release UI: the launch notice and the Copy diagnostics dialog. */
 
 import { recentMessages } from "./messagelog.ts";
 import { usage, usageLines, type UsageRow } from "./usage.ts";
@@ -225,16 +225,11 @@ export function showMessage(text: string): void {
   area.select();
 }
 
-/** Adds the ALPHA tag and the diagnostics button to the top bar. */
+/** Adds the diagnostics button to the top bar. */
 export function installAlphaUi(bar: HTMLElement, core: Requester): void {
-  const tag = document.createElement("span");
-  tag.textContent = "ALPHA";
-  tag.title = ALPHA_NOTICE;
-  tag.style.cssText = "color:#ffb878;border-color:#ff8a1f;font-weight:600;letter-spacing:.05em";
   const diag = document.createElement("button");
   diag.textContent = "Copy diagnostics";
   diag.title = "Show the details a bug report needs, then copy them";
   diag.onclick = () => void showDiagnostics(core);
-  bar.prepend(tag);
   bar.append(diag);
 }
