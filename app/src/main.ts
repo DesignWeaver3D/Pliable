@@ -82,6 +82,8 @@ let loadedSample = [...select.options].find((option) => option.value)!.value; //
 const viewport = new Viewport($("viewport"));
 if (DEV) (window as any).__viewport = viewport; // for timing the view from the console
 const core = new CoreClient();
+core.deltaMesh = DEV; // replies that carry only the changed bodies: dev mode first, with a comparison against whole replies
+core.compareDeltas = DEV;
 core.hiddenBodies = () => [...bodyView.hidden];
 core.interactChoice = () => interaction.sent();
 core.onInteract = (report) => interaction.setReport(report);
