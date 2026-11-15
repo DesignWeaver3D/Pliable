@@ -157,3 +157,14 @@ def test_a_second_hole_through_the_same_bodies_is_merged_scoped(monkeypatch):
     whole, scoped = drill(first, False, 3.0), drill(first, True, 3.0)
     assert sorted_fingerprint(scoped.shape) == sorted_fingerprint(whole.shape)
     assert asked == [None, frozenset({0, 1})]
+
+
+def test_a_tool_that_only_calls_finish_gets_the_scoped_merge():
+    shape = model()
+    topology = Topology(shape)
+    face = top_face(topology, 1)
+    pick = lambda t: Selection(faces=[face])
+    whole = run(shape, False, "add_boss", pick, {"diameter": 4, "height": 5})
+    scoped = run(shape, True, "add_boss", pick, {"diameter": 4, "height": 5})
+    assert sorted_fingerprint(scoped.shape) == sorted_fingerprint(whole.shape)
+    assert scoped.merged  # no tool asks for the scoped merge: the tool runner sets it for every tool

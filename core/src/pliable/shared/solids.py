@@ -19,6 +19,7 @@ from OCP.TopoDS import TopoDS, TopoDS_Compound, TopoDS_Shape
 from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 
 from ..facemerge import merge_faces
+from ..mergescope import finish_scoped, merge_start
 from ..ops import _boolean, keep_compound, OperationError, OpResult, solids_of
 from ..tools import Param
 from ..validity import is_valid
@@ -32,6 +33,9 @@ def finish(shape: TopoDS_Shape, cutters=(), changed: frozenset | None = None) ->
     """Merge faces that share a surface (facemerge.py), check the result, and return it (the selection is not carried over).
     `cutters` are the tool volumes a subtract removed; the preview draws the part of them in empty space as a ghost.
     `changed` (positions of the solids the operation changed, see mergescope.py) limits the same-surface search to them."""
+    start = merge_start() if changed is None else None  # a tool running on the whole model: merge only the bodies it changed (mergescope.py)
+    if start is not None:
+        return finish_scoped(start, shape, cutters)
     merged = merge_faces(OpResult(shape, []), changed=changed)
     merged.cutters = list(cutters)
     return merged

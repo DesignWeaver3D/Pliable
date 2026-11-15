@@ -12,7 +12,6 @@ from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS
 
 from ..body_scope import _faces_outside
-from ..mergescope import finish_scoped
 from ..ops import OperationError, face_handle_point, solids_of
 from ..pushpull_modes import nothing_to_subtract
 from ..shared.arrayaxis import AXIS_CHOICES
@@ -203,4 +202,4 @@ class HelicalSweep(RevolveFace):
             result = _compound(pieces)
         if kept:
             result = _compound([result, *kept])
-        return finish_scoped(topology, result, coils if mode else ())
+        return finish(result, coils if mode else ())

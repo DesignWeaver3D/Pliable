@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from ..body_lock import keep_locked, refuse_locked
 from .. import interaction
 from ..body_scope import narrow
+from ..mergescope import merging_from
 from ..ops import OperationError, OpResult, keep_compound, unify_result
 from ..topology import Topology
 
@@ -394,7 +395,8 @@ class Tool:
         try:
             narrowed = narrow(topology, selection, strict=self.scope_to_bodies or interaction.strict(self, topology, selection)) if self.scope_to_bodies or self.skips_hidden_bodies else None
             work, chosen = (narrowed.topology, narrowed.selection) if narrowed else (topology, selection)
-            result = self.run(work, chosen, narrowed.values(values) if narrowed else values, preview)
+            with merging_from(work):
+                result = self.run(work, chosen, narrowed.values(values) if narrowed else values, preview)
             if not result.unified and result.shape is not work.shape:
                 result = unify_result(result)  # tools that skip finish() still leave no redundant faces or edges
             result.shape = keep_compound(work.shape, result.shape)

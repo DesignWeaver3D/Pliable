@@ -8,7 +8,6 @@ from OCP.GeomAbs import GeomAbs_Line
 from OCP.gp import gp_Ax1, gp_Pnt, gp_Trsf, gp_Vec
 
 from ..body_scope import _faces_outside
-from ..mergescope import finish_scoped
 from ..ops import OperationError, face_handle_point, solids_of
 from ..pushpull_modes import nothing_to_subtract
 from ..shared.arrayaxis import AXIS_CHOICES, array_axis
@@ -119,7 +118,7 @@ class RevolveFace(Tool):
             if mode == 1:
                 return nothing_to_subtract(topology.shape, [], [tool_shape], preview, message)
             raise OperationError(message)
-        return finish_scoped(topology, result, [tool_shape] if mode else ())
+        return finish(result, [tool_shape] if mode else ())
 
 
 def _volume_change(solids, result) -> float:

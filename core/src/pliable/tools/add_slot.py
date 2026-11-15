@@ -5,11 +5,10 @@ import math
 from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
 from OCP.gp import gp_Ax2, gp_Dir, gp_Vec
 
-from ..mergescope import finish_scoped
 from ..ops import MIN_DISTANCE, OperationError
 from ..shared.faces import _PlanarFace, _plane_axes
 from ..shared.bodycut import cut_reachable_bodies
-from ..shared.solids import _bounds_diagonal, _cylinder
+from ..shared.solids import _bounds_diagonal, _cylinder, finish
 from ..tools import Accepts, Handle, Param, register
 
 
@@ -93,4 +92,4 @@ class AddSlot(_PlanarFace):
         ghost = []  # the preview's ghost: the same parts starting on the face; a through slot has no real end to draw
         if preview and values["depth"] > MIN_DISTANCE:
             ghost = cutting_parts(centre, corner.Translated(gp_Vec(normal).Multiplied(-margin)), 0.0)
-        return finish_scoped(topology, shape, ghost)
+        return finish(shape, ghost)

@@ -7,6 +7,9 @@ or with a shape outside the bodies (then a merge of one body cannot reach anothe
 which means the whole model, as before.
 """
 
+from contextlib import contextmanager
+from contextvars import ContextVar
+
 from .bodydisplay import _own_extents, body_ranges
 from .facemerge import merge_faces
 from .mergememo import merge_remembering
@@ -72,3 +75,21 @@ def finish_scoped(topology, shape, cutters=()) -> OpResult:
     result.cutters = list(cutters)
     result.merged = changed is not None or merge_settled(Topology(shape, bodies=()), result.shape) or settled_beside(shape, result.shape, moved)
     return result
+
+
+_start: ContextVar = ContextVar("merge_start", default=None)
+
+
+@contextmanager
+def merging_from(topology):
+    """While a tool runs on the whole model `topology` (or the part of it the tool is narrowed to), `finish` (shared/solids.py) merges only the bodies the
+    tool changed, as `finish_scoped` does, so no tool has to ask for it."""
+    token = _start.set(topology)
+    try:
+        yield
+    finally:
+        _start.reset(token)
+
+
+def merge_start():
+    return _start.get()

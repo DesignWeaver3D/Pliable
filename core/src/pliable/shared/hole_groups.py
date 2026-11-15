@@ -11,7 +11,6 @@ from OCP.TopoDS import TopoDS_Shape
 from OCP.gp import gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 
 from ..holes import walls_on_axis
-from ..mergescope import finish_scoped
 from ..ops import MIN_DISTANCE, OperationError, OpResult
 from ..splitwalls import wall_chain
 from ..tools import Accepts, Param, Tool
@@ -140,7 +139,7 @@ class _HoleOnFace(_PlanarFace):
         shape = cut_reachable_bodies(topology.shape, _cylinder(lead, normal.Reversed(), values["diameter"] / 2, depth + margin))
         for cutter in self.extra_cutters(start, normal, values, depth, margin):
             shape = cut_reachable_bodies(shape, cutter)
-        result = finish_scoped(topology, shape, self._ghost_cutters(start, normal, values, depth) if preview and values["depth"] > MIN_DISTANCE else ())
+        result = finish(shape, self._ghost_cutters(start, normal, values, depth) if preview and values["depth"] > MIN_DISTANCE else ())
         if not preview:  # the new hole's bore stays selected, so the Hole Editor opens on it (and a thread can follow)
             result.tracked_faces += walls_on_axis(result.shape, start, normal, values["diameter"] / 2)
         return result
