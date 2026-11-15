@@ -16,6 +16,7 @@ import { placementPicks, moveVectorPicks } from "./toolformplace.ts";
 import { axisPointPick, edgeAxisPicks } from "./toolformaxis.ts";
 import { planePicks } from "./toolformplane.ts";
 import { framePicks } from "./toolformframe.ts";
+import { scaleChoice } from "./toolformscale.ts";
 
 /** A parameter value: a number, or for `per_edge` parameters one [start, end] radius pair per selected edge. */
 export type ParamValue = number | number[][];
@@ -236,6 +237,7 @@ export class ToolPanel {
     edgeAxisPicks(parts);
     planePicks(parts);
     framePicks(parts);
+    scaleChoice(parts);
     this.baseNow = parts.baseNow;
     this.formEl.hidden = false;
     this.inputs = inputs;
