@@ -7,7 +7,7 @@ or with a shape outside the bodies (then a merge of one body cannot reach anothe
 which means the whole model, as before.
 """
 
-from .bodydisplay import body_ranges
+from .bodydisplay import _own_extents, body_ranges
 from .facemerge import merge_faces
 from .ops import OpResult, solids_of
 from .topology import Topology
@@ -35,22 +35,36 @@ def merge_settled(before: Topology, merged_shape) -> bool:
     return (after.face_count, after.edge_count, after.vertex_count) == (before.face_count, before.edge_count, before.vertex_count)
 
 
-def changed_between(before, after) -> frozenset | None:
-    """The positions of the bodies of `after` that are not the very body of `before` at the same position: what an
-    operation that left the other bodies alone changed. None when the numbers of bodies differ (positions mean nothing then)."""
+def changed_between(before, after) -> frozenset:
+    """The positions of the bodies of `after` that are not the very body of `before`, wherever it lay: what an
+    operation that left the other bodies alone changed. A boolean may list the bodies it kept in another order, and a
+    cut may split a body or leave none of it, so the numbers of bodies may differ."""
     old, new = solids_of(before), solids_of(after)
-    if len(old) != len(new):
-        return None
-    return frozenset(i for i, (a, b) in enumerate(zip(old, new)) if not a.IsSame(b))
+    moved = [i for i, body in enumerate(new) if i >= len(old) or not old[i].IsSame(body)]
+    if not moved:
+        return frozenset()
+    spare = [body for i, body in enumerate(old) if i >= len(new) or not body.IsSame(new[i])]  # a body found elsewhere in the list is the same body
+    return frozenset(i for i in moved if not any(new[i].IsSame(body) for body in spare))
+
+
+def settled_beside(shape, merged_shape, changed: frozenset) -> bool:
+    """Whether a merge of the whole model left the bodies outside `changed` as they were, by their numbers of faces, edges and
+    vertices: the bodies the operation did not touch are merged, so the next operation can merge its own bodies only
+    (`changed_solids`). The changed bodies themselves are expected to change in the merge (a cut leaves faces to join)."""
+    before, after = solids_of(shape), solids_of(merged_shape)
+    if len(before) != len(after):
+        return False
+    return all(_own_extents(a) == _own_extents(b) for i, (a, b) in enumerate(zip(before, after)) if i not in changed)
 
 
 def finish_scoped(topology, shape, cutters=()) -> OpResult:
     """`finish` (shared/solids.py) for an operation on the whole model that changed some of its bodies: when the model it
     started from is known to be merged (`changed_solids`) only the changed bodies are merged, and the result is the whole-model
-    merge. Otherwise the whole model is merged, and the result says whether that merge left the model as it was (`merged`),
-    so the next operation can be scoped."""
-    changed = changed_solids(topology, changed_between(topology.shape, shape))
+    merge. Otherwise the whole model is merged, and the result says whether that merge left the model as it was, or at least
+    the bodies the operation did not change (`merged`), so the next operation can be scoped."""
+    moved = changed_between(topology.shape, shape)
+    changed = changed_solids(topology, moved)
     result = merge_faces(OpResult(shape, []), changed=changed)
     result.cutters = list(cutters)
-    result.merged = changed is not None or merge_settled(Topology(shape, bodies=()), result.shape)
+    result.merged = changed is not None or merge_settled(Topology(shape, bodies=()), result.shape) or settled_beside(shape, result.shape, moved)
     return result

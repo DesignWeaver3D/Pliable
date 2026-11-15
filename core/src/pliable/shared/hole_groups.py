@@ -15,6 +15,7 @@ from ..mergescope import finish_scoped
 from ..ops import MIN_DISTANCE, OperationError, OpResult
 from ..splitwalls import wall_chain
 from ..tools import Accepts, Param, Tool
+from .bodycut import cut_reachable_bodies
 from .faces import _PlanarFace, _plane_axes
 from .solids import _bounds_diagonal, _combine, _compound, _cylinder, finish
 
@@ -136,9 +137,9 @@ class _HoleOnFace(_PlanarFace):
         # Cylinders start a little outside the face so the cut is clean, and run inward.
         margin = 0.01 * depth + 1e-3
         lead = start.Translated(gp_Vec(normal).Multiplied(margin))
-        shape = _combine(topology.shape, _cylinder(lead, normal.Reversed(), values["diameter"] / 2, depth + margin), fuse=False)
+        shape = cut_reachable_bodies(topology.shape, _cylinder(lead, normal.Reversed(), values["diameter"] / 2, depth + margin))
         for cutter in self.extra_cutters(start, normal, values, depth, margin):
-            shape = _combine(shape, cutter, fuse=False)
+            shape = cut_reachable_bodies(shape, cutter)
         result = finish_scoped(topology, shape, self._ghost_cutters(start, normal, values, depth) if preview and values["depth"] > MIN_DISTANCE else ())
         if not preview:  # the new hole's bore stays selected, so the Hole Editor opens on it (and a thread can follow)
             result.tracked_faces += walls_on_axis(result.shape, start, normal, values["diameter"] / 2)

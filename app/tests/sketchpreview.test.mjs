@@ -50,3 +50,21 @@ test("an arc by 3 points previews the chord after the first click, then the arc 
   near(arc[48], -10, 0); // ends at the second click
   assert.deepEqual(pendingShapes(context("arc3", [{ u: 10, v: 0 }, { u: -10, v: 0 }], { u: 0, v: 0 })), [[[10, 0], [-10, 0]]]); // in a line: just the chord
 });
+
+test("a typed arc is drawn counterclockwise in the preview and in its angle dimension, whatever side the pointer is on", () => {
+  const centre = { u: 0, v: 0 };
+  for (const degrees of [90, 180, 270]) {
+    for (const cursor of [{ u: 5, v: -5 }, { u: 5, v: 5 }]) {
+      const ctx = context("arc", [centre, { u: 10, v: 0 }], cursor, { typed: String(degrees) });
+      const [shape] = pendingShapes(ctx);
+      const [dimension] = liveDimensions(ctx);
+      // The first segment of each runs up from the start (counterclockwise) and the last point lies `degrees` round.
+      for (const points of [shape, dimension.points.slice(1).map((p) => [p[0], p[1]])]) {
+        assert.ok(points[1][1] > 0, `${degrees} deg, pointer ${cursor.v}: runs counterclockwise`);
+        const last = points[points.length - 1];
+        const angle = ((Math.atan2(last[1], last[0]) * 180) / Math.PI + 360) % 360;
+        assert.ok(Math.abs(angle - (degrees % 360)) < 1e-6, `${degrees} deg ends at ${angle}`);
+      }
+    }
+  }
+});

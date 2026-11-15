@@ -1,6 +1,6 @@
 /** The dimensions drawn while sizes are typed for a shape being drawn: real extension lines, dimension lines and leaders, with the typed value in them
  *  (the one being typed has a caret and is orange). The shape's rubber band follows the typed sizes too. No DOM. */
-import { turnShortWay } from "./anglemath.ts";
+import { positiveSweep, turnShortWay } from "./anglemath.ts";
 import type { Dimension } from "./dimensions.ts";
 import * as M from "./sketchmodel.ts";
 import { typedLabels, typedTargets } from "./sketchtyped.ts";
@@ -94,9 +94,9 @@ export function typedDimensions(ctx: PreviewContext, live = false): Dimension[] 
       const r = Math.hypot(start.u - first.u, start.v - first.v);
       const a0 = Math.atan2(start.v - first.v, start.u - first.u);
       let sweep = Math.atan2(end.v - first.v, end.u - first.u) - a0;
-      sweep = turnShortWay(sweep); // the short way round, as the typed degrees were turned
+      sweep = positiveSweep(turnShortWay(sweep)); // a typed sweep is always counterclockwise, as the committed arc and its preview are (half a turn too)
       const typedDegrees = numbers[ctx.chain.length === 2 ? 0 : 1];
-      if (typedDegrees !== undefined && typedDegrees > 180) sweep = (Math.sign(sweep || 1) * typedDegrees * Math.PI) / 180;
+      if (typedDegrees !== undefined && typedDegrees > 180) sweep = (typedDegrees * Math.PI) / 180;
       const samples = arcSamples(first, r, a0, sweep, 24).map(([u, v]) => world({ u, v }));
       const index = ctx.chain.length === 2 ? 0 : 1;
       out.push({ kind: "angle", text: shown(index, (Math.abs(sweep) * 180) / Math.PI, "", "°"), points: [world(first), ...samples], extend: [], selected: index === active });
