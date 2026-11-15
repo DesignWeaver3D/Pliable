@@ -16,6 +16,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - Pliable never claims equivalence or parity with any other software, commercial or open source; the README and other text say "inspired by" at most. (owner, 2026-10-31)
 - The README warning reads Alpha until the beta milestone, then Beta, and is deleted at v1.0. (owner, 2026-10-31)
 - The crash backup is written shortly after the last change (1.5 s without another change, and at most 5 s after the first change that is not written yet while changes keep arriving), and always when the tab disconnects or the core shuts down, so a normal close loses no change. (owner, 2026-11-14)
+- After an import the core merges the whole model in the background; a drag or other change asked for before it is done waits for it and then gets the same result, and undo history is the same as without it. Queries (selection, measuring, tool handles) do not wait. (owner, 2026-11-14)
 
 ## Selection and picking
 
