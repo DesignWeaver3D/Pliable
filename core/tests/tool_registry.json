@@ -1653,19 +1653,19 @@
  {
   "id": "stretch",
   "label": "Stretch",
-  "description": "Moves the end faces you select by a distance and re-fits the faces joined to them, so the part gets longer or shorter without cutting. Select the faces at one end; mode 0 re-fits the sides, mode 1 extrudes the end's section.",
+  "description": "Moves the part you select as one rigid piece while the faces joining it to the rest stretch like rubber, so the part gets longer, shorter or bent without cutting. Box-select an end (or pick its faces, edges or points), then drag the arrows to move it, the rings to tilt it and the slider to size the band that deforms; holes and other features beyond the band stay where they are. Mode 1 extrudes a flat end's section instead.",
   "accepts": {
    "faces": [
-    1,
+    0,
     null
    ],
    "edges": [
     0,
-    0
+    null
    ],
    "vertices": [
     0,
-    0
+    null
    ],
    "bodies": [
     0,
@@ -1675,7 +1675,7 @@
     0,
     0
    ],
-   "any_of": false
+   "any_of": true
   },
   "params": [
    {
@@ -1705,6 +1705,135 @@
     "default": 0.0,
     "drag": false,
     "options": []
+   },
+   {
+    "name": "rx",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "ry",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "rz",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "frame",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": [
+     "World",
+     "Picked face or edge",
+     "Free"
+    ]
+   },
+   {
+    "name": "fx",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "fy",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "fz",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "frame_edge",
+    "kind": "number",
+    "default": -1,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "fa",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "fb",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "fc",
+    "kind": "angle",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "pivot",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": [
+     "Selection center",
+     "Picked point"
+    ]
+   },
+   {
+    "name": "px",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "py",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "pz",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "band",
+    "kind": "length",
+    "default": 0.0,
+    "drag": false,
+    "options": []
+   },
+   {
+    "name": "continuity",
+    "kind": "number",
+    "default": 0.0,
+    "drag": false,
+    "options": [
+     "G1 (tangent)",
+     "G2 (curvature)"
+    ]
    }
   ],
   "related": [],

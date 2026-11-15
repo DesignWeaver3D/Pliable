@@ -3,7 +3,7 @@ import type { Active } from "./manipulator.ts";
 import * as THREE from "three";
 import { planePoint } from "./gridgrip.ts";
 import { ARM_PX, handleValue, snapValue, linkedValues, travelFor, typedTravel, typedStep, lineParam } from "./handlemath.ts";
-import { roundValue } from "./precision.ts";
+import { dragParam } from "./bandslider.ts";
 import { pieAngleAt } from "./piegizmo.ts";
 import { gridKey, gridStart, moveGrid } from "./manipulatorgrid.ts";
 import type { Manipulator } from "./manipulator.ts";
@@ -62,7 +62,7 @@ export function handleMove(manip: HandleDragContext, e: PointerEvent) {
   a.moved = true;
   const value = snapValue(handleValue(a.item.info, travelAt(manip, a, e)), a.item.info.snaps);
   a.item.travel = travelFor(a.item.info, value);
-  manip.onDrag(a.item.info.param, roundValue(value), "move", e.clientX, e.clientY, linkedValues(a.item.info, a.item.travel));
+  manip.onDrag(a.item.info.param, dragParam(a.item.info, a.item.travel), "move", e.clientX, e.clientY, linkedValues(a.item.info, a.item.travel));
 }
 
 /** Keyboard entry for the handle being dragged: digits, "." and "-" start typing at once, Backspace edits, Enter
@@ -105,7 +105,7 @@ export function handleKey(manip: HandleDragContext, e: { key: string }): boolean
 export function setTravel(manip: HandleDragContext, a: Active, travel: number) {
   a.item.travel = travel;
   const { info } = a.item;
-  manip.onDrag(info.param, roundValue(handleValue(info, travel)), "move", a.lastX ?? a.x, a.lastY ?? a.y, linkedValues(info, travel));
+  manip.onDrag(info.param, dragParam(info, travel), "move", a.lastX ?? a.x, a.lastY ?? a.y, linkedValues(info, travel));
 }
 
 /** Ends the drag as if the pointer was released (a typed value is committed). */
@@ -131,7 +131,7 @@ export function cancelHandle(manip: HandleDragContext) {
     if (a.moved) manip.onDrag(info.param, start.columns, "cancel", a.lastX ?? a.x, a.lastY ?? a.y, rowsParam ? { [rowsParam]: start.rows } : {});
     return;
   }
-  if (a.moved) manip.onDrag(info.param, roundValue(handleValue(info, a.travel0)), "cancel", a.lastX ?? a.x, a.lastY ?? a.y, linkedValues(info, a.travel0));
+  if (a.moved) manip.onDrag(info.param, dragParam(info, a.travel0), "cancel", a.lastX ?? a.x, a.lastY ?? a.y, linkedValues(info, a.travel0));
 }
 
 export function handleUp(manip: HandleDragContext, e: PointerEvent) {
@@ -159,5 +159,5 @@ export function releaseHandle(manip: HandleDragContext, a: Active, x: number, y:
     if (a.moved && now) manip.onDrag(info.param, now.columns, "end", e.clientX, e.clientY, rowsParam ? { [rowsParam]: now.rows } : {});
     return;
   }
-  if (a.moved) manip.onDrag(info.param, roundValue(handleValue(info, travel)), "end", e.clientX, e.clientY, linkedValues(info, travel));
+  if (a.moved) manip.onDrag(info.param, dragParam(info, travel), "end", e.clientX, e.clientY, linkedValues(info, travel));
 }

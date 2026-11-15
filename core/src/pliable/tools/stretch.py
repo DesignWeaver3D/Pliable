@@ -1,5 +1,6 @@
 """The Stretch tool."""
 
+import numpy as np
 from OCP.BRep import BRep_Builder, BRep_Tool
 from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
@@ -21,7 +22,12 @@ from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as S
 from OCP.gp import gp_Dir, gp_Pln, gp_Pnt, gp_Trsf, gp_Vec
 
 from ..ops import face_handle_point, MIN_DISTANCE, OperationError, OpResult, planar_normal, solids_of
-from ..tools import Accepts, Handle, Param, register, Tool
+from ..facemerge import merge_faces
+from ..stretch.falloff import CURVATURE, TANGENT
+from ..stretch.frame import frame_axes, FRAMES, pivot_point, PIVOTS, rigid_move
+from ..stretch.gizmo import band_handle, move_and_tilt_handles, reach_of
+from ..stretch.solve import plan, stretch
+from ..tools import Accepts, Param, register, Tool
 from ..validity import is_valid
 
 
@@ -110,16 +116,6 @@ def _refit(face, shift):
     return fixer.Face()
 
 
-def stretch_solid(solid, selected: list, offset: gp_Vec):
-    """The solid with the selected faces (and any face attached only to them) moved by `offset`; the rest follows."""
-    moved_vertices = ShapeIndexedMap()
-    for face in selected:
-        own = _vertex_set(face)
-        for k in range(1, own.Extent() + 1):
-            moved_vertices.Add(own.FindKey(k))
-    return shift_vertices(solid, moved_vertices, offset)
-
-
 def shift_vertices(solid, moved_vertices: ShapeIndexedMap, offset):
     """The solid with the given corners moved by `offset` (one vector, or a function giving each corner's own vector): a face with all its corners
     moved by one vector moves, a face with some is re-fitted through its corners."""
@@ -169,55 +165,132 @@ def insert_solid(solid, end_face, offset: gp_Vec):
     return operation.Shape()
 
 
+def _owner(shape, items: list):
+    """The solid of the shape that holds every one of the items (None when they are spread over several)."""
+    for solid in solids_of(shape):
+        inside = ShapeIndexedMap()
+        TopExp.MapShapes_s(solid, inside)
+        if all(inside.Contains(item) for item in items):
+            return solid
+    return None
+
+
 @register
 class Stretch(Tool):
-    """Move the selected end faces by (dx, dy, dz); neighboring faces are re-fitted so the end keeps its size
-    (mode 0), or the end's section is extruded or cut straight along its normal (mode 1)."""
+    """Move the selected faces, edges and vertices as one rigid piece (a shift along the frame's axes and a tilt about
+    them); the faces joining them to the rest deform over a band beside them (mode 0), or a flat end's section is
+    extruded or cut straight along its normal (mode 1)."""
 
     id = "stretch"
     label = "Stretch"
-    description = "Moves the end faces you select by a distance and re-fits the faces joined to them, so the part gets longer or shorter without cutting. Select the faces at one end; mode 0 re-fits the sides, mode 1 extrudes the end's section."
-    accepts = Accepts(faces=(1, None))
-    params = [Param("dx", "length"), Param("dy", "length"), Param("dz", "length"), Param("mode", "number")]
+    description = (
+        "Moves the part you select as one rigid piece while the faces joining it to the rest stretch like rubber, so the part gets longer, shorter or bent without cutting. "
+        "Box-select an end (or pick its faces, edges or points), then drag the arrows to move it, the rings to tilt it and the slider to size the band that deforms; "
+        "holes and other features beyond the band stay where they are. Mode 1 extrudes a flat end's section instead."
+    )
+    accepts = Accepts(faces=(0, None), edges=(0, None), vertices=(0, None), any_of=True)
+    params = [
+        Param("dx", "length"),
+        Param("dy", "length"),
+        Param("dz", "length"),
+        Param("mode", "number"),
+        Param("rx", "angle"),
+        Param("ry", "angle"),
+        Param("rz", "angle"),
+        Param("frame", "number", options=FRAMES),
+        Param("fx", "number"),
+        Param("fy", "number"),
+        Param("fz", "number"),
+        Param("frame_edge", "number", -1),
+        Param("fa", "angle"),
+        Param("fb", "angle"),
+        Param("fc", "angle"),
+        Param("pivot", "number", options=PIVOTS),
+        Param("px", "length"),
+        Param("py", "length"),
+        Param("pz", "length"),
+        Param("band", "length"),
+        Param("continuity", "number", options=("G1 (tangent)", "G2 (curvature)")),
+    ]
+
+    def _picked(self, topology, selection):
+        faces = [topology.face(i) for i in selection.faces]
+        edges = [topology.edge(i) for i in selection.edges]
+        vertices = [topology.vertex(i) for i in selection.vertices]
+        body = _owner(topology.shape, faces + edges + vertices)
+        if body is None:
+            raise OperationError("Select faces, edges and points that all belong to one solid")
+        return body, faces, edges, vertices
+
+    def _plan(self, topology, selection, band: float):
+        """The zones and band for this selection, kept with the model so every step of a drag does not work them out again."""
+        kept = topology.__dict__.setdefault("_stretch_plans", {})
+        key = (tuple(selection.faces), tuple(selection.edges), tuple(selection.vertices), band)
+        if key not in kept:
+            kept.clear()
+            kept[key] = plan(*self._picked(topology, selection), band)
+        return kept[key]
 
     def handles(self, topology, selection, values):
-        # Three move arrows (X, Y, Z) at the middle of the selected end faces, at their moved position (as on Move hole / boss).
-        points = [face_handle_point(topology.face(i)) for i in selection.faces]
-        centre = [sum(p.Coord(k + 1) for p in points) / len(points) for k in range(3)]
-        now = (values["dx"], values["dy"], values["dz"])
-        at = tuple(c + n for c, n in zip(centre, now))
-        return [Handle(name, f"Stretch along {label}", at, axis, kind="move") for name, label, axis in (("dx", "X", (1, 0, 0)), ("dy", "Y", (0, 1, 0)), ("dz", "Z", (0, 0, 1)))]
+        # Move arrows and tilt rings at the pivot (as on Move/Rotate), in the chosen frame, and the band's slider.
+        try:
+            made = self._plan(topology, selection, values.get("band", 0.0))
+        except OperationError:
+            made = None
+        if made is not None:
+            centre, reach = made.centre, reach_of(made)
+        elif selection.faces:
+            points = [face_handle_point(topology.face(i)) for i in selection.faces]
+            centre, reach = np.array([sum(p.Coord(k + 1) for p in points) / len(points) for k in range(3)]), 0.0
+        else:
+            return []
+        axes = frame_axes(values, topology)
+        here = pivot_point(values, centre) + values["dx"] * axes[0] + values["dy"] * axes[1] + values["dz"] * axes[2]
+        out = move_and_tilt_handles(axes, here, reach, values)
+        if made is not None and int(round(values.get("mode", 0))) == 0:
+            out.append(band_handle(made, [topology.face_id(made.body.faces[f]) for f in sorted(made.zones.rubber)]))
+        return out
 
     def run(self, topology, selection, values, preview):
         offset = gp_Vec(values["dx"], values["dy"], values["dz"])
-        if offset.Magnitude() < MIN_DISTANCE:
+        tilted = any(abs(values[n]) > 1e-9 for n in ("rx", "ry", "rz"))
+        if offset.Magnitude() < MIN_DISTANCE and not tilted:
             return OpResult(topology.shape, [])
         mode = int(round(values["mode"]))
         if mode not in (0, 1):
             raise OperationError("Mode must be 0 (stretch) or 1 (insert)")
-        selected = [topology.face(i) for i in selection.faces]
-        body = next((s for s in solids_of(topology.shape) if all(any(f.IsSame(o) for o in _shapes(s, TopAbs_FACE)) for f in selected)), None)
-        if body is None:
-            raise OperationError("Select faces that all belong to one solid")
-        if mode == 1 and len(selected) != 1:
+        body, faces, edges, vertices = self._picked(topology, selection)
+        if mode == 1 and len(faces) != 1:
             raise OperationError("Insert takes one flat end face")
+        axes = frame_axes(values, topology)
+        shift = values["dx"] * axes[0] + values["dy"] * axes[1] + values["dz"] * axes[2]
+        offset = gp_Vec(*map(float, shift))
+        tracked, notes = ([], [], []), []
         if mode == 0:
             try:
-                changed = stretch_solid(body, selected, offset)
+                order = CURVATURE if int(round(values["continuity"])) == 1 else TANGENT
+                done = stretch(body, faces, edges, vertices, lambda made: rigid_move(values, axes, pivot_point(values, made.centre)), values["band"], order, not preview, self._plan(topology, selection, values["band"]))
+                changed, tracked = done.solid, (done.faces, done.edges, done.vertices)
+                if done.removed:
+                    notes.append(f"Removed {done.removed} feature{'' if done.removed == 1 else 's'} the moved end ran over")
+                if done.freeform:
+                    notes.append(f"{done.freeform} face{'' if done.freeform == 1 else 's'} became free-form")
             except OperationError:
-                # A flat end moved straight along its normal gives the same shape whether the sides are re-fitted or the section is extruded,
-                # so when the sides cannot be re-fitted (curved neighbors, such as fillets) the extrusion is used instead of refusing.
-                normal = planar_normal(selected[0]) if len(selected) == 1 else None
+                # A flat end moved straight along its normal can still be extruded or cut when the faces beside it cannot be stretched.
+                normal = planar_normal(faces[0]) if len(faces) == 1 and not tilted else None
                 if normal is None or (offset - gp_Vec(normal).Multiplied(gp_Vec(normal).Dot(offset))).Magnitude() > 1e-6:
                     raise
-                changed = insert_solid(body, selected[0], offset)
+                changed = insert_solid(body, faces[0], offset)
         else:
-            changed = insert_solid(body, selected[0], offset)
-        from ..shared.solids import finish
-        compound, builder = TopoDS_Compound(), BRep_Builder()
-        builder.MakeCompound(compound)
-        for solid in solids_of(topology.shape):
-            builder.Add(compound, changed if solid.IsSame(body) else solid)
-        if len(solids_of(topology.shape)) == 1 and mode == 1:
-            return finish(changed)
-        return finish(compound)
+            changed = insert_solid(body, faces[0], offset)
+        solids = solids_of(topology.shape)
+        if len(solids) == 1:
+            shape = changed
+        else:
+            shape, builder = TopoDS_Compound(), BRep_Builder()
+            builder.MakeCompound(shape)
+            for solid in solids:
+                builder.Add(shape, changed if solid.IsSame(body) else solid)
+        result = merge_faces(OpResult(shape, *tracked))
+        result.notice = "; ".join(notes) or None
+        return result

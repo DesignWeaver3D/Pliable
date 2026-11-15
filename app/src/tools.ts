@@ -53,6 +53,10 @@ export interface HandleInfo {
   extension?: [number, number, number] | null;
   /** Drawn as an arrowhead at the end of its line with the value in the middle of the line (a length dimension). */
   arrowhead?: boolean;
+  /** A slider whose parameter 0 means Auto: the length it then has (the drag starts from `value` and snaps back to this). */
+  rest?: number | null;
+  /** The band this slider sizes, for the view to shade: it runs from `origin` along `direction` for `length`, on the faces `faces`. */
+  strip?: { origin: [number, number, number]; direction: [number, number, number]; length: number; faces: number[] } | null;
   /** A rotation handle: the axis it turns about (it is drawn in that axis's color) and the ring it runs on: center and radius. */
   axis?: [number, number, number] | null;
   ring?: [number, number, number, number] | null;

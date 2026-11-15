@@ -13,7 +13,7 @@ test("every form field help entry has a label and a tooltip", () => {
 });
 
 test("the tool-specific tables name the tools and fields the form looks up", () => {
-  assert.deepEqual(Object.keys(TOOL_PARAM_HELP).sort(), ["hole_features", "linear_array"]);
+  assert.deepEqual(Object.keys(TOOL_PARAM_HELP).sort(), ["hole_features", "linear_array", "stretch"]);
   assert.equal(TOOL_PARAM_HELP.linear_array.count.label, "Columns");
   assert.equal(TOOL_PARAM_HELP.hole_features.diameter.label, "Hole diameter (mm)");
   assert.equal(PARAM_HELP.new_body.label, "new body (1 = separate, 0 = join)");

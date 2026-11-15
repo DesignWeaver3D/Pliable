@@ -26,6 +26,7 @@ import { createDrawPacing, wakeOnActivity } from "./drawpacing.ts";
 import { updateFilterBadge } from "./viewboxselect.ts";
 import { applyBodyColors, applyGhost, applySeeThrough, syncSectionClip } from "./viewlook.ts";
 import { slideBodies } from "./viewslide.ts";
+import { BandStrip } from "./bandstrip.ts";
 import { refreshCentres, selectItems, setHover, setRelated } from "./viewselection.ts";
 import { toggleMeasure, toggleMeasureKey } from "./viewdragmeasure.ts";
 import { cancelDrag, finishDrag } from "./viewitemdrag.ts";
@@ -165,6 +166,8 @@ export class Viewport {
 
   /** The handles a tool declares for its parameters, drawn over the model and dragged with the left button. */
   readonly manipulator: Manipulator;
+  /** The Stretch band shaded on the part (bandstrip.ts); the manipulator tells it which strip the handles carry. */
+  private readonly bandStrip = new BandStrip(this.model);
   /** The push/pull direction (see pulldir.ts) and the gizmo that sets it. */
   readonly pullDirection = new PullDirection();
   /** What the Push/Pull card chose: mode, flip, symmetric, and the Alt override (pushpullstate.ts). */
@@ -269,6 +272,10 @@ export class Viewport {
     this.controls.zoomToCursor = true;
     const dom = this.renderer.domElement;
     this.manipulator = new Manipulator(this.scene, () => this.camera, dom, (p) => this.pixelSizeAt(p));
+    this.manipulator.onStrip = (strip) => {
+      this.bandStrip.set(strip);
+      this.bandStrip.refresh(this.markSource, this.mesh, this.data?.faces);
+    };
     this.subtractGhost = new SubtractGhost(this.scene);
     this.mirrorArrow = new MirrorArrow(this.scene, (p) => this.pixelSizeAt(p), this.manipulator, this.pushPull);
     this.pullGizmo = new PullGizmo(this.scene, () => this.camera, dom, (p) => this.pixelSizeAt(p), this.manipulator, this.pullDirection);
@@ -418,6 +425,7 @@ export class Viewport {
     applyGhost(this);
     this.hoverMark = new Mark(this.model, geometry, 0xffd36b, 0.55, this.hoverLine);
     this.markSource = geometry;
+    this.bandStrip.refresh(geometry, this.mesh, mesh.faces); // a new mesh: the band shading goes over its faces
 
     const edges = new THREE.BufferGeometry();
     edges.setAttribute("position", new THREE.BufferAttribute(mesh.edgePositions, 3));

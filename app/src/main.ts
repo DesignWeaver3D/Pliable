@@ -1132,7 +1132,7 @@ async function runPreview(tool: ToolInfo, values: Record<string, ParamValue>, ed
     ((window as any).__perf ??= []).push({ sinceEvent: t0 - lastDragEvent, roundTrip: t1 - t0, show: performance.now() - t1, timings: mesh.header.timings, tris: mesh.indices.length / 3 });
     viewport.manipulator.setHandles(moveHandlesAt(mesh.header.handles ?? [], toolPanel.basePosition()));
     status.classList.remove("error");
-    status.textContent = `${tool.label}: preview`;
+    status.textContent = mesh.header.notice ?? `${tool.label}: preview`; // the notice (what the result changed) is worth more than the plain label
   } catch (e) {
     if (seq !== formPreviewSeq) return;
     status.textContent = (e as Error).message;
@@ -1214,6 +1214,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
     try {
       const mesh = await core.request<MeshData>("tool_commit", { tool: tool.id, selection: selectionPayload(editBody === undefined ? expand(tool, sels) : []), params: values, ...(editBody === undefined ? {} : { edit_body: editBody }) });
       setCommitted(mesh, false, mappedSelection(mesh));
+      if (mesh.header.notice) status.textContent = mesh.header.notice; // a plain note on the result (a stretch that made a face free-form)
       app.lastOp = { tool, sels, values };
       editLastButton.disabled = false;
       usage.record(tool.id, "commit");

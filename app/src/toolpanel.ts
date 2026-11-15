@@ -15,6 +15,7 @@ import { paramRow } from "./toolformrows.ts";
 import { placementPicks, moveVectorPicks } from "./toolformplace.ts";
 import { axisPointPick, edgeAxisPicks } from "./toolformaxis.ts";
 import { planePicks } from "./toolformplane.ts";
+import { framePicks } from "./toolformframe.ts";
 
 /** A parameter value: a number, or for `per_edge` parameters one [start, end] radius pair per selected edge. */
 export type ParamValue = number | number[][];
@@ -234,6 +235,7 @@ export class ToolPanel {
     axisPointPick(parts);
     edgeAxisPicks(parts);
     planePicks(parts);
+    framePicks(parts);
     this.baseNow = parts.baseNow;
     this.formEl.hidden = false;
     this.inputs = inputs;
