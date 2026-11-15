@@ -40,3 +40,11 @@ Where the time goes (stage timers, solids only):
 - Not helped: the enclosure as imported (6 open shells outside every solid): `body_ranges` is None, so the memo, the scoped merge and the per-body display do not apply. That is for the surface-body work.
 - Autosave: each commit queues a snapshot whose BREP write holds the GIL (2.5 s of 4 s on this model; 1.4 s without triangulations), so the request after a commit (the next drag) is slowed by 3-4 s. Measured with a real Autosaver (script fails_as.py). Not changed yet.
 - Gizmo move that "does not succeed": not reproduced in the core (commits succeed and move the body by the asked distance). See step 2 below.
+
+## Step 2: gizmo move that leaves the body in place
+- Not reproduced. Core: moves of 11 random bodies on x, y and z (with and without hidden bodies, with a real autosaver) all committed and shifted the body by the asked distance.
+- App: `app/tests/itemdrag.test.mjs` drives `createItemDrag` with a core that answers late: release during a slow preview, a second grab during a slow commit, a second grab while the first release still waits. All commit the right distances in order. No code change made.
+- Suspect, unverified (needs the owner's console): in `itemdrag.ts` a throw while drawing a reply (`show`/`setCommitted`, e.g. a buffer failure on a 15 MB mesh) is caught by the same `catch` as a failed request, which redraws the OLD committed mesh and sets the error line; the core has then already moved the body. That looks exactly like "body stays, gizmo resets". Also each long wait (15-30 s with no busy indicator for previews) invites a retry.
+- Autosave: the snapshot BREP write after each commit holds the GIL (2.5 s) so the next request is slowed; deferring it was not done (crash-protection trade-off).
+## Resume
+Remaining ideas: first-preview merge cost (needs a decision, see questions in the report); autosave deferral; non-preview tessellation after commit (2.9 s).
