@@ -168,3 +168,17 @@ def test_a_placed_body_survives_save_open_and_step_export():
     third.handle({"type": "import_step", "name": "x", "data": exported["data"]})
     assert abs(volume(third.document.current.shape) - volume(shape)) < 1e-6
     assert base64.b64decode(exported["data"])
+
+
+def test_a_preview_and_the_full_display_are_made_from_each_other_and_equal_a_fresh_build():
+    topology = Topology(blocks(4))
+    expected_full, expected_preview = reference(topology, False), reference(topology, True)
+    for first, second in ((False, True), (True, False)):
+        display_cache.clear()
+        same(expected_full if not first else expected_preview, tessellate(topology, first))  # built
+        misses = body_cache.misses
+        built = {False: expected_full, True: expected_preview}[second]
+        got = tessellate(topology, second)  # taken from the stored data of the other kind
+        same(built, got)
+        assert body_cache.misses - misses == 4
+        assert all(e["normal"] is None for e in got.edges) == second

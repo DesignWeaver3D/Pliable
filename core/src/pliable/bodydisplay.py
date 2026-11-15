@@ -14,7 +14,7 @@ is shared between bodies or held by a shape outside the bodies; `body_ranges` ch
 (the caller then takes the whole-model path, which looks every id up).
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 from OCP.BRep import BRep_Tool
@@ -73,10 +73,8 @@ def body_ranges(topology, solid_shapes) -> list | None:
     return out
 
 
-def _body_key(solid, span, deflection: float, preview: bool):
-    """The key of a body's display data (see the top of this file)."""
-    from .tessellate import _MeshKey
-
+def _key_parts(solid) -> tuple:
+    """The triangulation, location and orientation of every face of the body: what the key of its display data is made of."""
     triangulations, locations, orientations = [], [], []
     explorer = TopExp_Explorer(solid, TopAbs_FACE)
     while explorer.More():
@@ -86,14 +84,41 @@ def _body_key(solid, span, deflection: float, preview: bool):
         locations.append(location)
         orientations.append(face.Orientation())
         explorer.Next()
+    return tuple(triangulations), tuple(locations), tuple(orientations)
+
+
+def _make_key(parts: tuple, span, deflection: float, preview: bool):
+    """The key of a body's display data (see the top of this file)."""
+    from .tessellate import _MeshKey
+
+    triangulations, locations, orientations = parts
     counts = (span[1], span[3], span[5])
-    return _MeshKey(tuple(triangulations), tuple(locations), "b", deflection, preview, counts, tuple(orientations))
+    return _MeshKey(triangulations, locations, "b", deflection, preview, counts, orientations)
+
+
+def _body_key(solid, span, deflection: float, preview: bool):
+    return _make_key(_key_parts(solid), span, deflection, preview)
 
 
 def _cat(parts: list, dtype, width: int | None) -> np.ndarray:
     if not parts:
         return np.empty(0 if width is None else (0, width), dtype=dtype)
     return np.concatenate(parts).astype(dtype, copy=False)
+
+
+def _edges_beside(topology, face_shapes: list) -> dict:
+    """The local faces next to each edge (by edge id), in face order."""
+    table: dict[int, list[int]] = {}
+    for local, face in enumerate(face_shapes):
+        explorer = TopExp_Explorer(face, TopAbs_EDGE)
+        while explorer.More():
+            found = topology.edge_id(explorer.Current())
+            if found is not None:
+                held = table.setdefault(found, [])
+                if not held or held[-1] != local:  # a seam edge shows twice in its face
+                    held.append(local)
+            explorer.Next()
+    return table
 
 
 def _build(topology, solid, span, deflection: float, preview: bool) -> BodyData:
@@ -125,16 +150,7 @@ def _build(topology, solid, span, deflection: float, preview: bool) -> BodyData:
             centres.append((local, list(centre[0]), list(centre[1]), centre[2]))
         faces.append((start, count - start, None if normal is None else list(normal), centroid))
 
-    table: dict[int, list[int]] = {}  # the local faces next to each edge (by edge id), in face order
-    for local, face in enumerate(face_shapes):
-        explorer = TopExp_Explorer(face, TopAbs_EDGE)
-        while explorer.More():
-            found = topology.edge_id(explorer.Current())
-            if found is not None:
-                held = table.setdefault(found, [])
-                if not held or held[-1] != local:  # a seam edge shows twice in its face
-                    held.append(local)
-            explorer.Next()
+    table = _edges_beside(topology, face_shapes)
     edge_parts, edges, total = [], [], 0
     for local in range(ne):
         edge = topology.edge(e0 + local)
@@ -159,12 +175,40 @@ def _build(topology, solid, span, deflection: float, preview: bool) -> BodyData:
     )
 
 
+def _preview_of(full: BodyData) -> BodyData:
+    """The data of a preview from that of the full display: the same, without the edges' drag directions."""
+    return replace(full, edges=[(start, count, None, centre) for start, count, _, centre in full.edges])
+
+
+def _with_normals(topology, solid, span, preview_data: BodyData) -> BodyData:
+    """The full display data from that of a preview: the same, with the edges' drag directions added."""
+    from . import tessellate as T
+
+    f0, nf, e0, ne, _, _ = span
+    face_shapes = [topology.face(f0 + local) for local in range(nf)]
+    table = _edges_beside(topology, face_shapes)
+    edges = []
+    for local, (start, count, _, centre) in enumerate(preview_data.edges):
+        beside = [face_shapes[f] for f in table.get(e0 + local, [])]
+        edges.append((start, count, T._edge_normal(topology.edge(e0 + local), beside), centre))
+    return replace(preview_data, edges=edges)
+
+
 def body_data(topology, solid, span, deflection: float, preview: bool) -> BodyData:
-    """The body's display data: from the cache when its shape, deflection and every face's triangulation are as stored."""
+    """The body's display data: from the cache when its shape, deflection and every face's triangulation are as stored.
+    A preview and the full display of a body differ only in the edges' drag directions, so one is made from the other when
+    only the other is stored."""
     from .tessellate import body_cache
 
-    entry = body_cache.get(_body_key(solid, span, deflection, preview))
+    parts = _key_parts(solid)
+    key = _make_key(parts, span, deflection, preview)
+    entry = body_cache.get(key)
     if entry is not None:
+        return entry
+    other = body_cache.entries.get(_make_key(parts, span, deflection, not preview))
+    if other is not None:
+        entry = _preview_of(other[0]) if preview else _with_normals(topology, solid, span, other[0])
+        body_cache.put(key, entry, entry.weight)
         return entry
     entry = _build(topology, solid, span, deflection, preview)  # meshes the faces that need it, so the key is made again
     body_cache.put(_body_key(solid, span, deflection, preview), entry, entry.weight)
