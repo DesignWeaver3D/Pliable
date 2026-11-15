@@ -2,7 +2,7 @@
 
 Protected faces, features riding in the band and fixed faces keep their surfaces (moved rigidly or not at all). Each
 rubber face is tried in turn as: its own surface (the field slides it along itself, as on a straight stretch of a
-prismatic part), a plane, a cylinder or cone seen in the deformed surface, and only then a free-form surface fitted
+prismatic part), a plane, a cylinder, cone, sphere or torus seen in the deformed surface, and only then a free-form surface fitted
 through the deformed points.
 """
 
@@ -11,10 +11,11 @@ from dataclasses import dataclass
 import numpy as np
 from OCP.BRep import BRep_Tool
 from OCP.BRepTools import BRepTools
-from OCP.Geom import Geom_ConicalSurface, Geom_CylindricalSurface, Geom_Line, Geom_Plane
+from OCP.Geom import Geom_ConicalSurface, Geom_CylindricalSurface, Geom_Line, Geom_Plane, Geom_SphericalSurface, Geom_ToroidalSurface
 from OCP.GeomAPI import GeomAPI
 from OCP.gp import gp_Ax1, gp_Ax3, gp_Dir, gp_Pnt, gp_Pnt2d, gp_Vec, gp_Vec2d
 
+from .ball import ball_surface
 from .body import Body
 from .field import Field
 from .fit import fit_curve, fit_curve_2d, Span, straight_2d, SurfaceFit
@@ -211,18 +212,23 @@ class Deformer:
             across, along = (across.doubled() if more_u else across), (along.doubled() if more_v else along)
 
     def _round_surface(self, face: int, fitted, old, bounds):
-        """The cylinder or cone a deformed cylinder or cone still is, set so its (u, v) run the way the old surface's did
+        """The cylinder, cone, sphere or torus a deformed one still is, set so its (u, v) run the way the old surface's did
         (u starts on the same line, so a seam stays on its edge, and u and v keep their sense)."""
         old = bare(old)
-        if not isinstance(old, (Geom_CylindricalSurface, Geom_ConicalSurface)):
+        if not isinstance(old, (Geom_CylindricalSurface, Geom_ConicalSurface, Geom_SphericalSurface, Geom_ToroidalSurface)):
             return None
         if any(BRep_Tool.Degenerated_s(self.body.edges[e]) for e in self.body.face_edges[face]):
             return None  # a face with an edge shrunk to a point (a cone's tip) keeps the fitted surface
         close = max(self.target * 10, 1e-7)
         found = analytic_of(fitted, close)
+        u0, u1, v0, v1 = bounds
+        if isinstance(old, (Geom_SphericalSurface, Geom_ToroidalSurface)):
+            if not isinstance(found, type(old)):
+                return None
+            us, vs = np.linspace(u0, u1, 5), np.linspace(v0, v1, 5)
+            return ball_surface(found, old, self.field, self.field(_surface_points(old, us, vs).reshape(-1, 3)).reshape(5, 5, 3), close)
         if not isinstance(found, (Geom_CylindricalSurface, Geom_ConicalSurface)):
             return None
-        u0, u1, v0, v1 = bounds
         low, middle, high = self.field(_surface_points(old, np.array([0.0]), np.array([v0, (v0 + v1) / 2, v1]))[0])
         axis, origin = np.array(_xyz(found.Position().Direction())), np.array(_xyz(found.Position().Location()))
         flipped = (high - low) @ axis < 0
