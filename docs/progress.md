@@ -21,7 +21,7 @@ Tool group CORE:
   - [x] Hole Editor moves in; its card is deleted.
   - [x] Measure card becomes a collapsible section at the bottom of the dock; `#measure.aside` goes.
   - [x] Tool forms move in through the one mount point in `ToolPanel`; per tool, check which parameters are already gizmos and keep only the nuanced ones in the dock.
-  - [ ] Sketch card moves in; `#sketchpanel` goes.
+  - [x] Sketch card moves in; `#sketchpanel` goes.
   - [ ] Message line split (child row below) and selection labels (child row below).
   - [ ] Rewrite each affected `behavior.md` line (cards -> dock) in the commit that changes it; add a test for each fixed regression that needs no browser.
 - **Message line holds messages only (child of the sidebar row).** Owner (2026-11-15): "I think the selected-names can go in the message bar. Right now, on a new project, the message box just says "bracket: 19 faces" and that's not something that needs to be known forever. The concern would be when errors or warnings are printed." Decision: the selection readout lives in the dock header; the top bar status shows messages only; plain messages fade after about 6 seconds; a new plain message never replaces an unread error or warning. Related: `messagelog.ts` (records errors and warnings).

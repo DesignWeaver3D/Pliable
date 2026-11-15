@@ -43,7 +43,6 @@ import { cancelProjectPick } from "./sketchproject.ts";
 import { createPacer } from "./pacer.ts";
 import { refreshFreedom, refreshProfiles, resolveSketch, setProfiles } from "./sketchrefresh.ts";
 import { buildGrid, lightUp, onFrame, renderSketch } from "./sketchrender.ts";
-import { placePanel } from "./sketchpanel.ts";
 
 const POINT_SIZE_PX = 8;
 
@@ -142,7 +141,6 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
       toggleConstruction(this);
     }, true);
     window.addEventListener("pointermove", (e) => (this.lastPointer = { x: e.clientX, y: e.clientY }), true);
-    window.addEventListener("resize", () => { if (this.active) placePanel(this); });
     for (const o of [this.normal, this.placed, this.construction, this.points]) o.userData.extent = true; // counted by the origin axes' length
     for (const o of [this.axes, this.normal, this.placed, this.construction, this.free, this.marked, this.pending, this.centres, this.points]) {
       o.renderOrder = 5;

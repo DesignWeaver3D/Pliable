@@ -120,7 +120,7 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 
 - Sketches are kept as separate objects. Finishing a sketch adds no faces to the model; closed regions show as tinted view-only profile faces.
 - Automatic constraints are on by default (Snaps and shapes; owner, 2026-10-25, replacing the earlier off default); a saved choice in the sketch settings still wins, and the setting Off leaves geometry floating freely. The grid is off by default; grid options live in the gear on the sketch card, not the global settings.
-- Sketch card sits under the nav cube: title and gear on the first row, icon row, then Finish and Discard.
+- The Sketch card (and the Section card) show in the parameters panel on the right, not as floating cards (owner, 2026-11-15): title and gear on the first row, icon row, then Finish and Discard.
 - Right-click in a sketch not on sketch geometry ends the current drawing tool.
 - Project model edges is a pick mode: pick faces and edges, Enter or the button projects, Escape cancels. Projected edges are snapshots. Projected edges come from the solid's real edge curves: lines stay lines, circles and arcs square to the plane stay true circles and arcs, a circle or ellipse edge seen at an angle becomes a true ellipse; a tilted arc or a part of an ellipse edge becomes an elliptical arc; only a B-spline or other curved edge is a spline through sample points. (owner, 2026-10-25; elliptical arcs ellarc agent, 2026-10-26)
 - A sketch dimension's value is a plain number; no expressions or named values yet.

@@ -173,7 +173,6 @@
       #toollist button, #toolform button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; text-align: left; display: block; width: 100%; margin-top: 2px; }
       #toollist button.nofit { color: #9a9ea6; } /* only dimmed: every tool can be chosen */
       #toolform[hidden] { display: none; }
-      #sectioncard { position: fixed; top: 38px; right: calc(var(--dock-w) + 274px); width: 250px; box-sizing: border-box; max-height: calc(100vh - 60px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; }
       #sectioncard[hidden] { display: none; }
       #sectioncard button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; text-align: left; display: block; width: 100%; margin-top: 2px; }
       #sectioncard .title { color: #ffb878; font-weight: 600; margin-bottom: 4px; }
@@ -208,7 +207,7 @@
       #sketchbar button, #sketchpanel button { background: #2a2d34; color: var(--ui-offwhite); border: 1px solid #444; border-radius: 4px; padding: 3px 8px; }
       #sketchbar button:disabled { color: #666; }
       #selected { position: fixed; bottom: 10px; right: calc(var(--dock-w) + 12px); z-index: 1; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #ccc; pointer-events: none; }
-      #sketchpanel { position: fixed; top: 270px; right: calc(var(--dock-w) + 12px); width: 250px; max-height: calc(100vh - 290px); overflow-y: auto; z-index: 2; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px 10px; font-size: 13px; }
+      #sketchpanel { font-size: 13px; }
       #sketchpanel[hidden] { display: none; }
       #sketchpanel .crows { max-height: max(120px, calc(100vh - 560px)); overflow-y: auto; } /* the constraint rows scroll on their own so the card stays put */
       #sketchpanel .head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
@@ -355,6 +354,8 @@
       <div id="dockhead"><span id="dockreadout"></span><button id="dockclose" type="button" title="Hide the panel (Shift+T)">&times;</button></div>
       <div id="dockbody">
         <div id="ppcard" hidden></div>
+        <div id="sketchpanel" hidden></div>
+        <div id="sectioncard" hidden></div>
         <div id="toolform" hidden></div>
       </div>
       <div id="measure" hidden></div>
@@ -362,8 +363,6 @@
     <button id="dockbtn" type="button" aria-label="Parameters" aria-expanded="true" aria-controls="dock"></button>
     <div id="sketchbar"></div>
     <div id="selected" title="What is selected"></div>
-    <div id="sketchpanel" hidden></div>
-    <div id="sectioncard" hidden></div>
     <div id="dim" hidden></div>
     <div id="palette" hidden>
       <div id="palette-box">

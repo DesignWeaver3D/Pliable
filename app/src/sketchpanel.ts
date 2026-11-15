@@ -14,16 +14,7 @@ import { buildGrid, renderSketch } from "./sketchrender.ts";
 import type { SketchMode } from "./sketch.ts";
 import { keyNames } from "./platform.ts";
 
-/** The card starts just under the nav cube group, so it has all the room below for a long constraint list. */
-export function placePanel(mode: SketchMode) {
-  const cube = document.getElementById("navcube")?.getBoundingClientRect();
-  const top = cube && cube.height > 0 ? Math.round(cube.bottom) + 8 : 270;
-  mode.panel.style.top = `${top}px`;
-  mode.panel.style.maxHeight = `${Math.max(160, window.innerHeight - top - 12)}px`;
-}
-
-export function renderPanel(mode: SketchMode) {
-  placePanel(mode);
+export function renderPanel(mode: SketchMode) {
   const keepAsk = mode.panel.querySelector<HTMLElement>(".ask");
   const asking = keepAsk && !keepAsk.hidden;
   if (asking) return; // do not rebuild while a value is being typed
