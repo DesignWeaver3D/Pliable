@@ -24,6 +24,7 @@ class PushPull(Tool):
         if mode not in MODES:
             raise OperationError(f"Push/pull mode must be one of {', '.join(MODES)}")
         values["mode"] = mode
+        values["copy"] = 1.0 if raw.get("copy") else 0.0  # keeps the original body and makes the pushed or pulled result a new body
         values["flip"] = 1.0 if raw.get("flip") else 0.0  # reverses which drag direction adds and which subtracts
         if raw.get("target") is not None:  # Up to face: the id of the face to pull up to (not a form field); the distance is then ignored
             values["target"] = int(raw["target"])
@@ -69,6 +70,10 @@ class PushPull(Tool):
         return loose or not any(n.IsOpposite(normals[0], 1e-6) for n in normals)  # a loose region facing the other way takes the first face's normal (see run)
 
     def run(self, topology, selection, values, preview):
+        if values.get("copy", 0.0) >= 0.5:
+            copied = _run_as_copy(self, topology, selection, values, preview)
+            if copied is not None:
+                return copied
         if _all_round_walls(topology, selection):
             return _push_round_walls(topology, selection, values["distance"])
         faces = [topology.face(i) for i in selection.faces]
@@ -89,6 +94,55 @@ class PushPull(Tool):
         result = push_pull(topology.shape, faces if len(faces) > 1 else faces[0], values["distance"], preview=preview, symmetric=symmetric and loose, direction=direction, mode=values["mode"], flip=values["flip"] >= 0.5)
         result.tracked_faces = result.tracked_faces[:1]  # keep a single face selected, the related ones are found again
         return result
+
+
+def _run_as_copy(tool, topology, selection, values, preview):
+    """Push or pull on a copy: the bodies that own the selected faces stay exactly as they are and the changed bodies are added
+    after them as new bodies. The change is made on those bodies alone, so no other body is merged into or cut. None when no
+    selected face belongs to a solid (a loose sketch region has no original to keep)."""
+    from OCP.BRep import BRep_Builder
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
+    from OCP.TopoDS import TopoDS, TopoDS_Compound
+
+    from ..ops import _contains, _faces_of, solids_of, unify_result
+    from ..topology import Topology
+    from .base import Selection
+
+    solids = solids_of(topology.shape)
+    owners = [s for s in solids if any(_contains(s, topology.face(i)) for i in selection.faces)]
+    if not owners or any(not any(_contains(s, topology.face(i)) for s in owners) for i in selection.faces):
+        return None
+    own = TopoDS_Compound()
+    builder = BRep_Builder()
+    builder.MakeCompound(own)
+    for s in owners:
+        builder.Add(own, s)
+    sub = Topology(own)
+    faces = [f for f in (topology.face(i) for i in selection.faces)]
+    ids = [next(k for k in range(sub.face_count) if sub.face(k).IsSame(f)) for f in faces]
+    plain = dict(values, copy=0.0)
+    result = tool.run(sub, Selection(faces=ids), plain, preview)
+    if not result.unified:
+        result = unify_result(result)
+    changed = []
+    tracked = []
+    for solid in solids_of(result.shape):
+        if any(solid.IsSame(s) for s in owners):
+            continue  # nothing changed in this one
+        copier = BRepBuilderAPI_Copy()
+        copier.Perform(solid, True)
+        changed.append(copier.Shape())
+        tracked += [TopoDS.Face(copier.ModifiedShape(f)) for f in result.tracked_faces if any(f.IsSame(g) for g in _faces_of(solid))]
+    if not changed:
+        return result
+    out = TopoDS_Compound()
+    builder.MakeCompound(out)
+    for s in solids + changed:
+        builder.Add(out, s)
+    result.shape = out
+    result.tracked_faces = tracked
+    result.unified = True
+    return result
 
 
 def _pull_up_to(topology, faces, values, symmetric, direction, preview=False) -> OpResult:
