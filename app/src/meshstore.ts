@@ -2,6 +2,7 @@
 // reply gives. Pure (no DOM, no socket). Design: docs/agent-notes/changed-bodies-design.md (option B, git 839ea14).
 // Face, edge and vertex ids stay global in the core; here they are rebuilt from the per-body counts in body order.
 
+import type { BodyPart } from "./bodyparts.ts";
 import type { CentreInfo, EdgeRange, FaceRange, MeshData, VertexInfo } from "./client.ts";
 
 /** Display data of one changed body; every number inside is local to the body (0-based). */
@@ -123,7 +124,9 @@ export class MeshStore {
       v0 += h.vertices;
     });
     const bodies = delta.bodies.map((b) => b.info);
+    const parts: BodyPart[] = held.map((h, i) => ({ body: delta.bodies[i].id, ref: h.data, positions: h.data.positions, normals: h.data.normals, indices: h.data.indices, edgePositions: h.data.edgePositions }));
     return {
+      parts,
       header: { ...delta.header, faces, edges, vertices, centres, bodies, bounds: delta.bounds },
       positions,
       normals,

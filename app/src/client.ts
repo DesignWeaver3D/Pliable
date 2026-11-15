@@ -3,6 +3,7 @@ import { ghostOf, type GhostBuffers } from "./ghostbuffers.ts";
 import { compareMeshes, readFrame } from "./meshframe.ts";
 import { SharedQueries } from "./sharedquery.ts";
 import { MeshStore } from "./meshstore.ts";
+import type { BodyPart } from "./bodyparts.ts";
 // WebSocket client for the Python core. Binary mesh frames follow a small
 // JSON reply frame carrying the request id (see core/src/pliable/protocol.py).
 
@@ -57,6 +58,8 @@ export interface MeshData {
   vertices: VertexInfo[];
   centres: CentreInfo[];
   bounds: number[];
+  /** Each body's own arrays when the mesh was joined from deltas (the viewport keeps the graphics of a body whose part is unchanged); absent on a whole reply. */
+  parts?: BodyPart[];
   /** The red ghost of a push/pull subtract preview (the cutting volume outside every body), if the reply has one. */
   ghost?: GhostBuffers | null;
 }

@@ -33,6 +33,7 @@ export function filterHidden(mesh: MeshData, hidden: ReadonlySet<number>): MeshD
     faces,
     edges,
     vertices: mesh.vertices.filter((v) => !isHidden(hidden, v.body)),
+    ...(mesh.parts ? { parts: mesh.parts.filter((p) => !isHidden(hidden, p.body)) } : {}),
   };
 }
 
