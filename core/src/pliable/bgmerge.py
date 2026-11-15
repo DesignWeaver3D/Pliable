@@ -14,7 +14,7 @@ import threading
 import time
 
 from . import meshing
-from .bodydisplay import body_ranges
+from .bodydisplay import _own_extents, body_ranges
 from .mergememo import BOX_TOLERANCE, _box, _same_place
 from .ops import OpResult, is_surface, solids_of
 from .samesurface import _compound_of
@@ -73,6 +73,10 @@ class BackgroundMerge:
             made = solids_of(finish(_compound_of([solid])).shape)
             if len(made) != 1 or is_surface(made[0]) != is_surface(solid):
                 return
+            if _own_extents(made[0]) == _own_extents(solid):  # the merge changed nothing here (the numbers of faces, edges and vertices, as `merge_settled`): keep the body, with its display
+                outs.append(solid)
+                time.sleep(PAUSE_SECONDS)
+                continue
             meshing.mesh(made[0], deflection, ANGULAR_DEFLECTION)  # the faces the merge made are meshed here, not by the first drag's reply
             outs.append(made[0])
             time.sleep(PAUSE_SECONDS)

@@ -118,6 +118,8 @@ class ToolHandlers:
             if request.get("foldPick"):  # extruding a just-picked sketch region: its pick is not a step of its own
                 document.fold_previous_step()
             self._autosave()
+            if not target.merged:
+                self._import_merge.ask()  # the next operation reuses the merge of the bodies left alone, made now in the background (bgmerge.py)
         faces = [i for f in result.tracked_faces if (i := target.face_id(f)) is not None]
         edges = [i for e in result.tracked_edges if (i := target.edge_id(e)) is not None]
         vertices = [i for v in result.tracked_vertices if (i := target.vertex_id(v)) is not None]

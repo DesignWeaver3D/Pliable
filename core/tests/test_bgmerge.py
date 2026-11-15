@@ -79,3 +79,16 @@ def test_a_new_import_cancels_the_merge_of_the_old_model():
     session.handle({"type": "import_step", "name": "y", "data": data})
     assert first._cancelled.is_set()
     session._import_merge._merge.wait()
+
+
+def test_a_commit_that_leaves_the_model_unmerged_makes_the_merge_memory_in_the_background():
+    data = model_file()
+    session, header = opened(data, wait_for_merge=True)
+    selection = {"faces": [], "edges": [], "vertices": [], "bodies": [header["bodies"][0]["id"]], "axes": []}
+    params = {"dx": 5, "dy": 0, "dz": 0, "rx": 0, "ry": 0, "rz": 0}
+    session.handle({"type": "tool_commit", "tool": "move_body", "selection": selection, "params": params})
+    merge = session._import_merge._merge
+    merge.wait()
+    current = session.document.current
+    assert merge.topology is current
+    assert getattr(current, "merged", False) or getattr(current, "merge_memo", None) is not None
