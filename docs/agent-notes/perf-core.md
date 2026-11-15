@@ -11,5 +11,9 @@
 - Enclosure with delta (script `C:\dev\pliable-wt\perf\pcore_delta.py`): import 13.3 MB (whole), first move 12.5 MB (118 bodies change in the first merge), second 3.4 MB, third on 0.08 MB; drag preview 0.08 MB 0.66 s, commit 0.08 MB 0.49 s, undo 0.08 MB 0.36 s, delete middle body 0.05 MB.
 - test_autosave `test_a_save_waits_for_a_quiet_moment...` failed once under full-suite load, passed alone (timing).
 
+## Tasks 4 and 5 (ece76a0, default-on commit)
+- `app/src/meshframe.ts` (`readFrame`, `compareMeshes`), `CoreClient` applies every delta before resolving, resyncs with `full_mesh {resync:true}`; comparison with a whole reply only under `?dev=1`. Default on in main.ts. No TS type change was needed.
+- Browser check (screenshots timed out in this tab, so none taken): the app loaded with deltas on and no console errors; a second CoreClient driven from the page on core 8802 with the comparison on (4 boxes, move, push/pull, delete early body, 3 undos, redo) logged 12 matches and no mismatch. Not checked by hand: selecting a face after each step in the real UI, gizmo moves on the enclosure (owner checks selection after delete and undo).
+
 ## Resume point
-Task 4 next (app wiring).
+All five tasks done; nothing pending.
