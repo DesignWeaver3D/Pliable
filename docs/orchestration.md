@@ -64,7 +64,7 @@ Never merge on a report alone. In the agent's worktree run the core tests, `npm 
 
 - Merge finished branches into `main` one at a time, running core tests, `npm test`, `tsc` and `npm run build` after each. Do not push unless the owner asks.
 - Expect conflicts only in shared UI files (`main.ts`, `viewport.ts`, `toolpanel.ts`, `sketch.ts`, `keys.ts`). Read both sides; features added in two branches may need a hand merge (for example a key re-added to the router).
-- If the owner is testing in the main checkout, ask before merging: the frontend reloads live while the core server keeps old code, which can break their session. After merging, restart their test instance and tell them to reload.
+- Standing rule (owner, 2026-11-14): merge a finished agent branch into `main` without asking once the spot-check passes (tests in its worktree, commit list read; a full re-test on `main` when several branches are merged together), then restart the owner's core and tell them to reload. Still ask first when the owner says they are mid-test (the frontend reloads live while the core keeps old code, which can break their session) or when the merge needs a code conflict resolved. Pushing, tagging and releases still need the owner's say.
 - Afterwards: fold the notes into the plan (`docs/progress.md` rows), log decisions in `docs/decisions-log.md`, and add to `docs/author-guidance.md` only what a test cannot judge, re-sorting it by priority and tool group. Then delete the agents' temporary notes files; do not keep them in the repo.
 
 ## Orchestrator's own checks
