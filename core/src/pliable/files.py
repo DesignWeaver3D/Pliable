@@ -277,6 +277,20 @@ def open_loops(shell: TopoDS_Shape) -> list[bool]:
         return []
 
 
+def _turned_round(solid: TopoDS_Shape) -> TopoDS_Shape:
+    """A new solid built from the reversed shells of `solid` (the volume sign follows the shells, not the solid's flag)."""
+    from OCP.BRep import BRep_Builder
+    from OCP.TopoDS import TopoDS_Solid
+
+    builder, result = BRep_Builder(), TopoDS_Solid()
+    builder.MakeSolid(result)
+    shells = TopExp_Explorer(solid, TopAbs_SHELL)
+    while shells.More():
+        builder.Add(result, TopoDS.Shell(shells.Current().Reversed()))
+        shells.Next()
+    return result
+
+
 def check_import(shape: TopoDS_Shape, names: list | None = None) -> tuple[TopoDS_Shape, list[str]]:
     """Heal an imported shape and report what could not be fixed.
 
@@ -302,6 +316,7 @@ def check_import(shape: TopoDS_Shape, names: list | None = None) -> tuple[TopoDS
         shape = reshape.Apply(shape)
 
     fixed = invalid = 0
+    reversed_names = []
     reshape = BRepTools_ReShape()
     for solid in solids_of(shape):
         if is_surface(solid):
@@ -309,9 +324,15 @@ def check_import(shape: TopoDS_Shape, names: list | None = None) -> tuple[TopoDS
         if _volume(solid) < 0:
             fixer = ShapeFix_Solid(TopoDS.Solid(solid))
             fixer.Perform()
-            if _volume(fixer.Solid()) > 0:
-                reshape.Replace(solid, fixer.Solid())
+            repaired = fixer.Solid()
+            if not _volume(repaired) > 0:
+                repaired = _turned_round(solid)  # the repair left it reversed
+            if _volume(repaired) > 0:
+                reshape.Replace(solid, repaired)
                 fixed += 1
+            else:
+                shells = TopExp_Explorer(solid, TopAbs_SHELL)
+                reversed_names.append(label(shells.Current()) if shells.More() else "unnamed")
         if not is_valid(solid):
             invalid += 1
     if fixed:
@@ -322,6 +343,8 @@ def check_import(shape: TopoDS_Shape, names: list | None = None) -> tuple[TopoDS
         warnings.append(f"{converted} surface bod{'ies' if converted != 1 else 'y'} closed and made into solids")
     if fixed:
         warnings.append(f"{fixed} inside-out solid{'s' if fixed != 1 else ''} repaired")
+    if reversed_names:
+        warnings.append(f"{len(reversed_names)} inside-out solid{'s' if len(reversed_names) != 1 else ''} could not be fixed: {', '.join(reversed_names)}")
     if invalid:
         warnings.append(f"{invalid} solid{'s' if invalid != 1 else ''} with invalid geometry; some tools may fail there")
     if open_names:
