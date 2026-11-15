@@ -1,6 +1,7 @@
 import { perf } from "./devtiming.ts";
 import { ghostOf, type GhostBuffers } from "./ghostbuffers.ts";
 import { compareMeshes, readFrame } from "./meshframe.ts";
+import { SharedQueries } from "./sharedquery.ts";
 import { MeshStore } from "./meshstore.ts";
 // WebSocket client for the Python core. Binary mesh frames follow a small
 // JSON reply frame carrying the request id (see core/src/pliable/protocol.py).
@@ -93,6 +94,8 @@ const TOOL_REQUESTS = new Set(["tool_preview", "tool_commit"]);
 const INTERACT_REQUESTS = new Set(["tool_preview", "tool_commit", "tool_handles"]);
 
 const QUIET = new Set(["hello", "tool_preview", "sketch_solve", "sketch_freedom", "sketch_offset", "sketch_project", "sketch_plane", "available_tools", "list_tools", "related", "edge_chain", "edge_selection", "measure", "model_info"]);
+/** Read-only queries a face click asks twice in a row: while one is unanswered, an identical one shares its answer (sharedquery.ts). */
+const SHARED_QUERIES = new Set(["related", "available_tools", "measure"]);
 const BUSY_AFTER_MS = 400;
 
 export class CoreClient {
@@ -223,7 +226,15 @@ export class CoreClient {
   /** Called with the `interact` field of every tool_preview, tool_commit and tool_handles reply (null when the reply has none). */
   onInteract: (report: any) => void = () => {};
 
+  private readonly shared = new SharedQueries();
+
   request<T = any>(type: string, params: Record<string, unknown> = {}): Promise<T> {
+    if (!QUIET.has(type)) this.shared.forget(); // a request that may change the model: later questions are asked afresh
+    if (SHARED_QUERIES.has(type)) return this.shared.share(`${type}:${JSON.stringify(params)}`, () => this.send<T>(type, params));
+    return this.send<T>(type, params);
+  }
+
+  private send<T>(type: string, params: Record<string, unknown>): Promise<T> {
     const id = this.nextId++;
     return new Promise<T>((resolve, reject) => {
       if (this.socket?.readyState !== WebSocket.OPEN) return reject(new Error("The core is not connected"));

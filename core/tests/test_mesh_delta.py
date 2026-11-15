@@ -196,3 +196,15 @@ def test_a_preview_of_bodies_the_page_holds_in_full_sends_only_the_moved_body():
     conn.send({"type": "tool_commit", "tool": "move_body", "selection": sel(bodies=[ids[2]]), "params": {**params, "dx": 6}})
     assert conn.changed() == [ids[2]]  # the page held the preview of that one; the full display of the others is held
     conn.check()
+
+
+def test_a_body_rebuilt_with_the_same_display_is_not_sent_again():
+    from pliable.tessellate import body_cache
+
+    conn = Conn(4)
+    first(conn)
+    ids = conn.ids()
+    body_cache.clear()  # every body is built again with a revision of its own, as after a merge that left its faces as they were
+    conn.send({"type": "tool_commit", "tool": "move_body", "selection": sel(bodies=[ids[1]]), "params": {"dx": 7}})
+    assert conn.changed() == [ids[1]]
+    conn.check()
