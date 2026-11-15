@@ -198,8 +198,7 @@ def test_boss_joins_what_it_covers(request, interact, overlap):
 
 @cases
 @sides
-def test_slot_through_cuts_what_it_covers(request, interact, overlap):
-    known(request, {("others", True, None): "Slot with Other bodies across overlapping bodies leaves 2,203 mm3 of material inside the slot (whole-model cut)"})
+def test_slot_through_cuts_what_it_covers(interact, overlap):  # cut body by body (shared/bodycut.py): correct
     before, after = run("add_slot", lambda m: Selection(faces=[face_of(m, D, 1)]), {"length": 20, "width": 6, "depth": 0}, interact, overlap)
     ends = BRepAlgoAPI_Fuse(cylinder_tool(-7, 0, -5, 70, 3), cylinder_tool(7, 0, -5, 70, 3)).Shape()
     check_cut(before, after, BRepAlgoAPI_Fuse(box_tool(-7, -3, -5, 7, 3, 70), ends).Shape(), interact, D)
