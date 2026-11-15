@@ -21,6 +21,7 @@ from OCP.gp import gp_Dir, gp_Lin, gp_Pln, gp_Pnt, gp_Pnt2d
 from .ops import OperationError, _faces_of, planar_normal, pull_direction
 from .opserrors import MIN_DISTANCE
 from .validity import is_valid
+from .volume import volume_of
 
 GRID = 11  # sample points per direction across the profile's parameter box
 VOLUME_SLACK = 0.1  # the pad's volume may differ this much from the profile area times the sampled distances
@@ -29,12 +30,6 @@ VOLUME_SLACK = 0.1  # the pad's volume may differ this much from the profile are
 def _area(shape) -> float:
     props = GProp_GProps()
     BRepGProp.SurfaceProperties_s(shape, props)
-    return props.Mass()
-
-
-def _volume(shape) -> float:
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
     return props.Mass()
 
 
@@ -84,7 +79,7 @@ def pad_to_curved_face(shape, face, target, direction) -> tuple:
         raise OperationError("Up to face: could not end the pad on the target face")
     cut = BRepAlgoAPI_Cut(feature.Shape(), shape)
     pad = cut.Shape() if cut.IsDone() else None
-    if pad is None or pad.IsNull() or not (area * min(reaches) * (1 - VOLUME_SLACK) <= _volume(pad) <= area * max(reaches) * (1 + VOLUME_SLACK)):
+    if pad is None or pad.IsNull() or not (area * min(reaches) * (1 - VOLUME_SLACK) <= volume_of(pad) <= area * max(reaches) * (1 + VOLUME_SLACK)):
         raise OperationError("Up to face: could not end the pad on the target face")
     kind = BRepAdaptor_Surface(target).GetType()
     ends = [f for f in map(TopoDS.Face, _faces_of(pad)) if BRepAdaptor_Surface(f).GetType() == kind]

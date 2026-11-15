@@ -14,28 +14,21 @@ from OCP.TopAbs import TopAbs_REVERSED
 from OCP.TopoDS import TopoDS
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Common
 from OCP.BRepBndLib import BRepBndLib
-from OCP.BRepGProp import BRepGProp
 from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
-from OCP.GProp import GProp_GProps
 from OCP.gp import gp_Dir, gp_Pnt, gp_Vec
 
 from .ops import OperationError, _boolean, _faces_of, planar_normal, pull_direction, solids_of
 from .opserrors import MIN_DISTANCE
 from .pushpull_modes import _prism
 from .pushpull_upto import _boundary_points, _clip, assemble_pads
+from .volume import volume_of
 
 EXTENTS = ("last", "through")
 SLIVER = 1e-9  # a piece thinner than this volume is a contact, not material
 
 
-def _volume(shape) -> float:
-    props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
-    return props.Mass()
-
-
 def _solid_pieces(shape) -> list:
-    return [s for s in solids_of(shape) if _volume(s) > SLIVER]
+    return [s for s in solids_of(shape) if volume_of(s) > SLIVER]
 
 
 def _along(point, pull) -> float:

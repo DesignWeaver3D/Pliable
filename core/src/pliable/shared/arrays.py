@@ -63,8 +63,25 @@ def _feature_holes(topology, selection) -> list:
 
     if not selection.faces:
         return []
+    from ..splitwalls import wall_chain
+    from .hole_copy import hole_cutter
+
     try:
-        return Hole.of_selection(topology, selection)
+        holes, seen, covered = [], set(), set()
+        for i in selection.faces:
+            if i in seen:
+                continue
+            seen.update(wall_chain(topology, i))
+            hole = Hole.of(topology, i)
+            if not hole.boss:  # a hole is copied whole: counterbore, countersink and thread too
+                found = hole_cutter(topology, i)
+                if found is not None:
+                    if found[1] & covered:
+                        continue
+                    covered |= found[1]
+                    hole.cutter = found[0]
+            holes.append(hole)
+        return holes
     except OperationError:
         return []
 
@@ -74,7 +91,7 @@ def _fuse_feature_copies(topology, selection, holes: list, transforms: list[gp_T
     result = _open_shape(topology, selection, True)
     for trsf in transforms:
         for boss in (False, True):
-            solids = [BRepBuilderAPI_Transform(h.solid(), trsf, True).Shape() for h in holes if h.boss == boss]
+            solids = [BRepBuilderAPI_Transform(getattr(h, "cutter", None) or h.solid(), trsf, True).Shape() for h in holes if h.boss == boss]
             if solids:
                 result = _combine(result, _compound(solids), fuse=boss)
     return _restore_closed(topology, finish(result), selection, True)
