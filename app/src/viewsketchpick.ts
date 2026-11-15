@@ -1,6 +1,7 @@
 /** Picking kept sketches in the 3D view: the tinted profile region or the drawn curve under the pointer, and the click that chooses one. */
 import * as THREE from "three";
 import { settings } from "./settings.ts";
+import { modelHits } from "./viewback.ts";
 import { projectOnSegment } from "./segmentmath.ts";
 import { pickCycling } from "./viewpick.ts";
 import { clickSelect } from "./viewselection.ts";
@@ -56,7 +57,7 @@ export function profileUnder(view: SketchPickContext, e: PointerEvent): { id: nu
   view.raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), view.camera);
   const hit = view.raycaster.intersectObjects(targets.map((t) => t.object), false)[0];
   if (!hit) return null;
-  const model = view.mesh ? view.raycaster.intersectObject(view.mesh)[0] : undefined;
+  const model = view.mesh ? modelHits(view.mesh, view.raycaster)[0] : undefined;
   if (model && !settings.seeThrough && hit.distance > model.distance * 1.001 + 1e-3) return null; // behind the model
   const target = targets.find((t) => t.object === hit.object);
   return target ? { id: target.id, region: target.region } : null;

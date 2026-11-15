@@ -2,6 +2,7 @@
 import * as THREE from "three";
 import type { FaceRange } from "./client.ts";
 import { settings } from "./settings.ts";
+import { modelHits } from "./viewback.ts";
 import { projectOnSegment, worldFraction } from "./segmentmath.ts";
 import type { Hit, Sel } from "./viewport.ts";
 import type { Viewport } from "./viewport.ts";
@@ -18,7 +19,7 @@ export function pickHit(view: PickContext, e: PointerEvent): Hit | null {
   const px = e.clientX - rect.left;
   const py = e.clientY - rect.top;
   view.raycaster.setFromCamera(new THREE.Vector2((px / rect.width) * 2 - 1, -(py / rect.height) * 2 + 1), view.camera);
-  const hits = view.raycaster.intersectObject(view.mesh);
+  const hits = modelHits(view.mesh, view.raycaster);
   const solidHit = hits.find((h) => !isGhostTriangle(view, h.faceIndex)); // see-through bodies never hide what is behind them
   const faceHit = solidHit ?? hits[0];
   // An edge or vertex counts as visible if it is not meaningfully behind the face under the
@@ -144,7 +145,7 @@ export function faceUnder(view: PickContext, e: PointerEvent): { id: number; poi
   if (!view.mesh || !view.data) return null;
   const rect = view.renderer.domElement.getBoundingClientRect();
   view.raycaster.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), view.camera);
-  const hit = pickFace(view, view.raycaster.intersectObject(view.mesh));
+  const hit = pickFace(view, modelHits(view.mesh, view.raycaster));
   if (!hit || hit.faceIndex == null) return null;
   let lo = 0;
   let hi = view.faceStarts.length - 1;
@@ -164,7 +165,7 @@ export function occluded(view: PickContext, p: THREE.Vector3): boolean {
   const dir = p.clone().sub(view.camera.position);
   const distance = dir.length();
   view.raycaster.set(view.camera.position, dir.normalize());
-  const hit = view.raycaster.intersectObject(view.mesh).find((h) => !isGhostTriangle(view, h.faceIndex));
+  const hit = modelHits(view.mesh, view.raycaster).find((h) => !isGhostTriangle(view, h.faceIndex));
   return !!hit && hit.distance < distance * 0.995;
 }
 
