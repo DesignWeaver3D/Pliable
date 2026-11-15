@@ -47,6 +47,10 @@ Tool group CORE:
   - Done (2026-11-14): the merge memory carries over a commit when the model was already marked merged; first drag after a push/pull 0.66 s (was 3-4 s).
   - Done (2026-11-14): a body's preview and full display are made from each other (they differ only in edge normals): arming Move/Rotate 4.0 s to about 0.6 s, release after a drag 3.3 s to 2.2 s (edge-normal calls 1.3 s of it). The first preview of a drag (3.9 s) builds the bodies the merge changed.
   - [ ] Failing gizmo move not reproduced (core moves always succeed). Suspect: a draw error on a 15 MB reply is caught like a failed request and redraws the old mesh. Asked the owner for the browser console text the next time it happens. Replies are now small (deltas), which may remove the suspected cause.
+- **Next work, second survey (added 2026-11-15, unattended; not asked for).** From the sketcher parity and holes scope notes; items from the Ideas section (repeat-last-tool key, fillet failure message, failure cue) were left there because the owner picks those. Related items checked: Parked "Holes, parked parts" (step depth grips are built; the blind-hole depth grip is checked first).
+  - [ ] Sketch solver scenario tests: rectangle, slot, tangent chain, symmetric profile, ellipse in a rectangle, spline through points (extends the no-flip set).
+  - [ ] Blind-hole depth grip in the Hole Editor, if none exists yet (counterbore and countersink step grips exist).
+
 - **Sketch clicks that only set a size.** Owner (2026-10-31): "Similar need applied to circle by 3 points and check the rest of the sketch geometry tools for similar", and "Apply the same to arc by center end click." Related existing items checked: none in Parked or Ideas. Built for the slot, circle, 3-point circle and arc, polygon, ellipse and arc-by-center clicks that land on a point, curve or axis.
   - [ ] An arc-by-center end click anywhere else only sets the angle, and an ellipse third click off the minor axis sets only the short radius; both need a constraint the solver does not have (collinear with the center, tangent to the ellipse). Ask the owner whether they are wanted.
 
