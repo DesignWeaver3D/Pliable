@@ -74,3 +74,36 @@ def cut_reachable_bodies(shape: TopoDS_Shape, tool: TopoDS_Shape) -> TopoDS_Shap
     for solid, parts in zip(solids, cut_each(solids, tool)):
         pieces.extend([solid] if parts is None else parts)
     return _compound(pieces)
+
+
+def fuse_reachable_bodies(shape: TopoDS_Shape, tool: TopoDS_Shape) -> TopoDS_Shape:
+    """`shape` with `tool` fused in: the tool is joined to each body it reaches, one body at a time (a body the joined result then
+    reaches is joined too), so bodies far from the tool stay as they are and nothing is held twice by overlapping solids. A model
+    that is not a compound of solids and shells is fused as a whole."""
+    solids = _plain_bodies(shape)
+    if solids is None or len(solids) < 2:
+        return _combine(shape, tool, fuse=True)
+    joined = tool
+    pending = set(range(len(solids)))
+    changed = True
+    while changed:
+        changed = False
+        for index in sorted(pending):
+            if _box(joined).IsOut(_box(solids[index])):
+                continue
+            fused = _boolean(joined, solids[index], True, glue=False)
+            if fused is None:
+                raise OperationError("Boolean operation failed")
+            joined = fused.Shape()
+            pending.discard(index)
+            changed = True
+    fused_at = [i for i in range(len(solids)) if i not in pending]
+    pieces: list[TopoDS_Shape] = []
+    for index, solid in enumerate(solids):  # the joined bodies take the place of the first body fused into them
+        if index == (fused_at[0] if fused_at else -1):
+            pieces.extend(solids_of(joined))
+        elif index in pending:
+            pieces.append(solid)
+    if not fused_at:
+        pieces.extend(solids_of(joined))
+    return _compound(pieces)

@@ -1,5 +1,6 @@
 """The Loft between faces tool."""
 
+from ..shared.bodycut import fuse_reachable_bodies
 from ..ops import OperationError
 from ..shared.solids import _combine, _volume, finish
 from ..tools import Accepts, Param, register, Tool
@@ -36,4 +37,4 @@ class LoftFaces(Tool):
             raise OperationError(f"Could not loft between these faces: {e}") from None
         if not loft.IsDone() or loft.Shape().IsNull() or _volume(loft.Shape()) < 1e-9:
             raise OperationError("Could not loft between these faces")
-        return finish(_combine(topology.shape, loft.Shape(), fuse=True))
+        return finish(fuse_reachable_bodies(topology.shape, loft.Shape()))

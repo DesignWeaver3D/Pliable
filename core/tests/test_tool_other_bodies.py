@@ -189,7 +189,6 @@ def test_hole_blind_cuts_what_it_covers(interact, overlap):
 @cases
 @sides
 def test_boss_joins_what_it_covers(request, interact, overlap):
-    known(request, {("others", True, None): "Boss with Other bodies across overlapping bodies loses 14,593 mm3 of material (whole-model fuse)"})
     z = Z(overlap)
     before, after = run("add_boss", lambda m: Selection(faces=[face_of(m, D, -1, low=True)]), {"diameter": 6, "height": z.d0 - 10}, interact, overlap)
     check_join(before, after, cylinder_tool(0, 0, 10, z.d0, 3), interact, D)
@@ -229,7 +228,6 @@ def right_face(model, body):
 @pytest.mark.parametrize("mode", (0, 1), ids=("add", "subtract"))
 @sides
 def test_revolve_covers_what_it_sweeps(request, interact, mode):
-    known(request, {("others", None, 0): "Revolve Add with Other bodies loses material where the sweep crosses overlapping bodies (whole-model fuse)"})
     if interact == "this" and mode == 1:
         pytest.skip("the swept shape meets no part of its own body: the tool refuses, as it should")
     model = ring_scene()
@@ -266,7 +264,6 @@ def test_mirror_joins_the_copy_with_what_it_meets(overlap):
 
 @cases
 def test_cylinder_primitive_joined_to_the_model_joins_what_it_covers(request, overlap):
-    known(request, {(None, True, None): "A primitive joined to overlapping bodies loses 22,089 mm3 of material (whole-model fuse)"})
     params = {"diameter": 6, "height": 80, "x": 0, "y": 0, "z": -5, "new_body": 0}
     before, after = run("add_cylinder", lambda m: Selection(), params, overlap=overlap)
     check_join(before, after, cylinder_tool(0, 0, -5, 75, 3), "others", D)
@@ -319,7 +316,6 @@ def _edges_of(shape):
 @pytest.mark.parametrize("mode", (0, 1), ids=("add", "subtract"))
 def test_sweep_face_with_other_bodies_covers_what_it_sweeps(request, mode):
     """Subtract: the pipe of the face along the edge is cut out of every body it crosses, overlapping ones included."""
-    known(request, {(None, None, 0): "Sweep Add across overlapping bodies loses material (whole-model fuse)"})
     from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeWire
     from OCP.BRepOffsetAPI import BRepOffsetAPI_MakePipe
 

@@ -12,7 +12,7 @@ from ..mergescope import finish_scoped
 from ..ops import OperationError, face_handle_point, solids_of
 from ..pushpull_modes import nothing_to_subtract
 from ..shared.arrayaxis import AXIS_CHOICES, array_axis
-from ..shared.bodycut import cut_reachable_bodies
+from ..shared.bodycut import cut_reachable_bodies, fuse_reachable_bodies
 from ..shared.solids import _combine, _compound, _volume, finish
 from ..sketch import SketchError, regions
 from ..tools import Accepts, Handle, Param, register, Tool
@@ -108,7 +108,7 @@ class RevolveFace(Tool):
         solids = solids_of(topology.shape)
         loose = _faces_outside(topology.shape, solids)  # sketch regions picked as faces (found by a map of the bodies' faces, not a search of every body per face)
         if solids:  # booleans run on the solids alone; the other loose faces are put back afterwards (the picked one is used up)
-            result = _combine(_compound(solids), tool_shape, fuse=True) if mode == 0 else cut_reachable_bodies(_compound(solids), tool_shape)  # a cut works on the bodies it reaches, one at a time
+            result = fuse_reachable_bodies(_compound(solids), tool_shape) if mode == 0 else cut_reachable_bodies(_compound(solids), tool_shape)  # a cut works on the bodies it reaches, one at a time
         elif mode == 0:
             result = tool_shape
         else:

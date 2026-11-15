@@ -3,6 +3,7 @@
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
 from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 
+from ..shared.bodycut import fuse_reachable_bodies
 from ..ops import OperationError, solids_of
 from ..shared.bodies import _body_bounds, _chosen_solids, _open_shape, _restore_closed
 from ..shared.faces import _PlanarFace, _plane_axes
@@ -76,4 +77,4 @@ class Mirror(_PlanarFace):
         if selection.bodies:
             source = _compound(_chosen_solids(topology, Selection(bodies=selection.bodies)))
         mirrored = BRepBuilderAPI_Transform(source, transform, True).Shape()
-        return _restore_closed(topology, finish(_combine(base, mirrored, fuse=True) if solids_of(base) else mirrored), selection, True)
+        return _restore_closed(topology, finish(fuse_reachable_bodies(base, mirrored) if solids_of(base) else mirrored), selection, True)

@@ -4,6 +4,7 @@ from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
 from OCP.TopoDS import TopoDS_Shape
 from OCP.gp import gp_Trsf, gp_Vec
 
+from .bodycut import fuse_reachable_bodies
 from ..ops import OperationError, OpResult, solids_of
 from .bodies import _open_shape, _restore_closed
 from .solids import _combine, _compound, _faces_of, finish
@@ -105,5 +106,5 @@ def _fuse_copies(topology, selection, transforms: list[gp_Trsf]) -> OpResult:
     result = _open_shape(topology, selection, True)
     for trsf in transforms:
         copy = BRepBuilderAPI_Transform(source, trsf, True).Shape()
-        result = _combine(result, copy, fuse=True) if solids_of(result) else copy
+        result = fuse_reachable_bodies(result, copy) if solids_of(result) else copy
     return _restore_closed(topology, finish(result), selection, True)

@@ -7,6 +7,7 @@ from OCP.TopoDS import TopoDS_Compound, TopoDS_Shape
 from OCP.gp import gp_Pnt
 
 from ..ops import OperationError, solids_of
+from .bodycut import fuse_reachable_bodies
 from .solids import _add_material, _combine, _faces_of, finish
 
 
@@ -125,7 +126,7 @@ def _add_to_scene(topology, solid, separate: bool):
     if separate:
         return finish(_add_material(topology.shape, solid, True))
     open_shape = _open_shape(topology)
-    fused = _combine(open_shape, solid, fuse=True) if solids_of(open_shape) else solid
+    fused = fuse_reachable_bodies(open_shape, solid) if solids_of(open_shape) else solid
     return _restore_closed(topology, finish(fused))
 
 

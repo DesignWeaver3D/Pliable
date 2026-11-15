@@ -1,5 +1,6 @@
 """The Add boss tool."""
 
+from ..shared.bodycut import fuse_reachable_bodies
 from OCP.gp import gp_Vec
 
 from ..ops import MIN_DISTANCE, OperationError
@@ -38,4 +39,4 @@ class AddBoss(_PlanarFace):
         # Start a little inside the solid so the boss fuses cleanly with the face.
         sunk = start.Translated(gp_Vec(normal).Multiplied(-1e-3))
         boss = _cylinder(sunk, normal, values["diameter"] / 2, values["height"] + 1e-3)
-        return finish(_combine(topology.shape, boss, fuse=True))
+        return finish(fuse_reachable_bodies(topology.shape, boss))  # joined to the bodies it reaches, one at a time
