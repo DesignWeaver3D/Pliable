@@ -77,3 +77,14 @@ def test_a_surface_body_is_cut_like_the_rest_and_keeps_its_place():
     assert len(solids_of(cut)) == 3
     assert body_figures(cut) == body_figures(_combine(shape, tool, fuse=False))
     assert solids_of(cut)[2].IsSame(solids_of(shape)[2])
+
+
+def test_a_model_of_grouped_bodies_is_cut_body_by_body_in_the_order_solids_of_lists_them():
+    shape = compound([compound([box(0), box(30)]), box(60), compound([compound([box(90)])])])
+    tool = drill(5, -1, 30)
+    kept = solids_of(shape)
+    each = cut_reachable_bodies(shape, tool)
+    assert body_figures(each) == body_figures(_combine(shape, tool, fuse=False))
+    after = solids_of(each)
+    assert len(after) == len(kept) and not after[0].IsSame(kept[0])
+    assert all(a.IsSame(b) for a, b in zip(kept[1:], after[1:]))  # the bodies the tool does not reach keep their places

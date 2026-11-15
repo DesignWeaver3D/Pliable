@@ -70,6 +70,24 @@ def _volume(shape: TopoDS_Shape) -> float:
     return abs(volume_of(shape))
 
 
+_KNOWN_LIMIT = 4000
+_known: dict[int, list[tuple[TopoDS_Shape, float]]] = {}  # volumes worked out lately, by the shape's hash: the new bodies of one commit are the old ones of the next
+
+
+def _known_volume(shape: TopoDS_Shape) -> float:
+    """`_volume` of `shape`, remembered for the next call: the very same body (IsSame) has the same volume, and it is seconds of work on a model of many bodies."""
+    entries = _known.setdefault(hash(shape), [])
+    for other, volume in entries:
+        if other.IsSame(shape):
+            return volume
+    if len(_known) > _KNOWN_LIMIT:
+        _known.clear()
+        entries = _known.setdefault(hash(shape), [])
+    volume = _volume(shape)
+    entries.append((shape, volume))
+    return volume
+
+
 PAD = 1e-6  # flat boxes are padded a little so a plate still overlaps itself
 
 
@@ -123,7 +141,7 @@ def carry(prev: BodyState, old_shape: TopoDS_Shape, new_shape: TopoDS_Shape, kin
     def vol(side, index):
         key = (side, index)
         if key not in volumes:
-            volumes[key] = _volume((olds if side == 0 else news)[index])
+            volumes[key] = _known_volume((olds if side == 0 else news)[index])
         return volumes[key]
 
     match: dict[int, int] = {}  # new index -> old index

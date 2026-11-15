@@ -24,15 +24,23 @@ def _box(shape: TopoDS_Shape) -> Bnd_Box:
 
 
 def _plain_bodies(shape: TopoDS_Shape) -> list[TopoDS_Shape] | None:
-    """The bodies of `shape` when it is a compound of nothing but solids and shells (no loose face, edge or group of solids), else None."""
+    """The bodies of `shape` (in the order `solids_of` lists them) when it is a compound, however deeply grouped, of nothing but
+    solids and shells (no loose face, edge or group of solids), else None."""
     if shape.ShapeType() != TopAbs_COMPOUND:
         return None
     members = TopoDS_Iterator(shape)
     out = []
     while members.More():
-        if members.Value().ShapeType() not in (TopAbs_SOLID, TopAbs_SHELL):
+        member = members.Value()
+        if member.ShapeType() == TopAbs_COMPOUND:
+            inner = _plain_bodies(member)
+            if inner is None:
+                return None
+            out.extend(inner)
+        elif member.ShapeType() in (TopAbs_SOLID, TopAbs_SHELL):
+            out.append(member)
+        else:
             return None
-        out.append(members.Value())
         members.Next()
     return out
 
