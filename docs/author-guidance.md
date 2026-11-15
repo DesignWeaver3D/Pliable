@@ -63,6 +63,7 @@ Rules for keeping it:
 
 ### Model: faces, edges and selection (look and feel)
 
+- [ ] Surface bodies (STEP open surfaces kept as bodies): the Surfaces section in the bodies list, hide and delete from it, the right-click menu, and the result of push/pull, holes and fillets on a surface body's faces; the darker back side seen from inside, hover and selection highlight on the back side, see-through and isolate on a surface body.
 - [ ] Measure (M) pressed right after pressing a face; measuring after other tools; Ctrl+double-click an edge with faces already selected keeps them.
 - [ ] Click an X/Y/Z axis line near the model (it highlights; nearer faces and edges win); pick a sketch region and Ctrl+click an edge or axis (the region stays picked, Revolve face runs); Revolve face with only a face and its Axis list; Draft > Pick axis near an edge end; press M while dragging push/pull and double-click a candidate (nothing else starts). Stretch: send me the part where it fails.
 - [ ] Choose a whole sketch in the Sketch list, Ctrl+click an edge or axis and run Revolve face; choose a round wall with a sketch drawn on the unrolled wall and run Emboss / Cut along surface.

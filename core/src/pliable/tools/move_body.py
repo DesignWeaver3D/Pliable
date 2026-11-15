@@ -2,9 +2,11 @@
 
 import math
 
-from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
+from OCP.TopLoc import TopLoc_Location
 from OCP.gp import gp_Ax1, gp_Dir, gp_Trsf, gp_Vec
 
+from ..mergememo import merge_remembering
+from ..mergescope import changed_solids, merge_settled
 from ..ops import MIN_DISTANCE, OpResult
 from ..shared.bodies import _body_bounds, _body_centre, _on_bodies, _unlocked_shape
 from ..shared.solids import finish
@@ -84,16 +86,25 @@ class MoveBody(Tool):
         angles = [values[n] for n in ("rx", "ry", "rz")]
         if offset.Magnitude() < MIN_DISTANCE and all(abs(a) < 1e-9 for a in angles):
             return OpResult(topology.shape, [])
-        whole = _body_centre(_unlocked_shape(topology))  # the middle of the bodies that move, not the locked ones
+        whole = []  # the middle of the bodies that move, not the locked ones; measured only when a move has no body center of its own
 
         def move_trsf(centre):
             """Turn about `centre` (the body's own, else the whole model's) by rx, ry, rz in that order, then shift."""
-            return turn_and_shift(centre or whole, offset, angles)
+            if centre is None and not whole:
+                whole.append(_body_centre(_unlocked_shape(topology)))
+            return turn_and_shift(centre or whole[0], offset, angles)
 
         def change(shape, centre=None):
-            return BRepBuilderAPI_Transform(shape, move_trsf(centre), True).Shape()
+            # Placed, not copied: the shape keeps its geometry and its triangulation, and the move is its location (a move and
+            # a turn are rigid, which a location can hold)
+            return shape.Moved(TopLoc_Location(move_trsf(centre)))
 
         record: dict = {}
-        result = finish(_on_bodies(topology, selection, change, pivot=True, trsf=move_trsf, record=record, centre_always=True))
+        placed = _on_bodies(topology, selection, change, pivot=True, trsf=move_trsf, record=record, centre_always=True)
+        changed = changed_solids(topology, record)  # only the moved bodies are merged again, when the rest are known merged
+        result = finish(placed, changed=changed) if changed is not None else merge_remembering(topology, placed, record, finish)
         result.moved = record
+        result.merged = changed is not None or merge_settled(topology, result.shape)
+        if result.merged:
+            topology.merged = True  # a rigid move leaves the counts as they were: when the merge changed nothing, the model this started from was merged already, so the next preview or commit merges only its moved bodies
         return result

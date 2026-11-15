@@ -21,6 +21,7 @@ export class Mark {
         color,
         opacity,
         transparent: true,
+        side: THREE.DoubleSide, // a surface face is highlighted from both sides
         depthWrite: false,
         polygonOffset: true,
         polygonOffsetFactor: -1,

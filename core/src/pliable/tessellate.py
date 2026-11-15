@@ -20,9 +20,9 @@ from OCP.TopoDS import TopoDS_Shape
 from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as IndexedMap
 from OCP.gp import gp_Vec
 
-from . import meshing, recipes
+from . import bodydisplay, meshing, recipes
 from .meshread import MeshReader
-from .ops import face_normal_at_edge, planar_normal, solids_of
+from .ops import face_normal_at_edge, is_surface, planar_normal, solids_of
 from .splitwalls import split_centre
 from .topology import Topology
 
@@ -149,7 +149,9 @@ class _MeshKey:
 
 
 class _Cache:
-    def __init__(self):
+    def __init__(self, limit=None, follows=()):
+        self.limit = limit  # None: the module's CACHE_LIMIT
+        self.follows = follows  # caches cleared together with this one
         self.entries: dict = {}
         self.weight = 0
         self.hits = 0
@@ -167,16 +169,20 @@ class _Cache:
     def put(self, key, value, weight: int):
         self.entries[key] = (value, weight)
         self.weight += weight
-        while self.weight > CACHE_LIMIT and len(self.entries) > 1:
+        limit = CACHE_LIMIT if self.limit is None else self.limit
+        while self.weight > limit and len(self.entries) > 1:
             self.weight -= self.entries.pop(next(iter(self.entries)))[1]
 
     def clear(self):
+        for other in self.follows:
+            other.clear()
         self.entries.clear()
         self.weight = 0
         self.hits = self.misses = 0
 
 
-display_cache = _Cache()
+body_cache = _Cache(limit=CACHE_LIMIT)  # display data per body (see bodydisplay.py)
+display_cache = _Cache(follows=(body_cache,))
 
 
 def _face_display(face, reader: MeshReader):
@@ -338,7 +344,20 @@ def _solid_indices_by_lookup(topology: Topology) -> tuple[dict, dict, dict]:
 
 
 def tessellate(topology: Topology, preview: bool = False) -> Mesh:
-    """Mesh a topology. A preview skips the per-edge drag directions (most of the cost) since nothing is dragged on it."""
+    """Mesh a topology. A preview skips the per-edge drag directions (most of the cost) since nothing is dragged on it.
+    Bodies unchanged since the last call come from the per-body cache (bodydisplay.py); a model whose bodies do not own
+    their ids as one block each takes the whole-model path."""
+    shape = topology.shape
+    solid_shapes = solids_of(shape)
+    ranges = bodydisplay.body_ranges(topology, solid_shapes)
+    if ranges is None:
+        return tessellate_whole(topology, preview)
+    fields = bodydisplay.assemble(topology, preview, ranges, solid_shapes, linear_deflection(shape))
+    return Mesh(**fields, bounds=bounds(shape))
+
+
+def tessellate_whole(topology: Topology, preview: bool = False) -> Mesh:
+    """`tessellate` for the whole model at once, looking up every id (the reference the per-body path must match)."""
     shape = topology.shape
     face_solid, edge_solid, vertex_solid = _solid_indices(topology)
     solid_shapes = solids_of(shape)
@@ -428,6 +447,6 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
         edges=edges,
         vertices=vertices,
         centres=centres,
-        bodies=[{"id": b.id, "name": b.name, "solid": n, "bounds": bounds(solid_shapes[n]), "material": b.material, "locked": b.locked, **recipes.info(b)} for n, b in enumerate(owners) if n < len(solid_shapes)],
+        bodies=[{"id": b.id, "name": b.name, "solid": n, "bounds": bounds(solid_shapes[n]), "material": b.material, "locked": b.locked, "surface": is_surface(solid_shapes[n]), **recipes.info(b)} for n, b in enumerate(owners) if n < len(solid_shapes)],
         bounds=bounds(shape),
     )

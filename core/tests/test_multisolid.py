@@ -88,14 +88,13 @@ def test_check_import_clean():
     assert warnings == []
 
 
-def test_closed_surface_body_becomes_solid_and_open_one_is_named():
+def test_closed_surface_body_becomes_solid_and_open_one_is_kept():
     closed = shell_of(Box(5, 5, 5))
     open_ = shell_of(Pos(20, 0, 0) * Box(5, 5, 5), skip_faces=1)
     shape, warnings = check_import(compound_of(Box(10, 10, 10).wrapped, closed, open_), [(open_, "Lid")])
-    assert len(solids_of(shape)) == 2
+    assert len(solids_of(shape)) == 3  # two solids and the open shell as a surface body
     assert any("1 surface body closed" in w for w in warnings)
-    assert any("1 open surface" in w and "Lid" in w for w in warnings)
-    assert "Open body 'Lid': 1 open loop, 1 flat" in warnings
+    assert "1 surface body kept" in warnings
 
 
 def test_mesh_labels_each_item_with_its_solid():

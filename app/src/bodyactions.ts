@@ -12,6 +12,8 @@ export interface BodyActionDeps {
   status: HTMLElement;
   list: HTMLElement;
   count: HTMLElement;
+  surfaceList: HTMLElement;
+  surfaceCount: HTMLElement;
   /** The newest committed mesh and the current selection. */
   committed(): MeshData | null;
   selection(): Sel[];
@@ -134,7 +136,7 @@ export function installBodyActions(d: BodyActionDeps) {
     edit(id) {
       d.editPrimitive(id);
     },
-  }, d.count);
+  }, d.count, d.surfaceList, d.surfaceCount);
   bodyList.setBodies([], new Set()); // the list is always shown; before a model exists it says so
   return { bodyList, applyVisibility, setVisibility };
 }

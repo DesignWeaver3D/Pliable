@@ -15,6 +15,7 @@ from .usage import Usage
 from .document import Document
 from .ghost import ghost_reply
 from .autosave import Autosaver
+from .bgmerge import ImportMerge
 from .ops import solids_of
 from .protocol import encode_mesh  # noqa: F401  (the benchmark patches server.encode_mesh)
 from .tessellate import tessellate  # noqa: F401  (the benchmark patches server.tessellate)
@@ -39,6 +40,7 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers, SessionHandlers, Quer
         self.last_tool: dict | None = None  # name and outcome of the newest tool run, for diagnostics
         self.import_warnings: list[str] = []
         self.unclean = autosaver.available(unclean_only=True) if autosaver else None  # a dead instance's session, offered until restored
+        self._import_merge = ImportMerge()  # the merge of the whole model after an import, in the background (bgmerge.py)
         self._autosave_due = 0  # 1: snapshot wanted, 2: snapshot of a newly opened document
 
     def _model_summary(self) -> dict:
@@ -61,10 +63,12 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers, SessionHandlers, Quer
             self.autosaver.save(self.document, due == 2)
 
     def handle(self, request: dict) -> dict | bytes:
+        self._import_merge.before(request.get("type"))
         try:
             return self._handle(request)
         finally:
             self._run_autosave()
+            self._import_merge.after(self.document)
 
     def _require_document(self) -> Document:
         if self.document is None:

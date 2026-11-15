@@ -50,7 +50,7 @@ When the owner asks for parallel agents, follow `docs/orchestration.md`: worktre
 
 ## Deciding without the owner
 
-This section applies only when the owner is away or the session is unattended. In an attended session, ask the owner instead of deciding, and never override anything in `docs/behavior.md`.
+This section applies when the owner is away or the session is unattended, and to the orchestrator answering its agents' questions (see "Agents asking the orchestrator" in `docs/orchestration.md`), even in an attended session. Otherwise, in an attended session, ask the owner instead of deciding. Never override anything in `docs/behavior.md`, and never decide a row marked "discuss": those go to the owner.
 
 When a request is ambiguous and the owner is away, decide in this order and keep going:
 

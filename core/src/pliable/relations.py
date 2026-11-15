@@ -16,6 +16,7 @@ from .topology import Topology
 
 LINEAR_TOL = 1e-5
 ANGULAR_TOL = 1e-6
+BOX_MARGIN = 0.5  # model units added to a solid's bounding box before a point is judged outside it (the box comes from a triangulation)
 
 # id -> label shown on the chip; the order is the order chips appear
 RULES = {
@@ -74,6 +75,39 @@ def _face_signature(face) -> tuple[str, float, tuple[float, float, float]]:
     return str(BRepAdaptor_Surface(face).GetType()), props.Mass(), (c.X(), c.Y(), c.Z())
 
 
+def _faces_near(topology: Topology, points) -> set[int]:
+    """Ids of the faces whose center of mass could lie at one of `points`: the faces outside every solid and those of a solid
+    whose bounding box (enlarged for the triangulation it comes from) holds a point. Measuring every face of a model of
+    many bodies is slow, and a face far from the points cannot be a mirror image."""
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+    from OCP.gp import gp_Pnt
+    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+
+    from .ops import solids_of
+
+    held: set[int] = set()
+    near: set[int] = set()
+    for solid in solids_of(topology.shape):
+        ids = []
+        explorer = TopExp_Explorer(solid, TopAbs_FACE)
+        while explorer.More():
+            face_id = topology.face_id(TopoDS.Face(explorer.Current()))
+            if face_id is not None:
+                ids.append(face_id)
+            explorer.Next()
+        held.update(ids)
+        box = Bnd_Box()
+        BRepBndLib.Add_s(solid, box)
+        box.Enlarge(BOX_MARGIN)
+        if any(not box.IsOut(gp_Pnt(*p)) for p in points):
+            near.update(ids)
+    near.update(i for i in range(topology.face_count) if i not in held)
+    return near
+
+
 def _symmetric_faces(topology: Topology, face_id: int) -> list[int]:
     """Faces that are the mirror image of the face across a mid-plane of the model's bounding box (one of the
     three planes through the box center), of the same surface type and area. A face on the plane is its own mirror."""
@@ -85,9 +119,11 @@ def _symmetric_faces(topology: Topology, face_id: int) -> list[int]:
     lo, hi = box.CornerMin(), box.CornerMax()
     middle = ((lo.X() + hi.X()) / 2, (lo.Y() + hi.Y()) / 2, (lo.Z() + hi.Z()) / 2)
     kind, area, centre = _face_signature(topology.face(face_id))
+    mirrors = [tuple(2 * middle[a] - centre[a] if a == axis else centre[a] for a in range(3)) for axis in range(3)]
+    possible = _faces_near(topology, mirrors)
     found = set()
     for other_id, other in topology.faces():
-        if other_id == face_id:
+        if other_id == face_id or other_id not in possible:
             continue
         other_kind, other_area, other_centre = _face_signature(other)
         if other_kind != kind or abs(other_area - area) > 1e-4 * max(area, 1.0):

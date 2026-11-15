@@ -1,4 +1,5 @@
 /** The composition root of the app: creates the 3D view, the core client, the panels and the sketch mode, and wires them to one another. New behavior goes in its own module, not here. */
+import { leavePromptDisabled } from "./leaveprompt.ts";
 import * as THREE from "three";
 import { moveHandlesAt } from "./placepick.ts";
 import { bodyCentres, movedBodies } from "./slide.ts";
@@ -674,6 +675,8 @@ const { bodyList, setVisibility } = installBodyActions({
   status,
   list: $("bodylist"),
   count: $("bodycount"),
+  surfaceList: $("surfacelist"),
+  surfaceCount: $("surfacecount"),
   committed: () => app.committed,
   selection: () => app.currentSels,
   show: (mesh) => show(mesh),
@@ -733,6 +736,7 @@ setKeysOpener(() => keys.openSettings());
 setHintsBinding({ get: () => hintLine.prefs.on, set: (on) => hintLine.setOn(on) });
 // Leaving with edits (undo steps) or an open sketch asks first; autosave still protects against crashes.
 window.addEventListener("beforeunload", (e) => {
+  if (leavePromptDisabled(import.meta.env.DEV, location.search)) return;
   if (app.modelHistory.undo || sketch.active) e.preventDefault();
 });
 
@@ -974,6 +978,10 @@ onDatums = (list, mirror) => {
 };
 $("datumhead").addEventListener("click", () => {
   const head = $("datumhead");
+  head.setAttribute("aria-expanded", String(head.getAttribute("aria-expanded") !== "true"));
+});
+$("surfacehead").addEventListener("click", () => {
+  const head = $("surfacehead");
   head.setAttribute("aria-expanded", String(head.getAttribute("aria-expanded") !== "true"));
 });
 /** Add a datum plane from a request the core understands as a sketch plane (or a midplane of two faces). */

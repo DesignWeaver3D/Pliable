@@ -32,6 +32,7 @@ class FileHandlers:
         self.document = Document(shape, request.get("name", "Imported"), body_ids.fresh(shape, body_ids.namer(named)))
         self.import_warnings = warnings
         self._autosave(fresh=True)
+        self._import_merge.ask()  # merged in the background once the reply is built
         return self._mesh_reply(self.document.current, {"importMs": _ms(start)}, name=self.document.name, warnings=warnings, solids=len(solids_of(shape)))
 
     def _combine_step(self, request):

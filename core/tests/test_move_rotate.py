@@ -95,3 +95,20 @@ def test_rotation_rings_declare_axis_ring_and_degrees():
     assert ring["scale"] == pytest.approx(math.degrees(1 / radius))
     assert ring["direction"][0] * x + ring["direction"][1] * y == pytest.approx(0, abs=1e-9)
     assert handles["dx"]["ring"] is None
+
+
+def test_moving_chosen_bodies_does_not_measure_the_whole_model(monkeypatch):
+    """A move with bodies chosen turns each about its own center; the whole model's box (slow on many bodies) is only for no selection."""
+    from pliable.tools import move_body
+
+    calls = []
+    real = move_body._body_centre
+    monkeypatch.setattr(move_body, "_body_centre", lambda shape: calls.append(shape) or real(shape))
+    s = _session()
+    topology = s.document.current
+    body = topology.bodies.bodies[1].id
+    get_tool("move_body").execute(topology, Selection(bodies=[body]), {"rz": 90, "dx": 5}, preview=False)
+    assert calls == []  # each chosen body is measured on its own (in shared/bodies.py), the whole model is not
+    calls.clear()
+    get_tool("move_body").execute(topology, Selection(), {"rz": 90, "dx": 5}, preview=False)
+    assert len(calls) == 1  # no selection: the whole model's center, once

@@ -7,10 +7,12 @@ through every stage, so a selection survives the merge.
 
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
 from OCP.ShapeUpgrade import ShapeUpgrade_UnifySameDomain
+from OCP.TopAbs import TopAbs_COMPOUND, TopAbs_SHELL, TopAbs_SOLID
+from OCP.TopoDS import TopoDS_Iterator
 
 from .mergelimits import MERGE_ANGLE
-from .ops import OperationError, OpResult, _follow
-from .samesurface import merge_same_surface
+from .ops import OperationError, OpResult, _follow, is_surface, solids_of
+from .samesurface import _compound_of, merge_same_surface
 from .validity import is_valid
 
 
@@ -29,27 +31,85 @@ def _unified(shape, tracked, edges, vertices, merge_faces: bool):
     return merged, _follow(history, tracked_c), _follow(history, edges_c), _follow(history, vertices_c)
 
 
-def merge_faces(result: OpResult, same_surface: bool = True) -> OpResult:
+def merge_faces(result: OpResult, same_surface: bool = True, changed: frozenset | None = None) -> OpResult:
     """`result` with its faces and edges merged, the tracked items followed through the merge.
+    `changed` (positions of the solids the operation changed; None = any) limits the search for faces of one surface to
+    those solids; the caller promises the other solids were merged already and share nothing with them (mergescope.py).
     `same_surface` False skips joining faces of one surface the kernel left split (a drag preview: it costs time)."""
     # UnifySameDomain modifies its input in place, even in "safe input" mode, and the result of an operation shares
     # sub-shapes with the document's shape: every attempt merges its own topology-only copy (geometry and triangulations are shared).
     # Merging faces can break a valid result (a shelled, rounded body fused to its mirror image); then only the edges are merged.
+    found = _unified_in_parts(result, changed) if changed is not None else None
+    if found is None:
+        found = _kernel_merge(result)
+    merged, tracked, edges, vertices = found
+    if same_surface:
+        again = merge_same_surface(merged, _solid_positions(result.shape, merged, changed))  # faces of one surface the kernel left split (samesurface.py)
+        if again is not None:
+            merged, tracked, edges, vertices = again.shape, again.follow(tracked), again.follow(edges), again.follow(vertices)
+    return OpResult(merged, tracked, edges, vertices, unified=True)
+
+
+def _kernel_merge(result: OpResult):
+    """The kernel's merge of `result` (see `merge_faces`): the merged shape and the tracked faces, edges and vertices followed."""
     plain = (result.shape, result.tracked_faces, result.tracked_edges, result.tracked_vertices)
     attempts = [(*plain, True), (*plain, False)]
     for shape, faces, edges, vertices, merge in attempts:
         found = _unified(shape, faces, edges, vertices, merge)
         if found is not None:
-            break
-    else:
-        # Merging can corrupt very detailed solids; the plain result is still valid.
-        found = _unified_none(result)
-    merged, tracked, edges, vertices = found
-    if same_surface:
-        again = merge_same_surface(merged)  # faces of one surface the kernel left split (samesurface.py)
-        if again is not None:
-            merged, tracked, edges, vertices = again.shape, again.follow(tracked), again.follow(edges), again.follow(vertices)
-    return OpResult(merged, tracked, edges, vertices, unified=True)
+            return found
+    # Merging can corrupt very detailed solids; the plain result is still valid.
+    return _unified_none(result)
+
+
+def _unified_in_parts(result: OpResult, changed: frozenset):
+    """The kernel's merge of only the `changed` solids of `result`, put back in their places among the others as they are;
+    None when that cannot be done exactly (tracked items to follow, a shape that is not a flat compound of solids, or a
+    merge that changed the solid count), and the whole shape is merged then. The copy, the merge and the validity check
+    of the others (merged already, see mergescope.py) are what this saves."""
+    if result.tracked_faces or result.tracked_edges or result.tracked_vertices:
+        return None
+    solids = solids_of(result.shape)  # the bodies: solids, and surface bodies (shells held by no solid)
+    if not all(0 <= i < len(solids) for i in changed) or not _flat(result.shape, len(solids)):
+        return None
+    order = sorted(changed)
+    inner = _kernel_merge(OpResult(_compound_of([solids[i] for i in order]), []))[0]
+    made = solids_of(inner)
+    if len(made) != len(order) or any(is_surface(a) != is_surface(solids[i]) for a, i in zip(made, order)):
+        return None
+    for i, solid in zip(order, made):
+        solids[i] = solid
+    return _compound_of(solids), [], [], []
+
+
+def _flat(shape, solid_count: int) -> bool:
+    """Whether `shape` is a compound whose direct members are all bodies: solids or shells."""
+    if shape.ShapeType() != TopAbs_COMPOUND:
+        return False
+    members = TopoDS_Iterator(shape)
+    seen = 0
+    while members.More():
+        if members.Value().ShapeType() not in (TopAbs_SOLID, TopAbs_SHELL):
+            return False
+        seen += 1
+        members.Next()
+    return seen == solid_count
+
+
+def _solid_positions(before, after, changed: frozenset | None) -> frozenset | None:
+    """`changed` (positions among the bodies of `before`) as positions among the solids only, the numbering of
+    `merge_same_surface`; None when `changed` is None or the merge changed the bodies' count or kinds."""
+    if changed is None:
+        return None
+    bodies, now = solids_of(before), solids_of(after)
+    if len(bodies) != len(now) or any(is_surface(a) != is_surface(b) for a, b in zip(bodies, now)):
+        return None
+    numbers, count = {}, 0
+    for i, body in enumerate(bodies):
+        if not is_surface(body):
+            numbers[i] = count
+            count += 1
+    return frozenset(numbers[i] for i in changed if i in numbers)
 
 
 def _unified_none(result: OpResult):

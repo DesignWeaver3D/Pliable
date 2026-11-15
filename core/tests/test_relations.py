@@ -85,3 +85,19 @@ def test_cusps_and_reversed_edges_are_not_smooth_continuations():
     also_along_x = Edge.make_line((0, 0, 0), (5, 0, 0)).wrapped  # leaves the origin the same way as the first
     assert continues_smoothly(_end_tangent(back_along_x, origin), _end_tangent(along_x, origin))  # one straight line through the origin
     assert not continues_smoothly(_end_tangent(also_along_x, origin), _end_tangent(along_x, origin))  # a fold back on itself
+
+
+def test_symmetric_faces_are_found_across_separate_bodies():
+    from build123d import Box, Compound, Pos
+    from pliable.measure import measure
+    from pliable.tools import Selection
+
+    # Two equal boxes mirrored about x = 0 and a small one beside them: the mirror of a face is a face of the other box.
+    left, right, small = Pos(-30, 0, 0) * Box(10, 10, 10), Pos(30, 0, 0) * Box(10, 10, 10), Pos(0, 40, 0) * Box(7, 7, 7)
+    model = Topology(Compound([left, right, small]).wrapped)
+
+    def centre(i):
+        return [round(c, 6) for c in measure(model, Selection(faces=[i]))["items"][0]["anchor"]]
+
+    face = next(i for i in range(model.face_count) if centre(i) == [-35.0, 0.0, 0.0])
+    assert [centre(i) for i in rules(model, face).get("symmetric", [])] == [[35.0, 0.0, 0.0]]

@@ -10,7 +10,12 @@ number; sessions written by a newer format are never offered or deleted.
 After every change the session hands its document to `Autosaver.save`. New
 states are written on a background thread (one file per state, named by its
 id) together with a small `session.json` that records the order and the
-current position. Files of states that fell out of the history are removed.
+current position, but not at once: the write waits until `QUIET_SECONDS` pass
+without another change, and never longer than `MAX_WAIT_SECONDS` after the
+first change not yet written (a write holds the interpreter for seconds on a
+big model and would slow the next drag). `flush` writes what waits now; the
+server calls it when a client disconnects and `mark_clean` calls it at
+shutdown. Files of states that fell out of the history are removed.
 The folder is kept after a clean exit too, so a model closed by mistake can
 be restored. `session.json` has `"clean": true` once the server shut down
 normally; a missing flag on the next launch means the core was killed.
@@ -41,6 +46,8 @@ FORMAT = 2  # version of the session.json layout; bump when an older release cou
 MAX_OLD_SESSIONS = 5  # dead instances' sessions kept for restore
 HEARTBEAT_SECONDS = 5.0
 STALE_AFTER_SECONDS = 30.0
+QUIET_SECONDS = 1.5  # a snapshot is written this long after the last change ...
+MAX_WAIT_SECONDS = 5.0  # ... and at most this long after the first change that is not written yet
 
 
 def data_folder() -> Path:
@@ -98,10 +105,15 @@ def _read_brep(path: Path) -> TopoDS_Shape:
 
 class Autosaver:
     def __init__(self, folder: Path | None = None, heartbeat: float = HEARTBEAT_SECONDS,
-                 stale_after: float = STALE_AFTER_SECONDS, max_old: int = MAX_OLD_SESSIONS):
+                 stale_after: float = STALE_AFTER_SECONDS, max_old: int = MAX_OLD_SESSIONS,
+                 quiet: float = QUIET_SECONDS, max_wait: float = MAX_WAIT_SECONDS):
         self.root = (folder or data_folder()) / "autosave"
         self.stale_after = stale_after
         self.max_old = max_old
+        self.quiet, self.max_wait = quiet, max_wait
+        self._pending: tuple[dict, dict, bool] | None = None  # (new states, newest meta, fresh) not yet handed to the writer
+        self._first_change = 0.0
+        self._timer: threading.Timer | None = None
         self.folder = self.root / f"inst_{int(time.time())}_{uuid.uuid4().hex[:8]}"
         self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="autosave")
         self._written: set[int] = set()
@@ -210,14 +222,39 @@ class Autosaver:
         return self.folder / f"state_{state_id}.plbl"
 
     def save(self, document: Document, fresh: bool = False) -> None:
-        """Queue a snapshot of the document. Shapes are immutable once committed, so the worker may read them.
+        """Note a snapshot of the document; it is written after a quiet moment (see the top of this file). Shapes are
+        immutable once committed, so the worker may read them.
 
         `fresh` marks a newly opened document, whose state ids restart at 0 and must overwrite old files."""
         ids = document.ids
         with self._lock:
-            new = {i: document.project_of(i) for i in ids if fresh or i not in self._written}
-        meta = {"format": FORMAT, "name": document.name, "ids": ids, "index": document.index, "clean": False}
-        self._pool.submit(self._write, new, meta)
+            pending = self._pending
+            fresh_now = fresh or (pending is not None and pending[2])  # a newly opened document not written yet: nothing on disk is its own
+            held = {} if fresh or pending is None else pending[0]
+            new = {i: document.project_of(i) for i in ids if i not in held and (fresh_now or i not in self._written)}
+            new.update({i: p for i, p in held.items() if i in ids})
+            meta = {"format": FORMAT, "name": document.name, "ids": ids, "index": document.index, "clean": False}
+            now = time.monotonic()
+            if pending is None:
+                self._first_change = now
+            self._pending = (new, meta, fresh_now)
+            if self._timer is not None:
+                self._timer.cancel()
+            delay = max(0.0, min(self.quiet, self._first_change + self.max_wait - now))
+            self._timer = threading.Timer(delay, self._submit)
+            self._timer.daemon = True
+            self._timer.name = "autosave-delay"
+            self._timer.start()
+
+    def _submit(self) -> None:
+        """Hand what is waiting to the writer thread."""
+        with self._lock:
+            pending, self._pending = self._pending, None
+            if self._timer is not None:
+                self._timer.cancel()
+                self._timer = None
+        if pending is not None:
+            self._pool.submit(self._write, pending[0], pending[1])
 
     def _write(self, new: dict, meta: dict) -> None:
         try:
@@ -242,6 +279,8 @@ class Autosaver:
         os.replace(temp, self._meta_path)
 
     def flush(self) -> None:
+        """Write what waits and return when it is on disk."""
+        self._submit()
         self._pool.submit(lambda: None).result()
 
     def mark_clean(self) -> None:

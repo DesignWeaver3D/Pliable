@@ -109,6 +109,7 @@ class ToolHandlers:
         body_kind, ordered = tool.body_kind, tool.keeps_body_order
         change = self._recipe_change(tool, topology, selection, request.get("params") or {}, result)
         target = document.commit(result.shape, body_kind, ordered, change=change) if commit else document.preview(result.shape, body_kind, ordered, change=change)
+        target.merged = result.merged
         if commit:
             if request.get("foldPick"):  # extruding a just-picked sketch region: its pick is not a step of its own
                 document.fold_previous_step()

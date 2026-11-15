@@ -21,10 +21,11 @@ from OCP.BRepBndLib import BRepBndLib
 from OCP.Bnd import Bnd_Box
 from OCP.TopoDS import TopoDS_Shape
 
-from .ops import solids_of
+from .ops import is_surface, solids_of
 from .volume import volume_of
 
 DEFAULT_KIND = "Body"
+SURFACE_KIND = "Surface"  # auto-name kind of a surface body (a shell outside any solid)
 
 
 @dataclass(frozen=True)
@@ -103,7 +104,7 @@ def fresh(shape: TopoDS_Shape, names: Callable | None = None, kind: str = DEFAUL
     """Bodies for a shape with no history (a new or imported document); `names` maps a solid to its part name or None."""
     state = BodyState()
     for solid in solids_of(shape):
-        state = _add(state, names(solid) if names else None, kind)
+        state = _add(state, names(solid) if names else None, SURFACE_KIND if is_surface(solid) else kind)
     return state
 
 
@@ -177,7 +178,7 @@ def carry(prev: BodyState, old_shape: TopoDS_Shape, new_shape: TopoDS_Shape, kin
         if j in match:
             state = BodyState(state.bodies + (prev.bodies[match[j]],), state.next_id, state.counts)
         else:
-            state = _add(state, names(news[j]) if names else None, kind)
+            state = _add(state, names(news[j]) if names else None, SURFACE_KIND if is_surface(news[j]) else kind)
     return state
 
 

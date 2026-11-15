@@ -26,7 +26,7 @@ from OCP.ShapeFix import ShapeFix_Face
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_FORWARD, TopAbs_REVERSED, TopAbs_SOLID
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopLoc import TopLoc_Location
-from OCP.TopoDS import TopoDS, TopoDS_Face, TopoDS_Iterator, TopoDS_Shape
+from OCP.TopoDS import TopoDS, TopoDS_Compound, TopoDS_Face, TopoDS_Iterator, TopoDS_Shape
 
 from .mergelimits import CONNECT_LENGTH, MERGE_ANGLE, MERGE_LENGTH, MERGE_RELATIVE, PARALLEL
 from .topology import Topology
@@ -130,8 +130,13 @@ def _solids_of(shape: TopoDS_Shape, topology: Topology) -> dict[int, frozenset]:
     return {fid: frozenset(ids) for fid, ids in members.items()}
 
 
-def _groups(shape: TopoDS_Shape, topology: Topology) -> list[list[TopoDS_Face]]:
-    """Groups of two or more faces of `shape` that share edges and lie on one surface with the same side outward."""
+def _groups(shape: TopoDS_Shape, topology: Topology, changed: frozenset | None = None) -> list[list[TopoDS_Face]]:
+    """Groups of two or more faces of `shape` that share edges and lie on one surface with the same side outward.
+    With `changed` (positions of solids), only the faces of those solids are looked at: faces of different solids never merge."""
+    if changed is not None:
+        solids = _solid_list(shape)
+        shape = _compound_of([solids[i] for i in sorted(changed)])
+        topology = Topology(shape, bodies=())
     surfaces: dict[int, BRepAdaptor_Surface] = {}
     faces = {i: f for i, f in topology.faces()}
 
@@ -242,6 +247,36 @@ def _measures(shape):
     return volume.Mass(), area.Mass()
 
 
+def _solid_list(shape: TopoDS_Shape) -> list[TopoDS_Shape]:
+    out, solids = [], TopExp_Explorer(shape, TopAbs_SOLID)
+    while solids.More():
+        out.append(solids.Current())
+        solids.Next()
+    return out
+
+
+def _changed_positions(shape: TopoDS_Shape, topology: Topology, groups: list[list[TopoDS_Face]]) -> list[int] | None:
+    """The positions of the solids of `shape` that hold a face of some group, the only ones a merge can change; None when
+    the faces are not all in solids (the whole shape is measured then)."""
+    owners = _solids_of(shape, topology)
+    found: set[int] = set()
+    for group in groups:
+        for face in group:
+            holders = owners.get(topology.face_id(face))
+            if not holders:
+                return None
+            found |= holders
+    return sorted(found)
+
+
+def _measures_of(solids: list[TopoDS_Shape], positions: list[int]):
+    compound, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(compound)
+    for position in positions:
+        builder.Add(compound, solids[position])
+    return _measures(compound)
+
+
 class Merged:
     """The result of `merge_same_surface`: the new shape and a way to find where old faces, edges and vertices went."""
 
@@ -280,14 +315,28 @@ class Merged:
         return self._present.vertex_id(item) is not None
 
 
-def merge_same_surface(shape: TopoDS_Shape) -> Merged | None:
+def _compound_of(shapes: list[TopoDS_Shape]) -> TopoDS_Compound:
+    compound, builder = TopoDS_Compound(), BRep_Builder()
+    builder.MakeCompound(compound)
+    for shape in shapes:
+        builder.Add(compound, shape)
+    return compound
+
+
+def merge_same_surface(shape: TopoDS_Shape, changed: frozenset | None = None) -> Merged | None:
     """`shape` with every group of faces on one surface merged into one face; None when nothing merged. The groups are
-    kept together when the result is valid and its volume and area are unchanged, else one by one (each only if it is)."""
+    kept together when the result is valid and its volume and area are unchanged, else one by one (each only if it is).
+    `changed` (positions of solids in `shape`; None = all) says which solids can hold such a group: the caller promises
+    the others have none, and only the faces of the changed solids are looked at."""
     topology = Topology(shape, bodies=())
-    groups = _groups(shape, topology)
+    groups = _groups(shape, topology, changed)
     if not groups:
         return None
-    before = _measures(shape)
+    # Only the solids holding a merged face can change, so the volume and area check measures those (and the merge
+    # result's solids at the same positions) instead of every body of the model.
+    positions = _changed_positions(shape, topology, groups)
+    shape_solids = _solid_list(shape)
+    before = _measures(shape) if positions is None else _measures_of(shape_solids, positions)
 
     def attempt(chosen):
         # The face repair edits the curves and surfaces it is given in place, also when the attempt is then refused (a
@@ -316,8 +365,14 @@ def merge_same_surface(shape: TopoDS_Shape) -> Merged | None:
         result = context.Apply(work)
         if result.IsNull() or not is_valid(result):
             return None
-        volume, area = _measures(result)
-        if abs(volume - before[0]) > MERGE_RELATIVE * abs(before[0]) or abs(area - before[1]) > MERGE_RELATIVE * before[1]:
+        solids = _solid_list(result) if positions is not None else []
+        if positions is not None and len(solids) == len(shape_solids):
+            volume, area = _measures_of(solids, positions)
+            base = before
+        else:  # not in solids, or the merge changed the solid count (it does not): compare the whole shapes
+            volume, area = _measures(result)
+            base = _measures(shape)
+        if abs(volume - base[0]) > MERGE_RELATIVE * abs(base[0]) or abs(area - base[1]) > MERGE_RELATIVE * base[1]:
             return None
         return Merged(result, context, done, counts, copy)
 

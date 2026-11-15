@@ -17,6 +17,7 @@
       #toollist button { display: flex; align-items: center; }
       #bar #status { flex: 1; min-width: 40px; overflow: hidden; text-overflow: ellipsis; }
       #menuwrap { position: relative; }
+      #bar #menubtn { color: #ffb878; border-color: #ff8a1f; font-weight: 600; letter-spacing: .05em; }
       #menupanel { position: absolute; top: 34px; left: 0; z-index: 6; background: #23262d; border: 1px solid #444; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px; min-width: 190px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
       #menupanel[hidden] { display: none; }
       #menupanel .group { color: #ffb878; font-size: 11px; margin-top: 2px; }
@@ -118,6 +119,14 @@
       #bodypanel:has(#datumhead[aria-expanded="false"]) #datumlist { display: none; }
       #datumlist { overflow-y: auto; padding: 0 0 4px 4px; min-height: 0; flex: 0 0 auto; max-height: 30%; }
       #datumlist:has(> .nobodies:only-child) { display: none; }
+      #surfacehead { align-self: flex-start; background: none; border: none; color: #9aa0ab; font-size: 11px; text-align: left; padding: 4px 8px; cursor: pointer; display: flex; gap: 6px; align-items: center; text-shadow: 0 0 3px #000; }
+      #surfacehead:hover { color: #ffb878; }
+      #surfacehead #surfacecount { color: #888; }
+      #surfacehead .caret::before { content: "\25BE"; }
+      #surfacehead[aria-expanded="false"] .caret::before { content: "\25B8"; }
+      #bodypanel:has(#surfacehead[aria-expanded="false"]) #surfacelist { display: none; }
+      #surfacelist { overflow-y: auto; padding: 0 0 4px 4px; min-height: 0; flex: 0 1 auto; }
+      #surfacelist:empty { display: none; } /* an empty list reserves no space; its header stays */
       #mirrorstate { color: #ffb878; font-size: 12px; padding: 2px 10px; display: flex; gap: 6px; align-items: center; text-shadow: 0 0 3px #000; }
       #mirrorstate[hidden] { display: none; }
       #mirrorstate .rowbtn { background: none; border: none; color: #aaa; padding: 1px 3px; line-height: 0; cursor: pointer; }
@@ -254,7 +263,7 @@
     <div id="viewport"></div>
     <div id="bar">
       <div id="menuwrap">
-        <button id="menubtn" title="File, import and export">Menu</button>
+        <button id="menubtn" title="File, import and export">PLIABLE</button>
         <div id="menupanel" hidden>
           <button id="gettingstartedbtn" title="Show the six interactions worth knowing first">Getting started</button>
           <div class="group">Project</div>
@@ -316,6 +325,8 @@
       <section id="bodypanel" aria-label="Bodies">
         <button id="bodyhead" type="button" aria-expanded="true" aria-controls="bodylist" title="Show or hide the list of bodies"><span class="caret"></span>Bodies <span id="bodycount">0</span></button>
         <div id="bodylist"></div>
+        <button id="surfacehead" type="button" aria-expanded="true" aria-controls="surfacelist" title="Show or hide the list of surface bodies (open surfaces that are not solids)"><span class="caret"></span>Surfaces <span id="surfacecount">0</span></button>
+        <div id="surfacelist"></div>
         <button id="keptsketchhead" type="button" aria-expanded="true" aria-controls="keptsketches" title="Show or hide the list of kept sketches"><span class="caret"></span>Sketches <span id="keptsketchcount">0</span></button>
         <div id="keptsketches"></div>
         <button id="datumhead" type="button" aria-expanded="true" aria-controls="datumlist" title="Show or hide the list of datum planes"><span class="caret"></span>Datum planes <span id="datumcount">0</span></button>
