@@ -14,6 +14,7 @@ class SessionHandlers:
     """Session methods for opening, resuming and restoring a model, and the diagnostics and notice requests."""
 
     def _hello(self, request):
+        self.delta.reset(enabled=bool(request.get("deltaMesh")))  # a new connection, or a reconnect: the page holds nothing
         reply = {"version": __version__}
         parked = _parked["document"]
         if parked is not None:  # a tab closed or refreshed on this core: its model comes back before any crash restore is offered
@@ -21,6 +22,19 @@ class SessionHandlers:
         elif self.unclean:
             reply["restore"] = self.unclean
         return reply
+
+    def _full_mesh(self, request):
+        """The current model as a whole mesh. With `resync` it is the delta that gives the page every body again (after a
+        delta it could not apply); without, a plain full frame that leaves what the page holds as it was (the dev comparison)."""
+        document = self._require_document()
+        if request.get("resync"):
+            self._fresh_reply = True
+            return self._mesh_reply(document.current, {})
+        enabled, self.delta.enabled = self.delta.enabled, False
+        try:
+            return self._mesh_reply(document.current, {})
+        finally:
+            self.delta.enabled = enabled
 
     def _resume_session(self, request):
         document, _parked["document"] = _parked["document"], None
