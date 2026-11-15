@@ -34,7 +34,7 @@ export function deltaOf(header: Record<string, any>, arrays: Record<string, Floa
 }
 
 /** Reads a mesh frame. With `store` null the connection takes whole frames only (the frame is read as before). */
-export function readFrame(frame: ArrayBuffer, store: MeshStore | null): FrameResult {
+export function readFrame(frame: ArrayBuffer, store: MeshStore | null, split?: { applyMs: number }): FrameResult {
   if (!store) return { mesh: decodeMesh(frame) };
   const headerLength = new DataView(frame).getUint32(0, true);
   const header = JSON.parse(new TextDecoder().decode(new Uint8Array(frame, 4, headerLength)));
@@ -45,7 +45,9 @@ export function readFrame(frame: ArrayBuffer, store: MeshStore | null): FrameRes
   const base = 4 + headerLength;
   const arrays: Record<string, Float32Array | Uint32Array> = {};
   for (const b of header.buffers) arrays[b.name] = new (b.dtype === "f32" ? Float32Array : Uint32Array)(frame, base + b.offset, b.length);
+  const applyStart = split ? performance.now() : 0;
   const applied = store.apply(deltaOf(header, arrays));
+  if (split) split.applyMs = performance.now() - applyStart; // dev timing log only
   if (!applied.ok) return { needFull: applied.reason };
   applied.mesh.ghost = ghostOf(header, arrays);
   return { mesh: applied.mesh };
