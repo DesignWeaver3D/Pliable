@@ -7,6 +7,7 @@ import { uiIcon } from "./icons.ts";
 import { freeMessage, freeParts } from "./sketchfreedom.ts";
 import { guard, leave } from "./sketchleave.ts";
 import { flipPlane, pickMoveFrom, pickMoveTo, showPlaneHandles } from "./sketchplanemove.ts";
+import { joinSelection } from "./sketchjoin.ts";
 import { offsetSelection, roundSelectedCorner, toggleConstruction, transformButtons } from "./sketchtransform.ts";
 import { toggleProjectPick } from "./sketchproject.ts";
 import { buildGrid, renderSketch } from "./sketchrender.ts";
@@ -114,6 +115,11 @@ export function renderPanel(mode: SketchMode) {
     const construction = button("Toggle construction", () => toggleConstruction(mode));
     construction.title = keyNames("Construction geometry guides the sketch but is not part of the profile. Pressing Alt does the same for the selected curves");
     constraintsBox.append(construction);
+    if (mode.selection.filter((x) => x.kind === "entity").length >= 2) {
+      const join = button("Join", () => void joinSelection(mode));
+      join.title = "Join the selected curves that connect end to end into one: lines on one straight line, arcs on one circle, or splines";
+      constraintsBox.append(join);
+    }
   }
 
   const flat = mode.unwrapFace === null;
