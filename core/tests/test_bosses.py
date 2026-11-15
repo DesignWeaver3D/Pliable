@@ -1,4 +1,4 @@
-import math
+﻿import math
 
 import pytest
 
@@ -33,18 +33,8 @@ def test_remove_and_move_boss(boss_block):
     assert volume(removed.shape) == pytest.approx(24000, rel=1e-4)
     moved = run("move_hole", boss_block, faces=[boss_face(boss_block)], dx=8, dy=0, dz=0)
     assert volume(moved.shape) == pytest.approx(volume(boss_block.shape), rel=1e-4)
-    copies = run("pattern_hole", boss_block, faces=[boss_face(boss_block)], count=3, dx=12, dy=0, dz=0)
-    assert volume(copies.shape) - volume(boss_block.shape) == pytest.approx(2 * math.pi * 25 * 10, rel=1e-3)
 
 
-def test_circular_pattern_of_a_hole():
-    block = Topology(load_demo("block"))
-    top = next(i for i in range(6) if measure(block, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0])
-    one = Topology(run("add_hole", block, faces=[top], diameter=4, depth=0, offset_u=10).shape)
-    (wall,) = faces_where(one, "Cylinder", Radius=2)
-    ring = run("pattern_hole_circular", one, faces=[wall], count=4, angle=360)
-    assert volume(one.shape) - volume(ring.shape) == pytest.approx(3 * math.pi * 4 * 20, rel=1e-3)
-    assert len(faces_where(Topology(ring.shape), "Cylinder", Radius=2)) == 4
 
 
 def test_add_slot_through_and_rotated():
@@ -197,3 +187,18 @@ def test_center_between_finds_the_opposite_face_from_one_pick():
     with pytest.raises(Exception):
         up = next(i for i in range(one.face_count) if measure(one, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0])
         run("center_between", one, faces=[wall, up])  # the hole runs along that face's normal
+
+
+def test_arrays_copy_a_boss():
+    block = Topology(load_demo("block"))
+    one = Topology(run("add_cylinder", block, diameter=6, height=5, x=10, y=0, z=10).shape)
+    (wall,) = faces_where(one, "Cylinder", Radius=3)
+    boss = math.pi * 9 * 5
+    base = volume(one.shape)
+    linear = run("linear_array", one, faces=[wall], count=2, rows=1, dx=-14)
+    assert volume(linear.shape) - base == pytest.approx(boss, rel=1e-6)
+    circular = run("circular_array", one, faces=[wall], count=3, axis=2, angle=360)
+    assert volume(circular.shape) - base == pytest.approx(2 * boss, rel=1e-6)
+    concentric = run("concentric_array", one, faces=[wall], count=3, rings=1, spacing=0, grow=0, axis=2, axis_edge=-1)
+    assert volume(concentric.shape) - base == pytest.approx(2 * boss, rel=1e-6)
+    assert len(faces_where(Topology(circular.shape), "Cylinder", Radius=3)) == 3

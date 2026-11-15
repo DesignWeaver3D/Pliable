@@ -13,8 +13,6 @@ from . import delete_face  # noqa: F401
 from . import fill_hole  # noqa: F401
 from . import resize_hole  # noqa: F401
 from . import move_hole  # noqa: F401
-from . import pattern_hole  # noqa: F401
-from . import pattern_hole_circular  # noqa: F401
 from . import add_hole  # noqa: F401
 from . import add_counterbore  # noqa: F401
 from . import add_countersink  # noqa: F401

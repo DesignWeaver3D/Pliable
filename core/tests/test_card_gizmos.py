@@ -230,28 +230,8 @@ def test_new_countersink_angle_grip_sits_at_the_foot_of_the_cone():
     assert abs(math.hypot(grip.anchor[0], grip.anchor[1]) - 3) < 1e-6
 
 
-def test_pattern_hole_has_a_spacing_grip_and_a_count_badge():
-    topology = Topology(load_demo("bracket"))
-    face = hole_faces(topology)[0]
-    selection = Selection(faces=[face])
-    tool = get_tool("pattern_hole")
-    near = tool.handles(topology, selection, {"count": 3, "dx": 10, "dy": 0, "dz": 0})
-    far = tool.handles(topology, selection, {"count": 3, "dx": 25, "dy": 0, "dz": 0})
-    assert [h.param for h in near] == ["dx", "count"] and near[1].badge
-    assert dist(near[0].anchor, far[0].anchor) == pytest.approx(15)  # the grip sits on the second copy
-    assert dist(near[1].anchor, near[0].anchor) == pytest.approx(10)  # and the badge on the source
 
 
-def test_circular_pattern_hole_has_an_angle_pie_and_a_count_badge():
-    topology = Topology(load_demo("bracket"))
-    face = hole_faces(topology)[0]
-    selection = Selection(faces=[face])
-    tool = get_tool("pattern_hole_circular")
-    values = {"count": 6, "angle": 360, "px": 1000, "py": 0, "pz": 0, "ax": 0, "ay": 0, "az": 1}
-    angle, count = tool.handles(topology, selection, values)
-    assert (angle.param, count.param) == ("angle", "count") and angle.pie and count.badge
-    assert angle.ring[3] == pytest.approx(dist(count.anchor[:2], (1000, 0)))  # the ring runs through the source hole
-    assert tool.handles(topology, selection, {**values, "ax": 0, "az": 0}) == []
 
 
 def test_stretch_has_move_arrows_tilt_rings_and_a_band_slider_at_the_end_face():
