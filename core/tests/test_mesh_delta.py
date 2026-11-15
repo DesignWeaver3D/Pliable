@@ -182,3 +182,17 @@ def test_a_fresh_model_holds_every_body_and_a_model_without_body_blocks_goes_who
     if body_ranges(top, solids_of(top.shape)) is None:
         header, _ = decode_binary(conn.session.handle({"type": "full_mesh", "resync": True}))
         assert "delta" not in header and conn.session.delta.sent is None
+
+
+def test_a_preview_of_bodies_the_page_holds_in_full_sends_only_the_moved_body():
+    conn = Conn(5)
+    first(conn)
+    ids = conn.ids()
+    params = {"dx": 4, "dy": 0, "dz": 0, "rx": 0, "ry": 0, "rz": 0}
+    conn.send({"type": "tool_preview", "tool": "move_body", "selection": sel(bodies=[ids[2]]), "params": params})
+    assert conn.changed() == [ids[2]]
+    conn.send({"type": "tool_preview", "tool": "move_body", "selection": sel(bodies=[ids[2]]), "params": {**params, "dx": 6}})
+    assert conn.changed() == [ids[2]]
+    conn.send({"type": "tool_commit", "tool": "move_body", "selection": sel(bodies=[ids[2]]), "params": {**params, "dx": 6}})
+    assert conn.changed() == [ids[2]]  # the page held the preview of that one; the full display of the others is held
+    conn.check()

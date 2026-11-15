@@ -51,11 +51,17 @@ def encode_delta(state: DeltaState, header: dict, mesh: Mesh, extra_buffers: dic
     held = {} if base is None else state.sent
     chunks: dict[str, list] = {"positions": [], "normals": [], "indices": [], "edgePositions": []}
     sizes = dict.fromkeys(chunks, 0)
-    bodies = []
+    bodies, now = [], {}
     for part in parts:
         data = part.data
-        entry = {"id": part.body, "rev": data.rev, "faces": part.span[1], "edges": part.span[3], "vertices": part.span[5], "info": part.info}
-        if held.get(part.body) != data.rev:
+        have = held.get(part.body)
+        if have is not None and data.full_rev and have == data.full_rev:
+            rev = have  # a preview of a body the page holds in full: the full display shows all the preview does
+        else:
+            rev = data.rev
+        now[part.body] = rev
+        entry = {"id": part.body, "rev": rev, "faces": part.span[1], "edges": part.span[3], "vertices": part.span[5], "info": part.info}
+        if have != rev:
             arrays = {"positions": data.positions, "normals": data.normals, "indices": data.indices, "edgePositions": data.edge_positions}
             spans = {}
             for name, array in arrays.items():
@@ -65,7 +71,7 @@ def encode_delta(state: DeltaState, header: dict, mesh: Mesh, extra_buffers: dic
             entry["data"] = _record(part, spans)
         bodies.append(entry)
     state.version += 1
-    state.sent = {p.body: p.data.rev for p in parts}
+    state.sent = now
     buffers = {
         "positions": np.concatenate(chunks["positions"]).astype(np.float32, copy=False) if chunks["positions"] else np.empty(0, np.float32),
         "normals": np.concatenate(chunks["normals"]).astype(np.float32, copy=False) if chunks["normals"] else np.empty(0, np.float32),

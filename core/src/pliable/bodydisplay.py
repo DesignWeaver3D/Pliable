@@ -52,6 +52,7 @@ class BodyData:
     edges: list  # (start, count, normal or None, centre or None), start local to `edge_positions`
     bounds: list
     weight: int
+    full_rev: int = 0  # for a preview made from the full display: that display's rev (a page holding it holds all a preview shows)
     rev: int = 0  # set when the data is built or derived; a cache hit keeps it, so equal revs mean the very same display data
 
 
@@ -185,7 +186,7 @@ def _build(topology, solid, span, deflection: float, preview: bool) -> BodyData:
 
 def _preview_of(full: BodyData) -> BodyData:
     """The data of a preview from that of the full display: the same, without the edges' drag directions."""
-    return _stamped(replace(full, edges=[(start, count, None, centre) for start, count, _, centre in full.edges]))
+    return _stamped(replace(full, edges=[(start, count, None, centre) for start, count, _, centre in full.edges], full_rev=full.rev))
 
 
 def _with_normals(topology, solid, span, preview_data: BodyData) -> BodyData:
@@ -199,7 +200,7 @@ def _with_normals(topology, solid, span, preview_data: BodyData) -> BodyData:
     for local, (start, count, _, centre) in enumerate(preview_data.edges):
         beside = [face_shapes[f] for f in table.get(e0 + local, [])]
         edges.append((start, count, T._edge_normal(topology.edge(e0 + local), beside), centre))
-    return _stamped(replace(preview_data, edges=edges))
+    return _stamped(replace(preview_data, edges=edges, full_rev=0))
 
 
 def body_data(topology, solid, span, deflection: float, preview: bool) -> BodyData:
