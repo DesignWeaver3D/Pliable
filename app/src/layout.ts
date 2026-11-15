@@ -5,7 +5,7 @@
  */
 export const TOOL_GROUPS: { title: string; tools: string[] }[] = [
   { title: "Edit faces", tools: ["push_pull", "delete_face", "align_face", "draft", "round_face"] },
-  { title: "Edges", tools: ["fillet_chamfer", "resize_fillet", "resize_chamfer", "variable_fillet", "fillet_per_edge", "chamfer_two_distances", "chamfer_distance_angle"] },
+  { title: "Edges", tools: ["fillet_chamfer", "resize_fillet", "resize_chamfer", "variable_fillet", "fillet_per_edge", "chamfer_two_distances", "chamfer_distance_angle", "extrude_edge"] },
   { title: "Holes", tools: ["hole_editor", "add_slot", "add_boss", "edit_void", "resize_hole", "move_hole", "center_between", "fill_hole"] },
   { title: "Solids", tools: ["add_box", "add_cylinder", "add_sphere", "add_cone", "add_torus", "add_prism", "linear_array", "circular_array", "concentric_array", "path_array", "revolve_face", "loft_faces", "sweep_face", "helical_sweep", "body_boolean", "shell", "mirror", "unify", "patch_fill", "bridge", "offset_body", "cut_plane"] },
   { title: "Move, rotate, scale", tools: ["move_body", "scale_body"] },
