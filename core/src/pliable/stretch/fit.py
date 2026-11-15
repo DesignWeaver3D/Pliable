@@ -57,15 +57,27 @@ def basis(knots: np.ndarray, x: np.ndarray, degree: int = DEGREE) -> np.ndarray:
     table = np.zeros((len(x), len(knots) - 1))
     table[np.arange(len(x)), span] = 1.0
     for d in range(1, degree + 1):
-        nxt = np.zeros((len(x), len(knots) - 1 - d))
-        for j in range(len(knots) - 1 - d):
-            left, right = knots[j + d] - knots[j], knots[j + d + 1] - knots[j + 1]
-            if left > 0:
-                nxt[:, j] += (x - knots[j]) / left * table[:, j]
-            if right > 0:
-                nxt[:, j] += (knots[j + d + 1] - x) / right * table[:, j + 1]
-        table = nxt
+        m = len(knots) - 1 - d
+        left, right = knots[d : d + m] - knots[:m], knots[d + 1 : d + 1 + m] - knots[1 : 1 + m]
+        rise = np.divide(x[:, None] - knots[:m], left, out=np.zeros((len(x), m)), where=left > 0)
+        fall = np.divide(knots[d + 1 : d + 1 + m] - x[:, None], right, out=np.zeros((len(x), m)), where=right > 0)
+        table = rise * table[:, :m] + fall * table[:, 1 : m + 1]
     return table
+
+
+_INVERSES: dict = {}
+_INVERSES_KEPT = 64
+
+
+def sites_inverse(span: Span) -> np.ndarray:
+    """The inverse of the basis at the span's sites: solving a fit against the same span again (every step of a drag has the
+    same spans) is a product instead of a new solve. Kept for the last few spans."""
+    key = span.knots.tobytes()
+    if key not in _INVERSES:
+        if len(_INVERSES) >= _INVERSES_KEPT:
+            _INVERSES.clear()
+        _INVERSES[key] = np.linalg.inv(basis(span.knots, span.sites))
+    return _INVERSES[key]
 
 
 class SurfaceFit:
@@ -74,12 +86,13 @@ class SurfaceFit:
     def __init__(self, across: Span, along: Span, points: np.ndarray):
         self.across, self.along = across, along
         nu, nv = len(across.sites), len(along.sites)
-        along_u = np.linalg.solve(basis(across.knots, across.sites), points.reshape(nu, -1)).reshape(points.shape)
-        self.poles = np.linalg.solve(basis(along.knots, along.sites), along_u.transpose(1, 0, 2).reshape(nv, -1)).reshape(nv, nu, 3).transpose(1, 0, 2)
+        along_u = (sites_inverse(across) @ points.reshape(nu, -1)).reshape(points.shape)
+        self.poles = (sites_inverse(along) @ along_u.transpose(1, 0, 2).reshape(nv, -1)).reshape(nv, nu, 3).transpose(1, 0, 2)
 
     def at(self, us: np.ndarray, vs: np.ndarray) -> np.ndarray:
         """The surface's points at the pairs (us[i], vs[i])."""
-        return np.einsum("ni,nj,ijk->nk", basis(self.across.knots, us), basis(self.along.knots, vs), self.poles)
+        rows = (basis(self.across.knots, us) @ self.poles.reshape(self.poles.shape[0], -1)).reshape(len(us), self.poles.shape[1], 3)
+        return np.einsum("nj,njk->nk", basis(self.along.knots, vs), rows)
 
     def surface(self) -> Geom_BSplineSurface:
         nu, nv = self.poles.shape[:2]
@@ -94,7 +107,7 @@ class SurfaceFit:
 
 def fit_curve(span: Span, points: np.ndarray) -> Geom_BSplineCurve:
     """The cubic curve with C(span.sites[i]) = points[i]."""
-    solved = np.linalg.solve(basis(span.knots, span.sites), points)
+    solved = sites_inverse(span) @ points
     poles = TColgp_Array1OfPnt(1, len(solved))
     for i, p in enumerate(solved):
         poles.SetValue(i + 1, gp_Pnt(*map(float, p)))
@@ -104,7 +117,7 @@ def fit_curve(span: Span, points: np.ndarray) -> Geom_BSplineCurve:
 
 def fit_curve_2d(span: Span, points: np.ndarray) -> Geom2d_BSplineCurve:
     """The cubic curve in a surface's (u, v) space with C(span.sites[i]) = points[i]."""
-    solved = np.linalg.solve(basis(span.knots, span.sites), points)
+    solved = sites_inverse(span) @ points
     poles = TColgp_Array1OfPnt2d(1, len(solved))
     for i, p in enumerate(solved):
         poles.SetValue(i + 1, gp_Pnt2d(float(p[0]), float(p[1])))
