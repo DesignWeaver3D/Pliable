@@ -17,6 +17,7 @@ from .ghost import ghost_reply
 from .autosave import Autosaver
 from .bgmerge import ImportMerge
 from .ops import solids_of
+from .meshdelta import FRESH, DeltaState, encode_delta
 from .protocol import encode_mesh  # noqa: F401  (the benchmark patches server.encode_mesh)
 from .tessellate import tessellate  # noqa: F401  (the benchmark patches server.tessellate)
 from .topology import Topology
@@ -41,6 +42,8 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers, SessionHandlers, Quer
         self.import_warnings: list[str] = []
         self.unclean = autosaver.available(unclean_only=True) if autosaver else None  # a dead instance's session, offered until restored
         self._import_merge = ImportMerge()  # the merge of the whole model after an import, in the background (bgmerge.py)
+        self.delta = DeltaState()  # what this connection's page holds, when it takes delta replies (meshdelta.py)
+        self._fresh_reply = False  # the current request gives the page a model of its own: its mesh reply holds every body
         self._autosave_due = 0  # 1: snapshot wanted, 2: snapshot of a newly opened document
 
     def _model_summary(self) -> dict:
@@ -64,6 +67,7 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers, SessionHandlers, Quer
 
     def handle(self, request: dict) -> dict | bytes:
         self._import_merge.before(request.get("type"))
+        self._fresh_reply = request.get("type") in FRESH
         try:
             return self._handle(request)
         finally:
@@ -90,6 +94,11 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers, SessionHandlers, Quer
             header["sketches"] = self.document.sketch_list()
             header["datums"] = self.document.datum_list()
             header["mirror"] = self.document.mirror
+        if self.delta.enabled:
+            frame = encode_delta(self.delta, header, mesh, extra_buffers, self._fresh_reply)
+            if frame is not None:
+                return frame
+            self.delta.reset()  # sent whole: the page holds no bodies afterwards
         return encode_mesh(header, mesh, extra_buffers)
 
     def _open(self, shape, name: str) -> bytes:
@@ -101,6 +110,8 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers, SessionHandlers, Quer
         kind = request.get("type")
         if kind == "hello":
             return self._hello(request)
+        if kind == "full_mesh":
+            return self._full_mesh(request)
         if kind == "resume_session":
             return self._resume_session(request)
         if kind == "restore_session":

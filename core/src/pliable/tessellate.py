@@ -44,6 +44,7 @@ class Mesh:
     centres: list[dict] = field(default_factory=list)  # hole and boss centres: {"face": id, "position": [x, y, z], "axis": [x, y, z], "length": axis length}
     bodies: list[dict] = field(default_factory=list)  # per solid: id, name, solid number, bounds
     bounds: list[float] = field(default_factory=list)  # xmin, ymin, zmin, xmax, ymax, zmax
+    parts: list | None = None  # the bodies one by one (bodydisplay.BodyPart) when the model's ids are one block per body; None otherwise
 
 
 def _edge_centre(edge) -> list[float] | None:
@@ -352,8 +353,10 @@ def tessellate(topology: Topology, preview: bool = False) -> Mesh:
     ranges = bodydisplay.body_ranges(topology, solid_shapes)
     if ranges is None:
         return tessellate_whole(topology, preview)
-    fields = bodydisplay.assemble(topology, preview, ranges, solid_shapes, linear_deflection(shape))
-    return Mesh(**fields, bounds=bounds(shape))
+    deflection = linear_deflection(shape)
+    parts = bodydisplay.body_parts(topology, preview, ranges, solid_shapes, deflection)
+    fields = bodydisplay.assemble(topology, preview, ranges, solid_shapes, deflection, parts)
+    return Mesh(**fields, bounds=bounds(shape), parts=parts)
 
 
 def tessellate_whole(topology: Topology, preview: bool = False) -> Mesh:

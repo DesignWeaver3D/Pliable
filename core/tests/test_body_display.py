@@ -7,7 +7,7 @@ from OCP.BRepTools import BRepTools
 from pliable.document import Document
 from pliable.ops import planar_normal, solids_of
 from pliable.server import Session
-from pliable.tessellate import body_cache, display_cache, tessellate, tessellate_whole
+from pliable.tessellate import body_cache, display_cache, linear_deflection, tessellate, tessellate_whole
 from pliable.topology import Topology
 
 
@@ -182,3 +182,28 @@ def test_a_preview_and_the_full_display_are_made_from_each_other_and_equal_a_fre
         same(built, got)
         assert body_cache.misses - misses == 4
         assert all(e["normal"] is None for e in got.edges) == second
+
+
+def test_a_body_keeps_its_rev_while_its_display_comes_from_the_cache_and_the_parts_join_to_the_mesh():
+    from pliable.bodydisplay import assemble
+
+    topology = Topology(blocks(4))
+    first = tessellate(topology)
+    again = tessellate(topology)
+    assert [p.data.rev for p in first.parts] == [p.data.rev for p in again.parts]
+    assert len({p.data.rev for p in first.parts}) == 4 and all(p.data.rev > 0 for p in first.parts)
+    shape = topology.shape
+    solids = solids_of(shape)
+    from pliable.bodydisplay import body_ranges
+    joined = assemble(topology, False, body_ranges(topology, solids), solids, linear_deflection(shape), first.parts)
+    for name in ("faces", "edges", "vertices", "centres", "bodies"):
+        assert joined[name] == getattr(first, name)
+    session = session_of(4)
+    before = tessellate(session.document.current)
+    body = session.document.current.bodies.bodies[1].id
+    session.handle({"type": "tool_commit", "tool": "move_body", "selection": {"bodies": [body]}, "params": {"dx": 7}})
+    moved = tessellate(session.document.current)
+    assert [p.data.rev == q.data.rev for p, q in zip(before.parts, moved.parts)] == [True, False, True, True]
+    session.handle({"type": "undo"})
+    undone = tessellate(session.document.current)
+    assert [p.data.rev for p in undone.parts] == [p.data.rev for p in before.parts]  # undo gives the cached data back

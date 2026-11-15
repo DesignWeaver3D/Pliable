@@ -7,6 +7,7 @@ from OCP.TopoDS import TopoDS_Compound
 
 from .. import diagnostics, dimedit, interaction, recipes
 from ..measure import measure
+from ..mergememo import carry_memo
 from ..mirrormode import mirror_result
 from ..plane_sides import side_bodies
 from ..ops import solids_of
@@ -97,6 +98,7 @@ class ToolHandlers:
         attach_rail(document, selection, regions=tool.rail_regions)
         start = time.perf_counter()
         self.last_tool = {"tool": tool.id, "commit": commit, "ok": False, "error": None}
+        was_merged = bool(getattr(topology, "merged", False))  # read before the tool runs: a move marks its start model merged
         try:
             result = tool.execute(topology, selection, request.get("params") or {}, preview=not commit)
         except Exception as e:
@@ -110,6 +112,8 @@ class ToolHandlers:
         change = self._recipe_change(tool, topology, selection, request.get("params") or {}, result)
         target = document.commit(result.shape, body_kind, ordered, change=change) if commit else document.preview(result.shape, body_kind, ordered, change=change)
         target.merged = result.merged
+        if was_merged:
+            carry_memo(topology, target)
         if commit:
             if request.get("foldPick"):  # extruding a just-picked sketch region: its pick is not a step of its own
                 document.fold_previous_step()

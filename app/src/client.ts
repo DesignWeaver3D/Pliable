@@ -1,4 +1,6 @@
 import { ghostOf, type GhostBuffers } from "./ghostbuffers.ts";
+import { compareMeshes, readFrame } from "./meshframe.ts";
+import { MeshStore } from "./meshstore.ts";
 // WebSocket client for the Python core. Binary mesh frames follow a small
 // JSON reply frame carrying the request id (see core/src/pliable/protocol.py).
 
@@ -81,7 +83,7 @@ export function decodeMesh(frame: ArrayBuffer): MeshData {
   };
 }
 
-type Pending = { resolve: (value: any) => void; reject: (error: Error) => void; type: string; sent: number };
+type Pending = { resolve: (value: any) => void; reject: (error: Error) => void; type: string; sent: number; resync?: boolean };
 
 /** Requests that fire constantly during interaction or answer instantly; they never show the busy indicator. */
 /** Requests that run a tool: they carry the hidden body ids (see CoreClient.hiddenBodies). */
@@ -97,6 +99,13 @@ export class CoreClient {
   private nextId = 1;
   private pending = new Map<number, Pending>();
   private awaitingBinary: number | null = null;
+
+  /** Whether this connection asks the core for replies that carry only the changed bodies (set before `hello`). */
+  deltaMesh = false;
+  /** In dev mode, every committed delta reply is checked against a whole reply of the same model; a difference is logged. */
+  compareDeltas = false;
+  private store = new MeshStore();
+  private repliesSeen = 0;
 
   /** Called once when an established connection drops (the core stopped or crashed). */
   onDisconnect: () => void = () => {};
@@ -163,10 +172,22 @@ export class CoreClient {
       const entry = id === null ? undefined : this.pending.get(id);
       if (id !== null && entry) {
         this.pending.delete(id);
-        const mesh = decodeMesh(data);
+        this.repliesSeen++;
+        // A plain `full_mesh` is a whole frame for comparing: it leaves what the page holds alone.
+        const keep = entry.type === "full_mesh" && !entry.resync;
+        const read = readFrame(data, this.deltaMesh && !keep ? this.store : null);
+        if ("needFull" in read) {
+          // The delta did not fit what the page holds (the store is empty now): ask for every body again.
+          console.warn(`Delta reply not applied (${read.needFull}); asking for a whole reply`);
+          entry.resolve(this.request("full_mesh", { resync: true }));
+          this.updateBusy();
+          return;
+        }
+        const mesh = read.mesh;
         if (INTERACT_REQUESTS.has(entry.type)) this.onInteract(mesh.header?.interact ?? null);
         entry.resolve(mesh);
         this.updateBusy();
+        if (this.compareDeltas && this.deltaMesh && entry.type !== "full_mesh" && !mesh.header.preview) void this.compare(mesh);
       }
       return;
     }
@@ -199,13 +220,32 @@ export class CoreClient {
     const id = this.nextId++;
     return new Promise<T>((resolve, reject) => {
       if (this.socket?.readyState !== WebSocket.OPEN) return reject(new Error("The core is not connected"));
-      this.pending.set(id, { resolve, reject, type, sent: performance.now() });
+      this.pending.set(id, { resolve, reject, type, sent: performance.now(), resync: params.resync === true });
       this.updateBusy();
       const hidden = TOOL_REQUESTS.has(type) ? { hidden: this.hiddenBodies() } : {};
       const choice = INTERACT_REQUESTS.has(type) ? this.interactChoice() : null;
       const interact = choice ? { interact: choice } : {};
+      if (type === "hello") {
+        this.store.clear(); // a new connection: the core holds nothing of what this page holds
+        if (this.deltaMesh) params = { ...params, deltaMesh: true };
+      }
       this.socket.send(JSON.stringify({ id, type, ...hidden, ...interact, ...params }));
     });
+  }
+
+  /** Dev check: a whole reply of the model as it is, compared with the mesh the deltas gave; skipped when anything else happened meanwhile. */
+  private async compare(joined: MeshData) {
+    if (this.pending.size > 0) return;
+    const seen = this.repliesSeen;
+    try {
+      const whole = await this.request<MeshData>("full_mesh");
+      if (this.repliesSeen !== seen + 1) return;
+      const difference = compareMeshes(joined, whole);
+      if (difference) console.error(`Delta reply differs from the whole reply: ${difference}`);
+      else console.debug("Delta reply matches the whole reply");
+    } catch {
+      // the connection dropped or the model went: nothing to compare
+    }
   }
 
   openDemo(name: string): Promise<MeshData> {
