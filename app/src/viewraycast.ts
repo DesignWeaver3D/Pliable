@@ -1,6 +1,15 @@
 /** Makes ray tests against the model's mesh use a triangle tree: hover and picking then cost the same on a large model as on a small one. */
 import * as THREE from "three";
+import type { BodyPart } from "./bodyparts.ts";
 import { buildTriangleTree, type Facing, type TriangleTree } from "./trianglebvh.ts";
+
+/** A body's triangle tree, kept as long as the body's data (`BodyPart.ref`) is the same one: a reply that changes a few bodies builds a few trees. */
+const bodyTrees = new WeakMap<object, TriangleTree>();
+
+/** Whether the parts are the mesh's triangles cut by body in the mesh's own order, so a triangle of part n is the mesh triangle `base + number`. */
+export function partsCover(parts: readonly BodyPart[] | undefined, indexCount: number): parts is BodyPart[] {
+  return !!parts && parts.reduce((n, p) => n + p.indices.length, 0) === indexCount;
+}
 
 const FACING: Record<number, Facing> = { [THREE.FrontSide]: "front", [THREE.BackSide]: "back", [THREE.DoubleSide]: "both" };
 
@@ -20,9 +29,18 @@ function sideOf(mesh: THREE.Mesh): Facing | null {
  * Replace the mesh's ray test. three.js tests every triangle (3 ms a pointer move at 40,000 triangles, growing with the
  * model); the tree finds the same hits in microseconds. The tree is built on the second test of the same buffers, so a
  * mesh that is shown for one drag step and replaced never pays for one. Anything the tree does not cover (no index, a
- * draw range, materials with different sides) goes to three.js's own test.
+ * draw range, materials with different sides) goes to three.js's own test. With `parts` (see `partsCover`) the tree is one per
+ * body and kept across meshes, so only the bodies a reply changed need a new one.
  */
-export function installTreeRaycast(mesh: THREE.Mesh) {
+export function installTreeRaycast(mesh: THREE.Mesh, parts?: readonly BodyPart[]) {
+  const bases: number[] = [];
+  if (parts) {
+    let triangle = 0;
+    for (const p of parts) {
+      bases.push(triangle);
+      triangle += p.indices.length / 3;
+    }
+  }
   const plain = mesh.raycast.bind(mesh);
   let tree: TriangleTree | null = null;
   let seen: { index: ArrayLike<number>; positions: ArrayLike<number> } | null = null;
@@ -41,18 +59,27 @@ export function installTreeRaycast(mesh: THREE.Mesh) {
     if (!index || !position || facing === null || position.itemSize !== 3 || (position as unknown as { isInterleavedBufferAttribute?: boolean }).isInterleavedBufferAttribute || range.start !== 0 || range.count !== Infinity) {
       return plain(raycaster, intersects);
     }
-    if (!seen || seen.index !== index.array || seen.positions !== position.array) {
+    if (!parts && (!seen || seen.index !== index.array || seen.positions !== position.array)) { // with per-body trees nothing is built for a body that has one already, so even the first test uses them
       seen = { index: index.array, positions: position.array };
       tree = null;
       return plain(raycaster, intersects); // first test of these buffers: not worth a tree yet
     }
-    tree ??= buildTriangleTree(position.array, index.array);
     inverse.copy(mesh.matrixWorld).invert();
     ray.copy(raycaster.ray).applyMatrix4(inverse);
     const positions = position.array;
     const corners = index.array;
     const found: [number, number][] = [];
-    tree.raycast(ray.origin.x, ray.origin.y, ray.origin.z, ray.direction.x, ray.direction.y, ray.direction.z, facing, (triangle, t) => found.push([triangle, t]));
+    if (parts) {
+      parts.forEach((p, n) => {
+        if (p.indices.length === 0) return;
+        let own = bodyTrees.get(p.ref);
+        if (!own) bodyTrees.set(p.ref, (own = buildTriangleTree(p.positions, p.indices)));
+        own.raycast(ray.origin.x, ray.origin.y, ray.origin.z, ray.direction.x, ray.direction.y, ray.direction.z, facing, (triangle, t) => found.push([bases[n] + triangle, t]));
+      });
+    } else {
+      tree ??= buildTriangleTree(position.array, index.array);
+      tree.raycast(ray.origin.x, ray.origin.y, ray.origin.z, ray.direction.x, ray.direction.y, ray.direction.z, facing, (triangle, t) => found.push([triangle, t]));
+    }
     found.sort((x, y) => x[0] - y[0]); // in triangle order, as the plain test reports them: hits at the same distance then keep their order
     for (const [triangle, t] of found) {
       const point = ray.at(t, new THREE.Vector3()).applyMatrix4(mesh.matrixWorld);

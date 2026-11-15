@@ -22,7 +22,7 @@ import { partsOf } from "./bodyparts.ts";
 import { PERSPECTIVE_FOV, alignToFace, fitClipping, lookFrom, lookFromOrthographic, returnFromSketchView, setOrthographic, setView, syncOrtho, viewMatrixCss } from "./viewcamera.ts";
 import { fitAll, fitSelected, frame as frameBox } from "./viewfit.ts";
 import { faceUnder, pickModelItem } from "./viewpick.ts";
-import { installTreeRaycast } from "./viewraycast.ts";
+import { installTreeRaycast, partsCover } from "./viewraycast.ts";
 import { createDrawPacing, wakeOnActivity } from "./drawpacing.ts";
 import { updateFilterBadge } from "./viewboxselect.ts";
 import { applyBodyColors, applyGhost, applySeeThrough, syncSectionClip } from "./viewlook.ts";
@@ -422,7 +422,7 @@ export class Viewport {
     });
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.visible = false; // picking reads it; the bodies are drawn by `bodyMeshes`
-    installTreeRaycast(this.mesh);
+    installTreeRaycast(this.mesh, partsCover(mesh.parts, mesh.indices.length) ? mesh.parts : undefined);
     this.model.add(this.mesh);
     this.mesh.userData.back = buildBack(this.model, this.mesh, mesh);
     this.surfaceMaterial = material;

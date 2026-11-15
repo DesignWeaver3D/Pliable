@@ -29,7 +29,8 @@ the next frame). The enclosure (114 bodies, 13-15 MB) is much larger; it was not
 | back side of surface bodies | drawing converted (per-body mesh sharing the body's geometry); the merged pick mesh stays CPU only |
 | occlusion probe (box select) | converted: draws the solid bodies' meshes |
 | slide during a move drag | converted: shifts the bodies' own meshes (the merged mesh is not changed any more) |
-| raycast / picking / faceStarts / fit / bounds / numbering | unchanged (merged arrays) |
+| raycast / picking | converted: one triangle tree per body kept while the body's data is the same (viewraycast.ts); on a one-body change the first hover after it costs about 0.2 ms (was a 13 ms plain test, then a 50 ms tree build over all 81,600 triangles) |
+| faceStarts / fit / bounds / numbering | unchanged (merged arrays) |
 
 Checked in the app (dev page, 120 bodies, 81,600 triangles): render and colors, hover, face click, hide/show,
 isolate, see-through body, see-through setting, section clip, box select, slide, undo/redo.
