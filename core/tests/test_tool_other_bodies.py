@@ -206,10 +206,10 @@ def test_slot_through_cuts_what_it_covers(interact, overlap):  # cut body by bod
 def ring_scene():
     """A source body Q beside three posts on a ring about the Z axis: sweeping Q's face a half turn crosses two of them."""
     boxes = [
-        (Pos(-18, 0, 20) * Box(2, 10, 30)).wrapped,  # Q, its +X face at x = -17
+        (Pos(-18, -8, 20) * Box(2, 10, 30)).wrapped,  # Q, its +X face at x = -17 (set off to one side: a face that straddles the line nearest the axis sweeps over itself and is no valid solid)
         (Pos(0, -18, 20) * Box(10, 10, 40)).wrapped,  # P1 on the sweep
         (Pos(18, 0, 20) * Box(10, 10, 40)).wrapped,  # P2 on the sweep
-        (Pos(0, 18, 20) * Box(10, 10, 40)).wrapped,  # P3 off the sweep (a half turn from Q ends at P2)
+        (Pos(3, -21, 20) * Box(10, 10, 40)).wrapped,  # P3 overlaps P1, also on the sweep
         (Pos(100, 0, 20) * Box(10, 10, 40)).wrapped,  # P4 far away
     ]
     return Topology(_compound(boxes))
@@ -229,9 +229,7 @@ def right_face(model, body):
 @pytest.mark.parametrize("mode", (0, 1), ids=("add", "subtract"))
 @sides
 def test_revolve_covers_what_it_sweeps(request, interact, mode):
-    known(request, {("this", None, 0): "Revolve Add on the owner alone reports invalid geometry for a half turn about a far axis",
-                    ("others", None, 0): "Revolve Add with Other bodies leaves solids of no volume where the sweep crosses bodies, and does not join them",
-                    ("others", None, 1): "Revolve Subtract with Other bodies leaves 1,345 mm3 of material inside the swept shape (whole-model cut)"})
+    known(request, {("others", None, 0): "Revolve Add with Other bodies loses material where the sweep crosses overlapping bodies (whole-model fuse)"})
     if interact == "this" and mode == 1:
         pytest.skip("the swept shape meets no part of its own body: the tool refuses, as it should")
     model = ring_scene()
