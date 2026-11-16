@@ -93,7 +93,9 @@
       #dockgrip { position: absolute; left: -3px; top: 0; bottom: 0; width: 7px; cursor: ew-resize; z-index: 1; touch-action: none; }
       #dockgrip:hover { background: rgba(255, 138, 31, 0.35); }
       #dockhead { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid #3a3e47; min-height: 20px; }
-      #dock #selected { flex: 1; color: #ccc; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #dock #selected { color: #ccc; font-size: 12px; padding: 1px 10px 3px; overflow-wrap: anywhere; }
+      #dock #selected:empty { display: none; }
+      #dockclose { margin-left: auto; }
       #dockclose { background: none; border: none; color: #9aa0ab; cursor: pointer; padding: 0 4px; font-size: 14px; }
       #dockclose:hover { color: #ffb878; }
       #dockbody { flex: 1; overflow-y: auto; padding: 8px 10px; }
@@ -350,14 +352,14 @@
     <button id="drawerbtn" type="button" aria-label="Tools" aria-expanded="false" aria-controls="drawer" title="Tools (T)&#10;Open or close the list of every tool, grouped."></button>
     <aside id="dock" aria-label="Parameters">
       <div id="dockgrip" title="Drag to resize the panel (double-click to reset)"></div>
-      <div id="dockhead"><span id="selected" title="What is selected"></span><button id="dockclose" type="button" title="Hide the panel (Shift+T)">&times;</button></div>
+      <div id="dockhead"><button id="dockclose" type="button" title="Hide the panel (Shift+T)">&times;</button></div>
       <div id="dockbody">
         <div id="ppcard" hidden></div>
         <div id="sketchpanel" hidden></div>
         <div id="sectioncard" hidden></div>
         <div id="toolform" hidden></div>
       </div>
-      <div id="measure"><div id="measurehead" role="button" tabindex="0" title="Show or hide the measurements of the selection">Selection Information</div><div id="measurebody"></div></div>
+      <div id="measure"><div id="measurehead" role="button" tabindex="0" title="Show or hide the measurements of the selection">Selection Information</div><div id="selected" title="What is selected"></div><div id="measurebody"></div></div>
     </aside>
     <button id="dockbtn" type="button" aria-label="Parameters" aria-expanded="true" aria-controls="dock"></button>
     <div id="sketchbar"></div>
