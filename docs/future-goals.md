@@ -18,6 +18,10 @@ Parked work and not-built ideas. This file is on demand: it is not read at the s
 
 Owner (2026-11-15): "the entire application has no provisions for different screen sizes so far, so we need that added to future." The dock width is adjustable; the rest (high-DPI scaling, small windows, the top strip, the bodies list and drawer) has no size handling. Desktop shell only (Tauri).
 
+## Detach the parameters panel into its own window (added 2026-11-15)
+
+Owner (2026-11-15): pull the side dock out of the application as a separate window, desktop version only, for work on several screens. Plan: move the dock's existing elements into a child window opened by the main window, so their handlers keep running in the main window's code and no state is synced; first a spike on the desktop build to see whether Tauri allows a same-origin child window with script access (the one unknown). Keep it cheap meanwhile: panel code reaches its controls through the elements it made (no `document` lookups), panel styling stays in the global stylesheet and CSS variables, and the panel's listeners sit on its own elements (not `window` or `document`). Open questions: the handle while detached, closing the window re-docks it (never hides), Esc and typing in the other window, whether the Selection Information section goes too, remembering position and size (always start docked). A hand-check on the desktop build, since browser automation cannot drive a Tauri window.
+
 ## Ideas (not built; the owner picks what becomes a row)
 
 Ideas from the local research notes in `docs/research/` (untracked), written in our own words, by behavior only. Nothing here is approved or scheduled. Questions they raise go to [author-guidance.md](author-guidance.md) only if a choice is needed.
