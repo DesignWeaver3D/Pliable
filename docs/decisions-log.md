@@ -255,3 +255,4 @@ Each was on the author guidance list with a default that follows the decision hi
 - 2026-11-15 (owner away; hierarchy): after a bore that removes whole bodies, untouched bodies keep their ids (the import merge memory is found by body, not position).
 - 2026-11-15 (owner away; hierarchy): the parameters panel toggles with Shift+T (the tool drawer is T; P is projection, other letters are taken by tools or sketch keys).
 - 2026-11-15 (owner away; hierarchy): moving tool forms into the panel keeps every parameter as it is (the forms are not trimmed to the nuanced ones); which parameters become gizmos only is a separate owner decision per tool.
+- 2026-11-15: The combined fillet entry is named Variable fillet with modes Variable and Per edge, and reopens in the last mode used; the plain Fillet/Chamfer and the chamfer tools are not folded in (not asked). Other combined tools are added to the list in modetools.ts.

@@ -64,6 +64,8 @@ export interface ToolPanelHost {
   changed?(): void;
   /** For a form opened as a card (openForm's `card`): the header drawn in place of the plain title, or null for none. */
   cardHeader?(tool: ToolInfo): HTMLElement | null;
+  /** The mode buttons of a combined tool (modetools.ts), shown above its form however it was opened. */
+  modeHeader?(tool: ToolInfo): HTMLElement | null;
   /** For a card's form: after `changed` was changed (none: the form opened or a preset filled it), the values to force and the fields to hide. */
   cardForm?(tool: ToolInfo, values: Record<string, ParamValue>, changed?: string): { set: Record<string, number>; hidden: string[] } | null;
   /** A tool with no form of its own (the Hole Editor entry) chosen from the list while its selection fits: the host starts it and returns true. */
@@ -226,7 +228,7 @@ export class ToolPanel {
       two.addEventListener("click", () => this.host.twoDistances!(fieldNumber(inputs.distance as HTMLInputElement) ?? 0));
       buttons.prepend(two);
     }
-    const header = card ? (this.host.cardHeader?.(tool) ?? null) : null;
+    const header = (card ? this.host.cardHeader?.(tool) : null) ?? this.host.modeHeader?.(tool) ?? null;
     interaction.setReport(null); // a new tool: the last tool's setting no longer applies
     const choice = new InteractionChoice(() => this.schedulePreview(0));
     choice.setTool(tool.interaction);

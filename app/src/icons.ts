@@ -79,6 +79,7 @@ export const TOOL_ICONS: Record<string, Spec> = {
   resize_chamfer: spec("edge", "scale"),
   variable_fillet: spec("edge", "equal"),
   fillet_per_edge: spec("edge", "round"),
+  fillet_modes: spec("edge", "equal"),
   chamfer_two_distances: spec("edge", "chamfer2"),
   chamfer_distance_angle: spec("edge", "chamfer"),
   hole_editor: spec("hole", "minus"),

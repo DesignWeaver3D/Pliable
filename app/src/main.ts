@@ -62,6 +62,7 @@ import { createPushPullCard } from "./pushpullwire.ts";
 import { createHoleEditor } from "./holeeditorcard.ts";
 import { HOLE_EDITOR_ID, holeEditorTool } from "./holeeditortool.ts";
 import { HOLE_EDITOR_HELPERS } from "./layout.ts";
+import { modeGroupOf, modeGroupTools, modeHeader, MODE_MEMBERS } from "./modetools.ts";
 import { keyNames } from "./platform.ts";
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -202,12 +203,18 @@ function renderChips() {
 
 /** The tools with a button (the Hole Editor's helper tools are run by its card only). */
 function listedTools(): ToolInfo[] {
-  return tools.filter((t) => !HOLE_EDITOR_HELPERS.has(t.id));
+  return tools.filter((t) => !HOLE_EDITOR_HELPERS.has(t.id) && !MODE_MEMBERS.has(t.id));
+}
+
+/** The core's refined list holds the tool (a combined tool counts when any of its modes is in it). */
+function refinedHas(id: string): boolean {
+  const group = modeGroupOf(id);
+  return (group?.id === id ? group.modes.some((m) => app.refined!.includes(m.tool)) : app.refined!.includes(id));
 }
 
 /** Tools usable with the current selection: counts checked here, the core's extra checks once it replies. */
 function usableTools(): ToolInfo[] {
-  return listedTools().filter((t) => (acceptsSelection(t, expand(t, app.currentSels)) || acceptsWithRail(t, expand(t, app.currentSels), app.chosenSketch) || (t.id === "move_body" && movableSketch() !== null)) && (app.refined === null || app.refined.includes(t.id)));
+  return listedTools().filter((t) => (acceptsSelection(t, expand(t, app.currentSels)) || acceptsWithRail(t, expand(t, app.currentSels), app.chosenSketch) || (t.id === "move_body" && movableSketch() !== null)) && (app.refined === null || refinedHas(t.id)));
 }
 
 /** Whether the selection has what the tool takes (the counts, the chosen rail or a movable sketch), whatever the core adds. */
@@ -410,6 +417,9 @@ async function editPrimitive(id: number) {
   status.textContent = `Editing ${body.name}: change the values or drag its handles, then Apply (Esc cancels)`;
 }
 
+/** The mode each combined tool was last used in (modetools.ts). */
+const lastMode = new Map<string, string>();
+
 function armTool(tool: ToolInfo, surface: Surface) {
   waitingTool.cancel();
   if (isArrayTool(toolPanel.openToolId)) {
@@ -422,6 +432,12 @@ function armTool(tool: ToolInfo, surface: Surface) {
       status.classList.toggle("error", why !== null);
       if (why !== null) status.textContent = why;
     });
+    return;
+  }
+  const group = modeGroupOf(tool.id);
+  if (group?.id === tool.id) { // a combined tool opens the mode used last (the first at first)
+    const member = tools.find((t) => t.id === (lastMode.get(group.id) ?? group.modes[0].tool));
+    if (member) toolPanel.openForm(member, {}, surface);
     return;
   }
   const movable = tool.id === "move_body" ? movableSketch() : null;
@@ -1207,9 +1223,10 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   tools: () => listedTools(),
   cardHeader: (tool) => holeEditor.header(tool),
   cardForm: (tool, values, changed) => holeEditor.form(tool, values, changed),
-  startOwn: (tool) => (tool.id === HOLE_EDITOR_ID ? (armTool(tool, "drawer"), true) : false),
+  startOwn: (tool) => (tool.id === HOLE_EDITOR_ID || modeGroupOf(tool.id)?.id === tool.id ? (armTool(tool, "drawer"), true) : false),
+  modeHeader: (tool) => modeHeader(tool, tools, (member) => { lastMode.set(modeGroupOf(member.id)!.id, member.id); toolPanel.openForm(member, {}, "drawer"); }),
   waitFor: (tool) => waitForSelection(tool),
-  usable: (tool) => (acceptsSelection(tool, expand(tool, app.currentSels)) || acceptsWithRail(tool, expand(tool, app.currentSels), app.chosenSketch) || (tool.id === "move_body" && movableSketch() !== null)) && (app.refined === null || app.refined.includes(tool.id)),
+  usable: (tool) => (acceptsSelection(tool, expand(tool, app.currentSels)) || acceptsWithRail(tool, expand(tool, app.currentSels), app.chosenSketch) || (tool.id === "move_body" && movableSketch() !== null)) && (app.refined === null || refinedHas(tool.id)),
   preview(tool, values, editBody) {
     // One preview in flight at a time, the newest request waiting behind it (latest wins): the core answers in order, so
     // sending every pointer move would show nothing until the pointer rests while the replies queue up.
@@ -1432,6 +1449,7 @@ async function syncWithCore(hadModel: boolean) {
   void showLaunchNotice(core);
   tools = (await core.request<{ tools: ToolInfo[] }>("list_tools")).tools.filter((t) => !t.hidden);
   tools.push(holeEditorTool()); // the one Hole Editor entry (no tool of its own in the core)
+  tools.push(...modeGroupTools(tools)); // one entry per combined tool, its modes being tools of the core
   renderToolbar();
   toolPanel.renderList();
   const { restore, resume } = await core.request<{ restore?: { name: string; steps: number; saved?: number }; resume?: { name: string } }>("hello");
