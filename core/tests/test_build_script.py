@@ -50,9 +50,9 @@ def stub_path(tmp_path: Path, system: str, stubs: dict[str, str]) -> str:
     return str(bin_dir)
 
 
-def run_build_sh(tmp_path: Path, system: str, stubs: dict[str, str]) -> subprocess.CompletedProcess:
+def run_build_sh(tmp_path: Path, system: str, stubs: dict[str, str], args: tuple[str, ...] = ("--check",)) -> subprocess.CompletedProcess:
     env = {"PATH": stub_path(tmp_path, system, stubs), "HOME": str(tmp_path)}
-    return subprocess.run(["/bin/sh", str(BUILD_SH), "--check"], env=env, capture_output=True, text=True)
+    return subprocess.run(["/bin/sh", str(BUILD_SH), *args], env=env, capture_output=True, text=True)
 
 
 posix_only = pytest.mark.skipif(sys.platform == "win32", reason="build.sh is for macOS and Linux")
@@ -72,7 +72,8 @@ def test_build_sh_lists_every_missing_prerequisite_at_once(tmp_path: Path, syste
 
 @posix_only
 @pytest.mark.parametrize("version, ok", [("v18.20.0", False), ("v20.18.1", False), ("v20.19.0", True), ("v21.7.0", False),
-                                         ("v22.11.0", False), ("v22.12.0", True), ("v24.1.0", True)])
+                                         ("v22.11.0", False), ("v22.12.0", True), ("v24.1.0", True),
+                                         ("v24.0.0-nightly2026", True), ("v22.11.0-rc.1", False), ("garbage", False), ("v24", False)])
 def test_build_sh_checks_the_node_version(tmp_path: Path, version: str, ok: bool) -> None:
     result = run_build_sh(tmp_path, "Darwin", {**TOOL_STUBS, "node": f"echo {version}"})
     assert (result.returncode == 0) == ok
@@ -84,7 +85,7 @@ def test_build_sh_names_the_missing_linux_libraries(tmp_path: Path) -> None:
     pkg_config = '[ "$2" = "gtk+-3.0" ]'
     result = run_build_sh(tmp_path, "Linux", {**TOOL_STUBS, "pkg-config": pkg_config})
     assert result.returncode == 1
-    assert "development libraries ( webkit2gtk-4.1 librsvg-2.0 )" in result.stderr
+    assert "development libraries (webkit2gtk-4.1 librsvg-2.0):" in result.stderr
 
 
 @posix_only
@@ -93,3 +94,10 @@ def test_build_sh_check_passes_without_building_when_everything_is_present(tmp_p
     result = run_build_sh(tmp_path, system, TOOL_STUBS)
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "All prerequisites found."
+
+
+@posix_only
+def test_build_sh_without_arguments_goes_on_to_the_build(tmp_path: Path) -> None:
+    result = run_build_sh(tmp_path, "Darwin", TOOL_STUBS, args=())
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "uv ran"

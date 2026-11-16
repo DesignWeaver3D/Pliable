@@ -7,10 +7,13 @@ AppImage holds the same two in usr/bin and keeps its data in the user's data fol
 system's WebKitGTK, like the zip did, and needs appimagetool (downloaded and pinned here when it is not on the PATH).
 On macOS the folder holds Pliable.app instead (the shell in Contents/MacOS, core/ in Contents/Resources, ad-hoc signed) and the
 app keeps its data in ~/Library/Application Support/Pliable (see data_root in main.rs)."""
-import json, os, platform, plistlib, shutil, stat, subprocess, sys, urllib.request
+import hashlib, json, os, platform, plistlib, shutil, stat, subprocess, sys, urllib.request
 from pathlib import Path
 
+from build import platform_label
+
 APPIMAGETOOL = "https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-x86_64.AppImage"
+APPIMAGETOOL_SHA256 = "46fdd785094c7f6e545b61afcfb0f3d98d8eab243f644b4b17698c01d06083d1"  # of the 1.9.0 file as downloaded 2026-11-16; the release publishes none
 DESKTOP_ENTRY = "\n".join(["[Desktop Entry]", "Type=Application", "Name=Pliable", "Comment=Direct 3D modeling", "Exec=Pliable", "Icon=pliable", "Categories=Graphics;3DGraphics;Engineering;", "Terminal=false", ""])
 APP_RUN = "\n".join(["#!/bin/sh", 'HERE="$(dirname "$(readlink -f "$0")")"', 'exec "$HERE/usr/bin/Pliable" "$@"', ""])
 
@@ -37,6 +40,10 @@ def appimage(shell: Path, label: str) -> Path:
     if tool is None:
         download = dist / "appimagetool.AppImage"
         urllib.request.urlretrieve(APPIMAGETOOL, download)
+        digest = hashlib.sha256(download.read_bytes()).hexdigest()
+        if digest != APPIMAGETOOL_SHA256:
+            download.unlink()
+            sys.exit(f"appimagetool from {APPIMAGETOOL} has SHA-256 {digest}, expected {APPIMAGETOOL_SHA256}; not running it")
         download.chmod(0o755)
         tool = str(download)
     target = dist / f"pliable-desktop-{label}.AppImage"
@@ -72,7 +79,7 @@ desktop = root / "desktop"
 frozen = root / "core" / "dist" / "pliable"
 if not frozen.is_dir():
     sys.exit("Freeze the core first: python scripts/build_app.py (in core/)")
-label = sys.argv[1] if len(sys.argv) > 1 else f"{platform.system().lower()}-{platform.machine().lower()}"
+label = sys.argv[1] if len(sys.argv) > 1 else platform_label(platform.system(), platform.machine())
 exe_suffix = ".exe" if platform.system() == "Windows" else ""
 npx = "npx.cmd" if platform.system() == "Windows" else "npx"
 subprocess.run([npx, "tauri", "build", "--no-bundle"], cwd=desktop, check=True)

@@ -21,8 +21,23 @@ const START_TIMEOUT: Duration = Duration::from_secs(180); // a frozen core can b
 struct Core(Mutex<Option<Child>>);
 
 fn program_dir() -> PathBuf {
-    let exe = std::env::current_exe().expect("cannot locate the program");
+    let mut exe = std::env::current_exe().expect("cannot locate the program");
+    if cfg!(target_os = "macos") {
+        // a symlink to the program (say in /usr/local/bin) must still find the app bundle it points into
+        exe = fs::canonicalize(&exe).unwrap_or(exe);
+    }
     exe.parent().map(Path::to_path_buf).unwrap_or_default()
+}
+
+/// Whether the program runs from `Name.app/Contents/MacOS` (a macOS app bundle).
+fn in_app_bundle(dir: &Path) -> bool {
+    if !cfg!(target_os = "macos") {
+        return false;
+    }
+    let contents = dir.parent();
+    dir.file_name().is_some_and(|name| name == "MacOS")
+        && contents.and_then(Path::file_name).is_some_and(|name| name == "Contents")
+        && contents.and_then(Path::parent).and_then(Path::extension).is_some_and(|ext| ext == "app")
 }
 
 /// The frozen core: `core/pliable` next to the program (in `Contents/Resources` inside a macOS app bundle, where only
@@ -38,19 +53,11 @@ fn core_program(dir: &Path) -> PathBuf {
     base.join("core").join(if cfg!(windows) { "pliable.exe" } else { "pliable" })
 }
 
-/// Whether the program runs from `Name.app/Contents/MacOS` (a macOS app bundle).
-fn in_app_bundle(dir: &Path) -> bool {
-    let contents = dir.parent();
-    dir.file_name().is_some_and(|name| name == "MacOS")
-        && contents.and_then(Path::file_name).is_some_and(|name| name == "Contents")
-        && contents.and_then(Path::parent).and_then(Path::extension).is_some_and(|ext| ext == "app")
-}
-
 /// Where the program writes: a `data` folder next to it, except inside a Linux AppImage (its own folder is read-only
 /// and goes away when the program ends), where it is `pliable` in the user's data folder, and inside a macOS app bundle
 /// (which may run from a read-only copy), where it is `Pliable` in the user's Application Support folder.
 fn data_root(dir: &Path) -> PathBuf {
-    if cfg!(target_os = "macos") && in_app_bundle(dir) {
+    if in_app_bundle(dir) {
         if let Some(home) = std::env::var_os("HOME") {
             return PathBuf::from(home).join("Library").join("Application Support").join("Pliable");
         }
@@ -247,4 +254,24 @@ fn main() {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn app_bundle_is_recognized_only_on_macos() {
+        let dir = Path::new("/Applications/Pliable.app/Contents/MacOS");
+        assert_eq!(in_app_bundle(dir), cfg!(target_os = "macos"));
+        let core = if cfg!(target_os = "macos") { "/Applications/Pliable.app/Contents/Resources/core" } else { "/Applications/Pliable.app/Contents/MacOS/core" };
+        assert_eq!(core_program(dir).parent(), Some(Path::new(core)));
+    }
+
+    #[test]
+    fn other_folders_are_not_app_bundles() {
+        for dir in ["/opt/pliable", "/Applications/Pliable/Contents/MacOS", "/x/Pliable.app/Contents/Resources", "/x/Pliable.app/MacOS"] {
+            assert!(!in_app_bundle(Path::new(dir)), "{dir}");
+        }
+    }
 }
