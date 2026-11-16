@@ -238,11 +238,11 @@
       #chips button.all { border-style: dashed; }
       #chips button.on { color: #ffb878; border-color: #ff8a1f; }
       #measure { flex: none; max-height: 40vh; overflow-y: auto; border-top: 1px solid #3a3e47; padding: 4px 0; font-variant-numeric: tabular-nums; } /* the last section of the parameters panel */
-      #measure[hidden] { display: none; }
-      #measure .title { padding: 4px 10px 2px; color: #ffb878; font-weight: 600; cursor: pointer; }
-      #measure .title::after { content: " \25B8"; color: #8a8f98; }
-      #measure:not(.collapsed) .title::after { content: " \25BE"; }
-      #measure.collapsed .section:nth-child(n+2), #measure.collapsed .row:nth-child(n+4):not(.keep) { display: none; }
+      #measurehead { padding: 4px 10px 2px; color: #ffb878; font-weight: 600; cursor: pointer; user-select: none; }
+      #measurehead::after { content: " \25BE"; color: #8a8f98; }
+      #measure.collapsed #measurehead::after { content: " \25B8"; }
+      #measure.collapsed #measurebody { display: none; }
+      #measure .section > .title { padding: 4px 10px 2px; color: #ffb878; font-weight: 600; }
       #measure .section + .section { border-top: 1px solid #3a3e47; margin-top: 4px; }
       #measure .row { display: flex; justify-content: space-between; gap: 18px; padding: 1px 10px; cursor: pointer; }
       #measure .row:hover { background: #2f333b; }
@@ -357,7 +357,7 @@
         <div id="sectioncard" hidden></div>
         <div id="toolform" hidden></div>
       </div>
-      <div id="measure" hidden></div>
+      <div id="measure"><div id="measurehead" role="button" tabindex="0" title="Show or hide the measurements of the selection">Selection Information</div><div id="measurebody"></div></div>
     </aside>
     <button id="dockbtn" type="button" aria-label="Parameters" aria-expanded="true" aria-controls="dock"></button>
     <div id="sketchbar"></div>
