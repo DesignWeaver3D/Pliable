@@ -11,6 +11,7 @@ export class SidePanel {
   readonly body: HTMLElement;
   private readonly hint: HTMLElement;
   private readonly handle: HTMLElement;
+  private readonly name: HTMLElement;
   private state: DockState;
   private hadContent = false;
   /** Called when a tool form arrives while the panel is hidden (the caller says where the parameters went). */
@@ -20,6 +21,7 @@ export class SidePanel {
     this.handle = handle;
     this.header = root.querySelector<HTMLElement>("#dockhead")!;
     this.body = root.querySelector<HTMLElement>("#dockbody")!;
+    this.name = root.querySelector<HTMLElement>("#dockname")!;
     this.hint = document.createElement("div");
     this.hint.className = "dockhint";
     this.hint.textContent = PLACEHOLDER;
@@ -62,6 +64,9 @@ export class SidePanel {
     if (this.hint.hidden !== busy) this.hint.hidden = busy; // set only on a change: setting it again would be a new mutation and loop this observer
     if (busy && !this.hadContent && this.state.hidden) this.onHiddenContent?.(); // something wants the panel but the person hid it: only say so, never open it
     this.hadContent = busy;
+    const shown = [...this.body.children].find((c) => c !== this.hint && !(c as HTMLElement).hidden);
+    const name = shown?.querySelector(".title")?.textContent?.trim() ?? ""; // the header names what is shown: the first title of the card in the body
+    if (this.name.textContent !== name) this.name.textContent = name;
   }
 
   private apply(notify = true): void {
