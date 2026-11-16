@@ -1,11 +1,13 @@
-"""Assemble the desktop app: the Tauri shell next to the frozen core, zipped (an AppImage on Linux).
+"""Assemble the desktop app: the Tauri shell next to the frozen core, zipped (an AppImage on Linux, Pliable.app on macOS).
 Needs the frozen core first (`python scripts/build_app.py LABEL` in core/) and Rust with the Tauri command line
 tool installed (`npm ci` in desktop/).
 Usage: python scripts/build_desktop.py [LABEL]   -> desktop/dist/pliable-desktop-LABEL.zip (Linux: pliable-desktop-LABEL.AppImage)
 The folder holds Pliable(.exe), core/ (the frozen core), and a data/ folder is created beside it at run time. The Linux
 AppImage holds the same two in usr/bin and keeps its data in the user's data folder (see data_root in main.rs); it uses the
-system's WebKitGTK, like the zip did, and needs appimagetool (downloaded and pinned here when it is not on the PATH)."""
-import os, platform, shutil, stat, subprocess, sys, urllib.request
+system's WebKitGTK, like the zip did, and needs appimagetool (downloaded and pinned here when it is not on the PATH).
+On macOS the folder holds Pliable.app instead (the shell in Contents/MacOS, core/ in Contents/Resources, ad-hoc signed) and the
+app keeps its data in ~/Library/Application Support/Pliable (see data_root in main.rs)."""
+import json, os, platform, plistlib, shutil, stat, subprocess, sys, urllib.request
 from pathlib import Path
 
 APPIMAGETOOL = "https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-x86_64.AppImage"
@@ -45,6 +47,26 @@ def appimage(shell: Path, label: str) -> Path:
     return target
 
 
+def app_bundle(shell: Path, folder: Path) -> Path:
+    """Pliable.app in the folder: the shell, the frozen core in Resources, the icon and an Info.plist."""
+    bundle = folder / "Pliable.app"
+    contents = bundle / "Contents"
+    (contents / "MacOS").mkdir(parents=True)
+    shutil.copytree(frozen, contents / "Resources" / "core", symlinks=True)
+    shutil.copy2(shell, contents / "MacOS" / "Pliable")
+    shutil.copy(desktop / "src-tauri" / "icons" / "icon.icns", contents / "Resources" / "icon.icns")
+    config = json.loads((desktop / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8"))
+    info = {
+        "CFBundleName": "Pliable", "CFBundleDisplayName": "Pliable", "CFBundleExecutable": "Pliable",
+        "CFBundleIdentifier": config["identifier"], "CFBundleIconFile": "icon.icns", "CFBundlePackageType": "APPL",
+        "CFBundleShortVersionString": config["version"], "CFBundleVersion": config["version"],
+        "LSMinimumSystemVersion": "10.15", "NSHighResolutionCapable": True,
+    }
+    (contents / "Info.plist").write_bytes(plistlib.dumps(info))
+    subprocess.run(["codesign", "--force", "--sign", "-", str(bundle)], check=True)  # ad-hoc: Apple silicon runs only signed code
+    return bundle
+
+
 root = Path(__file__).resolve().parents[1]
 desktop = root / "desktop"
 frozen = root / "core" / "dist" / "pliable"
@@ -54,16 +76,26 @@ label = sys.argv[1] if len(sys.argv) > 1 else f"{platform.system().lower()}-{pla
 exe_suffix = ".exe" if platform.system() == "Windows" else ""
 npx = "npx.cmd" if platform.system() == "Windows" else "npx"
 subprocess.run([npx, "tauri", "build", "--no-bundle"], cwd=desktop, check=True)
-shell = desktop / "src-tauri" / "target" / "release" / f"pliable-desktop{exe_suffix}"
+metadata = subprocess.run(["cargo", "metadata", "--format-version", "1", "--no-deps"], cwd=desktop / "src-tauri",
+                          check=True, capture_output=True, text=True).stdout  # honors a target-dir set in cargo's config
+shell = Path(json.loads(metadata)["target_directory"]) / "release" / f"pliable-desktop{exe_suffix}"
 if platform.system() == "Linux":
     print("built", appimage(shell, label))
     sys.exit(0)
 folder = desktop / "dist" / f"pliable-desktop-{label}"
 shutil.rmtree(folder, ignore_errors=True)
 folder.mkdir(parents=True)
-shutil.copy2(shell, folder / f"Pliable{exe_suffix}")
-shutil.copytree(frozen, folder / "core")
+if platform.system() == "Darwin":
+    app_bundle(shell, folder)
+else:
+    shutil.copy2(shell, folder / f"Pliable{exe_suffix}")
+    shutil.copytree(frozen, folder / "core")
 for extra in ("README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"):
     shutil.copy(root / extra, folder / extra)
-archive = shutil.make_archive(str(desktop / "dist" / f"pliable-desktop-{label}"), "zip", desktop / "dist", folder.name)
+archive = desktop / "dist" / f"pliable-desktop-{label}.zip"
+archive.unlink(missing_ok=True)
+if platform.system() == "Darwin":  # ditto keeps the bundle's symlinks and signature; no extended attributes, which unzip would turn into ._ files
+    subprocess.run(["ditto", "-c", "-k", "--norsrc", "--noextattr", "--noacl", "--keepParent", str(folder), str(archive)], check=True)
+else:
+    shutil.make_archive(str(archive.with_suffix("")), "zip", desktop / "dist", folder.name)
 print("built", archive)

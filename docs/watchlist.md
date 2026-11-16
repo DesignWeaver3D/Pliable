@@ -168,6 +168,10 @@ Known approximations, shortcuts and untested corners. If something behaves stran
 
 - Move/Rotate (`move_body`): the rotation rings are drawn in world axes and their grips move along a straight tangent, so a large drag drifts off the circle; rotations apply about each body's own center in the order X, Y, Z, then the move. With nothing selected, tools that act on every body (move/rotate/scale/offset/arrays) are offered only when the model has a single body; the core still runs them on a multi-body model if asked.
 
+- macOS app bundle (commit: see git log for "Build a double-clickable app with one script per platform"): `Pliable.app` is assembled by hand in `scripts/build_desktop.py`, not by the Tauri bundler, with the frozen core in `Contents/Resources/core` (`core_program` in `main.rs`) and an ad-hoc signature only. Inside a bundle the data moves to `~/Library/Application Support/Pliable` (`in_app_bundle` in `main.rs`); a `data` folder beside an older unbundled macOS build is not migrated. Symptom: Gatekeeper refuses a downloaded copy until the quarantine flag is cleared, or settings seem lost after updating from the folder build.
+
+- `build.sh` / `build.bat` (`scripts/build.py`) run `npm ci` only when `node_modules` is missing, so stale packages are reused; PyInstaller comes in unpinned through `uv run --with pyinstaller`, as in the workflows. The Linux AppImage step is x86_64 only (`ARCH` in `build_desktop.py`). Symptom: a local build differs from the workflow build, or fails on arm64 Linux.
+
 ## Random body colors
 
 - Each body's color depends only on its stable id: hue = id * 137.508 degrees (+20), saturation 32-42 %, lightness 62 % upward, raised per hue (up to 80 %) until contrast against #1b1d22 is at least 7:1. Blue hues therefore end up lighter than others. Tested for ids 1..500.
