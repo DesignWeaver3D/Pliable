@@ -276,8 +276,8 @@ def test_a_save_waits_for_a_quiet_moment_and_then_writes_the_newest_state(tmp_pa
     assert written_names(saver) == []  # not written at once
     document.commit(Box(6, 6, 6).wrapped)
     saver.save(document)  # another change restarts the wait
-    assert wait_until(lambda: len(written_names(saver)) == 2)
-    assert json.loads((saver.folder / "session.json").read_text())["ids"] == document.ids
+    session = saver.folder / "session.json"  # written after the state files, so wait for it rather than for the files alone
+    assert wait_until(lambda: len(written_names(saver)) == 2 and session.exists() and json.loads(session.read_text())["ids"] == document.ids)
     saver.mark_clean()
 
 
