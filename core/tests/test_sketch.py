@@ -249,7 +249,7 @@ def test_face_reference_outline_snaps_and_stays_fixed():
         sketch.profile_face({"plane": plane, "points": ref["points"], "entities": ref["entities"], "constraints": []})
     # a hole's circle and the bracket's arcs come through too
     bracket = Topology(demo("bracket"))
-    base_top = max((i for i in range(bracket.face_count) if measure(bracket, Selection(faces=[i]))["items"][0]["title"] == "Plane" and measure(bracket, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0]), key=lambda i: measure(bracket, Selection(faces=[i]))["items"][0]["rows"][2]["value"])
+    base_top = max((i for i in range(bracket.face_count) if measure(bracket, Selection(faces=[i]))["items"][0]["title"] == "Face" and measure(bracket, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0]), key=lambda i: measure(bracket, Selection(faces=[i]))["items"][0]["rows"][2]["value"])
     types = {e["type"] for e in sketch.face_reference(bracket.face(base_top), sketch.face_plane(bracket.face(base_top)))["entities"]}
     assert {"line", "circle", "arc"} <= types
 

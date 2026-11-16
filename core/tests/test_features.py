@@ -201,7 +201,7 @@ def test_draft_tilts_side_faces(block):
 
 
 def test_align_face_moves_first_to_second(bracket):
-    up = [i for i in range(bracket.face_count) if measure(bracket, Selection(faces=[i]))["items"][0]["title"] == "Plane" and measure(bracket, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0]]
+    up = [i for i in range(bracket.face_count) if measure(bracket, Selection(faces=[i]))["items"][0]["title"] == "Face" and measure(bracket, Selection(faces=[i]))["items"][0]["rows"][3]["value"] == [0.0, 0.0, 1.0]]
     area = lambda i: measure(bracket, Selection(faces=[i]))["items"][0]["rows"][2]["value"]
     base_top = max(up, key=area)
     upright_top = min(up, key=lambda i: abs(area(i) - 500))  # 10 x 50 top of the upright

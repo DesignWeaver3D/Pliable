@@ -7,7 +7,7 @@
     <style>
       html { --ui-offwhite: #ddd; --axis-x: #d9534f; --axis-y: #5cb85c; --axis-z: #4a90e2; --listw: 212px; --handlew: 32px; --leftw: calc(212px + var(--handlew)); --drawerw: 0px; --dock-w: 0px; }
       html, body { margin: 0; height: 100%; background: #1b1d22; color: var(--ui-offwhite); font: 13px system-ui, sans-serif; overflow: hidden; }
-      #viewport { position: fixed; inset: 0 var(--dock-w) 0 0; }
+      #viewport { position: fixed; inset: 0; }
       #viewport.engaged::after { content: ""; position: absolute; inset: 0; border: 2px solid rgba(255, 138, 31, 0.45); pointer-events: none; z-index: 1; }
       #bar { position: fixed; top: 0; left: 0; right: 0; box-sizing: border-box; padding: 0 52px 0 8px; display: flex; gap: 6px; align-items: center; z-index: 7; flex-wrap: nowrap; background: rgba(27, 29, 34, 0.88); border-bottom: 1px solid #2d3038; white-space: nowrap; }
       .icon { display: inline-flex; vertical-align: middle; margin-right: 5px; }
@@ -242,7 +242,7 @@
       #measure .title { padding: 4px 10px 2px; color: #ffb878; font-weight: 600; cursor: pointer; }
       #measure .title::after { content: " \25B8"; color: #8a8f98; }
       #measure:not(.collapsed) .title::after { content: " \25BE"; }
-      #measure.collapsed .section:nth-child(n+2), #measure.collapsed .row:nth-child(n+4) { display: none; }
+      #measure.collapsed .section:nth-child(n+2), #measure.collapsed .row:nth-child(n+4):not(.keep) { display: none; }
       #measure .section + .section { border-top: 1px solid #3a3e47; margin-top: 4px; }
       #measure .row { display: flex; justify-content: space-between; gap: 18px; padding: 1px 10px; cursor: pointer; }
       #measure .row:hover { background: #2f333b; }

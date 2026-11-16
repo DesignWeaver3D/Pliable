@@ -496,6 +496,15 @@ async function settleOpenArray(): Promise<"apply" | "discard" | null> {
 }
 
 
+/** A selection the gizmo or handles belong to shows that tool's parameters in the panel without arming it: a face opens the Push/Pull card, edges open Fillet/Chamfer's form as a card
+ *  (closed again unchanged when the selection changes, like the Hole Editor). Only a new selection does this, so closing the card by hand sticks. */
+function openSelectionParameters(sels: Sel[]) {
+  const tool = selectionHandleTool;
+  if (armedTool !== null || toolPanel.isOpen || !tool) return;
+  if (tool.id === "push_pull") pushPullCard.open();
+  else if (tool.id === "fillet_chamfer" && sels.length && sels.every((s) => s.kind === "edge")) toolPanel.openForm(tool, {}, "other", undefined, true);
+}
+
 const { setSelection, selectionPayload, mappedSelection, showReadout } = createSelection({
   viewport, core, navCube, measurePanel, dimensionOverlay, selected,
   get toolPanel() { return toolPanel; },
@@ -504,7 +513,10 @@ const { setSelection, selectionPayload, mappedSelection, showReadout } = createS
   selectionSettled() {
     const tool = waitingTool.take(fitsSelection); // the selection now fits the tool chosen before it
     if (tool) armTool(tool, "drawer");
-    else void holeEditor.maybeOpen(app.currentSels); // a selected hole opens the Hole Editor
+    else {
+      void holeEditor.maybeOpen(app.currentSels); // a selected hole opens the Hole Editor
+      openSelectionParameters(app.currentSels);
+    }
   },
 });
 

@@ -44,7 +44,7 @@ def test_block_edge_lengths(block):
 def test_block_face_area_and_size(block):
     (face,) = find(block, "face", Width=40, Height=30)[:1]
     item = measure(block, Selection(faces=[face]))["items"][0]
-    assert item["title"] == "Plane"
+    assert item["title"] == "Face"
     assert value(item, "Area") == pytest.approx(1200)
 
 

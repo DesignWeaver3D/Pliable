@@ -74,7 +74,7 @@ export class MeasurePanel {
     box.append(heading);
     for (const r of rows) {
       const line = document.createElement("div");
-      line.className = "row";
+      line.className = r.label === "Area" ? "row keep" : "row"; // a collapsed section still shows the area
       const text = formatValue(r.value, r.unit);
       // Copy the bare number for scalars, the formatted text for vectors.
       line.dataset.copy = typeof r.value === "number" ? showNumber(r.value) : text;

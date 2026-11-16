@@ -217,7 +217,7 @@ def measure_face(topology: Topology, face_id: int, face) -> dict:
     area = _row("Area", props.Mass())
     dims = []
     if kind == GeomAbs_Plane:
-        title = "Plane"
+        title = "Face"
         dims = _plane_dims(face, surface, u0, u1, v0, v1)
         rows = [_row("Width", u1 - u0), _row("Height", v1 - v0), area, _dir_row("Normal", planar_normal(face))]
     elif kind == GeomAbs_Cylinder:
