@@ -15,18 +15,21 @@ The build is **unsigned**:
 
 Only Windows has been tested by a person. The other builds passed an automated start-up check only.
 
-## Changes in 0.4.3
+## Changes in 0.4.4
 
-- Bodies: every body is its own solid. Duplicate puts a separate copy on the original, and a tool changes only the body that owns the selection. Hidden bodies are skipped when tools merge into or cut other bodies.
-- Locked bodies: a lock button next to each body's eye. No tool changes a locked body and automatic merges and cuts skip it, but its faces can still be picked as references.
-- Tools that can touch other bodies have a "This body / Other bodies" setting in their card.
-- Boolean has a Keep tools option that leaves the tool body in place.
-- Push/Pull: Up to face, Up to last and Through all can now cut, with Subtract or Flip.
-- Faces that lie on one surface stay one face after an edit: a pulled hole wall, a bore crossing a curved wall, and cylinder, cone and sphere faces the modeling kernel left split.
-- Faster on large models: hover and picking, drag previews on detailed parts, and coloring a large sketch. The 3D view no longer redraws while nothing changes.
-- Edges are drawn more cleanly and edges are picked more accurately in perspective view.
-- macOS: keys are named Cmd and Option, and Backspace deletes.
-- Fixes: Cut with plane no longer reports a miss on a tiny volume error; the degree sign is back in unit labels; an edit whose face merging failed after a fuse keeps its valid result.
+- **Parameters panel:** a docked panel on the right replaces every floating tool card. Push/Pull, tool forms, the Hole Editor, the Sketch card, the Section card and the measurements all live in it, under a header that names the tool. Hide or show it with its edge handle or Shift+T (while the pointer is over the 3D view); it stays hidden until you show it, covers the view without resizing it, and its width can be dragged and is remembered.
+- Selecting a face fills the Push/Pull parameters, and selecting edges fills the Fillet/Chamfer form, before you start the tool.
+- **Selection Information:** the names of what is selected (for example "bracket: face 12, face 14") and their measurements sit in a section at the bottom of the panel, with its own heading that hides or shows the measurements. A flat face is titled Face and shows its area.
+- **One Fillet/Chamfer tool:** Constant, Variable, Per edge, Two distances, Distance and angle and Face edges (the former Round face edges) are modes of one tool, chosen with buttons above its form.
+- The top bar's message line keeps errors and warnings until you read them, fades plain messages after a few seconds, and keeps its room so the search box stays put.
+- **Stretch:** a new tool that stretches any solid over a local band, with a band length slider, frame and pivot picks, and fillets re-made at their radius.
+- **New tools and options:** Extrude edge; Hole to slot in the Hole Editor; Join for connected sketch curves; a Copy option in Push/Pull; non-uniform scale in Scale body.
+- Arrays copy a whole hole with its counterbore, countersink and thread. The Pattern hole / boss and Circular pattern tools are gone; the array tools do their work.
+- **Surface bodies:** open surfaces from an import stay as surface bodies in their own Surfaces list, drawn with a darker back side, and measure by area only.
+- Exact B-reps are written when exporting IFC.
+- **Faster with many bodies:** drawing, picking, previews, holes right after an import, merges and the first click on a face are all quicker, because tools and merges now work only on the bodies they change. The crash backup is written shortly after your last change.
+- Faces left split by an edit are merged in one step for every tool; an imported solid that came in reversed is turned round; a box select that mixes faces, edges and points shows no measurement.
+- The PLIABLE tag in the top-left corner is the menu button.
 
 ## What to expect
 

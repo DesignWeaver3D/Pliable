@@ -21,6 +21,7 @@
 
 - **Sketching** is functional and has no known bugs, but some sketch tools are still missing.
 - Performance and UI stability.
+- **Screen sizes and resolutions.** Only the parameters panel's width can be adjusted; the rest of the interface has no handling for small windows or high-density screens yet.
 - Compatibility of anything saved by this version with later versions. Export STEP to keep your work.
 - **Webview differences.** The window uses the system webview: WebView2 on Windows (Chromium-based, the tested one), WebKit on macOS and WebKitGTK on Linux. The Save As dialog on Linux and macOS (added in 0.4.2) is untested on macOS. Drawing, fonts and file dialogs may differ on the last two. Running the core in a browser is a development setup, and Chrome is the only browser tried.
 - Autosave protects against crashes, not against a bad edit. Undo history is capped at 50 steps.
