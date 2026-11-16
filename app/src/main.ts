@@ -291,6 +291,11 @@ function holeHandleTool(sels: Sel[]): ToolInfo | null {
 }
 let selectionHandleTool: ToolInfo | null = null; // the tool the handles now shown on the selection belong to
 
+/** An open form hides the selection's handles, except the Fillet/Chamfer card that opened by itself on the selected edges (its handles are the way to drag it). */
+function formHidesHandles(): boolean {
+  return toolPanel.isOpen && !(toolPanel.isCard && toolPanel.openToolId === "fillet_chamfer");
+}
+
 /** With a selection and no form open, the tool a drag would run shows its handles (push/pull's arrow on the face). */
 async function refreshSelectionHandles() {
   const sels = app.currentSels;
@@ -298,7 +303,7 @@ async function refreshSelectionHandles() {
     viewport.manipulator.clear(); // a sketch is open: model handles would sit over it
     return;
   }
-  const tool = sels.length && !toolPanel.isOpen ? (holeHandleTool(sels) ?? dragToolFor(sels)) : null;
+  const tool = sels.length && !formHidesHandles() ? (holeHandleTool(sels) ?? dragToolFor(sels)) : null;
   selectionHandleTool = tool;
   if (!tool?.hasHandles || tool.startsFrom === "tool") {
     viewport.manipulator.clear();
@@ -306,7 +311,7 @@ async function refreshSelectionHandles() {
   }
   try {
     const reply = await core.request<{ handles: HandleInfo[] }>("tool_handles", { tool: tool.id, selection: selectionPayload(expand(tool, sels)), params: tool.id === "push_pull" ? viewport.pullDirection.params() : {} });
-    if (app.currentSels !== sels || toolPanel.isOpen) return; // the selection changed or a form took over while waiting
+    if (app.currentSels !== sels || formHidesHandles()) return; // the selection changed or a form took over while waiting
     viewport.manipulator.setHandles(reply.handles);
   } catch {
     viewport.manipulator.clear(); // handles are a convenience; the plain drag still works
