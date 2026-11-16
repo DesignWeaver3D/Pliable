@@ -34,7 +34,7 @@ Get the archive for your system from the [releases page](https://github.com/Desi
 
 ## Build the app yourself
 
-With [Node.js](https://nodejs.org), [uv](https://docs.astral.sh/uv) and [Rust](https://rustup.rs) installed, run `./build.sh` (macOS, Linux) or `build.bat` (Windows) in the repository root. It builds the frontend, freezes the core, builds the desktop shell and prints where the result is: `desktop/dist/pliable-desktop-<platform>/Pliable.app` on macOS, `.../Pliable.exe` on Windows, and `desktop/dist/pliable-desktop-<platform>.AppImage` on Linux (which also needs the WebKitGTK development libraries listed in `.github/workflows/desktop.yml`). A first build takes a while: Rust compiles the shell and PyInstaller collects the geometry kernel.
+Run `./build.sh` (macOS, Linux) or `build.bat` (Windows) in the repository root. It first checks for everything the build needs ([uv](https://docs.astral.sh/uv), [Node.js](https://nodejs.org) 20.19+ or 22.12+, [Rust](https://rustup.rs), and a C toolchain: the Xcode Command Line Tools on macOS, the Microsoft C++ Build Tools on Windows, and the WebKitGTK development libraries on Linux) and lists every missing item with where to get it; `--check` runs only that check. Then it builds the frontend, freezes the core, builds the desktop shell and prints where the result is: `desktop/dist/pliable-desktop-<platform>/Pliable.app` on macOS, `.../Pliable.exe` on Windows, and `desktop/dist/pliable-desktop-<platform>.AppImage` on Linux. A first build takes a while: Rust compiles the shell and PyInstaller collects the geometry kernel.
 
 ## Roadmap
 

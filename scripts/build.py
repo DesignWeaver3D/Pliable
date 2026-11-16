@@ -1,14 +1,12 @@
 """Build the double-clickable desktop app for this computer, from a clean checkout, and say where it is.
 Runs the same steps as the desktop workflow: the frontend (app/), the frozen core (core/scripts/build_app.py, with
 PyInstaller supplied by `uv run --with`), the Tauri shell and its package (scripts/build_desktop.py).
-Needs Node.js (npm), uv and Rust (cargo); on Linux also the WebKitGTK development libraries (see the desktop workflow).
+Start it with build.sh or build.bat, which first check every prerequisite and list all the missing ones together.
 Usage: ./build.sh [LABEL] or build.bat [LABEL]   (LABEL defaults to the platform, e.g. macos-arm64)"""
 import platform, shutil, subprocess, sys
-from collections.abc import Callable
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOLS = {"npm": "Node.js (https://nodejs.org)", "uv": "uv (https://docs.astral.sh/uv)", "cargo": "Rust (https://rustup.rs)"}
 SYSTEM_NAMES = {"Darwin": "macos", "Windows": "windows", "Linux": "linux"}
 MACHINE_NAMES = {"x86_64": "x64", "amd64": "x64", "aarch64": "arm64", "arm64": "arm64"}
 
@@ -28,11 +26,6 @@ def outputs(root: Path, system: str, label: str) -> tuple[Path, Path]:
     folder = dist / f"pliable-desktop-{label}"
     app = folder / ("Pliable.app" if system == "Darwin" else "Pliable.exe")
     return app, dist / f"pliable-desktop-{label}.zip"
-
-
-def missing_tools(which: Callable[[str], str | None] = shutil.which) -> list[str]:
-    """The required tools that are not on the PATH, described for the user."""
-    return [f"{tool}: install {source}" for tool, source in TOOLS.items() if which(tool) is None]
 
 
 def run(args: list[str], cwd: Path) -> None:
@@ -57,9 +50,6 @@ def build(label: str) -> None:
 
 
 def main() -> None:
-    missing = missing_tools()
-    if missing:
-        sys.exit("Missing build tools:\n  " + "\n  ".join(missing))
     system = platform.system()
     label = sys.argv[1] if len(sys.argv) > 1 else platform_label(system, platform.machine())
     try:
