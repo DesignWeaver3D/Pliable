@@ -22,7 +22,9 @@ export async function switchToTwoDistances(host: TwoDistanceHost, distance: numb
     const reply = await host.core.request<{ faces: number[] }>("edge_faces", { edge: edges[0].id });
     if (reply.faces.length === 0) throw new Error("That edge has no face beside it");
     const size = distance > 0 ? distance : 1;
-    host.open(tool, [{ kind: "face", id: reply.faces[0] }, ...edges], toolId === "chamfer_two_distances" ? { first: size, second: size } : { distance: size });
+    const face: Sel = { kind: "face", id: reply.faces[0] };
+    if (toolId === "round_face") host.open(tool, [face], { distance: size }); // every edge of the face: the edges leave the selection
+    else host.open(tool, [face, ...edges], toolId === "chamfer_two_distances" ? { first: size, second: size } : { distance: size });
   } catch (e) {
     host.say((e as Error).message, true);
   }

@@ -424,20 +424,38 @@ async function editPrimitive(id: number) {
 
 /** A mode button of a combined tool was pressed: open that mode's tool on the edges. The chamfers measured on a face reopen on the face beside the first edge (twodistances.ts). */
 function chooseMode(member: ToolInfo) {
-  if (!/^chamfer_/.test(member.id)) lastMode.set(modeGroupOf(member.id)!.id, member.id); // the chamfers need a face beside the edge: the entry itself starts on the edges alone
-  const edges = app.currentSels.filter((s) => s.kind === "edge");
-  if (member.id === "chamfer_two_distances" || member.id === "chamfer_distance_angle") {
+  const needsFace = /^chamfer_|^round_face$/.test(member.id);
+  if (!needsFace) lastMode.set(modeGroupOf(member.id)!.id, member.id); // these modes need a face beside the edge: the entry itself starts on the edges alone
+  let edges = app.currentSels.filter((s) => s.kind === "edge");
+  if (edges.length) modeEdges = edges;
+  else if (!needsFace && modeEdges.length) edges = modeEdges; // coming back from Face edges: the edges it was opened from
+  if (needsFace) {
+    const own = app.currentSels.find((s) => s.kind === "face");
+    if (member.id === "round_face" && own && !edges.length) { // faces already selected: round their edges
+      toolPanel.close();
+      armedTool = null;
+      toolPanel.openForm(member, {}, "drawer");
+      return;
+    }
     twoDistances(1, member.id);
+    return;
+  }
+  if (!edges.length) { // nothing to round: say what to select
+    status.textContent = "Select edges first";
+    status.classList.add("error");
     return;
   }
   toolPanel.close();
   armedTool = null;
-  if (edges.length !== app.currentSels.length) { // coming back from a chamfer: its reference face leaves the selection
+  if (edges.length !== app.currentSels.length || edges.some((e, i) => app.currentSels[i] !== e)) { // coming back from a chamfer or Face edges: its reference face leaves the selection
     viewport.selectItems(edges);
     setSelection(edges);
   }
   toolPanel.openForm(member, {}, "drawer");
 }
+
+/** The edges a combined tool was last used on, to return to from a mode that replaced them with a face. */
+let modeEdges: Sel[] = [];
 
 /** The mode each combined tool was last used in (modetools.ts). */
 const lastMode = new Map<string, string>();
@@ -458,7 +476,8 @@ function armTool(tool: ToolInfo, surface: Surface) {
   }
   const group = modeGroupOf(tool.id);
   if (group?.id === tool.id) { // a combined tool opens the mode used last (the first at first)
-    const member = tools.find((t) => t.id === (lastMode.get(group.id) ?? group.modes[0].tool));
+    const facesOnly = group.id === "fillet_modes" && app.currentSels.length > 0 && app.currentSels.every((s) => s.kind === "face"); // faces alone round their edges
+    const member = tools.find((t) => t.id === (facesOnly ? "round_face" : (lastMode.get(group.id) ?? group.modes[0].tool)));
     if (member) toolPanel.openForm(member, {}, surface);
     return;
   }

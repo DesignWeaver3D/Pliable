@@ -6,9 +6,10 @@ const info = (id) => ({ id, label: id, accepts: { faces: [0, 0], edges: [1, null
 
 test("the fillet and chamfer modes are one drawer entry with every edge tool as a member", () => {
   const entries = modeGroupTools([info("fillet_chamfer"), info("variable_fillet"), info("fillet_per_edge")]);
-  for (const id of ["fillet_chamfer", "chamfer_two_distances", "chamfer_distance_angle"]) assert.ok(MODE_MEMBERS.has(id));
+  for (const id of ["fillet_chamfer", "chamfer_two_distances", "chamfer_distance_angle", "round_face"]) assert.ok(MODE_MEMBERS.has(id));
   assert.deepEqual(entries.map((e) => e.id), ["fillet_modes"]);
-  assert.deepEqual(entries[0].accepts.edges, [1, null]);
+  assert.deepEqual(entries[0].accepts.edges, [0, null]);
+  assert.deepEqual(entries[0].accepts.faces, [0, null]); // edges or faces: faces alone round their edges
   assert.ok(MODE_MEMBERS.has("variable_fillet") && MODE_MEMBERS.has("fillet_per_edge"));
 });
 

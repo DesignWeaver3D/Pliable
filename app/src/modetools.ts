@@ -13,13 +13,14 @@ export const MODE_GROUPS: ModeGroup[] = [
   {
     id: "fillet_modes",
     label: "Fillet/Chamfer",
-    description: "Rounds or bevels the selected edges. Constant: one radius or distance; Variable: a radius that changes along each edge; Per edge: each edge its own radius; Two distances and Distance and angle: a bevel measured on the face beside the edge. Select edges first, then choose the mode.",
+    description: "Rounds or bevels the selected edges. Constant: one radius or distance; Variable: a radius that changes along each edge; Per edge: each edge its own radius; Two distances and Distance and angle: a bevel measured on the face beside the edge; Face edges: every edge around the selected faces. Select edges (or faces for Face edges) first, then choose the mode.",
     modes: [
       { tool: "fillet_chamfer", label: "Constant" },
       { tool: "variable_fillet", label: "Variable" },
       { tool: "fillet_per_edge", label: "Per edge" },
       { tool: "chamfer_two_distances", label: "Two distances" },
       { tool: "chamfer_distance_angle", label: "Distance and angle" },
+      { tool: "round_face", label: "Face edges" },
     ],
   },
 ];
@@ -36,7 +37,7 @@ export function modeGroupTools(tools: ToolInfo[]): ToolInfo[] {
   const out: ToolInfo[] = [];
   for (const group of MODE_GROUPS) {
     const first = tools.find((t) => t.id === group.modes[0].tool);
-    if (first) out.push({ id: group.id, label: group.label, description: group.description, accepts: first.accepts, params: [], startsFrom: "selection", hasHandles: false });
+    if (first) out.push({ id: group.id, label: group.label, description: group.description, accepts: { faces: [0, null], edges: [0, null], anyOf: true }, params: [], startsFrom: "selection", hasHandles: false });
   }
   return out;
 }
