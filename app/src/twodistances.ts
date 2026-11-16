@@ -13,15 +13,16 @@ export interface TwoDistanceHost {
   say(text: string, error: boolean): void;
 }
 
-export async function switchToTwoDistances(host: TwoDistanceHost, distance: number): Promise<void> {
-  const tool = host.tools().find((t) => t.id === "chamfer_two_distances");
+/** Reopen as a chamfer measured on a face: `toolId` is Chamfer (two distances) or Chamfer (distance and angle). */
+export async function switchToTwoDistances(host: TwoDistanceHost, distance: number, toolId = "chamfer_two_distances"): Promise<void> {
+  const tool = host.tools().find((t) => t.id === toolId);
   const edges = host.selection().filter((s) => s.kind === "edge");
   if (!tool || edges.length === 0) return;
   try {
     const reply = await host.core.request<{ faces: number[] }>("edge_faces", { edge: edges[0].id });
     if (reply.faces.length === 0) throw new Error("That edge has no face beside it");
     const size = distance > 0 ? distance : 1;
-    host.open(tool, [{ kind: "face", id: reply.faces[0] }, ...edges], { first: size, second: size });
+    host.open(tool, [{ kind: "face", id: reply.faces[0] }, ...edges], toolId === "chamfer_two_distances" ? { first: size, second: size } : { distance: size });
   } catch (e) {
     host.say((e as Error).message, true);
   }

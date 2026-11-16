@@ -422,6 +422,23 @@ async function editPrimitive(id: number) {
   status.textContent = `Editing ${body.name}: change the values or drag its handles, then Apply (Esc cancels)`;
 }
 
+/** A mode button of a combined tool was pressed: open that mode's tool on the edges. The chamfers measured on a face reopen on the face beside the first edge (twodistances.ts). */
+function chooseMode(member: ToolInfo) {
+  if (!/^chamfer_/.test(member.id)) lastMode.set(modeGroupOf(member.id)!.id, member.id); // the chamfers need a face beside the edge: the entry itself starts on the edges alone
+  const edges = app.currentSels.filter((s) => s.kind === "edge");
+  if (member.id === "chamfer_two_distances" || member.id === "chamfer_distance_angle") {
+    twoDistances(1, member.id);
+    return;
+  }
+  toolPanel.close();
+  armedTool = null;
+  if (edges.length !== app.currentSels.length) { // coming back from a chamfer: its reference face leaves the selection
+    viewport.selectItems(edges);
+    setSelection(edges);
+  }
+  toolPanel.openForm(member, {}, "drawer");
+}
+
 /** The mode each combined tool was last used in (modetools.ts). */
 const lastMode = new Map<string, string>();
 
@@ -1183,7 +1200,7 @@ async function runPreview(tool: ToolInfo, values: Record<string, ParamValue>, ed
   }
 }
 
-function twoDistances(distance: number) {
+function twoDistances(distance: number, toolId?: string) {
   void switchToTwoDistances(
     {
       core,
@@ -1203,6 +1220,7 @@ function twoDistances(distance: number) {
       },
     },
     distance,
+    toolId,
   );
 }
 
@@ -1229,7 +1247,7 @@ const toolPanel = new ToolPanel($("toollist"), $("toolform"), {
   cardHeader: (tool) => holeEditor.header(tool),
   cardForm: (tool, values, changed) => holeEditor.form(tool, values, changed),
   startOwn: (tool) => (tool.id === HOLE_EDITOR_ID || modeGroupOf(tool.id)?.id === tool.id ? (armTool(tool, "drawer"), true) : false),
-  modeHeader: (tool) => modeHeader(tool, tools, (member) => { lastMode.set(modeGroupOf(member.id)!.id, member.id); toolPanel.openForm(member, {}, "drawer"); }),
+  modeHeader: (tool) => modeHeader(tool, tools, chooseMode),
   waitFor: (tool) => waitForSelection(tool),
   usable: (tool) => (acceptsSelection(tool, expand(tool, app.currentSels)) || acceptsWithRail(tool, expand(tool, app.currentSels), app.chosenSketch) || (tool.id === "move_body" && movableSketch() !== null)) && (app.refined === null || refinedHas(tool.id)),
   preview(tool, values, editBody) {

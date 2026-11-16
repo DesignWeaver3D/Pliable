@@ -12,11 +12,14 @@ export interface ModeGroup {
 export const MODE_GROUPS: ModeGroup[] = [
   {
     id: "fillet_modes",
-    label: "Variable fillet",
-    description: "Rounds the selected edges with a radius that changes along each edge. Variable sets a start and end radius (and an optional interim radius); Per edge gives every selected edge its own radius or radius pair. Select edges first.",
+    label: "Fillet/Chamfer",
+    description: "Rounds or bevels the selected edges. Constant: one radius or distance; Variable: a radius that changes along each edge; Per edge: each edge its own radius; Two distances and Distance and angle: a bevel measured on the face beside the edge. Select edges first, then choose the mode.",
     modes: [
+      { tool: "fillet_chamfer", label: "Constant" },
       { tool: "variable_fillet", label: "Variable" },
       { tool: "fillet_per_edge", label: "Per edge" },
+      { tool: "chamfer_two_distances", label: "Two distances" },
+      { tool: "chamfer_distance_angle", label: "Distance and angle" },
     ],
   },
 ];
