@@ -7,6 +7,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, edited]
 
 jobs:
   lint:
@@ -25,5 +26,11 @@ jobs:
             range="${{ github.sha }}~1..${{ github.sha }}"
           fi
           python scripts/check_commit_message.py --range "$range"
+      - name: Check the pull request title
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python scripts/check_commit_message.py --pr-title "$PR_TITLE" --pr-number "$PR_NUMBER"
       - name: Check file contents
         run: python scripts/check_content.py --all

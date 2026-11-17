@@ -10,6 +10,9 @@ Rules:
   no label prefixes such as "S22:", "feat:", "Progress:" or "WIP".
 - Commits that touch 3 or more files need a body that says what changed and why.
 - Body lines are at most 80 characters, with a blank line after the subject.
+
+A pull request title is checked with the same subject rules plus the " (#N)" that a
+squash merge appends (--pr-title and --pr-number); the body is left to the merge.
 """
 import argparse
 import re
@@ -78,8 +81,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--file", help="commit message file (commit-msg hook); staged files are counted")
     ap.add_argument("--range", help="revision range to check, e.g. origin/main..HEAD")
+    ap.add_argument("--pr-title", help="pull request title; checked as the squash-merge subject")
+    ap.add_argument("--pr-number", default="", help="pull request number, appended to the title as ' (#N)'")
     a = ap.parse_args()
     failed = False
+    if a.pr_title is not None:
+        subject = a.pr_title.strip() + (f" (#{a.pr_number})" if a.pr_number else "")
+        found = check(subject)
+        if found:
+            failed = True
+            print(f"Pull request title '{subject}' would break the commit rules when squashed:", *found, sep="\n  - ")
     if a.file:
         msg = open(a.file, encoding="utf-8").read()
         staged = len([f for f in git("diff", "--cached", "--name-only").splitlines() if f])
