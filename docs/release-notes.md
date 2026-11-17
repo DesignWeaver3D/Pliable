@@ -13,7 +13,7 @@ The build is **unsigned**:
 - **macOS:** Gatekeeper blocks it the first time. In Terminal run `xattr -dr com.apple.quarantine .` in the unzipped folder, then run `./Pliable`.
 - **Linux:** needs Ubuntu 24.04, Mint 22 or a similar distribution from 2024 or later, with `libwebkit2gtk-4.1` installed. Make the downloaded file executable with `chmod +x pliable-desktop-linux-x64.AppImage`, then run `./pliable-desktop-linux-x64.AppImage`. If it says FUSE is missing, install `libfuse2` (`libfuse2t64` on Ubuntu 24.04) or run it with `--appimage-extract-and-run`. It keeps its settings and autosaves in `~/.local/share/pliable`, not beside the file.
 
-Windows is the most tested. Linux Mint 22 has been used for real modeling work but not tested in full. The macOS builds passed an automated start-up check only; nobody has run them yet.
+Windows is the most tested. Linux Mint 22 has been used for real modeling work but not tested in full. The macOS builds are built and start-up checked automatically. One contributor has run them and reports that they work; some bugs they found are being fixed, and the architecture (Apple Silicon or Intel) is not yet recorded.
 
 ## Changes in 0.4.4
 
