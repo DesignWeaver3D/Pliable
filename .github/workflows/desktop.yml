@@ -1,16 +1,31 @@
 # Desktop shell (Tauri): freeze the core, build the shell, assemble the portable archive and smoke-test it.
-# Runs on pull requests and pushes to main that change anything but documents, and by hand from the Actions tab.
-# The Intel Mac build is left out unless the run was started by hand; release.yml always builds it.
+# Pull requests that change the shell, the build scripts or the dependency lists build Linux and Windows. The
+# macOS arm64 build is added on pushes to main, once a week, by hand from the Actions tab, and on a pull request
+# with the full-ci label (macOS runners are scarce). The Intel Mac build is added only for a run started by hand;
+# release.yml always builds it.
 # Not a required check. Downloaded packages and the compiled shell dependencies are cached between runs; the core
 # is frozen fresh every time.
 name: desktop
 
 on:
   pull_request:
-    paths-ignore: ["**.md", "docs/**"]
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - "desktop/**"
+      - "scripts/build*.py"
+      - "core/scripts/build_app.py"
+      - "core/scripts/smoke.py"
+      - "core/pyproject.toml"
+      - "core/uv.lock"
+      - "app/package-lock.json"
+      - "build.sh"
+      - "build.bat"
+      - ".github/workflows/desktop.yml"
   push:
     branches: [main]
     paths-ignore: ["**.md", "docs/**"]
+  schedule:
+    - cron: "43 6 * * 1"
   workflow_dispatch: {}
 
 permissions:
@@ -26,13 +41,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The Intel Mac build (macos-x64) is in the list only for a run started by hand.
         include: >-
           ${{ fromJSON(format('[
-            {{"os": "windows-latest", "label": "windows-x64"}},
-            {{"os": "macos-latest", "label": "macos-arm64"}},
-            {{"os": "ubuntu-24.04", "label": "linux-x64"}}{0}
-          ]', github.event_name == 'workflow_dispatch' && ', {"os": "macos-15-intel", "label": "macos-x64"}' || '')) }}
+            {{"os": "ubuntu-24.04", "label": "linux-x64"}},
+            {{"os": "windows-latest", "label": "windows-x64"}}{0}{1}
+          ]', (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci'))
+          && ', {"os": "macos-latest", "label": "macos-arm64"}' || '',
+          github.event_name == 'workflow_dispatch' && ', {"os": "macos-15-intel", "label": "macos-x64"}' || '')) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7

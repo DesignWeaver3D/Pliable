@@ -1,9 +1,11 @@
-# Compiles and tests the desktop shell on Linux, macOS and Windows when it changes. Not a required check (it
-# only runs for changes under desktop/). The compiled dependencies are cached between runs.
+# Compiles and tests the desktop shell on Linux and Windows when it changes, and on macOS too when the pull
+# request carries the full-ci label. Not a required check (it only runs for changes under desktop/). The compiled
+# dependencies are cached between runs.
 name: ci-desktop
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths: ["desktop/**", ".github/workflows/ci-desktop.yml"]
 
 concurrency:
@@ -16,7 +18,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-latest, windows-latest]
+        os: >-
+          ${{ fromJSON(contains(github.event.pull_request.labels.*.name, 'full-ci')
+          && '["ubuntu-24.04", "windows-latest", "macos-latest"]' || '["ubuntu-24.04", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
