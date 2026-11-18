@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import * as Dr from "./sketchdraw.ts";
 import * as M from "./sketchmodel.ts";
+import { createModelHook, type ModelHook, type ModelState } from "./testhookmodel.ts";
 import type { SketchMode } from "./sketch.ts";
 import type { Viewport } from "./viewport.ts";
 
@@ -45,7 +46,7 @@ export interface SketchInfo {
   points: { id: number; selected: boolean; at: ScreenPoint }[];
 }
 
-export interface TestHook {
+export interface TestHook extends ModelHook {
   /** The open sketch, or null when none is open. */
   sketch(): SketchInfo | null;
   /** Where a place on the sketch plane is in the page. */
@@ -80,7 +81,7 @@ function middle(outline: [number, number][]): [number, number] {
   return [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
 }
 
-export function createTestHook(viewport: Viewport, mode: SketchMode): TestHook {
+export function createTestHook(viewport: Viewport, mode: SketchMode, state: ModelState): TestHook {
   const toScreen = (world: THREE.Vector3): ScreenPoint => {
     const box = viewport.renderer.domElement.getBoundingClientRect();
     const ndc = world.clone().project(viewport.camera);
@@ -90,6 +91,7 @@ export function createTestHook(viewport: Viewport, mode: SketchMode): TestHook {
     Object.entries(mode).filter((entry): entry is [string, LineSegments2] => entry[1] instanceof LineSegments2);
   const has = (kind: "point" | "entity", id: number) => mode.selection.some((s) => s.kind === kind && s.id === id);
   return {
+    ...createModelHook(viewport, state),
     sketchToScreen: (u, v) => toScreen(Dr.world(mode, u, v)),
     sketch() {
       if (!mode.active) return null;

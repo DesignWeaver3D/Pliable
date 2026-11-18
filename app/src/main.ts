@@ -967,7 +967,7 @@ currentSketchTool = () => sketch.activeTool;
 chooseSketchTool = (tool) => sketch.selectTool(tool);
 sketchConstraints = () => sketch.constraintChoices();
 chooseConstraint = (label) => sketch.chooseConstraint(label);
-if (import.meta.env.DEV) (window as any).__pliableTest = createTestHook(viewport, sketch); // for the browser tests (uitests/); not in a release build
+if (import.meta.env.DEV) (window as any).__pliableTest = createTestHook(viewport, sketch, app); // for the browser tests (uitests/); not in a release build
 sketch.onToolChange = () => {
   if (sketch.active) {
     selected.textContent = sketch.selectionText(); // the readout in the panel header names what is selected

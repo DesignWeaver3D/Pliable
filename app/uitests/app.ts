@@ -56,7 +56,29 @@ export interface SketchView {
   points: { id: number; selected: boolean; at: { x: number; y: number } }[];
 }
 
-type Hooked = { __pliableTest: { sketch(): SketchView | null; sketchToScreen(u: number, v: number): { x: number; y: number } } };
+type Spot = { x: number; y: number };
+type Item = { kind: string; id: number };
+
+/** What the hook reports about the model in the 3D view (app/src/testhookmodel.ts). */
+export interface ModelView {
+  faces: { id: number; body: number | null }[];
+  bounds: number[];
+  selection: Item[];
+  hovered: Item | null;
+  canUndo: boolean;
+  canRedo: boolean;
+}
+
+type Hooked = {
+  __pliableTest: {
+    sketch(): SketchView | null;
+    sketchToScreen(u: number, v: number): Spot;
+    model(): ModelView | null;
+    pickAt(x: number, y: number): Item | null;
+    faceToScreen(id: number): Spot | null;
+    faceNormalOnScreen(id: number, at: Spot): Spot | null;
+  };
+};
 
 /** The open sketch as the canvas hook reports it. */
 export async function sketchView(page: Page): Promise<SketchView> {
@@ -111,4 +133,67 @@ export async function clickCurve(page: Page, id: number): Promise<void> {
   const { at } = await curve(page, id);
   await page.mouse.move(at.x, at.y);
   await page.mouse.click(at.x, at.y);
+}
+
+/** The model in the 3D view as the canvas hook reports it. */
+export async function modelView(page: Page): Promise<ModelView> {
+  const view = await page.evaluate(() => (window as unknown as Hooked).__pliableTest.model());
+  if (!view) throw new Error("No model is loaded");
+  return view;
+}
+
+/** A flat face that can be clicked now, where to click it, and how far one unit along its outward normal moves on screen. */
+export interface FaceSpot {
+  id: number;
+  at: Spot;
+  normal: Spot;
+}
+
+/** Every flat face with a place where a click reaches it (not hidden, not behind another face, not under a panel), widest-moving normal first. */
+export async function clickableFaces(page: Page): Promise<FaceSpot[]> {
+  const found = await page.evaluate(() => {
+    const hook = (window as unknown as Hooked).__pliableTest;
+    const out: FaceSpot[] = [];
+    for (const face of hook.model()?.faces ?? []) {
+      const at = hook.faceToScreen(face.id);
+      const normal = at && hook.faceNormalOnScreen(face.id, at);
+      if (at && normal && document.elementFromPoint(at.x, at.y)?.tagName === "CANVAS") out.push({ id: face.id, at, normal });
+    }
+    return out;
+  });
+  return found.sort((a, b) => Math.hypot(b.normal.x, b.normal.y) - Math.hypot(a.normal.x, a.normal.y));
+}
+
+/** Click a face with the mouse, with the keys in `held` down. */
+export async function clickFace(page: Page, face: FaceSpot, held: string[] = []): Promise<void> {
+  for (const key of held) await page.keyboard.down(key);
+  await page.mouse.move(face.at.x, face.at.y);
+  await page.mouse.click(face.at.x, face.at.y);
+  for (const key of held) await page.keyboard.up(key);
+}
+
+/** A place on the canvas where a click picks nothing. */
+export async function emptySpot(page: Page): Promise<Spot> {
+  const spot = await page.evaluate(() => {
+    const hook = (window as unknown as Hooked).__pliableTest;
+    const box = document.querySelector("#viewport canvas")!.getBoundingClientRect();
+    for (let fy = 0.9; fy > 0.1; fy -= 0.1) {
+      for (let fx = 0.1; fx < 0.9; fx += 0.1) {
+        const at = { x: box.left + box.width * fx, y: box.top + box.height * fy };
+        if (document.elementFromPoint(at.x, at.y)?.tagName === "CANVAS" && hook.pickAt(at.x, at.y) === null) return at;
+      }
+    }
+    return null;
+  });
+  if (!spot) throw new Error("No empty place on the canvas");
+  return spot;
+}
+
+/** Press on a face and drag `pixels` along its outward normal as it appears on screen (a pull), in small steps like a hand. */
+export async function dragFace(page: Page, face: FaceSpot, pixels: number): Promise<void> {
+  const length = Math.hypot(face.normal.x, face.normal.y);
+  await page.mouse.move(face.at.x, face.at.y);
+  await page.mouse.down();
+  await page.mouse.move(face.at.x + (face.normal.x / length) * pixels, face.at.y + (face.normal.y / length) * pixels, { steps: 10 });
+  await page.mouse.up();
 }
