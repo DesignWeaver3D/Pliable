@@ -2,6 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ENGAGE_GRACE_MS, Engagement, KEY_COMMANDS, Keymap, checkKeymap, chordMatches, chordOfEvent, decideKey, formatChord, parseChord, validateBinding } from "../src/keys.ts";
+import { keyNames } from "../src/platform.ts";
 
 const ev = (key, extra = {}) => ({ key, code: extra.code ?? (key.length === 1 && /\d/.test(key) ? `Digit${key}` : `Key${key.toUpperCase()}`), ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...extra });
 const live = { pageFocused: true, inTextField: false, entryActive: false, engaged: true, sketchActive: false };
@@ -186,7 +187,7 @@ test("hints show the first non-numpad chord", () => {
   const km = new Keymap();
   assert.equal(km.hint("view.top"), "2");
   assert.equal(km.hint("display.isolate"), "Shift+H");
-  assert.equal(km.hint("history.undo"), "Ctrl+Z");
+  assert.equal(km.hint("history.undo"), keyNames("Ctrl+Z"));
 });
 
 test("engagement: pointer, grace period, click and blur", () => {
