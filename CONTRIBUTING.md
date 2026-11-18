@@ -64,3 +64,18 @@ The aim is that new work lands in small files without a later clean-up pass.
 - The line count is only a prompt. A long file with one clear job is fine; a short file doing three jobs is not.
 - In `app/src`, write relative imports with the `.ts` extension (`"./name.ts"`). Node loads modules for the tests without a bundler and cannot resolve a bare `"./name"`, so one bare import makes every module that reaches it untestable; `tests/importstyle.test.mjs` checks this.
 - App tests are every `app/tests/*.test.mjs` file; `npm test` finds them by itself, so a new test file needs no entry anywhere.
+
+## Shell tests (macOS)
+
+`desktop/tests/` checks the desktop program's own parts, which no browser test can reach: its window, the menu bar, quitting and closing with unsaved work, and the Save As panel. They drive a built program through the macOS accessibility system.
+
+    uv run --project core pytest desktop/tests --app PATH
+
+`PATH` is the built program: `Pliable.app`, or the folder that holds `Pliable` and `core/`. Build it first; the tests do not.
+
+- **Permission.** The program you run the tests from (your terminal) needs Accessibility access: System Settings > Privacy & Security > Accessibility. Without it every request fails with a message saying so.
+- **Your files are not touched.** Each test starts a copy of the program in a temporary folder. Beside a plain copy the shell keeps its data in that folder, and `PLIABLE_SAVE_DIR` makes the Save As panel start in a temporary folder too. Never make a test type a path into the panel: it does not go where the path says.
+- **They do not take over the keyboard or bring the program to the front.** Buttons, menu entries and sheets are pressed by name. A test should not send keystrokes, which go to whatever program is in front.
+- **Run them before a release and after changing `desktop/`.** They are not in CI: they need a macOS desktop session with that permission.
+- **Adding one:** the steps are in `desktop/tests/macos_ui.py` (`press`, `choose`, `wait_for_sheet`, `press_in_sheet`, `close_window`). Wait for what you expect with `wait_until`; never sleep for a fixed time.
+- Windows and Linux have no shell tests yet.

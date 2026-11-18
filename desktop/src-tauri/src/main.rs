@@ -188,6 +188,10 @@ fn save_download(webview: tauri::Webview, event: DownloadEvent<'_>) -> bool {
             if !name.is_empty() {
                 dialog = dialog.set_file_name(&name);
             }
+            // The shell's own tests start the dialog in a folder of theirs, so they never write among a person's files.
+            if let Some(folder) = std::env::var_os("PLIABLE_SAVE_DIR") {
+                dialog = dialog.set_directory(folder);
+            }
             dialog.save_file(move |chosen| {
                 let mut saved = false;
                 if let Some(target) = chosen.and_then(|p| p.into_path().ok()) {
