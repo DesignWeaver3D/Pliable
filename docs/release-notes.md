@@ -10,7 +10,7 @@ Pliable is a direct-modeling CAD tool: open a STEP file, then push/pull faces, r
 
 The build is **unsigned**:
 - **Windows:** SmartScreen may say "Windows protected your PC". Click *More info*, then *Run anyway*. Windows 10 and 11 include the WebView2 component the window needs.
-- **macOS:** Gatekeeper blocks it the first time. In Terminal run `xattr -dr com.apple.quarantine Pliable.app` in the unzipped folder, then open `Pliable.app`.
+- **macOS:** Gatekeeper blocks it the first time, saying the app is damaged or cannot be opened. In Terminal, in the unzipped folder, run `xattr -cr Pliable.app` (it clears the download flag macOS checks), then open `Pliable.app`. If it is still blocked, open System Settings > Privacy & Security and click *Open Anyway* next to the message about Pliable; the button appears only just after a blocked launch. Both steps switch off a macOS safety check for this app, so only do them for a copy downloaded from the project's own releases page, and if you are not used to Terminal or unsure what the commands do, ask a developer you trust first.
 - **Linux:** needs Ubuntu 24.04, Mint 22 or a similar distribution from 2024 or later, with `libwebkit2gtk-4.1` installed. Make the downloaded file executable with `chmod +x pliable-desktop-linux-x64.AppImage`, then run `./pliable-desktop-linux-x64.AppImage`. If it says FUSE is missing, install `libfuse2` (`libfuse2t64` on Ubuntu 24.04) or run it with `--appimage-extract-and-run`. It keeps its settings and autosaves in `~/.local/share/pliable`, not beside the file.
 
 Windows is the most tested. Linux Mint 22 has been used for real modeling work but not tested in full. The macOS builds passed an automated start-up check only; nobody has run them yet.
