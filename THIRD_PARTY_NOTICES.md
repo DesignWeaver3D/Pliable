@@ -14,10 +14,11 @@ Pliable is licensed under the GNU Affero General Public License v3 or later (see
 | IfcOpenShell's Python dependencies: [shapely](https://github.com/shapely/shapely), [lark](https://github.com/lark-parser/lark), [isodate](https://github.com/gweis/isodate), [python-dateutil](https://github.com/dateutil/dateutil), [six](https://github.com/benjaminp/six), [tzdata](https://github.com/python/tzdata) | Support libraries for the .ifc reader | BSD-3-Clause, MIT, BSD, BSD, MIT, Apache-2.0 |
 | [Three.js](https://threejs.org/) | Viewport | MIT |
 | [Vite](https://vite.dev/) and TypeScript | Frontend build (not shipped in the page) | MIT / Apache-2.0 |
+| [Playwright](https://playwright.dev/) | Browser tests of the page (a test tool, not shipped) | Apache-2.0 |
 | [Tauri](https://tauri.app/) with WRY and TAO | Desktop window around the app | MIT OR Apache-2.0 |
 | [PyInstaller](https://pyinstaller.org/) | Freezes the Python core for the portable build (a build tool; its bootloader is part of the build) | GPL-2.0-or-later with an exception that allows any program to be bundled |
 | About 400 Rust crates used by the desktop shell | Window, webview and system access (the full list is in `desktop/src-tauri/Cargo.lock`) | Mostly MIT or Apache-2.0; also Unicode-3.0, Zlib, ISC, BSD-3-Clause and MPL-2.0 (a few crates) |
 
 The desktop window uses the operating system's webview (Microsoft WebView2 on Windows, WebKit on macOS, WebKitGTK on Linux, which the AppImage expects the system to provide); it is not bundled. Portable builds bundle the other components. OpenCASCADE is LGPL: its libraries ship as separate files in the build so they can be replaced (in the Linux AppImage they are in `usr/bin/core`, which `--appimage-extract` unpacks and any AppImage can be repacked with). The AGPL source for Pliable is at https://github.com/DesignWeaver3D/Pliable.
 
-<!-- lock fingerprints: desktop/src-tauri/Cargo.lock=c2fae6f0fba2 core/uv.lock=d3510d26c44c app/package-lock.json=e7dd29074a56 desktop/package-lock.json=01a653602ff9 -->
+<!-- lock fingerprints: desktop/src-tauri/Cargo.lock=c2fae6f0fba2 core/uv.lock=d3510d26c44c app/package-lock.json=12b00786ec60 desktop/package-lock.json=01a653602ff9 -->

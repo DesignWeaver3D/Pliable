@@ -1,0 +1,51 @@
+# Browser tests of the page (app/uitests): the real page in two browser engines against a real core, on Linux.
+# Runs for pull requests and pushes to main that change the page or the core. Not a required check.
+name: ui-tests
+
+on:
+  pull_request:
+    paths: ["app/**", "core/**", ".github/workflows/ui-tests.yml"]
+  push:
+    branches: [main]
+    paths: ["app/**", "core/**", ".github/workflows/ui-tests.yml"]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ui-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: core/uv.lock
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install the core
+        working-directory: core
+        run: uv sync
+      - name: Install the page's packages
+        working-directory: app
+        run: npm ci
+      - name: Install the browsers
+        working-directory: app
+        run: npx playwright install --with-deps chromium webkit
+      - name: Browser tests
+        working-directory: app
+        run: npm run test:ui
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: ui-test-report
+          path: |
+            app/playwright-report
+            app/test-results
+          retention-days: 7
