@@ -35,15 +35,15 @@ jobs:
           ]', github.event_name == 'workflow_dispatch' && ', {"os": "macos-15-intel", "label": "macos-x64"}' || '')) }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: |
             app/package-lock.json
             desktop/package-lock.json
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: core/uv.lock
@@ -93,7 +93,7 @@ jobs:
           EXE="$(pwd)/pliable-desktop-${{ matrix.label }}/Pliable"; [ -f "$EXE.exe" ] && EXE="$EXE.exe"
           cd ../core
           uv run python scripts/smoke.py desktop "$EXE"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pliable-desktop-${{ matrix.label }}
           path: ${{ steps.asset.outputs.file }}
