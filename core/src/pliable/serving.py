@@ -18,6 +18,7 @@ from . import __version__, diagnostics
 from .autosave import Autosaver
 from .handlers.common import RequestError, _ms, log
 from .handlers.session import _parked
+from .origins import allowed_origins
 from .ops import OperationError
 
 
@@ -113,7 +114,7 @@ async def run(host: str, port: int, autosaver: Autosaver | None = None, static_d
     process_request = _static_handler(static_dir) if static_dir else None
     try:
         async with serve(handler, host, port, max_size=256 * 1024 * 1024, ping_interval=None,
-                         process_request=process_request) as server:
+                         process_request=process_request, origins=allowed_origins(host)) as server:
             bound = server.sockets[0].getsockname()[1]
             log.info("Pliable core %s listening on ws://%s:%d (autosave in %s)", __version__, host, bound, autosaver.folder)
             if ready is not None and not ready.done():
