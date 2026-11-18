@@ -7,12 +7,13 @@ use std::fs::{self, File};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use tauri::webview::DownloadEvent;
-use tauri::{Manager, RunEvent, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
-use tauri_plugin_dialog::DialogExt;
+use tauri::{Manager, RunEvent, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
 const HOST: &str = "127.0.0.1";
 const PREFERRED_PORT: u16 = 8765; // a stable port keeps the page's saved settings (browser storage is per port)
@@ -142,6 +143,17 @@ fn open_when_ready(app: tauri::AppHandle, window: WebviewWindow, port: u16) {
     });
 }
 
+/// Set in the page before it loads, where the shell saves the page's downloads: the page then waits for `report_download`
+/// before it takes a file as saved (shellsave.ts).
+#[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
+const SHELL_SAVES_SCRIPT: &str = "window.__pliableShellSaves = true;";
+
+/// Tell the page whether the download it started under `name` was written to the place the person chose.
+#[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
+fn report_download(webview: &tauri::Webview, name: &str, saved: bool) {
+    let _ = webview.eval(&format!("window.__pliableDownloadSaved&&window.__pliableDownloadSaved({},{saved})", js_string(name)));
+}
+
 /// Temporary files of downloads in progress, by download address (macOS does not say where a finished download went).
 fn pending_downloads() -> &'static Mutex<HashMap<String, PathBuf>> {
     static PENDING: OnceLock<Mutex<HashMap<String, PathBuf>>> = OnceLock::new();
@@ -165,22 +177,27 @@ fn save_download(webview: tauri::Webview, event: DownloadEvent<'_>) -> bool {
         DownloadEvent::Finished { url, path, success } => {
             let remembered = pending_downloads().lock().unwrap().remove(url.as_str());
             let Some(temp) = path.or(remembered) else { return true };
+            let name = temp.file_name().and_then(|n| n.to_str()).unwrap_or_default().to_string();
             if !success {
                 let _ = fs::remove_file(&temp);
+                report_download(&webview, &name, false);
                 return true;
             }
             let app = webview.app_handle().clone();
             let mut dialog = app.dialog().file();
-            if let Some(name) = temp.file_name().and_then(|n| n.to_str()) {
-                dialog = dialog.set_file_name(name);
+            if !name.is_empty() {
+                dialog = dialog.set_file_name(&name);
             }
             dialog.save_file(move |chosen| {
+                let mut saved = false;
                 if let Some(target) = chosen.and_then(|p| p.into_path().ok()) {
-                    if let Err(e) = fs::copy(&temp, &target) {
-                        eprintln!("Cannot save {}: {e}", target.display());
+                    match fs::copy(&temp, &target) {
+                        Ok(_) => saved = true,
+                        Err(e) => eprintln!("Cannot save {}: {e}", target.display()),
                     }
                 }
                 let _ = fs::remove_file(&temp);
+                report_download(&webview, &name, saved);
             });
             true
         }
@@ -188,24 +205,97 @@ fn save_download(webview: tauri::Webview, event: DownloadEvent<'_>) -> bool {
     }
 }
 
+/// The page puts this before its title while the model has unsaved work (`UNSAVED_MARK` in the page's unsaved.ts).
+const UNSAVED_MARK: &str = "\u{2022} ";
+
+/// What the shell knows about leaving: whether the page reports unsaved work, whether the question is on screen,
+/// and whether the person has already agreed to quit.
+#[derive(Default)]
+struct Leaving {
+    unsaved: AtomicBool,
+    asking: AtomicBool,
+    agreed: AtomicBool,
+}
+
+/// Whether a page title says the model has unsaved work.
+fn title_says_unsaved(title: &str) -> bool {
+    title.starts_with(UNSAVED_MARK)
+}
+
+/// Whether closing or quitting must wait for the person's answer. When it must, the question is shown (once); agreeing quits.
+fn must_ask_before_leaving(app: &tauri::AppHandle) -> bool {
+    let leaving = app.state::<Leaving>();
+    if leaving.agreed.load(Ordering::SeqCst) || !leaving.unsaved.load(Ordering::SeqCst) {
+        return false;
+    }
+    if !leaving.asking.swap(true, Ordering::SeqCst) {
+        let handle = app.clone();
+        app.dialog()
+            .message("The model has changes that are not saved. Quit without saving?")
+            .title("Pliable")
+            .buttons(MessageDialogButtons::OkCancelCustom("Quit".into(), "Cancel".into()))
+            .show(move |quit| {
+                let leaving = handle.state::<Leaving>();
+                leaving.asking.store(false, Ordering::SeqCst);
+                if quit {
+                    leaving.agreed.store(true, Ordering::SeqCst);
+                    handle.exit(0);
+                }
+            });
+    }
+    true
+}
+
+/// On macOS the Quit menu item (and its shortcut) ends the program at once, with no event the shell could answer. It is
+/// replaced by an item of the shell's own that asks the same question as closing the window.
+#[cfg(target_os = "macos")]
+fn ask_on_menu_quit(app: &tauri::AppHandle) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem, MenuItemKind};
+    const QUIT_ITEM: &str = "quit";
+    let menu = Menu::default(app)?;
+    if let Some(MenuItemKind::Submenu(first)) = menu.items()?.into_iter().next() {
+        for item in first.items()? {
+            if let MenuItemKind::Predefined(predefined) = &item {
+                if predefined.text()?.starts_with("Quit") {
+                    first.remove(predefined)?;
+                }
+            }
+        }
+        first.append(&MenuItem::with_id(app, QUIT_ITEM, "Quit Pliable", true, Some("CmdOrCtrl+Q"))?)?;
+    }
+    app.set_menu(menu)?;
+    app.on_menu_event(|app, event| {
+        if event.id() == QUIT_ITEM && !must_ask_before_leaving(app) {
+            app.exit(0);
+        }
+    });
+    Ok(())
+}
+
 fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Core(Mutex::new(None)))
+        .manage(Leaving::default())
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            ask_on_menu_quit(app.handle())?;
             let dir = program_dir();
             let port = pick_port();
             let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title(concat!("Pliable ", env!("CARGO_PKG_VERSION"), " (alpha)"))
                 .inner_size(1440.0, 900.0)
-                .min_inner_size(900.0, 600.0);
+                .min_inner_size(900.0, 600.0)
+                .on_document_title_changed(|window, title| {
+                    window.state::<Leaving>().unsaved.store(title_says_unsaved(&title), Ordering::SeqCst);
+                });
             #[cfg(not(target_os = "macos"))]
             {
                 builder = builder.data_directory(data_root(&dir).join("webview"));
             }
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             {
-                builder = builder.on_download(save_download);
+                builder = builder.on_download(save_download).initialization_script(SHELL_SAVES_SCRIPT);
             }
             let window = builder.build()?;
             match start_core(&dir, port) {
@@ -220,12 +310,37 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building the Pliable shell");
 
-    app.run(|handle, event| {
-        if let RunEvent::Exit = event {
+    app.run(|handle, event| match event {
+        // Closing the window or quitting with unsaved work asks first.
+        RunEvent::WindowEvent { event: WindowEvent::CloseRequested { api, .. }, .. } => {
+            if must_ask_before_leaving(handle) {
+                api.prevent_close();
+            }
+        }
+        RunEvent::ExitRequested { api, .. } => {
+            if must_ask_before_leaving(handle) {
+                api.prevent_exit();
+            }
+        }
+        RunEvent::Exit => {
             if let Some(mut child) = handle.state::<Core>().0.lock().unwrap().take() {
                 let _ = child.kill();
                 let _ = child.wait();
             }
         }
+        _ => {}
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_title_mark_means_unsaved_work() {
+        assert!(title_says_unsaved("\u{2022} Pliable"));
+        assert!(!title_says_unsaved("Pliable"));
+        assert!(!title_says_unsaved("Pliable \u{2022} "));
+        assert!(!title_says_unsaved(""));
+    }
 }
