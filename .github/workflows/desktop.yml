@@ -1,5 +1,6 @@
 # Desktop shell (Tauri): freeze the core, build the shell, assemble the portable archive and smoke-test it.
 # Runs on pull requests and pushes to main that change anything but documents, and by hand from the Actions tab.
+# The Intel Mac build is left out unless the run was started by hand; release.yml always builds it.
 # Not a required check. Downloaded packages and the compiled shell dependencies are cached between runs; the core
 # is frozen fresh every time.
 name: desktop
@@ -21,14 +22,20 @@ concurrency:
 
 jobs:
   build:
+    name: build (${{ matrix.label }})
     strategy:
       fail-fast: false
       matrix:
+        os: [windows-latest, macos-latest, macos-15-intel, ubuntu-24.04]
+        manual:
+          - ${{ github.event_name == 'workflow_dispatch' }}
         include:
           - { os: windows-latest, label: windows-x64 }
           - { os: macos-latest, label: macos-arm64 }
           - { os: macos-15-intel, label: macos-x64 }
           - { os: ubuntu-24.04, label: linux-x64 }
+        exclude:
+          - { os: macos-15-intel, manual: false }   # the Intel Mac build runs by hand and for releases only
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
