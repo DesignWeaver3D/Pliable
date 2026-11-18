@@ -188,11 +188,36 @@ fn save_download(webview: tauri::Webview, event: DownloadEvent<'_>) -> bool {
     }
 }
 
+/// Stop the core the shell started, if it is still running.
+fn stop_core(handle: &tauri::AppHandle) {
+    if let Some(mut child) = handle.state::<Core>().0.lock().unwrap().take() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+}
+
+/// On a termination signal (SIGTERM, SIGINT, SIGHUP) stop the core and exit, since the process would otherwise end
+/// without reaching the exit handling in `main`.
+#[cfg(unix)]
+fn stop_core_on_signal(handle: tauri::AppHandle) -> std::io::Result<()> {
+    use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
+    let mut signals = signal_hook::iterator::Signals::new([SIGTERM, SIGINT, SIGHUP])?;
+    std::thread::spawn(move || {
+        if let Some(signal) = signals.forever().next() {
+            stop_core(&handle);
+            std::process::exit(128 + signal);
+        }
+    });
+    Ok(())
+}
+
 fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Core(Mutex::new(None)))
         .setup(|app| {
+            #[cfg(unix)]
+            stop_core_on_signal(app.handle().clone())?;
             let dir = program_dir();
             let port = pick_port();
             let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
@@ -222,10 +247,7 @@ fn main() {
 
     app.run(|handle, event| {
         if let RunEvent::Exit = event {
-            if let Some(mut child) = handle.state::<Core>().0.lock().unwrap().take() {
-                let _ = child.kill();
-                let _ = child.wait();
-            }
+            stop_core(handle);
         }
     });
 }
