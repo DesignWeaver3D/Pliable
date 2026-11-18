@@ -1,5 +1,7 @@
 # Checks every pull request and every push to main: core tests, app tests, type check, app build, and the
-# release-document check. Make these checks required in the branch protection rules for main.
+# release-document check, with the tests on Linux, macOS and Windows. Make the checks named core, app and docs
+# (the Linux runs) required in the branch protection rules for main; the macOS and Windows runs have their
+# system in the name.
 name: ci
 
 on:
@@ -13,22 +15,45 @@ concurrency:
 
 jobs:
   core:
-    runs-on: ubuntu-latest
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, name: core }
+          - { os: macos-latest, name: core (macOS) }
+          - { os: windows-latest, name: core (Windows) }
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: core/uv.lock
       - name: Core tests
         working-directory: core
+        shell: bash
         run: |
           uv sync
           uv run pytest -q
 
   app:
-    runs-on: ubuntu-latest
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, name: app }
+          - { os: macos-latest, name: app (macOS) }
+          - { os: windows-latest, name: app (Windows) }
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 24 }
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
       - name: Install
         working-directory: app
         run: npm ci
