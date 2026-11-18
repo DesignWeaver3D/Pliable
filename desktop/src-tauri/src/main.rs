@@ -230,18 +230,24 @@ fn must_ask_before_leaving(app: &tauri::AppHandle) -> bool {
     }
     if !leaving.asking.swap(true, Ordering::SeqCst) {
         let handle = app.clone();
-        app.dialog()
+        let mut question = app
+            .dialog()
             .message("The model has changes that are not saved. Quit without saving?")
             .title("Pliable")
-            .buttons(MessageDialogButtons::OkCancelCustom("Quit".into(), "Cancel".into()))
-            .show(move |quit| {
-                let leaving = handle.state::<Leaving>();
-                leaving.asking.store(false, Ordering::SeqCst);
-                if quit {
-                    leaving.agreed.store(true, Ordering::SeqCst);
-                    handle.exit(0);
-                }
-            });
+            .buttons(MessageDialogButtons::OkCancelCustom("Quit".into(), "Cancel".into()));
+        // On the window itself: a question with no window was never shown when the program was not in front,
+        // and then could not be asked again.
+        if let Some(window) = app.get_webview_window("main") {
+            question = question.parent(&window);
+        }
+        question.show(move |quit| {
+            let leaving = handle.state::<Leaving>();
+            leaving.asking.store(false, Ordering::SeqCst);
+            if quit {
+                leaving.agreed.store(true, Ordering::SeqCst);
+                handle.exit(0);
+            }
+        });
     }
     true
 }
