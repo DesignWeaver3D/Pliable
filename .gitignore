@@ -215,6 +215,8 @@ docs/research/
 
 # Tauri shell
 desktop/node_modules/
+app/test-results/
+app/playwright-report/
 desktop/dist/
 desktop/src-tauri/gen/
 desktop/smoke/

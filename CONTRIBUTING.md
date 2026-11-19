@@ -70,3 +70,13 @@ The aim is that new work lands in small files without a later clean-up pass.
 - The line count is only a prompt. A long file with one clear job is fine; a short file doing three jobs is not.
 - In `app/src`, write relative imports with the `.ts` extension (`"./name.ts"`). Node loads modules for the tests without a bundler and cannot resolve a bare `"./name"`, so one bare import makes every module that reaches it untestable; `tests/importstyle.test.mjs` checks this.
 - App tests are every `app/tests/*.test.mjs` file; `npm test` finds them by itself, so a new test file needs no entry anywhere.
+
+## Browser tests
+
+`npm run test:ui` in `app/` drives the real page in a browser against a real core. It starts its own core and frontend on ports 8791 and 5291 with an empty, temporary data folder, so it never touches your models or a core you have running. Install the browsers once with `npx playwright install chromium webkit`. The tests are every `app/uitests/*.spec.ts` file; the steps they share (open the page on a fresh sample, add a box, start a sketch) are in `app/uitests/app.ts`.
+
+- **What belongs here:** behavior that only shows in the running page and can be reached through its controls: buttons, forms, the status line, the page title. A decision that can be a plain function still gets a unit test in `app/tests/`, which is faster and exact.
+- **A fix for a UI bug gets a browser test when it can be reached this way.** Write it first and see it fail.
+- **Every test starts from a fresh sample.** The core hands a reloaded page its previous session, so `openApp` opens the sample again; a test must not depend on what another one did.
+- **Find controls by their id or their visible name**, never by position on screen. If a control has neither, give it one in the same change.
+- **Not covered yet:** anything drawn on the canvas (the 3D view and the sketch geometry), and the desktop shell's own parts (menus, quitting, the Save As dialog). Those still need a hand check; say so in the pull request.
