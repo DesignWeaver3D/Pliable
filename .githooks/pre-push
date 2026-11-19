@@ -1,0 +1,5 @@
+#!/bin/sh
+# Before a push, runs the checks for what changed (scripts/check.py): the rule checks always, and the core,
+# app and shell tests when their files changed.
+. "$(dirname "$0")/find-python.sh"
+exec "$PY" "$top/scripts/check.py" </dev/null

@@ -21,7 +21,7 @@ jobs:
     # The archives ship the README, license and notices, so they must be right before anything is built.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check the release documents (and that the tag matches the version)
         run: python scripts/check_release_docs.py "${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}"
 
@@ -30,7 +30,7 @@ jobs:
     needs: [docs-check]
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -50,10 +50,10 @@ jobs:
     needs: [docs-check, create-draft]
     if: always() && needs.docs-check.result == 'success' && (needs.create-draft.result == 'success' || needs.create-draft.result == 'skipped')
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: 24 }
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v10.3.3
       - uses: dtolnay/rust-toolchain@stable
       - name: Install the Linux webview libraries
         if: runner.os == 'Linux'
@@ -101,7 +101,7 @@ jobs:
           EXE="$(pwd)/pliable-desktop-${{ matrix.label }}/Pliable"; [ -f "$EXE.exe" ] && EXE="$EXE.exe"; [ -d "$EXE.app" ] && EXE="$EXE.app/Contents/MacOS/Pliable"
           cd ../core
           uv run python scripts/smoke.py desktop "$EXE"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pliable-desktop-${{ matrix.label }}
           path: ${{ steps.asset.outputs.file }}
