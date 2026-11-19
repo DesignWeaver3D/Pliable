@@ -10,9 +10,10 @@ QUESTION = "Quit without saving?"
 
 
 def make_ready(app: DesktopApp) -> None:
-    """Close the two first-run cards."""
+    """Close the first-run notice. The Getting started card is left alone: closing it is remembered in the window's own
+    storage, which on macOS every copy of the program shares, so a test that closed it would close it for the person too.
+    Buttons are pressed by name, so the card does not get in the way."""
     app.press("I understand")
-    app.press("Got it")
 
 
 def add_a_box(app: DesktopApp) -> None:
