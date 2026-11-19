@@ -1,11 +1,18 @@
-# Checks every pull request and every push to main: core tests, app tests, type check, app build, and the
-# release-document check. Make these checks required in the branch protection rules for main.
+# Core tests, app tests, type check, app build and the release-document check.
+# Every pull request runs them on Linux; make the checks named core, app and docs required in the branch protection
+# rules for main. macOS and Windows runners are scarce, so those runs (named with their system) happen on pushes to
+# main, once a week, when started by hand, and on a pull request that carries the full-ci label.
+# Run `python scripts/check.py` before pushing to get the same suites on your own computer.
 name: ci
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch: {}
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -13,22 +20,47 @@ concurrency:
 
 jobs:
   core:
-    runs-on: ubuntu-latest
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: >-
+          ${{ fromJSON(format('[
+            {{"os": "ubuntu-latest", "name": "core"}}{0}
+          ]', (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci'))
+          && ', {"os": "macos-latest", "name": "core (macOS)"}, {"os": "windows-latest", "name": "core (Windows)"}' || '')) }}
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: core/uv.lock
       - name: Core tests
         working-directory: core
+        shell: bash
         run: |
           uv sync
           uv run pytest -q
 
   app:
-    runs-on: ubuntu-latest
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: >-
+          ${{ fromJSON(format('[
+            {{"os": "ubuntu-latest", "name": "app"}}{0}
+          ]', (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci'))
+          && ', {"os": "macos-latest", "name": "app (macOS)"}, {"os": "windows-latest", "name": "app (Windows)"}' || '')) }}
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 24 }
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
       - name: Install
         working-directory: app
         run: npm ci
@@ -45,6 +77,6 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Release documents match the version and the dependency lock files
         run: python scripts/check_release_docs.py

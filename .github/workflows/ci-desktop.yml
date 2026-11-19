@@ -1,20 +1,41 @@
-# Compiles the desktop shell when it changes. Not a required check (it only runs for changes under desktop/).
+# Compiles and tests the desktop shell on Linux and Windows when it changes, and on macOS too when the pull
+# request carries the full-ci label. Not a required check (it only runs for changes under desktop/). The compiled
+# dependencies are cached between runs.
 name: ci-desktop
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths: ["desktop/**", ".github/workflows/ci-desktop.yml"]
+
+concurrency:
+  group: ci-desktop-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   shell:
-    runs-on: ubuntu-24.04
+    name: shell (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: >-
+          ${{ fromJSON(contains(github.event.pull_request.labels.*.name, 'full-ci')
+          && '["ubuntu-24.04", "windows-latest", "macos-latest"]' || '["ubuntu-24.04", "windows-latest"]') }}
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
       - name: Install the Linux webview libraries
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev desktop-file-utils
       - name: Compile the shell
         working-directory: desktop/src-tauri
         run: cargo check --locked
+      - name: Test the shell
+        working-directory: desktop/src-tauri
+        run: cargo test --locked

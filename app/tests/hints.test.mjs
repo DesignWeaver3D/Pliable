@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { hintItems, loadPrefs, nextTip, savePrefs, stickyTip } from "../src/hints.ts";
+import { keyNames } from "../src/platform.ts";
 
 const none = { ctrl: false, alt: false, shift: false };
 const key = (id) => ({ "display.seeThrough": "X", "display.hide": "H", "view.lookAtFace": "V" })[id] ?? "";
@@ -13,7 +14,7 @@ test("idle shows no static legend", () => {
 });
 
 test("held modifiers change the line", () => {
-  assert.ok(hintItems(idle, { ...none, ctrl: true }, key).some((i) => /Ctrl\+click/.test(i.keys)));
+  assert.ok(hintItems(idle, { ...none, ctrl: true }, key).some((i) => i.keys.includes(keyNames("Ctrl+click"))));
   assert.ok(hintItems({ ...idle, hasSelection: true }, { ...none, shift: true }, key).some((i) => /isolate/.test(i.text)));
   assert.ok(hintItems({ ...idle, hasSelection: true }, { ...none, shift: true }, key).some((i) => /add it to the selection/.test(i.text)));
 });
