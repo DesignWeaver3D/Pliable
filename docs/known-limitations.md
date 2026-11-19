@@ -4,7 +4,7 @@
 
 ## What the alpha promises
 
-- Runs as a portable desktop app (a native window; no browser needed). Windows is the most tested. Linux Mint 22 has been used for real modeling work but not tested in full. The macOS builds are built and start-up checked automatically as a convenience, but nobody has run them yet; Mac testers are welcome.
+- Runs as a portable desktop app (a native window; no browser needed). Windows is the most tested. Linux Mint 22 has been used for real modeling work but not tested in full. The macOS builds are built and start-up checked automatically. One contributor has run them and reports that they work; some bugs they found are being fixed, and the architecture (Apple Silicon or Intel) is not yet recorded. Mac testers are welcome.
 - Opens and exports STEP.
 - Applies the direct-editing tools to single parts of modest size.
 - Autosaves your work and offers to restore it after a crash.
