@@ -17,6 +17,8 @@ Seeded on 2026-10-20 from the owner's statements in the decisions log. The owner
 - The README warning reads Alpha until the beta milestone, then Beta, and is deleted at v1.0. (owner, 2026-10-31)
 - The crash backup is written shortly after the last change (1.5 s without another change, and at most 5 s after the first change that is not written yet while changes keep arriving), and always when the tab disconnects or the core shuts down, so a normal close loses no change. (owner, 2026-11-14)
 - After an import the core merges the whole model in the background; a drag or other change asked for before it is done waits for it and then gets the same result, and undo history is the same as without it. Queries (selection, measuring, tool handles) do not wait. (owner, 2026-11-14)
+- Closing the desktop app's window or quitting it with unsaved work asks first (Quit or Cancel); with nothing unsaved it quits at once. (owner, 2026-11-18)
+- Work is unsaved while a sketch is open, or when the model has changed since it was last saved with Save project; exporting is not saving. The browser's leave prompt follows the same rule, and the page title carries a "• " mark while work is unsaved. (owner, 2026-11-18)
 
 ## Selection and picking
 
