@@ -174,6 +174,42 @@ fn pending_downloads() -> &'static Mutex<HashMap<String, PathBuf>> {
     PENDING.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Where downloads wait for their Save As dialog: one folder in the system's temporary folder, holding a folder per download.
+#[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
+fn downloads_root() -> PathBuf {
+    std::env::temp_dir().join("pliable-downloads")
+}
+
+/// How long a download's temporary folder may stay before a later run clears it away.
+const OLD_DOWNLOAD: Duration = Duration::from_secs(24 * 60 * 60);
+
+/// A folder of its own for one download, under `root`. The window will not write a download over an existing file, so a
+/// file left by a run that ended mid-save must never be in the way, nor another download of the same name. The first
+/// call of a run also clears away what earlier runs left behind.
+#[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
+fn new_download_folder(root: &Path) -> PathBuf {
+    static CLEARED: std::sync::Once = std::sync::Once::new();
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    CLEARED.call_once(|| remove_old_downloads(root, std::time::SystemTime::now(), OLD_DOWNLOAD));
+    let started = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+    let number = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    root.join(format!("{}-{started}-{number}", std::process::id()))
+}
+
+/// Remove everything in `root` last changed more than `age` before `now`. Newer entries stay: another copy of the
+/// program may be in the middle of a save.
+#[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
+fn remove_old_downloads(root: &Path, now: std::time::SystemTime, age: Duration) {
+    let Ok(entries) = fs::read_dir(root) else { return };
+    for entry in entries.flatten() {
+        let changed = entry.metadata().and_then(|m| m.modified()).ok();
+        if changed.is_some_and(|at| now.duration_since(at).is_ok_and(|since| since > age)) {
+            let path = entry.path();
+            let _ = if path.is_dir() { fs::remove_dir_all(&path) } else { fs::remove_file(&path) };
+        }
+    }
+}
+
 /// Saving a file from the page is a download. The Linux and macOS windows drop downloads that have no handler, so each
 /// one goes to a temporary file first and, when it has arrived, a Save As dialog asks where to keep it (cancelling discards it).
 #[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
@@ -181,7 +217,7 @@ fn save_download(webview: tauri::Webview, event: DownloadEvent<'_>) -> bool {
     match event {
         DownloadEvent::Requested { url, destination } => {
             let name = destination.file_name().map(|n| n.to_os_string()).unwrap_or_else(|| "pliable-file".into());
-            *destination = std::env::temp_dir().join("pliable-downloads").join(name);
+            *destination = new_download_folder(&downloads_root()).join(name);
             if let Some(folder) = destination.parent() {
                 let _ = fs::create_dir_all(folder);
             }
@@ -281,6 +317,51 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// An empty folder for one test, in the system's temporary folder.
+    fn scratch(name: &str) -> PathBuf {
+        let folder = std::env::temp_dir().join(format!("pliable-shell-test-{}-{name}", std::process::id()));
+        let _ = fs::remove_dir_all(&folder);
+        fs::create_dir_all(&folder).unwrap();
+        folder
+    }
+
+    #[test]
+    fn each_download_gets_a_folder_of_its_own() {
+        let root = scratch("own-folder");
+        let (first, second) = (new_download_folder(&root), new_download_folder(&root));
+        assert_ne!(first, second);
+        assert_eq!(first.parent(), Some(root.as_path()));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_file_left_by_an_earlier_run_is_not_in_the_way() {
+        let root = scratch("left-behind");
+        fs::write(root.join("bracket.plbl"), b"left behind").unwrap(); // where every download of that name used to go
+        let target = new_download_folder(&root).join("bracket.plbl");
+        assert!(!target.exists());
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn only_old_leftovers_are_removed() {
+        let root = scratch("old-leftovers");
+        fs::create_dir_all(root.join("123-1-0")).unwrap();
+        fs::write(root.join("123-1-0").join("part.plbl"), b"x").unwrap();
+        fs::write(root.join("bracket.plbl"), b"x").unwrap();
+        let now = std::time::SystemTime::now();
+        remove_old_downloads(&root, now, OLD_DOWNLOAD);
+        assert!(root.join("123-1-0").join("part.plbl").exists() && root.join("bracket.plbl").exists());
+        remove_old_downloads(&root, now + OLD_DOWNLOAD * 2, OLD_DOWNLOAD);
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_missing_downloads_folder_is_no_error() {
+        remove_old_downloads(&std::env::temp_dir().join("pliable-shell-test-not-there"), std::time::SystemTime::now(), OLD_DOWNLOAD);
+    }
 
     #[test]
     fn app_bundle_is_recognized_only_on_macos() {
