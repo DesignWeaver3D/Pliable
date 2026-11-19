@@ -64,6 +64,7 @@ import { HOLE_EDITOR_ID, holeEditorTool } from "./holeeditortool.ts";
 import { HOLE_EDITOR_HELPERS } from "./layout.ts";
 import { modeGroupOf, modeGroupTools, modeHeader, MODE_MEMBERS } from "./modetools.ts";
 import { keyNames } from "./platform.ts";
+import { hasUnsavedWork, pageTitle } from "./unsaved.ts";
 
 const $ = (id: string) => document.getElementById(id)!;
 const status = $("status");
@@ -590,6 +591,7 @@ const { show, syncHistoryButtons, setCommitted } = createModelView({
   onSketches: (list) => onSketches(list),
   onDatums: (list, mirror) => onDatums(list, mirror),
   setChosenSketch, setSelection,
+  onHistoryChange: () => syncTitle(),
 });
 
 async function load(name: string) {
@@ -810,10 +812,17 @@ const keys = new KeyRouter({
 syncSeeThrough();
 setKeysOpener(() => keys.openSettings());
 setHintsBinding({ get: () => hintLine.prefs.on, set: (on) => hintLine.setOn(on) });
-// Leaving with edits (undo steps) or an open sketch asks first; autosave still protects against crashes.
+// Leaving with an open sketch, or with edits since the project was last saved, asks first; autosave still protects against crashes.
+const PAGE_TITLE = document.title;
+const unsavedWork = () => hasUnsavedWork({ canUndo: app.modelHistory.undo, sketchOpen: sketch.active, state: app.modelState, saved: app.savedState });
+/** The title carries a mark while there is unsaved work; the desktop shell reads it to ask before it quits. */
+function syncTitle() {
+  const title = pageTitle(PAGE_TITLE, unsavedWork());
+  if (document.title !== title) document.title = title;
+}
 window.addEventListener("beforeunload", (e) => {
   if (leavePromptDisabled(import.meta.env.DEV, location.search)) return;
-  if (app.modelHistory.undo || sketch.active) e.preventDefault();
+  if (unsavedWork()) e.preventDefault();
 });
 
 installFileOpening(
@@ -834,7 +843,14 @@ installFileOpening(
 const exportAs = (request: string, extension: string, params: Record<string, unknown> = {}) => saveModel(core, status, loadedSample || "model", request, extension, params);
 
 $("export").addEventListener("click", () => exportAs("export_step", "step"));
-$("saveproject").addEventListener("click", () => exportAs("save_project", "plbl"));
+/** Save the project, and remember the state that was saved so leaving does not ask about it again. */
+async function saveProject() {
+  const state = app.modelState;
+  if (!(await exportAs("save_project", "plbl"))) return;
+  app.savedState = state;
+  syncTitle();
+}
+$("saveproject").addEventListener("click", () => saveProject());
 const exportCad = $("exportcad") as HTMLSelectElement;
 exportCad.addEventListener("change", () => {
   const format = exportCad.value;
@@ -927,7 +943,7 @@ function commands(): Command[] {
     { label: "Add datum plane on the selected face", scope: "file", keywords: ["helper plane", "construction", "mirror"], enabled: app.currentSels.length === 1 && app.currentSels[0].kind === "face", run: () => addDatum({ face: app.currentSels[0].id }) },
     { label: "Add datum plane midway between two selected faces", scope: "file", keywords: ["helper plane", "construction", "mirror", "middle"], enabled: app.currentSels.length === 2 && app.currentSels.every((s) => s.kind === "face"), run: () => addDatum({ midplane: app.currentSels.map((s) => s.id) }) },
     { label: "Export STEP file", scope: "file", enabled: true, run: () => exportAs("export_step", "step") },
-    { label: "Save project (.plbl file with bodies, names and sketches)", scope: "file", keywords: ["save", "pliable file"], enabled: true, run: () => exportAs("save_project", "plbl") },
+    { label: "Save project (.plbl file with bodies, names and sketches)", scope: "file", keywords: ["save", "pliable file"], enabled: true, run: () => saveProject() },
     { label: "Open project (.plbl file)", scope: "file", keywords: ["load", "pliable file"], enabled: true, run: () => $("openproject").click() },
     ...["stl", "obj", "3mf"].map((format) => ({
       label: `Export ${format.toUpperCase()} mesh (lossy)`,

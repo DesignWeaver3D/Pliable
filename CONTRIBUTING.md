@@ -80,3 +80,21 @@ The aim is that new work lands in small files without a later clean-up pass.
 - **Every test starts from a fresh sample.** The core hands a reloaded page its previous session, so `openApp` opens the sample again; a test must not depend on what another one did.
 - **Find controls by their id or their visible name**, never by position on screen. If a control has neither, give it one in the same change.
 - **Not covered yet:** anything drawn on the canvas (the 3D view and the sketch geometry), and the desktop shell's own parts (menus, quitting, the Save As dialog). Those still need a hand check; say so in the pull request.
+
+## Shell tests (macOS)
+
+`desktop/tests/` checks the desktop program's own parts, which no browser test can reach: its window, the menu bar, quitting and closing with unsaved work, and the Save As panel. They drive a built program through the macOS accessibility system.
+
+    uv run --project core pytest desktop/tests --app PATH [--allow-focus]
+
+`PATH` is the built program: `Pliable.app`, or the folder that holds `Pliable` and `core/`. Build it first; the tests do not.
+
+- **Permission.** The program you run the tests from (your terminal) needs Accessibility access: System Settings > Privacy & Security > Accessibility. Without it every request fails with a message saying so.
+- **Your files are not touched.** Each test starts a copy of the program in a temporary folder. Beside a plain copy the shell keeps its data in that folder, and `PLIABLE_SAVE_DIR` makes the Save As panel start in a temporary folder too. Never make a test type a path into the panel: it does not go where the path says.
+- **They do not take over the keyboard.** Buttons, menu entries and sheets are pressed by name, with the program left behind your other windows. A test should not send keystrokes, which go to whatever program is in front. So they can run while you work.
+- **One test is off unless you pass `--allow-focus`:** saving a project for real. macOS disables the Save As panel's Save button while another program is in front, so that test brings the program forward, and anything typed in that moment goes into its panel. Run it only when nobody is using the keyboard.
+- **One thing is shared:** what the page keeps in the window's own storage (the hint and shortcut settings). On macOS that storage belongs to the program, not to a folder, so the test copy and an installed copy see the same settings, and a test that changed one would change it for both. The tests change none.
+- **Its temporary files are its own too.** `TMPDIR` is set to a folder of the test, so a download left behind by one run cannot get in the way of the next.
+- **Run them before a release and after changing `desktop/`.** They are not in CI: they need a macOS desktop session with that permission.
+- **Adding one:** the steps are in `desktop/tests/macos_ui.py` (`press`, `choose`, `wait_for_sheet`, `press_in_sheet`, `close_window`). Wait for what you expect with `wait_until`; never sleep for a fixed time.
+- Windows and Linux have no shell tests yet.

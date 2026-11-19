@@ -91,6 +91,7 @@ class Session(SketchHandlers, DatumHandlers, ToolHandlers, SessionHandlers, Quer
         if self.document is not None:
             header["canUndo"] = self.document.can_undo
             header["canRedo"] = self.document.can_redo
+            header["state"] = self.document.state_key
             header["sketches"] = self.document.sketch_list()
             header["datums"] = self.document.datum_list()
             header["mirror"] = self.document.mirror
