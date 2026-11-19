@@ -15,6 +15,15 @@ from macos_ui import DesktopApp, wait_until
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--app", help="the built program: Pliable.app, or the folder that holds Pliable and core/")
+    parser.addoption("--allow-focus", action="store_true",
+                     help="also run the tests that bring the program to the front (keys typed meanwhile go to it: leave the keyboard alone)")
+
+
+@pytest.fixture
+def may_take_focus(request: pytest.FixtureRequest) -> None:
+    """For a test that must bring the program to the front: skipped unless --allow-focus was passed."""
+    if not request.config.getoption("--allow-focus"):
+        pytest.skip("Brings the program to the front, where it receives whatever is typed; pass --allow-focus and leave the keyboard alone")
 
 
 def program_parts(app: Path) -> tuple[Path, Path]:
@@ -61,8 +70,11 @@ def app(request: pytest.FixtureRequest, tmp_path: Path, save_folder: Path) -> It
     home.mkdir()
     shutil.copy2(shell, home / "Pliable")
     (home / "core").symlink_to(core, target_is_directory=True)
-    process = subprocess.Popen([str(home / "Pliable")], env={**os.environ, "PLIABLE_SAVE_DIR": str(save_folder)},
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    scratch = tmp_path / "temporary"  # the shell's own temporary files (a download waits here for its Save As panel)
+    scratch.mkdir()
+    environment = {**os.environ, "PLIABLE_SAVE_DIR": str(save_folder), "TMPDIR": str(scratch)}
+    with (home / "shell.log").open("w") as output:  # what the shell itself printed, for reading after a failure
+        process = subprocess.Popen([str(home / "Pliable")], env=environment, stdout=output, stderr=subprocess.STDOUT)
     log = home / "data" / "core.log"
     started: list[int] = []
     try:

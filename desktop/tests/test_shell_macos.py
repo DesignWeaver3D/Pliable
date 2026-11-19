@@ -62,8 +62,7 @@ def test_quit_with_an_edit_asks_and_cancel_keeps_the_program_open(app: DesktopAp
     add_a_box(app)
     ask_to_quit(app)
     assert_asks(app)
-    app.press_in_sheet("Cancel")
-    wait_until(lambda: app.sheet() is None, "the question to close")
+    app.answer_sheet("Cancel")
     assert app.running()
     ask_to_quit(app)  # it can be asked again
     assert_asks(app)
@@ -94,22 +93,21 @@ def test_a_cancelled_save_leaves_the_work_unsaved(app: DesktopApp, save_folder: 
     app.press("PLIABLE")
     app.press("Save Project")
     app.wait_for_sheet("Save")
-    app.press_in_sheet("Cancel")
-    wait_until(lambda: app.sheet() is None, "the Save As panel to close")
+    app.answer_sheet("Cancel")
     assert not list(save_folder.iterdir())
     ask_to_quit(app)
     assert_asks(app)
 
 
-def test_a_saved_project_is_written_and_quitting_then_does_not_ask(app: DesktopApp, save_folder: Path) -> None:
+def test_a_saved_project_is_written_and_quitting_then_does_not_ask(may_take_focus: None, app: DesktopApp, save_folder: Path) -> None:
     make_ready(app)
     add_a_box(app)
     app.press("PLIABLE")
     app.press("Save Project")
     app.wait_for_sheet("Save")
-    app.press_in_sheet("Save")
+    app.bring_forward()  # the panel's Save button is disabled while another program is in front
+    app.answer_sheet("Save")
     wait_until(lambda: any(path.suffix == ".plbl" and path.stat().st_size > 0 for path in save_folder.iterdir()), "the project file")
-    wait_until(lambda: app.sheet() is None, "the Save As panel to close")
     ask_to_quit(app)
     app.wait_for_exit()
 

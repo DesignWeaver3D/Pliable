@@ -42,6 +42,9 @@ on run argv
       if (count of sheets of window 1 of p) is 0 then return "none"
       set s to sheet 1 of window 1 of p
       return "buttons" & tab & my joined(name of every button of s) & linefeed & "texts" & tab & my joined(value of every static text of s)
+    else if verb is "front" then
+      set frontmost of p to true
+      return "front"
     else if verb is "sheetpress" then
       click button (item 3 of argv) of sheet 1 of window 1 of p
       return "pressed"

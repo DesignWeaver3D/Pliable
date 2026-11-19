@@ -73,6 +73,10 @@ class DesktopApp:
         """Press the main window's close button."""
         self._ui("close")
 
+    def bring_forward(self) -> None:
+        """Make the program the one in front. Needed only for the Save As panel: macOS disables its Save button otherwise."""
+        self._ui("front")
+
     def sheet(self) -> Sheet | None:
         return parse_sheet(self._ui("sheet"))
 
@@ -85,6 +89,15 @@ class DesktopApp:
 
     def press_in_sheet(self, button: str) -> None:
         self._ui("sheetpress", button)
+
+    def answer_sheet(self, button: str) -> None:
+        """Press a button of the sheet and wait for the sheet to close, pressing again if it was not ready the first time."""
+        def closed() -> bool:
+            if self.sheet() is None:
+                return True
+            self.press_in_sheet(button)
+            return False
+        wait_until(closed, f"the sheet to close after {button!r}")
 
     def wait_for_exit(self, seconds: float = 15.0) -> None:
         wait_until(lambda: not self.running(), "the program to quit", seconds)
