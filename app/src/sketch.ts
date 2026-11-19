@@ -81,6 +81,8 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
   placed = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.placed, linewidth: 2, depthTest: false, transparent: true }));
   free = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: FREE_COLOR, linewidth: 3, depthTest: false, transparent: true }));
   marked = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.selected, linewidth: 3, depthTest: false, transparent: true }));
+  /** Selected, highlighted or hovered construction curves: the marked color, dashed like the construction curves. */
+  markedConstruction = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.selected, linewidth: 3, depthTest: false, transparent: true, dashed: true, dashSize: 1, gapSize: 1 })); // dash lengths are set per frame, in screen pixels
   /** The model's principal axes as they project onto the sketch plane (red x, green y, blue z). */
   axes = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ linewidth: 1, vertexColors: true, depthTest: false, transparent: true, opacity: 0.7 }));
   pending = new LineSegments2(new LineSegmentsGeometry(), new LineMaterial({ color: COLORS.pending, linewidth: 2, depthTest: false, transparent: true }));
@@ -142,7 +144,7 @@ export class SketchMode implements Dr.DrawContext, B.BuilderContext, Sn.SnapCont
     }, true);
     window.addEventListener("pointermove", (e) => (this.lastPointer = { x: e.clientX, y: e.clientY }), true);
     for (const o of [this.normal, this.placed, this.construction, this.points]) o.userData.extent = true; // counted by the origin axes' length
-    for (const o of [this.axes, this.normal, this.placed, this.construction, this.free, this.marked, this.pending, this.centres, this.points]) {
+    for (const o of [this.axes, this.normal, this.placed, this.construction, this.free, this.marked, this.markedConstruction, this.pending, this.centres, this.points]) {
       o.renderOrder = 5;
       o.frustumCulled = false;
       this.group.add(o);

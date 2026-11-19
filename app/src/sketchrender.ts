@@ -1,5 +1,5 @@
 /** Drawing the open sketch each time it changes: curves, points, the grid, pending shapes and the dimensions. */
-import { unstacked } from "./sketchstack.ts";
+import { unstackedByLine } from "./sketchstack.ts";
 import * as THREE from "three";
 import type { Dimension } from "./dimensions.ts";
 import * as M from "./sketchmodel.ts";
@@ -31,11 +31,13 @@ export function buildGrid(mode: SketchMode, f: ReturnType<typeof M.frame> = M.fr
 
 export function onFrame(mode: SketchMode) {
   const size = mode.viewport.renderer.getSize(new THREE.Vector2());
-  for (const l of [mode.axes, mode.normal, mode.placed, mode.construction, mode.free, mode.marked, mode.pending, mode.centres]) l.material.resolution.set(size.x, size.y);
+  for (const l of [mode.axes, mode.normal, mode.placed, mode.construction, mode.free, mode.marked, mode.markedConstruction, mode.pending, mode.centres]) l.material.resolution.set(size.x, size.y);
   const pixel = mode.pixelAt(0, 0); // dashes keep their screen size as the view zooms
   if (mode.active && Math.abs(pixel - mode.centresAt) > mode.centresAt * 0.01) Dr.drawCentres(mode); // so do the center crosses
-  mode.construction.material.dashSize = CONSTRUCTION_DASH_PX * pixel;
-  mode.construction.material.gapSize = CONSTRUCTION_GAP_PX * pixel;
+  for (const l of [mode.construction, mode.markedConstruction]) {
+    l.material.dashSize = CONSTRUCTION_DASH_PX * pixel;
+    l.material.gapSize = CONSTRUCTION_GAP_PX * pixel;
+  }
 }
 
 export function lightUp(mode: SketchMode, c: M.SketchConstraint | null) {
@@ -49,24 +51,27 @@ export function renderSketch(mode: SketchMode, panel = true) {
   if (!mode.active) return;
   const normal: [number, number][][] = [];
   const marked: [number, number][][] = [];
+  const markedGuides: [number, number][][] = []; // marked construction curves stay dashed
   const guides: [number, number][][] = [];
   const placed: [number, number][][] = [];
   const lit: [number, number][][] = [];
   const open = mode.showFree ? freeParts(mode.s, mode.freedom, mode.freeSizes) : null;
-  const stacked: { a: [number, number]; b: [number, number] }[] = []; // construction lines, cut so stacked ones are dashed once
+  const stacked: { a: [number, number]; b: [number, number]; marked: boolean }[] = []; // construction lines, cut so stacked ones are dashed once
   const pointUV = (id: number): [number, number] => [M.pointOf(mode.s, id).u, M.pointOf(mode.s, id).v];
   for (const e of [...mode.s.entities].sort((p, q) => M.entityLength(mode.s, q) - M.entityLength(mode.s, p))) { // longer first, so a shorter curve stacked on a longer one is drawn on top
-    const bucket = Dr.isMarked(mode, { kind: "entity", id: e.id }) ? marked : open?.entities.has(e.id) ? lit : e.construction ? guides : Dr.isPlaced(mode, e) ? placed : normal;
-    if (bucket === guides && e.type === "line") stacked.push({ a: pointUV(e.a), b: pointUV(e.b) });
+    const isMarked = Dr.isMarked(mode, { kind: "entity", id: e.id });
+    const bucket = isMarked ? (e.construction ? markedGuides : marked) : open?.entities.has(e.id) ? lit : e.construction ? guides : Dr.isPlaced(mode, e) ? placed : normal;
+    if ((bucket === guides || bucket === markedGuides) && e.type === "line") stacked.push({ a: pointUV(e.a), b: pointUV(e.b), marked: isMarked });
     else bucket.push(M.polyline(mode.s, e));
-    mode.centreColours.set(e.id, bucket === marked ? COLORS.selected : bucket === lit ? FREE_COLOR : bucket === guides ? COLORS.construction : bucket === placed ? COLORS.placed : COLORS.line);
+    mode.centreColours.set(e.id, isMarked ? COLORS.selected : bucket === lit ? FREE_COLOR : bucket === guides ? COLORS.construction : bucket === placed ? COLORS.placed : COLORS.line);
   }
   Dr.drawCentres(mode);
   Dr.drawAxes(mode);
   Dr.setLine(mode.normal, Dr.segments(mode, normal));
-  guides.push(...unstacked(stacked));
+  for (const { piece, line } of unstackedByLine(stacked)) (stacked[line].marked ? markedGuides : guides).push(piece);
   Dr.setLine(mode.construction, Dr.segments(mode, guides));
   Dr.setLine(mode.marked, Dr.segments(mode, marked));
+  Dr.setLine(mode.markedConstruction, Dr.segments(mode, markedGuides));
   Dr.setLine(mode.placed, Dr.segments(mode, placed));
   Dr.setLine(mode.free, Dr.segments(mode, lit));
   Dr.setLine(mode.pending, Dr.segments(mode, pendingShapes(mode)));

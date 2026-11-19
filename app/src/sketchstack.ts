@@ -11,10 +11,15 @@ const EPS = 1e-6;
 
 /** The pieces of each line that remain once the collinear shorter lines are taken out, as segments in the same order of preference (shortest line first). */
 export function unstacked(lines: StackedLine[]): [UV, UV][] {
+  return unstackedByLine(lines).map((p) => p.piece);
+}
+
+/** The same pieces, each with the index (in `lines`) of the line it is part of, so the pieces of some lines can be drawn differently. */
+export function unstackedByLine(lines: StackedLine[]): { piece: [UV, UV]; line: number }[] {
   const length = (l: StackedLine) => Math.hypot(l.b[0] - l.a[0], l.b[1] - l.a[1]);
   const byLength = lines.map((line, i) => ({ line, i, len: length(line) })).sort((p, q) => p.len - q.len || p.i - q.i);
-  const out: [UV, UV][] = [];
-  byLength.forEach(({ line, len }, k) => {
+  const out: { piece: [UV, UV]; line: number }[] = [];
+  byLength.forEach(({ line, i, len }, k) => {
     if (len < EPS) return;
     const d: UV = [(line.b[0] - line.a[0]) / len, (line.b[1] - line.a[1]) / len];
     const along = (p: UV) => ((p[0] - line.a[0]) * d[0] + (p[1] - line.a[1]) * d[1]) / len; // 0 at a, 1 at b
@@ -27,7 +32,7 @@ export function unstacked(lines: StackedLine[]): [UV, UV][] {
     }
     covered.sort((p, q) => p[0] - q[0]);
     let from = 0;
-    const piece = (t0: number, t1: number) => t1 - t0 > EPS && out.push([[line.a[0] + (line.b[0] - line.a[0]) * t0, line.a[1] + (line.b[1] - line.a[1]) * t0], [line.a[0] + (line.b[0] - line.a[0]) * t1, line.a[1] + (line.b[1] - line.a[1]) * t1]]);
+    const piece = (t0: number, t1: number) => t1 - t0 > EPS && out.push({ piece: [[line.a[0] + (line.b[0] - line.a[0]) * t0, line.a[1] + (line.b[1] - line.a[1]) * t0], [line.a[0] + (line.b[0] - line.a[0]) * t1, line.a[1] + (line.b[1] - line.a[1]) * t1]], line: i });
     for (const [t0, t1] of covered) {
       piece(from, t0);
       from = Math.max(from, t1);
