@@ -98,7 +98,7 @@ jobs:
         run: |
           mkdir smoke && cd smoke
           unzip -q ../${{ steps.asset.outputs.file }}
-          EXE="$(pwd)/pliable-desktop-${{ matrix.label }}/Pliable"; [ -f "$EXE.exe" ] && EXE="$EXE.exe"
+          EXE="$(pwd)/pliable-desktop-${{ matrix.label }}/Pliable"; [ -f "$EXE.exe" ] && EXE="$EXE.exe"; [ -d "$EXE.app" ] && EXE="$EXE.app/Contents/MacOS/Pliable"
           cd ../core
           uv run python scripts/smoke.py desktop "$EXE"
       - uses: actions/upload-artifact@v4

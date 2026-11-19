@@ -19,7 +19,6 @@ test("choosing Dimension with nothing selected shows an orange warning", async (
 
 // The page froze here: an unread sketch warning followed by a plain sketch message (issue 5).
 test("finishing a sketch while a warning is unread leaves the page responsive", async ({ page }) => {
-  test.fixme(true, "Freezes until the status guard fix is merged (pull request 13); remove this line with it.");
   await openApp(page);
   await startSketch(page);
   await page.locator("#tools button", { hasText: /^Dimension$/ }).click();

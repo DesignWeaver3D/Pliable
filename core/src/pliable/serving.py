@@ -19,6 +19,7 @@ from .autosave import Autosaver
 from .handlers.common import RequestError, _ms, log
 from .handlers.session import _parked
 from .ops import OperationError
+from .watchdog import watching
 
 
 async def _handle_connection(connection: ServerConnection, autosaver: Autosaver | None = None):
@@ -34,7 +35,8 @@ async def _handle_connection(connection: ServerConnection, autosaver: Autosaver 
             start = time.perf_counter()
             try:
                 # Geometry work runs off the event loop so the connection stays responsive.
-                reply = await asyncio.to_thread(session.handle, request)
+                with watching():
+                    reply = await asyncio.to_thread(session.handle, request)
             except (RequestError, OperationError) as e:
                 reply = {"ok": False, "error": str(e)}
             except Exception as e:

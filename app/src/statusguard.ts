@@ -49,7 +49,10 @@ export function installStatusGuard(el: HTMLElement, opts: GuardOptions): void {
     held = result.held;
     if (result.restore && held) {
       el.className = held.className;
-      el.textContent = held.text; // sets off this observer again; the held message is then simply the current one
+      // Writing the text sets off every observer of the line again, so write it only when it differs: when only the
+      // class was taken off the held message, putting the text back too would let that observer and this one undo
+      // each other without end.
+      if (text !== held.text) el.textContent = held.text;
       return;
     }
     if (kind === "info" && text && !opts.keepInfo(text)) {
