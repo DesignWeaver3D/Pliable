@@ -1,30 +1,72 @@
 # Desktop shell (Tauri): freeze the core, build the shell, assemble the portable archive and smoke-test it.
-# Manual only: start it from the Actions tab to build and smoke-test the portable desktop archives on a branch.
+# Pull requests that change the shell, the build scripts or the dependency lists build Linux and Windows. The
+# macOS arm64 build is added on pushes to main, once a week, by hand from the Actions tab, and on a pull request
+# with the full-ci label (macOS runners are scarce). The Intel Mac build is added only for a run started by hand;
+# release.yml always builds it.
+# Not a required check. Downloaded packages and the compiled shell dependencies are cached between runs; the core
+# is frozen fresh every time.
 name: desktop
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - "desktop/**"
+      - "scripts/build*.py"
+      - "core/scripts/build_app.py"
+      - "core/scripts/smoke.py"
+      - "core/pyproject.toml"
+      - "core/uv.lock"
+      - "app/package-lock.json"
+      - "build.sh"
+      - "build.bat"
+      - ".github/workflows/desktop.yml"
+  push:
+    branches: [main]
+    paths-ignore: ["**.md", "docs/**"]
+  schedule:
+    - cron: "43 6 * * 1"
   workflow_dispatch: {}
 
 permissions:
   contents: read
 
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
+    name: build (${{ matrix.label }})
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { os: windows-latest, label: windows-x64 }
-          - { os: macos-latest, label: macos-arm64 }
-          - { os: macos-15-intel, label: macos-x64 }
-          - { os: ubuntu-24.04, label: linux-x64 }
+        include: >-
+          ${{ fromJSON(format('[
+            {{"os": "ubuntu-24.04", "label": "linux-x64"}},
+            {{"os": "windows-latest", "label": "windows-x64"}}{0}{1}
+          ]', (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci'))
+          && ', {"os": "macos-latest", "label": "macos-arm64"}' || '',
+          github.event_name == 'workflow_dispatch' && ', {"os": "macos-15-intel", "label": "macos-x64"}' || '')) }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 24 }
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            app/package-lock.json
+            desktop/package-lock.json
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: core/uv.lock
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+          key: ${{ matrix.label }}
       - name: Install the Linux webview libraries
         if: runner.os == 'Linux'
         run: |
@@ -66,7 +108,7 @@ jobs:
           EXE="$(pwd)/pliable-desktop-${{ matrix.label }}/Pliable"; [ -f "$EXE.exe" ] && EXE="$EXE.exe"; [ -d "$EXE.app" ] && EXE="$EXE.app/Contents/MacOS/Pliable"
           cd ../core
           uv run python scripts/smoke.py desktop "$EXE"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pliable-desktop-${{ matrix.label }}
           path: ${{ steps.asset.outputs.file }}

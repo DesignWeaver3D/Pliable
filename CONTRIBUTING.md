@@ -16,6 +16,12 @@ Write commits for someone reading the log later.
 
 The `commit-lint` workflow runs the same check on pushes and pull requests.
 
+## Checks before pushing
+
+`python scripts/check.py` runs the checks a change needs on your own computer: the rule checks always, and the core, app and shell tests when files under `core/` or `scripts/`, `app/` or `desktop/` changed since `main`. `--all` runs every suite and `--list` only names them. With the hooks enabled, `git push` runs it first and stops the push if a check fails.
+
+Run it rather than waiting for CI. A pull request is tested on Linux only, because macOS and Windows runners are scarce; the tests on all three systems and the desktop builds run on pushes to `main`, once a week, and on a pull request that a maintainer gives the `full-ci` label. So your own run is the test on your system: say in the pull request which system that was.
+
 ## Branches and pull requests
 
 - **`main` is the development branch** and the default. It is protected for everyone but the owner: changes arrive as pull requests, and the `ci` checks (core tests, app tests and build, release documents) and the commit-message check must pass.
@@ -34,7 +40,7 @@ Documentation is finished before the tag. `PREV` is the last release tag (`git d
 4. **Third-party notices:** if `git diff --stat PREV..HEAD` shows a change to a dependency lock file, review `THIRD_PARTY_NOTICES.md` for the added or changed packages, then run `python scripts/check_release_docs.py --update-fingerprints`.
 5. **Checks:** `python scripts/check_release_docs.py vX.Y.Z` passes; core tests, `npm test`, `npx tsc --noEmit` and `npm run build` pass locally. (When a running core server holds the virtual environment, `uv run` cannot reinstall the package under the new version; run `.venv/Scripts/python -m pytest` instead.)
 6. **Commit** "Set the version to X.Y.Z", with a body naming the files and what the release notes describe.
-7. **Push `main` and wait for its `ci` run to pass on that exact commit.** CI runs on Linux; a pass on Windows alone is not enough. If it fails, fix on `main` and push again; the version commit does not need redoing. To investigate a failure that only happens on Linux, push a temporary branch that carries its own workflow (CI does not run on other branches), and delete the branch afterwards.
+7. **Push `main` and wait for its `ci` run to pass on that exact commit.** A push to `main` runs the tests on Linux, macOS and Windows; a pass on your own computer alone is not enough. If it fails, fix on `main` and push again; the version commit does not need redoing. To investigate a failure that only happens on another system, push a temporary branch that carries its own workflow (CI does not run on other branches), and delete the branch afterwards.
 8. **Tag** the green commit and push only the tag: `git tag vX.Y.Z <commit>`, then `git push origin vX.Y.Z`.
 9. **Watch the `release` run:** docs-check, create-draft, the four builds and ready must all pass, and the draft release must hold the Linux AppImage and the macOS arm64, macOS x64 and Windows zips.
 10. **The owner publishes** the draft release by hand.
