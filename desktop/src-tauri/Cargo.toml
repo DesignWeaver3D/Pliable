@@ -12,6 +12,9 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 
+[target.'cfg(unix)'.dependencies]
+signal-hook = "0.3"
+
 [features]
 # Set by the Tauri command line tool for builds; plain `cargo build` needs it to embed the loading page.
 custom-protocol = ["tauri/custom-protocol"]
