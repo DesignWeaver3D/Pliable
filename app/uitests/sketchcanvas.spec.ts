@@ -42,7 +42,6 @@ test("a line made construction is drawn dashed once it is no longer selected", a
 
 // A selected construction line was drawn solid, like a normal one (issue 6).
 test("a selected construction line stays dashed, in the selection color", async ({ page }) => {
-  test.fixme(true, "Drawn solid until the dashed selection layer is merged (pull request 15); remove this line with it.");
   const id = await drawLine(page, [-40, -30], [-10, -45]);
   await clickCurve(page, id);
   await toggleConstruction(page);
