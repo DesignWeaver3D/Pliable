@@ -1,5 +1,5 @@
 ﻿// Pliable desktop shell: starts the packaged geometry core, waits until it answers, then shows the app it
-// serves in a native window. Portable: everything it writes goes in a `data` folder next to the program (in the user's data folder inside a Linux AppImage).
+// serves in a native window. Portable: everything it writes goes in a `data` folder next to the program (in the user's data folder inside a Linux AppImage or a macOS app bundle).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::collections::HashMap;
@@ -22,21 +22,47 @@ const START_TIMEOUT: Duration = Duration::from_secs(180); // a frozen core can b
 struct Core(Mutex<Option<Child>>);
 
 fn program_dir() -> PathBuf {
-    let exe = std::env::current_exe().expect("cannot locate the program");
+    let mut exe = std::env::current_exe().expect("cannot locate the program");
+    if cfg!(target_os = "macos") {
+        // a symlink to the program (say in /usr/local/bin) must still find the app bundle it points into
+        exe = fs::canonicalize(&exe).unwrap_or(exe);
+    }
     exe.parent().map(Path::to_path_buf).unwrap_or_default()
 }
 
-/// The frozen core: `core/pliable` next to the program, or the path in PLIABLE_CORE (for development).
+/// Whether the program runs from `Name.app/Contents/MacOS` (a macOS app bundle).
+fn in_app_bundle(dir: &Path) -> bool {
+    if !cfg!(target_os = "macos") {
+        return false;
+    }
+    let contents = dir.parent();
+    dir.file_name().is_some_and(|name| name == "MacOS")
+        && contents.and_then(Path::file_name).is_some_and(|name| name == "Contents")
+        && contents.and_then(Path::parent).and_then(Path::extension).is_some_and(|ext| ext == "app")
+}
+
+/// The frozen core: `core/pliable` next to the program (in `Contents/Resources` inside a macOS app bundle, where only
+/// signed code may sit beside the program), or the path in PLIABLE_CORE (for development).
 fn core_program(dir: &Path) -> PathBuf {
     if let Some(path) = std::env::var_os("PLIABLE_CORE") {
         return PathBuf::from(path);
     }
-    dir.join("core").join(if cfg!(windows) { "pliable.exe" } else { "pliable" })
+    let base = match dir.parent() {
+        Some(contents) if in_app_bundle(dir) => contents.join("Resources"),
+        _ => dir.to_path_buf(),
+    };
+    base.join("core").join(if cfg!(windows) { "pliable.exe" } else { "pliable" })
 }
 
 /// Where the program writes: a `data` folder next to it, except inside a Linux AppImage (its own folder is read-only
-/// and goes away when the program ends), where it is `pliable` in the user's data folder.
+/// and goes away when the program ends), where it is `pliable` in the user's data folder, and inside a macOS app bundle
+/// (which may run from a read-only copy), where it is `Pliable` in the user's Application Support folder.
 fn data_root(dir: &Path) -> PathBuf {
+    if in_app_bundle(dir) {
+        if let Some(home) = std::env::var_os("HOME") {
+            return PathBuf::from(home).join("Library").join("Application Support").join("Pliable");
+        }
+    }
     if std::env::var_os("APPIMAGE").is_some() {
         let base = std::env::var_os("XDG_DATA_HOME")
             .map(PathBuf::from)
@@ -278,6 +304,29 @@ fn ask_on_menu_quit(app: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Stop the core the shell started, if it is still running.
+fn stop_core(handle: &tauri::AppHandle) {
+    if let Some(mut child) = handle.state::<Core>().0.lock().unwrap().take() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+}
+
+/// On a termination signal (SIGTERM, SIGINT, SIGHUP) stop the core and exit, since the process would otherwise end
+/// without reaching the exit handling in `main`.
+#[cfg(unix)]
+fn stop_core_on_signal(handle: tauri::AppHandle) -> std::io::Result<()> {
+    use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
+    let mut signals = signal_hook::iterator::Signals::new([SIGTERM, SIGINT, SIGHUP])?;
+    std::thread::spawn(move || {
+        if let Some(signal) = signals.forever().next() {
+            stop_core(&handle);
+            std::process::exit(128 + signal);
+        }
+    });
+    Ok(())
+}
+
 fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -286,6 +335,8 @@ fn main() {
         .setup(|app| {
             #[cfg(target_os = "macos")]
             ask_on_menu_quit(app.handle())?;
+            #[cfg(unix)]
+            stop_core_on_signal(app.handle().clone())?;
             let dir = program_dir();
             let port = pick_port();
             let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
@@ -329,10 +380,7 @@ fn main() {
             }
         }
         RunEvent::Exit => {
-            if let Some(mut child) = handle.state::<Core>().0.lock().unwrap().take() {
-                let _ = child.kill();
-                let _ = child.wait();
-            }
+            stop_core(handle);
         }
         _ => {}
     });
@@ -341,6 +389,21 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn app_bundle_is_recognized_only_on_macos() {
+        let dir = Path::new("/Applications/Pliable.app/Contents/MacOS");
+        assert_eq!(in_app_bundle(dir), cfg!(target_os = "macos"));
+        let core = if cfg!(target_os = "macos") { "/Applications/Pliable.app/Contents/Resources/core" } else { "/Applications/Pliable.app/Contents/MacOS/core" };
+        assert_eq!(core_program(dir).parent(), Some(Path::new(core)));
+    }
+
+    #[test]
+    fn other_folders_are_not_app_bundles() {
+        for dir in ["/opt/pliable", "/Applications/Pliable/Contents/MacOS", "/x/Pliable.app/Contents/Resources", "/x/Pliable.app/MacOS"] {
+            assert!(!in_app_bundle(Path::new(dir)), "{dir}");
+        }
+    }
 
     #[test]
     fn the_title_mark_means_unsaved_work() {

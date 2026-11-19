@@ -3,3 +3,4 @@
 
 # Append-only log: keep lines from both sides when merging agent branches, no conflict markers.
 docs/watchlist.md merge=union
+*.bat text eol=crlf
