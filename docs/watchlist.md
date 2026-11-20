@@ -1,6 +1,6 @@
 # Watch list
 
-Known approximations, shortcuts and untested corners. If something behaves strangely, check here first. Each entry says what was assumed, what shows up if it is wrong, and where the code is. Add an entry whenever a shortcut or guess goes in; delete an entry when it is fixed (the git log keeps it). Design questions for the owner live in [questions.md](questions.md).
+Known approximations, shortcuts and untested corners. If something behaves strangely, check here first. Each entry says what was assumed, what shows up if it is wrong, and where the code is. This file is a frozen archive: no new entries are added (a new shortcut or limitation goes in its commit message and pull request, and an issue if it should be fixed). Delete an entry when it is fixed (the git log keeps it). Design questions for the owner live in [questions.md](questions.md).
 
 ## View and picking
 
