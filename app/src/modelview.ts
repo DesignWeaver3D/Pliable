@@ -26,6 +26,8 @@ export interface ModelViewDeps {
   onDatums(list: DatumPlane[], mirror: MirrorMode | null): void;
   setChosenSketch(id: number | null): void;
   setSelection(sels: Sel[]): void;
+  /** Called whenever the undo state or the open sketch may have changed. */
+  onHistoryChange(): void;
 }
 
 export function createModelView(d: ModelViewDeps) {
@@ -59,6 +61,7 @@ export function createModelView(d: ModelViewDeps) {
       d.onDatums(mesh.header.datums ?? [], mesh.header.mirror ?? null);
     }
     app.modelHistory = { undo: !!mesh.header.canUndo, redo: !!mesh.header.canRedo };
+    app.modelState = typeof mesh.header.state === "string" ? mesh.header.state : null;
     syncHistoryButtons();
     perf.shown(showStart, setMeshStart, setMeshEnd, !!mesh.header.preview, mesh.indices.length / 3);
   }
@@ -67,6 +70,7 @@ export function createModelView(d: ModelViewDeps) {
   function syncHistoryButtons() {
     undoButton.disabled = d.sketch.active ? !d.sketch.canUndo : !app.modelHistory.undo;
     redoButton.disabled = d.sketch.active ? !d.sketch.canRedo : !app.modelHistory.redo;
+    d.onHistoryChange();
   }
 
   function setCommitted(mesh: MeshData, frame = false, sels: Sel[] = []) {

@@ -34,6 +34,9 @@ export const app: {
   previewDimsShown: boolean;
   /** What the model itself can undo and redo, kept while a sketch is edited. */
   modelHistory: { undo: boolean; redo: boolean };
+  /** The core's name for the model state on screen, and for the one last saved as a project (unsaved.ts). */
+  modelState: string | null;
+  savedState: string | null;
   pickedRow: RowRef | null;
 } = {
   currentSels: [],
@@ -47,5 +50,7 @@ export const app: {
   measuredDims: [],
   previewDimsShown: false,
   modelHistory: { undo: false, redo: false },
+  modelState: null,
+  savedState: null,
   pickedRow: null,
 };
