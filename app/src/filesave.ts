@@ -1,4 +1,5 @@
 /** Saving a model from the core as a file through the browser, and reading a picked file for the core. Moved out of main.ts. */
+import { shellReportsSaves, shellSaveOutcome, type ShellWindow } from "./shellsave.ts";
 
 export interface FileCore {
   request<T>(type: string, params?: Record<string, unknown>): Promise<T>;
@@ -10,8 +11,10 @@ export function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-/** Ask the core for the model in a file format and save it through the browser. `baseName` suggests the file name. */
-export async function exportAs(core: FileCore, status: HTMLElement, baseName: string, request: string, extension: string, params: Record<string, unknown> = {}) {
+/** Ask the core for the model in a file format and save it through the browser. `baseName` suggests the file name.
+ *  True when the file was written (or, in a browser with no save dialog of its own, handed over as a download);
+ *  false when it was cancelled or failed. In the desktop shell the answer waits for the shell's Save As dialog. */
+export async function exportAs(core: FileCore, status: HTMLElement, baseName: string, request: string, extension: string, params: Record<string, unknown> = {}): Promise<boolean> {
   type Picker = (o: { suggestedName: string; types: { description: string; accept: Record<string, string[]> }[] }) => Promise<{ createWritable(): Promise<{ write(b: Blob): Promise<void>; close(): Promise<void> }> }>;
   try {
     // Where the browser has a save dialog, ask for the name and place before building the file; otherwise download.
@@ -21,7 +24,7 @@ export async function exportAs(core: FileCore, status: HTMLElement, baseName: st
       try {
         handle = await pick({ suggestedName: `${baseName}.${extension}`, types: [{ description: extension.toUpperCase() + " file", accept: { "application/octet-stream": ["." + extension] } }] });
       } catch (e) {
-        if ((e as Error).name === "AbortError") return; // cancelled in the dialog
+        if ((e as Error).name === "AbortError") return false; // cancelled in the dialog
       }
     }
     const reply = await core.request<{ name: string; data: string }>(request, params);
@@ -33,16 +36,19 @@ export async function exportAs(core: FileCore, status: HTMLElement, baseName: st
       const out = await handle.createWritable();
       await out.write(blob);
       await out.close();
-      return;
+      return true;
     }
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = name.replace(/\.(step|stp|stpz|iges|igs|brep|brp|3dm|ifc|stl|obj|3mf|plbl)$/i, "") + "." + extension;
+    const outcome = shellReportsSaves(window as ShellWindow) ? shellSaveOutcome(window as ShellWindow, link.download) : null;
     link.click();
     URL.revokeObjectURL(link.href);
+    return outcome ? await outcome : true;
   } catch (e) {
     status.textContent = (e as Error).message;
     status.classList.add("error");
+    return false;
   }
 }
 
