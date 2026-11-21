@@ -20,7 +20,7 @@ Rules for keeping it:
 ### Desktop app on Mac and Linux (cannot be run here)
 
 - [ ] On a Mac or Linux desktop build: "Open bug report page" and the shortcut sheet's Print open a new window (no handler in `desktop/src-tauri/src/main.rs`); the "Continue?" questions (`window.confirm`) appear; Backspace deletes a selected body on a Mac; key names read Cmd and Option, Option+H shows all bodies.
-- [ ] Linux AppImage: run the `desktop` workflow once from the Actions tab and check the Linux job (AppImage built, smoke test passes), then double-click the AppImage on a Linux machine to check it launches, and on one without `libwebkit2gtk-4.1` installed (a fresh minimal install or a live USB) to check it starts on its bundled copy.
+- [ ] Linux AppImage: after the next release is tagged (v0.4.5), comment `/retest` on the catalog pull request (AppImage/appimage.github.io#12244); if its test passes, close issue 30. That test runs on a system without WebKitGTK, which is the only check of the bundled fallback. Optionally double-click the new AppImage on Linux Mint 22 to check the system WebKitGTK path still launches.
 
 ## Normal priority
 
