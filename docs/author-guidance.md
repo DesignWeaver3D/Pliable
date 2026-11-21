@@ -20,7 +20,6 @@ Rules for keeping it:
 ### Desktop app on Mac and Linux (cannot be run here)
 
 - [ ] On a Mac or Linux desktop build: "Open bug report page" and the shortcut sheet's Print open a new window (no handler in `desktop/src-tauri/src/main.rs`); the "Continue?" questions (`window.confirm`) appear; Backspace deletes a selected body on a Mac; key names read Cmd and Option, Option+H shows all bodies.
-- [ ] Linux AppImage: after the next release is tagged (v0.4.6), comment `/retest` on the catalog pull request (AppImage/appimage.github.io#12244); if its test passes, close issue 30. That test runs on a system without WebKitGTK, which is the only check of the bundled fallback. Optionally double-click the new AppImage on Linux Mint 22 to check the system WebKitGTK path still launches.
 
 ## Normal priority
 
