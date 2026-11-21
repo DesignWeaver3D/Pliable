@@ -59,11 +59,13 @@ Requires [uv](https://docs.astral.sh/uv/) and Node 24.
     cd core
     uv sync
     uv run pytest                # optional: run the tests
-    uv run pliable-server        # ws://127.0.0.1:8765
+    .venv/bin/python -m pliable.server        # ws://127.0.0.1:8765 (on Windows: .venv\Scripts\python.exe -m pliable.server)
 
     cd app
     npm install
     npm run dev                  # http://localhost:5173, needs the server running
+
+Start the server with the environment's Python as shown, not with `uv run pliable-server`. On Windows a server started as `pliable-server.exe` locks that file, and `uv run` (for example `uv run pytest`) then fails with "failed to remove file ... os error 32" until you stop the server.
 
 Open the page (Chrome is the browser used for development), pick a demo or import a STEP file, and try:
 

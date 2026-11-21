@@ -5,7 +5,7 @@ Lasting technical notes moved out of `progress.md` so the plan stays short. Read
 ## Working with the owner's test setup
 
 - The owner's frontend on port 5180 is served from the main checkout `C:\dev\pliable` with a core on 8770. Every file edit there hot-reloads their page mid-test, so while they are testing, do the work in a worktree (`scripts/worktree.ps1 new <name>`, add `-Base <branch>` to start from another branch) or in an agent's worktree, verify on spare ports (core 8805+, frontend 5205+, own `PLIABLE_DATA`), and merge into `dev` only when the owner says to ("merge so I can test").
-- After a merge: delete the agents' `docs/agent-notes/*.md`, remove the merged worktrees, and restart the owner's core when core code changed (stop the 8770 listener and its `uv run`/`pliable-server` parents, start `uv run pliable-server --port 8770` hidden from `core/`); tell them to reload. Never stop their servers otherwise.
+- After a merge: delete the agents' `docs/agent-notes/*.md`, remove the merged worktrees, and restart the owner's core when core code changed (stop the 8770 listener and its `uv run`/`pliable-server` parents, start `.\.venv\Scripts\python.exe -m pliable.server --port 8770` hidden from `core/`); tell them to reload. Never stop their servers otherwise.
 - Agents in worktrees: see `docs/orchestration.md` (worktrees from `scripts/worktree.ps1` run through Bash with `powershell.exe -File` because the PowerShell tool aborts the script on git's stderr; refresh before every hand-off).
 
 ## Pitfalls
@@ -74,7 +74,7 @@ cd core
 uv sync
 uv run pytest
 uv run python scripts/bench.py
-uv run pliable-server        # ws://127.0.0.1:8765
+.venv/bin/python -m pliable.server        # ws://127.0.0.1:8765 (on Windows: .venv\Scripts\python.exe -m pliable.server)
 
 cd app
 npm install
