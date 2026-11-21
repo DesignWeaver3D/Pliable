@@ -1,21 +1,22 @@
 """Assemble the desktop app: the Tauri shell next to the frozen core, zipped (an AppImage on Linux, Pliable.app on macOS).
 Needs the frozen core first (`python scripts/build_app.py LABEL` in core/) and Rust with the Tauri command line
 tool installed (`npm ci` in desktop/).
-Usage: python scripts/build_desktop.py [LABEL]   -> desktop/dist/pliable-desktop-LABEL.zip (Linux: pliable-desktop-LABEL.AppImage)
+Usage: python scripts/build_desktop.py [LABEL]   -> desktop/dist/pliable-desktop-LABEL.zip (Linux: pliable-desktop-x86_64.AppImage)
 The folder holds Pliable(.exe), core/ (the frozen core), and a data/ folder is created beside it at run time. The Linux
-AppImage holds the same two in usr/bin and keeps its data in the user's data folder (see data_root in main.rs); it uses the
-system's WebKitGTK, like the zip did, and needs appimagetool (downloaded and pinned here when it is not on the PATH).
+AppImage holds the same two in usr/bin and keeps its data in the user's data folder (see data_root in main.rs). It runs on
+the system's WebKitGTK when there is one and on a private copy bundled in usr/lib-webkit when there is not (see
+bundle_webkit.py and desktop/linux/AppRun), and needs appimagetool (downloaded and pinned here when it is not on the PATH).
 On macOS the folder holds Pliable.app instead (the shell in Contents/MacOS, core/ in Contents/Resources, ad-hoc signed) and the
 app keeps its data in ~/Library/Application Support/Pliable (see data_root in main.rs)."""
 import hashlib, json, os, platform, plistlib, shutil, stat, subprocess, sys, urllib.request
 from pathlib import Path
 
-from build import platform_label
+from build import appimage_name, platform_label
+from bundle_webkit import bundle_webkit
 
 APPIMAGETOOL = "https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-x86_64.AppImage"
 APPIMAGETOOL_SHA256 = "46fdd785094c7f6e545b61afcfb0f3d98d8eab243f644b4b17698c01d06083d1"  # of the 1.9.0 file as downloaded 2026-11-16; the release publishes none
 DESKTOP_ENTRY = "\n".join(["[Desktop Entry]", "Type=Application", "Name=Pliable", "Comment=Direct 3D modeling", "Exec=Pliable", "Icon=pliable", "Categories=Graphics;3DGraphics;Engineering;", "Terminal=false", ""])
-APP_RUN = "\n".join(["#!/bin/sh", 'HERE="$(dirname "$(readlink -f "$0")")"', 'exec "$HERE/usr/bin/Pliable" "$@"', ""])
 
 
 def appimage(shell: Path, label: str) -> Path:
@@ -27,6 +28,7 @@ def appimage(shell: Path, label: str) -> Path:
     bin_dir.mkdir(parents=True)
     shutil.copy2(shell, bin_dir / "Pliable")
     shutil.copytree(frozen, bin_dir / "core")
+    bundle_webkit(appdir / "usr", shell)
     notices = appdir / "usr" / "share" / "doc" / "pliable"
     notices.mkdir(parents=True)
     for extra in ("README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"):
@@ -34,7 +36,7 @@ def appimage(shell: Path, label: str) -> Path:
     (appdir / "pliable.desktop").write_text(DESKTOP_ENTRY)
     shutil.copy(desktop / "src-tauri" / "icons" / "128x128.png", appdir / "pliable.png")
     run = appdir / "AppRun"
-    run.write_text(APP_RUN)
+    shutil.copy(desktop / "linux" / "AppRun", run)
     run.chmod(run.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     tool = shutil.which("appimagetool")
     if tool is None:
@@ -46,7 +48,7 @@ def appimage(shell: Path, label: str) -> Path:
             sys.exit(f"appimagetool from {APPIMAGETOOL} has SHA-256 {digest}, expected {APPIMAGETOOL_SHA256}; not running it")
         download.chmod(0o755)
         tool = str(download)
-    target = dist / f"pliable-desktop-{label}.AppImage"
+    target = dist / appimage_name(label)
     target.unlink(missing_ok=True)
     env = {**os.environ, "ARCH": "x86_64", "APPIMAGE_EXTRACT_AND_RUN": "1"}  # extract-and-run: the build machine needs no FUSE
     subprocess.run([tool, str(appdir), str(target)], check=True, env=env)

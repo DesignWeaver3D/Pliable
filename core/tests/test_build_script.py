@@ -23,13 +23,18 @@ def test_platform_label_matches_the_release_labels(system: str, machine: str, la
     assert build.platform_label(system, machine) == label
 
 
+def test_appimage_name_has_the_architecture_and_not_the_word_linux() -> None:
+    assert build.appimage_name("linux-x64") == "pliable-desktop-x86_64.AppImage"
+    assert build.appimage_name("linux-arm64") == "pliable-desktop-aarch64.AppImage"
+
+
 def test_outputs_name_the_app_to_double_click_and_the_file_to_share() -> None:
     dist = Path("/r/desktop/dist")
     assert build.outputs(Path("/r"), "Darwin", "macos-arm64") == (
         dist / "pliable-desktop-macos-arm64" / "Pliable.app", dist / "pliable-desktop-macos-arm64.zip")
     assert build.outputs(Path("/r"), "Windows", "windows-x64") == (
         dist / "pliable-desktop-windows-x64" / "Pliable.exe", dist / "pliable-desktop-windows-x64.zip")
-    image = dist / "pliable-desktop-linux-x64.AppImage"
+    image = dist / "pliable-desktop-x86_64.AppImage"
     assert build.outputs(Path("/r"), "Linux", "linux-x64") == (image, image)
 
 
