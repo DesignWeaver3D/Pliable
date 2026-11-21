@@ -89,12 +89,12 @@ In an interactive session, if it is running long or the usage window is nearly u
 
 ## Environment (Windows)
 
-- Python core: `core/`, uv-managed Python 3.13 in `core/.venv`. Run `uv sync`, `uv run pytest`, `uv run python scripts/bench.py`, `uv run pliable-server` from `core/`.
+- Python core: `core/`, uv-managed Python 3.13 in `core/.venv`. Run `uv sync`, `uv run pytest`, `uv run python scripts/bench.py` from `core/`. Start a core with `.\.venv\Scripts\python.exe -m pliable.server --port <port>`, not `uv run pliable-server`: a core started as `pliable-server.exe` locks that file, and then every `uv run` fails with "failed to remove file ... pliable-server.exe (os error 32)" while it runs.
 - Frontend: `app/` (Node 24, Vite).
 - uv and Node were installed with winget. In PowerShell, refresh PATH first if `node` or `uv` isn't found:
   `$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')`
 - OCP 8 API notes (collections module, renamed static methods) are recorded in `docs/progress.md`.
 - Run npm, npx and uv from the PowerShell tool after refreshing PATH (the Bash tool has no npm; a nested `powershell.exe` from Bash cannot run npm because of the script execution policy). Check results with `Select-String '^ℹ (pass|fail)'` for node tests, `Select-Object -Last 1` for pytest.
-- The owner tests on frontend port 5180 with a core on 8770 (`VITE_CORE_PORT=8770`); never stop their servers unless asked. To restart a core: stop the listener and its `uv run` parent processes, then start `uv run pliable-server --port 8770` hidden from `core/`.
+- The owner tests on frontend port 5180 with a core on 8770 (`VITE_CORE_PORT=8770`); never stop their servers unless asked. To restart a core: stop the listener and its `uv run` parent processes, then start `.\.venv\Scripts\python.exe -m pliable.server --port 8770` hidden from `core/`.
 - Agent worktrees, ports and the usage rules are in `docs/orchestration.md` ("Keeping usage low"); the current state and the open work are in `docs/progress.md`; lasting technical notes are in `docs/dev-notes.md`.
 - Before merging for a release, follow the release checklist in CONTRIBUTING.md.
