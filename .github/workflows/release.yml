@@ -87,6 +87,9 @@ jobs:
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then FILE=pliable-desktop-x86_64.AppImage; else FILE=pliable-desktop-${{ matrix.label }}.zip; fi
           echo "file=desktop/dist/$FILE" >> "$GITHUB_OUTPUT"
+      - name: Check the AppImage needs no newer glibc than Ubuntu 22.04 has
+        if: runner.os == 'Linux'
+        run: python3 scripts/check_glibc.py "$GITHUB_WORKSPACE/${{ steps.asset.outputs.file }}" 2.35
       - name: Smoke-test the Linux AppImage
         if: runner.os == 'Linux'
         run: |
@@ -97,6 +100,11 @@ jobs:
         run: |
           cd core
           PLIABLE_BUNDLED_WEBKIT=1 APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a uv run python scripts/smoke.py desktop "$GITHUB_WORKSPACE/${{ steps.asset.outputs.file }}"
+      - name: Smoke-test the Linux AppImage without network
+        if: runner.os == 'Linux'
+        run: |
+          cd core
+          APPIMAGE_EXTRACT_AND_RUN=1 unshare -rn sh -c 'ip link set lo up && xvfb-run -a uv run python scripts/smoke.py desktop "$GITHUB_WORKSPACE/${{ steps.asset.outputs.file }}"'
       - name: Unpack the archive and smoke-test the shell
         if: runner.os != 'Linux'
         shell: bash
