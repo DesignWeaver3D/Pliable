@@ -8,6 +8,10 @@ State (2026-11-15): an unattended run ended with every open row waiting on the o
 
 ## Planned (not started; discuss before coding)
 
+- **Top toolbar: stop the tool buttons moving with the selection (discuss; no edits).** Owner (2026-11-21): "orchestrate a research agent to categorize which tools require which types of selections." and "This is preliminary work for better organizing the top toolbar which causes problems for user muscle memory due to tool buttons moving around based on the selection". The research is done: `docs/research/toolbar-selection-categories.md` (local, untracked) lists all 59 tools by the selection each needs, the categories the owner's list was missing, why buttons move today and which `docs/behavior.md` lines bear on it. No related row in this file or in `future-goals.md` (grepped for toolbar, strip, muscle).
+  - [ ] Read that file and `behavior.md` lines 92, 135 and 174 (and the other lines it names), then bring the owner a proposal for a strip whose buttons stay put: the options (a fixed set dimmed like the drawer, or a stable order by category), what happens to the drag-tool-first and armed-tool-first reordering, where the whole-model tools sit, the cost of each, and the `behavior.md` lines each would replace. No behavior is changed before the owner approves.
+  - [ ] Settle with the owner two rule conflicts the research found: line 92 says tools that do not fit are only dimmed, but the strip hides them; line 135 says the sketch constraint list is filtered by the selection, but the strip's constraint row shows every constraint.
+
 Tool group CORE:
 
 - **Boss editing needs its own home.** Owner (2026-10-29): "Why are bosses being lumped into hole editor? they're not holes." Resize, Move and Fill hole / boss still serve bosses and keep their buttons; the Move tool will cover moving a boss; no other decision yet.
