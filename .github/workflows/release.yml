@@ -45,7 +45,7 @@ jobs:
           - { os: windows-latest, label: windows-x64 }
           - { os: macos-latest, label: macos-arm64 }
           - { os: macos-15-intel, label: macos-x64 }
-          - { os: ubuntu-24.04, label: linux-x64 }
+          - { os: ubuntu-22.04, label: linux-x64 }
     runs-on: ${{ matrix.os }}
     needs: [docs-check, create-draft]
     if: always() && needs.docs-check.result == 'success' && (needs.create-draft.result == 'success' || needs.create-draft.result == 'skipped')
