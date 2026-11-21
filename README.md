@@ -26,7 +26,7 @@ Pliable is a free, open-source direct modeler. You shape solid geometry directly
 
 [![Pliable v0.4.3 CSWA Demo](https://img.youtube.com/vi/9srJCWiUxGo/hqdefault.jpg)](https://www.youtube.com/watch?v=9srJCWiUxGo)
 
-`main` holds the rebuild; the latest release is [v0.4.5](https://github.com/DesignWeaver3D/Pliable/releases/tag/v0.4.5).
+`main` holds the rebuild; the latest release is [v0.4.6](https://github.com/DesignWeaver3D/Pliable/releases/tag/v0.4.6).
 
 ## Download and run
 

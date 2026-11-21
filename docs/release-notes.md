@@ -15,17 +15,9 @@ The build is **unsigned**:
 
 Windows is the most tested. Linux Mint 22 has been used for real modeling work but not tested in full. The macOS builds are built and start-up checked automatically. One contributor has run them and reports that they work; some bugs they found are being fixed, and the architecture (Apple Silicon or Intel) is not yet recorded.
 
-## Changes in 0.4.5
+## Changes in 0.4.6
 
-- **Linux:** the AppImage now carries its own copy of WebKitGTK and uses it only when the system has none, so it starts on a system without `libwebkit2gtk-4.1`. Where the system has it, nothing changes. The file is now named `pliable-desktop-x86_64.AppImage`.
-- **Quitting asks first:** closing the window or quitting the desktop app with unsaved work asks "Quit without saving?" with Quit and Cancel, as the browser does when a tab is closed. Unsaved means an open sketch, or edits since the project was last saved; right after Save project it does not ask. On macOS the Quit menu item asks the same question.
-- **Stopping the program from outside:** on macOS and Linux, a termination signal (for example from a task manager or a shutdown) now stops the geometry core with the window instead of leaving it running.
-- **Saving files on macOS and Linux:** each file saved from the page waits for its Save As dialog in a folder of its own, so a program killed in the middle of a save no longer leaves a file that makes every later save of that name do nothing.
-- **A page freeze fixed:** an unread orange warning from a sketch followed by a plain sketch message no longer freezes the whole page.
-- **Construction curves:** a selected, highlighted or hovered construction curve stays dashed, so toggling construction on a selected curve now shows the change.
-- **Safer:** the core accepts a connection only from this computer's own pages, so a web page open in your browser can no longer send requests to a running core.
-- **macOS:** the download is now `Pliable.app` (unzip and open it; it keeps its data in `~/Library/Application Support/Pliable`) instead of a folder with a bare program that opened a Terminal window.
-- **For diagnosis:** when a core request runs over 30 seconds, every thread's stack is written once to `core.log` in the data folder.
+- **Linux:** the AppImage is now built on Ubuntu 22.04, so it needs glibc 2.35 or newer instead of 2.39 and starts on older distributions such as Ubuntu 22.04, Linux Mint 21 and Debian 12. Nothing else about it changes.
 
 ## What to expect
 
