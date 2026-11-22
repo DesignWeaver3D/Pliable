@@ -5,7 +5,7 @@ Lasting technical notes moved out of `progress.md` so the plan stays short. Read
 ## Working with the owner's test setup
 
 - The owner's frontend on port 5180 is served from the main checkout `C:\dev\pliable` with a core on 8770. Every file edit there hot-reloads their page mid-test, so while they are testing, do the work in a worktree (`scripts/worktree.ps1 new <name>`, add `-Base <branch>` to start from another branch) or in an agent's worktree, verify on spare ports (core 8805+, frontend 5205+, own `PLIABLE_DATA`), and merge into `dev` only when the owner says to ("merge so I can test").
-- After a merge: delete the agents' `docs/agent-notes/*.md`, remove the merged worktrees, and restart the owner's core when core code changed (stop the 8770 listener and its `uv run`/`pliable-server` parents, start `uv run pliable-server --port 8770` hidden from `core/`); tell them to reload. Never stop their servers otherwise.
+- After a merge: delete the agents' `docs/agent-notes/*.md`, remove the merged worktrees, and restart the owner's core when core code changed (stop the 8770 listener and its `uv run`/`pliable-server` parents, start `.\.venv\Scripts\python.exe -m pliable.server --port 8770` hidden from `core/`); tell them to reload. Never stop their servers otherwise.
 - Agents in worktrees: see `docs/orchestration.md` (worktrees from `scripts/worktree.ps1` run through Bash with `powershell.exe -File` because the PowerShell tool aborts the script on git's stderr; refresh before every hand-off).
 
 ## Pitfalls
@@ -60,6 +60,7 @@ Lasting technical notes moved out of `progress.md` so the plan stays short. Read
 - Local Windows builds without the Visual Studio C++ build tools (installing them needs an admin prompt): install a user-level GNU toolchain (`winget install BrechtSanders.WinLibs.POSIX.UCRT`, `rustup toolchain install stable-x86_64-pc-windows-gnu`) and set `RUSTUP_TOOLCHAIN=stable-x86_64-pc-windows-gnu`. That build needs `WebView2Loader.dll` copied next to the program (the MSVC build links it in, so CI does not), and `cargo build` needs `--features custom-protocol`. Treat it as a compile check; the MSVC build from CI is the real one.
 - The shell picks port 8765 when free, else a random one. The page's saved settings are per port, so a random port starts with default settings.
 - Freezing the core takes about 3 minutes and the first shell build about 4 on a laptop; changes to the shell alone rebuild in a minute.
+- Linux AppImage and WebKitGTK (`scripts/bundle_webkit.py`, `desktop/linux/AppRun`): the AppImage carries a private copy of WebKitGTK (the `ldd` closure of the shell and WebKit's helper programs, minus the C library, graphics driver and X11 libraries) in `usr/lib-webkit`, and `AppRun` uses it only when the system has no `libwebkit2gtk-4.1.so.0` or `PLIABLE_BUNDLED_WEBKIT` is set. WebKit has no setting for where its helper programs live (`WEBKIT_EXEC_PATH` is not compiled into release builds), so the bundled library has its compiled-in `/usr/lib/<arch>/webkit2gtk-4.1` rewritten to `./lib-webkit/.../webkit2gtk-4.1` and `AppRun` sets the working directory to `usr` in that mode. CI smoke-tests both modes; the mode with no system WebKitGTK at all has only been checked through the forced setting.
 
 ## Typed numbers and formulas
 
@@ -73,7 +74,7 @@ cd core
 uv sync
 uv run pytest
 uv run python scripts/bench.py
-uv run pliable-server        # ws://127.0.0.1:8765
+.venv/bin/python -m pliable.server        # ws://127.0.0.1:8765 (on Windows: .venv\Scripts\python.exe -m pliable.server)
 
 cd app
 npm install

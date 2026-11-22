@@ -25,7 +25,7 @@
 - Compatibility of anything saved by this version with later versions. Export STEP to keep your work.
 - **Webview differences.** The window uses the system webview: WebView2 on Windows (Chromium-based, the tested one), WebKit on macOS and WebKitGTK on Linux. The Save As dialog on Linux and macOS (added in 0.4.2) is untested on macOS. Drawing, fonts and file dialogs may differ on the last two. Running the core in a browser is a development setup, and Chrome is the only browser tried.
 - Autosave protects against crashes, not against a bad edit. Undo history is capped at 50 steps.
-- The portable builds are unsigned: Windows SmartScreen warns on first launch and macOS Gatekeeper blocks it until you allow it (see the release notes). Linux needs Ubuntu 24.04, Linux Mint 22 or a similar distribution from 2024 or later with `libwebkit2gtk-4.1`.
+- The portable builds are unsigned: Windows SmartScreen warns on first launch and macOS Gatekeeper blocks it until you allow it (see the release notes). Linux is built on Ubuntu 22.04 and needs glibc 2.35 or newer (Ubuntu 22.04, Linux Mint 21, Debian 12 or later). The AppImage uses the system's `libwebkit2gtk-4.1` and carries a copy of its own for systems without it; that copy has been tested only on a system that also has the library.
 - Everything Pliable saves lives in the `data` folder beside the program. Moving the folder keeps your settings and autosaves; deleting it resets them.
 
 - **The 3D view is an approximation of the exact solid.** Curves and cylinders are drawn as small flat facets, and the facets are coarser while you drag. The underlying model and STEP export are exact.

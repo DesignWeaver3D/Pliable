@@ -108,7 +108,7 @@ if ($Action -eq "new") {
     $portsFile = Join-Path $path "agent-ports.txt"
     @(
         "This worktree's ports and data folder. Use these and no others; the main checkout and other agents use different ones.",
-        "core server  (from core\): `$env:PLIABLE_DATA = '$dataDir'; uv run pliable-server --port $core",
+        "core server  (from core\): `$env:PLIABLE_DATA = '$dataDir'; .\.venv\Scripts\python.exe -m pliable.server --port $core",
         "frontend dev (from app\):  npm run dev -- --port $vite --strictPort",
         "open:        http://localhost:$vite",
         "(app\.env sets VITE_CORE_PORT=$core so the frontend finds the core server. PLIABLE_DATA keeps autosave and the restore prompt private to this worktree.)"

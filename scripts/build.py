@@ -17,11 +17,17 @@ def platform_label(system: str, machine: str) -> str:
     return f"{name}-{MACHINE_NAMES.get(machine.lower(), machine.lower())}"
 
 
+def appimage_name(label: str) -> str:
+    """The AppImage's file name; the AppImage catalog asks for the architecture, not the word linux (linux-x64 -> pliable-desktop-x86_64.AppImage)."""
+    architecture = label.split("-", 1)[-1]
+    return f"pliable-desktop-{ {'x64': 'x86_64', 'arm64': 'aarch64'}.get(architecture, architecture) }.AppImage"
+
+
 def outputs(root: Path, system: str, label: str) -> tuple[Path, Path]:
     """The app to double-click and the file to share, as scripts/build_desktop.py lays them out."""
     dist = root / "desktop" / "dist"
     if system == "Linux":
-        image = dist / f"pliable-desktop-{label}.AppImage"
+        image = dist / appimage_name(label)
         return image, image
     folder = dist / f"pliable-desktop-{label}"
     app = folder / ("Pliable.app" if system == "Darwin" else "Pliable.exe")

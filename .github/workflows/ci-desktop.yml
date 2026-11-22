@@ -20,7 +20,7 @@ jobs:
       matrix:
         os: >-
           ${{ fromJSON(contains(github.event.pull_request.labels.*.name, 'full-ci')
-          && '["ubuntu-24.04", "windows-latest", "macos-latest"]' || '["ubuntu-24.04", "windows-latest"]') }}
+          && '["ubuntu-22.04", "windows-latest", "macos-latest"]' || '["ubuntu-22.04", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7

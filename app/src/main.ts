@@ -64,6 +64,7 @@ import { HOLE_EDITOR_ID, holeEditorTool } from "./holeeditortool.ts";
 import { HOLE_EDITOR_HELPERS } from "./layout.ts";
 import { modeGroupOf, modeGroupTools, modeHeader, MODE_MEMBERS } from "./modetools.ts";
 import { keyNames } from "./platform.ts";
+import { createTestHook } from "./testhook.ts";
 import { hasUnsavedWork, pageTitle } from "./unsaved.ts";
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -166,7 +167,7 @@ viewport.onFrame = () => {
   }
 };
 core.onMessageArrived = () => viewport.wake();
-viewport.onFrameError =(message) => showError(new Error(message));
+viewport.onFrameError = (message) => showError(new Error(message));
 const loggedErrors = new Set<string>();
 /** Console-log an error once per kind, so a failure repeating every frame does not flood the console. */
 function logOnce(kind: string, e: unknown) {
@@ -188,10 +189,12 @@ const chips = $("chips");
 // The hint line and the tip stand above the chips instead of on top of them.
 new ResizeObserver(() => document.documentElement.style.setProperty("--chips-h", `${chips.offsetHeight}px`)).observe(chips);
 function renderChips() {
-  chipsRender({ chips, viewport, tool: chipTool, changed: () => {
-    renderToolbar();
-    toolPanel.renderList();
-  } });
+  chipsRender({
+    chips, viewport, tool: chipTool, changed: () => {
+      renderToolbar();
+      toolPanel.renderList();
+    }
+  });
   // While Fillet/Chamfer is armed with edges selected, a chip switches to two distances (a chamfer being created).
   if (armedTool === "fillet_chamfer" && app.currentSels.some((s) => s.kind === "edge")) {
     const two = document.createElement("button");
@@ -364,9 +367,9 @@ $("drawerusable").addEventListener("change", (e) => drawer.classList.toggle("usa
 
 /** While a sketch is open the top strip holds the drawing tools instead of the model's tools. The sketch itself is made below. */
 let currentSketchTool: () => SketchTool = () => "select";
-let chooseSketchTool: (tool: SketchTool) => void = () => {};
+let chooseSketchTool: (tool: SketchTool) => void = () => { };
 let sketchConstraints: () => { label: string; enabled: boolean }[] = () => [];
-let chooseConstraint: (label: string) => void = () => {};
+let chooseConstraint: (label: string) => void = () => { };
 
 const { renderToolbar } = createToolStrip({
   toolbar,
@@ -579,8 +582,8 @@ const { setSelection, selectionPayload, mappedSelection, showReadout } = createS
 });
 
 /** Tells the list of kept sketches what the document holds; set once that list exists. */
-let onSketches: (list: { id: number; name: string; rev: number }[]) => void = () => {};
-let onDatums: (list: DatumPlane[], mirror: MirrorMode | null) => void = () => {};
+let onSketches: (list: { id: number; name: string; rev: number }[]) => void = () => { };
+let onDatums: (list: DatumPlane[], mirror: MirrorMode | null) => void = () => { };
 
 const { show, syncHistoryButtons, setCommitted } = createModelView({
   viewport, core, status, dimensionOverlay, undoButton, redoButton, dev: DEV,
@@ -826,7 +829,8 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 installFileOpening(
-  { core, status, hasEdits: () => app.modelHistory.undo || sketch.active, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame),
+  {
+    core, status, hasEdits: () => app.modelHistory.undo || sketch.active, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame),
     endTool: () => {
       if (toolPanel.isOpen) toolPanel.close(false); // an open tool form would be applied to the new model by the selection reset
       armedTool = null;
@@ -834,7 +838,8 @@ installFileOpening(
       viewport.cancelDrag();
       viewport.manipulator.cancel();
       viewport.pullGizmo.cancel();
-    } },
+    }
+  },
   { open: $("open"), openAsNew: $("openasnew"), openProject: $("openproject"), newProject: $("newproject") },
   { step: fileInput, project: $("projectfile") as HTMLInputElement },
 );
@@ -982,6 +987,7 @@ currentSketchTool = () => sketch.activeTool;
 chooseSketchTool = (tool) => sketch.selectTool(tool);
 sketchConstraints = () => sketch.constraintChoices();
 chooseConstraint = (label) => sketch.chooseConstraint(label);
+if (import.meta.env.DEV) (window as any).__pliableTest = createTestHook(viewport, sketch); // for the browser tests (uitests/); not in a release build
 sketch.onToolChange = () => {
   if (sketch.active) {
     selected.textContent = sketch.selectionText(); // the readout in the panel header names what is selected
