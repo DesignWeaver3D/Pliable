@@ -20,7 +20,6 @@ Rules for keeping it:
 ### Desktop app on Mac and Linux (cannot be run here)
 
 - [ ] On a Mac or Linux desktop build: "Open bug report page" and the shortcut sheet's Print open a new window (no handler in `desktop/src-tauri/src/main.rs`); the "Continue?" questions (`window.confirm`) appear; Backspace deletes a selected body on a Mac; key names read Cmd and Option, Option+H shows all bodies.
-- [ ] Linux AppImage: run the `desktop` workflow once from the Actions tab and check the Linux job (AppImage built, smoke test passes), then double-click the AppImage on a Linux machine to check it launches.
 
 ## Normal priority
 

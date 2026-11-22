@@ -65,6 +65,7 @@ import { HOLE_EDITOR_HELPERS } from "./layout.ts";
 import { modeGroupOf, modeGroupTools, modeHeader, MODE_MEMBERS } from "./modetools.ts";
 import { keyNames } from "./platform.ts";
 import { createTestHook } from "./testhook.ts";
+import { hasUnsavedWork, pageTitle } from "./unsaved.ts";
 
 const $ = (id: string) => document.getElementById(id)!;
 const status = $("status");
@@ -166,7 +167,7 @@ viewport.onFrame = () => {
   }
 };
 core.onMessageArrived = () => viewport.wake();
-viewport.onFrameError =(message) => showError(new Error(message));
+viewport.onFrameError = (message) => showError(new Error(message));
 const loggedErrors = new Set<string>();
 /** Console-log an error once per kind, so a failure repeating every frame does not flood the console. */
 function logOnce(kind: string, e: unknown) {
@@ -188,10 +189,12 @@ const chips = $("chips");
 // The hint line and the tip stand above the chips instead of on top of them.
 new ResizeObserver(() => document.documentElement.style.setProperty("--chips-h", `${chips.offsetHeight}px`)).observe(chips);
 function renderChips() {
-  chipsRender({ chips, viewport, tool: chipTool, changed: () => {
-    renderToolbar();
-    toolPanel.renderList();
-  } });
+  chipsRender({
+    chips, viewport, tool: chipTool, changed: () => {
+      renderToolbar();
+      toolPanel.renderList();
+    }
+  });
   // While Fillet/Chamfer is armed with edges selected, a chip switches to two distances (a chamfer being created).
   if (armedTool === "fillet_chamfer" && app.currentSels.some((s) => s.kind === "edge")) {
     const two = document.createElement("button");
@@ -364,9 +367,9 @@ $("drawerusable").addEventListener("change", (e) => drawer.classList.toggle("usa
 
 /** While a sketch is open the top strip holds the drawing tools instead of the model's tools. The sketch itself is made below. */
 let currentSketchTool: () => SketchTool = () => "select";
-let chooseSketchTool: (tool: SketchTool) => void = () => {};
+let chooseSketchTool: (tool: SketchTool) => void = () => { };
 let sketchConstraints: () => { label: string; enabled: boolean }[] = () => [];
-let chooseConstraint: (label: string) => void = () => {};
+let chooseConstraint: (label: string) => void = () => { };
 
 const { renderToolbar } = createToolStrip({
   toolbar,
@@ -579,8 +582,8 @@ const { setSelection, selectionPayload, mappedSelection, showReadout } = createS
 });
 
 /** Tells the list of kept sketches what the document holds; set once that list exists. */
-let onSketches: (list: { id: number; name: string; rev: number }[]) => void = () => {};
-let onDatums: (list: DatumPlane[], mirror: MirrorMode | null) => void = () => {};
+let onSketches: (list: { id: number; name: string; rev: number }[]) => void = () => { };
+let onDatums: (list: DatumPlane[], mirror: MirrorMode | null) => void = () => { };
 
 const { show, syncHistoryButtons, setCommitted } = createModelView({
   viewport, core, status, dimensionOverlay, undoButton, redoButton, dev: DEV,
@@ -591,6 +594,7 @@ const { show, syncHistoryButtons, setCommitted } = createModelView({
   onSketches: (list) => onSketches(list),
   onDatums: (list, mirror) => onDatums(list, mirror),
   setChosenSketch, setSelection,
+  onHistoryChange: () => syncTitle(),
 });
 
 async function load(name: string) {
@@ -811,14 +815,22 @@ const keys = new KeyRouter({
 syncSeeThrough();
 setKeysOpener(() => keys.openSettings());
 setHintsBinding({ get: () => hintLine.prefs.on, set: (on) => hintLine.setOn(on) });
-// Leaving with edits (undo steps) or an open sketch asks first; autosave still protects against crashes.
+// Leaving with an open sketch, or with edits since the project was last saved, asks first; autosave still protects against crashes.
+const PAGE_TITLE = document.title;
+const unsavedWork = () => hasUnsavedWork({ canUndo: app.modelHistory.undo, sketchOpen: sketch.active, state: app.modelState, saved: app.savedState });
+/** The title carries a mark while there is unsaved work; the desktop shell reads it to ask before it quits. */
+function syncTitle() {
+  const title = pageTitle(PAGE_TITLE, unsavedWork());
+  if (document.title !== title) document.title = title;
+}
 window.addEventListener("beforeunload", (e) => {
   if (leavePromptDisabled(import.meta.env.DEV, location.search)) return;
-  if (app.modelHistory.undo || sketch.active) e.preventDefault();
+  if (unsavedWork()) e.preventDefault();
 });
 
 installFileOpening(
-  { core, status, hasEdits: () => app.modelHistory.undo || sketch.active, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame),
+  {
+    core, status, hasEdits: () => app.modelHistory.undo || sketch.active, setCommitted: (mesh, frame) => setCommitted(mesh as MeshData, frame),
     endTool: () => {
       if (toolPanel.isOpen) toolPanel.close(false); // an open tool form would be applied to the new model by the selection reset
       armedTool = null;
@@ -826,7 +838,8 @@ installFileOpening(
       viewport.cancelDrag();
       viewport.manipulator.cancel();
       viewport.pullGizmo.cancel();
-    } },
+    }
+  },
   { open: $("open"), openAsNew: $("openasnew"), openProject: $("openproject"), newProject: $("newproject") },
   { step: fileInput, project: $("projectfile") as HTMLInputElement },
 );
@@ -835,7 +848,14 @@ installFileOpening(
 const exportAs = (request: string, extension: string, params: Record<string, unknown> = {}) => saveModel(core, status, loadedSample || "model", request, extension, params);
 
 $("export").addEventListener("click", () => exportAs("export_step", "step"));
-$("saveproject").addEventListener("click", () => exportAs("save_project", "plbl"));
+/** Save the project, and remember the state that was saved so leaving does not ask about it again. */
+async function saveProject() {
+  const state = app.modelState;
+  if (!(await exportAs("save_project", "plbl"))) return;
+  app.savedState = state;
+  syncTitle();
+}
+$("saveproject").addEventListener("click", () => saveProject());
 const exportCad = $("exportcad") as HTMLSelectElement;
 exportCad.addEventListener("change", () => {
   const format = exportCad.value;
@@ -928,7 +948,7 @@ function commands(): Command[] {
     { label: "Add datum plane on the selected face", scope: "file", keywords: ["helper plane", "construction", "mirror"], enabled: app.currentSels.length === 1 && app.currentSels[0].kind === "face", run: () => addDatum({ face: app.currentSels[0].id }) },
     { label: "Add datum plane midway between two selected faces", scope: "file", keywords: ["helper plane", "construction", "mirror", "middle"], enabled: app.currentSels.length === 2 && app.currentSels.every((s) => s.kind === "face"), run: () => addDatum({ midplane: app.currentSels.map((s) => s.id) }) },
     { label: "Export STEP file", scope: "file", enabled: true, run: () => exportAs("export_step", "step") },
-    { label: "Save project (.plbl file with bodies, names and sketches)", scope: "file", keywords: ["save", "pliable file"], enabled: true, run: () => exportAs("save_project", "plbl") },
+    { label: "Save project (.plbl file with bodies, names and sketches)", scope: "file", keywords: ["save", "pliable file"], enabled: true, run: () => saveProject() },
     { label: "Open project (.plbl file)", scope: "file", keywords: ["load", "pliable file"], enabled: true, run: () => $("openproject").click() },
     ...["stl", "obj", "3mf"].map((format) => ({
       label: `Export ${format.toUpperCase()} mesh (lossy)`,

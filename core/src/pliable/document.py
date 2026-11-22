@@ -1,6 +1,7 @@
 """The open model and its undo/redo history."""
 
 import copy
+import itertools
 
 from OCP.BRep import BRep_Builder
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
@@ -24,6 +25,8 @@ def _compound(shapes: list[TopoDS_Shape]) -> TopoDS_Shape:
         builder.Add(compound, shape)
     return compound
 
+_DOCUMENTS = itertools.count(1)  # numbers the documents of this process, so a state of one is never taken for a state of another
+
 
 class Document:
     def __init__(self, shape: TopoDS_Shape, name: str = "Untitled", bodies: BodyState | None = None):
@@ -37,6 +40,7 @@ class Document:
         self._mirrors: list[dict | None] = [None]  # mirror mode per state: {name, plane} while on, else None
         self._next_id = 1
         self._index = 0
+        self._serial = next(_DOCUMENTS)
         self.other_objects: dict = {}  # object types of a project file this release does not know, kept for saving again
 
     @classmethod
@@ -265,6 +269,11 @@ class Document:
             del items[at]
         self._index -= 1
         return True
+
+    @property
+    def state_key(self) -> str:
+        """A name for the current state that no other state of this or another document shares; the page compares it with the one it last saved."""
+        return f"{self._serial}:{self._ids[self._index]}"
 
     @property
     def can_undo(self) -> bool:

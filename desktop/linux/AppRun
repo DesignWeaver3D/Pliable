@@ -1,0 +1,19 @@
+#!/bin/sh
+# Starts Pliable on the system's WebKitGTK when the system has it, otherwise on the copy bundled in this AppImage.
+# PLIABLE_BUNDLED_WEBKIT=1 forces the bundled copy (for a system whose WebKitGTK does not work with Pliable).
+# PLIABLE_SYSTEM_LIB_DIRS replaces the folders searched for the system's WebKitGTK (the tests use it).
+HERE="$(dirname "$(readlink -f "$0")")"
+
+system_has_webkit() {
+    for dir in ${PLIABLE_SYSTEM_LIB_DIRS:-/usr/lib/x86_64-linux-gnu /usr/lib64 /usr/lib /usr/local/lib /lib/x86_64-linux-gnu /lib64 /lib}; do
+        [ -e "$dir/libwebkit2gtk-4.1.so.0" ] && return 0
+    done
+    PATH="$PATH:/sbin:/usr/sbin" ldconfig -p 2>/dev/null | grep -q 'libwebkit2gtk-4\.1\.so\.0'
+}
+
+if [ -d "$HERE/usr/lib-webkit" ] && { [ -n "$PLIABLE_BUNDLED_WEBKIT" ] || ! system_has_webkit; }; then
+    export LD_LIBRARY_PATH="$HERE/usr/lib-webkit${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    export XDG_DATA_DIRS="$HERE/usr/share-webkit:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+    cd "$HERE/usr" || exit 1  # the bundled WebKit looks for its helper programs in ./lib-webkit
+fi
+exec "$HERE/usr/bin/Pliable" "$@"

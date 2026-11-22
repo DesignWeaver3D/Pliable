@@ -7,12 +7,13 @@ use std::fs::{self, File};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use tauri::webview::DownloadEvent;
-use tauri::{Manager, RunEvent, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
-use tauri_plugin_dialog::DialogExt;
+use tauri::{Manager, RunEvent, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
 const HOST: &str = "127.0.0.1";
 const PREFERRED_PORT: u16 = 8765; // a stable port keeps the page's saved settings (browser storage is per port)
@@ -168,10 +169,57 @@ fn open_when_ready(app: tauri::AppHandle, window: WebviewWindow, port: u16) {
     });
 }
 
+/// Set in the page before it loads, where the shell saves the page's downloads: the page then waits for `report_download`
+/// before it takes a file as saved (shellsave.ts).
+#[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
+const SHELL_SAVES_SCRIPT: &str = "window.__pliableShellSaves = true;";
+
+/// Tell the page whether the download it started under `name` was written to the place the person chose.
+#[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
+fn report_download(webview: &tauri::Webview, name: &str, saved: bool) {
+    let _ = webview.eval(&format!("window.__pliableDownloadSaved&&window.__pliableDownloadSaved({},{saved})", js_string(name)));
+}
+
 /// Temporary files of downloads in progress, by download address (macOS does not say where a finished download went).
 fn pending_downloads() -> &'static Mutex<HashMap<String, PathBuf>> {
     static PENDING: OnceLock<Mutex<HashMap<String, PathBuf>>> = OnceLock::new();
     PENDING.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Where downloads wait for their Save As dialog: one folder in the system's temporary folder, holding a folder per download.
+#[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
+fn downloads_root() -> PathBuf {
+    std::env::temp_dir().join("pliable-downloads")
+}
+
+/// How long a download's temporary folder may stay before a later run clears it away.
+const OLD_DOWNLOAD: Duration = Duration::from_secs(24 * 60 * 60);
+
+/// A folder of its own for one download, under `root`. The window will not write a download over an existing file, so a
+/// file left by a run that ended mid-save must never be in the way, nor another download of the same name. The first
+/// call of a run also clears away what earlier runs left behind.
+#[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
+fn new_download_folder(root: &Path) -> PathBuf {
+    static CLEARED: std::sync::Once = std::sync::Once::new();
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    CLEARED.call_once(|| remove_old_downloads(root, std::time::SystemTime::now(), OLD_DOWNLOAD));
+    let started = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+    let number = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    root.join(format!("{}-{started}-{number}", std::process::id()))
+}
+
+/// Remove everything in `root` last changed more than `age` before `now`. Newer entries stay: another copy of the
+/// program may be in the middle of a save.
+#[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
+fn remove_old_downloads(root: &Path, now: std::time::SystemTime, age: Duration) {
+    let Ok(entries) = fs::read_dir(root) else { return };
+    for entry in entries.flatten() {
+        let changed = entry.metadata().and_then(|m| m.modified()).ok();
+        if changed.is_some_and(|at| now.duration_since(at).is_ok_and(|since| since > age)) {
+            let path = entry.path();
+            let _ = if path.is_dir() { fs::remove_dir_all(&path) } else { fs::remove_file(&path) };
+        }
+    }
 }
 
 /// Saving a file from the page is a download. The Linux and macOS windows drop downloads that have no handler, so each
@@ -181,7 +229,7 @@ fn save_download(webview: tauri::Webview, event: DownloadEvent<'_>) -> bool {
     match event {
         DownloadEvent::Requested { url, destination } => {
             let name = destination.file_name().map(|n| n.to_os_string()).unwrap_or_else(|| "pliable-file".into());
-            *destination = std::env::temp_dir().join("pliable-downloads").join(name);
+            *destination = new_download_folder(&downloads_root()).join(name);
             if let Some(folder) = destination.parent() {
                 let _ = fs::create_dir_all(folder);
             }
@@ -191,27 +239,105 @@ fn save_download(webview: tauri::Webview, event: DownloadEvent<'_>) -> bool {
         DownloadEvent::Finished { url, path, success } => {
             let remembered = pending_downloads().lock().unwrap().remove(url.as_str());
             let Some(temp) = path.or(remembered) else { return true };
+            let name = temp.file_name().and_then(|n| n.to_str()).unwrap_or_default().to_string();
             if !success {
                 let _ = fs::remove_file(&temp);
+                report_download(&webview, &name, false);
                 return true;
             }
             let app = webview.app_handle().clone();
             let mut dialog = app.dialog().file();
-            if let Some(name) = temp.file_name().and_then(|n| n.to_str()) {
-                dialog = dialog.set_file_name(name);
+            if !name.is_empty() {
+                dialog = dialog.set_file_name(&name);
             }
             dialog.save_file(move |chosen| {
+                let mut saved = false;
                 if let Some(target) = chosen.and_then(|p| p.into_path().ok()) {
-                    if let Err(e) = fs::copy(&temp, &target) {
-                        eprintln!("Cannot save {}: {e}", target.display());
+                    match fs::copy(&temp, &target) {
+                        Ok(_) => saved = true,
+                        Err(e) => eprintln!("Cannot save {}: {e}", target.display()),
                     }
                 }
                 let _ = fs::remove_file(&temp);
+                report_download(&webview, &name, saved);
             });
             true
         }
         _ => true,
     }
+}
+
+/// The page puts this before its title while the model has unsaved work (`UNSAVED_MARK` in the page's unsaved.ts).
+const UNSAVED_MARK: &str = "\u{2022} ";
+
+/// What the shell knows about leaving: whether the page reports unsaved work, whether the question is on screen,
+/// and whether the person has already agreed to quit.
+#[derive(Default)]
+struct Leaving {
+    unsaved: AtomicBool,
+    asking: AtomicBool,
+    agreed: AtomicBool,
+}
+
+/// Whether a page title says the model has unsaved work.
+fn title_says_unsaved(title: &str) -> bool {
+    title.starts_with(UNSAVED_MARK)
+}
+
+/// Whether closing or quitting must wait for the person's answer. When it must, the question is shown (once); agreeing quits.
+fn must_ask_before_leaving(app: &tauri::AppHandle) -> bool {
+    let leaving = app.state::<Leaving>();
+    if leaving.agreed.load(Ordering::SeqCst) || !leaving.unsaved.load(Ordering::SeqCst) {
+        return false;
+    }
+    if !leaving.asking.swap(true, Ordering::SeqCst) {
+        let handle = app.clone();
+        let mut question = app
+            .dialog()
+            .message("The model has changes that are not saved. Quit without saving?")
+            .title("Pliable")
+            .buttons(MessageDialogButtons::OkCancelCustom("Quit".into(), "Cancel".into()));
+        // On the window itself: a question with no window was never shown when the program was not in front,
+        // and then could not be asked again.
+        if let Some(window) = app.get_webview_window("main") {
+            question = question.parent(&window);
+        }
+        question.show(move |quit| {
+            let leaving = handle.state::<Leaving>();
+            leaving.asking.store(false, Ordering::SeqCst);
+            if quit {
+                leaving.agreed.store(true, Ordering::SeqCst);
+                handle.exit(0);
+            }
+        });
+    }
+    true
+}
+
+/// On macOS the Quit menu item (and its shortcut) ends the program at once, with no event the shell could answer. It is
+/// replaced by an item of the shell's own that asks the same question as closing the window.
+#[cfg(target_os = "macos")]
+fn ask_on_menu_quit(app: &tauri::AppHandle) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem, MenuItemKind};
+    const QUIT_ITEM: &str = "quit";
+    let menu = Menu::default(app)?;
+    if let Some(MenuItemKind::Submenu(first)) = menu.items()?.into_iter().next() {
+        for item in first.items()? {
+            if let MenuItemKind::Predefined(predefined) = &item {
+                if predefined.text()?.starts_with("Quit") {
+                    first.remove(predefined)?;
+                }
+            }
+        }
+        first.append(&MenuItem::with_id(app, QUIT_ITEM, "Quit Pliable", true, Some("CmdOrCtrl+Q"))?)?;
+    }
+    app.set_menu(menu)?;
+    app.on_menu_event(|app, event| {
+        if event.id() == QUIT_ITEM && !must_ask_before_leaving(app) {
+            app.exit(0);
+        }
+    });
+    Ok(())
 }
 
 /// Stop the core the shell started, if it is still running.
@@ -241,7 +367,10 @@ fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Core(Mutex::new(None)))
+        .manage(Leaving::default())
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            ask_on_menu_quit(app.handle())?;
             #[cfg(unix)]
             stop_core_on_signal(app.handle().clone())?;
             let dir = program_dir();
@@ -249,14 +378,17 @@ fn main() {
             let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title(concat!("Pliable ", env!("CARGO_PKG_VERSION"), " (alpha)"))
                 .inner_size(1440.0, 900.0)
-                .min_inner_size(900.0, 600.0);
+                .min_inner_size(900.0, 600.0)
+                .on_document_title_changed(|window, title| {
+                    window.state::<Leaving>().unsaved.store(title_says_unsaved(&title), Ordering::SeqCst);
+                });
             #[cfg(not(target_os = "macos"))]
             {
                 builder = builder.data_directory(data_root(&dir).join("webview"));
             }
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             {
-                builder = builder.on_download(save_download);
+                builder = builder.on_download(save_download).initialization_script(SHELL_SAVES_SCRIPT);
             }
             let window = builder.build()?;
             match start_core(&dir, port) {
@@ -271,16 +403,73 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building the Pliable shell");
 
-    app.run(|handle, event| {
-        if let RunEvent::Exit = event {
+    app.run(|handle, event| match event {
+        // Closing the window or quitting with unsaved work asks first.
+        RunEvent::WindowEvent { event: WindowEvent::CloseRequested { api, .. }, .. } => {
+            if must_ask_before_leaving(handle) {
+                api.prevent_close();
+            }
+        }
+        RunEvent::ExitRequested { api, .. } => {
+            if must_ask_before_leaving(handle) {
+                api.prevent_exit();
+            }
+        }
+        RunEvent::Exit => {
             stop_core(handle);
         }
+        _ => {}
     });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// An empty folder for one test, in the system's temporary folder.
+    fn scratch(name: &str) -> PathBuf {
+        let folder = std::env::temp_dir().join(format!("pliable-shell-test-{}-{name}", std::process::id()));
+        let _ = fs::remove_dir_all(&folder);
+        fs::create_dir_all(&folder).unwrap();
+        folder
+    }
+
+    #[test]
+    fn each_download_gets_a_folder_of_its_own() {
+        let root = scratch("own-folder");
+        let (first, second) = (new_download_folder(&root), new_download_folder(&root));
+        assert_ne!(first, second);
+        assert_eq!(first.parent(), Some(root.as_path()));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_file_left_by_an_earlier_run_is_not_in_the_way() {
+        let root = scratch("left-behind");
+        fs::write(root.join("bracket.plbl"), b"left behind").unwrap(); // where every download of that name used to go
+        let target = new_download_folder(&root).join("bracket.plbl");
+        assert!(!target.exists());
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn only_old_leftovers_are_removed() {
+        let root = scratch("old-leftovers");
+        fs::create_dir_all(root.join("123-1-0")).unwrap();
+        fs::write(root.join("123-1-0").join("part.plbl"), b"x").unwrap();
+        fs::write(root.join("bracket.plbl"), b"x").unwrap();
+        let now = std::time::SystemTime::now();
+        remove_old_downloads(&root, now, OLD_DOWNLOAD);
+        assert!(root.join("123-1-0").join("part.plbl").exists() && root.join("bracket.plbl").exists());
+        remove_old_downloads(&root, now + OLD_DOWNLOAD * 2, OLD_DOWNLOAD);
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_missing_downloads_folder_is_no_error() {
+        remove_old_downloads(&std::env::temp_dir().join("pliable-shell-test-not-there"), std::time::SystemTime::now(), OLD_DOWNLOAD);
+    }
 
     #[test]
     fn app_bundle_is_recognized_only_on_macos() {
@@ -295,5 +484,13 @@ mod tests {
         for dir in ["/opt/pliable", "/Applications/Pliable/Contents/MacOS", "/x/Pliable.app/Contents/Resources", "/x/Pliable.app/MacOS"] {
             assert!(!in_app_bundle(Path::new(dir)), "{dir}");
         }
+    }
+
+    #[test]
+    fn the_title_mark_means_unsaved_work() {
+        assert!(title_says_unsaved("\u{2022} Pliable"));
+        assert!(!title_says_unsaved("Pliable"));
+        assert!(!title_says_unsaved("Pliable \u{2022} "));
+        assert!(!title_says_unsaved(""));
     }
 }

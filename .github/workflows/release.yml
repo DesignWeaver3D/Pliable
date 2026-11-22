@@ -45,7 +45,7 @@ jobs:
           - { os: windows-latest, label: windows-x64 }
           - { os: macos-latest, label: macos-arm64 }
           - { os: macos-15-intel, label: macos-x64 }
-          - { os: ubuntu-24.04, label: linux-x64 }
+          - { os: ubuntu-22.04, label: linux-x64 }
     runs-on: ${{ matrix.os }}
     needs: [docs-check, create-draft]
     if: always() && needs.docs-check.result == 'success' && (needs.create-draft.result == 'success' || needs.create-draft.result == 'skipped')
@@ -85,13 +85,26 @@ jobs:
         id: asset
         shell: bash
         run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then EXT=AppImage; else EXT=zip; fi
-          echo "file=desktop/dist/pliable-desktop-${{ matrix.label }}.$EXT" >> "$GITHUB_OUTPUT"
+          if [ "$RUNNER_OS" = "Linux" ]; then FILE=pliable-desktop-x86_64.AppImage; else FILE=pliable-desktop-${{ matrix.label }}.zip; fi
+          echo "file=desktop/dist/$FILE" >> "$GITHUB_OUTPUT"
+      - name: Check the AppImage needs no newer glibc than Ubuntu 22.04 has
+        if: runner.os == 'Linux'
+        run: python3 scripts/check_glibc.py "$GITHUB_WORKSPACE/${{ steps.asset.outputs.file }}" 2.35
       - name: Smoke-test the Linux AppImage
         if: runner.os == 'Linux'
         run: |
           cd core
           APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a uv run python scripts/smoke.py desktop "$GITHUB_WORKSPACE/${{ steps.asset.outputs.file }}"
+      - name: Smoke-test the Linux AppImage on its bundled WebKitGTK
+        if: runner.os == 'Linux'
+        run: |
+          cd core
+          PLIABLE_BUNDLED_WEBKIT=1 APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a uv run python scripts/smoke.py desktop "$GITHUB_WORKSPACE/${{ steps.asset.outputs.file }}"
+      - name: Smoke-test the Linux AppImage without network
+        if: runner.os == 'Linux'
+        run: |
+          cd core
+          APPIMAGE_EXTRACT_AND_RUN=1 unshare -rn sh -c 'ip link set lo up && xvfb-run -a uv run python scripts/smoke.py desktop "$GITHUB_WORKSPACE/${{ steps.asset.outputs.file }}"'
       - name: Unpack the archive and smoke-test the shell
         if: runner.os != 'Linux'
         shell: bash
