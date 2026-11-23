@@ -22,6 +22,14 @@ Owner (2026-11-15): "the entire application has no provisions for different scre
 
 Owner (2026-11-15): pull the side dock out of the application as a separate window, desktop version only, for work on several screens. Plan: move the dock's existing elements into a child window opened by the main window, so their handlers keep running in the main window's code and no state is synced; first a spike on the desktop build to see whether Tauri allows a same-origin child window with script access (the one unknown). Keep it cheap meanwhile: panel code reaches its controls through the elements it made (no `document` lookups), panel styling stays in the global stylesheet and CSS variables, and the panel's listeners sit on its own elements (not `window` or `document`). Open questions: the handle while detached, closing the window re-docks it (never hides), Esc and typing in the other window, whether the Selection Information section goes too, remembering position and size (always start docked). A hand-check on the desktop build, since browser automation cannot drive a Tauri window.
 
+## Light theme when the system is not set to dark (added 2026-11-22)
+
+Owner (2026-11-22): "I'm not interested in working on those anytime soon." Source: the AppImage catalog's test of v0.4.6 (AppImage/appimage.github.io#12244) suggested starting in a light theme and using the dark theme only when the system is set to dark mode or the user chooses it in settings. Not a failure: the test passed. `docs/behavior.md` says "Dark theme only for now.", so this is a change to approved behavior and needs the owner's decision first; it would also need a theme setting and a light version of the viewport colors and dimension styling.
+
+## Update information for the AppImage (added 2026-11-22)
+
+Owner (2026-11-22): "I'm not interested in working on those anytime soon." Source: the same catalog test noted that the AppImage has no update information, so AppImageUpdate and similar tools cannot update it. The fix is in the release process: embed the information when building the AppImage (`appimagetool -u`, in `scripts/build_desktop.py`) and publish the `.zsync` file next to the AppImage in each release. Optional; nothing fails without it.
+
 ## Ideas (not built; the owner picks what becomes a row)
 
 Ideas from the local research notes in `docs/research/` (untracked), written in our own words, by behavior only. Nothing here is approved or scheduled. Questions they raise go to [author-guidance.md](author-guidance.md) only if a choice is needed.
