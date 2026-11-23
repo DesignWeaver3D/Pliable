@@ -37,8 +37,13 @@ fn in_app_bundle(dir: &Path) -> bool {
     }
     let contents = dir.parent();
     dir.file_name().is_some_and(|name| name == "MacOS")
-        && contents.and_then(Path::file_name).is_some_and(|name| name == "Contents")
-        && contents.and_then(Path::parent).and_then(Path::extension).is_some_and(|ext| ext == "app")
+        && contents
+            .and_then(Path::file_name)
+            .is_some_and(|name| name == "Contents")
+        && contents
+            .and_then(Path::parent)
+            .and_then(Path::extension)
+            .is_some_and(|ext| ext == "app")
 }
 
 /// The frozen core: `core/pliable` next to the program (in `Contents/Resources` inside a macOS app bundle, where only
@@ -51,7 +56,11 @@ fn core_program(dir: &Path) -> PathBuf {
         Some(contents) if in_app_bundle(dir) => contents.join("Resources"),
         _ => dir.to_path_buf(),
     };
-    base.join("core").join(if cfg!(windows) { "pliable.exe" } else { "pliable" })
+    base.join("core").join(if cfg!(windows) {
+        "pliable.exe"
+    } else {
+        "pliable"
+    })
 }
 
 /// Where the program writes: a `data` folder next to it, except inside a Linux AppImage (its own folder is read-only
@@ -60,13 +69,19 @@ fn core_program(dir: &Path) -> PathBuf {
 fn data_root(dir: &Path) -> PathBuf {
     if in_app_bundle(dir) {
         if let Some(home) = std::env::var_os("HOME") {
-            return PathBuf::from(home).join("Library").join("Application Support").join("Pliable");
+            return PathBuf::from(home)
+                .join("Library")
+                .join("Application Support")
+                .join("Pliable");
         }
     }
     if std::env::var_os("APPIMAGE").is_some() {
         let base = std::env::var_os("XDG_DATA_HOME")
             .map(PathBuf::from)
-            .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local").join("share")));
+            .or_else(|| {
+                std::env::var_os("HOME")
+                    .map(|home| PathBuf::from(home).join(".local").join("share"))
+            });
         if let Some(base) = base {
             return base.join("pliable");
         }
@@ -76,7 +91,10 @@ fn data_root(dir: &Path) -> PathBuf {
 
 fn pick_port() -> u16 {
     // PLIABLE_PORT fixes the port (the packaged-app smoke test needs to know it)
-    if let Some(port) = std::env::var("PLIABLE_PORT").ok().and_then(|text| text.parse().ok()) {
+    if let Some(port) = std::env::var("PLIABLE_PORT")
+        .ok()
+        .and_then(|text| text.parse().ok())
+    {
         return port;
     }
     for candidate in [PREFERRED_PORT, 0] {
@@ -92,11 +110,15 @@ fn pick_port() -> u16 {
 fn start_core(dir: &Path, port: u16) -> Result<Child, String> {
     let program = core_program(dir);
     if !program.is_file() {
-        return Err(format!("The geometry core was not found at {}.", program.display()));
+        return Err(format!(
+            "The geometry core was not found at {}.",
+            program.display()
+        ));
     }
     let data = data_root(dir);
     fs::create_dir_all(&data).map_err(|e| format!("Cannot create {}: {e}", data.display()))?;
-    let log = File::create(data.join("core.log")).map_err(|e| format!("Cannot write the core log: {e}"))?;
+    let log = File::create(data.join("core.log"))
+        .map_err(|e| format!("Cannot write the core log: {e}"))?;
     let log_err = log.try_clone().map_err(|e| e.to_string())?;
     let mut command = Command::new(&program);
     command
@@ -112,7 +134,9 @@ fn start_core(dir: &Path, port: u16) -> Result<Child, String> {
         use std::os::windows::process::CommandExt;
         command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW: the core's console stays hidden
     }
-    command.spawn().map_err(|e| format!("Cannot start the geometry core: {e}"))
+    command
+        .spawn()
+        .map_err(|e| format!("Cannot start the geometry core: {e}"))
 }
 
 fn show_error(window: &WebviewWindow, message: &str) {
@@ -153,7 +177,11 @@ fn open_when_ready(app: tauri::AppHandle, window: WebviewWindow, port: u16) {
             }
             let core = app.state::<Core>();
             let exited = match core.0.lock().unwrap().as_mut() {
-                Some(child) => child.try_wait().ok().flatten().map(|status| status.to_string()),
+                Some(child) => child
+                    .try_wait()
+                    .ok()
+                    .flatten()
+                    .map(|status| status.to_string()),
                 None => Some("not started".into()),
             };
             if let Some(status) = exited {
@@ -161,7 +189,10 @@ fn open_when_ready(app: tauri::AppHandle, window: WebviewWindow, port: u16) {
                 return;
             }
             if started.elapsed() > START_TIMEOUT {
-                show_error(&window, "The geometry core did not start in time. See core.log in the data folder.");
+                show_error(
+                    &window,
+                    "The geometry core did not start in time. See core.log in the data folder.",
+                );
                 return;
             }
             std::thread::sleep(Duration::from_millis(250));
@@ -177,7 +208,10 @@ const SHELL_SAVES_SCRIPT: &str = "window.__pliableShellSaves = true;";
 /// Tell the page whether the download it started under `name` was written to the place the person chose.
 #[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
 fn report_download(webview: &tauri::Webview, name: &str, saved: bool) {
-    let _ = webview.eval(&format!("window.__pliableDownloadSaved&&window.__pliableDownloadSaved({},{saved})", js_string(name)));
+    let _ = webview.eval(&format!(
+        "window.__pliableDownloadSaved&&window.__pliableDownloadSaved({},{saved})",
+        js_string(name)
+    ));
 }
 
 /// Temporary files of downloads in progress, by download address (macOS does not say where a finished download went).
@@ -203,7 +237,10 @@ fn new_download_folder(root: &Path) -> PathBuf {
     static CLEARED: std::sync::Once = std::sync::Once::new();
     static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     CLEARED.call_once(|| remove_old_downloads(root, std::time::SystemTime::now(), OLD_DOWNLOAD));
-    let started = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+    let started = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
     let number = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     root.join(format!("{}-{started}-{number}", std::process::id()))
 }
@@ -212,12 +249,18 @@ fn new_download_folder(root: &Path) -> PathBuf {
 /// program may be in the middle of a save.
 #[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
 fn remove_old_downloads(root: &Path, now: std::time::SystemTime, age: Duration) {
-    let Ok(entries) = fs::read_dir(root) else { return };
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
     for entry in entries.flatten() {
         let changed = entry.metadata().and_then(|m| m.modified()).ok();
         if changed.is_some_and(|at| now.duration_since(at).is_ok_and(|since| since > age)) {
             let path = entry.path();
-            let _ = if path.is_dir() { fs::remove_dir_all(&path) } else { fs::remove_file(&path) };
+            let _ = if path.is_dir() {
+                fs::remove_dir_all(&path)
+            } else {
+                fs::remove_file(&path)
+            };
         }
     }
 }
@@ -228,18 +271,30 @@ fn remove_old_downloads(root: &Path, now: std::time::SystemTime, age: Duration) 
 fn save_download(webview: tauri::Webview, event: DownloadEvent<'_>) -> bool {
     match event {
         DownloadEvent::Requested { url, destination } => {
-            let name = destination.file_name().map(|n| n.to_os_string()).unwrap_or_else(|| "pliable-file".into());
+            let name = destination
+                .file_name()
+                .map(|n| n.to_os_string())
+                .unwrap_or_else(|| "pliable-file".into());
             *destination = new_download_folder(&downloads_root()).join(name);
             if let Some(folder) = destination.parent() {
                 let _ = fs::create_dir_all(folder);
             }
-            pending_downloads().lock().unwrap().insert(url.to_string(), destination.clone());
+            pending_downloads()
+                .lock()
+                .unwrap()
+                .insert(url.to_string(), destination.clone());
             true
         }
         DownloadEvent::Finished { url, path, success } => {
             let remembered = pending_downloads().lock().unwrap().remove(url.as_str());
-            let Some(temp) = path.or(remembered) else { return true };
-            let name = temp.file_name().and_then(|n| n.to_str()).unwrap_or_default().to_string();
+            let Some(temp) = path.or(remembered) else {
+                return true;
+            };
+            let name = temp
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default()
+                .to_string();
             if !success {
                 let _ = fs::remove_file(&temp);
                 report_download(&webview, &name, false);
@@ -249,6 +304,10 @@ fn save_download(webview: tauri::Webview, event: DownloadEvent<'_>) -> bool {
             let mut dialog = app.dialog().file();
             if !name.is_empty() {
                 dialog = dialog.set_file_name(&name);
+            }
+            // The shell's own tests start the dialog in a folder of theirs, so they never write among a person's files.
+            if let Some(folder) = std::env::var_os("PLIABLE_SAVE_DIR") {
+                dialog = dialog.set_directory(folder);
             }
             dialog.save_file(move |chosen| {
                 let mut saved = false;
@@ -296,7 +355,10 @@ fn must_ask_before_leaving(app: &tauri::AppHandle) -> bool {
             .dialog()
             .message("The model has changes that are not saved. Quit without saving?")
             .title("Pliable")
-            .buttons(MessageDialogButtons::OkCancelCustom("Quit".into(), "Cancel".into()));
+            .buttons(MessageDialogButtons::OkCancelCustom(
+                "Quit".into(),
+                "Cancel".into(),
+            ));
         // On the window itself: a question with no window was never shown when the program was not in front,
         // and then could not be asked again.
         if let Some(window) = app.get_webview_window("main") {
@@ -329,7 +391,13 @@ fn ask_on_menu_quit(app: &tauri::AppHandle) -> tauri::Result<()> {
                 }
             }
         }
-        first.append(&MenuItem::with_id(app, QUIT_ITEM, "Quit Pliable", true, Some("CmdOrCtrl+Q"))?)?;
+        first.append(&MenuItem::with_id(
+            app,
+            QUIT_ITEM,
+            "Quit Pliable",
+            true,
+            Some("CmdOrCtrl+Q"),
+        )?)?;
     }
     app.set_menu(menu)?;
     app.on_menu_event(|app, event| {
@@ -375,20 +443,26 @@ fn main() {
             stop_core_on_signal(app.handle().clone())?;
             let dir = program_dir();
             let port = pick_port();
-            let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                .title(concat!("Pliable ", env!("CARGO_PKG_VERSION"), " (alpha)"))
-                .inner_size(1440.0, 900.0)
-                .min_inner_size(900.0, 600.0)
-                .on_document_title_changed(|window, title| {
-                    window.state::<Leaving>().unsaved.store(title_says_unsaved(&title), Ordering::SeqCst);
-                });
+            let mut builder =
+                WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+                    .title(concat!("Pliable ", env!("CARGO_PKG_VERSION"), " (alpha)"))
+                    .inner_size(1440.0, 900.0)
+                    .min_inner_size(900.0, 600.0)
+                    .on_document_title_changed(|window, title| {
+                        window
+                            .state::<Leaving>()
+                            .unsaved
+                            .store(title_says_unsaved(&title), Ordering::SeqCst);
+                    });
             #[cfg(not(target_os = "macos"))]
             {
                 builder = builder.data_directory(data_root(&dir).join("webview"));
             }
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             {
-                builder = builder.on_download(save_download).initialization_script(SHELL_SAVES_SCRIPT);
+                builder = builder
+                    .on_download(save_download)
+                    .initialization_script(SHELL_SAVES_SCRIPT);
             }
             let window = builder.build()?;
             match start_core(&dir, port) {
@@ -405,7 +479,10 @@ fn main() {
 
     app.run(|handle, event| match event {
         // Closing the window or quitting with unsaved work asks first.
-        RunEvent::WindowEvent { event: WindowEvent::CloseRequested { api, .. }, .. } => {
+        RunEvent::WindowEvent {
+            event: WindowEvent::CloseRequested { api, .. },
+            ..
+        } => {
             if must_ask_before_leaving(handle) {
                 api.prevent_close();
             }
@@ -428,7 +505,8 @@ mod tests {
 
     /// An empty folder for one test, in the system's temporary folder.
     fn scratch(name: &str) -> PathBuf {
-        let folder = std::env::temp_dir().join(format!("pliable-shell-test-{}-{name}", std::process::id()));
+        let folder =
+            std::env::temp_dir().join(format!("pliable-shell-test-{}-{name}", std::process::id()));
         let _ = fs::remove_dir_all(&folder);
         fs::create_dir_all(&folder).unwrap();
         folder
@@ -460,7 +538,9 @@ mod tests {
         fs::write(root.join("bracket.plbl"), b"x").unwrap();
         let now = std::time::SystemTime::now();
         remove_old_downloads(&root, now, OLD_DOWNLOAD);
-        assert!(root.join("123-1-0").join("part.plbl").exists() && root.join("bracket.plbl").exists());
+        assert!(
+            root.join("123-1-0").join("part.plbl").exists() && root.join("bracket.plbl").exists()
+        );
         remove_old_downloads(&root, now + OLD_DOWNLOAD * 2, OLD_DOWNLOAD);
         assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
         fs::remove_dir_all(&root).unwrap();
@@ -468,20 +548,33 @@ mod tests {
 
     #[test]
     fn a_missing_downloads_folder_is_no_error() {
-        remove_old_downloads(&std::env::temp_dir().join("pliable-shell-test-not-there"), std::time::SystemTime::now(), OLD_DOWNLOAD);
+        remove_old_downloads(
+            &std::env::temp_dir().join("pliable-shell-test-not-there"),
+            std::time::SystemTime::now(),
+            OLD_DOWNLOAD,
+        );
     }
 
     #[test]
     fn app_bundle_is_recognized_only_on_macos() {
         let dir = Path::new("/Applications/Pliable.app/Contents/MacOS");
         assert_eq!(in_app_bundle(dir), cfg!(target_os = "macos"));
-        let core = if cfg!(target_os = "macos") { "/Applications/Pliable.app/Contents/Resources/core" } else { "/Applications/Pliable.app/Contents/MacOS/core" };
+        let core = if cfg!(target_os = "macos") {
+            "/Applications/Pliable.app/Contents/Resources/core"
+        } else {
+            "/Applications/Pliable.app/Contents/MacOS/core"
+        };
         assert_eq!(core_program(dir).parent(), Some(Path::new(core)));
     }
 
     #[test]
     fn other_folders_are_not_app_bundles() {
-        for dir in ["/opt/pliable", "/Applications/Pliable/Contents/MacOS", "/x/Pliable.app/Contents/Resources", "/x/Pliable.app/MacOS"] {
+        for dir in [
+            "/opt/pliable",
+            "/Applications/Pliable/Contents/MacOS",
+            "/x/Pliable.app/Contents/Resources",
+            "/x/Pliable.app/MacOS",
+        ] {
             assert!(!in_app_bundle(Path::new(dir)), "{dir}");
         }
     }
