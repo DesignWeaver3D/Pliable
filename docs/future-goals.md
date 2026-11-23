@@ -30,6 +30,10 @@ Owner (2026-11-22): "I'm not interested in working on those anytime soon." Sourc
 
 Owner (2026-11-22): "I'm not interested in working on those anytime soon." Source: the same catalog test noted that the AppImage has no update information, so AppImageUpdate and similar tools cannot update it. The fix is in the release process: embed the information when building the AppImage (`appimagetool -u`, in `scripts/build_desktop.py`) and publish the `.zsync` file next to the AppImage in each release. Optional; nothing fails without it.
 
+## Surface modeling toolbar group (added 2026-11-23)
+
+Owner (2026-11-23): "Bridge edges and patch fill are surface modeling tools. But, generally, surface modeling workflow hasn't been implemented yet. So those two can be withheld from auto tool bar population for now because i think that surface modeling is likely to be an entirely new grouping in the future when that workflow and its tools are developed." Bridge edges (joins two edges with a ruled surface) and Patch fill (closes a gap bounded by three or more edges) stay out of the automatic top toolbar until a surface modeling grouping exists. Related row: the top toolbar row in `progress.md`.
+
 ## Ideas (not built; the owner picks what becomes a row)
 
 Ideas from the local research notes in `docs/research/` (untracked), written in our own words, by behavior only. Nothing here is approved or scheduled. Questions they raise go to [author-guidance.md](author-guidance.md) only if a choice is needed.
