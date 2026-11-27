@@ -34,6 +34,23 @@ Owner (2026-11-22): "I'm not interested in working on those anytime soon." Sourc
 
 Owner (2026-11-23): "Bridge edges and patch fill are surface modeling tools. But, generally, surface modeling workflow hasn't been implemented yet. So those two can be withheld from auto tool bar population for now because i think that surface modeling is likely to be an entirely new grouping in the future when that workflow and its tools are developed." Bridge edges (joins two edges with a ruled surface) and Patch fill (closes a gap bounded by three or more edges) stay out of the automatic top toolbar until a surface modeling grouping exists. Related row: the top toolbar row in `progress.md`.
 
+## Repository security improvements (added 2026-11-27)
+
+Owner (2026-11-27): "Add the suggested order for security improvements to future-goals". Source: an outside list of free scanners and repository hygiene steps, compared with what the repository has. Not started; the owner picks what becomes a row. Enabling a setting (Dependabot, private vulnerability reporting) is a repository setting, so it needs the owner; the workflow files and `SECURITY.md` are ordinary commits.
+
+Already in place (checked 2026-11-23): secret scanning with push protection, committed lockfiles (`core/uv.lock`, `app/package-lock.json`, `desktop/src-tauri/Cargo.lock`), no `pull_request_target` workflow, `permissions:` blocks in `desktop.yml` and `release.yml`, CODEOWNERS and a review-required branch policy.
+
+Suggested order:
+
+1. Dependabot: a `.github/dependabot.yml` for Python, npm, Rust and GitHub Actions, and turn on Dependabot security updates (currently disabled).
+2. `SECURITY.md` saying how to report a vulnerability, with GitHub's private vulnerability reporting turned on.
+3. CodeQL on pull requests and a weekly schedule (Python and JavaScript/TypeScript; check Rust support first).
+4. Pin the third-party actions to full commit SHAs (`dtolnay/rust-toolchain@stable`, `Swatinem/rust-cache@v2` first; the workflows use tags today), with Dependabot keeping the pins current.
+5. At the next release: SHA-256 checksums published beside the AppImage and installers, and GitHub artifact attestations from `release.yml` (none today). Least urgent until there are real users.
+6. OpenSSF Scorecard, last, since it mostly reports on the items above and gives a public badge.
+
+Left out on purpose: Semgrep, Bandit and Gosec (overlap with CodeQL), Gitleaks and TruffleHog (GitHub secret scanning covers it), OSV-Scanner and Trivy (Dependabot alerts cover the same advisories; no container is shipped), SBOMs and commit signing (more useful for larger projects).
+
 ## Ideas (not built; the owner picks what becomes a row)
 
 Ideas from the local research notes in `docs/research/` (untracked), written in our own words, by behavior only. Nothing here is approved or scheduled. Questions they raise go to [author-guidance.md](author-guidance.md) only if a choice is needed.
